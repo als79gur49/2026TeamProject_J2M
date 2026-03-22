@@ -84,6 +84,24 @@
 ```text
 Assets/_Features/Gameplay/
   Gameplay.asmdef
+  Gameplay_Model/
+    Runtime/
+      Phases/
+        TickPhase.cs
+      Intents/
+        Intent.cs
+      Actions/
+        MoveAction.cs
+        DamageAction.cs
+        DestroyAction.cs
+        SpawnAction.cs
+        StateChangeAction.cs
+      Groups/
+        ActionGroup.cs
+        ActionGroupKind.cs
+      Sorting/
+        IntentComparer.cs
+        ActionGroupComparer.cs
   Gameplay_Loop/
     Runtime/
       TickPipeline.cs
@@ -92,7 +110,6 @@ Assets/_Features/Gameplay/
       TickInputBuffer.cs
       TickResult.cs
       TickResultBuilder.cs
-      TickPhase.cs
       IdAllocator.cs
       PhaseTransientBuffer.cs
       DeterminismHashBuilder.cs
@@ -117,12 +134,7 @@ Assets/_Features/Gameplay/
   Gameplay_Movement/
     Runtime/
       Intents/
-        Intent.cs
         MoveIntent.cs
-      Actions/
-        MoveAction.cs
-      Groups/
-        ActionGroup.cs
       Collection/
         RawMovementIntent.cs
         MovementIntentCollector.cs
@@ -133,17 +145,10 @@ Assets/_Features/Gameplay/
         MovementConflictDetector.cs
       Commit/
         MovementCommitter.cs
-      Sorting/
-        IntentComparer.cs
-        ActionGroupComparer.cs
   Gameplay_Attack/
     Runtime/
       Intents/
         AttackIntent.cs
-      Actions/
-        DamageAction.cs
-        DestroyAction.cs
-        StateChangeAction.cs
       Collection/
         RawAttackIntent.cs
         AttackIntentCollector.cs
@@ -172,6 +177,13 @@ Assets/_Features/Gameplay/
       Replay/
       Fuzz/
 ```
+
+현재 구현 기준으로 phase 공용 실행 모델은 `Gameplay_Model`에 둔다.
+
+- `Intent`, `ActionGroup`, `TickPhase`는 특정 feature가 아니라 공용 실행 모델 소유다.
+- `MoveIntent`, `AttackIntent` 같은 concrete intent만 각 feature 레이어에 둔다.
+- `IntentComparer`, `ActionGroupComparer`는 feature 전용 비교기가 아니라 공용 정렬 계약이다.
+- `MoveAction`, `DamageAction`, `DestroyAction`, `SpawnAction`, `StateChangeAction`도 `ActionGroup`과 함께 공용 모델로 관리한다.
 
 ### 4-1. 네임스페이스 규칙
 

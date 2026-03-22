@@ -182,6 +182,12 @@ public abstract class Intent
 - 같은 source는 같은 Phase에 최대 하나의 primary intent만 생성한다.
 - 복합 행동은 별도 복합 Intent 타입으로 표현한다.
 
+Unity 구현 배치 기준:
+
+- `Intent` base type은 특정 feature가 아니라 공용 실행 모델 레이어에 둔다.
+- `MoveIntent`, `AttackIntent` 같은 concrete intent만 각 feature 레이어에 둔다.
+- 공용 intent 정렬기는 공용 모델 레이어에서 관리한다.
+
 ### 5-3. ActionGroup
 
 Commit 가능한 원자적 결과 묶음이다.
@@ -208,6 +214,12 @@ public class ActionGroup
 - Resolver는 선택만 하고 수정하지 않는다
 - Committer는 선택된 그룹만 적용한다
 - `groupId`도 정렬 후 중앙에서 부여한다
+
+Unity 구현 배치 기준:
+
+- `ActionGroup`과 `ActionGroupKind`는 특정 feature 소유가 아니라 공용 실행 모델 레이어에 둔다.
+- `MoveAction`, `DamageAction`, `DestroyAction`, `SpawnAction`, `StateChangeAction`도 `ActionGroup`과 함께 공용 모델로 관리한다.
+- `ActionGroupComparer`는 Movement/Attack 양쪽 phase가 공유하는 총정렬 계약으로 취급한다.
 
 ### 5-4. WorldSnapshot
 
@@ -576,6 +588,7 @@ View는 `WorldState` 직접 참조가 아니라 `TickResult`를 기반으로 연
 
 ```text
 Assets/_Features/Gameplay/
+  Gameplay_Model/
   Gameplay_Loop/
   Gameplay_BoardState/
   Gameplay_Movement/
@@ -586,10 +599,11 @@ Assets/_Features/Gameplay/
 
 권장 책임:
 
-- `Gameplay_Loop`: TickRunner, InputBuffer, IdAllocator, TickPipeline, TickResultBuilder
+- `Gameplay_Model`: TickPhase, Intent, ActionGroup, ActionGroupKind, 공용 Actions, IntentComparer, ActionGroupComparer
+- `Gameplay_Loop`: TickRunner, InputBuffer, IdAllocator, TickPipeline, TickResultBuilder, PhaseTransientBuffer
 - `Gameplay_BoardState`: WorldState, WorldSnapshot, SnapshotBuilder, TerrainData
-- `Gameplay_Movement`: Movement Intents, Expanders, Resolver, Committer
-- `Gameplay_Attack`: Attack Intents, Expanders, Resolver, Committer, ImpactReservationExpander
+- `Gameplay_Movement`: MoveIntent, raw movement collection, Expanders, Resolver, Committer
+- `Gameplay_Attack`: AttackIntent, raw attack collection, Expanders, Resolver, Committer, ImpactReservationExpander
 - `Gameplay_Cleanup`: CleanupProcessor, StateTransitionProcessor
 - `Gameplay_Entities`: IEntityLogic, PlayerLogic, EnemyLogic, TurretLogic, ProjectileLogic
 
