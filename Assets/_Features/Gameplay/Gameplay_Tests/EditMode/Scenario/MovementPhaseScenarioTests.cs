@@ -5,8 +5,8 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Collection;
-using Game.Feature.Gameplay.Movement.Groups;
 using NUnit.Framework;
 using UnityEngine;
 

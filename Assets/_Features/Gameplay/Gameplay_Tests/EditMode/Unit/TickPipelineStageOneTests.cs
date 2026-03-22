@@ -8,10 +8,12 @@ using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Model.Intents;
+using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
-using Game.Feature.Gameplay.Movement.Groups;
 using Game.Feature.Gameplay.Movement.Intents;
-using Game.Feature.Gameplay.Movement.Sorting;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -339,6 +341,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void IntentComparer_SortsNewIntentType_WithoutComparerChanges()
+        {
+            var first = new MoveIntent(1, 10, new Vector2Int(0, 1));
+            var second = new SyntheticMovementIntent(1, 10, tieBreak: 0);
+            var third = new SyntheticMovementIntent(1, 10, tieBreak: 1);
+            first.AssignIntentId(10);
+            second.AssignIntentId(30);
+            third.AssignIntentId(20);
+
+            var sortedIntents = new List<Intent>
+            {
+                third,
+                first,
+                second,
+            };
+
+            sortedIntents.Sort(IntentComparer.Instance);
+
+            CollectionAssert.AreEqual(
+                new Intent[] { first, second, third },
+                sortedIntents);
+        }
+
+        [Test]
         public void ActionGroupComparer_ProvidesTotalOrder()
         {
             var second = CreateActionGroup(intentId: 10, sourceId: 1, priority: 10, groupId: 2);
@@ -431,6 +457,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     buffer.Add(_attackIntent.Value);
                 }
+            }
+        }
+
+        private sealed class SyntheticMovementIntent : Intent
+        {
+            private readonly int _tieBreak;
+
+            public SyntheticMovementIntent(int sourceId, int priority, int tieBreak)
+                : base(sourceId, priority, TickPhase.Movement)
+            {
+                _tieBreak = tieBreak;
+            }
+
+            protected internal override int GetTypeSortKey()
+            {
+                return 1;
+            }
+
+            protected internal override int CompareSameType(Intent other)
+            {
+                return _tieBreak.CompareTo(((SyntheticMovementIntent)other)._tieBreak);
             }
         }
     }
