@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.0714553">
+  <test-suite type="TestSuite" id="1038" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.071455" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1024" name="Game.Feature.Gameplay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Feature.Gameplay.Tests.dll" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.060164" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="17608" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1025" name="Game" fullname="Game" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.059238" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1026" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.058922" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1027" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.058680" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1028" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="20" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.058464" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1030" name="Scenario" fullname="Game.Feature.Gameplay.Tests.Scenario" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.058258" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1019" name="MovementPhaseScenarioTests" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.057330" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1021" name="Movement_BlockedCellMove_Fails" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_BlockedCellMove_Fails" methodname="Movement_BlockedCellMove_Fails" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="1594050962" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.031617" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1020" name="Movement_EmptyCellMove_Succeeds" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_EmptyCellMove_Succeeds" methodname="Movement_EmptyCellMove_Succeeds" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="752815275" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.005546" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1022" name="Movement_SameDestination_OnlyHigherPriorityWins" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameDestination_OnlyHigherPriorityWins" methodname="Movement_SameDestination_OnlyHigherPriorityWins" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="1244532737" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.004222" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1023" name="Movement_SameInput_AssignsDeterministicIntentIds" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameInput_AssignsDeterministicIntentIds" methodname="Movement_SameInput_AssignsDeterministicIntentIds" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="1481642313" result="Passed" start-time="2026-03-22 17:11:45Z" end-time="2026-03-22 17:11:45Z" duration="0.001223" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
