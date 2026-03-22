@@ -43,6 +43,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void TickResult_DoesNotExposePhaseDiagnosticsInPublicApi()
+        {
+            var publicPropertyNames = typeof(TickResult)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(publicPropertyNames, Does.Not.Contain("MovementPhaseResult"));
+            Assert.That(publicPropertyNames, Does.Not.Contain("AttackPhaseResult"));
+            Assert.That(publicPropertyNames, Does.Not.Contain("CleanupPhaseResult"));
+        }
+
+        [Test]
+        public void IdAllocator_IsNotExposedAsPublicRuntimeApi()
+        {
+            var exportedTypes = typeof(TickPipeline).Assembly
+                .GetExportedTypes()
+                .Select(type => type.FullName)
+                .ToArray();
+
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(IdAllocator).FullName));
+        }
+
+        [Test]
         public void WorldState_DoesNotExposeDirectPublicMutationApi()
         {
             var publicInstanceMembers = typeof(WorldState)
