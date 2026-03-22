@@ -84,7 +84,13 @@ namespace Game.Feature.Gameplay.Movement.Sorting
                 return result;
             }
 
-            return left.Destination.y.CompareTo(right.Destination.y);
+            result = left.Destination.y.CompareTo(right.Destination.y);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return ((int)left.Facing).CompareTo((int)right.Facing);
         }
 
         private static int CompareDamageActions(DamageAction left, DamageAction right)

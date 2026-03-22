@@ -15,7 +15,19 @@ namespace Game.Feature.Gameplay.Movement.Sorting
                 return result;
             }
 
-            return right.Priority.CompareTo(left.Priority);
+            result = right.Priority.CompareTo(left.Priority);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.Destination.x.CompareTo(right.Destination.x);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return left.Destination.y.CompareTo(right.Destination.y);
         }
     }
 }

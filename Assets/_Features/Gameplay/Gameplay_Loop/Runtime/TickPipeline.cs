@@ -10,8 +10,10 @@ using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Commit;
+using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Groups;
 using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.Movement.Resolution;
 using Game.Feature.Gameplay.Movement.Sorting;
 
 namespace Game.Feature.Gameplay.Loop
@@ -21,6 +23,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly IdAllocator _idAllocator = new();
         private readonly IReadOnlyList<IEntityLogic> _entityLogics;
         private readonly MovementIntentCollector _movementIntentCollector = new();
+        private readonly MovementExpander _movementExpander = new();
+        private readonly MovementResolver _movementResolver = new();
         private readonly AttackIntentCollector _attackIntentCollector = new();
         private readonly MovementCommitter _movementCommitter = new();
         private readonly AttackCommitter _attackCommitter = new();
@@ -97,15 +101,24 @@ namespace Game.Feature.Gameplay.Loop
             var rawMovementIntents = new List<RawMovementIntent>();
             _movementIntentCollector.Collect(snapshot, in input, _entityLogics, rawMovementIntents);
             var sortedIntents = BuildMovementIntents(rawMovementIntents);
-            _movementCommitter.Commit(writeContext, transientBuffer);
+            var expandedCandidates = new List<ActionGroup>();
+            _movementExpander.Expand(snapshot, sortedIntents, expandedCandidates);
+            expandedCandidates.Sort(ActionGroupComparer.Instance);
+            AssignMovementGroupIds(expandedCandidates);
+
+            var selectedGroups = new List<ActionGroup>();
+            _movementResolver.Resolve(expandedCandidates, selectedGroups);
+
+            var commitEvents = new List<string>();
+            _movementCommitter.Commit(writeContext, transientBuffer, selectedGroups, commitEvents);
             phaseTrace.Add("Movement:Exit");
             completedPhases.Add(TickPhase.Movement);
 
             return new MovementPhaseResult(
                 sortedIntents,
-                Array.Empty<ActionGroup>(),
-                Array.Empty<ActionGroup>(),
-                Array.Empty<string>());
+                expandedCandidates,
+                selectedGroups,
+                commitEvents);
         }
 
         private AttackPhaseResult RunAttackPhase(
@@ -153,12 +166,20 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < rawMovementIntents.Count; i++)
             {
                 var rawIntent = rawMovementIntents[i];
-                var moveIntent = new MoveIntent(rawIntent.SourceId, rawIntent.Priority);
+                var moveIntent = new MoveIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.Destination);
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);
             }
 
             return sortedIntents;
+        }
+
+        private void AssignMovementGroupIds(List<ActionGroup> expandedCandidates)
+        {
+            for (var i = 0; i < expandedCandidates.Count; i++)
+            {
+                expandedCandidates[i].AssignGroupId(_idAllocator.AllocateGroupId());
+            }
         }
 
         private List<AttackIntent> BuildAttackInputs(
