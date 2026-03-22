@@ -41,12 +41,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void RunTick_SortsRawIntents_AndAssignsCentralIntentIds()
         {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 20,
+                    position = new Vector2Int(2, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new Vector2Int(0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+            });
             var entityLogics = new IEntityLogic[]
             {
-                new StubEntityLogic(new RawMovementIntent(20, 10), new RawAttackIntent(20, 10)),
-                new StubEntityLogic(new RawMovementIntent(10, 5), new RawAttackIntent(10, 5)),
+                new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), new RawAttackIntent(20, 10)),
+                new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), new RawAttackIntent(10, 5)),
             };
-            var pipeline = new TickPipeline(new WorldState(), entityLogics);
+            var pipeline = new TickPipeline(worldState, entityLogics);
 
             var result = pipeline.RunTick(new TickInput(12));
 
@@ -63,6 +84,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     (SourceId: 10, IntentId: 3),
                     (SourceId: 20, IntentId: 4),
+                },
+                result.AttackPhaseResult.SortedInputs.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
+        }
+
+        [Test]
+        public void RunTick_AttackPhase_CollectsOnlyAliveEntityIntents()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new Vector2Int(0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 20,
+                    position = new Vector2Int(1, 0),
+                    hp = 0,
+                    maxHp = 3,
+                    teamId = 2,
+                    type = EntityType.Unit,
+                    markedForDeath = true,
+                },
+            });
+            var entityLogics = new IEntityLogic[]
+            {
+                new StubEntityLogic(null, new RawAttackIntent(20, 10)),
+                new StubEntityLogic(null, new RawAttackIntent(10, 5)),
+                new StubEntityLogic(null, new RawAttackIntent(30, 1)),
+            };
+            var pipeline = new TickPipeline(worldState, entityLogics);
+
+            var result = pipeline.RunTick(new TickInput(13));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, IntentId: 1),
                 },
                 result.AttackPhaseResult.SortedInputs.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
         }
