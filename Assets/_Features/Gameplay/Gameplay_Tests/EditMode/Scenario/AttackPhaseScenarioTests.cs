@@ -2,11 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.Attack.Expansion;
+using Game.Feature.Gameplay.Attack.Intents;
+using Game.Feature.Gameplay.Attack.Resolution;
+using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
 using UnityEngine;
@@ -81,6 +88,53 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         public void Attack_DeadAfterDamage_StillOccupiesUntilCleanup()
         {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
+                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+            });
+            var entityLogics = new IEntityLogic[]
+            {
+                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 30, 5)),
+                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 20, 30, 5)),
+            };
+
+            var attackPhaseResult = RunAttackPhaseOnly(worldState, entityLogics, tickIndex: 5);
+            var snapshotAfterAttack = SnapshotBuilder.Create(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
+                    "StateChanged|G=2|I=2|E=20|State=Acting|Timer=0",
+                    "DamageCommitted|G=1|I=1|Target=30|Amount=1",
+                    "DamageCommitted|G=2|I=2|Target=30|Amount=1",
+                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1",
+                },
+                attackPhaseResult.CommitEvents);
+            Assert.That(snapshotAfterAttack.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
+            Assert.That(snapshotAfterAttack.TryGetUnitAt(new Vector2Int(1, 0), out var targetAfterAttack), Is.True);
+            Assert.That(targetAfterAttack.entityId, Is.EqualTo(30));
+            Assert.That(targetAfterAttack.hp, Is.EqualTo(-1));
+            Assert.That(targetAfterAttack.markedForDeath, Is.True);
+
+            var cleanupProcessor = new CleanupProcessor();
+            var cleanupResult = cleanupProcessor.Process(
+                snapshotAfterAttack,
+                worldState.CreateWriteContext(),
+                tickIndex: 5);
+            var snapshotAfterCleanup = SnapshotBuilder.Create(worldState);
+
+            CollectionAssert.AreEqual(new[] { 30 }, cleanupResult.RemovedEntityIds);
+            Assert.That(snapshotAfterCleanup.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+            Assert.That(snapshotAfterCleanup.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            Assert.That(snapshotAfterCleanup.TryGetEntity(30, out _), Is.False);
+        }
+
+        [Test]
+        public void Attack_FatalDamage_IsRemovedByCleanupAtTickEnd()
+        {
             var firstRun = RunFatalAttackTick();
             var secondRun = RunFatalAttackTick();
 
@@ -134,13 +188,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1",
                 },
                 firstRun.Result.AttackPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(new[] { 30 }, firstRun.Result.CleanupPhaseResult.RemovedEntityIds);
 
-            Assert.That(firstRun.OccupancyAfter, Is.EqualTo("10@(0,0),20@(2,0),30@(1,0)"));
-            Assert.That(firstRun.SnapshotAfter.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
-            Assert.That(firstRun.SnapshotAfter.TryGetUnitAt(new Vector2Int(1, 0), out var targetAfter), Is.True);
-            Assert.That(targetAfter.entityId, Is.EqualTo(30));
-            Assert.That(targetAfter.hp, Is.EqualTo(-1));
-            Assert.That(targetAfter.markedForDeath, Is.True);
+            Assert.That(firstRun.OccupancyAfter, Is.EqualTo("10@(0,0),20@(2,0)"));
+            Assert.That(firstRun.SnapshotAfter.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+            Assert.That(firstRun.SnapshotAfter.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            Assert.That(firstRun.SnapshotAfter.TryGetEntity(30, out _), Is.False);
 
             CollectionAssert.AreEqual(
                 firstRun.Result.AttackPhaseResult
@@ -188,6 +241,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         DestroyTargetId: group.Destroys.Single().TargetId))
                     .ToArray());
             CollectionAssert.AreEqual(firstRun.Result.AttackPhaseResult.CommitEvents, secondRun.Result.AttackPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.RemovedEntityIds, secondRun.Result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.TimerChanges, secondRun.Result.CleanupPhaseResult.TimerChanges);
+            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.StateTransitions, secondRun.Result.CleanupPhaseResult.StateTransitions);
             Assert.That(firstRun.OccupancyAfter, Is.EqualTo(secondRun.OccupancyAfter));
         }
 
@@ -241,6 +297,56 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(5));
             var snapshotAfter = CreateSnapshot(worldState);
             return (result, snapshotAfter, DumpUnitOccupancy(snapshotAfter));
+        }
+
+        private static AttackPhaseResult RunAttackPhaseOnly(
+            WorldState worldState,
+            IReadOnlyList<IEntityLogic> entityLogics,
+            int tickIndex)
+        {
+            var snapshot = SnapshotBuilder.Create(worldState);
+            var rawAttackIntents = new List<RawAttackIntent>();
+            new AttackIntentCollector().Collect(snapshot, entityLogics, rawAttackIntents);
+
+            var idAllocator = new IdAllocator();
+            idAllocator.ResetForTick(tickIndex);
+
+            var sortedInputs = new List<AttackIntent>(rawAttackIntents.Count);
+            for (var i = 0; i < rawAttackIntents.Count; i++)
+            {
+                var rawIntent = rawAttackIntents[i];
+                sortedInputs.Add(new AttackIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.TargetId));
+            }
+
+            sortedInputs.Sort(AttackInputComparer.Instance);
+            for (var i = 0; i < sortedInputs.Count; i++)
+            {
+                sortedInputs[i].AssignIntentId(idAllocator.AllocateIntentId());
+            }
+
+            var expandedCandidates = new List<ActionGroup>();
+            new AttackExpander().Expand(snapshot, sortedInputs, expandedCandidates);
+            expandedCandidates.Sort(ActionGroupComparer.Instance);
+            for (var i = 0; i < expandedCandidates.Count; i++)
+            {
+                expandedCandidates[i].AssignGroupId(idAllocator.AllocateGroupId());
+            }
+
+            var selectedGroups = new List<ActionGroup>();
+            new AttackResolver().Resolve(expandedCandidates, selectedGroups);
+
+            var commitEvents = new List<string>();
+            new AttackCommitter().Commit(
+                snapshot,
+                worldState.CreateWriteContext(),
+                selectedGroups,
+                commitEvents);
+
+            return new AttackPhaseResult(
+                sortedInputs,
+                expandedCandidates,
+                selectedGroups,
+                commitEvents);
         }
 
         private static RawAttackIntent? TryCreateAdjacentAttack(
