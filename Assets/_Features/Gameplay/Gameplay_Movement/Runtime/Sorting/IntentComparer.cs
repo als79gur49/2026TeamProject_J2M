@@ -55,6 +55,12 @@ namespace Game.Feature.Gameplay.Movement.Sorting
                     return result;
                 }
 
+                result = leftAttackIntent.TargetId.CompareTo(rightAttackIntent.TargetId);
+                if (result != 0)
+                {
+                    return result;
+                }
+
                 if (leftAttackIntent.ImpactReservation.HasValue && rightAttackIntent.ImpactReservation.HasValue)
                 {
                     return ImpactReservationComparer.Instance.Compare(

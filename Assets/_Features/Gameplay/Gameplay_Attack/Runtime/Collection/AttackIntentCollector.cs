@@ -34,7 +34,33 @@ namespace Game.Feature.Gameplay.Attack.Collection
                 entityLogics[i].CollectAttackIntents(snapshot, buffer);
             }
 
+            FilterDeadSources(snapshot, buffer);
             ValidateSinglePrimaryIntentPerSource(buffer);
+        }
+
+        private static void FilterDeadSources(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
+        {
+            var writeIndex = 0;
+
+            for (var i = 0; i < buffer.Count; i++)
+            {
+                if (!snapshot.TryGetEntity(buffer[i].SourceId, out var entity))
+                {
+                    continue;
+                }
+
+                if (entity.hp <= 0 || entity.markedForDeath)
+                {
+                    continue;
+                }
+
+                buffer[writeIndex++] = buffer[i];
+            }
+
+            if (writeIndex < buffer.Count)
+            {
+                buffer.RemoveRange(writeIndex, buffer.Count - writeIndex);
+            }
         }
 
         private static void ValidateSinglePrimaryIntentPerSource(List<RawAttackIntent> buffer)

@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.Attack.Expansion;
 using Game.Feature.Gameplay.Attack.Intents;
+using Game.Feature.Gameplay.Attack.Resolution;
 using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Cleanup;
@@ -26,6 +28,8 @@ namespace Game.Feature.Gameplay.Loop
         private readonly MovementExpander _movementExpander = new();
         private readonly MovementResolver _movementResolver = new();
         private readonly AttackIntentCollector _attackIntentCollector = new();
+        private readonly AttackExpander _attackExpander = new();
+        private readonly AttackResolver _attackResolver = new();
         private readonly MovementCommitter _movementCommitter = new();
         private readonly AttackCommitter _attackCommitter = new();
         private readonly CleanupProcessor _cleanupProcessor = new();
@@ -132,15 +136,24 @@ namespace Game.Feature.Gameplay.Loop
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, _entityLogics, rawAttackIntents);
             var sortedInputs = BuildAttackInputs(rawAttackIntents, transientBuffer.DrainImpacts());
-            _attackCommitter.Commit(writeContext, transientBuffer);
+            var expandedCandidates = new List<ActionGroup>();
+            _attackExpander.Expand(snapshot, sortedInputs, expandedCandidates);
+            expandedCandidates.Sort(ActionGroupComparer.Instance);
+            AssignAttackGroupIds(expandedCandidates);
+
+            var selectedGroups = new List<ActionGroup>();
+            _attackResolver.Resolve(expandedCandidates, selectedGroups);
+
+            var commitEvents = new List<string>();
+            _attackCommitter.Commit(snapshot, writeContext, selectedGroups, commitEvents);
             phaseTrace.Add("Attack:Exit");
             completedPhases.Add(TickPhase.Attack);
 
             return new AttackPhaseResult(
                 sortedInputs,
-                Array.Empty<ActionGroup>(),
-                Array.Empty<ActionGroup>(),
-                Array.Empty<string>());
+                expandedCandidates,
+                selectedGroups,
+                commitEvents);
         }
 
         private CleanupPhaseResult RunCleanupPhase(
@@ -191,7 +204,7 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < rawAttackIntents.Count; i++)
             {
                 var rawIntent = rawAttackIntents[i];
-                sortedInputs.Add(new AttackIntent(rawIntent.SourceId, rawIntent.Priority));
+                sortedInputs.Add(new AttackIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.TargetId));
             }
 
             for (var i = 0; i < impactReservations.Count; i++)
@@ -207,6 +220,14 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return sortedInputs;
+        }
+
+        private void AssignAttackGroupIds(List<ActionGroup> expandedCandidates)
+        {
+            for (var i = 0; i < expandedCandidates.Count; i++)
+            {
+                expandedCandidates[i].AssignGroupId(_idAllocator.AllocateGroupId());
+            }
         }
     }
 }

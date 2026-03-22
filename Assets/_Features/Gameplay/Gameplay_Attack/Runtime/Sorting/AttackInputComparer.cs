@@ -33,6 +33,12 @@ namespace Game.Feature.Gameplay.Attack.Sorting
                 return result;
             }
 
+            result = left.TargetId.CompareTo(right.TargetId);
+            if (result != 0)
+            {
+                return result;
+            }
+
             if (left.ImpactReservation.HasValue && right.ImpactReservation.HasValue)
             {
                 result = ImpactReservationComparer.Instance.Compare(
