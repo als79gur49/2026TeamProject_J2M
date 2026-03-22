@@ -80,7 +80,9 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
 
+            var cleanupSnapshot = SnapshotBuilder.Create(_worldState);
             var cleanupPhaseResult = RunCleanupPhase(
+                cleanupSnapshot,
                 input.TickIndex,
                 writeContext,
                 completedPhases,
@@ -159,17 +161,18 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private CleanupPhaseResult RunCleanupPhase(
+            WorldSnapshot snapshot,
             int tickIndex,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
             phaseTrace.Add("Cleanup:Enter");
-            _cleanupProcessor.Process(writeContext, tickIndex);
+            var cleanupPhaseResult = _cleanupProcessor.Process(snapshot, writeContext, tickIndex);
             phaseTrace.Add("Cleanup:Exit");
             completedPhases.Add(TickPhase.Cleanup);
 
-            return CleanupPhaseResult.Empty;
+            return cleanupPhaseResult;
         }
 
         private List<MoveIntent> BuildMovementIntents(List<RawMovementIntent> rawMovementIntents)
