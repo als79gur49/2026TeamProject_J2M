@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.0097906">
+  <test-suite type="TestSuite" id="1026" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.009791" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1006" name="Game.Feature.Gameplay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Feature.Gameplay.Tests.dll" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.002407" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="17608" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1007" name="Game" fullname="Game" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.002093" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1008" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.001910" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1009" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.001739" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1010" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.001578" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1011" name="Unit" fullname="Game.Feature.Gameplay.Tests.Unit" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.001395" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1001" name="TickPipelineStructureTests" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.001172" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1005" name="IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract" methodname="IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1666025075" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.000132" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1002" name="RunTick_CompletesMovementAttackCleanup" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.RunTick_CompletesMovementAttackCleanup" methodname="RunTick_CompletesMovementAttackCleanup" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1524452069" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.000154" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1003" name="WorldState_DoesNotExposeDirectPublicMutationApi" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.WorldState_DoesNotExposeDirectPublicMutationApi" methodname="WorldState_DoesNotExposeDirectPublicMutationApi" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="42685483" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.000082" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1004" name="WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers" methodname="WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1328083056" result="Passed" start-time="2026-03-22 14:00:07Z" end-time="2026-03-22 14:00:07Z" duration="0.000056" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
