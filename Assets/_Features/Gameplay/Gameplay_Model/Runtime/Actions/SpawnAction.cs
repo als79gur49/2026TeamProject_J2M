@@ -1,6 +1,6 @@
 using Game.Feature.Gameplay.BoardState;
 
-namespace Game.Feature.Gameplay.Attack.Actions
+namespace Game.Feature.Gameplay.Model.Actions
 {
     public readonly struct SpawnAction
     {

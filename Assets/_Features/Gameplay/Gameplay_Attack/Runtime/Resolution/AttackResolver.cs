@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Movement.Groups;
+using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Attack.Resolution
 {

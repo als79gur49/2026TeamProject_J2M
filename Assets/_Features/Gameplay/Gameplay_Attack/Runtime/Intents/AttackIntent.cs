@@ -1,4 +1,6 @@
-using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.Attack.Sorting;
+using Game.Feature.Gameplay.Model.Intents;
+using Game.Feature.Gameplay.Model.Phases;
 
 namespace Game.Feature.Gameplay.Attack.Intents
 {
@@ -38,7 +40,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
             AttackInputKind inputKind,
             int localSequence,
             ImpactReservation? impactReservation)
-            : base(sourceId, priority, Loop.TickPhase.Attack)
+            : base(sourceId, priority, TickPhase.Attack)
         {
             TargetId = targetId;
             InputKind = inputKind;
@@ -55,6 +57,43 @@ namespace Game.Feature.Gameplay.Attack.Intents
         public ImpactReservation? ImpactReservation { get; }
 
         public bool IsSynthetic => InputKind != AttackInputKind.EntityIntent;
+
+        protected internal override int GetTypeSortKey()
+        {
+            return 0;
+        }
+
+        protected internal override int CompareSameType(Intent other)
+        {
+            var otherAttack = (AttackIntent)other;
+
+            var result = ((int)InputKind).CompareTo((int)otherAttack.InputKind);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = LocalSequence.CompareTo(otherAttack.LocalSequence);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = TargetId.CompareTo(otherAttack.TargetId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            if (ImpactReservation.HasValue && otherAttack.ImpactReservation.HasValue)
+            {
+                return ImpactReservationComparer.Instance.Compare(
+                    ImpactReservation.Value,
+                    otherAttack.ImpactReservation.Value);
+            }
+
+            return 0;
+        }
 
         public static AttackIntent FromImpactReservation(ImpactReservation reservation)
         {

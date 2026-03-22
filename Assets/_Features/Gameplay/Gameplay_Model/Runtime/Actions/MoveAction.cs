@@ -1,7 +1,7 @@
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
-namespace Game.Feature.Gameplay.Movement.Actions
+namespace Game.Feature.Gameplay.Model.Actions
 {
     public readonly struct MoveAction
     {

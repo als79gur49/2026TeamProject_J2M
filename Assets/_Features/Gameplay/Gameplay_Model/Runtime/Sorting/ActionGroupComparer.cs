@@ -1,11 +1,10 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Attack.Actions;
 using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.Movement.Actions;
-using Game.Feature.Gameplay.Movement.Groups;
+using Game.Feature.Gameplay.Model.Actions;
+using Game.Feature.Gameplay.Model.Groups;
 
-namespace Game.Feature.Gameplay.Movement.Sorting
+namespace Game.Feature.Gameplay.Model.Sorting
 {
     public sealed class ActionGroupComparer : IComparer<ActionGroup>
     {

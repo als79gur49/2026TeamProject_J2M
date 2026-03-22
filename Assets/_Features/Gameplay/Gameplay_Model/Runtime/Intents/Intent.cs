@@ -1,7 +1,7 @@
 using System;
-using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 
-namespace Game.Feature.Gameplay.Movement.Intents
+namespace Game.Feature.Gameplay.Model.Intents
 {
     public abstract class Intent
     {
@@ -19,6 +19,13 @@ namespace Game.Feature.Gameplay.Movement.Intents
         public int Priority { get; }
 
         public TickPhase Phase { get; }
+
+        protected internal abstract int GetTypeSortKey();
+
+        protected internal virtual int CompareSameType(Intent other)
+        {
+            return 0;
+        }
 
         internal void AssignIntentId(int intentId)
         {

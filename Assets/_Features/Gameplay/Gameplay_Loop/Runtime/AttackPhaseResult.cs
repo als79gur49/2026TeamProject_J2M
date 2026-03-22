@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Attack.Intents;
-using Game.Feature.Gameplay.Movement.Groups;
+using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Loop
 {

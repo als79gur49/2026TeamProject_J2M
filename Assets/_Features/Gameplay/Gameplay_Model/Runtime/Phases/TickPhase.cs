@@ -1,4 +1,4 @@
-namespace Game.Feature.Gameplay.Loop
+namespace Game.Feature.Gameplay.Model.Phases
 {
     public enum TickPhase
     {

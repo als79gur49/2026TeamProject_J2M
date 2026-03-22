@@ -1,4 +1,4 @@
-namespace Game.Feature.Gameplay.Movement.Groups
+namespace Game.Feature.Gameplay.Model.Groups
 {
     public enum ActionGroupKind
     {

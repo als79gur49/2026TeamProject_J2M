@@ -1,5 +1,5 @@
-using Game.Feature.Gameplay.Loop;
-
+using Game.Feature.Gameplay.Model.Intents;
+using Game.Feature.Gameplay.Model.Phases;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Intents
@@ -18,5 +18,23 @@ namespace Game.Feature.Gameplay.Movement.Intents
         }
 
         public Vector2Int Destination { get; }
+
+        protected internal override int GetTypeSortKey()
+        {
+            return 0;
+        }
+
+        protected internal override int CompareSameType(Intent other)
+        {
+            var otherMove = (MoveIntent)other;
+
+            var result = Destination.x.CompareTo(otherMove.Destination.x);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return Destination.y.CompareTo(otherMove.Destination.y);
+        }
     }
 }

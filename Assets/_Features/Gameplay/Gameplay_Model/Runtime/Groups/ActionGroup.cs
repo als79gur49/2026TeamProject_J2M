@@ -1,9 +1,8 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Attack.Actions;
-using Game.Feature.Gameplay.Movement.Actions;
+using Game.Feature.Gameplay.Model.Actions;
 
-namespace Game.Feature.Gameplay.Movement.Groups
+namespace Game.Feature.Gameplay.Model.Groups
 {
     public sealed class ActionGroup
     {
