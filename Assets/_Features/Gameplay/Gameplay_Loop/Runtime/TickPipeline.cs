@@ -1,17 +1,24 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.Attack.Intents;
+using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Commit;
+using Game.Feature.Gameplay.Movement.Groups;
+using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.Movement.Sorting;
 
 namespace Game.Feature.Gameplay.Loop
 {
     public sealed class TickPipeline
     {
+        private readonly IdAllocator _idAllocator = new();
         private readonly IReadOnlyList<IEntityLogic> _entityLogics;
         private readonly MovementIntentCollector _movementIntentCollector = new();
         private readonly AttackIntentCollector _attackIntentCollector = new();
@@ -39,23 +46,46 @@ namespace Game.Feature.Gameplay.Loop
 
         public TickResult RunTick(in TickInput input)
         {
+            _idAllocator.ResetForTick(input.TickIndex);
+
             var completedPhases = new List<TickPhase>(3);
             var phaseTrace = new List<string>(6);
             var transientBuffer = new PhaseTransientBuffer();
             var writeContext = _worldState.CreateWriteContext();
 
             var movementSnapshot = SnapshotBuilder.Create(_worldState);
-            RunMovementPhase(movementSnapshot, in input, transientBuffer, writeContext, completedPhases, phaseTrace);
+            var movementPhaseResult = RunMovementPhase(
+                movementSnapshot,
+                in input,
+                transientBuffer,
+                writeContext,
+                completedPhases,
+                phaseTrace);
 
             var attackSnapshot = SnapshotBuilder.Create(_worldState);
-            RunAttackPhase(attackSnapshot, in input, transientBuffer, writeContext, completedPhases, phaseTrace);
+            var attackPhaseResult = RunAttackPhase(
+                attackSnapshot,
+                transientBuffer,
+                writeContext,
+                completedPhases,
+                phaseTrace);
 
-            RunCleanupPhase(in input, writeContext, completedPhases, phaseTrace);
+            var cleanupPhaseResult = RunCleanupPhase(
+                input.TickIndex,
+                writeContext,
+                completedPhases,
+                phaseTrace);
 
-            return new TickResult(input.TickIndex, completedPhases, phaseTrace);
+            return new TickResult(
+                input.TickIndex,
+                completedPhases,
+                phaseTrace,
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult);
         }
 
-        private void RunMovementPhase(
+        private MovementPhaseResult RunMovementPhase(
             WorldSnapshot snapshot,
             in TickInput input,
             PhaseTransientBuffer transientBuffer,
@@ -66,14 +96,20 @@ namespace Game.Feature.Gameplay.Loop
             phaseTrace.Add("Movement:Enter");
             var rawMovementIntents = new List<RawMovementIntent>();
             _movementIntentCollector.Collect(snapshot, in input, _entityLogics, rawMovementIntents);
+            var sortedIntents = BuildMovementIntents(rawMovementIntents);
             _movementCommitter.Commit(writeContext, transientBuffer);
             phaseTrace.Add("Movement:Exit");
             completedPhases.Add(TickPhase.Movement);
+
+            return new MovementPhaseResult(
+                sortedIntents,
+                Array.Empty<ActionGroup>(),
+                Array.Empty<ActionGroup>(),
+                Array.Empty<string>());
         }
 
-        private void RunAttackPhase(
+        private AttackPhaseResult RunAttackPhase(
             WorldSnapshot snapshot,
-            in TickInput input,
             PhaseTransientBuffer transientBuffer,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
@@ -82,21 +118,74 @@ namespace Game.Feature.Gameplay.Loop
             phaseTrace.Add("Attack:Enter");
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, _entityLogics, rawAttackIntents);
+            var sortedInputs = BuildAttackInputs(rawAttackIntents, transientBuffer.DrainImpacts());
             _attackCommitter.Commit(writeContext, transientBuffer);
             phaseTrace.Add("Attack:Exit");
             completedPhases.Add(TickPhase.Attack);
+
+            return new AttackPhaseResult(
+                sortedInputs,
+                Array.Empty<ActionGroup>(),
+                Array.Empty<ActionGroup>(),
+                Array.Empty<string>());
         }
 
-        private void RunCleanupPhase(
-            in TickInput input,
+        private CleanupPhaseResult RunCleanupPhase(
+            int tickIndex,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
             phaseTrace.Add("Cleanup:Enter");
-            _cleanupProcessor.Process(writeContext, input.TickIndex);
+            _cleanupProcessor.Process(writeContext, tickIndex);
             phaseTrace.Add("Cleanup:Exit");
             completedPhases.Add(TickPhase.Cleanup);
+
+            return CleanupPhaseResult.Empty;
+        }
+
+        private List<MoveIntent> BuildMovementIntents(List<RawMovementIntent> rawMovementIntents)
+        {
+            rawMovementIntents.Sort(RawMovementIntentComparer.Instance);
+
+            var sortedIntents = new List<MoveIntent>(rawMovementIntents.Count);
+
+            for (var i = 0; i < rawMovementIntents.Count; i++)
+            {
+                var rawIntent = rawMovementIntents[i];
+                var moveIntent = new MoveIntent(rawIntent.SourceId, rawIntent.Priority);
+                moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
+                sortedIntents.Add(moveIntent);
+            }
+
+            return sortedIntents;
+        }
+
+        private List<AttackIntent> BuildAttackInputs(
+            List<RawAttackIntent> rawAttackIntents,
+            List<ImpactReservation> impactReservations)
+        {
+            var sortedInputs = new List<AttackIntent>(rawAttackIntents.Count + impactReservations.Count);
+
+            for (var i = 0; i < rawAttackIntents.Count; i++)
+            {
+                var rawIntent = rawAttackIntents[i];
+                sortedInputs.Add(new AttackIntent(rawIntent.SourceId, rawIntent.Priority));
+            }
+
+            for (var i = 0; i < impactReservations.Count; i++)
+            {
+                sortedInputs.Add(AttackIntent.FromImpactReservation(impactReservations[i]));
+            }
+
+            sortedInputs.Sort(AttackInputComparer.Instance);
+
+            for (var i = 0; i < sortedInputs.Count; i++)
+            {
+                sortedInputs[i].AssignIntentId(_idAllocator.AllocateIntentId());
+            }
+
+            return sortedInputs;
         }
     }
 }

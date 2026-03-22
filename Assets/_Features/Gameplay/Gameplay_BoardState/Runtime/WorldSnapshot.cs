@@ -1,6 +1,6 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
@@ -28,60 +28,32 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool TryGetUnitAt(Vector2Int cell, out EntityState entity)
         {
-            entity = default;
-
-            return _unitOccupancy.TryGetValue(cell, out var entityId) &&
-                   _entitiesById.TryGetValue(entityId, out entity);
+            return WorldQueryService.TryGetEntityAt(_entitiesById, _unitOccupancy, cell, out entity);
         }
 
         public bool TryGetProjectileAt(Vector2Int cell, out EntityState entity)
         {
-            entity = default;
-
-            return _projectileOccupancy.TryGetValue(cell, out var entityId) &&
-                   _entitiesById.TryGetValue(entityId, out entity);
+            return WorldQueryService.TryGetEntityAt(_entitiesById, _projectileOccupancy, cell, out entity);
         }
 
         public bool IsBlockedForUnit(Vector2Int cell)
         {
-            return _unitOccupancy.ContainsKey(cell);
+            return WorldQueryService.IsBlockedForUnit(_unitOccupancy, cell);
         }
 
         public bool BlocksMovement(int entityId)
         {
-            return _entitiesById.ContainsKey(entityId);
+            return WorldQueryService.BlocksMovement(_entitiesById, entityId);
         }
 
         public bool CanBeTargetedForNewSelection(int entityId)
         {
-            return _entitiesById.TryGetValue(entityId, out var entity) && !entity.markedForDeath;
+            return WorldQueryService.CanBeTargetedForNewSelection(_entitiesById, entityId);
         }
 
         public void EnumerateEntitiesOrdered(List<EntityState> buffer)
         {
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-
-            buffer.Clear();
-
-            foreach (var entity in _entitiesById.Values)
-            {
-                buffer.Add(entity);
-            }
-
-            buffer.Sort(EntityIdComparer.Instance);
-        }
-
-        private sealed class EntityIdComparer : IComparer<EntityState>
-        {
-            internal static readonly EntityIdComparer Instance = new();
-
-            public int Compare(EntityState left, EntityState right)
-            {
-                return left.entityId.CompareTo(right.entityId);
-            }
+            WorldQueryService.EnumerateEntitiesOrdered(_entitiesById, buffer);
         }
     }
 }
