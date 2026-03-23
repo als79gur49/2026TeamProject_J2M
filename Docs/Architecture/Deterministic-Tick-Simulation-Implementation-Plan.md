@@ -1237,3 +1237,556 @@ current-state 메모:
 가장 중요한 구현 원칙은 아래 한 줄이다.
 
 > 먼저 뼈대를 잠그고, 최소 수직 슬라이스를 끝까지 관통시킨 뒤, 로그와 리플레이 테스트로 결정론을 고정한 다음에만 복잡도를 연다.
+
+## 15. 잔여 작업 상세 설계
+
+이 섹션은 current-state 조사 결과를 바탕으로, 현재 문서에서 "남은 작업"으로 남아 있는 항목을 실제 구현 가능한 단위로 다시 정리한 것이다.
+
+핵심 전제:
+
+- 결정론 코어 자체는 이미 반영돼 있다.
+- 남은 작업의 본질은 "새 전투 규칙 추가"가 아니라 "구조 정리 + 런타임 진입 경로 완성"이다.
+- 따라서 이번 단계는 `TickPipeline`의 phase 규칙을 바꾸지 않고, orchestration 외부 조립과 runtime driving 경로만 닫는다.
+
+### 15-1. 조사 결과 요약
+
+현재 코드 기준으로 남은 항목은 세 묶음이다.
+
+1. composition root 정리
+   - `SnapshotEntityLogicProvider`, `GameplayEntityLogicProviderFactory`, `GameplayBootstrapper`, `GameplayCompositionRoot`가 책임상 분리됐지만 아직 `TickPipeline.cs`에 co-locate되어 있다.
+2. runtime tick driving 경로 부재
+   - `TickRunner`, `TickInputBuffer`가 아직 없어서 테스트 밖에서 공용 tick 실행 경로가 없다.
+   - 현재 테스트와 replay harness는 모두 `GameplayCompositionRoot.CreateTickPipeline(...)`를 직접 호출한다.
+3. concrete write-context 명시화 미완료
+   - `IWorldWriteContext`는 존재하지만 concrete `WorldStateWriteContext`는 아직 `WorldState` 내부 private `WriteContext`로만 존재한다.
+   - 다만 이것은 누락이라기보다, "concrete write path를 `WorldState` 내부에 숨긴다"는 초기 의도를 반영한 current-state다.
+   - 따라서 남은 작업의 본질은 "concrete type이 없다"가 아니라, "숨김 구조를 유지한 채 target-state 파일 분리와 구조 명시화를 어떻게 달성할 것인가"다.
+
+추가 current-state 메모:
+
+- `TickInput`은 현재 `tickIndex`만 가진 최소 구조다.
+- `ProjectileLogic`와 `ProjectileEntityLogicFactory`는 이미 존재하지만, `PlayerLogic` / `EnemyLogic` / `TerrainData`는 아직 없다.
+- `WorldState.CreateWriteContext()`는 `internal`이며, production runtime 경로에서는 `TickPipeline`이 사용하고, 테스트는 focused verification을 위해 직접 사용할 수 있다.
+- 따라서 "결정론 전투 코어"는 완료됐지만 "실제 runtime 조립 경로"와 "target-state 파일 분리"는 아직 닫히지 않았다.
+
+이번 설계는 이 중에서 아래 항목을 이번 정리 범위로 본다.
+
+- `SnapshotEntityLogicProvider` 분리
+- `GameplayEntityLogicProviderFactory` 분리
+- `GameplayBootstrapper` / `GameplayCompositionRoot` 분리
+- `WorldStateWriteContext` 명시화
+- `TickInputBuffer` 도입
+- `TickRunner` 도입
+
+이번 정리 범위에서 의도적으로 미루는 항목:
+
+- `TerrainData`
+- `PlayerLogic`
+- `EnemyLogic`
+
+이 세 항목은 "조립층 마감"보다 "실제 게임 룰/입력 스키마 정의"에 더 강하게 의존하므로, placeholder를 억지로 추가하는 것보다 deferred normalization으로 두는 편이 낫다.
+
+### 15-2. 이번 단계의 완료 정의
+
+이번 설계가 구현되면 아래 조건을 만족해야 한다.
+
+- `TickPipeline.cs`에는 `TickPipeline`만 남는다.
+- provider/factory concrete type은 `Gameplay_Entities` 계층으로 이동한다.
+- 조립 public API는 `GameplayCompositionRoot`와 `GameplayBootstrapper`에만 남는다.
+- 표준 runtime 실행 경로는 `TickInputBuffer -> TickRunner -> TickPipeline` 한 줄로 읽힌다.
+- 기존 테스트가 의존하는 `GameplayCompositionRoot.CreateTickPipeline(...)` API는 유지된다.
+- Committer 외 계층이 `WorldState`를 직접 수정할 수 없는 구조는 그대로 유지된다.
+- current-state에서 의도적으로 숨겨 둔 concrete write path의 은닉 성질이 target-state에서도 약화되지 않는다.
+
+### 15-3. 책임 재정의
+
+이번 단계에서 각 타입의 책임은 아래처럼 고정한다.
+
+- `TickPipeline`
+  - phase orchestration
+  - snapshot 재생성
+  - post-sort ID 발급
+  - trace/hash/result 생성
+  - provider 결과 소비
+- `SnapshotEntityLogicProvider`
+  - snapshot ordered enumeration
+  - static/dynamic logic merge
+  - phase ownership conflict 제거
+- `GameplayEntityLogicProviderFactory`
+  - 기본 runtime dynamic factory 집합 구성
+- `GameplayBootstrapper`
+  - world/static logic/input buffer를 받아 pipeline 또는 runner 조립
+  - plain C# composition object로 유지
+- `GameplayCompositionRoot`
+  - default provider/bootstrapper factory
+  - assembly-level convenience entry API 유지
+- `TickInputBuffer`
+  - tick-indexed input staging
+  - sampling boundary 고정
+- `TickRunner`
+  - monotonic tick index 관리
+  - buffer에서 입력 소비
+  - `TickPipeline.RunTick` 호출
+
+중요 해석:
+
+- 이번 설계에서는 `GameplayBootstrapper`를 `MonoBehaviour`로 만들지 않는다.
+- 이유는 현재 구조 테스트와 replay/scenario 테스트가 plain object bootstrapper/factory 계약을 전제하고 있기 때문이다.
+- 실제 Unity scene host가 필요하면 이후 상위 host/view 계층이 `GameplayBootstrapper`나 `TickRunner`를 호출하는 thin adapter를 둔다.
+- 즉, deterministic runtime asmdef는 계속 순수 시뮬레이션 조립 계층으로 유지한다.
+
+### 15-4. 목표 파일 분리안
+
+이번 단계 완료 후 권장 파일 배치는 아래와 같다.
+
+```text
+Assets/_Features/Gameplay/
+  Gameplay_Loop/
+    Runtime/
+      TickPipeline.cs
+      GameplayCompositionRoot.cs
+      GameplayBootstrapper.cs
+      TickRunner.cs
+      TickInputBuffer.cs
+  Gameplay_Entities/
+    Runtime/
+      IEntityLogic.cs
+      SnapshotEntityLogicProvider.cs
+      GameplayEntityLogicProviderFactory.cs
+      ProjectileLogic.cs
+  Gameplay_BoardState/
+    Runtime/
+      WorldState.cs
+      WorldStateWriteContext.cs
+      IWorldWriteContext.cs
+```
+
+적용 원칙:
+
+- `TickPipeline.cs`에서는 nested/co-located type을 제거한다.
+- `ProjectileEntityLogicFactory`는 기존처럼 `ProjectileLogic.cs`에 co-locate를 유지해도 된다.
+  - 이 파일은 이미 `Gameplay_Entities` 계층에 있기 때문이다.
+- `WorldStateWriteContext`는 별도 파일로 추출하되 capability 경계는 `IWorldWriteContext`로 유지한다.
+
+### 15-5. `WorldStateWriteContext` 구체 설계
+
+조사 결과 기준 current-state 해석:
+
+- 현재 nested private `WriteContext`는 accidental leftover가 아니다.
+- 초기 stage0 구현부터 `WorldState`의 concrete write path를 내부에 숨기는 방향으로 들어갔고, 이후 reflection 구조 테스트로 고정됐다.
+- 즉, 현재 구조의 핵심 의도는 "쓰기 capability는 interface로만 보이고, concrete mutation path는 `WorldState` 내부에 감춘다"는 점이다.
+
+현재 nested private `WriteContext`를 top-level concrete type으로 꺼내려면, `WorldState` private helper에 직접 접근할 수 없다는 문제가 생긴다.
+
+따라서 이 항목의 설계 목표는 단순 추출이 아니라 아래 두 조건을 동시에 만족하는 것이다.
+
+1. target-state 파일 분리와 concrete type 명시화
+2. current-state가 의도적으로 확보한 concrete write path 은닉 유지
+
+#### 15-5-1. current-state의 실제 보호 수준
+
+현재 구조가 막고 있는 것:
+
+- `WorldState` public API를 통한 직접 mutation
+- 외부 코드가 concrete write context 타입에 정적으로 의존하는 것
+- same-assembly 코드가 `AddNewEntity`, `ClearOccupancy`, `RemoveEntity`, `SetOccupancy`, `TryGetEntity`, `UpdateEntity`를 직접 호출하는 것
+
+현재 구조가 완전히 막지는 않는 것:
+
+- `internal WorldState.CreateWriteContext()` 경로의 same-assembly 사용
+- `InternalsVisibleTo("Game.Feature.Gameplay.Tests")`를 통한 테스트의 직접 write-context 생성
+
+이 점은 설계 문서에 명시적으로 반영해야 한다.
+
+- production runtime 규칙은 "표준 경로에서 `TickPipeline`이 write context를 생성한다"로 읽어야 한다.
+- 테스트는 phase 단위 검증을 위해 internal factory를 직접 호출할 수 있다.
+- 따라서 "절대적으로 `TickPipeline`만 생성 가능"을 구조 invariant로 삼으면 current-state와 맞지 않는다.
+
+#### 15-5-2. 설계 선택지
+
+선택지 A. current-state 유지
+
+- `WriteContext`를 nested private로 그대로 둔다.
+- 장점:
+  - 은닉 강도가 가장 높다.
+  - private helper를 그대로 유지할 수 있다.
+  - 구현 리스크가 가장 낮다.
+- 단점:
+  - target-state의 `WorldStateWriteContext.cs`와 맞지 않는다.
+  - concrete write path를 문서/구조 관점에서 명시적으로 설명하기 어렵다.
+  - file split 기준에서는 남은 작업이 계속 남는다.
+
+선택지 B. top-level `WorldStateWriteContext` + `internal` mutation helper 공개
+
+- `WorldState` helper를 `internal`로 열고 top-level concrete type이 직접 호출한다.
+- 장점:
+  - 구현이 단순하다.
+  - 파일 분리가 쉽다.
+- 단점:
+  - current-state가 의도적으로 막아 둔 same-assembly direct mutation 통로가 넓어진다.
+  - "구조적으로 숨긴다"는 초기 의도와 충돌한다.
+
+선택지 C. top-level `WorldStateWriteContext` + explicit internal mutation port
+
+- `WorldState`는 public surface를 비운 채 internal explicit interface로만 mutation helper를 노출한다.
+- top-level concrete type은 이 port만 통해 mutation한다.
+- 장점:
+  - target-state 파일 분리 가능
+  - concrete type 명시화 가능
+  - same-assembly direct mutation 노출을 상대적으로 좁게 유지
+  - current-state 은닉 의도와 target-state 명시화를 모두 수용
+- 단점:
+  - interface/adapter 계층이 하나 추가된다.
+  - 구조 테스트 갱신이 필요하다.
+
+선택:
+
+- 이번 문서에서는 선택지 C를 채택한다.
+- 이유는 current-state의 의도된 은닉을 유지하면서도 target-state의 explicit concrete type 요구를 가장 무리 없이 만족시키기 때문이다.
+
+이번 단계에서는 아래 방식으로 해결한다.
+
+1. `WorldState`가 internal mutation port를 explicit interface로 구현한다.
+2. `WorldStateWriteContext`는 그 mutation port만 잡고 `IWorldWriteContext`를 구현한다.
+3. public surface에는 mutation 메서드를 계속 노출하지 않는다.
+
+권장 내부 인터페이스:
+
+```csharp
+internal interface IWorldStateMutationPort
+{
+    bool TryGetEntity(int entityId, out EntityState entity);
+    void AddNewEntity(EntityState entity);
+    void UpdateEntity(EntityState entity);
+    void ClearOccupancy(EntityState entity);
+    void SetOccupancy(EntityState entity);
+    void RemoveEntityRecord(int entityId);
+}
+```
+
+권장 `WorldState` 구조:
+
+```csharp
+public sealed class WorldState : IWorldStateMutationPort
+{
+    internal IWorldWriteContext CreateWriteContext()
+    {
+        return new WorldStateWriteContext((IWorldStateMutationPort)this);
+    }
+
+    bool IWorldStateMutationPort.TryGetEntity(int entityId, out EntityState entity) { ... }
+    void IWorldStateMutationPort.AddNewEntity(EntityState entity) { ... }
+    void IWorldStateMutationPort.UpdateEntity(EntityState entity) { ... }
+    void IWorldStateMutationPort.ClearOccupancy(EntityState entity) { ... }
+    void IWorldStateMutationPort.SetOccupancy(EntityState entity) { ... }
+    void IWorldStateMutationPort.RemoveEntityRecord(int entityId) { ... }
+}
+```
+
+권장 `WorldStateWriteContext` 구조:
+
+```csharp
+internal sealed class WorldStateWriteContext : IWorldWriteContext
+{
+    private readonly IWorldStateMutationPort _port;
+
+    internal WorldStateWriteContext(IWorldStateMutationPort port)
+    {
+        _port = port;
+    }
+
+    public void MoveEntity(int entityId, Vector2Int destination) { ... }
+    public void ApplyDamage(int entityId, int amount) { ... }
+    public void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer) { ... }
+    public void MarkDestroy(int entityId) { ... }
+    public void SpawnEntity(EntityState entity) { ... }
+    public void RemoveEntity(int entityId) { ... }
+    public void SetFacing(int entityId, Direction facing) { ... }
+}
+```
+
+이 설계의 장점:
+
+- `WorldStateWriteContext`를 top-level file/type로 분리할 수 있다.
+- `WorldState` public API는 여전히 비어 있게 유지할 수 있다.
+- Committer는 계속 `IWorldWriteContext`만 받는다.
+- same-assembly 내부에서도 mutation helper를 임의 호출하기 어렵게 만든다.
+- current-state nested/private 구조가 가지던 "concrete write path 은닉" 의도를 형태만 바꿔 유지할 수 있다.
+
+구조 테스트 갱신 원칙:
+
+- 기존 `WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers` 테스트는 더 이상 "top-level concrete type이 없어야 한다"를 보지 않는다.
+- 대신 아래를 본다.
+  - `WorldState` public mutation API 부재
+  - `WorldStateWriteContext`가 internal type인가
+  - `WorldState` mutation helper가 public/internal direct method로 새지 않았는가
+  - production runtime path에서 `TickPipeline`이 write context를 생성하는가
+  - 테스트는 focused verification을 위해 internal 경로를 호출할 수 있는가
+
+권장 구조 테스트 이름 재편:
+
+- `WorldState_DoesNotExposeDirectPublicMutationApi`
+- `WorldStateWriteContext_IsInternalConcreteType`
+- `WorldState_MutationHelpers_AreNotPublicApi`
+- `TickPipeline_CreatesWorldWriteContext_OnProductionPath`
+
+#### 15-5-3. 마이그레이션 단계
+
+`WorldStateWriteContext` 추출은 아래처럼 두 단계로 나눈다.
+
+1. 보호 의미 보존 단계
+   - `IWorldStateMutationPort` 추가
+   - `WorldState`가 explicit interface 구현
+   - nested private `WriteContext`를 top-level `WorldStateWriteContext`로 이동
+   - `CreateWriteContext()`는 계속 `internal`
+2. 구조 잠금 단계
+   - reflection 구조 테스트 갱신
+   - same-assembly direct mutation 누수가 없는지 확인
+   - `TickPipeline` runtime path와 테스트 path를 분리해 문서화
+
+이 순서를 따르는 이유:
+
+- 먼저 behavior-preserving extraction을 하고,
+- 그 다음 테스트 invariant를 current-state 의도에 맞게 다시 잠그는 편이 안전하다.
+
+### 15-6. `SnapshotEntityLogicProvider` / composition type 분리 설계
+
+현재 `TickPipeline.cs` 안의 아래 타입을 분리한다.
+
+- `SnapshotEntityLogicProvider`
+- `GameplayEntityLogicProviderFactory`
+- `GameplayBootstrapper`
+- `GameplayCompositionRoot`
+
+분리 후 책임 배치는 아래와 같다.
+
+- `Gameplay_Entities/Runtime/SnapshotEntityLogicProvider.cs`
+  - provider 구현
+  - phase ownership conflict 규칙 유지
+- `Gameplay_Entities/Runtime/GameplayEntityLogicProviderFactory.cs`
+  - default dynamic factory 집합 생성
+- `Gameplay_Loop/Runtime/GameplayBootstrapper.cs`
+  - pipeline/runner 조립
+- `Gameplay_Loop/Runtime/GameplayCompositionRoot.cs`
+  - default bootstrapper factory
+  - test/replay가 쓰는 assembly-level convenience API 유지
+
+`TickPipeline`이 유지해야 할 규칙:
+
+- 생성자는 계속 `ISnapshotEntityLogicProvider`를 필수 인자로 받는다.
+- pipeline 내부에 default provider 조립 메서드를 두지 않는다.
+- concrete factory 또는 concrete projectile logic type을 field로 보유하지 않는다.
+
+### 15-7. `GameplayBootstrapper` 구체 API 설계
+
+`GameplayBootstrapper`는 plain C# 조립 객체로 유지하고, 아래 API를 제공한다.
+
+```csharp
+public sealed class GameplayBootstrapper
+{
+    public GameplayBootstrapper(ISnapshotEntityLogicProvider entityLogicProvider);
+
+    public TickPipeline CreateTickPipeline(WorldState worldState);
+    public TickPipeline CreateTickPipeline(
+        WorldState worldState,
+        IEnumerable<IEntityLogic> entityLogics);
+
+    public TickRunner CreateTickRunner(
+        WorldState worldState,
+        TickInputBuffer inputBuffer);
+
+    public TickRunner CreateTickRunner(
+        WorldState worldState,
+        IEnumerable<IEntityLogic> entityLogics,
+        TickInputBuffer inputBuffer,
+        int startTickIndex = 1);
+}
+```
+
+의도:
+
+- 현재 테스트가 쓰는 `CreateTickPipeline(...)` 경로를 깨지 않는다.
+- runtime 쪽은 `CreateTickRunner(...)`를 통해 표준 driving 경로를 쓸 수 있다.
+- bootstrapper는 world/config/static logic 준비 책임만 갖고, phase 규칙이나 tick stepping은 소유하지 않는다.
+
+### 15-8. `GameplayCompositionRoot` 구체 API 설계
+
+`GameplayCompositionRoot`는 current public API를 유지하면서 runner 생성 API만 확장한다.
+
+```csharp
+public static class GameplayCompositionRoot
+{
+    public static GameplayBootstrapper CreateDefaultBootstrapper();
+
+    public static TickPipeline CreateTickPipeline(WorldState worldState);
+    public static TickPipeline CreateTickPipeline(
+        WorldState worldState,
+        IEnumerable<IEntityLogic> entityLogics);
+
+    public static TickRunner CreateTickRunner(
+        WorldState worldState,
+        TickInputBuffer inputBuffer);
+
+    public static TickRunner CreateTickRunner(
+        WorldState worldState,
+        IEnumerable<IEntityLogic> entityLogics,
+        TickInputBuffer inputBuffer,
+        int startTickIndex = 1);
+}
+```
+
+구현 원칙:
+
+- default provider 조립은 계속 `GameplayEntityLogicProviderFactory.CreateDefault()` 한 곳만 쓴다.
+- `CreateTickRunner(...)`도 내부적으로는 `CreateDefaultBootstrapper()`를 통해 조립한다.
+- replay/scenario/unit 테스트가 요구하는 direct pipeline path는 계속 남긴다.
+
+### 15-9. `TickInputBuffer` 구체 설계
+
+`TickInputBuffer`는 입력을 tick 경계에 귀속시키는 staging 저장소다.
+
+현재 `TickInput`은 `tickIndex`만 가지므로 지금 당장은 기능이 단순해 보이지만, 향후 player command payload가 붙어도 구조를 바꾸지 않도록 지금 도입한다.
+
+권장 API:
+
+```csharp
+public sealed class TickInputBuffer
+{
+    public void Record(in TickInput input);
+    public bool TryConsume(int tickIndex, out TickInput input);
+    public TickInput ConsumeOrDefault(int tickIndex);
+    public bool HasBufferedInput(int tickIndex);
+    public void ClearBefore(int tickIndex);
+}
+```
+
+정책:
+
+- `Record`는 `input.TickIndex <= 0`을 거부한다.
+- 동일 `tickIndex`에 대한 중복 `Record`는 throw 한다.
+  - silent overwrite를 허용하면 sampling source bug를 숨기기 쉽다.
+- `ConsumeOrDefault(tickIndex)`는 버퍼에 입력이 있으면 그것을 꺼내고, 없으면 `new TickInput(tickIndex)`를 반환한다.
+- 내부 저장소는 dictionary를 써도 되지만, 의미론은 key lookup만 사용한다.
+  - 즉, iteration 순서를 의미론에 사용하지 않는다.
+
+`TickInputBuffer`가 소유하지 않는 것:
+
+- input sampling 타이밍
+- frame time accumulation
+- `TickPhase` 해석
+- `WorldState` 접근
+
+### 15-10. `TickRunner` 구체 설계
+
+`TickRunner`는 monotonic tick sequence를 관리하는 얇은 driver다.
+
+권장 API:
+
+```csharp
+public sealed class TickRunner
+{
+    public TickRunner(
+        TickPipeline pipeline,
+        TickInputBuffer inputBuffer,
+        int startTickIndex = 1);
+
+    public int NextTickIndex { get; }
+
+    public TickResult RunNextTick();
+    public TickResult RunTick(in TickInput input);
+}
+```
+
+동작 규칙:
+
+1. `RunNextTick()`는 `inputBuffer.ConsumeOrDefault(NextTickIndex)`를 호출한다.
+2. 반환된 `TickInput`을 그대로 `TickPipeline.RunTick`에 전달한다.
+3. tick 성공 후 `NextTickIndex`를 1 증가시킨다.
+4. `RunTick(in TickInput input)` 직접 경로는 `input.TickIndex == NextTickIndex`일 때만 허용한다.
+5. runner는 trace/hash/world query를 만들지 않는다.
+   - 그 책임은 계속 `TickPipeline`에 남긴다.
+
+runner가 plain class인 이유:
+
+- replay harness와 테스트에서 manual stepping이 쉽다.
+- Unity `Update` 종속이 없어 deterministic test에서 재사용하기 쉽다.
+- 상위 host가 fixed-step accumulator를 어떤 방식으로 가지든 runner 코드는 유지된다.
+
+### 15-11. 표준 runtime 흐름
+
+이번 단계가 끝난 뒤 권장 흐름은 아래 한 줄이다.
+
+1. 상위 host가 `TickInputBuffer.Record(...)`로 입력을 tick index에 귀속시킨다.
+2. 상위 host가 `GameplayCompositionRoot.CreateTickRunner(...)` 또는 `GameplayBootstrapper.CreateTickRunner(...)`로 runner를 만든다.
+3. 상위 host가 fixed-step 경계마다 `runner.RunNextTick()`을 호출한다.
+4. 반환된 `TickResult`는 view/animation 쪽으로 전달된다.
+
+이 흐름에서 중요한 점:
+
+- View는 여전히 `TickResult`만 소비한다.
+- host가 frame rate를 바꾸더라도 simulation은 `TickRunner`의 tick sequence만 따른다.
+- `TickPipeline`은 runner 존재 여부를 모른다.
+
+### 15-12. 테스트 보강 설계
+
+이번 단계 구현과 함께 아래 테스트를 추가하거나 수정한다.
+
+구조 테스트 유지/수정:
+
+- 기존 `TickPipeline_DelegatesDynamicEntityMaterializationToProvider` 유지
+- 기존 `GameplayCompositionRoot_ExposesDefaultPipelineAssemblyApi` 유지
+- `WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers`는 아래 방향으로 갱신
+  - `WorldState` public mutation API 없음
+  - `WorldStateWriteContext`는 internal concrete type
+  - `TickPipeline`만 `CreateWriteContext()`를 호출
+
+새 unit test 권장:
+
+- `TickInputBuffer_RecordRejectsDuplicateTick`
+- `TickInputBuffer_ConsumeOrDefault_ReturnsRecordedInputOrDefaultTick`
+- `TickRunner_RunNextTick_ConsumesBufferedInputAndAdvancesIndex`
+- `TickRunner_RunTick_RejectsOutOfOrderTickIndex`
+- `GameplayCompositionRoot_CreateTickRunner_UsesDefaultProvider`
+- `GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileRecovery`
+
+기존 scenario/replay test 유지 포인트:
+
+- `GameplayCompositionRoot.CreateTickPipeline(...)` 시그니처는 그대로 유지한다.
+- fresh pipeline + pre-existing projectile 복구 시나리오는 그대로 통과해야 한다.
+- replay/fuzz는 runner 도입 여부와 무관하게 기존 pipeline direct path로도 유지 가능하다.
+
+### 15-13. 구현 순서
+
+실제 구현은 아래 순서가 가장 안전하다.
+
+1. `SnapshotEntityLogicProvider` / `GameplayEntityLogicProviderFactory` / `GameplayBootstrapper` / `GameplayCompositionRoot`를 파일 분리한다.
+   - 이 단계에서는 동작 변경 없이 relocation만 한다.
+2. `WorldStateWriteContext`를 top-level type으로 추출한다.
+   - `WorldState` explicit mutation port를 먼저 도입한다.
+3. 구조 테스트를 새 write-context 구조에 맞게 갱신한다.
+4. `TickInputBuffer`를 추가한다.
+5. `TickRunner`를 추가한다.
+6. `GameplayBootstrapper` / `GameplayCompositionRoot`에 runner 생성 API를 추가한다.
+7. runner/buffer unit test를 추가한다.
+8. 마지막으로 runtime host 연동이 필요하면 상위 계층에서 thin adapter를 붙인다.
+
+이 순서를 권장하는 이유:
+
+- 먼저 file split만 하면 구조 리스크를 최소화한 채 compile path를 안정화할 수 있다.
+- write-context 추출은 구조 테스트 영향이 크므로 runner보다 먼저 고정하는 편이 낫다.
+- runner/buffer는 기존 replay/scenario 경로를 깨지 않고 병렬 경로로 추가할 수 있다.
+
+### 15-14. deferred normalization 메모
+
+아래 항목은 target-state에는 있지만 이번 단계에서 바로 만들지 않는다.
+
+- `TerrainData`
+  - 현재 movement/attack 판정이 occupancy 중심이라 실질 책임이 없다.
+  - terrain rule이 생길 때 `WorldSnapshot` 질의와 함께 도입한다.
+- `PlayerLogic`
+  - `TickInput` payload 스키마가 아직 최소 상태라 concrete player logic을 확정할 근거가 부족하다.
+- `EnemyLogic`
+  - 실제 AI 정책이 아직 정의되지 않았으므로 빈 구현 추가는 구조적 가치보다 잡음을 늘릴 가능성이 크다.
+
+이 세 항목은 "결정론 코어가 미완성"을 의미하지 않는다.
+현재 남은 것은 우선 runtime composition closure이며, gameplay rule authoring은 다음 슬라이스다.
