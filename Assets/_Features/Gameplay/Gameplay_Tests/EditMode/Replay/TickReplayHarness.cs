@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Linq;
+using System.Text;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -14,26 +14,173 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IEnumerable<IEntityLogic> entityLogics,
             IReadOnlyList<TickInput> inputs)
         {
-            var pipeline = new TickPipeline(worldState, entityLogics);
+            var entityLogicList = new List<IEntityLogic>(entityLogics);
+            var pipeline = new TickPipeline(worldState, entityLogicList);
             var frames = new List<TickReplayFrame>(inputs.Count);
 
             for (var i = 0; i < inputs.Count; i++)
             {
+                SetReplayTickIndex(entityLogicList, inputs[i].TickIndex);
                 var result = pipeline.RunTick(inputs[i]);
                 frames.Add(
                     new TickReplayFrame(
                         result.TickIndex,
                         result.DeterminismHash,
                         result.Trace.Text,
-                        string.Join(
-                            ",",
-                            result.FinalEntities.Select(entity =>
-                                $"{entity.entityId}:{entity.position.x}:{entity.position.y}:{entity.hp}:{entity.state}:{entity.markedForDeath}")),
-                        string.Join("\n", result.EventLog)));
+                        BuildFinalEntitiesDump(result.FinalEntities),
+                        BuildOccupancyDump(result.Trace.Text),
+                        BuildMarkedForDeathDump(result.FinalEntities),
+                        BuildEventLogDump(result.EventLog)));
             }
 
             return new ReadOnlyCollection<TickReplayFrame>(frames);
         }
+
+        private static void SetReplayTickIndex(IReadOnlyList<IEntityLogic> entityLogics, int tickIndex)
+        {
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                if (entityLogics[i] is IReplayTickAwareEntityLogic tickAwareEntityLogic)
+                {
+                    tickAwareEntityLogic.SetReplayTickIndex(tickIndex);
+                }
+            }
+        }
+
+        private static string BuildFinalEntitiesDump(IReadOnlyList<EntityState> finalEntities)
+        {
+            if (finalEntities.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            var builder = new StringBuilder(finalEntities.Count * 64);
+
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                var entity = finalEntities[i];
+                builder
+                    .Append("E=").Append(entity.entityId)
+                    .Append("|Pos=(").Append(entity.position.x).Append(',').Append(entity.position.y).Append(')')
+                    .Append("|Hp=").Append(entity.hp)
+                    .Append("|MaxHp=").Append(entity.maxHp)
+                    .Append("|Team=").Append(entity.teamId)
+                    .Append("|Type=").Append(entity.type)
+                    .Append("|State=").Append(entity.state)
+                    .Append("|Timer=").Append(entity.stateTimer)
+                    .Append("|Facing=").Append(entity.facing)
+                    .Append("|Marked=").Append(entity.markedForDeath ? 1 : 0)
+                    .Append("|SpawnTick=").Append(entity.spawnTick);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string BuildOccupancyDump(string trace)
+        {
+            return ExtractSection(trace, "Final.Occupancy");
+        }
+
+        private static string BuildMarkedForDeathDump(IReadOnlyList<EntityState> finalEntities)
+        {
+            var builder = new StringBuilder();
+
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                if (!finalEntities[i].markedForDeath)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append(finalEntities[i].entityId);
+            }
+
+            return builder.Length == 0 ? "<empty>" : builder.ToString();
+        }
+
+        private static string BuildEventLogDump(IReadOnlyList<string> eventLog)
+        {
+            if (eventLog.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            var builder = new StringBuilder(eventLog.Count * 32);
+
+            for (var i = 0; i < eventLog.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append(eventLog[i]);
+            }
+
+            return builder.ToString();
+        }
+
+        private static string ExtractSection(string trace, string title)
+        {
+            if (string.IsNullOrEmpty(trace))
+            {
+                return "<empty>";
+            }
+
+            var normalizedTrace = trace.Replace("\r\n", "\n");
+            var lines = normalizedTrace.Split('\n');
+            var builder = new StringBuilder();
+            var insideSection = false;
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                var line = lines[i];
+                if (!insideSection)
+                {
+                    if (line == title)
+                    {
+                        insideSection = true;
+                    }
+
+                    continue;
+                }
+
+                if (line.Length > 0 && !char.IsWhiteSpace(line[0]))
+                {
+                    break;
+                }
+
+                var trimmedLine = line.Trim();
+                if (trimmedLine.Length == 0)
+                {
+                    continue;
+                }
+
+                if (builder.Length > 0)
+                {
+                    builder.Append('\n');
+                }
+
+                builder.Append(trimmedLine);
+            }
+
+            return builder.Length == 0 ? "<empty>" : builder.ToString();
+        }
+    }
+
+    internal interface IReplayTickAwareEntityLogic
+    {
+        void SetReplayTickIndex(int tickIndex);
     }
 
     internal readonly struct TickReplayFrame
@@ -43,12 +190,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
             string determinismHash,
             string trace,
             string finalEntitiesDump,
+            string occupancyDump,
+            string markedForDeathDump,
             string eventLogDump)
         {
             TickIndex = tickIndex;
             DeterminismHash = determinismHash;
             Trace = trace;
             FinalEntitiesDump = finalEntitiesDump;
+            OccupancyDump = occupancyDump;
+            MarkedForDeathDump = markedForDeathDump;
             EventLogDump = eventLogDump;
         }
 
@@ -59,6 +210,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public string Trace { get; }
 
         public string FinalEntitiesDump { get; }
+
+        public string OccupancyDump { get; }
+
+        public string MarkedForDeathDump { get; }
 
         public string EventLogDump { get; }
     }
