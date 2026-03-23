@@ -499,6 +499,233 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 확장 기능도 기존 `Intent -> Expand -> Resolve -> Commit` 경로에만 합류시킨다.
 - Commit 중간 새 Intent 생성은 계속 금지한다.
 
+## 7-8. 남은 Stage6 구체 설계
+
+남은 Stage6 범위는 `PushChain`, `edge reservation`, `on-hit 확장 검토`다.
+이 셋은 새 Phase를 추가하지 않고, 기존 `Movement -> Attack -> Cleanup` 내부에만 합류시킨다.
+
+현재 코드 기준 전제:
+
+- `Projectile movement`, `ImpactReservation`, `Spawn`, `Attack input 정규화`는 이미 연결되어 있다.
+- `MovementResolver`는 아직 `destination reservation`만 본다.
+- `MoveAction`은 현재 `destination`만 들고 있으며, 경로 충돌 정보는 따로 없다.
+- `Attack`은 explicit `Attack` / `FireProjectile` / synthetic `ImpactReservation`로 구분된다.
+
+### 7-8-1. PushChain 설계
+
+목표:
+
+- `PushChain`을 Attack이 아니라 Movement 확장으로 연다.
+- 밀기 성공/실패는 `S0` 기준으로만 판정한다.
+- Commit에서는 선택된 체인만 이동시키고, 중간 damage나 remove는 하지 않는다.
+
+초기 정책:
+
+- `PushChain`은 `Unit`만 대상으로 한다.
+- `Projectile`은 push 대상이 아니다.
+- 체인 끝이 비어 있어야만 성공한다.
+- 체인 중간에 `Unit`이 아닌 blocker가 있거나, push 불가 상태가 있으면 전체 실패다.
+- 부분 밀기는 금지한다.
+- 같은 체인 멤버를 공유하는 후보끼리는 동시에 선택될 수 없다.
+
+현재 구조에 맞춘 최소 표현:
+
+- 새 raw intent 타입을 추가하지 않는다.
+- 기존 `RawMovementIntent` / `MoveIntent`를 그대로 사용한다.
+- `MovementExpander`가 `destination`에 `Unit`이 있는 경우 `Move` 대신 `PushChain` 후보를 생성한다.
+- 성공한 `PushChain` 후보는 하나의 `ActionGroup` 안에 여러 `MoveAction`을 담는다.
+- 이때 `MoveAction` 목록의 순서는 `체인 끝 -> 체인 시작`으로 고정한다.
+
+필요한 모델 보강:
+
+- `ActionGroupKind.PushChain` 추가
+- `MoveAction`에 `Source` 좌표를 추가한다.
+  이유:
+  - Resolver가 `edge reservation`을 계산할 때 출발/도착 edge가 필요하다.
+  - Committer가 현재 위치를 재질의하지 않고, Expander가 결정한 경로를 그대로 적용할 수 있어야 한다.
+
+Expander 알고리즘:
+
+1. source의 이동 delta를 계산한다.
+2. `destination`에 `Unit`이 없으면 기존 `Move` 후보 생성 규칙을 따른다.
+3. `destination`에 `Unit`이 있으면 같은 delta 방향으로 연속 점유 체인을 걷는다.
+4. 첫 빈칸을 찾으면 `PushChain` 성공 후보를 하나 만든다.
+5. 빈칸을 찾지 못하거나, 체인 중간에 push 불가 대상을 만나면 실패로 끝낸다.
+6. 실패 시 현재 구조를 유지하기 위해 초기 버전은 `Stop` 후보를 만들지 않고 `rejectedReasons`만 남긴다.
+
+체인 멤버별 이동 규칙:
+
+- 맨 끝 엔티티가 빈칸으로 이동
+- 그 앞 엔티티가 방금 비워질 칸으로 이동
+- 마지막으로 source가 원래 destination으로 이동
+- source의 facing은 이동 방향으로 갱신
+- 밀린 엔티티의 facing은 초기 버전에서는 유지한다
+
+Resolver 규칙:
+
+- 같은 `intentId`에서는 최대 하나의 후보만 선택
+- `PushChain` 후보는 아래 두 종류의 충돌을 함께 검사
+  - 최종 `destination reservation` 충돌
+  - 체인 멤버 `entityId` 공유 충돌
+- 이미 선택된 후보와 체인 멤버를 공유하면 later candidate를 reject한다.
+- reject reason은 `SharedPushChainMember`로 고정한다.
+
+Commit 규칙:
+
+- `MovementCommitter`는 `PushChain` group의 `MoveAction`을 리스트 순서대로 적용한다.
+- 이동 이벤트는 기존 `MoveCommitted` 포맷을 재사용한다.
+- `PushChain` 자체는 `PhaseTransientBuffer`를 사용하지 않는다.
+- Push 결과로 damage, destroy, spawn을 직접 만들지 않는다.
+
+테스트 우선순위:
+
+- `Movement_PushChain_SucceedsWhenChainEndsAtEmptyCell`
+- `Movement_PushChain_FailsWhenChainContainsUnpushableBlocker`
+- `Movement_PushChain_RejectsLaterCandidateThatSharesChainMember`
+- `Movement_PushChain_CommitsFromTailToHeadDeterministically`
+- `Replay_PushChainScenario_ProducesSameHashTraceAndEventLog`
+
+### 7-8-2. edge reservation 설계
+
+목표:
+
+- `destination reservation`만으로 표현되지 않는 경로 충돌을 Resolver에서 명시적으로 다룬다.
+- `edge reservation`은 월드 상태가 아니라 MovementResolver 내부의 Tick-local 자료다.
+- 다음 Tick으로 이월하지 않는다.
+
+초기 목적:
+
+- `PushChain` 다중 이동 경로 충돌 잠금
+- 향후 고속 projectile / slide / multi-step path 확장을 위한 준비
+
+핵심 원칙:
+
+- `edge reservation`은 `MovementResolver`의 선택 충돌 판정에만 사용한다.
+- `WorldState`, `WorldSnapshot`, `PhaseTransientBuffer`에는 저장하지 않는다.
+- 의미론은 여전히 `S0` 기준이며, Commit 후 world를 다시 읽어 판단하지 않는다.
+
+권장 데이터:
+
+```csharp
+internal readonly struct EdgeReservation
+{
+    public int entityId;
+    public Vector2Int from;
+    public Vector2Int to;
+    public int groupId;
+}
+```
+
+초기 충돌 규칙:
+
+- 동일한 undirected edge를 공유하는 later candidate는 reject
+- 같은 후보 내부의 edge들은 이미 Expander가 정합성을 보장한다고 가정
+- 기존 `destination reservation` 충돌은 그대로 유지
+- `edge reservation`은 `destination reservation`을 대체하지 않고 보완한다
+
+Resolver 알고리즘 변경:
+
+1. 후보의 모든 `MoveAction`에서 `destination` 예약을 계산
+2. 후보의 모든 `MoveAction`에서 `edge reservation`을 계산
+3. 이미 선택된 후보와 `destination` 충돌이 있으면 reject
+4. 이미 선택된 후보와 `edge` 충돌이 있으면 reject
+5. 충돌이 없으면 후보 선택 후 두 reservation을 모두 기록
+
+초기 범위에서 명시적으로 다루는 것:
+
+- `PushChain` vs `PushChain` 경로 겹침
+- 이후 고속 경로 확장 시 head-on crossing
+
+초기 범위에서 일부러 열지 않는 것:
+
+- curved path
+- speed 2 이상 projectile 세분 경로
+- diagonal edge
+
+테스트 우선순위:
+
+- `Movement_EdgeReservation_RejectsLaterCandidateThatSharesUndirectedEdge`
+- `Movement_EdgeReservation_StillRejectsDestinationConflict`
+- `Movement_EdgeReservation_DoesNotPersistAcrossTicks`
+- `Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog`
+
+### 7-8-3. on-hit 확장 검토
+
+결론부터 적는다.
+
+- Stage6에서는 generic `on-hit` 연쇄를 바로 열지 않는다.
+- 문서 원칙상 Commit 중간 새 Intent 생성은 계속 금지한다.
+- 따라서 `반격`, `처치 즉시 추가 공격`, `즉시 teleport`, `추가 target 선택`은 Stage6 범위 밖이다.
+
+현재 모델에서 허용되는 same-tick 효과:
+
+- 기존 입력 또는 `ImpactReservation`에서 Expander가 미리 계산할 수 있는 추가 action
+- 예:
+  - projectile self-destroy
+  - 고정 `SpawnAction`
+  - 고정 `StateChangeAction`
+  - 고정 `DamageAction`
+
+현재 모델에서 금지되는 same-tick 효과:
+
+- Commit 결과를 읽고 그 자리에서 새 intent를 만드는 것
+- kill 여부를 본 뒤 다른 target을 새로 고르는 것
+- Attack 중간에 Movement를 다시 여는 것
+- 피격 즉시 반격을 같은 Tick에 실행하는 것
+
+허용/금지 기준:
+
+- Expander 시점에 입력과 snapshot만으로 완전히 확정 가능하면 same-tick action으로 허용 가능
+- `finalHp`, `DestroyMark`, Cleanup 결과, 다른 후보의 commit 결과를 읽어야 하면 same-tick 금지
+
+필요 시 다음 단계의 권장 방향:
+
+- `on-hit`은 `next-tick delayed event`로만 모델링한다.
+- 이를 위해 `PhaseTransientBuffer`와 별도의 영속 queue가 필요하다.
+- 이 queue는 `WorldState`가 아니라 loop 계층이 소유한다.
+- Committer는 새 intent를 만들지 않고 `tick + 1`용 effect record만 enqueue한다.
+- 다음 Tick 시작 시 해당 effect를 system-generated input으로 변환해 정규화 체인에 합류시킨다.
+
+권장 분류:
+
+1. 즉시 action으로 충분한 효과
+2. next-tick delayed event가 필요한 효과
+3. 현재 설계 바깥이라 금지할 효과
+
+예시:
+
+- projectile impact 후 self-destroy: 1
+- hit 시 고정 debuff state 적용: 1
+- kill 시 새 target으로 튕기는 chain attack: 2
+- 피격 즉시 반격: 2
+- on-hit 즉시 teleport: 3
+
+Stage6에서 실제로 할 일:
+
+- generic on-hit 시스템은 구현하지 않는다.
+- 대신 허용/금지 경계를 테스트와 문서로 먼저 잠근다.
+
+테스트 우선순위:
+
+- `Attack_OnHit_DoesNotCreateSameTickNewIntent`
+- `Attack_OnHit_DoesNotReenterMovementPhase`
+- `Attack_ImpactReservation_CanStillExpandToFixedSameTickActions`
+
+### 7-8-4. 남은 Stage6 실제 착수 순서
+
+문서 순서와 현재 코드 상태를 함께 고려한 실제 순서는 아래가 맞다.
+
+1. `PushChain` 성공/실패와 shared-chain conflict를 먼저 연다.
+2. 그 다음 `MoveAction.Source`와 resolver 내부 `edge reservation`을 추가한다.
+3. `edge reservation`이 기존 `Move`, `ProjectileImpact`, `PushChain` 결정론을 깨지 않는지 replay로 고정한다.
+4. `on-hit`은 구현보다 금지 경계와 delayed-event 방향만 문서화한다.
+
+이 순서를 지켜야 하는 이유:
+
+- `PushChain`이 먼저 열려야 `edge reservation`의 실제 적용 대상을 갖게 된다.
+- `edge reservation`을 먼저 열면 현재 one-step 구조에서는 실효성이 약하고 설계만 커진다.
+- `on-hit`을 먼저 열면 Commit 중간 intent 생성 금지 원칙을 깨기 쉽다.
+
 ## 8. 상세 Phase 설계
 
 ### 8-1. Movement Phase
