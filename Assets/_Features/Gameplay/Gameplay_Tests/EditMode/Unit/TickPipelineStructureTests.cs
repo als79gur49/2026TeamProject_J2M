@@ -129,6 +129,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DelayedEventQueue_IsOwnedByTickPipeline_NotWorldState()
+        {
+            var tickPipelineFieldTypes = typeof(TickPipeline)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.FieldType)
+                .ToArray();
+            var worldStateFieldTypes = typeof(WorldState)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.FieldType)
+                .ToArray();
+
+            Assert.That(tickPipelineFieldTypes, Has.Member(typeof(DelayedAttackEffectQueue)));
+            Assert.That(worldStateFieldTypes, Has.No.Member(typeof(DelayedAttackEffectQueue)));
+        }
+
+        [Test]
         public void IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract()
         {
             var methods = typeof(IEntityLogic)

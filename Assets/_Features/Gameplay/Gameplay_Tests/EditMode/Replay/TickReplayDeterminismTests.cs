@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -198,6 +199,70 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,1)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
         }
 
+        [Test]
+        public void Replay_DelayedEventScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunDelayedEventReplaySequence();
+            var secondReplay = RunDelayedEventReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Final.PendingDelayedEffects"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("ExecuteTick=2"));
+            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Attack.DrainedDelayedEffects"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Command=DelayedEffect"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("DelayedAttackDrained|Tick=2|Source=10|Target=20|Damage=1|GeneratedTick=1|ExecuteTick=2|Group=99|Sequence=1"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("DamageCommitted|G=1|I=1|Target=20|Amount=1"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=1|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
+        }
+
+        [Test]
+        public void DeterminismHash_PendingDelayedEvent_IsIncludedInCanonicalState()
+        {
+            var pipelineWithoutDelayedEvent = new TickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+                }));
+            var pipelineWithDelayedEvent = new TickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+                }));
+            pipelineWithDelayedEvent.EnqueueDelayedAttackEffect(
+                new DelayedAttackEffectRecord(
+                    sourceId: 10,
+                    targetId: 20,
+                    damage: 1,
+                    priority: 5,
+                    tickGenerated: 1,
+                    executeAtTick: 2,
+                    sourceActionGroupId: 99,
+                    effectSequence: 1));
+
+            var resultWithoutDelayedEvent = pipelineWithoutDelayedEvent.RunTick(new TickInput(1));
+            var resultWithDelayedEvent = pipelineWithDelayedEvent.RunTick(new TickInput(1));
+
+            Assert.That(resultWithoutDelayedEvent.EventLog, Is.Empty);
+            Assert.That(resultWithDelayedEvent.EventLog, Is.Empty);
+            Assert.That(resultWithoutDelayedEvent.DeterminismHash, Is.Not.EqualTo(resultWithDelayedEvent.DeterminismHash));
+            Assert.That(resultWithDelayedEvent.Trace.Text, Does.Contain("Final.PendingDelayedEffects"));
+            Assert.That(resultWithDelayedEvent.Trace.Text, Does.Contain("ExecuteTick=2"));
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -370,6 +435,36 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new[]
                 {
                     new TickInput(1),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunDelayedEventReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[0],
+                new[]
+                {
+                    new TickInput(1),
+                    new TickInput(2),
+                },
+                new[]
+                {
+                    new DelayedAttackEffectRecord(
+                        sourceId: 10,
+                        targetId: 20,
+                        damage: 1,
+                        priority: 5,
+                        tickGenerated: 1,
+                        executeAtTick: 2,
+                        sourceActionGroupId: 99,
+                        effectSequence: 1),
                 });
         }
 

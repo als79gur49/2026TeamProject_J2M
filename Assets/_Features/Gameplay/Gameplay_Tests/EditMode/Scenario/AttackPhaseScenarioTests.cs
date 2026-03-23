@@ -627,6 +627,129 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.Trace.Text, Does.Contain("Command=ImpactReservation"));
         }
 
+        [Test]
+        public void DelayedEventQueue_DrainsOnNextTickOnly()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+            });
+            var pipeline = new TickPipeline(worldState);
+            pipeline.EnqueueDelayedAttackEffect(
+                new DelayedAttackEffectRecord(
+                    sourceId: 10,
+                    targetId: 20,
+                    damage: 1,
+                    priority: 5,
+                    tickGenerated: 1,
+                    executeAtTick: 2,
+                    sourceActionGroupId: 99,
+                    effectSequence: 1));
+
+            var firstResult = pipeline.RunTick(new TickInput(1));
+            var snapshotAfterFirstTick = CreateSnapshot(worldState);
+
+            Assert.That(firstResult.AttackPhaseResult.DrainedDelayedAttackEffects, Is.Empty);
+            Assert.That(firstResult.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(firstResult.EventLog.Any(evt => evt.Contains("DelayedAttackDrained")), Is.False);
+            Assert.That(GetEntityHp(snapshotAfterFirstTick, 20), Is.EqualTo(2));
+
+            var secondResult = pipeline.RunTick(new TickInput(2));
+            var snapshotAfterSecondTick = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, TargetId: 20, ExecuteTick: 2, Sequence: 1),
+                },
+                secondResult.AttackPhaseResult
+                    .DrainedDelayedAttackEffects
+                    .Select(effect => (effect.SourceId, effect.TargetId, effect.ExecuteAtTick, effect.EffectSequence))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, Command: AttackCommandKind.DelayedEffect, TargetId: 20, IsSynthetic: true),
+                },
+                secondResult.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId, intent.IsSynthetic))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
+                },
+                secondResult.AttackPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "DelayedAttackDrained|Tick=2|Source=10|Target=20|Damage=1|GeneratedTick=1|ExecuteTick=2|Group=99|Sequence=1",
+                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
+                },
+                secondResult.EventLog);
+            Assert.That(GetEntityHp(snapshotAfterSecondTick, 20), Is.EqualTo(1));
+            Assert.That(IsMarkedForDeath(snapshotAfterSecondTick, 20), Is.False);
+        }
+
+        [Test]
+        public void DelayedEventQueue_DoesNotCreateSameTickBackflow()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(0, 1), hp: 3),
+            });
+            var snapshot = SnapshotBuilder.Create(worldState);
+            var group = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.Attack);
+            group.AssignGroupId(1);
+            group.Damages.Add(new DamageAction(20, 1));
+            group.DelayedAttacks.Add(new DelayedAttackAction(30, 1));
+
+            var queue = new DelayedAttackEffectQueue();
+            var commitEvents = new List<string>();
+            var delayedAttackEvents = new List<string>();
+
+            new AttackCommitter().Commit(
+                snapshot,
+                worldState.CreateWriteContext(),
+                tickIndex: 7,
+                queue,
+                new[] { group },
+                commitEvents,
+                delayedAttackEvents);
+
+            var snapshotAfterCommit = CreateSnapshot(worldState);
+            var sameTickDrain = queue.Drain(7);
+            var nextTickDrain = queue.Drain(8);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
+                },
+                commitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "DelayedAttackEnqueued|G=1|I=1|Source=10|Target=30|Damage=1|ExecuteTick=8|Sequence=1",
+                },
+                delayedAttackEvents);
+            Assert.That(GetEntityHp(snapshotAfterCommit, 20), Is.EqualTo(2));
+            Assert.That(GetEntityHp(snapshotAfterCommit, 30), Is.EqualTo(3));
+            Assert.That(sameTickDrain, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, TargetId: 30, ExecuteTick: 8, Sequence: 1),
+                },
+                nextTickDrain
+                    .Select(effect => (effect.SourceId, effect.TargetId, effect.ExecuteAtTick, effect.EffectSequence))
+                    .ToArray());
+        }
+
         private static (TickResult Result, WorldSnapshot SnapshotAfter, string OccupancyAfter) RunFatalAttackTick()
         {
             var worldState = CreateWorldState(new[]
@@ -683,11 +806,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             FinalizeAttackSpawns(selectedGroups, idAllocator, entityIdAllocator);
 
             var commitEvents = new List<string>();
+            var delayedAttackEvents = new List<string>();
             new AttackCommitter().Commit(
                 snapshot,
                 worldState.CreateWriteContext(),
+                tickIndex,
+                new DelayedAttackEffectQueue(),
                 selectedGroups,
-                commitEvents);
+                commitEvents,
+                delayedAttackEvents);
 
             return new AttackPhaseResult(
                 rawAttackIntents,

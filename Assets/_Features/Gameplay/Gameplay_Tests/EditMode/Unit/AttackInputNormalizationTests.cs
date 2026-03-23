@@ -234,7 +234,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 attackPhaseResult,
                 CleanupPhaseResult.Empty,
                 snapshot,
-                new TickResultData(finalEntities, Array.Empty<string>()),
+                new TickResultData(finalEntities, Array.Empty<DelayedAttackEffectRecord>(), Array.Empty<string>()),
                 "0123456789ABCDEF");
 
             Assert.That(trace.Text, Does.Contain("Attack.DrainedImpacts"));

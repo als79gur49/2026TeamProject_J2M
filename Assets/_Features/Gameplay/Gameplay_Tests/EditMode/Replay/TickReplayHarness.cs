@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -12,10 +13,19 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public IReadOnlyList<TickReplayFrame> Run(
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
-            IReadOnlyList<TickInput> inputs)
+            IReadOnlyList<TickInput> inputs,
+            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null)
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
             var pipeline = new TickPipeline(worldState, entityLogicList);
+            if (initialDelayedAttackEffects != null)
+            {
+                for (var i = 0; i < initialDelayedAttackEffects.Count; i++)
+                {
+                    pipeline.EnqueueDelayedAttackEffect(initialDelayedAttackEffects[i]);
+                }
+            }
+
             var frames = new List<TickReplayFrame>(inputs.Count);
 
             for (var i = 0; i < inputs.Count; i++)

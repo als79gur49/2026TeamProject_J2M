@@ -357,6 +357,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DelayedEventQueue_OrderIsDeterministic()
+        {
+            var queue = new DelayedAttackEffectQueue();
+            queue.Enqueue(new DelayedAttackEffectRecord(2, 40, 1, 5, 3, 4, 2, 3));
+            queue.Enqueue(new DelayedAttackEffectRecord(1, 30, 1, 5, 3, 5, 3, 1));
+            queue.Enqueue(new DelayedAttackEffectRecord(1, 20, 1, 5, 3, 4, 2, 2));
+            queue.Enqueue(new DelayedAttackEffectRecord(1, 10, 1, 5, 3, 4, 1, 1));
+
+            var drainedEffects = queue.Drain(4);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 1, GroupId: 1, Sequence: 1, TargetId: 10),
+                    (SourceId: 1, GroupId: 2, Sequence: 2, TargetId: 20),
+                    (SourceId: 2, GroupId: 2, Sequence: 3, TargetId: 40),
+                },
+                drainedEffects
+                    .Select(effect => (effect.SourceId, GroupId: effect.SourceActionGroupId, Sequence: effect.EffectSequence, effect.TargetId))
+                    .ToArray());
+            Assert.That(queue.Drain(4), Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 1, GroupId: 3, Sequence: 1, TargetId: 30),
+                },
+                queue.Drain(5)
+                    .Select(effect => (effect.SourceId, GroupId: effect.SourceActionGroupId, Sequence: effect.EffectSequence, effect.TargetId))
+                    .ToArray());
+        }
+
+        [Test]
         public void AttackInputComparer_SortsBySourceKindAndLocalSequence()
         {
             var impactIntent = AttackIntent.FromImpactReservation(
