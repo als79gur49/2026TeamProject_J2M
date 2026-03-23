@@ -70,6 +70,33 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator GameplayInputHost_InteractBufferedAtTickBoundary_PrioritizesSlideOverMove()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
+                    CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+                },
+                actions: actions);
+
+            Press(_keyboard.dKey);
+            Press(_keyboard.eKey);
+            yield return null;
+
+            host.InputHost.RunSingleTick();
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
+
+            Release(_keyboard.eKey);
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
         public IEnumerator PlayerMove_PlayMode_HoldInputRepeatsAtConfiguredTickInterval()
         {
             var host = CreateHost(new[]
@@ -199,6 +226,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
         }
 
+        private static EntityState CreateBox(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+            };
+        }
+
         private static IEnumerator DestroyHost(GameplaySceneHost host, Object ownedActions = null)
         {
             if (host != null)
@@ -225,11 +267,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
             var map = new InputActionMap("Player");
             var move = map.AddAction("Move", InputActionType.Value);
+            var interact = map.AddAction("Interact", InputActionType.Button);
             move.AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/w")
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
+            interact.AddBinding("<Keyboard>/e");
             actions.AddActionMap(map);
             return actions;
         }
