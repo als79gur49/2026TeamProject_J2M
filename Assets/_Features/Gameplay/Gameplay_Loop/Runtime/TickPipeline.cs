@@ -258,7 +258,7 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < rawMovementIntents.Count; i++)
             {
                 var rawIntent = rawMovementIntents[i];
-                var moveIntent = new MoveIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.Destination);
+                var moveIntent = new MoveIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.Destination, rawIntent.CommandKind);
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);
             }

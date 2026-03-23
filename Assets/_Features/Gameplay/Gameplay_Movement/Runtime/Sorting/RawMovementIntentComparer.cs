@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 
 namespace Game.Feature.Gameplay.Movement.Sorting
@@ -16,6 +17,12 @@ namespace Game.Feature.Gameplay.Movement.Sorting
             }
 
             result = right.Priority.CompareTo(left.Priority);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ((int)left.CommandKind).CompareTo((int)right.CommandKind);
             if (result != 0)
             {
                 return result;

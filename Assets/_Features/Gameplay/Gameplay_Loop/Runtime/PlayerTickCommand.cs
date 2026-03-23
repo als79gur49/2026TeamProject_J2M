@@ -3,28 +3,47 @@ using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    public enum PlayerPrimaryCommandKind
+    {
+        None = 0,
+        Move = 1,
+        InteractSlide = 2,
+    }
+
     public readonly struct PlayerTickCommand
     {
-        public PlayerTickCommand(Direction moveDirection, bool hasMove)
+        public PlayerTickCommand(PlayerPrimaryCommandKind primaryKind, Direction direction)
         {
-            if (hasMove && moveDirection == Direction.None)
+            if (primaryKind == PlayerPrimaryCommandKind.None)
             {
-                throw new ArgumentException("Player move commands must specify a non-none direction.", nameof(moveDirection));
+                if (direction != Direction.None)
+                {
+                    throw new ArgumentException("None commands cannot specify a direction.", nameof(direction));
+                }
+            }
+            else if (direction == Direction.None)
+            {
+                throw new ArgumentException("Primary player commands must specify a non-none direction.", nameof(direction));
             }
 
-            MoveDirection = hasMove ? moveDirection : Direction.None;
-            HasMove = hasMove;
+            PrimaryKind = primaryKind;
+            Direction = primaryKind == PlayerPrimaryCommandKind.None ? Direction.None : direction;
         }
 
-        public Direction MoveDirection { get; }
+        public PlayerPrimaryCommandKind PrimaryKind { get; }
 
-        public bool HasMove { get; }
+        public Direction Direction { get; }
 
         public static PlayerTickCommand None => default;
 
-        public static PlayerTickCommand Move(Direction moveDirection)
+        public static PlayerTickCommand Move(Direction direction)
         {
-            return new PlayerTickCommand(moveDirection, hasMove: true);
+            return new PlayerTickCommand(PlayerPrimaryCommandKind.Move, direction);
+        }
+
+        public static PlayerTickCommand InteractSlide(Direction direction)
+        {
+            return new PlayerTickCommand(PlayerPrimaryCommandKind.InteractSlide, direction);
         }
     }
 }

@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using UnityEngine;
 
@@ -40,11 +41,6 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(buffer));
             }
 
-            if (!input.PlayerCommand.HasMove)
-            {
-                return;
-            }
-
             if (!snapshot.TryGetEntity(_entityId, out var entity))
             {
                 return;
@@ -55,7 +51,13 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (!TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
+            var commandKind = ResolveCommandKind(input.PlayerCommand.PrimaryKind);
+            if (!commandKind.HasValue)
+            {
+                return;
+            }
+
+            if (!TryResolveDelta(input.PlayerCommand.Direction, out var delta))
             {
                 return;
             }
@@ -64,7 +66,8 @@ namespace Game.Feature.Gameplay.Entities
                 new RawMovementIntent(
                     entity.entityId,
                     DefaultMovementPriority,
-                    entity.position + delta));
+                    entity.position + delta,
+                    commandKind.Value));
         }
 
         public void CollectAttackIntents(
@@ -85,6 +88,21 @@ namespace Game.Feature.Gameplay.Entities
         public bool ControlsEntity(int entityId, TickPhase phase)
         {
             return phase == TickPhase.Movement && entityId == _entityId;
+        }
+
+        private static MovementCommandKind? ResolveCommandKind(PlayerPrimaryCommandKind primaryKind)
+        {
+            switch (primaryKind)
+            {
+                case PlayerPrimaryCommandKind.Move:
+                    return MovementCommandKind.Move;
+
+                case PlayerPrimaryCommandKind.InteractSlide:
+                    return MovementCommandKind.InteractSlide;
+
+                default:
+                    return null;
+            }
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

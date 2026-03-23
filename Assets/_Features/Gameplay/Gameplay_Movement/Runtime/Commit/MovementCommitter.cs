@@ -68,6 +68,14 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
+                if (group.GroupKind == ActionGroupKind.Slide)
+                {
+                    var slideSourceFacing = ResolveSlideSourceFacing(snapshot, sortedIntents, group);
+                    writeContext.SetFacing(group.SourceId, slideSourceFacing);
+                    commitEvents.Add(
+                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={slideSourceFacing}");
+                }
+
                 for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
                 {
                     var move = group.Moves[moveIndex];
@@ -132,6 +140,49 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             return null;
+        }
+
+        private static Direction ResolveSlideSourceFacing(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ActionGroup group)
+        {
+            if (!snapshot.TryGetEntity(group.SourceId, out var source))
+            {
+                throw new InvalidOperationException(
+                    $"Slide group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
+            }
+
+            var intent = FindIntent(sortedIntents, group.IntentId);
+            if (intent == null)
+            {
+                throw new InvalidOperationException(
+                    $"Slide group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
+            }
+
+            var delta = intent.Destination - source.position;
+            if (delta.x == 0 && delta.y == 1)
+            {
+                return Direction.Up;
+            }
+
+            if (delta.x == 1 && delta.y == 0)
+            {
+                return Direction.Right;
+            }
+
+            if (delta.x == 0 && delta.y == -1)
+            {
+                return Direction.Down;
+            }
+
+            if (delta.x == -1 && delta.y == 0)
+            {
+                return Direction.Left;
+            }
+
+            throw new InvalidOperationException(
+                $"Slide group requires an orthogonal adjacent interaction direction. Source={group.SourceId}, Intent={group.IntentId}");
         }
     }
 }

@@ -9,5 +9,6 @@ namespace Game.Feature.Gameplay.Model.Groups
         Cleanup = 4,
         ProjectileImpact = 5,
         PushChain = 6,
+        Slide = 7,
     }
 }

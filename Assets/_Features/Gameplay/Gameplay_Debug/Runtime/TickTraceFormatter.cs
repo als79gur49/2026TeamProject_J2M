@@ -139,12 +139,12 @@ namespace Game.Feature.Gameplay.Debug
 
         private static string FormatRawMovementIntent(RawMovementIntent rawIntent)
         {
-            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Destination=({rawIntent.Destination.x},{rawIntent.Destination.y})";
+            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Destination=({rawIntent.Destination.x},{rawIntent.Destination.y})|Command={rawIntent.CommandKind}";
         }
 
         private static string FormatMoveIntent(MoveIntent intent)
         {
-            return $"I={intent.IntentId}|Source={intent.SourceId}|Priority={intent.Priority}|Destination=({intent.Destination.x},{intent.Destination.y})";
+            return $"I={intent.IntentId}|Source={intent.SourceId}|Priority={intent.Priority}|Destination=({intent.Destination.x},{intent.Destination.y})|Command={intent.CommandKind}";
         }
 
         private static string FormatRawAttackIntent(RawAttackIntent rawIntent)
