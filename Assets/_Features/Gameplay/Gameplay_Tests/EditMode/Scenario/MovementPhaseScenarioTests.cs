@@ -87,9 +87,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
             Assert.That(occupancyBefore, Is.EqualTo("10@(0,0),20@(1,0)"));
             Assert.That(occupancyAfter, Is.EqualTo("10@(0,0),20@(1,0)"));
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(result.Trace.Text, Does.Contain("Movement.RejectedReasons"));
+            Assert.That(result.Trace.Text, Does.Contain("Reason=BlockedDestination"));
         }
 
         [Test]
@@ -137,6 +145,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { "MoveCommitted|G=1|I=2|E=20|To=(1,0)|Facing=Left" },
                 result.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=1|Source=10|Reason=DestinationReserved|Cell=(1,0)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
             Assert.That(occupancyBefore, Is.EqualTo("10@(0,0),20@(2,0)"));
             Assert.That(occupancyAfter, Is.EqualTo("10@(0,0),20@(1,0)"));
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Expansion;
@@ -274,8 +275,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.AttackPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
             Assert.That(result.AttackPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "AttackRejected|Stage=Expand|I=1|Source=10|Target=20|Reason=NotAdjacent|SourceCell=(0,0)|TargetCell=(2,0)",
+                },
+                result.AttackPhaseResult.RejectedReasons);
             Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(3));
             Assert.That(IsMarkedForDeath(snapshotAfter, 20), Is.False);
+            Assert.That(result.Trace.Text, Does.Contain("Attack.RejectedReasons"));
+            Assert.That(result.Trace.Text, Does.Contain("Reason=NotAdjacent"));
         }
 
         private static (TickResult Result, WorldSnapshot SnapshotAfter, string OccupancyAfter) RunFatalAttackTick()
@@ -307,6 +316,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshot = SnapshotBuilder.Create(worldState);
             var rawAttackIntents = new List<RawAttackIntent>();
             new AttackIntentCollector().Collect(snapshot, entityLogics, rawAttackIntents);
+            var drainedImpactReservations = new List<ImpactReservation>();
 
             var idAllocator = new IdAllocator();
             idAllocator.ResetForTick(tickIndex);
@@ -325,7 +335,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var expandedCandidates = new List<ActionGroup>();
-            new AttackExpander().Expand(snapshot, sortedInputs, expandedCandidates);
+            var rejectedReasons = new List<string>();
+            new AttackExpander().Expand(snapshot, sortedInputs, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             for (var i = 0; i < expandedCandidates.Count; i++)
             {
@@ -333,7 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var selectedGroups = new List<ActionGroup>();
-            new AttackResolver().Resolve(expandedCandidates, selectedGroups);
+            new AttackResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
             new AttackCommitter().Commit(
@@ -343,10 +354,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 commitEvents);
 
             return new AttackPhaseResult(
+                rawAttackIntents,
+                drainedImpactReservations,
                 sortedInputs,
                 expandedCandidates,
                 selectedGroups,
-                commitEvents);
+                commitEvents,
+                rejectedReasons);
         }
 
         private static RawAttackIntent? TryCreateAdjacentAttack(

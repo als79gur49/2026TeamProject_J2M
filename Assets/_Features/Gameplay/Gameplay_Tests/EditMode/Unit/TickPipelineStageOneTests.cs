@@ -176,6 +176,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WorldSnapshot_EnumeratesOccupancyLayersInCellOrder()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 30,
+                    position = new Vector2Int(3, 1),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new Vector2Int(0, 2),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 40,
+                    position = new Vector2Int(2, 1),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 2,
+                    type = EntityType.Projectile,
+                },
+                new EntityState
+                {
+                    entityId = 20,
+                    position = new Vector2Int(1, 1),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 2,
+                    type = EntityType.Projectile,
+                },
+            });
+            var snapshot = CreateSnapshot(worldState);
+            var orderedUnits = new List<SnapshotOccupancyEntry>();
+            var orderedProjectiles = new List<SnapshotOccupancyEntry>();
+
+            snapshot.EnumerateUnitOccupancyOrdered(orderedUnits);
+            snapshot.EnumerateProjectileOccupancyOrdered(orderedProjectiles);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (X: 0, Y: 2, EntityId: 10),
+                    (X: 3, Y: 1, EntityId: 30),
+                },
+                orderedUnits.Select(entry => (entry.Cell.x, entry.Cell.y, entry.EntityId)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (X: 1, Y: 1, EntityId: 20),
+                    (X: 2, Y: 1, EntityId: 40),
+                },
+                orderedProjectiles.Select(entry => (entry.Cell.x, entry.Cell.y, entry.EntityId)).ToArray());
+        }
+
+        [Test]
         public void WorldSnapshot_BlocksMovementUntilCleanupEvenWhenEntityIsMarkedForDeath()
         {
             var worldState = CreateWorldState(new[]

@@ -1,0 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="35" result="Passed" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.1857732">
+  <test-suite type="TestSuite" id="1057" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.185773" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1042" name="Game.Feature.Gameplay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Feature.Gameplay.Tests.dll" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.172289" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="8872" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1043" name="Game" fullname="Game" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.171385" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1044" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.170861" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1045" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.170406" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1046" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="35" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.169815" total="35" passed="35" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1049" name="Replay" fullname="Game.Feature.Gameplay.Tests.Replay" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.066271" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1039" name="TickReplayDeterminismTests" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.065179" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1041" name="Replay_SameInitialWorldAndInputSequence_ProducesSamePerTickHashAndTrace" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_SameInitialWorldAndInputSequence_ProducesSamePerTickHashAndTrace" methodname="Replay_SameInitialWorldAndInputSequence_ProducesSamePerTickHashAndTrace" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="534900756" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.045849" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1040" name="TickResult_ExtendsFinalStateAndEventLog_WithoutCrossPhaseBackflow" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.TickResult_ExtendsFinalStateAndEventLog_WithoutCrossPhaseBackflow" methodname="TickResult_ExtendsFinalStateAndEventLog_WithoutCrossPhaseBackflow" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="1817164930" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.005676" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+              <test-suite type="TestSuite" id="1048" name="Scenario" fullname="Game.Feature.Gameplay.Tests.Scenario" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.078255" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1021" name="AttackPhaseScenarioTests" fullname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests" classname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.022750" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1023" name="Attack_DeadAfterDamage_StillOccupiesUntilCleanup" fullname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_DeadAfterDamage_StillOccupiesUntilCleanup" methodname="Attack_DeadAfterDamage_StillOccupiesUntilCleanup" classname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests" runstate="Runnable" seed="560759513" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.005104" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1024" name="Attack_FatalDamage_IsRemovedByCleanupAtTickEnd" fullname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FatalDamage_IsRemovedByCleanupAtTickEnd" methodname="Attack_FatalDamage_IsRemovedByCleanupAtTickEnd" classname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests" runstate="Runnable" seed="981467006" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.009281" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1022" name="Attack_MoveThenAttack_UsesPostMoveSnapshot" fullname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_MoveThenAttack_UsesPostMoveSnapshot" methodname="Attack_MoveThenAttack_UsesPostMoveSnapshot" classname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests" runstate="Runnable" seed="329972340" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.003185" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1025" name="Attack_NonAdjacentTarget_DoesNotProduceCandidate" fullname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_NonAdjacentTarget_DoesNotProduceCandidate" methodname="Attack_NonAdjacentTarget_DoesNotProduceCandidate" classname="Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests" runstate="Runnable" seed="477558684" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001325" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1026" name="CleanupPhaseScenarioTests" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.026093" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1027" name="Cleanup_DestroyMarkedEntity_IsRemovedOnlyInCleanup" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_DestroyMarkedEntity_IsRemovedOnlyInCleanup" methodname="Cleanup_DestroyMarkedEntity_IsRemovedOnlyInCleanup" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="935969661" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001211" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1028" name="Cleanup_HpZeroEntity_IsRemovedInCleanup" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_HpZeroEntity_IsRemovedInCleanup" methodname="Cleanup_HpZeroEntity_IsRemovedInCleanup" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="71546768" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000401" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1029" name="Cleanup_RemovalClearsOccupancy" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_RemovalClearsOccupancy" methodname="Cleanup_RemovalClearsOccupancy" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="1556743191" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000370" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1033" name="Cleanup_SameInput_ProducesDeterministicResult" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_SameInput_ProducesDeterministicResult" methodname="Cleanup_SameInput_ProducesDeterministicResult" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="1050366166" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001245" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1030" name="Cleanup_SpawnedThisTick_DoesNotTickTimer" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_SpawnedThisTick_DoesNotTickTimer" methodname="Cleanup_SpawnedThisTick_DoesNotTickTimer" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="1020754209" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000563" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1031" name="Cleanup_StateTimer_DecrementsOnlyForSurvivors" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_StateTimer_DecrementsOnlyForSurvivors" methodname="Cleanup_StateTimer_DecrementsOnlyForSurvivors" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="813973855" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000479" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1032" name="Cleanup_StateTransition_AppliesAfterTimerTick" fullname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_StateTransition_AppliesAfterTimerTick" methodname="Cleanup_StateTransition_AppliesAfterTimerTick" classname="Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests" runstate="Runnable" seed="964227804" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000428" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1034" name="MovementPhaseScenarioTests" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" testcasecount="4" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.021034" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1036" name="Movement_BlockedCellMove_Fails" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_BlockedCellMove_Fails" methodname="Movement_BlockedCellMove_Fails" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="157772818" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.002898" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1035" name="Movement_EmptyCellMove_Succeeds" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_EmptyCellMove_Succeeds" methodname="Movement_EmptyCellMove_Succeeds" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="2058244994" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.002614" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1037" name="Movement_SameDestination_OnlyHigherPriorityWins" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameDestination_OnlyHigherPriorityWins" methodname="Movement_SameDestination_OnlyHigherPriorityWins" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="122881876" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.004713" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1038" name="Movement_SameInput_AssignsDeterministicIntentIds" fullname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameInput_AssignsDeterministicIntentIds" methodname="Movement_SameInput_AssignsDeterministicIntentIds" classname="Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests" runstate="Runnable" seed="1087905511" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001546" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+              <test-suite type="TestSuite" id="1047" name="Unit" fullname="Game.Feature.Gameplay.Tests.Unit" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.024665" total="18" passed="18" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1001" name="TickPipelineStageOneTests" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" testcasecount="12" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.013871" total="12" passed="12" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1013" name="ActionGroupComparer_ProvidesTotalOrder" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.ActionGroupComparer_ProvidesTotalOrder" methodname="ActionGroupComparer_ProvidesTotalOrder" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="1600617199" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000536" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1010" name="AttackInputComparer_SortsBySourceKindAndLocalSequence" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.AttackInputComparer_SortsBySourceKindAndLocalSequence" methodname="AttackInputComparer_SortsBySourceKindAndLocalSequence" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="1247368977" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.002157" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1002" name="IdAllocator_ResetForTick_RestartsCategorySequences" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.IdAllocator_ResetForTick_RestartsCategorySequences" methodname="IdAllocator_ResetForTick_RestartsCategorySequences" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="1992153901" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000328" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1011" name="IntentComparer_ProvidesTotalOrder" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.IntentComparer_ProvidesTotalOrder" methodname="IntentComparer_ProvidesTotalOrder" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="1779964126" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001295" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1012" name="IntentComparer_SortsNewIntentType_WithoutComparerChanges" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.IntentComparer_SortsNewIntentType_WithoutComparerChanges" methodname="IntentComparer_SortsNewIntentType_WithoutComparerChanges" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="367693017" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000518" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1009" name="PhaseTransientBuffer_DrainImpacts_ReturnsDeterministicOrder_AndClearsBuffer" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.PhaseTransientBuffer_DrainImpacts_ReturnsDeterministicOrder_AndClearsBuffer" methodname="PhaseTransientBuffer_DrainImpacts_ReturnsDeterministicOrder_AndClearsBuffer" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="1970925118" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.002174" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1004" name="RunTick_AttackPhase_CollectsOnlyAliveEntityIntents" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_AttackPhase_CollectsOnlyAliveEntityIntents" methodname="RunTick_AttackPhase_CollectsOnlyAliveEntityIntents" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="313466310" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001651" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1003" name="RunTick_SortsRawIntents_AndAssignsCentralIntentIds" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_SortsRawIntents_AndAssignsCentralIntentIds" methodname="RunTick_SortsRawIntents_AndAssignsCentralIntentIds" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="153008356" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000931" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1006" name="WorldSnapshot_BlocksMovementUntilCleanupEvenWhenEntityIsMarkedForDeath" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_BlocksMovementUntilCleanupEvenWhenEntityIsMarkedForDeath" methodname="WorldSnapshot_BlocksMovementUntilCleanupEvenWhenEntityIsMarkedForDeath" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="395672344" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000463" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1007" name="WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy" methodname="WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="18374783" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000201" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1005" name="WorldSnapshot_EnumeratesEntitiesInEntityIdOrder" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_EnumeratesEntitiesInEntityIdOrder" methodname="WorldSnapshot_EnumeratesEntitiesInEntityIdOrder" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="126781014" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000777" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1008" name="WorldSnapshot_IsImmutable_AfterWorldMutation" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_IsImmutable_AfterWorldMutation" methodname="WorldSnapshot_IsImmutable_AfterWorldMutation" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests" runstate="Runnable" seed="1350332073" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000545" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1014" name="TickPipelineStructureTests" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" testcasecount="6" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.007917" total="6" passed="6" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1017" name="IdAllocator_IsNotExposedAsPublicRuntimeApi" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.IdAllocator_IsNotExposedAsPublicRuntimeApi" methodname="IdAllocator_IsNotExposedAsPublicRuntimeApi" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1625012978" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.001113" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1020" name="IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract" methodname="IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1539190660" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000840" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1015" name="RunTick_CompletesMovementAttackCleanup" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.RunTick_CompletesMovementAttackCleanup" methodname="RunTick_CompletesMovementAttackCleanup" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1017578125" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000845" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1016" name="TickResult_DoesNotExposePhaseDiagnosticsInPublicApi" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.TickResult_DoesNotExposePhaseDiagnosticsInPublicApi" methodname="TickResult_DoesNotExposePhaseDiagnosticsInPublicApi" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1021357153" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000492" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1018" name="WorldState_DoesNotExposeDirectPublicMutationApi" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.WorldState_DoesNotExposeDirectPublicMutationApi" methodname="WorldState_DoesNotExposeDirectPublicMutationApi" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1960753479" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000784" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1019" name="WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers" fullname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers" methodname="WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers" classname="Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests" runstate="Runnable" seed="1890563463" result="Passed" start-time="2026-03-23 07:20:34Z" end-time="2026-03-23 07:20:34Z" duration="0.000597" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
