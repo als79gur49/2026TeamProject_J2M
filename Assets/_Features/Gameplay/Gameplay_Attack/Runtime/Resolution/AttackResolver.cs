@@ -8,7 +8,8 @@ namespace Game.Feature.Gameplay.Attack.Resolution
     {
         public void Resolve(
             IReadOnlyList<ActionGroup> sortedCandidates,
-            List<ActionGroup> buffer)
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
         {
             if (sortedCandidates == null)
             {
@@ -20,6 +21,11 @@ namespace Game.Feature.Gameplay.Attack.Resolution
                 throw new ArgumentNullException(nameof(buffer));
             }
 
+            if (rejectedReasons == null)
+            {
+                throw new ArgumentNullException(nameof(rejectedReasons));
+            }
+
             buffer.Clear();
 
             var selectedIntentIds = new HashSet<int>();
@@ -29,6 +35,8 @@ namespace Game.Feature.Gameplay.Attack.Resolution
                 var candidate = sortedCandidates[i];
                 if (!selectedIntentIds.Add(candidate.IntentId))
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=IntentAlreadySelected");
                     continue;
                 }
 

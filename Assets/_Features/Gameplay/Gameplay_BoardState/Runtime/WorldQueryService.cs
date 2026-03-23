@@ -88,6 +88,30 @@ namespace Game.Feature.Gameplay.BoardState
             buffer.Sort(EntityIdComparer.Instance);
         }
 
+        public static void EnumerateOccupancyOrdered(
+            IReadOnlyDictionary<Vector2Int, int> occupancyByCell,
+            List<SnapshotOccupancyEntry> buffer)
+        {
+            if (occupancyByCell == null)
+            {
+                throw new ArgumentNullException(nameof(occupancyByCell));
+            }
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in occupancyByCell)
+            {
+                buffer.Add(new SnapshotOccupancyEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort(OccupancyEntryComparer.Instance);
+        }
+
         private sealed class EntityIdComparer : IComparer<EntityState>
         {
             internal static readonly EntityIdComparer Instance = new();
@@ -95,6 +119,28 @@ namespace Game.Feature.Gameplay.BoardState
             public int Compare(EntityState left, EntityState right)
             {
                 return left.entityId.CompareTo(right.entityId);
+            }
+        }
+
+        private sealed class OccupancyEntryComparer : IComparer<SnapshotOccupancyEntry>
+        {
+            internal static readonly OccupancyEntryComparer Instance = new();
+
+            public int Compare(SnapshotOccupancyEntry left, SnapshotOccupancyEntry right)
+            {
+                var result = left.Cell.x.CompareTo(right.Cell.x);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                result = left.Cell.y.CompareTo(right.Cell.y);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                return left.EntityId.CompareTo(right.EntityId);
             }
         }
     }

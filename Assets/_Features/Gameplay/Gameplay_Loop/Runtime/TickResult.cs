@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Model.Phases;
 
 namespace Game.Feature.Gameplay.Loop
@@ -8,6 +10,8 @@ namespace Game.Feature.Gameplay.Loop
     public sealed class TickResult
     {
         private readonly ReadOnlyCollection<TickPhase> _completedPhases;
+        private readonly ReadOnlyCollection<string> _eventLog;
+        private readonly ReadOnlyCollection<EntityState> _finalEntities;
         private readonly ReadOnlyCollection<string> _phaseTrace;
 
         public TickResult(int tickIndex, IEnumerable<TickPhase> completedPhases, IEnumerable<string> phaseTrace)
@@ -17,7 +21,11 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace,
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty)
+                CleanupPhaseResult.Empty,
+                Array.Empty<EntityState>(),
+                Array.Empty<string>(),
+                string.Empty,
+                TickTrace.Empty)
         {
         }
 
@@ -27,7 +35,11 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> phaseTrace,
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
-            CleanupPhaseResult cleanupPhaseResult)
+            CleanupPhaseResult cleanupPhaseResult,
+            IEnumerable<EntityState> finalEntities,
+            IEnumerable<string> eventLog,
+            string determinismHash,
+            TickTrace trace)
         {
             if (completedPhases == null)
             {
@@ -39,12 +51,31 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(phaseTrace));
             }
 
+            if (finalEntities == null)
+            {
+                throw new ArgumentNullException(nameof(finalEntities));
+            }
+
+            if (eventLog == null)
+            {
+                throw new ArgumentNullException(nameof(eventLog));
+            }
+
+            if (determinismHash == null)
+            {
+                throw new ArgumentNullException(nameof(determinismHash));
+            }
+
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
+            Trace = trace ?? throw new ArgumentNullException(nameof(trace));
             TickIndex = tickIndex;
             _completedPhases = new ReadOnlyCollection<TickPhase>(new List<TickPhase>(completedPhases));
             _phaseTrace = new ReadOnlyCollection<string>(new List<string>(phaseTrace));
+            _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
+            _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
+            DeterminismHash = determinismHash;
         }
 
         public int TickIndex { get; }
@@ -58,6 +89,14 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickPhase> CompletedPhases => _completedPhases;
 
         public IReadOnlyList<string> PhaseTrace => _phaseTrace;
+
+        public IReadOnlyList<EntityState> FinalEntities => _finalEntities;
+
+        public IReadOnlyList<string> EventLog => _eventLog;
+
+        public string DeterminismHash { get; }
+
+        public TickTrace Trace { get; }
 
         public bool CompletedAllPhases =>
             _completedPhases.Count == 3 &&

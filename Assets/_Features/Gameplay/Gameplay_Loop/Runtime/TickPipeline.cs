@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Attack.Resolution;
 using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Cleanup;
+using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
@@ -35,6 +36,9 @@ namespace Game.Feature.Gameplay.Loop
         private readonly MovementCommitter _movementCommitter = new();
         private readonly AttackCommitter _attackCommitter = new();
         private readonly CleanupProcessor _cleanupProcessor = new();
+        private readonly TickResultBuilder _tickResultBuilder = new();
+        private readonly DeterminismHashBuilder _determinismHashBuilder = new();
+        private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly WorldState _worldState;
 
         public TickPipeline(WorldState worldState)
@@ -88,13 +92,35 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
 
+            var finalSnapshot = SnapshotBuilder.Create(_worldState);
+            var tickResultData = _tickResultBuilder.Build(
+                finalSnapshot,
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult);
+            var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalSnapshot, tickResultData);
+            var tickTrace = _tickTraceBuilder.Build(
+                input.TickIndex,
+                movementSnapshot,
+                movementPhaseResult,
+                attackSnapshot,
+                attackPhaseResult,
+                cleanupPhaseResult,
+                finalSnapshot,
+                tickResultData,
+                determinismHash);
+
             return new TickResult(
                 input.TickIndex,
                 completedPhases,
                 phaseTrace,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult);
+                cleanupPhaseResult,
+                tickResultData.FinalEntities,
+                tickResultData.EventLog,
+                determinismHash,
+                tickTrace);
         }
 
         private MovementPhaseResult RunMovementPhase(
@@ -110,12 +136,13 @@ namespace Game.Feature.Gameplay.Loop
             _movementIntentCollector.Collect(snapshot, in input, _entityLogics, rawMovementIntents);
             var sortedIntents = BuildMovementIntents(rawMovementIntents);
             var expandedCandidates = new List<ActionGroup>();
-            _movementExpander.Expand(snapshot, sortedIntents, expandedCandidates);
+            var rejectedReasons = new List<string>();
+            _movementExpander.Expand(snapshot, sortedIntents, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
 
             var selectedGroups = new List<ActionGroup>();
-            _movementResolver.Resolve(expandedCandidates, selectedGroups);
+            _movementResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
             _movementCommitter.Commit(writeContext, transientBuffer, selectedGroups, commitEvents);
@@ -123,10 +150,12 @@ namespace Game.Feature.Gameplay.Loop
             completedPhases.Add(TickPhase.Movement);
 
             return new MovementPhaseResult(
+                rawMovementIntents,
                 sortedIntents,
                 expandedCandidates,
                 selectedGroups,
-                commitEvents);
+                commitEvents,
+                rejectedReasons);
         }
 
         private AttackPhaseResult RunAttackPhase(
@@ -139,14 +168,16 @@ namespace Game.Feature.Gameplay.Loop
             phaseTrace.Add("Attack:Enter");
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, _entityLogics, rawAttackIntents);
-            var sortedInputs = BuildAttackInputs(rawAttackIntents, transientBuffer.DrainImpacts());
+            var drainedImpactReservations = transientBuffer.DrainImpacts();
+            var sortedInputs = BuildAttackInputs(rawAttackIntents, drainedImpactReservations);
             var expandedCandidates = new List<ActionGroup>();
-            _attackExpander.Expand(snapshot, sortedInputs, expandedCandidates);
+            var rejectedReasons = new List<string>();
+            _attackExpander.Expand(snapshot, sortedInputs, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignAttackGroupIds(expandedCandidates);
 
             var selectedGroups = new List<ActionGroup>();
-            _attackResolver.Resolve(expandedCandidates, selectedGroups);
+            _attackResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
             _attackCommitter.Commit(snapshot, writeContext, selectedGroups, commitEvents);
@@ -154,10 +185,13 @@ namespace Game.Feature.Gameplay.Loop
             completedPhases.Add(TickPhase.Attack);
 
             return new AttackPhaseResult(
+                rawAttackIntents,
+                drainedImpactReservations,
                 sortedInputs,
                 expandedCandidates,
                 selectedGroups,
-                commitEvents);
+                commitEvents,
+                rejectedReasons);
         }
 
         private CleanupPhaseResult RunCleanupPhase(

@@ -55,5 +55,15 @@ namespace Game.Feature.Gameplay.BoardState
         {
             WorldQueryService.EnumerateEntitiesOrdered(_entitiesById, buffer);
         }
+
+        internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
+        {
+            WorldQueryService.EnumerateOccupancyOrdered(_unitOccupancy, buffer);
+        }
+
+        internal void EnumerateProjectileOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
+        {
+            WorldQueryService.EnumerateOccupancyOrdered(_projectileOccupancy, buffer);
+        }
     }
 }

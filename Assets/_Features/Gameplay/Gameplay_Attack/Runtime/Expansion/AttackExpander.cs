@@ -15,7 +15,8 @@ namespace Game.Feature.Gameplay.Attack.Expansion
         public void Expand(
             WorldSnapshot snapshot,
             IReadOnlyList<AttackIntent> sortedInputs,
-            List<ActionGroup> buffer)
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
         {
             if (snapshot == null)
             {
@@ -32,38 +33,63 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 throw new ArgumentNullException(nameof(buffer));
             }
 
+            if (rejectedReasons == null)
+            {
+                throw new ArgumentNullException(nameof(rejectedReasons));
+            }
+
             buffer.Clear();
+            rejectedReasons.Clear();
 
             for (var i = 0; i < sortedInputs.Count; i++)
             {
                 var intent = sortedInputs[i];
                 if (intent.IsSynthetic)
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=SyntheticInputUnsupported|Kind={intent.InputKind}|LocalSequence={intent.LocalSequence}");
                     continue;
                 }
 
                 if (!snapshot.TryGetEntity(intent.SourceId, out var source))
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=MissingSource");
                     continue;
                 }
 
-                if (source.hp <= 0 || source.markedForDeath || intent.TargetId <= 0)
+                if (source.hp <= 0 || source.markedForDeath)
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=SourceNotAttackCapable|Hp={source.hp}|Marked={source.markedForDeath}");
+                    continue;
+                }
+
+                if (intent.TargetId <= 0)
+                {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=InvalidTargetId");
                     continue;
                 }
 
                 if (!snapshot.TryGetEntity(intent.TargetId, out var target))
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=MissingTarget");
                     continue;
                 }
 
                 if (!IsOrthogonallyAdjacent(source.position, target.position))
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=NotAdjacent|SourceCell=({source.position.x},{source.position.y})|TargetCell=({target.position.x},{target.position.y})");
                     continue;
                 }
 
                 if (!snapshot.CanBeTargetedForNewSelection(intent.TargetId))
                 {
+                    rejectedReasons.Add(
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=TargetNotSelectable");
                     continue;
                 }
 

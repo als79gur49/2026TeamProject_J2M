@@ -13,7 +13,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         public void Expand(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
-            List<ActionGroup> buffer)
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
         {
             if (snapshot == null)
             {
@@ -30,7 +31,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 throw new ArgumentNullException(nameof(buffer));
             }
 
+            if (rejectedReasons == null)
+            {
+                throw new ArgumentNullException(nameof(rejectedReasons));
+            }
+
             buffer.Clear();
+            rejectedReasons.Clear();
 
             for (var i = 0; i < sortedIntents.Count; i++)
             {
@@ -38,6 +45,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
                 if (!snapshot.TryGetEntity(intent.SourceId, out var entity))
                 {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=MissingSource");
                     continue;
                 }
 
@@ -45,6 +54,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
                 if (snapshot.IsBlockedForUnit(intent.Destination))
                 {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell=({intent.Destination.x},{intent.Destination.y})");
                     continue;
                 }
 

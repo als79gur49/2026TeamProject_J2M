@@ -9,7 +9,8 @@ namespace Game.Feature.Gameplay.Movement.Resolution
     {
         public void Resolve(
             IReadOnlyList<ActionGroup> sortedCandidates,
-            List<ActionGroup> buffer)
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
         {
             if (sortedCandidates == null)
             {
@@ -19,6 +20,11 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             if (buffer == null)
             {
                 throw new ArgumentNullException(nameof(buffer));
+            }
+
+            if (rejectedReasons == null)
+            {
+                throw new ArgumentNullException(nameof(rejectedReasons));
             }
 
             buffer.Clear();
@@ -31,11 +37,15 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 var candidate = sortedCandidates[i];
                 if (selectedIntentIds.Contains(candidate.IntentId))
                 {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=IntentAlreadySelected");
                     continue;
                 }
 
-                if (Conflicts(candidate, reservedDestinations))
+                if (TryGetConflictingDestination(candidate, reservedDestinations, out var conflictingDestination))
                 {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=DestinationReserved|Cell=({conflictingDestination.x},{conflictingDestination.y})");
                     continue;
                 }
 
@@ -49,12 +59,19 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             }
         }
 
-        private static bool Conflicts(ActionGroup candidate, HashSet<Vector2Int> reservedDestinations)
+        private static bool TryGetConflictingDestination(
+            ActionGroup candidate,
+            HashSet<Vector2Int> reservedDestinations,
+            out Vector2Int conflictingDestination)
         {
+            conflictingDestination = default;
+
             for (var i = 0; i < candidate.Moves.Count; i++)
             {
-                if (reservedDestinations.Contains(candidate.Moves[i].Destination))
+                var destination = candidate.Moves[i].Destination;
+                if (reservedDestinations.Contains(destination))
                 {
+                    conflictingDestination = destination;
                     return true;
                 }
             }
