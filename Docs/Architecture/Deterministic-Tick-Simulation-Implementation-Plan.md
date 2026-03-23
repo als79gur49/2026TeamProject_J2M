@@ -15,6 +15,13 @@
 
 이 계획서는 `Docs/Architecture/Hybrid-Architecture-Rulebook.md`와 `AI_HYBRID_STRUCTURE_RULES.md`를 따른다. 따라서 구현 코드는 `Assets/_Features/Gameplay` 아래에 배치한다.
 
+문서 해석 규칙:
+
+- 블루프린트는 안정된 책임 경계와 설계 원칙을 정의한다.
+- 이 구현 계획서는 `current-state`와 `target-state`를 함께 관리한다.
+- Unity generated `.csproj`가 explicit compile include를 쓰기 때문에, current-state는 일부 타입을 기존 `.cs` 파일에 co-locate할 수 있다.
+- 따라서 파일 개수보다 `namespace`, `type boundary`, `구체 책임`을 우선 기준으로 본다.
+
 ## 2. 구현 범위
 
 ### 2-1. 1차 목표
@@ -81,6 +88,8 @@
 
 초기 구현은 `Game.Feature.Gameplay` 단일 runtime asmdef 하나로 시작하고, 테스트 asmdef만 별도로 둔다. 지금 단계에서는 어셈블리 세분화보다 구조 규칙 고정이 우선이다.
 
+아래 트리는 target-state 기준이다.
+
 ```text
 Assets/_Features/Gameplay/
   Gameplay.asmdef
@@ -105,6 +114,8 @@ Assets/_Features/Gameplay/
   Gameplay_Loop/
     Runtime/
       TickPipeline.cs
+      GameplayCompositionRoot.cs
+      GameplayBootstrapper.cs
       TickRunner.cs
       TickInput.cs
       TickInputBuffer.cs
@@ -129,8 +140,15 @@ Assets/_Features/Gameplay/
   Gameplay_Entities/
     Runtime/
       IEntityLogic.cs
+      IEntityLogicFactory.cs
+      ISnapshotEntityLogicProvider.cs
+      IEntityLogicSourceBinding.cs
+      SnapshotEntityLogicProvider.cs
+      GameplayEntityLogicProviderFactory.cs
       PlayerLogic.cs
       EnemyLogic.cs
+      ProjectileEntityLogicFactory.cs
+      ProjectileLogic.cs
   Gameplay_Movement/
     Runtime/
       Intents/
@@ -178,6 +196,26 @@ Assets/_Features/Gameplay/
       Fuzz/
 ```
 
+current-state 메모:
+
+- 현재 구현은 generated `.csproj` explicit include 제약 때문에 일부 타입을 기존 파일에 co-locate한다.
+- 현재 기준 co-location은 아래와 같다.
+  - `Gameplay_Loop/Runtime/TickPipeline.cs`
+    - `TickPipeline`
+    - `SnapshotEntityLogicProvider`
+    - `GameplayEntityLogicProviderFactory`
+    - `GameplayBootstrapper`
+    - `GameplayCompositionRoot`
+  - `Gameplay_Entities/Runtime/IEntityLogic.cs`
+    - `IEntityLogic`
+    - `IEntityLogicSourceBinding`
+    - `IEntityLogicFactory`
+    - `ISnapshotEntityLogicProvider`
+  - `Gameplay_Entities/Runtime/ProjectileLogic.cs`
+    - `ProjectileLogic`
+    - `ProjectileEntityLogicFactory`
+- 이는 파일 배치 타협이며, 책임 경계 자체를 되돌린 것은 아니다.
+
 현재 구현 기준으로 phase 공용 실행 모델은 `Gameplay_Model`에 둔다.
 
 - `Intent`, `ActionGroup`, `TickPhase`는 특정 feature가 아니라 공용 실행 모델 소유다.
@@ -187,6 +225,49 @@ Assets/_Features/Gameplay/
   - `Movement`: `sourceId asc`
   - `Attack`: 정규화 후 `sourceId asc -> inputKind asc -> localSequence asc`
 - `MoveAction`, `DamageAction`, `DestroyAction`, `SpawnAction`, `StateChangeAction`도 `ActionGroup`과 함께 공용 모델로 관리한다.
+
+### 4-2. Dynamic EntityLogic 조립 원칙
+
+`TickPipeline`은 phase orchestration만 책임지고, dynamic `IEntityLogic` materialization 정책은 별도 provider 계층이 소유한다.
+
+- `TickPipeline`은 `ISnapshotEntityLogicProvider`를 생성하지 않는다.
+- `TickPipeline`은 `ProjectileEntityLogicFactory` 같은 concrete factory를 참조하지 않는다.
+- snapshot 기반 dynamic logic 복구는 `ISnapshotEntityLogicProvider`가 담당한다.
+- entity type별 concrete materialization은 `IEntityLogicFactory`가 담당한다.
+- static `IEntityLogic`와 dynamic `IEntityLogic`의 phase ownership 충돌 판단은 provider가 담당한다.
+
+권장 책임 분리:
+
+- `GameplayCompositionRoot`
+  - 런타임 기본 의존성 그래프 조립
+  - `ISnapshotEntityLogicProvider` 생성
+  - `TickPipeline` 생성
+- `GameplayBootstrapper`
+  - Unity 시작점
+  - world/config/input source 준비
+  - composition root 호출
+  - runner 시작
+- `TickPipeline`
+  - tick 실행
+  - phase 호출
+  - result/trace/hash 생성
+- `ISnapshotEntityLogicProvider`
+  - snapshot을 읽고 이번 tick의 dynamic entity logic 집합 구성
+- `IEntityLogicFactory`
+  - 특정 `EntityState`를 concrete `IEntityLogic`로 변환
+
+핵심 규칙:
+
+- `TickPipeline` 기본 생성 경로 안에서 provider를 조립하지 않는다.
+- provider 기본 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()` 또는 상위 composition root에서만 수행한다.
+- 새 autonomous entity type 추가 시 `TickPipeline` 수정 없이 factory 등록만으로 연결 가능해야 한다.
+
+현재 구현 상태:
+
+- `TickPipeline`은 provider를 필수 생성자 인자로 받고, 기본 provider 조립을 내부에서 하지 않는다.
+- `GameplayCompositionRoot`와 `GameplayEntityLogicProviderFactory`를 통해 기본 조립 경로가 열려 있다.
+- `SnapshotEntityLogicProvider`와 composition root 관련 타입은 아직 별도 파일로 완전히 분리되지 않았고, current-state에서는 `TickPipeline.cs`에 co-locate되어 있다.
+- 따라서 책임 분리는 반영됐지만, 파일 배치와 Unity 시작점 wiring은 target-state까지 아직 남아 있다.
 
 ### 4-1. 네임스페이스 규칙
 
@@ -317,6 +398,13 @@ public sealed class TickPipeline
 }
 ```
 
+중요 원칙:
+
+- `TickPipeline`은 실행 순서만 소유한다.
+- `TickPipeline`은 dynamic entity materialization 정책을 소유하지 않는다.
+- `TickPipeline`은 provider를 필수 생성자 인자로 받거나, composition root가 조립한 provider를 전달받는다.
+- 내부 `CreateDefaultEntityLogicProvider()` 같은 기본 조립 메서드는 두지 않는다.
+
 ### 6-1. Tick 실행 순서
 
 1. `IdAllocator.ResetForTick`
@@ -351,9 +439,77 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 이 결과 객체는 View용이 아니라, trace와 테스트용이다.
 
+### 6-3. Composition Root / Bootstrapper 상세 계획
+
+이 단계는 projectile authority 복구 이후 남아 있던 `OCP`, `SRP`, `DIP` 정리를 위한 구조 단계다.
+
+현재 상태: 부분 완료
+
+- 완료
+  - `TickPipeline` 생성자는 `ISnapshotEntityLogicProvider`를 필수 인자로 받는다.
+  - 기본 provider 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()`로 이동했다.
+  - `ProjectileEntityLogicFactory`는 `Gameplay_Entities` 계층에 있다.
+  - `TickPipeline` 클래스는 provider 결과만 소비하고, 내부 default composition 메서드를 갖지 않는다.
+- 부분 완료
+  - `GameplayCompositionRoot`, `GameplayBootstrapper`, `GameplayEntityLogicProviderFactory`, `SnapshotEntityLogicProvider`는 존재하지만 generated `.csproj` 제약 때문에 아직 `TickPipeline.cs`에 co-locate되어 있다.
+  - `GameplayBootstrapper`는 조립 helper 역할은 수행하지만, 실제 Unity 시작점/runner wiring까지는 아직 맡지 않는다.
+- 미완료
+  - `SnapshotEntityLogicProvider`를 별도 `Gameplay_Entities` 파일/계층으로 이동
+  - composition root/bootstrapper를 실제 runtime entrypoint에 연결
+
+도입 대상 타입:
+
+- `GameplayCompositionRoot`
+- `GameplayBootstrapper`
+- `GameplayEntityLogicProviderFactory`
+- `ISnapshotEntityLogicProvider`
+- `IEntityLogicFactory`
+- `IEntityLogicSourceBinding`
+
+구현 목표:
+
+1. `TickPipeline` 생성자는 `ISnapshotEntityLogicProvider`를 필수 인자로 받는다.
+2. 기본 provider 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()`로 이동한다.
+3. Unity 진입점은 `GameplayBootstrapper`가 맡고, 여기서 composition root를 호출한다.
+4. `SnapshotEntityLogicProvider`는 `Gameplay_Entities` 계층으로 이동한다.
+5. `ProjectileEntityLogicFactory`도 `Gameplay_Entities` 계층으로 이동한다.
+6. `TickPipeline`은 더 이상 projectile/factory/provider concrete type을 모른다.
+
+초기 권장 흐름:
+
+1. `GameplayBootstrapper`가 world/config/static logic를 준비한다.
+2. `GameplayCompositionRoot`가 provider를 조립한다.
+3. `GameplayCompositionRoot`가 `TickPipeline`을 생성한다.
+4. bootstrapper가 runner 또는 호출자에게 pipeline을 넘긴다.
+
+예시 책임:
+
+- `GameplayEntityLogicProviderFactory.CreateDefault()`
+  - `ProjectileEntityLogicFactory`
+  - 이후 `TurretEntityLogicFactory`, `TrapEntityLogicFactory` 등 확장 지점
+- `SnapshotEntityLogicProvider`
+  - snapshot ordered enumeration
+  - static/dynamic logic merge
+  - phase ownership conflict 제거
+- `TickPipeline`
+  - `provider.Build(snapshot, staticEntityLogics)` 결과 소비만 수행
+
 ## 7. 단계별 구현 계획
 
+| 단계 | 범위 | 현재 상태 | 비고 |
+| --- | --- | --- | --- |
+| 단계 0 | 구조 뼈대 고정 | 완료 | 기본 phase 실행 경로와 테스트 프로젝트가 존재한다. |
+| 단계 1 | 도메인 골격 구현 | 완료 | `WorldState`, `WorldSnapshot`, `Intent`, `ActionGroup`, allocator 뼈대가 고정됐다. |
+| 단계 1.5 | EntityLogic 조립 책임 분리 | 부분 완료 | provider 필수 주입과 composition root는 반영됐고, 파일/entrypoint 정리는 남아 있다. |
+| 단계 2 | 최소 Movement 수직 슬라이스 | 완료 | push/edge reservation까지 포함해 최소 범위를 넘어 확장됐다. |
+| 단계 3 | 최소 Attack 수직 슬라이스 | 완료 | attack, projectile spawn, delayed-event 경계까지 검증된다. |
+| 단계 4 | Cleanup 구현 | 완료 | remove/state timer/state transition 규칙이 테스트로 고정됐다. |
+| 단계 5 | TickResult, Trace, Replay | 완료 | trace/hash/replay/fuzz 경로가 존재한다. |
+| 단계 6 | reservation과 확장 기능 | 완료 | `ImpactReservation`, projectile movement, spawn, pushchain, edge reservation, on-hit 금지 경계가 반영됐다. |
+
 ## 7-1. 단계 0: 구조 뼈대 고정
+
+현재 상태: 완료
 
 산출물:
 
@@ -370,6 +526,8 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 구조적으로 Committer 외 월드 쓰기 경로가 없다.
 
 ## 7-2. 단계 1: 도메인 골격 구현
+
+현재 상태: 완료
 
 산출물:
 
@@ -388,7 +546,46 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 중앙 질의 함수가 준비된다.
 - intent/group ID를 중앙에서 발급할 수 있다.
 
-## 7-3. 단계 2: 최소 Movement 수직 슬라이스
+## 7-3. 단계 1.5: EntityLogic 조립 책임 분리
+
+현재 상태: 부분 완료
+
+산출물:
+
+- `IEntityLogicSourceBinding`
+- `IEntityLogicFactory`
+- `ISnapshotEntityLogicProvider`
+- `SnapshotEntityLogicProvider`
+- `ProjectileEntityLogicFactory`
+- `GameplayEntityLogicProviderFactory`
+- `GameplayCompositionRoot`
+- `GameplayBootstrapper`
+
+구현 단계:
+
+1. `TickPipeline`에서 provider 기본 조립 메서드를 제거한다.
+2. `TickPipeline` 생성자에서 provider를 필수 인자로 승격한다.
+3. 현재 provider/factory/concrete projectile 의존을 `Gameplay_Entities` 계층으로 이동한다.
+4. 기본 런타임 조립은 `GameplayEntityLogicProviderFactory.CreateDefault()`에 모은다.
+5. 상위 시작 지점에서 `GameplayCompositionRoot`를 통해 pipeline을 조립한다.
+6. 기존 테스트는 fake provider 주입 방식으로 유지한다.
+
+완료 기준:
+
+- `TickPipeline`은 `ISnapshotEntityLogicProvider` 외 concrete dynamic logic 타입을 직접 참조하지 않는다.
+- `TickPipeline` 내부에 기본 provider 조립 메서드가 없다.
+- 새 factory 추가만으로 기본 runtime provider를 확장할 수 있다.
+- fresh pipeline + pre-existing projectile 복구 시나리오가 유지된다.
+- 구조 테스트가 provider 주입 경로와 concrete 의존 제거를 검증한다.
+
+남은 작업:
+
+- `SnapshotEntityLogicProvider`와 composition root 관련 타입을 별도 파일/계층으로 이동
+- `GameplayBootstrapper`를 실제 Unity 시작 지점/runner wiring에 연결
+
+## 7-4. 단계 2: 최소 Movement 수직 슬라이스
+
+현재 상태: 완료
 
 지원 범위:
 
@@ -419,7 +616,9 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 같은 목적지 경쟁에서 결정론적으로 하나만 선택
 - 같은 입력 두 번 실행 시 같은 trace/hash
 
-## 7-4. 단계 3: 최소 Attack 수직 슬라이스
+## 7-5. 단계 3: 최소 Attack 수직 슬라이스
+
+현재 상태: 완료
 
 지원 범위:
 
@@ -448,7 +647,9 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 공격 중 사망해도 Cleanup 전까지 occupancy 유지
 - 같은 Tick 내 이미 생성된 attack candidate는 유지
 
-## 7-5. 단계 4: Cleanup 구현
+## 7-6. 단계 4: Cleanup 구현
+
+현재 상태: 완료
 
 산출물:
 
@@ -471,7 +672,9 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 생성 Tick의 Spawn entity는 timer 감소 제외
 - Cleanup 결과가 같은 Tick의 판정에 역류하지 않음
 
-## 7-6. 단계 5: TickResult, Trace, Replay
+## 7-7. 단계 5: TickResult, Trace, Replay
+
+현재 상태: 완료
 
 산출물:
 
@@ -486,9 +689,17 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 매 Tick 짧은 hash 생성
 - 동일 입력 replay 시 동일 hash 보장
 
-## 7-7. 단계 6: reservation과 확장 기능
+## 7-8. 단계 6: reservation과 확장 기능
 
-다음 순서로 연다.
+현재 상태: 완료
+
+현재 구현 메모:
+
+- `ImpactReservation`, attack input 정규화, projectile movement, spawn은 이미 연결돼 있다.
+- `PushChain`과 `edge reservation`은 테스트로 고정돼 있다.
+- generic `on-hit` 시스템은 열지 않았고, 대신 same-tick 재진입 금지 경계를 테스트와 delayed-event 방향으로 고정했다.
+
+구현 순서 기록:
 
 1. `ImpactReservation`
 2. Attack input 정규화
@@ -503,19 +714,21 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 확장 기능도 기존 `Intent -> Expand -> Resolve -> Commit` 경로에만 합류시킨다.
 - Commit 중간 새 Intent 생성은 계속 금지한다.
 
-## 7-8. 남은 Stage6 구체 설계
+## 7-9. Stage6 상세 설계 기록
 
-남은 Stage6 범위는 `PushChain`, `edge reservation`, `on-hit 확장 검토`다.
-이 셋은 새 Phase를 추가하지 않고, 기존 `Movement -> Attack -> Cleanup` 내부에만 합류시킨다.
+현재 상태: 완료
+
+이 섹션은 Stage6를 구현하면서 고정한 상세 설계 기록이다.
+`PushChain`, `edge reservation`, `on-hit 확장 검토`는 새 Phase를 추가하지 않고, 기존 `Movement -> Attack -> Cleanup` 내부에만 합류한다.
 
 현재 코드 기준 전제:
 
 - `Projectile movement`, `ImpactReservation`, `Spawn`, `Attack input 정규화`는 이미 연결되어 있다.
-- `MovementResolver`는 아직 `destination reservation`만 본다.
-- `MoveAction`은 현재 `destination`만 들고 있으며, 경로 충돌 정보는 따로 없다.
+- `MovementResolver`는 `destination reservation`, `edge reservation`, `shared moved entity` 충돌을 함께 본다.
+- `MoveAction`은 `Source`, `Destination`, `Facing`을 함께 가진다.
 - `Attack`은 explicit `Attack` / `FireProjectile` / synthetic `ImpactReservation`로 구분된다.
 
-### 7-8-1. PushChain 설계
+### 7-9-1. PushChain 설계
 
 목표:
 
@@ -540,7 +753,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 성공한 `PushChain` 후보는 하나의 `ActionGroup` 안에 여러 `MoveAction`을 담는다.
 - 이때 `MoveAction` 목록의 순서는 `체인 끝 -> 체인 시작`으로 고정한다.
 
-필요한 모델 보강:
+반영된 모델 보강:
 
 - `ActionGroupKind.PushChain` 추가
 - `MoveAction`에 `Source` 좌표를 추가한다.
@@ -589,7 +802,7 @@ Commit 규칙:
 - `Movement_PushChain_CommitsFromTailToHeadDeterministically`
 - `Replay_PushChainScenario_ProducesSameHashTraceAndEventLog`
 
-### 7-8-2. edge reservation 설계
+### 7-9-2. edge reservation 설계
 
 목표:
 
@@ -653,7 +866,7 @@ Resolver 알고리즘 변경:
 - `Movement_EdgeReservation_DoesNotPersistAcrossTicks`
 - `Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog`
 
-### 7-8-3. on-hit 확장 검토
+### 7-9-3. on-hit 확장 검토
 
 결론부터 적는다.
 
@@ -715,7 +928,7 @@ Stage6에서 실제로 할 일:
 - `Attack_OnHit_DoesNotReenterMovementPhase`
 - `Attack_ImpactReservation_CanStillExpandToFixedSameTickActions`
 
-### 7-8-4. 남은 Stage6 실제 착수 순서
+### 7-9-4. Stage6 실제 착수 순서 기록
 
 문서 순서와 현재 코드 상태를 함께 고려한 실제 순서는 아래가 맞다.
 
@@ -936,10 +1149,17 @@ Tick 00152 | Hash 7A31E2D4
 - Attack 중 사망한 엔티티를 즉시 occupancy에서 제거했는가
 - View 코드가 Tick 내부 타이밍에 개입하는가
 - 신규 기능이 기존 Phase 순서를 우회하는가
+- `TickPipeline`이 provider/factory concrete 조립 책임까지 다시 떠안고 있는가
+- 기본 runtime provider 조립이 composition root/bootstrapper 밖으로 새고 있지는 않은가
+- 새 autonomous entity type 추가 시 pipeline 수정이 필요한 구조인가
 
-## 12. 각 단계의 완료 정의
+## 12. 각 단계의 완료 정의와 현재 상태
 
 ### 12-1. 구조 단계 완료
+
+현재 상태: 완료
+
+완료 조건:
 
 - `RunTick`이 빈 Phase라도 끝까지 돈다.
 - `TickPipeline` 외 우회 실행 경로가 없다.
@@ -947,11 +1167,19 @@ Tick 00152 | Hash 7A31E2D4
 
 ### 12-2. 최소 전투 슬라이스 완료
 
+현재 상태: 완료
+
+완료 조건:
+
 - 이동과 공격, Cleanup이 한 Tick 흐름으로 연결된다.
 - `hp <= 0` 제거 시점이 Cleanup으로 고정된다.
 - trace와 hash가 남는다.
 
 ### 12-3. 확장 준비 완료
+
+현재 상태: 완료
+
+완료 조건:
 
 - replay test가 통과한다.
 - scenario test가 핵심 규칙을 덮는다.
@@ -959,9 +1187,33 @@ Tick 00152 | Hash 7A31E2D4
 
 ### 12-4. 리뷰 반영 완료
 
+현재 상태: 완료
+
+완료 조건:
+
 - `Movement`와 `Attack`의 `intentId` 발급 문서가 현재 phase별 정렬 규칙과 충돌 없이 읽힌다.
 - `AttackCommitter`는 매 호출마다 `commitEvents`, `delayedAttackEnqueueEvents`를 모두 초기화한 뒤 다시 기록한다.
 - 회귀 테스트가 재사용된 출력 버퍼에서도 동일한 attack event 결과를 보장한다.
+
+### 12-5. Composition Root 단계 완료
+
+현재 상태: 부분 완료
+
+완료 조건:
+
+- `TickPipeline`은 orchestration-only 객체로 읽힌다.
+- `TickPipeline` 생성자는 provider를 외부에서 전달받는다.
+- 기본 provider 조립은 `GameplayEntityLogicProviderFactory` 또는 `GameplayCompositionRoot`에만 존재한다.
+- `SnapshotEntityLogicProvider`와 concrete entity logic factory는 `Gameplay_Entities` 계층에 존재한다.
+- `OCP` 관점에서 새 autonomous entity type 추가 시 pipeline 수정이 필요 없다.
+- replay/scenario/structure 테스트가 모두 통과한다.
+
+current-state 메모:
+
+- 현재 구현은 `TickPipeline` 클래스 기준으로 orchestration-only와 provider 필수 주입 조건을 만족한다.
+- `GameplayEntityLogicProviderFactory`, `GameplayCompositionRoot`, `GameplayBootstrapper`, `SnapshotEntityLogicProvider`는 책임상 분리됐지만, generated `.csproj` 제약으로 아직 `TickPipeline.cs`에 co-locate되어 있다.
+- `ProjectileEntityLogicFactory`는 이미 `Gameplay_Entities` 계층에 있다.
+- 따라서 composition root 단계는 책임 분리 측면에서는 반영됐고, 최종 파일/entrypoint 정리만 남아 있다.
 
 ## 13. 실제 착수 순서
 
@@ -976,6 +1228,9 @@ Tick 00152 | Hash 7A31E2D4
 7. 최소 `AttackIntent` 수직 슬라이스 완성
 8. Cleanup, trace, hash, replay 테스트 추가
 9. 그 다음 reservation, projectile, spawn 순으로 확장
+10. projectile authority 복구 이후 provider/factory/provider-composition을 `Gameplay_Entities + CompositionRoot` 구조로 정리
+11. `TickPipeline`에서 기본 provider 조립 제거
+12. bootstrapper/composition root 기반 런타임 조립과 구조 테스트 보강
 
 ## 14. 한 줄 구현 원칙
 

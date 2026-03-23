@@ -11,6 +11,10 @@
 
 즉, 이 시스템은 범용 인프라가 아니라 게임 규칙이므로 `_Core`가 아니라 `Assets/_Features/Gameplay` 아래에 배치한다.
 
+이 문서는 책임 경계와 안정된 설계 원칙을 정의한다. 현재 파일 배치나 임시 co-location은 `Deterministic-Tick-Simulation-Implementation-Plan.md`의 current-state를 따르며, Unity generated `.csproj`의 explicit compile include 제약 때문에 여러 타입이 같은 `.cs` 파일에 함께 존재할 수 있다.
+
+중요한 판단 기준은 파일 개수보다 `namespace`, `public contract`, `책임 경계`다.
+
 ## 2. 핵심 철학
 
 - 엔티티 주도 행동은 `Intent -> ActionGroup 후보 -> Resolver 선택 -> Commit` 흐름을 따른다.
@@ -105,6 +109,15 @@ Snapshot을 읽고 Intent를 생산하는 계층이다.
 - `EntityLogic`은 월드를 직접 쓰지 않는다.
 - `EntityLogic`은 Phase별 Intent만 생산한다.
 - 같은 Phase에서 한 source는 최대 하나의 entity-generated primary intent만 생성한다.
+
+dynamic entity 복구/조립 규칙:
+
+- `IEntityLogicSourceBinding`은 어떤 entity/phase를 이미 제어하는지 선언한다.
+- `IEntityLogicFactory`는 `EntityState`를 concrete `IEntityLogic`로 materialize한다.
+- `ISnapshotEntityLogicProvider`는 snapshot을 읽고 이번 tick의 dynamic `IEntityLogic` 집합을 구성한다.
+- static `IEntityLogic`와 dynamic `IEntityLogic`의 phase ownership 충돌 판단은 provider가 맡는다.
+- `GameplayCompositionRoot`와 `GameplayBootstrapper`는 provider와 pipeline 조립 책임을 가진다.
+- `TickPipeline`은 provider를 사용만 하고, concrete factory를 직접 조립하지 않는다.
 
 ### 4-3. Committer
 
@@ -600,12 +613,18 @@ Assets/_Features/Gameplay/
 권장 책임:
 
 - `Gameplay_Model`: TickPhase, Intent, ActionGroup, ActionGroupKind, 공용 Actions, IntentComparer, ActionGroupComparer
-- `Gameplay_Loop`: TickRunner, InputBuffer, IdAllocator, TickPipeline, TickResultBuilder, PhaseTransientBuffer
+- `Gameplay_Loop`: TickRunner, InputBuffer, IdAllocator, TickPipeline, TickResultBuilder, PhaseTransientBuffer, DelayedAttackEffectQueue, GameplayCompositionRoot, GameplayBootstrapper
 - `Gameplay_BoardState`: WorldState, WorldSnapshot, SnapshotBuilder, TerrainData
 - `Gameplay_Movement`: MoveIntent, raw movement collection, Expanders, Resolver, Committer
 - `Gameplay_Attack`: AttackIntent, raw attack collection, Expanders, Resolver, Committer, ImpactReservationExpander
 - `Gameplay_Cleanup`: CleanupProcessor, StateTransitionProcessor
-- `Gameplay_Entities`: IEntityLogic, PlayerLogic, EnemyLogic, TurretLogic, ProjectileLogic
+- `Gameplay_Entities`: IEntityLogic, IEntityLogicSourceBinding, IEntityLogicFactory, ISnapshotEntityLogicProvider, SnapshotEntityLogicProvider, GameplayEntityLogicProviderFactory, PlayerLogic, EnemyLogic, TurretLogic, ProjectileLogic, ProjectileEntityLogicFactory
+
+현재 구현 메모:
+
+- 책임상 위와 같이 해석하지만, generated `.csproj` 제약 때문에 일부 type은 기존 파일에 co-locate될 수 있다.
+- 예를 들어 `SnapshotEntityLogicProvider`, `GameplayEntityLogicProviderFactory`, `GameplayCompositionRoot`, `GameplayBootstrapper`는 현재 `TickPipeline.cs` 안에 존재할 수 있다.
+- 이 경우에도 `TickPipeline` 클래스 자체가 orchestration-only 책임을 유지하는지가 판단 기준이다.
 
 ## 14. 잔여 리스크와 보완 필요
 
