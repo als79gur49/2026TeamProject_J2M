@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -67,7 +68,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0)),
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -129,7 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0)),
                 CreateNonUnitBlocker(entityId: 30, position: new Vector2Int(2, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -167,7 +168,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -226,7 +227,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -282,7 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -363,7 +364,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateProjectile(entityId: 10, position: new Vector2Int(0, 0), hp: 1),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -439,7 +440,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 30, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
                 CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 3, teamId: 2),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -475,7 +476,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -495,7 +496,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0)),
                 CreateUnit(entityId: 30, position: new Vector2Int(2, 0)),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -590,7 +591,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
         }
 
-        private sealed class StubMovementLogic : IEntityLogic
+        private sealed class StubMovementLogic : IEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawMovementIntent? _movementIntent;
 
@@ -615,9 +616,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 List<RawAttackIntent> buffer)
             {
             }
+
+            public bool ControlsEntity(int entityId, TickPhase phase)
+            {
+                return phase == TickPhase.Movement &&
+                    _movementIntent.HasValue &&
+                    _movementIntent.Value.SourceId == entityId;
+            }
         }
 
-        private sealed class ScriptedMovementLogic : IEntityLogic
+        private sealed class ScriptedMovementLogic : IEntityLogic, IEntityLogicSourceBinding
         {
             private readonly IReadOnlyDictionary<int, RawMovementIntent> _movementIntentsByTick;
 
@@ -641,6 +649,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 WorldSnapshot snapshot,
                 List<RawAttackIntent> buffer)
             {
+            }
+
+            public bool ControlsEntity(int entityId, TickPhase phase)
+            {
+                if (phase != TickPhase.Movement)
+                {
+                    return false;
+                }
+
+                foreach (var pair in _movementIntentsByTick)
+                {
+                    if (pair.Value.SourceId == entityId)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
             }
         }
     }

@@ -17,7 +17,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null)
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
-            var pipeline = new TickPipeline(worldState, entityLogicList);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogicList);
             if (initialDelayedAttackEffects != null)
             {
                 for (var i = 0; i < initialDelayedAttackEffects.Count; i++)

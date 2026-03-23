@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), RawAttackIntent.CreateFireProjectile(20, 10)),
                 new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), RawAttackIntent.CreateFireProjectile(10, 5)),
             };
-            var pipeline = new TickPipeline(worldState, entityLogics);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogics);
 
             var result = pipeline.RunTick(new TickInput(12));
 
@@ -123,7 +123,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(10, 5)),
                 new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(30, 1)),
             };
-            var pipeline = new TickPipeline(worldState, entityLogics);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogics);
 
             var result = pipeline.RunTick(new TickInput(13));
 
@@ -133,6 +133,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     (SourceId: 10, IntentId: 1),
                 },
                 result.AttackPhaseResult.SortedInputs.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
+        }
+
+        [Test]
+        public void RunTick_UsesInjectedEntityLogicProvider()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new Vector2Int(0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+            });
+            var pipeline = new TickPipeline(
+                worldState,
+                new IEntityLogic[] { },
+                new StubEntityLogicProvider(
+                    new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), null)));
+
+            var result = pipeline.RunTick(new TickInput(3));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)),
+                },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
+                    .ToArray());
         }
 
         [Test]
@@ -610,7 +644,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return actionGroup;
         }
 
-        private sealed class StubEntityLogic : IEntityLogic
+        private sealed class StubEntityLogic : IEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawAttackIntent? _attackIntent;
             private readonly RawMovementIntent? _movementIntent;
@@ -640,6 +674,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     buffer.Add(_attackIntent.Value);
                 }
+            }
+
+            public bool ControlsEntity(int entityId, TickPhase phase)
+            {
+                return phase == TickPhase.Movement &&
+                    _movementIntent.HasValue &&
+                    _movementIntent.Value.SourceId == entityId;
+            }
+        }
+
+        private sealed class StubEntityLogicProvider : ISnapshotEntityLogicProvider
+        {
+            private readonly IReadOnlyList<IEntityLogic> _dynamicEntityLogics;
+
+            public StubEntityLogicProvider(params IEntityLogic[] dynamicEntityLogics)
+            {
+                _dynamicEntityLogics = dynamicEntityLogics;
+            }
+
+            public IReadOnlyList<IEntityLogic> Build(
+                WorldSnapshot snapshot,
+                IReadOnlyList<IEntityLogic> staticEntityLogics)
+            {
+                var entityLogics = new List<IEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
+
+                for (var i = 0; i < staticEntityLogics.Count; i++)
+                {
+                    entityLogics.Add(staticEntityLogics[i]);
+                }
+
+                for (var i = 0; i < _dynamicEntityLogics.Count; i++)
+                {
+                    entityLogics.Add(_dynamicEntityLogics[i]);
+                }
+
+                return entityLogics;
             }
         }
 

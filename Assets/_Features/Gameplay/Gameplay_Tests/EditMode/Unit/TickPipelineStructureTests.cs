@@ -17,7 +17,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void RunTick_CompletesMovementAttackCleanup()
         {
-            var pipeline = new TickPipeline(new WorldState());
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(new WorldState());
 
             var result = pipeline.RunTick(new TickInput(7));
 
@@ -142,6 +142,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(tickPipelineFieldTypes, Has.Member(typeof(DelayedAttackEffectQueue)));
             Assert.That(worldStateFieldTypes, Has.No.Member(typeof(DelayedAttackEffectQueue)));
+        }
+
+        [Test]
+        public void TickPipeline_DelegatesDynamicEntityMaterializationToProvider()
+        {
+            var fieldTypes = typeof(TickPipeline)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.FieldType)
+                .ToArray();
+
+            Assert.That(fieldTypes, Has.Member(typeof(ISnapshotEntityLogicProvider)));
+            Assert.That(
+                fieldTypes.Any(fieldType =>
+                    fieldType == typeof(ProjectileLogic) ||
+                    (fieldType.IsGenericType && fieldType.GetGenericArguments().Contains(typeof(ProjectileLogic)))),
+                Is.False);
+        }
+
+        [Test]
+        public void TickPipeline_CanBeExtendedWithInjectedEntityLogicProvider()
+        {
+            var constructor = typeof(TickPipeline).GetConstructor(
+                new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(ISnapshotEntityLogicProvider),
+                });
+
+            Assert.That(constructor, Is.Not.Null);
+        }
+
+        [Test]
+        public void TickPipeline_DoesNotExposeDefaultCompositionConstructors()
+        {
+            var constructors = typeof(TickPipeline)
+                .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(constructor => constructor.GetParameters().Select(parameter => parameter.ParameterType).ToArray())
+                .ToArray();
+
+            Assert.That(constructors.Length, Is.EqualTo(1));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(ISnapshotEntityLogicProvider),
+                },
+                constructors[0]);
+        }
+
+        [Test]
+        public void GameplayCompositionRoot_ExposesDefaultPipelineAssemblyApi()
+        {
+            var defaultBootstrapperFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateDefaultBootstrapper),
+                BindingFlags.Static | BindingFlags.Public);
+            var worldOnlyFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(WorldState) },
+                modifiers: null);
+            var worldAndLogicFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>) },
+                modifiers: null);
+
+            Assert.That(defaultBootstrapperFactory, Is.Not.Null);
+            Assert.That(defaultBootstrapperFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
+            Assert.That(worldOnlyFactory, Is.Not.Null);
+            Assert.That(worldOnlyFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
+            Assert.That(worldAndLogicFactory, Is.Not.Null);
+            Assert.That(worldAndLogicFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
         }
 
         [Test]

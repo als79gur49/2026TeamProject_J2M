@@ -27,8 +27,8 @@ namespace Game.Feature.Gameplay.Loop
     {
         private readonly IdAllocator _idAllocator = new();
         private readonly EntityIdAllocator _entityIdAllocator;
+        private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
         private readonly IReadOnlyList<IEntityLogic> _staticEntityLogics;
-        private readonly SortedDictionary<int, ProjectileLogic> _spawnedProjectileLogics = new();
         private readonly MovementIntentCollector _movementIntentCollector = new();
         private readonly MovementExpander _movementExpander = new();
         private readonly MovementResolver _movementResolver = new();
@@ -45,12 +45,10 @@ namespace Game.Feature.Gameplay.Loop
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly WorldState _worldState;
 
-        public TickPipeline(WorldState worldState)
-            : this(worldState, Array.Empty<IEntityLogic>())
-        {
-        }
-
-        public TickPipeline(WorldState worldState, IEnumerable<IEntityLogic> entityLogics)
+        public TickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            ISnapshotEntityLogicProvider entityLogicProvider)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -59,6 +57,7 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(entityLogics));
             }
 
+            _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
         }
@@ -215,7 +214,6 @@ namespace Game.Feature.Gameplay.Loop
                 selectedGroups,
                 commitEvents,
                 delayedAttackEnqueueEvents);
-            RegisterSpawnedProjectileLogics(selectedGroups);
             phaseTrace.Add("Attack:Exit");
             completedPhases.Add(TickPhase.Attack);
 
@@ -352,69 +350,179 @@ namespace Game.Feature.Gameplay.Loop
 
         private List<IEntityLogic> BuildEntityLogicsForTick(WorldSnapshot snapshot)
         {
-            PruneSpawnedProjectileLogics(snapshot);
+            return new List<IEntityLogic>(_entityLogicProvider.Build(snapshot, _staticEntityLogics));
+        }
+    }
 
-            var entityLogics = new List<IEntityLogic>(_staticEntityLogics.Count + _spawnedProjectileLogics.Count);
+    internal sealed class SnapshotEntityLogicProvider : ISnapshotEntityLogicProvider
+    {
+        private readonly IReadOnlyList<IEntityLogicFactory> _entityLogicFactories;
 
-            for (var i = 0; i < _staticEntityLogics.Count; i++)
+        public SnapshotEntityLogicProvider(IEnumerable<IEntityLogicFactory> entityLogicFactories)
+        {
+            if (entityLogicFactories == null)
             {
-                entityLogics.Add(_staticEntityLogics[i]);
+                throw new ArgumentNullException(nameof(entityLogicFactories));
             }
 
-            foreach (var pair in _spawnedProjectileLogics)
+            var factories = new List<IEntityLogicFactory>();
+
+            foreach (var factory in entityLogicFactories)
             {
-                entityLogics.Add(pair.Value);
+                if (factory == null)
+                {
+                    throw new ArgumentException("Entity logic factory collections cannot contain null entries.", nameof(entityLogicFactories));
+                }
+
+                factories.Add(factory);
+            }
+
+            _entityLogicFactories = factories.AsReadOnly();
+        }
+
+        public IReadOnlyList<IEntityLogic> Build(
+            WorldSnapshot snapshot,
+            IReadOnlyList<IEntityLogic> staticEntityLogics)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (staticEntityLogics == null)
+            {
+                throw new ArgumentNullException(nameof(staticEntityLogics));
+            }
+
+            var orderedEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            var entityLogics = new List<IEntityLogic>(staticEntityLogics.Count + orderedEntities.Count);
+
+            for (var i = 0; i < staticEntityLogics.Count; i++)
+            {
+                entityLogics.Add(staticEntityLogics[i]);
+            }
+
+            for (var entityIndex = 0; entityIndex < orderedEntities.Count; entityIndex++)
+            {
+                var entity = orderedEntities[entityIndex];
+
+                for (var factoryIndex = 0; factoryIndex < _entityLogicFactories.Count; factoryIndex++)
+                {
+                    var factory = _entityLogicFactories[factoryIndex];
+                    if (!factory.CanCreate(entity))
+                    {
+                        continue;
+                    }
+
+                    var candidate = factory.Create(entity);
+                    if (candidate == null)
+                    {
+                        throw new InvalidOperationException("Entity logic factories must not return null.");
+                    }
+
+                    if (HasPhaseOwnershipConflict(entity.entityId, candidate, entityLogics))
+                    {
+                        continue;
+                    }
+
+                    entityLogics.Add(candidate);
+                }
             }
 
             return entityLogics;
         }
 
-        private void PruneSpawnedProjectileLogics(WorldSnapshot snapshot)
+        private static bool HasPhaseOwnershipConflict(
+            int entityId,
+            IEntityLogic candidate,
+            IReadOnlyList<IEntityLogic> existingEntityLogics)
         {
-            List<int> removedEntityIds = null;
-
-            foreach (var pair in _spawnedProjectileLogics)
+            if (candidate is not IEntityLogicSourceBinding candidateBinding)
             {
-                if (!snapshot.TryGetEntity(pair.Key, out var entity) || entity.type != EntityType.Projectile)
-                {
-                    removedEntityIds ??= new List<int>();
-                    removedEntityIds.Add(pair.Key);
-                }
+                return false;
             }
 
-            if (removedEntityIds == null)
-            {
-                return;
-            }
-
-            for (var i = 0; i < removedEntityIds.Count; i++)
-            {
-                _spawnedProjectileLogics.Remove(removedEntityIds[i]);
-            }
+            return HasPhaseOwnershipConflict(entityId, TickPhase.Movement, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflict(entityId, TickPhase.Attack, candidateBinding, existingEntityLogics);
         }
 
-        private void RegisterSpawnedProjectileLogics(IReadOnlyList<ActionGroup> selectedGroups)
+        private static bool HasPhaseOwnershipConflict(
+            int entityId,
+            TickPhase phase,
+            IEntityLogicSourceBinding candidateBinding,
+            IReadOnlyList<IEntityLogic> existingEntityLogics)
         {
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            if (!candidateBinding.ControlsEntity(entityId, phase))
             {
-                var group = selectedGroups[groupIndex];
+                return false;
+            }
 
-                for (var spawnIndex = 0; spawnIndex < group.Spawns.Count; spawnIndex++)
+            for (var i = 0; i < existingEntityLogics.Count; i++)
+            {
+                if (existingEntityLogics[i] is IEntityLogicSourceBinding existingBinding &&
+                    existingBinding.ControlsEntity(entityId, phase))
                 {
-                    var spawnedEntity = group.Spawns[spawnIndex].Entity;
-                    if (spawnedEntity.type != EntityType.Projectile)
-                    {
-                        continue;
-                    }
-
-                    if (_spawnedProjectileLogics.ContainsKey(spawnedEntity.entityId))
-                    {
-                        continue;
-                    }
-
-                    _spawnedProjectileLogics.Add(spawnedEntity.entityId, new ProjectileLogic(spawnedEntity.entityId));
+                    return true;
                 }
             }
+
+            return false;
+        }
+    }
+
+    public static class GameplayEntityLogicProviderFactory
+    {
+        public static ISnapshotEntityLogicProvider CreateDefault()
+        {
+            return new SnapshotEntityLogicProvider(
+                new IEntityLogicFactory[]
+                {
+                    new ProjectileEntityLogicFactory(),
+                });
+        }
+    }
+
+    public sealed class GameplayBootstrapper
+    {
+        private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
+
+        public GameplayBootstrapper(ISnapshotEntityLogicProvider entityLogicProvider)
+        {
+            _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
+        }
+
+        public TickPipeline CreateTickPipeline(WorldState worldState)
+        {
+            return CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
+        }
+
+        public TickPipeline CreateTickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics)
+        {
+            return new TickPipeline(worldState, entityLogics, _entityLogicProvider);
+        }
+    }
+
+    public static class GameplayCompositionRoot
+    {
+        public static GameplayBootstrapper CreateDefaultBootstrapper()
+        {
+            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault());
+        }
+
+        public static TickPipeline CreateTickPipeline(WorldState worldState)
+        {
+            return CreateDefaultBootstrapper().CreateTickPipeline(worldState);
+        }
+
+        public static TickPipeline CreateTickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics)
+        {
+            return CreateDefaultBootstrapper().CreateTickPipeline(worldState, entityLogics);
         }
     }
 }

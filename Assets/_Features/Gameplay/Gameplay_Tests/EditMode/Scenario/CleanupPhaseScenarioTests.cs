@@ -17,7 +17,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(1, 0), hp: 2, markedForDeath: true),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
             var beforeSnapshot = CreateSnapshot(worldState);
 
             Assert.That(beforeSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
@@ -39,7 +39,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(2, 0), hp: 0),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(7));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -55,7 +55,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(3, 1), hp: 1, markedForDeath: true),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             pipeline.RunTick(new TickInput(8));
 
@@ -77,7 +77,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 2,
                     spawnTick: 11),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(11));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -107,7 +107,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 3,
                     spawnTick: 1),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(12));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -136,7 +136,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 1,
                     spawnTick: 1),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(13));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -195,7 +195,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     stateTimer: 5,
                     spawnTick: 1),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             var result = pipeline.RunTick(new TickInput(14));
             return (result, DumpEntityStates(CreateSnapshot(worldState)));

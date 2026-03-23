@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -257,7 +257,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -295,7 +295,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -348,7 +348,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
                 CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(3, 0), hp: 3, facing: Direction.Left),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -402,7 +402,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
                 });
-            var pipeline = new TickPipeline(worldState, new IEntityLogic[] { logic });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, new IEntityLogic[] { logic });
 
             logic.SetTickIndex(1);
             var firstResult = pipeline.RunTick(new TickInput(1));
@@ -452,6 +452,39 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_PreExistingProjectileInWorldState_BeginsMovingOnFirstTickOfFreshPipeline()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)),
+                },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterTick), Is.True);
+            Assert.That(projectileAfterTick.entityId, Is.EqualTo(10));
+            Assert.That(snapshotAfter.TryGetEntity(10, out var entityAfterTick), Is.True);
+            Assert.That(entityAfterTick.position, Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
         public void Attack_SpawnedEntityIds_AreNotReusedAfterCleanupAcrossTicks()
         {
             var worldState = CreateWorldState(new[]
@@ -466,7 +499,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
                     { 3, RawAttackIntent.CreateFireProjectile(10, 5) },
                 });
-            var pipeline = new TickPipeline(worldState, new IEntityLogic[] { logic });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, new IEntityLogic[] { logic });
 
             logic.SetTickIndex(1);
             var firstResult = pipeline.RunTick(new TickInput(1));
@@ -495,7 +528,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2),
             });
             var retargetingLogic = new PriorityTargetSelectionLogic(10, 5, 20, 40);
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -539,7 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
             });
             var attackLogic = new PriorityTargetSelectionLogic(10, 5, 20);
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -581,7 +614,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -635,7 +668,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
             });
-            var pipeline = new TickPipeline(worldState);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
             pipeline.EnqueueDelayedAttackEffect(
                 new DelayedAttackEffectRecord(
                     sourceId: 10,
@@ -800,7 +833,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
                 CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -1005,7 +1038,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
         }
 
-        private sealed class StubCombatLogic : IEntityLogic
+        private sealed class StubCombatLogic : IEntityLogic, IEntityLogicSourceBinding
         {
             private readonly Func<WorldSnapshot, RawAttackIntent?> _attackIntentFactory;
             private readonly RawMovementIntent? _movementIntent;
@@ -1043,6 +1076,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     buffer.Add(attackIntent.Value);
                 }
+            }
+
+            public bool ControlsEntity(int entityId, TickPhase phase)
+            {
+                return phase == TickPhase.Movement &&
+                    _movementIntent.HasValue &&
+                    _movementIntent.Value.SourceId == entityId;
             }
         }
 

@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
 using UnityEngine;
@@ -22,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(2, 0), hp: 1),
             });
-            var pipeline = new TickPipeline(
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
@@ -230,13 +231,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         public void DeterminismHash_PendingDelayedEvent_IsIncludedInCanonicalState()
         {
-            var pipelineWithoutDelayedEvent = new TickPipeline(
+            var pipelineWithoutDelayedEvent = GameplayCompositionRoot.CreateTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                     CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
                 }));
-            var pipelineWithDelayedEvent = new TickPipeline(
+            var pipelineWithDelayedEvent = GameplayCompositionRoot.CreateTickPipeline(
                 CreateWorldState(new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
@@ -517,7 +518,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return (WorldState)constructor.Invoke(new object[] { initialEntities });
         }
 
-        private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic
+        private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawAttackIntent? _attackIntent;
             private readonly Dictionary<int, RawAttackIntent> _attackIntentsByTick;
@@ -575,6 +576,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             public void SetReplayTickIndex(int tickIndex)
             {
                 _currentTickIndex = tickIndex;
+            }
+
+            public bool ControlsEntity(int entityId, TickPhase phase)
+            {
+                return phase == TickPhase.Movement &&
+                    _movementIntentsByTick.Count > 0 &&
+                    _sourceId == entityId;
             }
         }
     }

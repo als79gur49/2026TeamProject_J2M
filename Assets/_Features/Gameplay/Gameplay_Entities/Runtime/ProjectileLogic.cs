@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal sealed class ProjectileLogic : IEntityLogic
+    internal sealed class ProjectileLogic : IEntityLogic, IEntityLogicSourceBinding
     {
         private const int DefaultMovementPriority = 0;
 
@@ -75,6 +76,11 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
+        public bool ControlsEntity(int entityId, TickPhase phase)
+        {
+            return phase == TickPhase.Movement && _sourceId == entityId;
+        }
+
         private static Vector2Int? ResolveDelta(Direction direction)
         {
             switch (direction)
@@ -94,6 +100,19 @@ namespace Game.Feature.Gameplay.Entities
                 default:
                     return null;
             }
+        }
+    }
+
+    internal sealed class ProjectileEntityLogicFactory : IEntityLogicFactory
+    {
+        public bool CanCreate(in EntityState entity)
+        {
+            return entity.type == EntityType.Projectile;
+        }
+
+        public IEntityLogic Create(in EntityState entity)
+        {
+            return new ProjectileLogic(entity.entityId);
         }
     }
 }
