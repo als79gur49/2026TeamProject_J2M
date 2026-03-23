@@ -41,6 +41,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSnapshotSections(builder, "S1", s1Snapshot);
             AppendSection(builder, "Attack.RawIntents", attackPhaseResult.RawIntents, FormatRawAttackIntent);
             AppendSection(builder, "Attack.DrainedImpacts", attackPhaseResult.DrainedImpactReservations, FormatImpactReservation);
+            AppendSection(builder, "Attack.DrainedDelayedEffects", attackPhaseResult.DrainedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
             AppendSection(builder, "Attack.NormalizedInputs", attackPhaseResult.SortedInputs, FormatAttackIntent);
             AppendSection(builder, "Attack.Candidates", attackPhaseResult.ExpandedCandidates, FormatActionGroup);
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);
@@ -52,6 +53,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
 
             AppendSnapshotSections(builder, "Final", finalSnapshot);
+            AppendSection(builder, "Final.PendingDelayedEffects", tickResultData.PendingDelayedAttackEffects, FormatDelayedAttackEffectRecord);
             AppendSection(builder, "TickResult.FinalEntities", tickResultData.FinalEntities, FormatEntityState);
             AppendSection(builder, "TickResult.EventLog", tickResultData.EventLog, FormatString);
             AppendSection(builder, "DeterminismHash", new[] { determinismHash }, FormatString);
@@ -167,6 +169,11 @@ namespace Game.Feature.Gameplay.Debug
                 builder.Append('|').Append(FormatImpactReservation(intent.ImpactReservation.Value));
             }
 
+            if (intent.DelayedAttackEffect.HasValue)
+            {
+                builder.Append('|').Append(FormatDelayedAttackEffectRecord(intent.DelayedAttackEffect.Value));
+            }
+
             return builder.ToString();
         }
 
@@ -174,6 +181,12 @@ namespace Game.Feature.Gameplay.Debug
         {
             return
                 $"Reservation|Source={reservation.SourceId}|Target={reservation.TargetId}|Position=({reservation.Position.x},{reservation.Position.y})|Damage={reservation.Damage}|Tick={reservation.TickGenerated}|Group={reservation.SourceActionGroupId}|Sequence={reservation.ReservationSequence}";
+        }
+
+        private static string FormatDelayedAttackEffectRecord(DelayedAttackEffectRecord effectRecord)
+        {
+            return
+                $"DelayedAttack|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|Priority={effectRecord.Priority}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|Group={effectRecord.SourceActionGroupId}|Sequence={effectRecord.EffectSequence}";
         }
 
         private static string FormatActionGroup(ActionGroup group)
@@ -189,7 +202,8 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Damages=").Append(FormatDamages(group.Damages))
                 .Append("|Spawns=").Append(FormatSpawns(group.Spawns))
                 .Append("|Destroys=").Append(FormatDestroys(group.Destroys))
-                .Append("|StateChanges=").Append(FormatStateChanges(group.StateChanges));
+                .Append("|StateChanges=").Append(FormatStateChanges(group.StateChanges))
+                .Append("|DelayedAttacks=").Append(FormatDelayedAttacks(group.DelayedAttacks));
             return builder.ToString();
         }
 
@@ -317,6 +331,32 @@ namespace Game.Feature.Gameplay.Debug
                     .Append("E=").Append(stateChange.EntityId)
                     .Append(":State=").Append(stateChange.State)
                     .Append(":Timer=").Append(stateChange.StateTimer);
+            }
+
+            builder.Append(']');
+            return builder.ToString();
+        }
+
+        private static string FormatDelayedAttacks(IReadOnlyList<DelayedAttackAction> delayedAttacks)
+        {
+            if (delayedAttacks.Count == 0)
+            {
+                return "[]";
+            }
+
+            var builder = new StringBuilder("[");
+
+            for (var i = 0; i < delayedAttacks.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(',');
+                }
+
+                var delayedAttack = delayedAttacks[i];
+                builder
+                    .Append("Target=").Append(delayedAttack.TargetId)
+                    .Append(":Damage=").Append(delayedAttack.Damage);
             }
 
             builder.Append(']');

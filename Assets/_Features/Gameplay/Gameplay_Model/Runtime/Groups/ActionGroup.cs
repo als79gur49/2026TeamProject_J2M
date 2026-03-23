@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Model.Groups
             Spawns = new List<SpawnAction>();
             Destroys = new List<DestroyAction>();
             StateChanges = new List<StateChangeAction>();
+            DelayedAttacks = new List<DelayedAttackAction>();
         }
 
         public int GroupId { get; private set; }
@@ -43,6 +44,8 @@ namespace Game.Feature.Gameplay.Model.Groups
         public List<DestroyAction> Destroys { get; }
 
         public List<StateChangeAction> StateChanges { get; }
+
+        public List<DelayedAttackAction> DelayedAttacks { get; }
 
         internal void AssignGroupId(int groupId)
         {

@@ -51,6 +51,12 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                     continue;
                 }
 
+                if (intent.CommandKind == AttackCommandKind.DelayedEffect)
+                {
+                    ExpandDelayedEffect(snapshot, intent, buffer, rejectedReasons);
+                    continue;
+                }
+
                 if (!snapshot.TryGetEntity(intent.SourceId, out var source))
                 {
                     rejectedReasons.Add(
@@ -168,6 +174,52 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 actionGroup.Destroys.Add(new DestroyAction(source.entityId));
             }
 
+            buffer.Add(actionGroup);
+        }
+
+        private static void ExpandDelayedEffect(
+            WorldSnapshot snapshot,
+            AttackIntent intent,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            if (!intent.DelayedAttackEffect.HasValue)
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=MissingDelayedEffect|Kind={intent.InputKind}|LocalSequence={intent.LocalSequence}");
+                return;
+            }
+
+            var effectRecord = intent.DelayedAttackEffect.Value;
+
+            if (!snapshot.TryGetEntity(intent.SourceId, out var source))
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=MissingSource");
+                return;
+            }
+
+            if (source.hp <= 0 || source.markedForDeath)
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=SourceNotAttackCapable|Hp={source.hp}|Marked={source.markedForDeath}");
+                return;
+            }
+
+            if (!snapshot.TryGetEntity(intent.TargetId, out var target))
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=MissingTarget");
+                return;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Attack);
+            actionGroup.Damages.Add(new DamageAction(target.entityId, effectRecord.Damage));
+            actionGroup.Destroys.Add(new DestroyAction(target.entityId));
             buffer.Add(actionGroup);
         }
 

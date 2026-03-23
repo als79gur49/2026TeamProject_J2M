@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Attack.Commit
@@ -10,8 +12,11 @@ namespace Game.Feature.Gameplay.Attack.Commit
         public void Commit(
             WorldSnapshot snapshot,
             IWorldWriteContext writeContext,
+            int tickIndex,
+            IDelayedAttackEffectSink delayedAttackEffectSink,
             IReadOnlyList<ActionGroup> selectedGroups,
-            List<string> commitEvents)
+            List<string> commitEvents,
+            List<string> delayedAttackEvents)
         {
             if (snapshot == null)
             {
@@ -23,6 +28,16 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 throw new ArgumentNullException(nameof(writeContext));
             }
 
+            if (tickIndex < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(tickIndex), "Tick index cannot be negative.");
+            }
+
+            if (delayedAttackEffectSink == null)
+            {
+                throw new ArgumentNullException(nameof(delayedAttackEffectSink));
+            }
+
             if (selectedGroups == null)
             {
                 throw new ArgumentNullException(nameof(selectedGroups));
@@ -31,6 +46,11 @@ namespace Game.Feature.Gameplay.Attack.Commit
             if (commitEvents == null)
             {
                 throw new ArgumentNullException(nameof(commitEvents));
+            }
+
+            if (delayedAttackEvents == null)
+            {
+                throw new ArgumentNullException(nameof(delayedAttackEvents));
             }
 
             commitEvents.Clear();
@@ -116,6 +136,31 @@ namespace Game.Feature.Gameplay.Attack.Commit
                     writeContext.MarkDestroy(destroy.TargetId);
                     commitEvents.Add(
                         $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|FinalHp={finalHp}");
+                }
+            }
+
+            var delayedAttackSequence = 1;
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+
+                for (var delayedIndex = 0; delayedIndex < group.DelayedAttacks.Count; delayedIndex++)
+                {
+                    var delayedAttack = group.DelayedAttacks[delayedIndex];
+                    var effectRecord = new DelayedAttackEffectRecord(
+                        group.SourceId,
+                        delayedAttack.TargetId,
+                        delayedAttack.Damage,
+                        group.Priority,
+                        tickIndex,
+                        tickIndex + 1,
+                        group.GroupId,
+                        delayedAttackSequence);
+                    delayedAttackEffectSink.Enqueue(effectRecord);
+                    delayedAttackEvents.Add(
+                        $"DelayedAttackEnqueued|G={group.GroupId}|I={group.IntentId}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|ExecuteTick={effectRecord.ExecuteAtTick}|Sequence={effectRecord.EffectSequence}");
+                    delayedAttackSequence++;
                 }
             }
         }

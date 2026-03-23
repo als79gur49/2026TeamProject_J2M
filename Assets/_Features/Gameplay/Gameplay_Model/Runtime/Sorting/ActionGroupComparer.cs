@@ -66,7 +66,13 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
-            return CompareLists(left.StateChanges, right.StateChanges, CompareStateChangeActions);
+            result = CompareLists(left.StateChanges, right.StateChanges, CompareStateChangeActions);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return CompareLists(left.DelayedAttacks, right.DelayedAttacks, CompareDelayedAttackActions);
         }
 
         private static int CompareMoveActions(MoveAction left, MoveAction right)
@@ -146,6 +152,17 @@ namespace Game.Feature.Gameplay.Model.Sorting
             }
 
             return left.StateTimer.CompareTo(right.StateTimer);
+        }
+
+        private static int CompareDelayedAttackActions(DelayedAttackAction left, DelayedAttackAction right)
+        {
+            var result = left.TargetId.CompareTo(right.TargetId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return left.Damage.CompareTo(right.Damage);
         }
 
         private static int CompareEntityStates(EntityState left, EntityState right)

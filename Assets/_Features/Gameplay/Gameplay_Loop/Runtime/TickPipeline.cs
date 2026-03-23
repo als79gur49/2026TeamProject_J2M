@@ -42,6 +42,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TickResultBuilder _tickResultBuilder = new();
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
+        private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly WorldState _worldState;
 
         public TickPipeline(WorldState worldState)
@@ -70,6 +71,7 @@ namespace Game.Feature.Gameplay.Loop
             var phaseTrace = new List<string>(6);
             var transientBuffer = new PhaseTransientBuffer();
             var writeContext = _worldState.CreateWriteContext();
+            var drainedDelayedAttackEffects = _delayedAttackEffectQueue.Drain(input.TickIndex);
 
             var movementSnapshot = SnapshotBuilder.Create(_worldState);
             var entityLogicsForTick = BuildEntityLogicsForTick(movementSnapshot);
@@ -87,6 +89,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackSnapshot,
                 entityLogicsForTick,
                 transientBuffer,
+                drainedDelayedAttackEffects,
+                input.TickIndex,
                 writeContext,
                 completedPhases,
                 phaseTrace);
@@ -100,8 +104,10 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace);
 
             var finalSnapshot = SnapshotBuilder.Create(_worldState);
+            var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalSnapshot,
+                pendingDelayedAttackEffects,
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult);
@@ -177,6 +183,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             IReadOnlyList<IEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
+            List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
+            int tickIndex,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
@@ -185,7 +193,7 @@ namespace Game.Feature.Gameplay.Loop
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, entityLogics, rawAttackIntents);
             var drainedImpactReservations = transientBuffer.DrainImpacts();
-            var sortedInputs = NormalizeAttackInputs(rawAttackIntents, drainedImpactReservations);
+            var sortedInputs = NormalizeAttackInputs(rawAttackIntents, drainedImpactReservations, drainedDelayedAttackEffects);
             var expandedCandidates = new List<ActionGroup>();
             var rejectedReasons = new List<string>();
             _attackExpander.Expand(snapshot, sortedInputs, expandedCandidates, rejectedReasons);
@@ -197,18 +205,34 @@ namespace Game.Feature.Gameplay.Loop
             FinalizeAttackSpawns(selectedGroups);
 
             var commitEvents = new List<string>();
-            _attackCommitter.Commit(snapshot, writeContext, selectedGroups, commitEvents);
+            var delayedAttackDrainEvents = BuildDelayedAttackDrainEvents(tickIndex, drainedDelayedAttackEffects);
+            var delayedAttackEnqueueEvents = new List<string>();
+            _attackCommitter.Commit(
+                snapshot,
+                writeContext,
+                tickIndex,
+                _delayedAttackEffectQueue,
+                selectedGroups,
+                commitEvents,
+                delayedAttackEnqueueEvents);
             RegisterSpawnedProjectileLogics(selectedGroups);
             phaseTrace.Add("Attack:Exit");
             completedPhases.Add(TickPhase.Attack);
 
+            var eventLogEntries = new List<string>(delayedAttackDrainEvents.Count + commitEvents.Count + delayedAttackEnqueueEvents.Count);
+            AddRange(eventLogEntries, delayedAttackDrainEvents);
+            AddRange(eventLogEntries, commitEvents);
+            AddRange(eventLogEntries, delayedAttackEnqueueEvents);
+
             return new AttackPhaseResult(
                 rawAttackIntents,
                 drainedImpactReservations,
+                drainedDelayedAttackEffects,
                 sortedInputs,
                 expandedCandidates,
                 selectedGroups,
                 commitEvents,
+                eventLogEntries,
                 rejectedReasons);
         }
 
@@ -254,10 +278,11 @@ namespace Game.Feature.Gameplay.Loop
 
         private List<AttackIntent> NormalizeAttackInputs(
             List<RawAttackIntent> rawAttackIntents,
-            List<ImpactReservation> impactReservations)
+            List<ImpactReservation> impactReservations,
+            List<DelayedAttackEffectRecord> delayedAttackEffects)
         {
-            var sortedInputs = new List<AttackIntent>(rawAttackIntents.Count + impactReservations.Count);
-            _attackInputNormalizer.Normalize(rawAttackIntents, impactReservations, sortedInputs);
+            var sortedInputs = new List<AttackIntent>(rawAttackIntents.Count + impactReservations.Count + delayedAttackEffects.Count);
+            _attackInputNormalizer.Normalize(rawAttackIntents, impactReservations, delayedAttackEffects, sortedInputs);
 
             for (var i = 0; i < sortedInputs.Count; i++)
             {
@@ -265,6 +290,35 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return sortedInputs;
+        }
+
+        internal void EnqueueDelayedAttackEffect(DelayedAttackEffectRecord effectRecord)
+        {
+            _delayedAttackEffectQueue.Enqueue(effectRecord);
+        }
+
+        private static List<string> BuildDelayedAttackDrainEvents(
+            int tickIndex,
+            IReadOnlyList<DelayedAttackEffectRecord> drainedDelayedAttackEffects)
+        {
+            var events = new List<string>(drainedDelayedAttackEffects.Count);
+
+            for (var i = 0; i < drainedDelayedAttackEffects.Count; i++)
+            {
+                var effectRecord = drainedDelayedAttackEffects[i];
+                events.Add(
+                    $"DelayedAttackDrained|Tick={tickIndex}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|Group={effectRecord.SourceActionGroupId}|Sequence={effectRecord.EffectSequence}");
+            }
+
+            return events;
+        }
+
+        private static void AddRange(List<string> destination, IReadOnlyList<string> source)
+        {
+            for (var i = 0; i < source.Count; i++)
+            {
+                destination.Add(source[i]);
+            }
         }
 
         private void AssignAttackGroupIds(List<ActionGroup> expandedCandidates)

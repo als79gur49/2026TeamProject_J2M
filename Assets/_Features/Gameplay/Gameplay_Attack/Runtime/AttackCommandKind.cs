@@ -5,5 +5,6 @@ namespace Game.Feature.Gameplay.Attack
         Attack = 0,
         FireProjectile = 1,
         ImpactReservation = 2,
+        DelayedEffect = 3,
     }
 }

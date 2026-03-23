@@ -56,6 +56,17 @@ namespace Game.Feature.Gameplay.Attack.Sorting
                 }
             }
 
+            if (left.DelayedAttackEffect.HasValue && right.DelayedAttackEffect.HasValue)
+            {
+                result = DelayedAttackEffectRecordComparer.Instance.Compare(
+                    left.DelayedAttackEffect.Value,
+                    right.DelayedAttackEffect.Value);
+                if (result != 0)
+                {
+                    return result;
+                }
+            }
+
             return left.IntentId.CompareTo(right.IntentId);
         }
     }

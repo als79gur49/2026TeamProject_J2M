@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
@@ -45,6 +46,9 @@ namespace Game.Feature.Gameplay.Loop
 
             builder.Append("MarkedForDeath").Append('\n');
             AppendMarkedForDeathLines(builder, tickResultData.FinalEntities);
+
+            builder.Append("PendingDelayedAttackEffects").Append('\n');
+            AppendPendingDelayedAttackEffectLines(builder, tickResultData.PendingDelayedAttackEffects);
 
             builder.Append("EventLog").Append('\n');
             AppendStringLines(builder, tickResultData.EventLog);
@@ -132,6 +136,31 @@ namespace Game.Feature.Gameplay.Loop
             if (!hasMarkedEntity)
             {
                 builder.Append("<empty>").Append('\n');
+            }
+        }
+
+        private static void AppendPendingDelayedAttackEffectLines(
+            StringBuilder builder,
+            IReadOnlyList<DelayedAttackEffectRecord> pendingDelayedAttackEffects)
+        {
+            if (pendingDelayedAttackEffects.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < pendingDelayedAttackEffects.Count; i++)
+            {
+                var effect = pendingDelayedAttackEffects[i];
+                builder
+                    .Append(effect.SourceId).Append('|')
+                    .Append(effect.TargetId).Append('|')
+                    .Append(effect.Damage).Append('|')
+                    .Append(effect.Priority).Append('|')
+                    .Append(effect.TickGenerated).Append('|')
+                    .Append(effect.ExecuteAtTick).Append('|')
+                    .Append(effect.SourceActionGroupId).Append('|')
+                    .Append(effect.EffectSequence).Append('\n');
             }
         }
 

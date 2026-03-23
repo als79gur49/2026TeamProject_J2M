@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Loop
@@ -9,6 +10,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         public TickResultData Build(
             WorldSnapshot finalSnapshot,
+            IReadOnlyList<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult)
@@ -16,6 +18,11 @@ namespace Game.Feature.Gameplay.Loop
             if (finalSnapshot == null)
             {
                 throw new ArgumentNullException(nameof(finalSnapshot));
+            }
+
+            if (pendingDelayedAttackEffects == null)
+            {
+                throw new ArgumentNullException(nameof(pendingDelayedAttackEffects));
             }
 
             if (movementPhaseResult == null)
@@ -38,13 +45,13 @@ namespace Game.Feature.Gameplay.Loop
 
             var eventLog = new List<string>(
                 movementPhaseResult.CommitEvents.Count +
-                attackPhaseResult.CommitEvents.Count +
+                attackPhaseResult.EventLogEntries.Count +
                 cleanupPhaseResult.RemovedEntityIds.Count +
                 cleanupPhaseResult.TimerChanges.Count +
                 cleanupPhaseResult.StateTransitions.Count);
 
             AddRange(eventLog, movementPhaseResult.CommitEvents);
-            AddRange(eventLog, attackPhaseResult.CommitEvents);
+            AddRange(eventLog, attackPhaseResult.EventLogEntries);
 
             for (var i = 0; i < cleanupPhaseResult.RemovedEntityIds.Count; i++)
             {
@@ -54,7 +61,7 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(eventLog, cleanupPhaseResult.TimerChanges);
             AddRange(eventLog, cleanupPhaseResult.StateTransitions);
 
-            return new TickResultData(finalEntities, eventLog);
+            return new TickResultData(finalEntities, pendingDelayedAttackEffects, eventLog);
         }
 
         private static void AddRange(List<string> destination, IReadOnlyList<string> source)
@@ -70,12 +77,21 @@ namespace Game.Feature.Gameplay.Loop
     {
         private readonly ReadOnlyCollection<string> _eventLog;
         private readonly ReadOnlyCollection<EntityState> _finalEntities;
+        private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _pendingDelayedAttackEffects;
 
-        public TickResultData(IEnumerable<EntityState> finalEntities, IEnumerable<string> eventLog)
+        public TickResultData(
+            IEnumerable<EntityState> finalEntities,
+            IEnumerable<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
+            IEnumerable<string> eventLog)
         {
             if (finalEntities == null)
             {
                 throw new ArgumentNullException(nameof(finalEntities));
+            }
+
+            if (pendingDelayedAttackEffects == null)
+            {
+                throw new ArgumentNullException(nameof(pendingDelayedAttackEffects));
             }
 
             if (eventLog == null)
@@ -84,10 +100,13 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
+            _pendingDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(pendingDelayedAttackEffects));
             _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
         }
 
         public IReadOnlyList<EntityState> FinalEntities => _finalEntities;
+
+        public IReadOnlyList<DelayedAttackEffectRecord> PendingDelayedAttackEffects => _pendingDelayedAttackEffects;
 
         public IReadOnlyList<string> EventLog => _eventLog;
     }

@@ -12,6 +12,15 @@ namespace Game.Feature.Gameplay.Attack.Collection
             IReadOnlyList<ImpactReservation> impactReservations,
             List<AttackIntent> buffer)
         {
+            Normalize(rawAttackIntents, impactReservations, Array.Empty<DelayedAttackEffectRecord>(), buffer);
+        }
+
+        public void Normalize(
+            IReadOnlyList<RawAttackIntent> rawAttackIntents,
+            IReadOnlyList<ImpactReservation> impactReservations,
+            IReadOnlyList<DelayedAttackEffectRecord> delayedAttackEffects,
+            List<AttackIntent> buffer)
+        {
             if (rawAttackIntents == null)
             {
                 throw new ArgumentNullException(nameof(rawAttackIntents));
@@ -20,6 +29,11 @@ namespace Game.Feature.Gameplay.Attack.Collection
             if (impactReservations == null)
             {
                 throw new ArgumentNullException(nameof(impactReservations));
+            }
+
+            if (delayedAttackEffects == null)
+            {
+                throw new ArgumentNullException(nameof(delayedAttackEffects));
             }
 
             if (buffer == null)
@@ -38,6 +52,11 @@ namespace Game.Feature.Gameplay.Attack.Collection
             for (var i = 0; i < impactReservations.Count; i++)
             {
                 buffer.Add(AttackIntent.FromImpactReservation(impactReservations[i]));
+            }
+
+            for (var i = 0; i < delayedAttackEffects.Count; i++)
+            {
+                buffer.Add(AttackIntent.FromDelayedAttackEffect(delayedAttackEffects[i]));
             }
 
             buffer.Sort(AttackInputComparer.Instance);
