@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -167,6 +168,138 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
                     .ToArray());
+        }
+
+        [Test]
+        public void TickInputBuffer_RecordRejectsDuplicateTick()
+        {
+            var inputBuffer = new TickInputBuffer();
+
+            inputBuffer.Record(new TickInput(3));
+
+            Assert.That(
+                () => inputBuffer.Record(new TickInput(3)),
+                Throws.TypeOf<InvalidOperationException>());
+        }
+
+        [Test]
+        public void TickInputBuffer_ConsumeOrDefault_ReturnsRecordedInputOrDefaultTick()
+        {
+            var inputBuffer = new TickInputBuffer();
+
+            inputBuffer.Record(new TickInput(5));
+
+            Assert.That(inputBuffer.HasBufferedInput(5), Is.True);
+            Assert.That(inputBuffer.ConsumeOrDefault(5).TickIndex, Is.EqualTo(5));
+            Assert.That(inputBuffer.HasBufferedInput(5), Is.False);
+            Assert.That(inputBuffer.ConsumeOrDefault(6).TickIndex, Is.EqualTo(6));
+        }
+
+        [Test]
+        public void TickRunner_RunNextTick_ConsumesBufferedInputAndAdvancesIndex()
+        {
+            var inputBuffer = new TickInputBuffer();
+            var runner = new TickRunner(
+                GameplayCompositionRoot.CreateTickPipeline(new WorldState()),
+                inputBuffer,
+                startTickIndex: 4);
+
+            inputBuffer.Record(new TickInput(4));
+
+            var result = runner.RunNextTick();
+
+            Assert.That(result.TickIndex, Is.EqualTo(4));
+            Assert.That(runner.NextTickIndex, Is.EqualTo(5));
+            Assert.That(inputBuffer.HasBufferedInput(4), Is.False);
+        }
+
+        [Test]
+        public void TickRunner_RunTick_RejectsOutOfOrderTickIndex()
+        {
+            var runner = new TickRunner(
+                GameplayCompositionRoot.CreateTickPipeline(new WorldState()),
+                new TickInputBuffer(),
+                startTickIndex: 3);
+
+            Assert.That(
+                () => runner.RunTick(new TickInput(4)),
+                Throws.TypeOf<InvalidOperationException>());
+            Assert.That(runner.NextTickIndex, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void GameplayCompositionRoot_CreateTickRunner_UsesDefaultProvider()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new Vector2Int(0, 0),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 1,
+                    type = EntityType.Projectile,
+                    facing = Direction.Right,
+                },
+            });
+            var runner = GameplayCompositionRoot.CreateTickRunner(worldState, new TickInputBuffer());
+
+            var result = runner.RunNextTick();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, Destination: new Vector2Int(1, 0)),
+                },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.Destination))
+                    .ToArray());
+            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(runner.NextTickIndex, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileRecovery()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 20,
+                    position = new Vector2Int(2, 1),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 2,
+                    type = EntityType.Projectile,
+                    facing = Direction.Left,
+                },
+            });
+            var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper();
+            var inputBuffer = new TickInputBuffer();
+
+            inputBuffer.Record(new TickInput(7));
+
+            var runner = bootstrapper.CreateTickRunner(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                inputBuffer,
+                startTickIndex: 7);
+            var result = runner.RunNextTick();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 20, Destination: new Vector2Int(1, 1)),
+                },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.Destination))
+                    .ToArray());
+            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new Vector2Int(1, 1)));
+            Assert.That(runner.NextTickIndex, Is.EqualTo(8));
+            Assert.That(inputBuffer.HasBufferedInput(7), Is.False);
         }
 
         [Test]

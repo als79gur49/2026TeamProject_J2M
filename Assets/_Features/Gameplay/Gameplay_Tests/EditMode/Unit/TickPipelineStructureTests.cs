@@ -108,10 +108,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldState_HidesConcreteWriteContext_And_PrivateMutationHelpers()
+        public void WorldState_UsesInternalConcreteWriteContext_And_PrivateMutationHelpers()
         {
-            var assembly = typeof(WorldState).Assembly;
-            var worldStateWriteContextType = assembly.GetType("Game.Feature.Gameplay.BoardState.WorldStateWriteContext");
+            var createWriteContextMethod = typeof(WorldState).GetMethod(
+                "CreateWriteContext",
+                BindingFlags.Instance | BindingFlags.NonPublic);
             var worldStateMethods = typeof(WorldState)
                 .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
                 .Where(method => method.Name is
@@ -122,10 +123,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "TryGetEntity" or
                     "UpdateEntity")
                 .ToArray();
+            var leakedMutationMethods = typeof(WorldState)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(method => method.Name is
+                    "AddNewEntity" or
+                    "ClearOccupancy" or
+                    "RemoveEntity" or
+                    "SetOccupancy" or
+                    "TryGetEntity" or
+                    "UpdateEntity")
+                .Where(method => method.IsPublic || method.IsAssembly || method.IsFamily || method.IsFamilyOrAssembly)
+                .ToArray();
 
-            Assert.That(worldStateWriteContextType, Is.Null);
+            Assert.That(typeof(WorldStateWriteContext).IsNotPublic, Is.True);
+            Assert.That(typeof(IWorldWriteContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
+            Assert.That(createWriteContextMethod, Is.Not.Null);
+            Assert.That(createWriteContextMethod.IsAssembly, Is.True);
+            Assert.That(createWriteContextMethod.ReturnType, Is.EqualTo(typeof(IWorldWriteContext)));
             Assert.That(worldStateMethods, Is.Not.Empty);
             Assert.That(worldStateMethods.All(method => method.IsPrivate), Is.True);
+            Assert.That(leakedMutationMethods, Is.Empty);
         }
 
         [Test]
@@ -211,6 +228,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 binder: null,
                 types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>) },
                 modifiers: null);
+            var runnerFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickRunner),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(WorldState), typeof(TickInputBuffer) },
+                modifiers: null);
+            var runnerWithLogicFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickRunner),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>), typeof(TickInputBuffer), typeof(int) },
+                modifiers: null);
 
             Assert.That(defaultBootstrapperFactory, Is.Not.Null);
             Assert.That(defaultBootstrapperFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
@@ -218,6 +247,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldOnlyFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
             Assert.That(worldAndLogicFactory, Is.Not.Null);
             Assert.That(worldAndLogicFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
+            Assert.That(runnerFactory, Is.Not.Null);
+            Assert.That(runnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+            Assert.That(runnerWithLogicFactory, Is.Not.Null);
+            Assert.That(runnerWithLogicFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+        }
+
+        [Test]
+        public void GameplayBootstrapper_ExposesRunnerCreationApi()
+        {
+            var runnerFactory = typeof(GameplayBootstrapper).GetMethod(
+                nameof(GameplayBootstrapper.CreateTickRunner),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(WorldState), typeof(TickInputBuffer) },
+                modifiers: null);
+            var runnerWithLogicFactory = typeof(GameplayBootstrapper).GetMethod(
+                nameof(GameplayBootstrapper.CreateTickRunner),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(WorldState), typeof(IEnumerable<IEntityLogic>), typeof(TickInputBuffer), typeof(int) },
+                modifiers: null);
+
+            Assert.That(runnerFactory, Is.Not.Null);
+            Assert.That(runnerFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
+            Assert.That(runnerWithLogicFactory, Is.Not.Null);
+            Assert.That(runnerWithLogicFactory.ReturnType, Is.EqualTo(typeof(TickRunner)));
         }
 
         [Test]

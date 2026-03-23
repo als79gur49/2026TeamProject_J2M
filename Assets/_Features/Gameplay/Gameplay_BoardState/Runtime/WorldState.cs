@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
-    public sealed class WorldState
+    public sealed class WorldState : IWorldStateMutationPort
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
         private readonly Dictionary<Vector2Int, int> _projectileOccupancy = new();
@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal IWorldWriteContext CreateWriteContext()
         {
-            return new WriteContext(this);
+            return new WorldStateWriteContext((IWorldStateMutationPort)this);
         }
 
         private void AddNewEntity(EntityState entity)
@@ -107,88 +107,34 @@ namespace Game.Feature.Gameplay.BoardState
             occupancyByCell[position] = entityId;
         }
 
-        private sealed class WriteContext : IWorldWriteContext
+        bool IWorldStateMutationPort.TryGetEntity(int entityId, out EntityState entity)
         {
-            private readonly WorldState _worldState;
+            return TryGetEntity(entityId, out entity);
+        }
 
-            public WriteContext(WorldState worldState)
-            {
-                _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
-            }
+        void IWorldStateMutationPort.AddNewEntity(EntityState entity)
+        {
+            AddNewEntity(entity);
+        }
 
-            public void MoveEntity(int entityId, Vector2Int destination)
-            {
-                if (!_worldState.TryGetEntity(entityId, out var entity))
-                {
-                    return;
-                }
+        void IWorldStateMutationPort.UpdateEntity(EntityState entity)
+        {
+            UpdateEntity(entity);
+        }
 
-                _worldState.ClearOccupancy(entity);
-                entity.position = destination;
-                _worldState.UpdateEntity(entity);
-                _worldState.SetOccupancy(entity);
-            }
+        void IWorldStateMutationPort.ClearOccupancy(EntityState entity)
+        {
+            ClearOccupancy(entity);
+        }
 
-            public void ApplyDamage(int entityId, int amount)
-            {
-                if (!_worldState.TryGetEntity(entityId, out var entity))
-                {
-                    return;
-                }
+        void IWorldStateMutationPort.SetOccupancy(EntityState entity)
+        {
+            SetOccupancy(entity);
+        }
 
-                entity.hp -= amount;
-                _worldState.UpdateEntity(entity);
-            }
-
-            public void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer)
-            {
-                if (!_worldState.TryGetEntity(entityId, out var entity))
-                {
-                    return;
-                }
-
-                entity.state = state;
-                entity.stateTimer = stateTimer;
-                _worldState.UpdateEntity(entity);
-            }
-
-            public void MarkDestroy(int entityId)
-            {
-                if (!_worldState.TryGetEntity(entityId, out var entity))
-                {
-                    return;
-                }
-
-                entity.markedForDeath = true;
-                _worldState.UpdateEntity(entity);
-            }
-
-            public void SpawnEntity(EntityState entity)
-            {
-                _worldState.AddNewEntity(entity);
-            }
-
-            public void RemoveEntity(int entityId)
-            {
-                if (!_worldState.TryGetEntity(entityId, out var entity))
-                {
-                    return;
-                }
-
-                _worldState.ClearOccupancy(entity);
-                _worldState.RemoveEntity(entityId);
-            }
-
-            public void SetFacing(int entityId, Direction facing)
-            {
-                if (!_worldState.TryGetEntity(entityId, out var entity))
-                {
-                    return;
-                }
-
-                entity.facing = facing;
-                _worldState.UpdateEntity(entity);
-            }
+        void IWorldStateMutationPort.RemoveEntityRecord(int entityId)
+        {
+            RemoveEntity(entityId);
         }
     }
 }
