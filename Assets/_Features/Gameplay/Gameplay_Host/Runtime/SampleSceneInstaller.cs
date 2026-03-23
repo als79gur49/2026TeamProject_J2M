@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -48,18 +49,38 @@ namespace Game.Feature.Gameplay.Host
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 GridOrigin = gridOrigin,
                 InitialMoveDelayTicks = initialMoveDelayTicks,
-                InitialEntities = new[]
-                {
-                    CreatePlayer(entityId: playerEntityId, position: new Vector2Int(0, 0)),
-                    CreateWall(entityId: 90, position: new Vector2Int(2, 0)),
-                    CreateWall(entityId: 91, position: new Vector2Int(2, 1)),
-                    CreateWall(entityId: 92, position: new Vector2Int(2, -1)),
-                },
+                InitialEntities = CreateInitialEntities(),
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
                 RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
                 TickIntervalSeconds = tickIntervalSeconds,
             };
+        }
+
+        private EntityState[] CreateInitialEntities()
+        {
+            var entities = new List<EntityState>
+            {
+                CreatePlayer(entityId: playerEntityId, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateBox(entityId: 31, position: new Vector2Int(3, 0)),
+            };
+
+            var nextWallId = 100;
+
+            for (var y = -2; y <= 4; y++)
+            {
+                entities.Add(CreateWall(nextWallId++, new Vector2Int(-3, y)));
+                entities.Add(CreateWall(nextWallId++, new Vector2Int(6, y)));
+            }
+
+            for (var x = -2; x <= 5; x++)
+            {
+                entities.Add(CreateWall(nextWallId++, new Vector2Int(x, -2)));
+                entities.Add(CreateWall(nextWallId++, new Vector2Int(x, 4)));
+            }
+
+            return entities.ToArray();
         }
 
         private static void ConfigureCamera()
@@ -105,6 +126,21 @@ namespace Game.Feature.Gameplay.Host
                 type = EntityType.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
+            };
+        }
+
+        private static EntityState CreateBox(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
             };
         }
     }

@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Host
         private bool _isInitialized;
         private TickInputBuffer _inputBuffer;
         private InputRepeatCooldown _inputRepeatCooldown;
+        private InputAction _interactAction;
+        private bool _hasBufferedInteract;
         private InputAction _moveAction;
         private float _moveDeadzone;
         private GameplayTickViewPresenter _presenter;
@@ -68,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
             _moveDeadzone = moveDeadzone;
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
+            _hasBufferedInteract = false;
             _sampledMoveInput = Vector2.zero;
             _inputRepeatCooldown = new InputRepeatCooldown(
                 initialMoveDelayTicks,
@@ -106,7 +109,8 @@ namespace Game.Feature.Gameplay.Host
 
             var tickIndex = _runner.NextTickIndex;
             var quantizedDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
-            var playerCommand = _inputRepeatCooldown.BuildCommand(tickIndex, quantizedDirection);
+            var moveCommand = _inputRepeatCooldown.BuildCommand(tickIndex, quantizedDirection);
+            var playerCommand = ResolvePrimaryCommand(quantizedDirection, moveCommand);
 
             _inputBuffer.Record(new TickInput(tickIndex, playerCommand));
 
@@ -162,8 +166,16 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Move action on the provided InputActionAsset.");
             }
 
+            _interactAction = _actions.FindAction("Player/Interact", throwIfNotFound: false);
+            if (_interactAction == null)
+            {
+                throw new InvalidOperationException("GameplayInputHost requires a Player/Interact action on the provided InputActionAsset.");
+            }
+
             _moveAction.performed += OnMovePerformed;
             _moveAction.canceled += OnMoveCanceled;
+            _interactAction.started += OnInteractStarted;
+            _interactAction.performed += OnInteractPerformed;
             _sampledMoveInput = _moveAction.ReadValue<Vector2>();
         }
 
@@ -186,6 +198,16 @@ namespace Game.Feature.Gameplay.Host
             _sampledMoveInput = context.ReadValue<Vector2>();
         }
 
+        private void OnInteractPerformed(InputAction.CallbackContext context)
+        {
+            _hasBufferedInteract = true;
+        }
+
+        private void OnInteractStarted(InputAction.CallbackContext context)
+        {
+            _hasBufferedInteract = true;
+        }
+
         private void UnbindActions()
         {
             if (_moveAction != null)
@@ -195,10 +217,32 @@ namespace Game.Feature.Gameplay.Host
                 _moveAction = null;
             }
 
+            if (_interactAction != null)
+            {
+                _interactAction.started -= OnInteractStarted;
+                _interactAction.performed -= OnInteractPerformed;
+                _interactAction = null;
+            }
+
             if (_actions != null)
             {
                 _actions.Disable();
             }
+
+            _hasBufferedInteract = false;
+        }
+
+        private PlayerTickCommand ResolvePrimaryCommand(Direction quantizedDirection, PlayerTickCommand moveCommand)
+        {
+            if (!_hasBufferedInteract)
+            {
+                return moveCommand;
+            }
+
+            _hasBufferedInteract = false;
+            return quantizedDirection == Direction.None
+                ? PlayerTickCommand.None
+                : PlayerTickCommand.InteractSlide(quantizedDirection);
         }
     }
 }

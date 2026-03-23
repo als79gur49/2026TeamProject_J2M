@@ -1,3 +1,4 @@
+using System;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -6,6 +7,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class DefaultGameplayEntityViewFactory : IGameplayEntityViewFactory
     {
         private readonly float _cellSize;
+        private readonly Material _entityBaseMaterial;
         private readonly Transform _parent;
         private readonly int _playerEntityId;
 
@@ -14,6 +16,15 @@ namespace Game.Feature.Gameplay.Host
             _parent = parent;
             _cellSize = cellSize;
             _playerEntityId = playerEntityId;
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+
+            if (shader == null)
+            {
+                throw new InvalidOperationException(
+                    "DefaultGameplayEntityViewFactory requires the 'Universal Render Pipeline/Unlit' shader.");
+            }
+
+            _entityBaseMaterial = new Material(shader);
         }
 
         public GameplayEntityView CreateView(in EntityState entity)
@@ -26,7 +37,7 @@ namespace Game.Feature.Gameplay.Host
             var collider = viewObject.GetComponent<Collider>();
             if (collider != null)
             {
-                Object.Destroy(collider);
+                UnityEngine.Object.Destroy(collider);
             }
 
             var view = viewObject.AddComponent<GameplayEntityView>();
@@ -35,7 +46,9 @@ namespace Game.Feature.Gameplay.Host
             var renderer = viewObject.GetComponent<Renderer>();
             if (renderer != null)
             {
-                renderer.material.color = ResolveColor(entity);
+                var material = new Material(_entityBaseMaterial);
+                material.color = ResolveColor(entity);
+                renderer.sharedMaterial = material;
             }
 
             return view;
@@ -50,6 +63,9 @@ namespace Game.Feature.Gameplay.Host
 
             switch (entity.type)
             {
+                case EntityType.Box:
+                    return new Color(0.72f, 0.5f, 0.24f);
+
                 case EntityType.Projectile:
                     return new Color(0.9f, 0.4f, 0.2f);
 
