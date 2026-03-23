@@ -866,7 +866,161 @@ Resolver 알고리즘 변경:
 - `Movement_EdgeReservation_DoesNotPersistAcrossTicks`
 - `Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog`
 
-### 7-9-3. on-hit 확장 검토
+### 7-9-3. Box / Interact Slide 설계
+
+이 소절은 current-state 구현 기록이 아니라, 현재 결정론 구조 위에 박스 슬라이딩을 올릴 때의 확장 설계 addendum이다.
+
+목표:
+
+- `Box`를 `Movement` phase의 수동 물리 오브젝트로 추가한다.
+- 박스 슬라이딩은 별도 phase가 아니라 `Movement` 확장으로 연다.
+- 플레이어는 방향을 가진 `interact` 명령으로 인접한 박스를 그 방향으로 미끄러뜨린다.
+- 슬라이드 성공/실패는 계속 `S0` 기준으로만 판정한다.
+
+핵심 판단:
+
+- 이번 기능은 "플레이어가 이동하면서 박스를 민다"가 아니라 "플레이어는 제자리에 있고 박스만 이동한다"는 상호작용 규칙이다.
+- 따라서 기존 `Move` 의미를 암묵적으로 재사용하지 않고, movement 내부에서 명시적으로 구분되는 command가 필요하다.
+- 하지만 새 phase를 만들 필요는 없으므로, 초기 버전은 `RawMovementIntent` / `MoveIntent`에 `MovementCommandKind`를 추가하는 방향을 권장한다.
+
+권장 최소 모델:
+
+```csharp
+public enum EntityType
+{
+    None = 0,
+    Unit = 1,
+    Projectile = 2,
+    Box = 3,
+}
+
+public enum MovementCommandKind
+{
+    Move = 0,
+    InteractSlide = 1,
+}
+
+public readonly struct RawMovementIntent
+{
+    public int SourceId { get; }
+    public int Priority { get; }
+    public Vector2Int Destination { get; }
+    public MovementCommandKind CommandKind { get; }
+}
+```
+
+의미:
+
+- `Destination`은 여전히 "이번 movement command가 향하는 인접 cell"이다.
+- `Move`에서는 source의 목적지다.
+- `InteractSlide`에서는 플레이어가 상호작용하려는 인접 박스의 cell이다.
+
+`Box` 월드 정책:
+
+- `Box`는 `Projectile`이 아니므로 초기 버전에서는 `unitOccupancy` 계층에 포함한다.
+- 즉 `Box`는 `Unit`과 같은 동적 점유 계층에 있으나, autonomous `IEntityLogic`는 가지지 않는 수동 오브젝트다.
+- `Box`는 movement blocker다.
+- `Box`를 attack target으로 취급할지 여부는 이번 설계에서 고정하지 않는다.
+  - 현재 중앙 질의 규칙을 유지하면 새 selection 자체는 가능할 수 있다.
+  - 실제 combat targeting 정책이 갈라질 때 `CanBeTargetedForNewSelection`을 분리한다.
+
+`PlayerLogic` / 입력 모델 규칙:
+
+- box sliding을 열 때는 "한 tick에 플레이어가 movement phase에서 하나의 primary command만 낸다"는 규칙을 host에서 강제하는 것을 권장한다.
+- `PlayerLogic`은 `Move`면 기존 `RawMovementIntent`를 1개 만들고, `InteractSlide`면 같은 priority로 `MovementCommandKind.InteractSlide` raw intent를 1개 만든다.
+- 방향 없는 interact는 무효 command로 본다.
+- 같은 tick에 move hold와 interact press가 겹치면 `InteractSlide`를 우선한다.
+
+`MovementExpander` 분기 정책:
+
+1. source entity와 인접 방향 유효성은 기존처럼 먼저 검증한다.
+2. `CommandKind == Move`면 현재 `Move / PushChain / ProjectileImpact` 경로를 유지한다.
+3. `CommandKind == InteractSlide`면 아래 전용 규칙으로 확장한다.
+
+`InteractSlide` 확장 규칙:
+
+1. `Destination`에는 반드시 `Box`가 있어야 한다.
+2. 박스 뒤 방향으로 같은 delta를 따라가며, `unitOccupancy` 기준 가장 가까운 blocker를 찾는다.
+3. blocker 바로 앞 cell까지가 슬라이드의 최종 도착점이다.
+4. blocker가 바로 박스 다음 칸이면 슬라이드는 실패다.
+5. 같은 ray 상에 blocker가 전혀 없으면 초기 버전에서는 실패다.
+
+중요한 초기 제약:
+
+- 현재 코드에는 authoritative board bounds나 `terrainData`가 아직 완전히 연결돼 있지 않다.
+- 따라서 "장애물이 나올 때까지 무한 슬라이드"를 월드 바깥 경계 없이 해석할 수 없다.
+- 이 때문에 초기 버전은 `S0` 상에서 명시적 stopper가 있는 경우에만 slide를 성공시킨다.
+- 이후 `terrainData`나 board bounds가 authoritative state로 들어오면, "맵 경계"를 stopper로 승격할 수 있다.
+
+`ActionGroup` 표현:
+
+- `ActionGroupKind.Slide`를 추가한다.
+- slide 성공 후보는 하나의 `ActionGroup` 안에 같은 `Box entityId`에 대한 여러 `MoveAction`을 담는다.
+- 각 `MoveAction`은 항상 한 칸 이동만 표현한다.
+- 목록 순서는 `slide 시작 cell -> 끝 cell` 순의 step-by-step으로 고정한다.
+
+예:
+
+- 플레이어 `(0,0)`
+- 박스 `(1,0)`
+- 벽 `(4,0)`
+- interact-right
+
+그러면 slide group의 moves는 아래처럼 된다.
+
+```text
+E=Box:(1,0)->(2,0)
+E=Box:(2,0)->(3,0)
+```
+
+이 표현을 쓰는 이유:
+
+- `destination reservation`이 경유 cell까지 잠글 수 있다.
+- 기존 `edge reservation` 규칙을 그대로 재사용할 수 있다.
+- multi-step path용 별도 path model을 당장 추가하지 않아도 된다.
+
+Resolver 규칙:
+
+- 기존 `MovementResolver`의 세 충돌 축을 유지한다.
+  - `destination reservation`
+  - `edge reservation`
+  - `shared moved entity`
+- slide group이 step-by-step `MoveAction`을 들고 있으면, 경유 cell과 경유 edge까지 기존 로직으로 잠글 수 있다.
+- 즉, box sliding 때문에 resolver phase 자체를 새로 만들 필요는 없다.
+
+Commit 규칙:
+
+- `MovementCommitter`는 `Slide` group의 `MoveAction`을 리스트 순서대로 적용한다.
+- 플레이어 source는 이동하지 않는다.
+- 다만 source의 facing은 interact direction으로 갱신하는 것을 권장한다.
+- box의 facing은 초기 버전에서는 slide direction으로 갱신하는 쪽을 권장한다.
+- slide는 `PhaseTransientBuffer`를 사용하지 않는다.
+- slide 결과로 damage, destroy, spawn을 직접 만들지 않는다.
+
+`PushChain`과의 관계:
+
+- 일반 `Move`가 `Box`를 향하면 기존 pushchain으로 승격하지 않는다.
+- 초기 정책에서 `PushChain`은 계속 `Unit` 전용이다.
+- `Box`는 이동 입력으로는 밀리지 않고, `InteractSlide`로만 미끄러진다.
+
+초기 비범위:
+
+- 박스가 다른 박스를 연쇄적으로 밀어내는 `BoxChainSlide`
+- 슬라이드 중 타일 반응
+- 슬라이드 중 damage / crush / trap 처리
+- projectile와 box의 계층 상호작용
+- slope, conveyor, ice 같은 보드 규칙
+
+테스트 우선순위:
+
+- `PlayerLogic_InteractSlideCommand_ProducesSingleRawMovementIntent`
+- `Movement_BoxSlide_SucceedsWhenStopperExistsOnRay`
+- `Movement_BoxSlide_FailsWhenTargetIsNotBox`
+- `Movement_BoxSlide_FailsWhenRayHasNoStopper`
+- `Movement_BoxSlide_ReservesIntermediateCellsAgainstConcurrentMove`
+- `Replay_BoxSlideScenario_ProducesSameHashTraceAndEventLog`
+
+### 7-9-4. on-hit 확장 검토
 
 결론부터 적는다.
 
@@ -1991,6 +2145,7 @@ grid movement에서 가장 중요한 것은 "버튼이 눌렸는가"보다 "이�
 
 - blocked destination이면 이동 실패
 - pushchain 가능하면 pushchain 후보로 확장
+- interact slide command면 box slide 후보로 확장
 - shared chain 충돌이면 later candidate reject
 - cleanup/attack phase 순서
 
@@ -2026,14 +2181,51 @@ var runner = GameplayCompositionRoot.CreateTickRunner(
 - `PlayerLogic`은 테스트에서 plain `TickInput`으로 바로 검증할 수 있다.
 - scene host만 Unity 의존성을 가진다.
 
-#### 15-15-9. 테스트 설계
+#### 15-15-9. box sliding 입력 확장안
+
+`15-15-3`의 최소 입력 모델은 movement만 여는 단계에는 충분하지만, box sliding을 열면 host가 "이 tick의 primary player command"를 하나로 결정해야 한다.
+
+권장 확장:
+
+```csharp
+public enum PlayerPrimaryCommandKind
+{
+    None = 0,
+    Move = 1,
+    InteractSlide = 2,
+}
+
+public readonly struct PlayerTickCommand
+{
+    public PlayerPrimaryCommandKind PrimaryKind { get; }
+    public Direction Direction { get; }
+}
+```
+
+host 결정 규칙:
+
+1. tick 경계에서 current move vector를 quantize한다.
+2. buffered interact press가 있고 direction이 유효하면 `InteractSlide(direction)`을 기록한다.
+3. interact가 없고 direction이 유효하면 기존 hold-repeat 규칙에 따라 `Move(direction)`을 기록한다.
+4. 둘 다 아니면 `None`을 기록한다.
+
+이 설계를 쓰면 아래 경계가 유지된다.
+
+- simulation 계층은 여전히 `TickInput`만 읽는다.
+- `PlayerLogic`은 여전히 intent 생산만 한다.
+- interact도 move와 같은 `Movement` phase 경로로 합류한다.
+- 같은 tick에 move와 interact가 동시에 primary intent로 생성되는 문제를 host에서 차단할 수 있다.
+
+#### 15-15-10. 테스트 설계
 
 이번 입력 슬라이스를 구현할 때 아래 테스트를 권장한다.
 
 - `PlayerLogic_MoveCommand_ProducesSingleRawMovementIntent`
+- `PlayerLogic_InteractSlideCommand_ProducesSingleRawMovementIntent`
 - `PlayerLogic_NoMoveCommand_ProducesNoIntent`
 - `PlayerLogic_DeadEntity_DoesNotProduceIntent`
 - `TickRunner_WithPlayerMoveInput_MovesPlayerOneCellPerTick`
+- `GameplayInputHost_InteractBufferedAtTickBoundary`
 - `InputQuantizer_Vector2ToGridDirection_PicksDominantAxis`
 - `InputQuantizer_DiagonalTie_ReturnsNone`
 - `InputQuantizer_BelowDeadzone_ReturnsNone`
@@ -2045,7 +2237,7 @@ Unity host 계층 테스트는 최소화하고, 대부분을 순수 unit test로
 - deterministic 핵심은 `TickInput` 이후 경계에 있다.
 - New Input callback 자체보다 "양자화 결과가 같은가"가 더 중요하다.
 
-#### 15-15-10. 구현 순서
+#### 15-15-11. 구현 순서
 
 New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한다.
 
@@ -2063,7 +2255,7 @@ New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한
 - input asset wiring은 가장 마지막에 해도 deterministic core 테스트가 가능하다.
 - host 없이도 `PlayerLogic`과 `TickRunner`는 unit test로 먼저 잠글 수 있다.
 
-#### 15-15-11. 현재 상태 기준 판정
+#### 15-15-12. 현재 상태 기준 판정
 
 현재 코드 기준으로는 아래처럼 읽는 것이 정확하다.
 
@@ -2074,7 +2266,7 @@ New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한
 
 즉, 현재 남은 본질은 movement rules가 아니라 "입력 경계와 player authority를 deterministic intent 생산 계층에 연결하는 작업"이다.
 
-#### 15-15-12. 이동 입력 Cooltime 설계
+#### 15-15-13. 이동 입력 Cooltime 설계
 
 추가 논의 사항:
 
@@ -2159,7 +2351,7 @@ blocked move 처리 권장:
 - 이 설계는 "입력 repeat cadence"를 다룬다.
 - 만약 이후 게임 규칙상 "이동 후 3 tick 동안 공격/이동 모두 금지" 같은 shared recovery가 필요해지면, 그때는 host cooldown이 아니라 simulation-owned cooldown으로 승격해야 한다.
 
-#### 15-15-13. movement cooldown의 simulation 승격 조건
+#### 15-15-14. movement cooldown의 simulation 승격 조건
 
 아래 조건 중 하나라도 생기면 host-owned input cooltime만으로는 부족하다.
 
@@ -2177,7 +2369,7 @@ blocked move 처리 권장:
 현재 코드에 이미 `EntityPhaseState.Cooldown`, `stateTimer`, `StateChangeAction`이 있으므로 구조적 기반은 존재한다.
 하지만 movement에 올리려면 "same-tick timer 감소 방지 규칙"을 별도로 설계해야 하므로, 이번 입력 슬라이스에서는 우선 host-owned repeat cooltime을 채택한다.
 
-#### 15-15-14. View refresh 설계
+#### 15-15-15. View refresh 설계
 
 추가 요구사항:
 
@@ -2230,7 +2422,7 @@ public sealed class GameplayTickViewPresenter : MonoBehaviour
 4. 제거된 entity는 hide 또는 destroy queue에 넣는다.
 5. spawn된 entity는 binder/factory 경로를 통해 registry에 추가한다.
 
-#### 15-15-15. View refresh 타이밍 규칙
+#### 15-15-16. View refresh 타이밍 규칙
 
 visual refresh는 반드시 tick commit 이후에 일어나야 한다.
 
@@ -2259,7 +2451,7 @@ visual refresh는 반드시 tick commit 이후에 일어나야 한다.
 - view는 lagging presentation
 - 화면 보간이 있어도 logical determinism은 깨지지 않는다.
 
-#### 15-15-16. 테스트 전략 보강
+#### 15-15-17. 테스트 전략 보강
 
 추가 요구사항에 따라 테스트는 3층으로 나눈다.
 
@@ -2293,7 +2485,7 @@ PlayMode test 목적:
 - `Present(result)` 이후 scene object의 transform이 실제로 바뀌는지 본다.
 - 따라서 EditMode 단위 테스트로 대체하지 않는다.
 
-#### 15-15-17. 수동 시각 검증 시나리오
+#### 15-15-18. 수동 시각 검증 시나리오
 
 자동 테스트만으로는 "사람 눈에 자연스럽게 보이는가"를 완전히 대체할 수 없다.
 따라서 아래 manual check를 release gate에 포함하는 것을 권장한다.
@@ -2321,7 +2513,7 @@ PlayMode test 목적:
 - installer가 `GameplaySceneHost`를 초기화하고 sample world / presenter / auto-created view를 구성한다.
 - `Player/Move(Vector2)`는 `Assets/InputSystem_Actions.inputactions`의 `Player/Move`를 사용한다.
 
-#### 15-15-18. 구현 순서 갱신
+#### 15-15-19. 구현 순서 갱신
 
 위 추가 요구사항까지 포함하면 권장 구현 순서는 아래와 같다.
 
