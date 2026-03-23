@@ -2,7 +2,8 @@
   "name": "Game.Feature.Gameplay.Tests",
   "rootNamespace": "Game.Feature.Gameplay.Tests",
   "references": [
-    "Game.Feature.Gameplay"
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Host"
   ],
   "includePlatforms": [
     "Editor"

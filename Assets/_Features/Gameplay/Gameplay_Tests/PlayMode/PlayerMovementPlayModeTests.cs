@@ -1,0 +1,269 @@
+using System.Collections;
+using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Model.Phases;
+using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.InputSystem;
+using UnityEngine.TestTools;
+
+namespace Game.Feature.Gameplay.Tests.PlayMode
+{
+    public sealed class PlayerMovementPlayModeTests : InputTestFixture
+    {
+        private Keyboard _keyboard;
+
+        [SetUp]
+        public override void Setup()
+        {
+            base.Setup();
+            _keyboard = InputSystem.AddDevice<Keyboard>();
+        }
+
+        [TearDown]
+        public override void TearDown()
+        {
+            base.TearDown();
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_PresenterRefreshesTransformAfterTick()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_InputActionCallback_ProducesTickMove()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                },
+                actions: actions);
+
+            Press(_keyboard.dKey);
+            yield return null;
+
+            host.InputHost.RunSingleTick();
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_HoldInputRepeatsAtConfiguredTickInterval()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_SpawnedEntity_BecomesVisibleAfterTick()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                },
+                actions: null,
+                staticEntityLogics: new IEntityLogic[]
+                {
+                    new FireProjectileLogic(sourceId: 10, priority: 5),
+                });
+
+            host.InputHost.RunSingleTick();
+
+            Assert.That(host.ViewRegistry.TryGetView(11, out var projectileView), Is.True);
+            Assert.That(projectileView.gameObject.activeSelf, Is.True);
+            Assert.That(projectileView.transform.position, Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_BlockedCell_DoesNotVisuallyDrift()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+
+            yield return DestroyHost(host);
+        }
+
+        private static GameplaySceneHost CreateHost(EntityState[] initialEntities)
+        {
+            return CreateHost(initialEntities, actions: null, staticEntityLogics: null);
+        }
+
+        private static GameplaySceneHost CreateHost(
+            EntityState[] initialEntities,
+            InputActionAsset actions,
+            IEntityLogic[] staticEntityLogics = null)
+        {
+            var hostObject = new GameObject("PlayModeGameplaySceneHost");
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+
+            host.Initialize(
+                new GameplaySceneHostConfiguration
+                {
+                    Actions = actions,
+                    AutoAdvanceTicks = false,
+                    AutoCreateViews = true,
+                    CellSize = 1f,
+                    DirectionChangeConsumesDelay = false,
+                    GridOrigin = Vector3.zero,
+                    InitialMoveDelayTicks = 0,
+                    InitialEntities = initialEntities,
+                    MoveDeadzone = 0.5f,
+                    PlayerEntityId = 10,
+                    RepeatedMoveIntervalTicks = 2,
+                    StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
+                    TickIntervalSeconds = 0.2f,
+                });
+
+            return host;
+        }
+
+        private static EntityState CreateUnit(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 3,
+                maxHp = 3,
+                teamId = 1,
+                type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+            };
+        }
+
+        private static IEnumerator DestroyHost(GameplaySceneHost host, Object ownedActions = null)
+        {
+            if (host != null)
+            {
+                Object.Destroy(host.gameObject);
+            }
+
+            if (ownedActions != null)
+            {
+                Object.Destroy(ownedActions);
+            }
+
+            yield return null;
+        }
+
+        private static Vector3 GetViewPosition(GameplaySceneHost host, int entityId)
+        {
+            Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
+            return view.transform.position;
+        }
+
+        private static InputActionAsset CreateKeyboardMoveActions()
+        {
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var map = new InputActionMap("Player");
+            var move = map.AddAction("Move", InputActionType.Value);
+            move.AddCompositeBinding("2DVector")
+                .With("Up", "<Keyboard>/w")
+                .With("Down", "<Keyboard>/s")
+                .With("Left", "<Keyboard>/a")
+                .With("Right", "<Keyboard>/d");
+            actions.AddActionMap(map);
+            return actions;
+        }
+
+        private sealed class FireProjectileLogic : IEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _priority;
+            private readonly int _sourceId;
+
+            public FireProjectileLogic(int sourceId, int priority)
+            {
+                _sourceId = sourceId;
+                _priority = priority;
+            }
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+            }
+
+            public void CollectAttackIntents(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
+            {
+                if (snapshot.TryGetEntity(_sourceId, out var source) && source.hp > 0 && !source.markedForDeath)
+                {
+                    buffer.Add(RawAttackIntent.CreateFireProjectile(_sourceId, _priority));
+                }
+            }
+
+            public bool ControlsEntity(int entityId, TickPhase phase)
+            {
+                return phase == TickPhase.Attack && entityId == _sourceId;
+            }
+        }
+    }
+}

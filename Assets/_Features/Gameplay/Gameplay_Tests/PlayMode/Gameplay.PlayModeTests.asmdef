@@ -1,0 +1,13 @@
+{
+  "name": "Game.Feature.Gameplay.PlayModeTests",
+  "rootNamespace": "Game.Feature.Gameplay.Tests.PlayMode",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Host",
+    "Unity.InputSystem",
+    "Unity.InputSystem.TestFramework"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
