@@ -1790,3 +1790,554 @@ runner가 plain class인 이유:
 
 이 세 항목은 "결정론 코어가 미완성"을 의미하지 않는다.
 현재 남은 것은 우선 runtime composition closure이며, gameplay rule authoring은 다음 슬라이스다.
+
+### 15-15. New Input System 기반 플레이어 이동 입력 설계
+
+이 섹션은 위 deferred 메모 중 `PlayerLogic`을 다시 열어, Unity New Input System을 사용해 플레이어가 grid 내에서 deterministic movement intent를 생성하는 설계를 정리한다.
+
+전제:
+
+- 현재 프로젝트에는 `Assets/InputSystem_Actions.inputactions`가 이미 존재한다.
+- `Player` action map 안에 `Move(Vector2)` action이 정의돼 있다.
+- deterministic simulation asmdef는 계속 Unity frame loop와 분리된 순수 시뮬레이션 계층으로 유지한다.
+- 따라서 New Input callback을 `TickPipeline`이나 `MovementIntentCollector`에 직접 연결하지 않는다.
+
+핵심 원칙:
+
+1. New Input은 frame 단위로 샘플링한다.
+2. 샘플된 raw input은 host 계층에서 grid command로 양자화한다.
+3. 양자화된 command만 `TickInputBuffer`에 기록한다.
+4. simulation 계층은 `TickInput`만 보고 movement intent를 생성한다.
+
+즉, 책임 경계는 아래 한 줄이다.
+
+`InputAction` -> host adapter -> grid command quantization -> `TickInputBuffer` -> `TickRunner` -> `PlayerLogic` -> `RawMovementIntent`
+
+#### 15-15-1. 이번 슬라이스의 목표 범위
+
+이번 입력 슬라이스에서 먼저 닫는 범위:
+
+- 로컬 플레이어 1명
+- grid 4방향 이동
+- `Move` action만 사용
+- 1 tick당 최대 1개의 movement command
+- diagonal input 금지
+- attack / interact / look / jump는 이번 슬라이스에서 미사용
+
+의도적으로 미루는 것:
+
+- 다중 플레이어 로컬 입력
+- 리바인딩 UI
+- 입력 재생/녹화
+- analog magnitude 기반 dash/sprint
+- hold-repeat rate 개별 커스터마이징
+
+#### 15-15-2. 권장 입력 경계
+
+New Input System은 `Vector2`를 연속적으로 제공하지만, deterministic grid simulation은 이 값을 그대로 소유하면 안 된다.
+
+이유:
+
+- analog noise와 device별 deadzone 차이가 시뮬레이션 결정론 경계로 스며들 수 있다.
+- diagonal 입력을 그대로 허용하면 current movement model과 충돌한다.
+- simulation은 "어느 방향으로 1칸 이동을 시도했는가"만 알면 된다.
+
+따라서 host 계층에서 아래 규칙으로 양자화한다.
+
+- `Move` 입력의 절댓값이 deadzone 이하이면 `None`
+- `abs(x) > abs(y)`면 수평 우선
+  - `x > 0` -> `Right`
+  - `x < 0` -> `Left`
+- `abs(y) > abs(x)`면 수직 우선
+  - `y > 0` -> `Up`
+  - `y < 0` -> `Down`
+- 동률이면 직전 방향 유지 없이 `None` 또는 명시적 우선순위 한 축 고정
+  - 권장: 동률은 `None`
+
+권장 이유:
+
+- keyboard WASD와 stick 입력을 같은 grid command로 수렴시킬 수 있다.
+- diagonal ambiguity를 host에서 제거할 수 있다.
+- simulation은 `Direction?` 수준의 command만 받으면 된다.
+
+#### 15-15-3. `TickInput` 목표 확장안
+
+현재 `TickInput`은 `TickIndex`만 가진다.
+
+```csharp
+public readonly struct TickInput
+{
+    public TickInput(int tickIndex);
+    public int TickIndex { get; }
+}
+```
+
+플레이어 이동을 위해 아래처럼 최소 확장을 권장한다.
+
+```csharp
+public readonly struct TickInput
+{
+    public TickInput(int tickIndex, PlayerTickCommand playerCommand = default);
+
+    public int TickIndex { get; }
+    public PlayerTickCommand PlayerCommand { get; }
+}
+
+public readonly struct PlayerTickCommand
+{
+    public Direction MoveDirection { get; }
+    public bool HasMove { get; }
+}
+```
+
+이번 단계에서 `PlayerTickCommand`를 별도 struct로 두는 이유:
+
+- 이후 attack / interact / confirm / cancel 같은 플레이어 명령을 같은 경계 안에서 확장하기 쉽다.
+- `TickInput`에 `moveDirection`, `attackPressed`, `interactPressed`를 평평하게 계속 붙이는 구조를 피할 수 있다.
+- replay/logging에서도 "이번 tick의 플레이어 명령"을 별도 단위로 다루기 쉽다.
+
+권장 위치:
+
+- `Gameplay_Loop/Runtime/TickInput.cs`
+- 또는 `Gameplay_Loop/Runtime/PlayerTickCommand.cs` 별도 분리
+
+#### 15-15-4. `PlayerLogic` 역할 재정의
+
+이번 슬라이스에서 `PlayerLogic`은 "실제 입력 읽기"를 하지 않는다.
+`PlayerLogic`은 이미 양자화되어 `TickInput`에 담긴 명령을 읽고, 해당 플레이어 엔티티의 movement intent를 생성하는 순수 시뮬레이션 객체다.
+
+권장 API 예시:
+
+```csharp
+public sealed class PlayerLogic : IEntityLogic, IEntityLogicSourceBinding
+{
+    public PlayerLogic(int entityId);
+}
+```
+
+`CollectMovementIntents(...)` 동작 규칙:
+
+1. `input.PlayerCommand.HasMove == false`면 아무 intent도 생성하지 않는다.
+2. snapshot에서 자신의 entity를 찾지 못하면 생성하지 않는다.
+3. 사망 상태거나 `markedForDeath`면 생성하지 않는다.
+4. `MoveDirection`을 delta로 변환한다.
+5. 현재 좌표 + delta를 destination으로 한 `RawMovementIntent`를 하나 생성한다.
+6. priority는 player movement 기본 우선순위 상수로 고정한다.
+
+즉, `PlayerLogic`은 "명령 해석"은 하지만 "입력 샘플링"은 하지 않는다.
+
+#### 15-15-5. New Input host adapter 설계
+
+New Input System을 받는 Unity 계층은 deterministic asmdef 밖의 thin adapter로 둔다.
+
+권장 책임:
+
+- `InputActionAsset` enable / disable
+- `Player/Move` action read
+- 현재 frame의 raw `Vector2` 보관
+- fixed-step 경계에서 다음 tick용 `PlayerTickCommand` 생성
+- `TickInputBuffer.Record(...)` 호출
+- `TickRunner.RunNextTick()` 호출
+
+권장 타입 예시:
+
+```csharp
+public sealed class GameplayInputHost : MonoBehaviour
+{
+    [SerializeField] private InputActionAsset actions;
+    [SerializeField] private float tickIntervalSeconds = 0.2f;
+    [SerializeField] private float moveDeadzone = 0.5f;
+}
+```
+
+중요:
+
+- 이 host는 `TickPipeline`을 직접 건드리지 않는다.
+- host는 `TickRunner`와 `TickInputBuffer`만 가진다.
+- input callback에서 즉시 simulation을 돌리지 않는다.
+- simulation 실행은 fixed-step tick 경계에서만 한다.
+
+#### 15-15-6. sampling과 hold-repeat 정책
+
+grid movement에서 가장 중요한 것은 "버튼이 눌렸는가"보다 "이번 tick에 어느 방향 이동을 시도할 것인가"다.
+
+권장 기본 정책:
+
+- `Move` action은 hold를 허용한다.
+- 각 tick 경계에서 현재 `Move` vector를 읽어 그 순간의 direction을 계산한다.
+- direction이 있으면 그 tick에 movement attempt 1회를 기록한다.
+- direction이 없으면 빈 command를 기록하거나 default input으로 둔다.
+
+이 정책의 장점:
+
+- key repeat와 OS repeat rate에 의존하지 않는다.
+- keyboard와 gamepad를 같은 tick 규칙으로 처리할 수 있다.
+- "누르고 있으면 매 tick 1칸 이동"이라는 grid game의 일반적인 UX를 구현할 수 있다.
+
+주의:
+
+- "tap only" UX가 필요하면 host에서 rising edge만 기록하는 대체 정책을 둘 수 있다.
+- 하지만 현재 구조의 최소 슬라이스에서는 hold-per-tick 정책이 더 단순하고 테스트하기 쉽다.
+
+#### 15-15-7. 우선순위와 authority 규칙
+
+입력 기반 player movement가 들어와도 기존 deterministic 규칙은 유지한다.
+
+- `PlayerLogic`도 다른 `IEntityLogic`과 동일하게 raw intent만 생성한다.
+- 선택/충돌 해결은 계속 `MovementResolver`가 담당한다.
+- 실제 월드 수정은 계속 `MovementCommitter`만 담당한다.
+
+따라서 플레이어 입력이 들어와도 아래는 바뀌지 않는다.
+
+- blocked destination이면 이동 실패
+- pushchain 가능하면 pushchain 후보로 확장
+- shared chain 충돌이면 later candidate reject
+- cleanup/attack phase 순서
+
+즉, 입력이 추가되는 위치는 "intent 생산 계층"뿐이다.
+
+#### 15-15-8. composition root 연결 방식
+
+`GameplayCompositionRoot`나 `GameplayBootstrapper`는 계속 plain C# 조립 계층으로 유지한다.
+
+권장 흐름:
+
+1. 상위 scene host가 `WorldState`, `TickInputBuffer`, `TickRunner`를 조립한다.
+2. `PlayerLogic(entityId)`를 static entity logic으로 추가한다.
+3. host가 New Input에서 읽은 명령을 tick마다 `TickInputBuffer`에 넣는다.
+4. runner가 해당 tick input으로 simulation을 실행한다.
+
+예시 조립 방향:
+
+```csharp
+var runner = GameplayCompositionRoot.CreateTickRunner(
+    worldState,
+    new IEntityLogic[]
+    {
+        new PlayerLogic(playerEntityId),
+    },
+    inputBuffer,
+    startTickIndex: 1);
+```
+
+이 설계의 의미:
+
+- deterministic asmdef는 New Input System 타입을 참조하지 않는다.
+- `PlayerLogic`은 테스트에서 plain `TickInput`으로 바로 검증할 수 있다.
+- scene host만 Unity 의존성을 가진다.
+
+#### 15-15-9. 테스트 설계
+
+이번 입력 슬라이스를 구현할 때 아래 테스트를 권장한다.
+
+- `PlayerLogic_MoveCommand_ProducesSingleRawMovementIntent`
+- `PlayerLogic_NoMoveCommand_ProducesNoIntent`
+- `PlayerLogic_DeadEntity_DoesNotProduceIntent`
+- `TickRunner_WithPlayerMoveInput_MovesPlayerOneCellPerTick`
+- `InputQuantizer_Vector2ToGridDirection_PicksDominantAxis`
+- `InputQuantizer_DiagonalTie_ReturnsNone`
+- `InputQuantizer_BelowDeadzone_ReturnsNone`
+
+Unity host 계층 테스트는 최소화하고, 대부분을 순수 unit test로 유지한다.
+
+이유:
+
+- deterministic 핵심은 `TickInput` 이후 경계에 있다.
+- New Input callback 자체보다 "양자화 결과가 같은가"가 더 중요하다.
+
+#### 15-15-10. 구현 순서
+
+New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한다.
+
+1. `TickInput`을 `PlayerTickCommand`까지 확장한다.
+2. `PlayerLogic`을 추가한다.
+3. `PlayerLogic` unit test를 먼저 추가한다.
+4. host 계층의 input quantizer를 추가한다.
+5. `Assets/InputSystem_Actions.inputactions`의 `Player/Move`를 host에 연결한다.
+6. scene host에서 `TickInputBuffer` / `TickRunner`와 연결한다.
+7. 마지막으로 실제 이동 플레이 테스트를 한다.
+
+이 순서를 권장하는 이유:
+
+- simulation 경계를 먼저 닫아야 host 구현이 단순해진다.
+- input asset wiring은 가장 마지막에 해도 deterministic core 테스트가 가능하다.
+- host 없이도 `PlayerLogic`과 `TickRunner`는 unit test로 먼저 잠글 수 있다.
+
+#### 15-15-11. 현재 상태 기준 판정
+
+현재 코드 기준으로는 아래처럼 읽는 것이 정확하다.
+
+- grid movement simulation 자체는 이미 가능하다.
+- `TickInputBuffer`와 `TickRunner`도 이미 존재한다.
+- 하지만 `TickInput`에 player command payload가 없고, `PlayerLogic`도 아직 없다.
+- 따라서 "플레이어가 New Input을 통해 실제로 grid 이동한다"는 최종 경로는 아직 미구현이다.
+
+즉, 현재 남은 본질은 movement rules가 아니라 "입력 경계와 player authority를 deterministic intent 생산 계층에 연결하는 작업"이다.
+
+#### 15-15-12. 이동 입력 Cooltime 설계
+
+추가 논의 사항:
+
+- 플레이어가 키를 누르고 있거나 stick을 유지할 때 매 tick 이동을 허용할지
+- 일정 tick 간격으로만 이동 명령을 발생시킬지
+- blocked move에도 쿨타임을 소모할지
+
+여기서 먼저 구분해야 할 것은 두 종류의 "쿨타임"이다.
+
+1. 입력 repeat cooltime
+   - host 계층이 같은 방향 입력을 너무 자주 command로 기록하지 않도록 막는 장치
+2. 시뮬레이션 action cooldown
+   - 엔티티가 실제로 이동한 뒤 몇 tick 동안 다시 act하지 못하게 만드는 월드 규칙
+
+현재 슬라이스의 요구는 "이동 입력에 대한 cooltime"이므로, 1차 구현은 **host-owned, tick-based input repeat cooltime**으로 여는 것을 권장한다.
+
+권장 이유:
+
+- 현재 deterministic core는 `TickInput` 경계 이후에 잘 잠겨 있다.
+- input repeat는 UX 정책에 가깝고, 월드 상태 규칙과 분리하는 편이 초기 구현이 단순하다.
+- 기존 `Cleanup`의 `stateTimer` 처리 규칙을 곧바로 movement cooldown에 재사용하면 same-tick decrement semantics를 추가로 설계해야 한다.
+
+권장 host 정책:
+
+- `initialMoveDelayTicks`
+  - 방향 입력이 처음 들어온 뒤 다음 이동까지 기다리는 tick 수
+- `repeatedMoveIntervalTicks`
+  - 같은 방향 hold 중 반복 이동 사이 tick 간격
+- `directionChangeConsumesDelay`
+  - 권장: `false`
+  - 이유: 방향을 바꾸는 순간 즉시 반응해야 조작감이 좋다
+
+권장 기본값:
+
+- `initialMoveDelayTicks = 0`
+- `repeatedMoveIntervalTicks = 1` 또는 `2`
+- `directionChangeConsumesDelay = false`
+
+현재 구현 결정(v1):
+
+- `initialMoveDelayTicks = 0`
+- `repeatedMoveIntervalTicks = 2`
+- `directionChangeConsumesDelay = false`
+
+의미:
+
+- tap은 즉시 1칸 이동
+- hold는 설정된 tick 간격마다 1칸 이동
+- 방향 전환은 남은 repeat lock을 무시하고 즉시 새 방향을 한 번 허용
+
+권장 host 내부 상태:
+
+```csharp
+private Direction _lastIssuedMoveDirection;
+private int _nextMoveAllowedTick;
+private bool _hasIssuedMove;
+```
+
+권장 발행 규칙:
+
+1. 현재 tick의 quantized direction이 `None`이면 move command는 발행하지 않는다.
+   - 구현상 tick record 자체는 empty `PlayerTickCommand`로 남길 수 있다.
+2. 새 hold가 시작되면 `firstMoveAllowedTick = currentTick + initialMoveDelayTicks`를 계산한다.
+3. `initialMoveDelayTicks == 0`이면 첫 move를 즉시 발행한다.
+4. `initialMoveDelayTicks > 0`이면 `currentTick >= firstMoveAllowedTick`이 될 때까지 첫 move를 지연한다.
+5. 이전과 다른 방향이면 hold window를 새로 시작한다.
+   - `directionChangeConsumesDelay == false`면 즉시 발행한다.
+   - `directionChangeConsumesDelay == true`면 새 hold처럼 initial delay를 다시 적용한다.
+6. 첫 발행 이후 같은 방향 hold는 `currentTick >= nextMoveAllowedTick`일 때만 발행한다.
+7. 발행 후 `nextMoveAllowedTick = currentTick + repeatedMoveIntervalTicks`로 갱신한다.
+
+blocked move 처리 권장:
+
+- 1차 구현에서는 **command 발행 기준으로 cooltime을 소비**한다.
+- 이유:
+  - host가 `TickResult`를 해석해 "실제로 움직였는가"까지 알아야 하는 구조를 피할 수 있다.
+  - 입력 정책이 단순해진다.
+- 다만 UX상 벽 앞에서 hold 시 지나치게 답답하면 후속 단계에서 "commit 성공 시만 repeat window 갱신" 정책으로 바꿀 수 있다.
+
+중요 메모:
+
+- 이 설계는 "입력 repeat cadence"를 다룬다.
+- 만약 이후 게임 규칙상 "이동 후 3 tick 동안 공격/이동 모두 금지" 같은 shared recovery가 필요해지면, 그때는 host cooldown이 아니라 simulation-owned cooldown으로 승격해야 한다.
+
+#### 15-15-13. movement cooldown의 simulation 승격 조건
+
+아래 조건 중 하나라도 생기면 host-owned input cooltime만으로는 부족하다.
+
+- 이동 후 공격도 함께 잠가야 한다.
+- AI와 플레이어가 같은 이동 recovery 규칙을 따라야 한다.
+- replay artifact에서 "왜 이 tick에 입력이 무시됐는가"를 월드 상태로 설명해야 한다.
+- networked authority 또는 lockstep 입력 검증이 필요하다.
+
+이 경우 권장 구조:
+
+- `PlayerLogic` 또는 movement expander가 선택된 이동 후 `StateChangeAction(EntityPhaseState.Cooldown, timer)`를 추가한다.
+- `MovementCommitter`가 이동 commit과 함께 state change를 적용한다.
+- `Cleanup`이 timer 감소와 `Cooldown -> Idle` 전환을 담당한다.
+
+현재 코드에 이미 `EntityPhaseState.Cooldown`, `stateTimer`, `StateChangeAction`이 있으므로 구조적 기반은 존재한다.
+하지만 movement에 올리려면 "same-tick timer 감소 방지 규칙"을 별도로 설계해야 하므로, 이번 입력 슬라이스에서는 우선 host-owned repeat cooltime을 채택한다.
+
+#### 15-15-14. View refresh 설계
+
+추가 요구사항:
+
+- logic test만으로 끝내지 않는다.
+- tick 결과가 실제 Unity 화면에 반영되어, 이동한 것을 사람이 눈으로 인지할 수 있어야 한다.
+
+이를 위해 presentation 계층을 아래처럼 둔다.
+
+`TickRunner` -> `TickResult` -> `GameplayTickViewPresenter` -> entity `Transform` / animation refresh
+
+권장 책임:
+
+- `GameplayInputHost`
+  - New Input sampling
+  - input repeat cooltime 적용
+  - `TickRunner.RunNextTick()` 호출
+- `GameplayTickViewPresenter`
+  - `TickResult.FinalEntities`를 읽어 entityId별 view를 갱신
+  - 이동한 엔티티의 world/grid position 반영
+  - 필요하면 1 tick 내 보간 애니메이션 재생
+- `GameplayEntityViewRegistry`
+  - entityId -> scene object / presenter binding 관리
+- `GameplayEntityViewBinder`
+  - registry 조회
+  - 필요 시 runtime view 생성 factory 위임
+  - 제거된 view hide 정책 적용
+
+핵심 규칙:
+
+- View는 `WorldState`를 직접 읽지 않는다.
+- View는 항상 `TickResult`만 소비한다.
+- input host와 view presenter는 분리한다.
+  - 입력 처리와 화면 갱신을 한 `MonoBehaviour`에 섞지 않는다.
+
+권장 API 예시:
+
+```csharp
+public sealed class GameplayTickViewPresenter : MonoBehaviour
+{
+    public void Present(TickResult result);
+}
+```
+
+`Present(...)` 기본 규칙:
+
+1. `result.FinalEntities`를 순회한다.
+2. view binder가 registry에서 각 entityId에 대응하는 scene object를 찾는다.
+   - 없으면 configured view factory로 runtime view를 생성하고 registry에 등록한다.
+3. 이전 위치와 새 위치가 다르면 transform 이동 또는 tween 시작
+4. 제거된 entity는 hide 또는 destroy queue에 넣는다.
+5. spawn된 entity는 binder/factory 경로를 통해 registry에 추가한다.
+
+#### 15-15-15. View refresh 타이밍 규칙
+
+visual refresh는 반드시 tick commit 이후에 일어나야 한다.
+
+권장 순서:
+
+1. host가 `TickRunner.RunNextTick()` 호출
+2. `TickResult` 수신
+3. 같은 frame에서 `GameplayTickViewPresenter.Present(result)` 호출
+4. presenter가 transform 또는 animation 상태 갱신
+5. 다음 render frame에서 플레이어가 결과를 본다
+
+애니메이션 정책 권장:
+
+- simulation tick과 render animation을 분리한다.
+- 예를 들어 tick interval이 `0.2s`면, move animation duration은 `0.12s ~ 0.18s` 사이로 둔다.
+- presenter는 animation이 끝나기 전에 다음 tick이 와도, 최종 logical position은 항상 최신 `TickResult`를 기준으로 덮어쓴다.
+
+현재 구현 결정(v1):
+
+- presenter는 짧은 tween 대신 `transform snap`으로 구현한다.
+- logical authority는 항상 최신 `TickResult.FinalEntities`가 가진다.
+
+이 규칙의 의미:
+
+- simulation이 authoritative
+- view는 lagging presentation
+- 화면 보간이 있어도 logical determinism은 깨지지 않는다.
+
+#### 15-15-16. 테스트 전략 보강
+
+추가 요구사항에 따라 테스트는 3층으로 나눈다.
+
+1. pure logic/unit test
+   - `PlayerLogic`, quantizer, input repeat cooldown 규칙 검증
+2. PlayMode integration test
+   - Unity scene에서 host + runner + presenter가 실제로 연결되는지 검증
+3. manual visual acceptance
+   - 사람이 화면에서 이동 refresh를 직접 확인하는 테스트
+
+권장 unit test 추가:
+
+- `InputRepeatCooldown_InitialTap_IssuesImmediateMove`
+- `InputRepeatCooldown_HoldSameDirection_RespectsRepeatInterval`
+- `InputRepeatCooldown_DirectionChange_IssuesImmediateMove`
+- `InputRepeatCooldown_NoneInput_ProducesNoCommand`
+- `InputRepeatCooldown_InitialDelay_WaitsConfiguredTicks`
+- `InputRepeatCooldown_DirectionChange_WithDelay_RespectsInitialDelay`
+
+권장 PlayMode test 추가:
+
+- `PlayerMove_PlayMode_PresenterRefreshesTransformAfterTick`
+- `PlayerMove_PlayMode_InputActionCallback_ProducesTickMove`
+- `PlayerMove_PlayMode_HoldInputRepeatsAtConfiguredTickInterval`
+- `PlayerMove_PlayMode_BlockedCell_DoesNotVisuallyDrift`
+- `PlayerMove_PlayMode_SpawnedEntity_BecomesVisibleAfterTick`
+
+PlayMode test 목적:
+
+- 단순히 `TickResult`가 맞는지 보는 것이 아니다.
+- `Present(result)` 이후 scene object의 transform이 실제로 바뀌는지 본다.
+- 따라서 EditMode 단위 테스트로 대체하지 않는다.
+
+#### 15-15-17. 수동 시각 검증 시나리오
+
+자동 테스트만으로는 "사람 눈에 자연스럽게 보이는가"를 완전히 대체할 수 없다.
+따라서 아래 manual check를 release gate에 포함하는 것을 권장한다.
+
+수동 검증 시나리오:
+
+1. sample scene 실행
+2. player가 빈 칸으로 이동 입력
+3. 1 tick 내에 캐릭터가 한 칸 이동하는 것이 보이는지 확인
+4. 방향을 바꿨을 때 즉시 새 방향으로 반응하는지 확인
+5. 입력 hold 시 설정한 cooltime cadence로 반복 이동하는지 확인
+6. 벽 앞 hold 시 jitter 없이 멈춰 보이는지 확인
+7. 연속 이동 중 replay/hash 결과가 계속 안정적인지 확인
+
+체크 포인트:
+
+- 이동 시작이 너무 늦지 않은가
+- 보간 animation이 tick cadence보다 길어 input feel을 해치지 않는가
+- blocked move에서 view가 떨리거나 원위치 snap을 반복하지 않는가
+
+현재 sample 검증 경로(v2):
+
+- `Assets/Scenes/SampleScene.unity`에는 `SampleSceneInstaller`가 배치된다.
+- installer는 inspector로 직렬화된 `Assets/InputSystem_Actions.inputactions` reference를 사용한다.
+- installer가 `GameplaySceneHost`를 초기화하고 sample world / presenter / auto-created view를 구성한다.
+- `Player/Move(Vector2)`는 `Assets/InputSystem_Actions.inputactions`의 `Player/Move`를 사용한다.
+
+#### 15-15-18. 구현 순서 갱신
+
+위 추가 요구사항까지 포함하면 권장 구현 순서는 아래와 같다.
+
+1. `TickInput`을 `PlayerTickCommand`까지 확장
+2. `PlayerLogic` 추가
+3. input quantizer 추가
+4. host-owned input repeat cooltime 추가
+5. unit test로 move command / cooldown 규칙 고정
+6. `GameplayTickViewPresenter`, view registry, binder / factory 추가
+7. scene host에서 presenter 및 binder 연결
+8. sample installer에서 scene reference 입력 연결
+9. PlayMode integration test 추가
+10. 마지막으로 manual visual acceptance 수행
+
+이 순서를 권장하는 이유:
+
+- logic과 presentation을 동시에 열면 원인 추적이 어려워진다.
+- cooldown은 input host 정책이므로 presenter보다 먼저 고정하는 편이 낫다.
+- view는 항상 마지막에 붙여도 simulation 검증을 깨지 않는다.
