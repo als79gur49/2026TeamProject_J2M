@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Model.Sorting;
@@ -193,9 +194,10 @@ namespace Game.Feature.Gameplay.Loop
 
             var selectedGroups = new List<ActionGroup>();
             _attackResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
+            FinalizeAttackSpawns(selectedGroups);
 
             var commitEvents = new List<string>();
-            _attackCommitter.Commit(snapshot, _idAllocator, _entityIdAllocator, writeContext, selectedGroups, commitEvents);
+            _attackCommitter.Commit(snapshot, writeContext, selectedGroups, commitEvents);
             RegisterSpawnedProjectileLogics(selectedGroups);
             phaseTrace.Add("Attack:Exit");
             completedPhases.Add(TickPhase.Attack);
@@ -271,6 +273,27 @@ namespace Game.Feature.Gameplay.Loop
             {
                 expandedCandidates[i].AssignGroupId(_idAllocator.AllocateGroupId());
             }
+        }
+
+        private void FinalizeAttackSpawns(IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+
+                for (var spawnIndex = 0; spawnIndex < group.Spawns.Count; spawnIndex++)
+                {
+                    group.Spawns[spawnIndex] = FinalizeSpawn(group.Spawns[spawnIndex]);
+                }
+            }
+        }
+
+        private SpawnAction FinalizeSpawn(SpawnAction template)
+        {
+            var entity = template.Entity;
+            entity.entityId = _entityIdAllocator.AllocateEntityId();
+            entity.spawnTick = _idAllocator.CurrentTickIndex;
+            return new SpawnAction(_idAllocator.AllocateSpawnId(), entity);
         }
 
         private List<IEntityLogic> BuildEntityLogicsForTick(WorldSnapshot snapshot)

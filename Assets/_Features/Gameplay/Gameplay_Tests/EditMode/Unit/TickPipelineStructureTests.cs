@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -67,6 +68,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(exportedTypes, Does.Not.Contain(typeof(IdAllocator).FullName));
             Assert.That(exportedTypes, Does.Not.Contain(typeof(EntityIdAllocator).FullName));
+        }
+
+        [Test]
+        public void AttackCommitter_DoesNotDependOnCentralAllocators()
+        {
+            var commitMethod = typeof(AttackCommitter).GetMethod(
+                "Commit",
+                BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.That(commitMethod, Is.Not.Null);
+
+            var parameterTypes = commitMethod
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .ToArray();
+
+            Assert.That(parameterTypes.Contains(typeof(IdAllocator)), Is.False);
+            Assert.That(parameterTypes.Contains(typeof(EntityIdAllocator)), Is.False);
         }
 
         [Test]

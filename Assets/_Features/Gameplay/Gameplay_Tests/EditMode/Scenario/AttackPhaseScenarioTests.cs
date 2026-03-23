@@ -12,7 +12,9 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
@@ -514,8 +516,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var drainedImpactReservations = new List<ImpactReservation>();
 
             var idAllocator = new IdAllocator();
-            var entityIdAllocator = EntityIdAllocator.Create(snapshot);
             idAllocator.ResetForTick(tickIndex);
+            var entityIdAllocator = EntityIdAllocator.Create(snapshot);
 
             var sortedInputs = new List<AttackIntent>(rawAttackIntents.Count);
             new AttackInputNormalizer().Normalize(rawAttackIntents, drainedImpactReservations, sortedInputs);
@@ -535,12 +537,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var selectedGroups = new List<ActionGroup>();
             new AttackResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
+            FinalizeAttackSpawns(selectedGroups, idAllocator, entityIdAllocator);
 
             var commitEvents = new List<string>();
             new AttackCommitter().Commit(
                 snapshot,
-                idAllocator,
-                entityIdAllocator,
                 worldState.CreateWriteContext(),
                 selectedGroups,
                 commitEvents);
@@ -553,6 +554,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 selectedGroups,
                 commitEvents,
                 rejectedReasons);
+        }
+
+        private static void FinalizeAttackSpawns(
+            IReadOnlyList<ActionGroup> selectedGroups,
+            IdAllocator idAllocator,
+            EntityIdAllocator entityIdAllocator)
+        {
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+
+                for (var spawnIndex = 0; spawnIndex < group.Spawns.Count; spawnIndex++)
+                {
+                    var entity = group.Spawns[spawnIndex].Entity;
+                    entity.entityId = entityIdAllocator.AllocateEntityId();
+                    entity.spawnTick = idAllocator.CurrentTickIndex;
+                    group.Spawns[spawnIndex] = new SpawnAction(idAllocator.AllocateSpawnId(), entity);
+                }
+            }
         }
 
         private static RawAttackIntent? TryCreateAdjacentAttack(
@@ -740,5 +760,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 buffer.Add(attackIntent);
             }
         }
+
     }
 }
