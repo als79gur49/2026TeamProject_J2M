@@ -27,6 +27,12 @@ namespace Game.Feature.Gameplay.Attack.Sorting
                 return result;
             }
 
+            result = ((int)left.CommandKind).CompareTo((int)right.CommandKind);
+            if (result != 0)
+            {
+                return result;
+            }
+
             result = right.Priority.CompareTo(left.Priority);
             if (result != 0)
             {

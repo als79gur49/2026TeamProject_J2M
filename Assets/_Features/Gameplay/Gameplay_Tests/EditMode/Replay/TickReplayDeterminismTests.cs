@@ -81,6 +81,101 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
         }
 
+        [Test]
+        public void Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog()
+        {
+            var firstReplay = RunProjectileImpactReplaySequence();
+            var secondReplay = RunProjectileImpactReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Attack.DrainedImpacts"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=10|Target=20|At=(1,0)|Damage=1|Sequence=1"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=10"));
+        }
+
+        [Test]
+        public void Replay_PushChainScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunPushChainReplaySequence();
+            var secondReplay = RunPushChainReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=PushChain"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(2,0)->(3,0):Right,E=20:(1,0)->(2,0):Right,E=10:(0,0)->(1,0):Right]"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(3,0)|Facing=Right"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+        }
+
+        [Test]
+        public void Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunEdgeReservationReplaySequence();
+            var secondReplay = RunEdgeReservationReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=10:(0,0)->(1,0):Right]"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Moves=[E=10:(1,0)->(0,0):Left]"));
+            Assert.That(firstReplay[1].Trace, Does.Not.Contain("Reason=EdgeReserved"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(0,0)|Facing=Left"));
+        }
+
+        [Test]
+        public void Replay_SpawnScenario_ProducesSamePerTickHashTraceAndEventLog()
+        {
+            var firstReplay = RunSpawnReplaySequence();
+            var secondReplay = RunSpawnReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Source=10|Priority=5|Target=0|Command=FireProjectile"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(1,0)|Type=Projectile|SpawnTick=1"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=21|Target=20|At=(2,0)|Damage=1|Sequence=1"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Contain("CleanupRemoved|E=21"));
+            Assert.That(firstReplay[2].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=3"));
+            Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("E=22|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=3"));
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -116,6 +211,115 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
+        private static IReadOnlyList<TickReplayFrame> RunProjectileImpactReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
+            });
+            var entityLogics = new IEntityLogic[]
+            {
+                new ScriptedCombatLogic(
+                    sourceId: 10,
+                    movementIntentsByTick: new Dictionary<int, RawMovementIntent>
+                    {
+                        { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
+                    }),
+            };
+
+            return new TickReplayHarness().Run(
+                worldState,
+                entityLogics,
+                new[]
+                {
+                    new TickInput(1),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunPushChainReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
+            });
+            var entityLogics = new IEntityLogic[]
+            {
+                new ScriptedCombatLogic(
+                    sourceId: 10,
+                    movementIntentsByTick: new Dictionary<int, RawMovementIntent>
+                    {
+                        { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
+                    }),
+            };
+
+            return new TickReplayHarness().Run(
+                worldState,
+                entityLogics,
+                new[]
+                {
+                    new TickInput(1),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunEdgeReservationReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+            });
+            var entityLogics = new IEntityLogic[]
+            {
+                new ScriptedCombatLogic(
+                    sourceId: 10,
+                    movementIntentsByTick: new Dictionary<int, RawMovementIntent>
+                    {
+                        { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
+                        { 2, new RawMovementIntent(10, 5, new Vector2Int(0, 0)) },
+                    }),
+            };
+
+            return new TickReplayHarness().Run(
+                worldState,
+                entityLogics,
+                new[]
+                {
+                    new TickInput(1),
+                    new TickInput(2),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunSpawnReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
+            });
+            var entityLogics = new IEntityLogic[]
+            {
+                new ScriptedCombatLogic(
+                    sourceId: 10,
+                    attackIntentsByTick: new Dictionary<int, RawAttackIntent>
+                    {
+                        { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
+                        { 3, RawAttackIntent.CreateFireProjectile(10, 5) },
+                    }),
+            };
+
+            return new TickReplayHarness().Run(
+                worldState,
+                entityLogics,
+                new[]
+                {
+                    new TickInput(1),
+                    new TickInput(2),
+                    new TickInput(3),
+                });
+        }
+
         private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp)
         {
             return new EntityState
@@ -126,6 +330,24 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.Right,
+                markedForDeath = false,
+                spawnTick = 0,
+            };
+        }
+
+        private static EntityState CreateProjectile(int entityId, int teamId, Vector2Int position, int hp)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
+                type = EntityType.Projectile,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = Direction.Right,
@@ -147,20 +369,24 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return (WorldState)constructor.Invoke(new object[] { initialEntities });
         }
 
-        private sealed class ScriptedCombatLogic : IEntityLogic
+        private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic
         {
             private readonly RawAttackIntent? _attackIntent;
+            private readonly Dictionary<int, RawAttackIntent> _attackIntentsByTick;
             private readonly Dictionary<int, RawMovementIntent> _movementIntentsByTick;
             private readonly int _sourceId;
+            private int _currentTickIndex;
 
             public ScriptedCombatLogic(
                 int sourceId,
                 Dictionary<int, RawMovementIntent> movementIntentsByTick = null,
-                RawAttackIntent? attackIntent = null)
+                RawAttackIntent? attackIntent = null,
+                Dictionary<int, RawAttackIntent> attackIntentsByTick = null)
             {
                 _sourceId = sourceId;
                 _movementIntentsByTick = movementIntentsByTick ?? new Dictionary<int, RawMovementIntent>();
                 _attackIntent = attackIntent;
+                _attackIntentsByTick = attackIntentsByTick ?? new Dictionary<int, RawAttackIntent>();
             }
 
             public void CollectMovementIntents(
@@ -181,17 +407,26 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             public void CollectAttackIntents(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
             {
-                if (!_attackIntent.HasValue)
-                {
-                    return;
-                }
-
                 if (!snapshot.TryGetEntity(_sourceId, out var source) || source.hp <= 0 || source.markedForDeath)
                 {
                     return;
                 }
 
-                buffer.Add(_attackIntent.Value);
+                if (_currentTickIndex > 0 && _attackIntentsByTick.TryGetValue(_currentTickIndex, out var tickAttackIntent))
+                {
+                    buffer.Add(tickAttackIntent);
+                    return;
+                }
+
+                if (_attackIntent.HasValue)
+                {
+                    buffer.Add(_attackIntent.Value);
+                }
+            }
+
+            public void SetReplayTickIndex(int tickIndex)
+            {
+                _currentTickIndex = tickIndex;
             }
         }
     }

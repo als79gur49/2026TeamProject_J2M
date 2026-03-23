@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Attack.Commit
@@ -9,6 +11,8 @@ namespace Game.Feature.Gameplay.Attack.Commit
     {
         public void Commit(
             WorldSnapshot snapshot,
+            IdAllocator idAllocator,
+            EntityIdAllocator entityIdAllocator,
             IWorldWriteContext writeContext,
             IReadOnlyList<ActionGroup> selectedGroups,
             List<string> commitEvents)
@@ -16,6 +20,16 @@ namespace Game.Feature.Gameplay.Attack.Commit
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (idAllocator == null)
+            {
+                throw new ArgumentNullException(nameof(idAllocator));
+            }
+
+            if (entityIdAllocator == null)
+            {
+                throw new ArgumentNullException(nameof(entityIdAllocator));
             }
 
             if (writeContext == null)
@@ -71,6 +85,20 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 }
             }
 
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+
+                for (var spawnIndex = 0; spawnIndex < group.Spawns.Count; spawnIndex++)
+                {
+                    var committedSpawn = FinalizeSpawn(group.Spawns[spawnIndex], idAllocator, entityIdAllocator);
+                    group.Spawns[spawnIndex] = committedSpawn;
+                    writeContext.SpawnEntity(committedSpawn.Entity);
+                    commitEvents.Add(
+                        $"SpawnCommitted|G={group.GroupId}|I={group.IntentId}|SpawnId={committedSpawn.SpawnId}|E={committedSpawn.Entity.entityId}|Pos=({committedSpawn.Entity.position.x},{committedSpawn.Entity.position.y})|Type={committedSpawn.Entity.type}|SpawnTick={committedSpawn.Entity.spawnTick}");
+                }
+            }
+
             var destroyMarkedTargets = new HashSet<int>();
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
@@ -105,6 +133,17 @@ namespace Game.Feature.Gameplay.Attack.Commit
                         $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|FinalHp={finalHp}");
                 }
             }
+        }
+
+        private static SpawnAction FinalizeSpawn(
+            SpawnAction template,
+            IdAllocator idAllocator,
+            EntityIdAllocator entityIdAllocator)
+        {
+            var entity = template.Entity;
+            entity.entityId = entityIdAllocator.AllocateEntityId();
+            entity.spawnTick = idAllocator.CurrentTickIndex;
+            return new SpawnAction(idAllocator.AllocateSpawnId(), entity);
         }
     }
 }

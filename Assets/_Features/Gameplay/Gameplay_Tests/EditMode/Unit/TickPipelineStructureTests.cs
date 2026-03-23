@@ -66,6 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             Assert.That(exportedTypes, Does.Not.Contain(typeof(IdAllocator).FullName));
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(EntityIdAllocator).FullName));
         }
 
         [Test]

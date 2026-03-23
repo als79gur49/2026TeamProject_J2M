@@ -8,12 +8,14 @@ using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Intents;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.Movement.Resolution;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -66,8 +68,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var entityLogics = new IEntityLogic[]
             {
-                new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), new RawAttackIntent(20, 10)),
-                new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), new RawAttackIntent(10, 5)),
+                new StubEntityLogic(new RawMovementIntent(20, 10, new Vector2Int(3, 0)), RawAttackIntent.CreateFireProjectile(20, 10)),
+                new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), RawAttackIntent.CreateFireProjectile(10, 5)),
             };
             var pipeline = new TickPipeline(worldState, entityLogics);
 
@@ -117,9 +119,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var entityLogics = new IEntityLogic[]
             {
-                new StubEntityLogic(null, new RawAttackIntent(20, 10)),
-                new StubEntityLogic(null, new RawAttackIntent(10, 5)),
-                new StubEntityLogic(null, new RawAttackIntent(30, 1)),
+                new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(20, 10)),
+                new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(10, 5)),
+                new StubEntityLogic(null, RawAttackIntent.CreateFireProjectile(30, 1)),
             };
             var pipeline = new TickPipeline(worldState, entityLogics);
 
@@ -359,8 +361,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var impactIntent = AttackIntent.FromImpactReservation(
                 new ImpactReservation(1, 10, new Vector2Int(0, 0), 1, 5, 1, 2));
-            var entityIntentSameSource = new AttackIntent(1, 99, AttackInputKind.EntityIntent, 0);
-            var laterEntityIntent = new AttackIntent(2, 1, AttackInputKind.EntityIntent, 0);
+            var entityIntentSameSource = new AttackIntent(1, 99, 11);
+            var laterEntityIntent = new AttackIntent(2, 1, 22);
 
             var sortedInputs = new List<AttackIntent>
             {
@@ -386,7 +388,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var first = new MoveIntent(1, 10);
             var second = new MoveIntent(1, 10);
-            var third = new AttackIntent(1, 10, AttackInputKind.EntityIntent, 0);
+            var third = new AttackIntent(1, 10, 20);
             first.AssignIntentId(1);
             second.AssignIntentId(2);
             third.AssignIntentId(3);
@@ -450,6 +452,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sortedGroups);
         }
 
+        [Test]
+        public void Movement_EdgeReservation_RejectsLaterCandidateThatSharesUndirectedEdge()
+        {
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreateMoveGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 10,
+                    priority: 10,
+                    new MoveAction(entityId: 10, source: new Vector2Int(0, 0), destination: new Vector2Int(1, 0), facing: Direction.Right)),
+                CreateMoveGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 20,
+                    priority: 5,
+                    new MoveAction(entityId: 20, source: new Vector2Int(1, 0), destination: new Vector2Int(0, 0), facing: Direction.Left)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=EdgeReserved|From=(0,0)|To=(1,0)",
+                },
+                rejectedReasons);
+        }
+
+        [Test]
+        public void Movement_EdgeReservation_StillRejectsDestinationConflict()
+        {
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreateMoveGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 10,
+                    priority: 10,
+                    new MoveAction(entityId: 10, source: new Vector2Int(0, 0), destination: new Vector2Int(1, 0), facing: Direction.Right)),
+                CreateMoveGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 20,
+                    priority: 5,
+                    new MoveAction(entityId: 20, source: new Vector2Int(2, 0), destination: new Vector2Int(1, 0), facing: Direction.Left)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=DestinationReserved|Cell=(1,0)",
+                },
+                rejectedReasons);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             var constructor = typeof(WorldState).GetConstructor(
@@ -489,6 +557,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var actionGroup = new ActionGroup(intentId, sourceId, priority, ActionGroupKind.Move);
             actionGroup.AssignGroupId(groupId);
+            return actionGroup;
+        }
+
+        private static ActionGroup CreateMoveGroup(
+            int groupId,
+            int intentId,
+            int sourceId,
+            int priority,
+            params MoveAction[] moves)
+        {
+            var actionGroup = new ActionGroup(intentId, sourceId, priority, ActionGroupKind.Move);
+            actionGroup.AssignGroupId(groupId);
+
+            for (var i = 0; i < moves.Length; i++)
+            {
+                actionGroup.Moves.Add(moves[i]);
+            }
+
             return actionGroup;
         }
 

@@ -7,5 +7,7 @@ namespace Game.Feature.Gameplay.Model.Groups
         Stop = 2,
         Attack = 3,
         Cleanup = 4,
+        ProjectileImpact = 5,
+        PushChain = 6,
     }
 }

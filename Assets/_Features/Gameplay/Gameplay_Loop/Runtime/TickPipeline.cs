@@ -6,7 +6,6 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Expansion;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.Attack.Resolution;
-using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Debug;
@@ -26,11 +25,14 @@ namespace Game.Feature.Gameplay.Loop
     public sealed class TickPipeline
     {
         private readonly IdAllocator _idAllocator = new();
-        private readonly IReadOnlyList<IEntityLogic> _entityLogics;
+        private readonly EntityIdAllocator _entityIdAllocator;
+        private readonly IReadOnlyList<IEntityLogic> _staticEntityLogics;
+        private readonly SortedDictionary<int, ProjectileLogic> _spawnedProjectileLogics = new();
         private readonly MovementIntentCollector _movementIntentCollector = new();
         private readonly MovementExpander _movementExpander = new();
         private readonly MovementResolver _movementResolver = new();
         private readonly AttackIntentCollector _attackIntentCollector = new();
+        private readonly AttackInputNormalizer _attackInputNormalizer = new();
         private readonly AttackExpander _attackExpander = new();
         private readonly AttackResolver _attackResolver = new();
         private readonly MovementCommitter _movementCommitter = new();
@@ -55,7 +57,8 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(entityLogics));
             }
 
-            _entityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
+            _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
+            _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
         }
 
         public TickResult RunTick(in TickInput input)
@@ -68,9 +71,11 @@ namespace Game.Feature.Gameplay.Loop
             var writeContext = _worldState.CreateWriteContext();
 
             var movementSnapshot = SnapshotBuilder.Create(_worldState);
+            var entityLogicsForTick = BuildEntityLogicsForTick(movementSnapshot);
             var movementPhaseResult = RunMovementPhase(
                 movementSnapshot,
                 in input,
+                entityLogicsForTick,
                 transientBuffer,
                 writeContext,
                 completedPhases,
@@ -79,6 +84,7 @@ namespace Game.Feature.Gameplay.Loop
             var attackSnapshot = SnapshotBuilder.Create(_worldState);
             var attackPhaseResult = RunAttackPhase(
                 attackSnapshot,
+                entityLogicsForTick,
                 transientBuffer,
                 writeContext,
                 completedPhases,
@@ -126,6 +132,7 @@ namespace Game.Feature.Gameplay.Loop
         private MovementPhaseResult RunMovementPhase(
             WorldSnapshot snapshot,
             in TickInput input,
+            IReadOnlyList<IEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
@@ -133,7 +140,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             phaseTrace.Add("Movement:Enter");
             var rawMovementIntents = new List<RawMovementIntent>();
-            _movementIntentCollector.Collect(snapshot, in input, _entityLogics, rawMovementIntents);
+            _movementIntentCollector.Collect(snapshot, in input, entityLogics, rawMovementIntents);
             var sortedIntents = BuildMovementIntents(rawMovementIntents);
             var expandedCandidates = new List<ActionGroup>();
             var rejectedReasons = new List<string>();
@@ -145,7 +152,14 @@ namespace Game.Feature.Gameplay.Loop
             _movementResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
-            _movementCommitter.Commit(writeContext, transientBuffer, selectedGroups, commitEvents);
+            _movementCommitter.Commit(
+                snapshot,
+                sortedIntents,
+                input.TickIndex,
+                writeContext,
+                transientBuffer,
+                selectedGroups,
+                commitEvents);
             phaseTrace.Add("Movement:Exit");
             completedPhases.Add(TickPhase.Movement);
 
@@ -160,6 +174,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private AttackPhaseResult RunAttackPhase(
             WorldSnapshot snapshot,
+            IReadOnlyList<IEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
             IWorldWriteContext writeContext,
             List<TickPhase> completedPhases,
@@ -167,9 +182,9 @@ namespace Game.Feature.Gameplay.Loop
         {
             phaseTrace.Add("Attack:Enter");
             var rawAttackIntents = new List<RawAttackIntent>();
-            _attackIntentCollector.Collect(snapshot, _entityLogics, rawAttackIntents);
+            _attackIntentCollector.Collect(snapshot, entityLogics, rawAttackIntents);
             var drainedImpactReservations = transientBuffer.DrainImpacts();
-            var sortedInputs = BuildAttackInputs(rawAttackIntents, drainedImpactReservations);
+            var sortedInputs = NormalizeAttackInputs(rawAttackIntents, drainedImpactReservations);
             var expandedCandidates = new List<ActionGroup>();
             var rejectedReasons = new List<string>();
             _attackExpander.Expand(snapshot, sortedInputs, expandedCandidates, rejectedReasons);
@@ -180,7 +195,8 @@ namespace Game.Feature.Gameplay.Loop
             _attackResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
-            _attackCommitter.Commit(snapshot, writeContext, selectedGroups, commitEvents);
+            _attackCommitter.Commit(snapshot, _idAllocator, _entityIdAllocator, writeContext, selectedGroups, commitEvents);
+            RegisterSpawnedProjectileLogics(selectedGroups);
             phaseTrace.Add("Attack:Exit");
             completedPhases.Add(TickPhase.Attack);
 
@@ -234,24 +250,12 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private List<AttackIntent> BuildAttackInputs(
+        private List<AttackIntent> NormalizeAttackInputs(
             List<RawAttackIntent> rawAttackIntents,
             List<ImpactReservation> impactReservations)
         {
             var sortedInputs = new List<AttackIntent>(rawAttackIntents.Count + impactReservations.Count);
-
-            for (var i = 0; i < rawAttackIntents.Count; i++)
-            {
-                var rawIntent = rawAttackIntents[i];
-                sortedInputs.Add(new AttackIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.TargetId));
-            }
-
-            for (var i = 0; i < impactReservations.Count; i++)
-            {
-                sortedInputs.Add(AttackIntent.FromImpactReservation(impactReservations[i]));
-            }
-
-            sortedInputs.Sort(AttackInputComparer.Instance);
+            _attackInputNormalizer.Normalize(rawAttackIntents, impactReservations, sortedInputs);
 
             for (var i = 0; i < sortedInputs.Count; i++)
             {
@@ -266,6 +270,73 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < expandedCandidates.Count; i++)
             {
                 expandedCandidates[i].AssignGroupId(_idAllocator.AllocateGroupId());
+            }
+        }
+
+        private List<IEntityLogic> BuildEntityLogicsForTick(WorldSnapshot snapshot)
+        {
+            PruneSpawnedProjectileLogics(snapshot);
+
+            var entityLogics = new List<IEntityLogic>(_staticEntityLogics.Count + _spawnedProjectileLogics.Count);
+
+            for (var i = 0; i < _staticEntityLogics.Count; i++)
+            {
+                entityLogics.Add(_staticEntityLogics[i]);
+            }
+
+            foreach (var pair in _spawnedProjectileLogics)
+            {
+                entityLogics.Add(pair.Value);
+            }
+
+            return entityLogics;
+        }
+
+        private void PruneSpawnedProjectileLogics(WorldSnapshot snapshot)
+        {
+            List<int> removedEntityIds = null;
+
+            foreach (var pair in _spawnedProjectileLogics)
+            {
+                if (!snapshot.TryGetEntity(pair.Key, out var entity) || entity.type != EntityType.Projectile)
+                {
+                    removedEntityIds ??= new List<int>();
+                    removedEntityIds.Add(pair.Key);
+                }
+            }
+
+            if (removedEntityIds == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < removedEntityIds.Count; i++)
+            {
+                _spawnedProjectileLogics.Remove(removedEntityIds[i]);
+            }
+        }
+
+        private void RegisterSpawnedProjectileLogics(IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+
+                for (var spawnIndex = 0; spawnIndex < group.Spawns.Count; spawnIndex++)
+                {
+                    var spawnedEntity = group.Spawns[spawnIndex].Entity;
+                    if (spawnedEntity.type != EntityType.Projectile)
+                    {
+                        continue;
+                    }
+
+                    if (_spawnedProjectileLogics.ContainsKey(spawnedEntity.entityId))
+                    {
+                        continue;
+                    }
+
+                    _spawnedProjectileLogics.Add(spawnedEntity.entityId, new ProjectileLogic(spawnedEntity.entityId));
+                }
             }
         }
     }

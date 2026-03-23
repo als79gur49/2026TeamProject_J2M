@@ -77,6 +77,18 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
+            result = left.Source.x.CompareTo(right.Source.x);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.Source.y.CompareTo(right.Source.y);
+            if (result != 0)
+            {
+                return result;
+            }
+
             result = left.Destination.x.CompareTo(right.Destination.x);
             if (result != 0)
             {

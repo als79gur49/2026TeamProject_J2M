@@ -147,7 +147,7 @@ namespace Game.Feature.Gameplay.Debug
 
         private static string FormatRawAttackIntent(RawAttackIntent rawIntent)
         {
-            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Target={rawIntent.TargetId}";
+            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Target={rawIntent.TargetId}|Command={rawIntent.CommandKind}";
         }
 
         private static string FormatAttackIntent(AttackIntent intent)
@@ -158,6 +158,7 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Source=").Append(intent.SourceId)
                 .Append("|Priority=").Append(intent.Priority)
                 .Append("|Target=").Append(intent.TargetId)
+                .Append("|Command=").Append(intent.CommandKind)
                 .Append("|Kind=").Append(intent.InputKind)
                 .Append("|LocalSequence=").Append(intent.LocalSequence);
 
@@ -211,6 +212,7 @@ namespace Game.Feature.Gameplay.Debug
                 var move = moves[i];
                 builder
                     .Append("E=").Append(move.EntityId)
+                    .Append(":(").Append(move.Source.x).Append(',').Append(move.Source.y).Append(')')
                     .Append("->(").Append(move.Destination.x).Append(',').Append(move.Destination.y).Append(')')
                     .Append(':').Append(move.Facing);
             }
