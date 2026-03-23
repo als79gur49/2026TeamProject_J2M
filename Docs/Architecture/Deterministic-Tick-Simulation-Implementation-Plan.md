@@ -183,6 +183,9 @@ Assets/_Features/Gameplay/
 - `Intent`, `ActionGroup`, `TickPhase`는 특정 feature가 아니라 공용 실행 모델 소유다.
 - `MoveIntent`, `AttackIntent` 같은 concrete intent만 각 feature 레이어에 둔다.
 - `IntentComparer`, `ActionGroupComparer`는 feature 전용 비교기가 아니라 공용 정렬 계약이다.
+- 다만 `intentId` 발급 직전의 pre-ID ordering은 phase별 규칙을 따른다.
+  - `Movement`: `sourceId asc`
+  - `Attack`: 정규화 후 `sourceId asc -> inputKind asc -> localSequence asc`
 - `MoveAction`, `DamageAction`, `DestroyAction`, `SpawnAction`, `StateChangeAction`도 `ActionGroup`과 함께 공용 모델로 관리한다.
 
 ### 4-1. 네임스페이스 규칙
@@ -399,7 +402,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 1. `MovementIntentCollector`
 2. raw intent dump
-3. `IntentComparer`
+3. `sourceId asc` 결정론적 정렬
 4. post-sort `intentId` 발급
 5. `MovementExpander`
 6. raw candidate dump
@@ -430,13 +433,14 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 1. `AttackIntentCollector`
 2. raw attack intent dump
-3. `IntentComparer`
-4. post-sort `intentId` 발급
-5. `AttackExpander`
-6. `ActionGroupComparer`
-7. post-sort `groupId` 발급
-8. `AttackResolver`
-9. `AttackCommitter`
+3. `NormalizeAttackInputs`
+4. `sourceId asc -> inputKind asc -> localSequence asc` 결정론적 정렬
+5. post-sort `intentId` 발급
+6. `AttackExpander`
+7. `ActionGroupComparer`
+8. post-sort `groupId` 발급
+9. `AttackResolver`
+10. `AttackCommitter`
 
 완료 기준:
 
@@ -734,7 +738,7 @@ Stage6에서 실제로 할 일:
 
 ```text
 CollectMovementIntents
--> SortMovementIntents
+-> SortMovementInputsBySource
 -> AssignMovementIntentIds
 -> ExpandMovementCandidates
 -> SortMovementCandidates
@@ -756,7 +760,8 @@ CollectMovementIntents
 
 ```text
 CollectAttackIntents
--> SortAttackIntents
+-> NormalizeAttackInputs
+-> SortAttackInputs
 -> AssignAttackIntentIds
 -> ExpandAttackCandidates
 -> SortAttackCandidates
@@ -818,6 +823,7 @@ CollectRemovalTargets
 - `CanBeTargetedForNewSelection`가 `markedForDeath` 정책을 따르는가
 - `IntentComparer`와 `ActionGroupComparer`가 총정렬을 보장하는가
 - `PhaseTransientBuffer.DrainImpacts()`가 결정론적 순서를 유지하는가
+- `AttackCommitter`가 재사용된 출력 버퍼도 매 호출마다 완전히 재구성하는가
 
 ### 9-2. 시나리오 테스트
 
@@ -950,6 +956,12 @@ Tick 00152 | Hash 7A31E2D4
 - replay test가 통과한다.
 - scenario test가 핵심 규칙을 덮는다.
 - reservation 추가를 위한 `PhaseTransientBuffer` 자리가 이미 존재한다.
+
+### 12-4. 리뷰 반영 완료
+
+- `Movement`와 `Attack`의 `intentId` 발급 문서가 현재 phase별 정렬 규칙과 충돌 없이 읽힌다.
+- `AttackCommitter`는 매 호출마다 `commitEvents`, `delayedAttackEnqueueEvents`를 모두 초기화한 뒤 다시 기록한다.
+- 회귀 테스트가 재사용된 출력 버퍼에서도 동일한 attack event 결과를 보장한다.
 
 ## 13. 실제 착수 순서
 
