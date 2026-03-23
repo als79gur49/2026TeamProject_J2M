@@ -484,6 +484,149 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(secondProjectileId, Is.Not.EqualTo(firstProjectileId));
         }
 
+        [Test]
+        public void Attack_OnHit_DoesNotCreateSameTickNewIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 5, teamId: 1, position: new Vector2Int(2, 0), hp: 1, facing: Direction.Left),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2),
+            });
+            var retargetingLogic = new PriorityTargetSelectionLogic(10, 5, 20, 40);
+            var pipeline = new TickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubCombatLogic(movementIntent: new RawMovementIntent(5, 0, new Vector2Int(1, 0))),
+                    retargetingLogic,
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(retargetingLogic.AttackCollectCallCount, Is.EqualTo(1));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 5, Command: AttackCommandKind.ImpactReservation, TargetId: 20, IsSynthetic: true),
+                    (SourceId: 10, Command: AttackCommandKind.Attack, TargetId: 20, IsSynthetic: false),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId, intent.IsSynthetic))
+                    .ToArray());
+            Assert.That(result.AttackPhaseResult.SortedInputs.Any(intent => intent.TargetId == 40), Is.False);
+            Assert.That(
+                result.AttackPhaseResult.ExpandedCandidates.Any(group => group.Damages.Any(damage => damage.TargetId == 40)),
+                Is.False);
+            Assert.That(result.EventLog.Any(evt => evt.Contains("Target=40")), Is.False);
+            CollectionAssert.AreEqual(new[] { 5, 20 }, result.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
+            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(40, out var fallbackAfter), Is.True);
+            Assert.That(fallbackAfter.hp, Is.EqualTo(2));
+            Assert.That(fallbackAfter.markedForDeath, Is.False);
+        }
+
+        [Test]
+        public void Attack_OnHit_DoesNotReenterMovementPhase()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 5, teamId: 1, position: new Vector2Int(2, 0), hp: 1, facing: Direction.Left),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+            });
+            var attackLogic = new PriorityTargetSelectionLogic(10, 5, 20);
+            var pipeline = new TickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubCombatLogic(movementIntent: new RawMovementIntent(5, 0, new Vector2Int(1, 0))),
+                    attackLogic,
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(attackLogic.MovementCollectCallCount, Is.EqualTo(1));
+            Assert.That(attackLogic.AttackCollectCallCount, Is.EqualTo(1));
+            CollectionAssert.AreEqual(
+                new[] { TickPhase.Movement, TickPhase.Attack, TickPhase.Cleanup },
+                result.CompletedPhases);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Movement:Enter",
+                    "Movement:Exit",
+                    "Attack:Enter",
+                    "Attack:Exit",
+                    "Cleanup:Enter",
+                    "Cleanup:Exit",
+                },
+                result.PhaseTrace);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=5|Target=20|At=(1,0)|Damage=1|Sequence=1",
+                },
+                result.MovementPhaseResult.CommitEvents);
+        }
+
+        [Test]
+        public void Attack_ImpactReservation_CanStillExpandToFixedSameTickActions()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+            });
+            var pipeline = new TickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubCombatLogic(movementIntent: new RawMovementIntent(10, 0, new Vector2Int(1, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, TargetId: 20, Sequence: 1),
+                },
+                result.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (reservation.SourceId, reservation.TargetId, reservation.ReservationSequence))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, Command: AttackCommandKind.ImpactReservation, TargetId: 20, IsSynthetic: true),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId, intent.IsSynthetic))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "DamageCommitted|G=2|I=2|Target=20|Amount=1",
+                    "DamageCommitted|G=2|I=2|Target=10|Amount=1",
+                    "DestroyMarked|G=2|I=2|Target=10|FinalHp=0",
+                },
+                result.AttackPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
+            Assert.That(snapshotAfter.TryGetEntity(10, out _), Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var targetAfter), Is.True);
+            Assert.That(targetAfter.hp, Is.EqualTo(1));
+            Assert.That(targetAfter.markedForDeath, Is.False);
+            Assert.That(result.Trace.Text, Does.Contain("Attack.DrainedImpacts"));
+            Assert.That(result.Trace.Text, Does.Contain("Command=ImpactReservation"));
+        }
+
         private static (TickResult Result, WorldSnapshot SnapshotAfter, string OccupancyAfter) RunFatalAttackTick()
         {
             var worldState = CreateWorldState(new[]
@@ -614,6 +757,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+            };
+        }
+
+        private static EntityState CreateProjectile(
+            int entityId,
+            int teamId,
+            Vector2Int position,
+            int hp,
+            Direction facing = Direction.None)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
+                type = EntityType.Projectile,
                 state = EntityPhaseState.Idle,
                 facing = facing,
             };
@@ -758,6 +921,66 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 }
 
                 buffer.Add(attackIntent);
+            }
+        }
+
+        private sealed class PriorityTargetSelectionLogic : IEntityLogic
+        {
+            private readonly int[] _candidateTargetIds;
+            private readonly int _priority;
+            private readonly int _sourceId;
+
+            public PriorityTargetSelectionLogic(int sourceId, int priority, params int[] candidateTargetIds)
+            {
+                _sourceId = sourceId;
+                _priority = priority;
+                _candidateTargetIds = candidateTargetIds ?? throw new ArgumentNullException(nameof(candidateTargetIds));
+            }
+
+            public int MovementCollectCallCount { get; private set; }
+
+            public int AttackCollectCallCount { get; private set; }
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                MovementCollectCallCount++;
+            }
+
+            public void CollectAttackIntents(
+                WorldSnapshot snapshot,
+                List<RawAttackIntent> buffer)
+            {
+                AttackCollectCallCount++;
+
+                if (!snapshot.TryGetEntity(_sourceId, out var source) || source.hp <= 0 || source.markedForDeath)
+                {
+                    return;
+                }
+
+                for (var i = 0; i < _candidateTargetIds.Length; i++)
+                {
+                    var targetId = _candidateTargetIds[i];
+                    if (!snapshot.TryGetEntity(targetId, out var target))
+                    {
+                        continue;
+                    }
+
+                    if (!snapshot.CanBeTargetedForNewSelection(targetId))
+                    {
+                        continue;
+                    }
+
+                    if (Math.Abs(source.position.x - target.position.x) + Math.Abs(source.position.y - target.position.y) != 1)
+                    {
+                        continue;
+                    }
+
+                    buffer.Add(new RawAttackIntent(_sourceId, _priority, targetId));
+                    return;
+                }
             }
         }
 
