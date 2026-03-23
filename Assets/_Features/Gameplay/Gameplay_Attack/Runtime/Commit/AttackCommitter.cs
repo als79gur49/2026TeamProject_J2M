@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
             IDelayedAttackEffectSink delayedAttackEffectSink,
             IReadOnlyList<ActionGroup> selectedGroups,
             List<string> commitEvents,
-            List<string> delayedAttackEvents)
+            List<string> delayedAttackEnqueueEvents)
         {
             if (snapshot == null)
             {
@@ -48,12 +48,13 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 throw new ArgumentNullException(nameof(commitEvents));
             }
 
-            if (delayedAttackEvents == null)
+            if (delayedAttackEnqueueEvents == null)
             {
-                throw new ArgumentNullException(nameof(delayedAttackEvents));
+                throw new ArgumentNullException(nameof(delayedAttackEnqueueEvents));
             }
 
             commitEvents.Clear();
+            delayedAttackEnqueueEvents.Clear();
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
@@ -158,7 +159,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
                         group.GroupId,
                         delayedAttackSequence);
                     delayedAttackEffectSink.Enqueue(effectRecord);
-                    delayedAttackEvents.Add(
+                    delayedAttackEnqueueEvents.Add(
                         $"DelayedAttackEnqueued|G={group.GroupId}|I={group.IntentId}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|ExecuteTick={effectRecord.ExecuteAtTick}|Sequence={effectRecord.EffectSequence}");
                     delayedAttackSequence++;
                 }
