@@ -66,6 +66,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         TryExpandInteractSlide(snapshot, entity, intent, orderedEntities, buffer, rejectedReasons);
                         break;
 
+                    case MovementCommandKind.InteractFlip:
+                        TryExpandInteractFlip(snapshot, entity, intent, buffer, rejectedReasons);
+                        break;
+
                     default:
                         rejectedReasons.Add(
                             $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=UnsupportedCommand|Command={intent.CommandKind}");
@@ -171,6 +175,43 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 currentCell = nextCell;
             }
 
+            buffer.Add(actionGroup);
+        }
+
+        private static void TryExpandInteractFlip(
+            WorldSnapshot snapshot,
+            EntityState source,
+            MoveIntent intent,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            if (!snapshot.TryGetUnitAt(intent.Destination, out var target) || target.type != EntityType.Box)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}");
+                return;
+            }
+
+            var interactionDelta = intent.Destination - source.position;
+            var landing = source.position - interactionDelta;
+            if (snapshot.TryGetUnitAt(landing, out var landingOccupant))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell=({landing.x},{landing.y})|Occupant={landingOccupant.entityId}|Type={landingOccupant.type}");
+                return;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Flip);
+            actionGroup.Moves.Add(
+                new MoveAction(
+                    target.entityId,
+                    target.position,
+                    landing,
+                    ResolveCardinalFacing(-interactionDelta, "Flip requires an orthogonal adjacent interaction direction.")));
             buffer.Add(actionGroup);
         }
 
@@ -317,8 +358,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
         private static Direction ResolveFacing(Vector2Int source, Vector2Int destination)
         {
-            var delta = destination - source;
+            return ResolveCardinalFacing(
+                destination - source,
+                "Stage2 movement only supports orthogonal single-cell moves.");
+        }
 
+        private static Direction ResolveCardinalFacing(Vector2Int delta, string errorMessage)
+        {
             if (delta == Vector2Int.up)
             {
                 return Direction.Up;
@@ -339,7 +385,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return Direction.Left;
             }
 
-            throw new InvalidOperationException("Stage2 movement only supports orthogonal single-cell moves.");
+            throw new InvalidOperationException(errorMessage);
         }
 
         private static void ValidateSingleStepMove(Vector2Int source, Vector2Int destination, int sourceId)

@@ -10,5 +10,6 @@ namespace Game.Feature.Gameplay.Model.Groups
         ProjectileImpact = 5,
         PushChain = 6,
         Slide = 7,
+        Flip = 8,
     }
 }

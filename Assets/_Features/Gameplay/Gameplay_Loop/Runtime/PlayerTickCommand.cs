@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         Move = 1,
         InteractSlide = 2,
+        InteractFlip = 3,
     }
 
     public readonly struct PlayerTickCommand
@@ -44,6 +45,11 @@ namespace Game.Feature.Gameplay.Loop
         public static PlayerTickCommand InteractSlide(Direction direction)
         {
             return new PlayerTickCommand(PlayerPrimaryCommandKind.InteractSlide, direction);
+        }
+
+        public static PlayerTickCommand InteractFlip(Direction direction)
+        {
+            return new PlayerTickCommand(PlayerPrimaryCommandKind.InteractFlip, direction);
         }
     }
 }

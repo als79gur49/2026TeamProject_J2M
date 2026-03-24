@@ -60,6 +60,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerLogic_InteractFlipCommand_ProducesSingleRawMovementIntent()
+        {
+            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)),
+                buffer);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, Destination: new Vector2Int(-1, 0), Command: MovementCommandKind.InteractFlip),
+                },
+                buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+        }
+
+        [Test]
         public void PlayerLogic_NoMoveCommand_ProducesNoIntent()
         {
             var worldState = GameplayCompositionRoot.CreateWorldState(new[]

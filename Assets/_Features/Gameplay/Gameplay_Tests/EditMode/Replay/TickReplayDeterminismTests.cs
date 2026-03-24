@@ -154,6 +154,32 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void Replay_BoxFlipScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunBoxFlipReplaySequence();
+            var secondReplay = RunBoxFlipReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Flip"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FacingCommitted|G=1|I=1|E=10|Facing=Left"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left|Marked=0|SpawnTick=0"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
+        }
+
+        [Test]
         public void Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunEdgeReservationReplaySequence();
@@ -423,6 +449,26 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new[]
                 {
                     new TickInput(1, PlayerTickCommand.InteractSlide(Direction.Right)),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunBoxFlipReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0)),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)),
                 });
         }
 

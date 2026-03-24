@@ -386,6 +386,201 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_BoxFlip_SucceedsWhenOppositeCellIsFree()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(-1, 0), Command: MovementCommandKind.InteractFlip),
+                },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination, intent.CommandKind))
+                    .ToArray());
+            var flipGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            Assert.That(flipGroup.GroupId, Is.EqualTo(1));
+            Assert.That(flipGroup.SourceId, Is.EqualTo(10));
+            Assert.That(flipGroup.GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 30, Source: new Vector2Int(-1, 0), Destination: new Vector2Int(1, 0), Facing: Direction.Right),
+                },
+                flipGroup.Moves
+                    .Select(move => (move.EntityId, move.Source, move.Destination, move.Facing))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "FacingCommitted|G=1|I=1|E=10|Facing=Left",
+                    "MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Left));
+            Assert.That(GetEntityFacing(worldState, 30), Is.EqualTo(Direction.Right));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Flip"));
+            Assert.That(result.Trace.Text, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
+        }
+
+        [Test]
+        public void Movement_BoxFlip_FailsWhenTargetIsNotAdjacentBox()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(-1, 0), teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipTargetNotBox|Cell=(-1,0)|Target=20|Type=Unit",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(-1, 0)));
+        }
+
+        [Test]
+        public void Movement_BoxFlip_FailsWhenLandingCellIsBlocked()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipLandingBlocked|Cell=(1,0)|Occupant=20|Type=Unit",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        public void Movement_BoxFlip_FailsWhenLandingCellWouldOnlyBecomeFreeAfterLaterMove()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(2, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipLandingBlocked|Cell=(1,0)|Occupant=20|Type=Unit",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 20, Kind: ActionGroupKind.Move) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=2|E=20|To=(2,0)|Facing=Right",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(2, 0)));
+        }
+
+        [Test]
+        public void Movement_BoxFlip_RejectsLaterCandidateThatMovesSameBox()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(2, 0), teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(1, 0), MovementCommandKind.InteractFlip)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Right)));
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=SharedPushChainMember|Entity=30",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "FacingCommitted|G=1|I=1|E=10|Facing=Right",
+                    "MoveCommitted|G=1|I=1|E=30|To=(-1,0)|Facing=Left",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(2, 0)));
+        }
+
+        [Test]
         public void Movement_SameDestination_OnlyHigherPriorityWins()
         {
             var worldState = CreateWorldState(new[]

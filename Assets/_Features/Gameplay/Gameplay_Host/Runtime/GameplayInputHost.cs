@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Host
         private InputActionAsset _actions;
         private float _accumulatedTime;
         private bool _autoAdvanceTicks;
+        private InputAction _flipAction;
+        private bool _hasBufferedFlip;
         private bool _isInitialized;
         private TickInputBuffer _inputBuffer;
         private InputRepeatCooldown _inputRepeatCooldown;
@@ -70,6 +72,7 @@ namespace Game.Feature.Gameplay.Host
             _moveDeadzone = moveDeadzone;
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
+            _hasBufferedFlip = false;
             _hasBufferedInteract = false;
             _sampledMoveInput = Vector2.zero;
             _inputRepeatCooldown = new InputRepeatCooldown(
@@ -172,10 +175,18 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Interact action on the provided InputActionAsset.");
             }
 
+            _flipAction = _actions.FindAction("Player/Flip", throwIfNotFound: false);
+
             _moveAction.performed += OnMovePerformed;
             _moveAction.canceled += OnMoveCanceled;
             _interactAction.started += OnInteractStarted;
             _interactAction.performed += OnInteractPerformed;
+            if (_flipAction != null)
+            {
+                _flipAction.started += OnFlipStarted;
+                _flipAction.performed += OnFlipPerformed;
+            }
+
             _sampledMoveInput = _moveAction.ReadValue<Vector2>();
         }
 
@@ -208,6 +219,16 @@ namespace Game.Feature.Gameplay.Host
             _hasBufferedInteract = true;
         }
 
+        private void OnFlipPerformed(InputAction.CallbackContext context)
+        {
+            _hasBufferedFlip = true;
+        }
+
+        private void OnFlipStarted(InputAction.CallbackContext context)
+        {
+            _hasBufferedFlip = true;
+        }
+
         private void UnbindActions()
         {
             if (_moveAction != null)
@@ -224,16 +245,33 @@ namespace Game.Feature.Gameplay.Host
                 _interactAction = null;
             }
 
+            if (_flipAction != null)
+            {
+                _flipAction.started -= OnFlipStarted;
+                _flipAction.performed -= OnFlipPerformed;
+                _flipAction = null;
+            }
+
             if (_actions != null)
             {
                 _actions.Disable();
             }
 
+            _hasBufferedFlip = false;
             _hasBufferedInteract = false;
         }
 
         private PlayerTickCommand ResolvePrimaryCommand(Direction quantizedDirection, PlayerTickCommand moveCommand)
         {
+            if (_hasBufferedFlip)
+            {
+                _hasBufferedFlip = false;
+                _hasBufferedInteract = false;
+                return quantizedDirection == Direction.None
+                    ? PlayerTickCommand.None
+                    : PlayerTickCommand.InteractFlip(quantizedDirection);
+            }
+
             if (!_hasBufferedInteract)
             {
                 return moveCommand;

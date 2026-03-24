@@ -100,6 +100,9 @@ namespace Game.Feature.Gameplay.Entities
                 case PlayerPrimaryCommandKind.InteractSlide:
                     return MovementCommandKind.InteractSlide;
 
+                case PlayerPrimaryCommandKind.InteractFlip:
+                    return MovementCommandKind.InteractFlip;
+
                 default:
                     return null;
             }

@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.Movement
     {
         Move = 0,
         InteractSlide = 1,
+        InteractFlip = 2,
     }
 }
 

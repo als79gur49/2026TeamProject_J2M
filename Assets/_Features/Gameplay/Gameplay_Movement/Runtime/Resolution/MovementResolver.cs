@@ -51,7 +51,8 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                     continue;
                 }
 
-                if (TryGetConflictingEdge(candidate, reservedEdges, out var conflictingEdge))
+                if (RequiresEdgeReservation(candidate) &&
+                    TryGetConflictingEdge(candidate, reservedEdges, out var conflictingEdge))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=EdgeReserved|From=({conflictingEdge.First.x},{conflictingEdge.First.y})|To=({conflictingEdge.Second.x},{conflictingEdge.Second.y})");
@@ -74,7 +75,7 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                     reservedDestinations.Add(move.Destination);
                     reservedMovedEntities.Add(move.EntityId);
 
-                    if (move.Source != move.Destination)
+                    if (RequiresEdgeReservation(candidate) && move.Source != move.Destination)
                     {
                         var edgeReservation = new EdgeReservation(
                             move.EntityId,
@@ -151,6 +152,11 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             }
 
             return false;
+        }
+
+        private static bool RequiresEdgeReservation(ActionGroup candidate)
+        {
+            return candidate.GroupKind != ActionGroupKind.Flip;
         }
 
         private readonly struct EdgeReservation

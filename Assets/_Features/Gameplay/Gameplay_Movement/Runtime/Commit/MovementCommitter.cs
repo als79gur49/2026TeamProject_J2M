@@ -68,12 +68,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
-                if (group.GroupKind == ActionGroupKind.Slide)
+                if (group.GroupKind == ActionGroupKind.Slide || group.GroupKind == ActionGroupKind.Flip)
                 {
-                    var slideSourceFacing = ResolveSlideSourceFacing(snapshot, sortedIntents, group);
-                    writeContext.SetFacing(group.SourceId, slideSourceFacing);
+                    var interactionSourceFacing = ResolveInteractionSourceFacing(snapshot, sortedIntents, group);
+                    writeContext.SetFacing(group.SourceId, interactionSourceFacing);
                     commitEvents.Add(
-                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={slideSourceFacing}");
+                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={interactionSourceFacing}");
                 }
 
                 for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
@@ -142,7 +142,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return null;
         }
 
-        private static Direction ResolveSlideSourceFacing(
+        private static Direction ResolveInteractionSourceFacing(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
             ActionGroup group)
@@ -150,14 +150,14 @@ namespace Game.Feature.Gameplay.Movement.Commit
             if (!snapshot.TryGetEntity(group.SourceId, out var source))
             {
                 throw new InvalidOperationException(
-                    $"Slide group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
+                    $"Interaction group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
             }
 
             var intent = FindIntent(sortedIntents, group.IntentId);
             if (intent == null)
             {
                 throw new InvalidOperationException(
-                    $"Slide group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
+                    $"Interaction group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
             }
 
             var delta = intent.Destination - source.position;
@@ -182,7 +182,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             throw new InvalidOperationException(
-                $"Slide group requires an orthogonal adjacent interaction direction. Source={group.SourceId}, Intent={group.IntentId}");
+                $"Interaction group requires an orthogonal adjacent interaction direction. Source={group.SourceId}, Intent={group.IntentId}");
         }
     }
 }
