@@ -420,6 +420,7 @@ TickEnd
 - `Move`
 - `Push`
 - `Slide`
+- `Flip`
 - `ProjectileMove`
 
 ### 9-2. 입력 기준
@@ -432,8 +433,9 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 
 예:
 
-- `MoveIntent -> Move / Stop`
-- `PushIntent -> PushChain / Stop`
+- `MoveIntent(Move) -> Move / PushChain / Stop`
+- `MoveIntent(InteractSlide) -> Slide / Fail`
+- `MoveIntent(InteractFlip) -> Flip / Fail`
 - `ProjectileMoveIntent -> ProjectileMove / ImpactReservation`
 
 후보 생성 규칙:
@@ -450,7 +452,21 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - 체인을 공유하는 후보끼리는 충돌이다.
 - 같은 Intent에서는 최대 하나의 `ActionGroup`만 선택된다.
 
-### 9-5. Projectile 정책
+### 9-5. BoxFlip 정책
+
+- `BoxFlip`은 Expander가 생성하는 `Movement` 확장이다.
+- source entity는 제자리에 남고, 인접 `Box`만 source 반대편 인접 cell로 이동한다.
+- 성공/실패는 `S0` 기준으로만 판정한다.
+- target은 orthogonal adjacent `Box`여야 한다.
+- landing cell은 `source.position - (target.position - source.position)`으로 계산한다.
+- landing cell이 유효하지 않거나 `BlocksMovement` 기준 blocker가 있으면 전체 실패다.
+- source가 서 있는 anchor cell은 authoritative occupancy 경로에 포함하지 않는다.
+- 즉, box가 source cell을 중간 점유하는 same-tick state는 기록하지 않는다.
+- `Flip`은 slide처럼 step-by-step 경로 예약을 만들지 않는다.
+- 같은 Intent에서는 최대 하나의 `ActionGroup`만 선택된다.
+- `BoxFlip`은 damage, destroy, spawn, `PhaseTransientBuffer`를 직접 만들지 않는다.
+
+### 9-6. Projectile 정책
 
 투사체의 이동 자체는 Movement에서 처리한다.
 
@@ -468,7 +484,7 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - 하나의 투사체는 한 Tick Movement에서 최대 하나의 `ImpactReservation`만 남긴다.
 - 다중 관통은 추후 별도 정책으로 연다.
 
-### 9-6. Movement Commit
+### 9-7. Movement Commit
 
 Movement Commit은 선택된 이동 그룹만 적용한다.
 
