@@ -267,7 +267,7 @@ namespace Game.Feature.Gameplay.Loop
                         rawIntent.Priority,
                         rawIntent.Destination,
                         rawIntent.LocalSequence),
-                    Movement.MovementCommandKind.Throw => new ThrowIntent(
+                    Movement.MovementCommandKind.Throw => new FlipIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,

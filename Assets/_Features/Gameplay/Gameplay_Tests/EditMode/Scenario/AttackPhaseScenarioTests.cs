@@ -149,10 +149,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    new StubCombatLogic(
+                        attackIntentFactory: _ => RawAttackIntent.CreateInteractLootDestroy(
+                            sourceId: 10,
+                            priority: 100,
+                            targetCell: new Vector2Int(1, 0))),
                 },
                 tickIndex: 5,
-                input: new TickInput(5, PlayerTickCommand.Interact(Direction.Right)));
+                input: new TickInput(5));
             var snapshotAfterAttack = SnapshotBuilder.Create(worldState);
 
             CollectionAssert.AreEqual(
@@ -181,7 +185,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Attack_InteractInput_BeatsBoxSlideForSameTickPlayerPayload()
+        public void Attack_PlayerInteractInput_DoesNotProduceLegacyInteractLootDestroyIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -204,19 +208,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     PlayerTickCommand.Create(
                         Direction.Right,
                         interactPressed: true,
-                        throwPressed: false)));
+                        flipPressed: false)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[] { ActionGroupKind.Item },
+                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupKind).ToArray());
             CollectionAssert.AreEqual(
                 new[] { MovementCommandKind.Interact },
                 result.MovementPhaseResult.SortedIntents.Select(intent => intent.CommandKind).ToArray());
-            CollectionAssert.AreEqual(
-                new[] { ActionGroupKind.InteractLootDestroy },
-                result.AttackPhaseResult.SelectedGroups.Select(group => group.GroupKind).ToArray());
-            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
-            Assert.That(result.EventLog, Does.Contain("LootGranted|G=1|I=2|Source=10|Target=30|Loot=BoxInteractDestroy"));
+            Assert.That(result.EventLog, Does.Not.Contain("LootGranted"));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
         }
 

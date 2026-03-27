@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_ThrowCommand_ProducesSingleRawMovementIntent()
+        public void PlayerLogic_FlipCommand_ProducesSingleRawMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -52,13 +52,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Throw(Direction.Right)),
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
                 buffer);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Throw),
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Flip),
                 },
                 buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
         }
@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_InteractCommand_ProducesSingleRawAttackIntent()
+        public void PlayerLogic_InteractCommand_DoesNotProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -101,16 +101,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new TickInput(1, PlayerTickCommand.Interact(Direction.Left)),
                 buffer);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 10, TargetCell: new Vector2Int(-1, 0), Command: AttackCommandKind.InteractLootDestroy),
-                },
-                buffer.Select(intent => (intent.SourceId, intent.TargetCell, intent.CommandKind)).ToArray());
+            Assert.That(buffer, Is.Empty);
         }
 
         [Test]
-        public void PlayerLogic_InteractInput_TakesPriorityOverThrowForMovementIntent()
+        public void PlayerLogic_FlipInput_TakesPriorityOverInteractForMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -126,13 +121,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PlayerTickCommand.Create(
                         Direction.Right,
                         interactPressed: true,
-                        throwPressed: true)),
+                        flipPressed: true)),
                 movementBuffer);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Interact),
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Flip),
                 },
                 movementBuffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
         }
@@ -174,12 +169,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_ControlsEntity_ForMovementAndAttackPhases()
+        public void PlayerLogic_ControlsEntity_ForMovementPhaseOnly()
         {
             var logic = new PlayerLogic(entityId: 10);
 
             Assert.That(logic.ControlsEntity(10, TickPhase.Movement), Is.True);
-            Assert.That(logic.ControlsEntity(10, TickPhase.Attack), Is.True);
+            Assert.That(logic.ControlsEntity(10, TickPhase.Attack), Is.False);
             Assert.That(logic.ControlsEntity(10, TickPhase.Cleanup), Is.False);
             Assert.That(logic.ControlsEntity(20, TickPhase.Movement), Is.False);
             Assert.That(logic.ControlsEntity(20, TickPhase.Attack), Is.False);
@@ -317,6 +312,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(command.MoveDirection, Is.EqualTo(expectedDirection));
             Assert.That(command.InteractPressed, Is.False);
+            Assert.That(command.FlipPressed, Is.False);
             Assert.That(command.ThrowPressed, Is.False);
         }
 

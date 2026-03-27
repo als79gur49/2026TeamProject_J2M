@@ -56,6 +56,18 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (input.PlayerCommand.FlipPressed)
+            {
+                buffer.Add(
+                    new RawMovementIntent(
+                        entity.entityId,
+                        DefaultCommandPriority,
+                        entity.position + delta,
+                        MovementCommandKind.Flip,
+                        localSequence: 0));
+                return;
+            }
+
             if (input.PlayerCommand.InteractPressed)
             {
                 buffer.Add(
@@ -64,18 +76,6 @@ namespace Game.Feature.Gameplay.Entities
                         DefaultCommandPriority,
                         entity.position + delta,
                         MovementCommandKind.Interact,
-                        localSequence: 0));
-                return;
-            }
-
-            if (input.PlayerCommand.ThrowPressed)
-            {
-                buffer.Add(
-                    new RawMovementIntent(
-                        entity.entityId,
-                        DefaultCommandPriority,
-                        entity.position + delta,
-                        MovementCommandKind.Throw,
                         localSequence: 0));
                 return;
             }
@@ -94,6 +94,7 @@ namespace Game.Feature.Gameplay.Entities
             in TickInput input,
             List<RawAttackIntent> buffer)
         {
+            // Player interaction is normalized into movement input in this stage.
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -103,38 +104,12 @@ namespace Game.Feature.Gameplay.Entities
             {
                 throw new ArgumentNullException(nameof(buffer));
             }
-
-            if (!snapshot.TryGetEntity(_entityId, out var entity))
-            {
-                return;
-            }
-
-            if (entity.hp <= 0 || entity.markedForDeath)
-            {
-                return;
-            }
-
-            if (!input.PlayerCommand.InteractPressed)
-            {
-                return;
-            }
-
-            if (!TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
-            {
-                return;
-            }
-
-            buffer.Add(
-                RawAttackIntent.CreateInteractLootDestroy(
-                    entity.entityId,
-                    DefaultCommandPriority,
-                    entity.position + delta));
         }
 
         public bool ControlsEntity(int entityId, TickPhase phase)
         {
             return entityId == _entityId &&
-                   (phase == TickPhase.Movement || phase == TickPhase.Attack);
+                   phase == TickPhase.Movement;
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

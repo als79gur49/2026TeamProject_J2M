@@ -91,7 +91,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GameplayInputHost_ThrowBufferedAtTickBoundary_PrioritizesThrowOverMove()
+        public IEnumerator GameplayInputHost_FlipBufferedAtTickBoundary_PrioritizesFlipOverMove()
         {
             var host = CreateHost(new[]
             {
@@ -100,7 +100,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             });
 
             host.InputHost.SetRawMoveInput(Vector2.left);
-            host.InputHost.BufferThrow();
+            host.InputHost.BufferFlip();
 
             host.InputHost.RunSingleTick();
 
@@ -284,14 +284,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var map = new InputActionMap("Player");
             var move = map.AddAction("Move", InputActionType.Value);
             var interact = map.AddAction("Interact", InputActionType.Button);
-            var throwAction = map.AddAction("Throw", InputActionType.Button);
+            var flipAction = map.AddAction("Flip", InputActionType.Button);
             move.AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/w")
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
             interact.AddBinding("<Keyboard>/e");
-            throwAction.AddBinding("<Keyboard>/q");
+            flipAction.AddBinding("<Keyboard>/q");
             actions.AddActionMap(map);
             return actions;
         }

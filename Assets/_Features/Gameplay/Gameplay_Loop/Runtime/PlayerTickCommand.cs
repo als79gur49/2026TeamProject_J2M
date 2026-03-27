@@ -8,11 +8,11 @@ namespace Game.Feature.Gameplay.Loop
         public PlayerTickCommand(
             Direction moveDirection,
             bool interactPressed = false,
-            bool throwPressed = false)
+            bool flipPressed = false)
         {
-            if (moveDirection == Direction.None && (interactPressed || throwPressed))
+            if (moveDirection == Direction.None && (interactPressed || flipPressed))
             {
-                throw new ArgumentException("Interact and Throw commands require a non-none move direction.", nameof(moveDirection));
+                throw new ArgumentException("Interact and Flip commands require a non-none move direction.", nameof(moveDirection));
             }
 
             if (moveDirection != Direction.None &&
@@ -26,14 +26,16 @@ namespace Game.Feature.Gameplay.Loop
 
             MoveDirection = moveDirection;
             InteractPressed = interactPressed;
-            ThrowPressed = throwPressed;
+            FlipPressed = flipPressed;
         }
 
         public Direction MoveDirection { get; }
 
         public bool InteractPressed { get; }
 
-        public bool ThrowPressed { get; }
+        public bool FlipPressed { get; }
+
+        public bool ThrowPressed => FlipPressed;
 
         public static PlayerTickCommand None => default;
 
@@ -49,15 +51,20 @@ namespace Game.Feature.Gameplay.Loop
 
         public static PlayerTickCommand Throw(Direction direction)
         {
-            return new PlayerTickCommand(direction, throwPressed: true);
+            return Flip(direction);
+        }
+
+        public static PlayerTickCommand Flip(Direction direction)
+        {
+            return new PlayerTickCommand(direction, flipPressed: true);
         }
 
         public static PlayerTickCommand Create(
             Direction moveDirection,
             bool interactPressed = false,
-            bool throwPressed = false)
+            bool flipPressed = false)
         {
-            return new PlayerTickCommand(moveDirection, interactPressed, throwPressed);
+            return new PlayerTickCommand(moveDirection, interactPressed, flipPressed);
         }
     }
 }

@@ -535,11 +535,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    new ScriptedCombatLogic(
+                        sourceId: 10,
+                        attackIntent: RawAttackIntent.CreateInteractLootDestroy(
+                            sourceId: 10,
+                            priority: 5,
+                            targetCell: new Vector2Int(1, 0))),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
+                    new TickInput(1),
                 });
         }
 

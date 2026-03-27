@@ -80,20 +80,32 @@ namespace Game.Feature.Gameplay.Movement.Intents
         }
     }
 
-    public sealed class ThrowIntent : MoveIntent
+    public class FlipIntent : MoveIntent
     {
-        public ThrowIntent(
+        public FlipIntent(
             int sourceId,
             int priority,
             Vector2Int destination,
             int localSequence = 0)
-            : base(sourceId, priority, destination, MovementCommandKind.Throw, localSequence)
+            : base(sourceId, priority, destination, MovementCommandKind.Flip, localSequence)
         {
         }
 
         protected internal override int GetTypeSortKey()
         {
             return 1;
+        }
+    }
+
+    public sealed class ThrowIntent : FlipIntent
+    {
+        public ThrowIntent(
+            int sourceId,
+            int priority,
+            Vector2Int destination,
+            int localSequence = 0)
+            : base(sourceId, priority, destination, localSequence)
+        {
         }
     }
 }

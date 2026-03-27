@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.Movement
     {
         Interact = 0,
         Throw = 1,
+        Flip = Throw,
         Move = 2,
     }
 }

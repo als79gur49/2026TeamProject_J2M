@@ -145,6 +145,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void BufferThrow()
         {
+            BufferFlip();
+        }
+
+        public void BufferFlip()
+        {
             EnsureInitialized();
             _hasBufferedThrow = true;
         }
@@ -187,8 +192,8 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Interact action on the provided InputActionAsset.");
             }
 
-            _throwAction = _actions.FindAction("Player/Throw", throwIfNotFound: false) ??
-                           _actions.FindAction("Player/Flip", throwIfNotFound: false);
+            _throwAction = _actions.FindAction("Player/Flip", throwIfNotFound: false) ??
+                           _actions.FindAction("Player/Throw", throwIfNotFound: false);
 
             _moveAction.performed += OnMovePerformed;
             _moveAction.canceled += OnMoveCanceled;
@@ -277,19 +282,19 @@ namespace Game.Feature.Gameplay.Host
         private PlayerTickCommand ResolveTickCommand(PlayerTickCommand moveCommand)
         {
             var interactPressed = _hasBufferedInteract || (_interactAction != null && _interactAction.IsPressed());
-            var throwPressed = _hasBufferedThrow || (_throwAction != null && _throwAction.IsPressed());
+            var flipPressed = _hasBufferedThrow || (_throwAction != null && _throwAction.IsPressed());
 
             var command = PlayerTickCommand.Create(
                 moveCommand.MoveDirection,
                 interactPressed && moveCommand.MoveDirection != Direction.None,
-                throwPressed && moveCommand.MoveDirection != Direction.None);
+                flipPressed && moveCommand.MoveDirection != Direction.None);
 
             _hasBufferedInteract = false;
             _hasBufferedThrow = false;
 
             if (command.MoveDirection == Direction.None &&
                 !command.InteractPressed &&
-                !command.ThrowPressed)
+                !command.FlipPressed)
             {
                 return PlayerTickCommand.None;
             }
