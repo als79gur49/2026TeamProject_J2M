@@ -6,6 +6,8 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class WorldQueryService
     {
+        private static readonly Dictionary<Vector2Int, int> EmptyOccupancy = new();
+
         public static bool TryGetEntityAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<Vector2Int, int> occupancyByCell,
@@ -51,6 +53,66 @@ namespace Game.Feature.Gameplay.BoardState
             Vector2Int cell)
         {
             return TryGetUnitBlocker(entitiesById, unitOccupancy, boardBounds, terrainData, cell, out _);
+        }
+
+        public static bool TryGetPlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<Vector2Int, int> unitOccupancy,
+            IReadOnlyDictionary<Vector2Int, int> projectileOccupancy,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            EntityType entityType,
+            Vector2Int cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            if (entitiesById == null)
+            {
+                throw new ArgumentNullException(nameof(entitiesById));
+            }
+
+            if (unitOccupancy == null)
+            {
+                throw new ArgumentNullException(nameof(unitOccupancy));
+            }
+
+            if (projectileOccupancy == null)
+            {
+                throw new ArgumentNullException(nameof(projectileOccupancy));
+            }
+
+            if (terrainData == null)
+            {
+                throw new ArgumentNullException(nameof(terrainData));
+            }
+
+            if (!IsInsideBoard(boardBounds, cell))
+            {
+                blocker = SlideStopper.CreateBoardEdge(cell);
+                return true;
+            }
+
+            if (TerrainBlocksPlacement(entityType, terrainData, cell))
+            {
+                blocker = SlideStopper.CreateTerrain(cell);
+                return true;
+            }
+
+            if (TryGetBlockingPlacementEntity(
+                    entitiesById,
+                    unitOccupancy,
+                    projectileOccupancy,
+                    entityType,
+                    cell,
+                    ignoredEntityId,
+                    out var blockingEntity))
+            {
+                blocker = SlideStopper.CreateEntity(blockingEntity);
+                return true;
+            }
+
+            blocker = default;
+            return false;
         }
 
         public static bool BlocksMovement(
@@ -156,41 +218,16 @@ namespace Game.Feature.Gameplay.BoardState
             Vector2Int cell,
             out SlideStopper blocker)
         {
-            if (entitiesById == null)
-            {
-                throw new ArgumentNullException(nameof(entitiesById));
-            }
-
-            if (unitOccupancy == null)
-            {
-                throw new ArgumentNullException(nameof(unitOccupancy));
-            }
-
-            if (terrainData == null)
-            {
-                throw new ArgumentNullException(nameof(terrainData));
-            }
-
-            if (!IsInsideBoard(boardBounds, cell))
-            {
-                blocker = SlideStopper.CreateBoardEdge(cell);
-                return true;
-            }
-
-            if (terrainData.BlocksUnitMovement(cell))
-            {
-                blocker = SlideStopper.CreateTerrain(cell);
-                return true;
-            }
-
-            if (TryGetBlockingEntityAt(entitiesById, unitOccupancy, cell, out var blockingEntity))
-            {
-                blocker = SlideStopper.CreateEntity(blockingEntity);
-                return true;
-            }
-
-            blocker = default;
-            return false;
+            return TryGetPlacementBlocker(
+                entitiesById,
+                unitOccupancy,
+                EmptyOccupancy,
+                boardBounds,
+                terrainData,
+                EntityType.Unit,
+                cell,
+                ignoredEntityId: 0,
+                out blocker);
         }
 
         public static bool TryGetBoxSlideDestination(
@@ -339,13 +376,63 @@ namespace Game.Feature.Gameplay.BoardState
             return new Vector2Int(origin.x + (delta.x * distance), origin.y + (delta.y * distance));
         }
 
-        private static bool TryGetBlockingEntityAt(
+        private static bool TerrainBlocksPlacement(
+            EntityType entityType,
+            TerrainData terrainData,
+            Vector2Int cell)
+        {
+            switch (entityType)
+            {
+                case EntityType.None:
+                case EntityType.Unit:
+                case EntityType.Projectile:
+                case EntityType.Box:
+                    return terrainData.BlocksUnitMovement(cell);
+
+                default:
+                    throw new InvalidOperationException($"Unsupported placement entity type: {entityType}");
+            }
+        }
+
+        private static bool TryGetBlockingPlacementEntity(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<Vector2Int, int> unitOccupancy,
+            IReadOnlyDictionary<Vector2Int, int> projectileOccupancy,
+            EntityType entityType,
             Vector2Int cell,
+            int ignoredEntityId,
             out EntityState entity)
         {
-            if (TryGetEntityAt(entitiesById, unitOccupancy, cell, out entity) && entity.type != EntityType.Projectile)
+            if (entityType == EntityType.Projectile)
+            {
+                if (TryGetPlacementOccupant(entitiesById, projectileOccupancy, cell, ignoredEntityId, out entity))
+                {
+                    return true;
+                }
+
+                if (TryGetPlacementOccupant(entitiesById, unitOccupancy, cell, ignoredEntityId, out entity))
+                {
+                    return true;
+                }
+            }
+            else if (TryGetPlacementOccupant(entitiesById, unitOccupancy, cell, ignoredEntityId, out entity))
+            {
+                return true;
+            }
+
+            entity = default;
+            return false;
+        }
+
+        private static bool TryGetPlacementOccupant(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<Vector2Int, int> occupancyByCell,
+            Vector2Int cell,
+            int ignoredEntityId,
+            out EntityState entity)
+        {
+            if (TryGetEntityAt(entitiesById, occupancyByCell, cell, out entity) &&
+                entity.entityId != ignoredEntityId)
             {
                 return true;
             }

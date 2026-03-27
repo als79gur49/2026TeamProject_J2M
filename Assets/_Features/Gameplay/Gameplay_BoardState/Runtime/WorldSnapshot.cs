@@ -59,6 +59,24 @@ namespace Game.Feature.Gameplay.BoardState
             return WorldQueryService.IsBlockedForUnit(_entitiesById, _unitOccupancy, _boardBounds, _terrainData, cell);
         }
 
+        internal bool TryGetPlacementBlocker(
+            EntityType entityType,
+            Vector2Int cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return WorldQueryService.TryGetPlacementBlocker(
+                _entitiesById,
+                _unitOccupancy,
+                _projectileOccupancy,
+                _boardBounds,
+                _terrainData,
+                entityType,
+                cell,
+                ignoredEntityId,
+                out blocker);
+        }
+
         public bool TryGetBoxSlideDestination(
             Vector2Int origin,
             Vector2Int delta,

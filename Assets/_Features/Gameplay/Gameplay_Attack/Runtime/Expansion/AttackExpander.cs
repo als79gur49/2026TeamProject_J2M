@@ -316,10 +316,10 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             }
 
             var spawnPosition = source.position + spawnDelta.Value;
-            if (snapshot.TryGetProjectileAt(spawnPosition, out var existingProjectile))
+            if (snapshot.TryGetPlacementBlocker(EntityType.Projectile, spawnPosition, ignoredEntityId: 0, out var placementBlocker))
             {
                 rejectedReasons.Add(
-                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=SpawnDestinationBlockedByProjectile|Cell=({spawnPosition.x},{spawnPosition.y})|Occupant={existingProjectile.entityId}");
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={ResolveSpawnBlockerReason(placementBlocker)}|{FormatPlacementBlocker(placementBlocker)}");
                 return;
             }
 
@@ -353,6 +353,38 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 markedForDeath = false,
                 spawnTick = 0,
             };
+        }
+
+        private static string ResolveSpawnBlockerReason(SlideStopper blocker)
+        {
+            switch (blocker.Kind)
+            {
+                case SlideStopperKind.BoardEdge:
+                    return "SpawnDestinationOutsideBoard";
+
+                case SlideStopperKind.Terrain:
+                    return "SpawnDestinationBlockedByTerrain";
+
+                case SlideStopperKind.Entity:
+                    return blocker.EntityType == EntityType.Projectile
+                        ? "SpawnDestinationBlockedByProjectile"
+                        : "SpawnDestinationBlockedByEntity";
+
+                default:
+                    return "SpawnDestinationBlocked";
+            }
+        }
+
+        private static string FormatPlacementBlocker(SlideStopper blocker)
+        {
+            switch (blocker.Kind)
+            {
+                case SlideStopperKind.Entity:
+                    return $"Cell=({blocker.Cell.x},{blocker.Cell.y})|Occupant={blocker.EntityId}|OccupantType={blocker.EntityType}";
+
+                default:
+                    return $"Cell=({blocker.Cell.x},{blocker.Cell.y})";
+            }
         }
 
         private static Vector2Int? ResolveDelta(Direction direction)

@@ -79,8 +79,8 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
                 {
                     var move = group.Moves[moveIndex];
-                    writeContext.SetFacing(move.EntityId, move.Facing);
                     writeContext.MoveEntity(move.EntityId, move.Destination);
+                    writeContext.SetFacing(move.EntityId, move.Facing);
                     commitEvents.Add(
                         $"MoveCommitted|G={group.GroupId}|I={group.IntentId}|E={move.EntityId}|To=({move.Destination.x},{move.Destination.y})|Facing={move.Facing}");
                 }

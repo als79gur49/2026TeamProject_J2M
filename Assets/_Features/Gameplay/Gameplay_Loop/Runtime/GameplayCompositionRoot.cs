@@ -12,11 +12,6 @@ namespace Game.Feature.Gameplay.Loop
             return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault());
         }
 
-        public static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
-        {
-            return CreateWorldState(initialEntities, BoardBounds.Unbounded, TerrainData.Empty);
-        }
-
         public static WorldState CreateWorldState(
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
@@ -27,7 +22,30 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(initialEntities));
             }
 
+            if (!boardBounds.IsBounded)
+            {
+                throw new InvalidOperationException(
+                    "Runtime world creation requires bounded board bounds. Use the legacy unbounded helper only from tests or compatibility paths.");
+            }
+
             return new WorldState(initialEntities, boardBounds, terrainData ?? throw new ArgumentNullException(nameof(terrainData)));
+        }
+
+        internal static WorldState CreateLegacyUnboundedWorldState(IEnumerable<EntityState> initialEntities)
+        {
+            return CreateLegacyUnboundedWorldState(initialEntities, TerrainData.Empty);
+        }
+
+        internal static WorldState CreateLegacyUnboundedWorldState(
+            IEnumerable<EntityState> initialEntities,
+            TerrainData terrainData)
+        {
+            if (initialEntities == null)
+            {
+                throw new ArgumentNullException(nameof(initialEntities));
+            }
+
+            return new WorldState(initialEntities, BoardBounds.Unbounded, terrainData ?? throw new ArgumentNullException(nameof(terrainData)));
         }
 
         public static TickPipeline CreateTickPipeline(WorldState worldState)

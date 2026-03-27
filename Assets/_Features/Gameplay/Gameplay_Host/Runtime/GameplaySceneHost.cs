@@ -39,6 +39,12 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(configuration), "Player entity ID must be positive.");
             }
 
+            if (!configuration.InitialBoardBounds.IsBounded)
+            {
+                throw new InvalidOperationException(
+                    "GameplaySceneHost requires bounded InitialBoardBounds. Unbounded boards are reserved for tests and legacy compatibility paths.");
+            }
+
             EnsureComponents();
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
