@@ -242,6 +242,8 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Spawns=").Append(FormatSpawns(group.Spawns))
                 .Append("|Destroys=").Append(FormatDestroys(group.Destroys))
                 .Append("|StateChanges=").Append(FormatStateChanges(group.StateChanges))
+                .Append("|BoardPresenceChanges=").Append(FormatBoardPresenceChanges(group.BoardPresenceChanges))
+                .Append("|TopologyChanges=").Append(FormatTopologyChanges(group.TopologyChanges))
                 .Append("|DelayedAttacks=").Append(FormatDelayedAttacks(group.DelayedAttacks));
             return builder.ToString();
         }
@@ -265,8 +267,8 @@ namespace Game.Feature.Gameplay.Debug
                 var move = moves[i];
                 builder
                     .Append("E=").Append(move.EntityId)
-                    .Append(":(").Append(move.Source.x).Append(',').Append(move.Source.y).Append(')')
-                    .Append("->(").Append(move.Destination.x).Append(',').Append(move.Destination.y).Append(')')
+                    .Append(':').Append(FormatCell(move.SourceCell))
+                    .Append("->").Append(FormatCell(move.DestinationCell))
                     .Append(':').Append(move.Facing);
             }
 
@@ -378,6 +380,59 @@ namespace Game.Feature.Gameplay.Debug
             return builder.ToString();
         }
 
+        private static string FormatBoardPresenceChanges(IReadOnlyList<BoardPresenceChangeAction> boardPresenceChanges)
+        {
+            if (boardPresenceChanges.Count == 0)
+            {
+                return "[]";
+            }
+
+            var builder = new StringBuilder("[");
+
+            for (var i = 0; i < boardPresenceChanges.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(',');
+                }
+
+                var boardPresenceChange = boardPresenceChanges[i];
+                builder
+                    .Append("E=").Append(boardPresenceChange.EntityId)
+                    .Append(":Presence=").Append(boardPresenceChange.BoardPresence);
+            }
+
+            builder.Append(']');
+            return builder.ToString();
+        }
+
+        private static string FormatTopologyChanges(IReadOnlyList<TopologyChangeAction> topologyChanges)
+        {
+            if (topologyChanges.Count == 0)
+            {
+                return "[]";
+            }
+
+            var builder = new StringBuilder("[");
+
+            for (var i = 0; i < topologyChanges.Count; i++)
+            {
+                if (i > 0)
+                {
+                    builder.Append(',');
+                }
+
+                var topologyChange = topologyChanges[i];
+                builder
+                    .Append("Rotation=").Append(topologyChange.RotationKind)
+                    .Append(":Bottom=").Append(topologyChange.UpdatedTopology.BottomFace)
+                    .Append(":Front=").Append(topologyChange.UpdatedTopology.FrontFace);
+            }
+
+            builder.Append(']');
+            return builder.ToString();
+        }
+
         private static string FormatDelayedAttacks(IReadOnlyList<DelayedAttackAction> delayedAttacks)
         {
             if (delayedAttacks.Count == 0)
@@ -408,6 +463,13 @@ namespace Game.Feature.Gameplay.Debug
         {
             return
                 $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|Face={entity.position.face}|Presence={entity.boardPresence}";
+        }
+
+        private static string FormatCell(SurfaceCell cell)
+        {
+            return cell.face == FaceId.Floor
+                ? $"({cell.x},{cell.y})"
+                : $"{cell.face}({cell.x},{cell.y})";
         }
     }
 }

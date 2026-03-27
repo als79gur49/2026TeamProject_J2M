@@ -300,6 +300,39 @@ namespace Game.Feature.Gameplay.BoardState
             return IsInsideBoard(boardBounds, destination);
         }
 
+        public static bool TryResolveLocalFlipCells(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell actorCell,
+            Vector2Int delta,
+            out SurfaceCell targetCell,
+            out SurfaceCell landingCell)
+        {
+            ValidateSlideDelta(delta);
+
+            targetCell = default;
+            landingCell = default;
+
+            if (!topology.IsFaceActive(actorCell.face))
+            {
+                return false;
+            }
+
+            var adjacentTarget = actorCell + delta;
+            var oppositeLanding = actorCell - delta;
+            if (adjacentTarget.face != actorCell.face ||
+                oppositeLanding.face != actorCell.face ||
+                !IsInsideBoard(boardBounds, adjacentTarget) ||
+                !IsInsideBoard(boardBounds, oppositeLanding))
+            {
+                return false;
+            }
+
+            targetCell = adjacentTarget;
+            landingCell = oppositeLanding;
+            return true;
+        }
+
         public static bool TryGetSurfaceBoxSlideDestination(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
@@ -573,7 +606,7 @@ namespace Game.Feature.Gameplay.BoardState
             return false;
         }
 
-        private static bool TryGetNextSurfaceBoxSlideCell(
+        internal static bool TryGetNextSurfaceBoxSlideCell(
             CubeTopologyState topology,
             BoardBounds boardBounds,
             SurfaceCell current,

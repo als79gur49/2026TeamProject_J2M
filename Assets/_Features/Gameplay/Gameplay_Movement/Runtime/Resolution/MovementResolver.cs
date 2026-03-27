@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Model.Groups;
-using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Resolution
 {
@@ -30,9 +30,9 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             buffer.Clear();
 
             var selectedIntentIds = new HashSet<int>();
-            var reservedDestinations = new HashSet<Vector2Int>();
+            var reservedDestinations = new HashSet<SurfaceCell>();
             var reservedEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
-            var reservedMovedEntities = new HashSet<int>();
+            var reservedAffectedEntities = new HashSet<int>();
 
             for (var i = 0; i < sortedCandidates.Count; i++)
             {
@@ -47,7 +47,7 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 if (TryGetConflictingDestination(candidate, reservedDestinations, out var conflictingDestination))
                 {
                     rejectedReasons.Add(
-                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=DestinationReserved|Cell=({conflictingDestination.x},{conflictingDestination.y})");
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=DestinationReserved|Cell={FormatCell(conflictingDestination)}");
                     continue;
                 }
 
@@ -55,11 +55,11 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                     TryGetConflictingEdge(candidate, reservedEdges, out var conflictingEdge))
                 {
                     rejectedReasons.Add(
-                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=EdgeReserved|From=({conflictingEdge.First.x},{conflictingEdge.First.y})|To=({conflictingEdge.Second.x},{conflictingEdge.Second.y})");
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=EdgeReserved|From={FormatCell(conflictingEdge.First)}|To={FormatCell(conflictingEdge.Second)}");
                     continue;
                 }
 
-                if (TryGetSharedMovedEntity(candidate, reservedMovedEntities, out var sharedEntityId))
+                if (TryGetSharedAffectedEntity(candidate, reservedAffectedEntities, out var sharedEntityId))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=SharedMovedEntity|Entity={sharedEntityId}");
@@ -68,36 +68,54 @@ namespace Game.Feature.Gameplay.Movement.Resolution
 
                 buffer.Add(candidate);
                 selectedIntentIds.Add(candidate.IntentId);
+                ReserveCandidate(candidate, reservedDestinations, reservedEdges, reservedAffectedEntities);
+            }
+        }
 
-                for (var moveIndex = 0; moveIndex < candidate.Moves.Count; moveIndex++)
+        private static void ReserveCandidate(
+            ActionGroup candidate,
+            HashSet<SurfaceCell> reservedDestinations,
+            IDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
+            ISet<int> reservedAffectedEntities)
+        {
+            for (var moveIndex = 0; moveIndex < candidate.Moves.Count; moveIndex++)
+            {
+                var move = candidate.Moves[moveIndex];
+                reservedDestinations.Add(move.DestinationCell);
+                reservedAffectedEntities.Add(move.EntityId);
+
+                if (RequiresEdgeReservation(candidate) && move.SourceCell != move.DestinationCell)
                 {
-                    var move = candidate.Moves[moveIndex];
-                    reservedDestinations.Add(move.Destination);
-                    reservedMovedEntities.Add(move.EntityId);
-
-                    if (RequiresEdgeReservation(candidate) && move.Source != move.Destination)
-                    {
-                        var edgeReservation = new EdgeReservation(
-                            move.EntityId,
-                            move.Source,
-                            move.Destination,
-                            candidate.GroupId);
-                        reservedEdges[UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To)] = edgeReservation;
-                    }
+                    var edgeReservation = new EdgeReservation(
+                        move.EntityId,
+                        move.SourceCell,
+                        move.DestinationCell,
+                        candidate.GroupId);
+                    reservedEdges[UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To)] = edgeReservation;
                 }
+            }
+
+            for (var destroyIndex = 0; destroyIndex < candidate.Destroys.Count; destroyIndex++)
+            {
+                reservedAffectedEntities.Add(candidate.Destroys[destroyIndex].TargetId);
+            }
+
+            for (var presenceIndex = 0; presenceIndex < candidate.BoardPresenceChanges.Count; presenceIndex++)
+            {
+                reservedAffectedEntities.Add(candidate.BoardPresenceChanges[presenceIndex].EntityId);
             }
         }
 
         private static bool TryGetConflictingDestination(
             ActionGroup candidate,
-            HashSet<Vector2Int> reservedDestinations,
-            out Vector2Int conflictingDestination)
+            HashSet<SurfaceCell> reservedDestinations,
+            out SurfaceCell conflictingDestination)
         {
             conflictingDestination = default;
 
             for (var i = 0; i < candidate.Moves.Count; i++)
             {
-                var destination = candidate.Moves[i].Destination;
+                var destination = candidate.Moves[i].DestinationCell;
                 if (reservedDestinations.Contains(destination))
                 {
                     conflictingDestination = destination;
@@ -118,12 +136,12 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             for (var i = 0; i < candidate.Moves.Count; i++)
             {
                 var move = candidate.Moves[i];
-                if (move.Source == move.Destination)
+                if (move.SourceCell == move.DestinationCell)
                 {
                     continue;
                 }
 
-                var edge = UndirectedEdgeKey.Create(move.Source, move.Destination);
+                var edge = UndirectedEdgeKey.Create(move.SourceCell, move.DestinationCell);
                 if (reservedEdges.ContainsKey(edge))
                 {
                     conflictingEdge = edge;
@@ -134,9 +152,9 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             return false;
         }
 
-        private static bool TryGetSharedMovedEntity(
+        private static bool TryGetSharedAffectedEntity(
             ActionGroup candidate,
-            HashSet<int> reservedMovedEntities,
+            ISet<int> reservedAffectedEntities,
             out int sharedEntityId)
         {
             sharedEntityId = default;
@@ -144,7 +162,27 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             for (var i = 0; i < candidate.Moves.Count; i++)
             {
                 var entityId = candidate.Moves[i].EntityId;
-                if (reservedMovedEntities.Contains(entityId))
+                if (reservedAffectedEntities.Contains(entityId))
+                {
+                    sharedEntityId = entityId;
+                    return true;
+                }
+            }
+
+            for (var i = 0; i < candidate.Destroys.Count; i++)
+            {
+                var entityId = candidate.Destroys[i].TargetId;
+                if (reservedAffectedEntities.Contains(entityId))
+                {
+                    sharedEntityId = entityId;
+                    return true;
+                }
+            }
+
+            for (var i = 0; i < candidate.BoardPresenceChanges.Count; i++)
+            {
+                var entityId = candidate.BoardPresenceChanges[i].EntityId;
+                if (reservedAffectedEntities.Contains(entityId))
                 {
                     sharedEntityId = entityId;
                     return true;
@@ -156,12 +194,19 @@ namespace Game.Feature.Gameplay.Movement.Resolution
 
         private static bool RequiresEdgeReservation(ActionGroup candidate)
         {
-            return candidate.GroupKind != ActionGroupKind.Throw;
+            return candidate.GroupKind != ActionGroupKind.Flip;
+        }
+
+        private static string FormatCell(SurfaceCell cell)
+        {
+            return cell.face == FaceId.Floor
+                ? $"({cell.x},{cell.y})"
+                : $"{cell.face}({cell.x},{cell.y})";
         }
 
         private readonly struct EdgeReservation
         {
-            public EdgeReservation(int entityId, Vector2Int from, Vector2Int to, int groupId)
+            public EdgeReservation(int entityId, SurfaceCell from, SurfaceCell to, int groupId)
             {
                 EntityId = entityId;
                 From = from;
@@ -171,26 +216,26 @@ namespace Game.Feature.Gameplay.Movement.Resolution
 
             public int EntityId { get; }
 
-            public Vector2Int From { get; }
+            public SurfaceCell From { get; }
 
-            public Vector2Int To { get; }
+            public SurfaceCell To { get; }
 
             public int GroupId { get; }
         }
 
         private readonly struct UndirectedEdgeKey : IEquatable<UndirectedEdgeKey>
         {
-            public UndirectedEdgeKey(Vector2Int first, Vector2Int second)
+            public UndirectedEdgeKey(SurfaceCell first, SurfaceCell second)
             {
                 First = first;
                 Second = second;
             }
 
-            public Vector2Int First { get; }
+            public SurfaceCell First { get; }
 
-            public Vector2Int Second { get; }
+            public SurfaceCell Second { get; }
 
-            public static UndirectedEdgeKey Create(Vector2Int from, Vector2Int to)
+            public static UndirectedEdgeKey Create(SurfaceCell from, SurfaceCell to)
             {
                 return CompareCells(from, to) <= 0
                     ? new UndirectedEdgeKey(from, to)
@@ -212,17 +257,25 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 unchecked
                 {
                     var hash = 17;
+                    hash = (hash * 31) + (int)First.face;
                     hash = (hash * 31) + First.x;
                     hash = (hash * 31) + First.y;
+                    hash = (hash * 31) + (int)Second.face;
                     hash = (hash * 31) + Second.x;
                     hash = (hash * 31) + Second.y;
                     return hash;
                 }
             }
 
-            private static int CompareCells(Vector2Int left, Vector2Int right)
+            private static int CompareCells(SurfaceCell left, SurfaceCell right)
             {
-                var result = left.x.CompareTo(right.x);
+                var result = ((int)left.face).CompareTo((int)right.face);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                result = left.x.CompareTo(right.x);
                 if (result != 0)
                 {
                     return result;

@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool TryGetUnitAt(SurfaceCell cell, out EntityState entity)
         {
-            return WorldQueryService.TryGetEntityAt(_entitiesById, _unitOccupancy, _topology, cell, out entity);
+            return TryGetUnitAt(_topology, cell, out entity);
         }
 
         public bool TryGetUnitAt(Vector2Int cell, out EntityState entity)
@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool TryGetProjectileAt(SurfaceCell cell, out EntityState entity)
         {
-            return WorldQueryService.TryGetEntityAt(_entitiesById, _projectileOccupancy, _topology, cell, out entity);
+            return TryGetProjectileAt(_topology, cell, out entity);
         }
 
         public bool TryGetProjectileAt(Vector2Int cell, out EntityState entity)
@@ -95,11 +95,21 @@ namespace Game.Feature.Gameplay.BoardState
             int ignoredEntityId,
             out SlideStopper blocker)
         {
+            return TryGetPlacementBlocker(_topology, entityType, cell, ignoredEntityId, out blocker);
+        }
+
+        internal bool TryGetPlacementBlocker(
+            CubeTopologyState topology,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
             return WorldQueryService.TryGetGameplayPlacementBlocker(
                 _entitiesById,
                 _unitOccupancy,
                 _projectileOccupancy,
-                _topology,
+                topology,
                 _boardBounds,
                 _terrainData,
                 entityType,
@@ -151,7 +161,32 @@ namespace Game.Feature.Gameplay.BoardState
                 out updatedTopology);
         }
 
+        internal bool TryResolveLocalFlipCells(
+            SurfaceCell actorCell,
+            Vector2Int delta,
+            out SurfaceCell targetCell,
+            out SurfaceCell landingCell)
+        {
+            return WorldQueryService.TryResolveLocalFlipCells(
+                _topology,
+                _boardBounds,
+                actorCell,
+                delta,
+                out targetCell,
+                out landingCell);
+        }
+
         public bool TryGetSurfaceBoxSlideDestination(
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            return TryGetSurfaceBoxSlideDestination(_topology, origin, delta, out destination, out stopper);
+        }
+
+        internal bool TryGetSurfaceBoxSlideDestination(
+            CubeTopologyState topology,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
@@ -160,7 +195,7 @@ namespace Game.Feature.Gameplay.BoardState
             return WorldQueryService.TryGetSurfaceBoxSlideDestination(
                 _entitiesById,
                 _unitOccupancy,
-                _topology,
+                topology,
                 _boardBounds,
                 _terrainData,
                 origin,
@@ -204,7 +239,22 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal bool TryGetUnitBlocker(SurfaceCell cell, out SlideStopper blocker)
         {
-            return WorldQueryService.TryGetUnitBlocker(_entitiesById, _unitOccupancy, _topology, _boardBounds, _terrainData, cell, out blocker);
+            return TryGetUnitBlocker(_topology, cell, out blocker);
+        }
+
+        internal bool TryGetUnitBlocker(
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out SlideStopper blocker)
+        {
+            return WorldQueryService.TryGetUnitBlocker(
+                _entitiesById,
+                _unitOccupancy,
+                topology,
+                _boardBounds,
+                _terrainData,
+                cell,
+                out blocker);
         }
 
         internal bool TryGetUnitBlocker(Vector2Int cell, out SlideStopper blocker)
@@ -225,6 +275,32 @@ namespace Game.Feature.Gameplay.BoardState
         internal void EnumerateProjectileOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
             WorldQueryService.EnumerateOccupancyOrdered(_entitiesById, _projectileOccupancy, _topology, buffer);
+        }
+
+        internal bool TryGetUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
+        {
+            return WorldQueryService.TryGetEntityAt(_entitiesById, _unitOccupancy, topology, cell, out entity);
+        }
+
+        internal bool TryGetProjectileAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
+        {
+            return WorldQueryService.TryGetEntityAt(_entitiesById, _projectileOccupancy, topology, cell, out entity);
+        }
+
+        internal bool TryGetNextSurfaceBoxSlideCell(
+            CubeTopologyState topology,
+            SurfaceCell current,
+            Vector2Int delta,
+            out SurfaceCell next,
+            out SlideStopper stopper)
+        {
+            return WorldQueryService.TryGetNextSurfaceBoxSlideCell(
+                topology,
+                _boardBounds,
+                current,
+                delta,
+                out next,
+                out stopper);
         }
 
         private SurfaceCell CreateDefaultQueryCell(Vector2Int cell)

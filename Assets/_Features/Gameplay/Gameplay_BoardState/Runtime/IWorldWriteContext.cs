@@ -15,5 +15,9 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
 
         void SetFacing(int entityId, Direction facing);
+
+        void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
+
+        void SetTopology(CubeTopologyState topology);
     }
 }

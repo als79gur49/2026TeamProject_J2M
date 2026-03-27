@@ -17,6 +17,19 @@ namespace Game.Feature.Gameplay.Loop
             BoardBounds boardBounds,
             TerrainData terrainData)
         {
+            return CreateWorldState(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor));
+        }
+
+        public static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology)
+        {
             if (initialEntities == null)
             {
                 throw new ArgumentNullException(nameof(initialEntities));
@@ -28,7 +41,11 @@ namespace Game.Feature.Gameplay.Loop
                     "Runtime world creation requires bounded board bounds. Use the legacy unbounded helper only from tests or compatibility paths.");
             }
 
-            return new WorldState(initialEntities, boardBounds, terrainData ?? throw new ArgumentNullException(nameof(terrainData)));
+            return new WorldState(
+                initialEntities,
+                boardBounds,
+                terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
+                topology);
         }
 
         internal static WorldState CreateLegacyUnboundedWorldState(IEnumerable<EntityState> initialEntities)
@@ -40,12 +57,27 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntityState> initialEntities,
             TerrainData terrainData)
         {
+            return CreateLegacyUnboundedWorldState(
+                initialEntities,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor));
+        }
+
+        internal static WorldState CreateLegacyUnboundedWorldState(
+            IEnumerable<EntityState> initialEntities,
+            TerrainData terrainData,
+            CubeTopologyState topology)
+        {
             if (initialEntities == null)
             {
                 throw new ArgumentNullException(nameof(initialEntities));
             }
 
-            return new WorldState(initialEntities, BoardBounds.Unbounded, terrainData ?? throw new ArgumentNullException(nameof(terrainData)));
+            return new WorldState(
+                initialEntities,
+                BoardBounds.Unbounded,
+                terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
+                topology);
         }
 
         public static TickPipeline CreateTickPipeline(WorldState worldState)

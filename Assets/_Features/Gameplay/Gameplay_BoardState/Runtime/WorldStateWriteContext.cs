@@ -45,5 +45,15 @@ namespace Game.Feature.Gameplay.BoardState
         {
             _port.SetFacing(entityId, facing);
         }
+
+        public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
+        {
+            _port.SetBoardPresence(entityId, boardPresence);
+        }
+
+        public void SetTopology(CubeTopologyState topology)
+        {
+            _port.SetTopology(topology);
+        }
     }
 }

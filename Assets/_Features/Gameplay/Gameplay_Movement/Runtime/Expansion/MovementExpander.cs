@@ -51,20 +51,23 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     continue;
                 }
 
-                ValidateSingleStepMove(entity.position, intent.Destination, intent.SourceId);
+                ValidateSingleStepMove(entity.position.PlanarPosition, intent.Destination, intent.SourceId);
+
+                if (entity.type == EntityType.Projectile)
+                {
+                    ExpandProjectileMove(snapshot, entity, intent, buffer, rejectedReasons);
+                    continue;
+                }
 
                 switch (intent.CommandKind)
                 {
                     case MovementCommandKind.Interact:
-                        TryExpandInteract(snapshot, entity, intent, buffer, rejectedReasons);
-                        break;
-
                     case MovementCommandKind.Move:
-                        ExpandMove(snapshot, entity, intent, buffer, rejectedReasons);
+                        ExpandMoveLike(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
                     case MovementCommandKind.Throw:
-                        TryExpandThrow(snapshot, entity, intent, buffer, rejectedReasons);
+                        ExpandFlip(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
                     default:
@@ -75,39 +78,166 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
         }
 
-        private static void ExpandMove(
+        private static void ExpandMoveLike(
+            WorldSnapshot snapshot,
+            EntityState source,
+            MoveIntent intent,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            var delta = ResolveIntentDelta(source.position, intent.Destination);
+            var stepFacing = ResolveCardinalFacing(
+                delta,
+                "Movement intents must remain orthogonal single-step commands.");
+            var hasResolvedStep = snapshot.TryResolvePlayerStep(
+                source.position,
+                delta,
+                out var destinationCell,
+                out var rotationKind,
+                out var updatedTopology);
+            if (!hasResolvedStep)
+            {
+                destinationCell = source.position + delta;
+                rotationKind = CubeRotationKind.None;
+                updatedTopology = snapshot.Topology;
+            }
+
+            var movementTopology = rotationKind == CubeRotationKind.None
+                ? snapshot.Topology
+                : updatedTopology;
+
+            if (snapshot.TryGetUnitAt(movementTopology, destinationCell, out var target))
+            {
+                if (target.type == EntityType.Box)
+                {
+                    if (HasBoxCapability(target, BoxCapabilities.Item))
+                    {
+                        ExpandItem(source, target, intent, destinationCell, stepFacing, rotationKind, updatedTopology, buffer);
+                        return;
+                    }
+
+                    if (snapshot.Topology.IsFaceActive(target.position.face) &&
+                        HasBoxCapability(target, BoxCapabilities.Push))
+                    {
+                        TryExpandPush(snapshot, source, target, intent, delta, stepFacing, buffer, rejectedReasons);
+                        return;
+                    }
+
+                    if (intent.CommandKind == MovementCommandKind.Interact)
+                    {
+                        rejectedReasons.Add(
+                            $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotPushableBox|Cell={FormatCell(target.position)}|Target={target.entityId}|Capabilities={target.boxCapabilities}");
+                        return;
+                    }
+                }
+                else if (intent.CommandKind == MovementCommandKind.Interact)
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
+                    return;
+                }
+            }
+            else if (intent.CommandKind == MovementCommandKind.Interact)
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotBox|Cell={FormatCell(destinationCell)}|Target=0|Type=None");
+                return;
+            }
+
+            if (snapshot.TryGetPlacementBlocker(movementTopology, source.type, destinationCell, source.entityId, out var blocker))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(blocker.Cell)}");
+                return;
+            }
+
+            ExpandMove(source, intent, destinationCell, stepFacing, rotationKind, updatedTopology, buffer);
+        }
+
+        private static void ExpandFlip(
+            WorldSnapshot snapshot,
+            EntityState source,
+            MoveIntent intent,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            var delta = ResolveIntentDelta(source.position, intent.Destination);
+            var interactionFacing = ResolveCardinalFacing(
+                delta,
+                "Flip commands require an orthogonal adjacent direction.");
+            if (!snapshot.TryResolveLocalFlipCells(source.position, delta, out var targetCell, out var landingCell))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipCrossesBoundary|Origin={FormatCell(source.position)}|Direction={interactionFacing}");
+                return;
+            }
+
+            if (!snapshot.TryGetUnitAt(targetCell, out var target) ||
+                target.type != EntityType.Box ||
+                !HasBoxCapability(target, BoxCapabilities.Flip))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotFlippableBox|Cell={FormatCell(targetCell)}|Target={target.entityId}|Type={target.type}|Capabilities={target.boxCapabilities}");
+                return;
+            }
+
+            if (snapshot.TryGetPlacementBlocker(snapshot.Topology, target.type, landingCell, target.entityId, out var landingBlocker))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|{FormatStopper(landingBlocker)}");
+                return;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Flip);
+            actionGroup.Moves.Add(
+                new MoveAction(
+                    target.entityId,
+                    target.position,
+                    landingCell,
+                    ResolveCardinalFacing(-delta, "Flip landing requires an orthogonal adjacent interaction direction.")));
+            buffer.Add(actionGroup);
+        }
+
+        private static void ExpandProjectileMove(
             WorldSnapshot snapshot,
             EntityState entity,
             MoveIntent intent,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            if (snapshot.TryGetUnitAt(intent.Destination, out var destinationEntity))
-            {
-                if (entity.type == EntityType.Projectile)
-                {
-                    if (TryExpandProjectileImpact(snapshot, intent, buffer, rejectedReasons))
-                    {
-                        return;
-                    }
-                }
-                else
-                {
-                    // Move never upgrades into unit push. Occupied unit cells remain blocked.
-                }
-            }
-
-            if (entity.type == EntityType.Projectile && snapshot.TryGetProjectileAt(intent.Destination, out _))
+            if (intent.CommandKind != MovementCommandKind.Move)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ProjectileDestinationBlocked|Cell=({intent.Destination.x},{intent.Destination.y})");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=UnsupportedCommand|Command={intent.CommandKind}");
                 return;
             }
 
-            if (snapshot.IsBlockedForUnit(intent.Destination))
+            var delta = ResolveIntentDelta(entity.position, intent.Destination);
+            var destinationCell = entity.position + delta;
+
+            if (snapshot.TryGetUnitAt(destinationCell, out _))
+            {
+                if (TryExpandProjectileImpact(snapshot, intent, destinationCell, buffer, rejectedReasons))
+                {
+                    return;
+                }
+            }
+
+            if (snapshot.TryGetProjectileAt(destinationCell, out _))
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell=({intent.Destination.x},{intent.Destination.y})");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ProjectileDestinationBlocked|Cell={FormatCell(destinationCell)}");
+                return;
+            }
+
+            if (snapshot.TryGetPlacementBlocker(snapshot.Topology, entity.type, destinationCell, entity.entityId, out var blocker))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(blocker.Cell)}");
                 return;
             }
 
@@ -120,111 +250,135 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 new MoveAction(
                     intent.SourceId,
                     entity.position,
-                    intent.Destination,
-                    ResolveFacing(entity.position, intent.Destination)));
+                    destinationCell,
+                    ResolveCardinalFacing(delta, "Projectile movement requires an orthogonal single-cell direction.")));
             buffer.Add(actionGroup);
         }
 
-        private static void TryExpandInteract(
-            WorldSnapshot snapshot,
+        private static void ExpandMove(
             EntityState source,
             MoveIntent intent,
+            SurfaceCell destinationCell,
+            Direction facing,
+            CubeRotationKind rotationKind,
+            CubeTopologyState updatedTopology,
+            List<ActionGroup> buffer)
+        {
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Move);
+            actionGroup.Moves.Add(
+                new MoveAction(
+                    intent.SourceId,
+                    source.position,
+                    destinationCell,
+                    facing));
+
+            if (rotationKind != CubeRotationKind.None)
+            {
+                actionGroup.TopologyChanges.Add(new TopologyChangeAction(rotationKind, updatedTopology));
+            }
+
+            buffer.Add(actionGroup);
+        }
+
+        private static void ExpandItem(
+            EntityState source,
+            EntityState target,
+            MoveIntent intent,
+            SurfaceCell destinationCell,
+            Direction facing,
+            CubeRotationKind rotationKind,
+            CubeTopologyState updatedTopology,
+            List<ActionGroup> buffer)
+        {
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Item);
+            actionGroup.BoardPresenceChanges.Add(
+                new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.DetachedPendingCleanup));
+            actionGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
+            actionGroup.Moves.Add(
+                new MoveAction(
+                    source.entityId,
+                    source.position,
+                    destinationCell,
+                    facing));
+
+            if (rotationKind != CubeRotationKind.None)
+            {
+                actionGroup.TopologyChanges.Add(new TopologyChangeAction(rotationKind, updatedTopology));
+            }
+
+            buffer.Add(actionGroup);
+        }
+
+        private static void TryExpandPush(
+            WorldSnapshot snapshot,
+            EntityState source,
+            EntityState target,
+            MoveIntent intent,
+            Vector2Int delta,
+            Direction stepFacing,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            if (!snapshot.TryGetUnitAt(intent.Destination, out var target) || target.type != EntityType.Box)
+            if (!snapshot.TryGetSurfaceBoxSlideDestination(snapshot.Topology, target.position, delta, out var destination, out var stopper))
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}");
-                return;
-            }
-
-            if (HasBoxCapability(target, BoxCapabilities.LootOnInteractDestroy))
-            {
-                return;
-            }
-
-            if (!HasBoxCapability(target, BoxCapabilities.Pushable))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotPushableBox|Cell=({target.position.x},{target.position.y})|Target={target.entityId}|Capabilities={target.boxCapabilities}");
-                return;
-            }
-
-            var slideDelta = intent.Destination - source.position;
-            if (!snapshot.TryGetBoxSlideDestination(target.position, slideDelta, out var destination, out var stopper))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideRayHasNoStopper|Cell=({target.position.x},{target.position.y})|Direction={ResolveFacing(source.position, intent.Destination)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideRayHasNoStopper|Cell={FormatCell(target.position)}|Direction={stepFacing}");
                 return;
             }
 
             if (destination == target.position)
             {
+                if (HasBoxCapability(target, BoxCapabilities.Destroy))
+                {
+                    var destroyGroup = new ActionGroup(
+                        intent.IntentId,
+                        intent.SourceId,
+                        intent.Priority,
+                        ActionGroupKind.Push);
+                    destroyGroup.BoardPresenceChanges.Add(
+                        new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.DetachedPendingCleanup));
+                    destroyGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
+                    buffer.Add(destroyGroup);
+                    return;
+                }
+
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideStopperAdjacent|Target={target.entityId}|{FormatStopper(stopper)}");
                 return;
             }
 
-            var slideFacing = ResolveFacing(source.position, intent.Destination);
             var actionGroup = new ActionGroup(
                 intent.IntentId,
                 intent.SourceId,
                 intent.Priority,
-                ActionGroupKind.BoxSlide);
-
+                ActionGroupKind.Push);
             var currentCell = target.position;
+
             while (currentCell != destination)
             {
-                var nextCell = currentCell + slideDelta;
+                if (!snapshot.TryGetNextSurfaceBoxSlideCell(snapshot.Topology, currentCell, delta, out var nextCell, out _))
+                {
+                    throw new InvalidOperationException(
+                        $"Surface box slide path for entity {target.entityId} terminated before the resolved destination {destination}.");
+                }
+
                 actionGroup.Moves.Add(
                     new MoveAction(
                         target.entityId,
                         currentCell,
                         nextCell,
-                        slideFacing));
+                        stepFacing));
                 currentCell = nextCell;
             }
 
-            buffer.Add(actionGroup);
-        }
-
-        private static void TryExpandThrow(
-            WorldSnapshot snapshot,
-            EntityState source,
-            MoveIntent intent,
-            List<ActionGroup> buffer,
-            List<string> rejectedReasons)
-        {
-            if (!snapshot.TryGetUnitAt(intent.Destination, out var target) ||
-                target.type != EntityType.Box ||
-                !HasBoxCapability(target, BoxCapabilities.Throwable))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ThrowTargetNotThrowableBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}|Capabilities={target.boxCapabilities}");
-                return;
-            }
-
-            var interactionDelta = intent.Destination - source.position;
-            var landing = source.position - interactionDelta;
-            if (snapshot.TryGetUnitBlocker(landing, out var landingBlocker))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ThrowLandingBlocked|{FormatStopper(landingBlocker)}");
-                return;
-            }
-
-            var actionGroup = new ActionGroup(
-                intent.IntentId,
-                intent.SourceId,
-                intent.Priority,
-                ActionGroupKind.Throw);
-            actionGroup.Moves.Add(
-                new MoveAction(
-                    target.entityId,
-                    target.position,
-                    landing,
-                    ResolveCardinalFacing(-interactionDelta, "Throw requires an orthogonal adjacent interaction direction.")));
             buffer.Add(actionGroup);
         }
 
@@ -238,26 +392,27 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             switch (stopper.Kind)
             {
                 case SlideStopperKind.BoardEdge:
-                    return $"StopperKind=BoardEdge|Cell=({stopper.Cell.x},{stopper.Cell.y})";
+                    return $"StopperKind=BoardEdge|Cell={FormatCell(stopper.Cell)}";
 
                 case SlideStopperKind.Terrain:
-                    return $"StopperKind=Terrain|Cell=({stopper.Cell.x},{stopper.Cell.y})";
+                    return $"StopperKind=Terrain|Cell={FormatCell(stopper.Cell)}";
 
                 case SlideStopperKind.Entity:
-                    return $"StopperKind=Entity|Stopper={stopper.EntityId}|StopperType={stopper.EntityType}|Cell=({stopper.Cell.x},{stopper.Cell.y})";
+                    return $"StopperKind=Entity|Stopper={stopper.EntityId}|StopperType={stopper.EntityType}|Cell={FormatCell(stopper.Cell)}";
 
                 default:
-                    return $"StopperKind=None|Cell=({stopper.Cell.x},{stopper.Cell.y})";
+                    return $"StopperKind=None|Cell={FormatCell(stopper.Cell)}";
             }
         }
 
         private static bool TryExpandProjectileImpact(
             WorldSnapshot snapshot,
             MoveIntent intent,
+            SurfaceCell destinationCell,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            if (!snapshot.TryGetUnitAt(intent.Destination, out var target))
+            if (!snapshot.TryGetUnitAt(destinationCell, out var target))
             {
                 return false;
             }
@@ -265,7 +420,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (!snapshot.BlocksMovement(target.entityId))
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ImpactTargetNotBlocking|Target={target.entityId}|Cell=({intent.Destination.x},{intent.Destination.y})");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ImpactTargetNotBlocking|Target={target.entityId}|Cell={FormatCell(destinationCell)}");
                 return true;
             }
 
@@ -278,11 +433,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return true;
         }
 
-        private static Direction ResolveFacing(Vector2Int source, Vector2Int destination)
+        private static Vector2Int ResolveIntentDelta(SurfaceCell source, Vector2Int destination)
         {
-            return ResolveCardinalFacing(
-                destination - source,
-                "Stage2 movement only supports orthogonal single-cell moves.");
+            return destination - source.PlanarPosition;
         }
 
         private static Direction ResolveCardinalFacing(Vector2Int delta, string errorMessage)
@@ -318,6 +471,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 throw new InvalidOperationException(
                     $"Entity {sourceId} emitted an invalid Stage2 MoveIntent. Only orthogonal single-cell moves are allowed.");
             }
+        }
+
+        private static string FormatCell(SurfaceCell cell)
+        {
+            return cell.face == FaceId.Floor
+                ? $"({cell.x},{cell.y})"
+                : $"{cell.face}({cell.x},{cell.y})";
         }
     }
 }

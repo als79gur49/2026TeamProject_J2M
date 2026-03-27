@@ -10,5 +10,7 @@ namespace Game.Feature.Gameplay.BoardState
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
         void MarkDestroy(int entityId);
         void SetFacing(int entityId, Direction facing);
+        void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
+        void SetTopology(CubeTopologyState topology);
     }
 }

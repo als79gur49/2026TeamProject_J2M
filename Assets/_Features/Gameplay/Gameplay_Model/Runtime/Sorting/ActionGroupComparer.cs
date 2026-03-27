@@ -72,6 +72,18 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
+            result = CompareLists(left.BoardPresenceChanges, right.BoardPresenceChanges, CompareBoardPresenceChangeActions);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = CompareLists(left.TopologyChanges, right.TopologyChanges, CompareTopologyChangeActions);
+            if (result != 0)
+            {
+                return result;
+            }
+
             return CompareLists(left.DelayedAttacks, right.DelayedAttacks, CompareDelayedAttackActions);
         }
 
@@ -83,25 +95,13 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
-            result = left.Source.x.CompareTo(right.Source.x);
+            result = CompareSurfaceCells(left.SourceCell, right.SourceCell);
             if (result != 0)
             {
                 return result;
             }
 
-            result = left.Source.y.CompareTo(right.Source.y);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = left.Destination.x.CompareTo(right.Destination.x);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = left.Destination.y.CompareTo(right.Destination.y);
+            result = CompareSurfaceCells(left.DestinationCell, right.DestinationCell);
             if (result != 0)
             {
                 return result;
@@ -160,6 +160,28 @@ namespace Game.Feature.Gameplay.Model.Sorting
             return left.StateTimer.CompareTo(right.StateTimer);
         }
 
+        private static int CompareBoardPresenceChangeActions(BoardPresenceChangeAction left, BoardPresenceChangeAction right)
+        {
+            var result = left.EntityId.CompareTo(right.EntityId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return ((int)left.BoardPresence).CompareTo((int)right.BoardPresence);
+        }
+
+        private static int CompareTopologyChangeActions(TopologyChangeAction left, TopologyChangeAction right)
+        {
+            var result = ((int)left.RotationKind).CompareTo((int)right.RotationKind);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return ((int)left.UpdatedTopology.BottomFace).CompareTo((int)right.UpdatedTopology.BottomFace);
+        }
+
         private static int CompareDelayedAttackActions(DelayedAttackAction left, DelayedAttackAction right)
         {
             var result = left.TargetId.CompareTo(right.TargetId);
@@ -174,6 +196,12 @@ namespace Game.Feature.Gameplay.Model.Sorting
         private static int CompareEntityStates(EntityState left, EntityState right)
         {
             var result = left.entityId.CompareTo(right.entityId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ((int)left.position.face).CompareTo((int)right.position.face);
             if (result != 0)
             {
                 return result;
@@ -233,6 +261,18 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
+            result = ((int)left.boardPresence).CompareTo((int)right.boardPresence);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ((int)left.boxCapabilities).CompareTo((int)right.boxCapabilities);
+            if (result != 0)
+            {
+                return result;
+            }
+
             result = left.markedForDeath.CompareTo(right.markedForDeath);
             if (result != 0)
             {
@@ -263,6 +303,23 @@ namespace Game.Feature.Gameplay.Model.Sorting
             }
 
             return 0;
+        }
+
+        private static int CompareSurfaceCells(SurfaceCell left, SurfaceCell right)
+        {
+            var result = ((int)left.face).CompareTo((int)right.face);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.x.CompareTo(right.x);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return left.y.CompareTo(right.y);
         }
     }
 }

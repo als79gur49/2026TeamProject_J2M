@@ -10,7 +10,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
         private readonly BoardBounds _boardBounds;
         private readonly TerrainData _terrainData;
-        private readonly CubeTopologyState _topology;
+        private CubeTopologyState _topology;
         private readonly Dictionary<SurfaceCell, int> _unitOccupancy = new();
 
         internal WorldState()
@@ -152,6 +152,35 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.facing = facing;
             UpdateStoredEntity(entity);
+        }
+
+        private void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
+        {
+            if (!TryGetEntity(entityId, out var entity))
+            {
+                return;
+            }
+
+            if (entity.boardPresence == boardPresence)
+            {
+                return;
+            }
+
+            ClearOccupancyForEntity(entity);
+
+            entity.boardPresence = boardPresence;
+            if (boardPresence == EntityBoardPresence.Occupying)
+            {
+                EnsurePlacementIsLegal(entity, entity.position, entityId);
+            }
+
+            UpdateStoredEntity(entity);
+            SetOccupancyForEntity(entity);
+        }
+
+        private void SetTopology(CubeTopologyState topology)
+        {
+            _topology = topology;
         }
 
         private void ClearOccupancyForEntity(EntityState entity)
@@ -325,6 +354,16 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetFacing(int entityId, Direction facing)
         {
             SetFacing(entityId, facing);
+        }
+
+        void IWorldStateMutationPort.SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
+        {
+            SetBoardPresence(entityId, boardPresence);
+        }
+
+        void IWorldStateMutationPort.SetTopology(CubeTopologyState topology)
+        {
+            SetTopology(topology);
         }
     }
 }

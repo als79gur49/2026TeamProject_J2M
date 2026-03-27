@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Model.Groups
             Spawns = new List<SpawnAction>();
             Destroys = new List<DestroyAction>();
             StateChanges = new List<StateChangeAction>();
+            BoardPresenceChanges = new List<BoardPresenceChangeAction>();
+            TopologyChanges = new List<TopologyChangeAction>();
             DelayedAttacks = new List<DelayedAttackAction>();
         }
 
@@ -44,6 +46,10 @@ namespace Game.Feature.Gameplay.Model.Groups
         public List<DestroyAction> Destroys { get; }
 
         public List<StateChangeAction> StateChanges { get; }
+
+        public List<BoardPresenceChangeAction> BoardPresenceChanges { get; }
+
+        public List<TopologyChangeAction> TopologyChanges { get; }
 
         public List<DelayedAttackAction> DelayedAttacks { get; }
 

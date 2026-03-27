@@ -29,10 +29,24 @@ namespace Game.Feature.Gameplay.Tests
             BoardBounds boardBounds,
             GameplayTerrainData terrainData)
         {
+            return CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor));
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology)
+        {
             return GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 boardBounds,
-                terrainData ?? GameplayTerrainData.Empty);
+                terrainData ?? GameplayTerrainData.Empty,
+                topology);
         }
 
         public static WorldState CreateLegacyUnbounded(IEnumerable<EntityState> initialEntities)
@@ -44,9 +58,21 @@ namespace Game.Feature.Gameplay.Tests
             IEnumerable<EntityState> initialEntities,
             GameplayTerrainData terrainData)
         {
+            return CreateLegacyUnbounded(
+                initialEntities,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor));
+        }
+
+        public static WorldState CreateLegacyUnbounded(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology)
+        {
             return GameplayCompositionRoot.CreateLegacyUnboundedWorldState(
                 initialEntities,
-                terrainData ?? GameplayTerrainData.Empty);
+                terrainData ?? GameplayTerrainData.Empty,
+                topology);
         }
     }
 }
