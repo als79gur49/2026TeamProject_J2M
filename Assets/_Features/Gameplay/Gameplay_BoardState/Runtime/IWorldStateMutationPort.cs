@@ -3,7 +3,7 @@ namespace Game.Feature.Gameplay.BoardState
     internal interface IWorldStateMutationPort
     {
         bool TryGetEntity(int entityId, out EntityState entity);
-        void MoveEntityTo(int entityId, UnityEngine.Vector2Int destination);
+        void MoveEntityTo(int entityId, SurfaceCell destination);
         void SpawnEntity(EntityState entity);
         void RemoveEntity(int entityId);
         void ApplyDamage(int entityId, int amount);

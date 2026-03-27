@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -7,15 +6,19 @@ namespace Game.Feature.Gameplay.BoardState
     public enum BoxCapabilities
     {
         None = 0,
-        Pushable = 1 << 0,
-        Throwable = 1 << 1,
-        LootOnInteractDestroy = 1 << 2,
+        Push = 1 << 0,
+        Flip = 1 << 1,
+        Item = 1 << 2,
+        Destroy = 1 << 3,
+        Pushable = Push,
+        Throwable = Flip,
+        LootOnInteractDestroy = Item,
     }
 
     public struct EntityState
     {
         public int entityId;
-        public Vector2Int position;
+        public SurfaceCell position;
         public int hp;
         public int maxHp;
         public int teamId;
@@ -23,6 +26,7 @@ namespace Game.Feature.Gameplay.BoardState
         public EntityPhaseState state;
         public int stateTimer;
         public Direction facing;
+        public EntityBoardPresence boardPresence;
         public bool markedForDeath;
         public int spawnTick;
         public BoxCapabilities boxCapabilities;

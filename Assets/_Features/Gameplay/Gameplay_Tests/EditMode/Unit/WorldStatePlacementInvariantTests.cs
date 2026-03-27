@@ -121,7 +121,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(occupant.entityId, Is.EqualTo(10));
         }
 
+        [Test]
+        public void SpawnEntity_InactiveFaceTerrainBlockedDestination_StillThrowsForAuthoritativeStateValidation()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
+
+            Assert.Throws<InvalidOperationException>(
+                () => worldState.CreateWriteContext().SpawnEntity(
+                    CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Ceiling, 1, 0))));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+        }
+
         private static EntityState CreateUnit(int entityId, Vector2Int position)
+        {
+            return CreateUnit(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateUnit(int entityId, SurfaceCell position)
         {
             return new EntityState
             {

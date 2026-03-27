@@ -36,6 +36,8 @@ namespace Game.Feature.Gameplay.Loop
             var builder = new StringBuilder(512);
 
             builder.Append("Tick=").Append(tickIndex).Append('\n');
+            builder.Append("Topology").Append('\n');
+            builder.Append(finalSnapshot.Topology.BottomFace).Append('|').Append(finalSnapshot.Topology.FrontFace).Append('\n');
             builder.Append("BoardBounds").Append('\n');
             AppendBoardBounds(builder, finalSnapshot.BoardBounds);
 
@@ -76,6 +78,7 @@ namespace Game.Feature.Gameplay.Loop
                 var entity = finalEntities[i];
                 builder
                     .Append(entity.entityId).Append('|')
+                    .Append((int)entity.position.face).Append('|')
                     .Append(entity.position.x).Append('|')
                     .Append(entity.position.y).Append('|')
                     .Append(entity.hp).Append('|')
@@ -85,6 +88,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append((int)entity.state).Append('|')
                     .Append(entity.stateTimer).Append('|')
                     .Append((int)entity.facing).Append('|')
+                    .Append((int)entity.boardPresence).Append('|')
                     .Append(entity.markedForDeath ? 1 : 0).Append('|')
                     .Append(entity.spawnTick).Append('|')
                     .Append((int)entity.boxCapabilities).Append('\n');
@@ -141,6 +145,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entry = occupancyEntries[i];
                 builder
+                    .Append((int)entry.Cell.face).Append('|')
                     .Append(entry.Cell.x).Append('|')
                     .Append(entry.Cell.y).Append('|')
                     .Append(entry.EntityId).Append('\n');

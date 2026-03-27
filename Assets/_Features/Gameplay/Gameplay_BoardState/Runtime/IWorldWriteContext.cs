@@ -1,10 +1,8 @@
-using UnityEngine;
-
 namespace Game.Feature.Gameplay.BoardState
 {
     public interface IWorldWriteContext
     {
-        void MoveEntity(int entityId, Vector2Int destination);
+        void MoveEntity(int entityId, SurfaceCell destination);
 
         void ApplyDamage(int entityId, int amount);
 

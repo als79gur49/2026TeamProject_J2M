@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private SlideStopper(
             SlideStopperKind kind,
-            Vector2Int cell,
+            SurfaceCell cell,
             int entityId,
             EntityType entityType)
         {
@@ -26,20 +26,30 @@ namespace Game.Feature.Gameplay.BoardState
 
         public SlideStopperKind Kind { get; }
 
-        public Vector2Int Cell { get; }
+        public SurfaceCell Cell { get; }
 
         public int EntityId { get; }
 
         public EntityType EntityType { get; }
 
-        public static SlideStopper CreateBoardEdge(Vector2Int cell)
+        public static SlideStopper CreateBoardEdge(SurfaceCell cell)
         {
             return new SlideStopper(SlideStopperKind.BoardEdge, cell, entityId: 0, EntityType.None);
         }
 
-        public static SlideStopper CreateTerrain(Vector2Int cell)
+        public static SlideStopper CreateBoardEdge(Vector2Int cell)
+        {
+            return CreateBoardEdge(SurfaceCell.FromPlanar(cell));
+        }
+
+        public static SlideStopper CreateTerrain(SurfaceCell cell)
         {
             return new SlideStopper(SlideStopperKind.Terrain, cell, entityId: 0, EntityType.None);
+        }
+
+        public static SlideStopper CreateTerrain(Vector2Int cell)
+        {
+            return CreateTerrain(SurfaceCell.FromPlanar(cell));
         }
 
         public static SlideStopper CreateEntity(EntityState entity)

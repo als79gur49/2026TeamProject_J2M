@@ -64,6 +64,7 @@ namespace Game.Feature.Gameplay.Debug
 
         private static void AppendSnapshotSections(StringBuilder builder, string label, WorldSnapshot snapshot)
         {
+            AppendSection(builder, $"{label}.Topology", new[] { snapshot.Topology.ToString() }, FormatString);
             AppendSection(builder, $"{label}.BoardBounds", new[] { FormatBoardBounds(snapshot.BoardBounds) }, FormatString);
             AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
@@ -125,7 +126,7 @@ namespace Game.Feature.Gameplay.Debug
             for (var i = 0; i < entries.Count; i++)
             {
                 var entry = entries[i];
-                buffer.Add($"{layerName}|Cell=({entry.Cell.x},{entry.Cell.y})|E={entry.EntityId}");
+                buffer.Add($"{layerName}|Cell=({entry.Cell.x},{entry.Cell.y})|E={entry.EntityId}|Face={entry.Cell.face}");
             }
         }
 
@@ -406,7 +407,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEntityState(EntityState entity)
         {
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|Face={entity.position.face}|Presence={entity.boardPresence}";
         }
     }
 }

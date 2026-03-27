@@ -7,18 +7,19 @@ namespace Game.Feature.Gameplay.BoardState
     public sealed class WorldState : IWorldStateMutationPort
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
-        private readonly Dictionary<Vector2Int, int> _projectileOccupancy = new();
+        private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
         private readonly BoardBounds _boardBounds;
         private readonly TerrainData _terrainData;
-        private readonly Dictionary<Vector2Int, int> _unitOccupancy = new();
+        private readonly CubeTopologyState _topology;
+        private readonly Dictionary<SurfaceCell, int> _unitOccupancy = new();
 
         internal WorldState()
-            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty)
+            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
         {
         }
 
         internal WorldState(IEnumerable<EntityState> initialEntities)
-            : this(initialEntities, BoardBounds.Unbounded, TerrainData.Empty)
+            : this(initialEntities, BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
         {
         }
 
@@ -26,6 +27,15 @@ namespace Game.Feature.Gameplay.BoardState
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
             TerrainData terrainData)
+            : this(initialEntities, boardBounds, terrainData, new CubeTopologyState(FaceId.Floor))
+        {
+        }
+
+        internal WorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology)
         {
             if (initialEntities == null)
             {
@@ -34,6 +44,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
+            _topology = topology;
             ValidateTerrainBounds();
 
             foreach (var entity in initialEntities)
@@ -46,8 +57,9 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return new WorldSnapshot(
                 new Dictionary<int, EntityState>(_entitiesById),
-                new Dictionary<Vector2Int, int>(_unitOccupancy),
-                new Dictionary<Vector2Int, int>(_projectileOccupancy),
+                new Dictionary<SurfaceCell, int>(_unitOccupancy),
+                new Dictionary<SurfaceCell, int>(_projectileOccupancy),
+                _topology,
                 _boardBounds,
                 _terrainData);
         }
@@ -69,7 +81,7 @@ namespace Game.Feature.Gameplay.BoardState
             SetOccupancyForEntity(entity);
         }
 
-        private void MoveEntityTo(int entityId, Vector2Int destination)
+        private void MoveEntityTo(int entityId, SurfaceCell destination)
         {
             if (!TryGetEntity(entityId, out var entity))
             {
@@ -144,6 +156,11 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void ClearOccupancyForEntity(EntityState entity)
         {
+            if (!IsEntityStoredInOccupancy(entity))
+            {
+                return;
+            }
+
             switch (entity.type)
             {
                 case EntityType.Projectile:
@@ -158,6 +175,11 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void SetOccupancyForEntity(EntityState entity)
         {
+            if (!IsEntityStoredInOccupancy(entity))
+            {
+                return;
+            }
+
             switch (entity.type)
             {
                 case EntityType.Projectile:
@@ -175,9 +197,9 @@ namespace Game.Feature.Gameplay.BoardState
             return _entitiesById.TryGetValue(entityId, out entity);
         }
 
-        private void EnsurePlacementIsLegal(EntityState entity, Vector2Int cell, int ignoredEntityId)
+        private void EnsurePlacementIsLegal(EntityState entity, SurfaceCell cell, int ignoredEntityId)
         {
-            if (!WorldQueryService.TryGetPlacementBlocker(
+            if (!WorldQueryService.TryGetAuthoritativePlacementBlocker(
                     _entitiesById,
                     _unitOccupancy,
                     _projectileOccupancy,
@@ -196,11 +218,11 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static InvalidOperationException CreatePlacementViolationException(
             EntityState entity,
-            Vector2Int cell,
+            SurfaceCell cell,
             SlideStopper blocker)
         {
             return new InvalidOperationException(
-                $"Entity {entity.entityId} cannot occupy ({cell.x},{cell.y}). {FormatPlacementBlocker(blocker)}");
+                $"Entity {entity.entityId} cannot occupy {cell}. {FormatPlacementBlocker(blocker)}");
         }
 
         private void ValidateTerrainBounds()
@@ -228,18 +250,23 @@ namespace Game.Feature.Gameplay.BoardState
             _entitiesById[entity.entityId] = entity;
         }
 
+        private static bool IsEntityStoredInOccupancy(EntityState entity)
+        {
+            return entity.boardPresence != EntityBoardPresence.DetachedPendingCleanup;
+        }
+
         private static string FormatPlacementBlocker(SlideStopper blocker)
         {
             switch (blocker.Kind)
             {
                 case SlideStopperKind.BoardEdge:
-                    return $"Board bounds reject the cell at ({blocker.Cell.x},{blocker.Cell.y}).";
+                    return $"Board bounds reject the cell at {blocker.Cell}.";
 
                 case SlideStopperKind.Terrain:
-                    return $"Terrain blocks the cell at ({blocker.Cell.x},{blocker.Cell.y}).";
+                    return $"Terrain blocks the cell at {blocker.Cell}.";
 
                 case SlideStopperKind.Entity:
-                    return $"Entity {blocker.EntityId} ({blocker.EntityType}) already occupies ({blocker.Cell.x},{blocker.Cell.y}).";
+                    return $"Entity {blocker.EntityId} ({blocker.EntityType}) already occupies {blocker.Cell}.";
 
                 default:
                     return "The placement is blocked by an unknown world-state invariant.";
@@ -247,13 +274,14 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         private static void SetLayerOccupancy(
-            Dictionary<Vector2Int, int> occupancyByCell,
-            Vector2Int position,
+            Dictionary<SurfaceCell, int> occupancyByCell,
+            SurfaceCell position,
             int entityId)
         {
             if (occupancyByCell.TryGetValue(position, out var occupantId) && occupantId != entityId)
             {
-                throw new InvalidOperationException("Conflicting occupancy detected while updating world state.");
+                throw new InvalidOperationException(
+                    $"Conflicting occupancy detected while updating world state at {position}.");
             }
 
             occupancyByCell[position] = entityId;
@@ -264,7 +292,7 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetEntity(entityId, out entity);
         }
 
-        void IWorldStateMutationPort.MoveEntityTo(int entityId, Vector2Int destination)
+        void IWorldStateMutationPort.MoveEntityTo(int entityId, SurfaceCell destination)
         {
             MoveEntityTo(entityId, destination);
         }

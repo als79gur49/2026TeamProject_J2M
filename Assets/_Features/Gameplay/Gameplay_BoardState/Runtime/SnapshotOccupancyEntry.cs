@@ -4,13 +4,18 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal readonly struct SnapshotOccupancyEntry
     {
-        public SnapshotOccupancyEntry(Vector2Int cell, int entityId)
+        public SnapshotOccupancyEntry(SurfaceCell cell, int entityId)
         {
             Cell = cell;
             EntityId = entityId;
         }
 
-        public Vector2Int Cell { get; }
+        public SnapshotOccupancyEntry(Vector2Int cell, int entityId)
+            : this(SurfaceCell.FromPlanar(cell), entityId)
+        {
+        }
+
+        public SurfaceCell Cell { get; }
 
         public int EntityId { get; }
     }

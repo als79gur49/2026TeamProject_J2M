@@ -1,5 +1,4 @@
 using System;
-using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -12,7 +11,7 @@ namespace Game.Feature.Gameplay.BoardState
             _port = port ?? throw new ArgumentNullException(nameof(port));
         }
 
-        public void MoveEntity(int entityId, Vector2Int destination)
+        public void MoveEntity(int entityId, SurfaceCell destination)
         {
             _port.MoveEntityTo(entityId, destination);
         }

@@ -481,6 +481,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WorldSnapshot_TryGetPlacementBlocker_AppliesGameplayFaceAndBoardPresencePolicy()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    new EntityState
+                    {
+                        entityId = 10,
+                        position = new SurfaceCell(FaceId.Ceiling, 1, 0),
+                        hp = 3,
+                        maxHp = 3,
+                        teamId = 1,
+                        type = EntityType.Unit,
+                    },
+                    new EntityState
+                    {
+                        entityId = 20,
+                        position = new SurfaceCell(FaceId.Floor, 2, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 1,
+                        type = EntityType.Unit,
+                        boardPresence = EntityBoardPresence.DetachedPendingCleanup,
+                    },
+                    new EntityState
+                    {
+                        entityId = 30,
+                        position = new SurfaceCell(FaceId.Floor, 3, 0),
+                        hp = 0,
+                        maxHp = 1,
+                        teamId = 2,
+                        type = EntityType.Unit,
+                        markedForDeath = true,
+                    },
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 1)),
+                new GameplayTerrainData(new[] { new Vector2Int(0, 1) }));
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Ceiling, 0, 1), ignoredEntityId: 0, out _),
+                Is.False);
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Ceiling, 1, 0), ignoredEntityId: 0, out _),
+                Is.False);
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Floor, 2, 0), ignoredEntityId: 0, out _),
+                Is.False);
+
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out var blocker),
+                Is.True);
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(blocker.EntityId, Is.EqualTo(30));
+        }
+
+        [Test]
         public void WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy()
         {
             var worldState = CreateWorldState(new[]

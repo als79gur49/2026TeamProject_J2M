@@ -190,6 +190,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                     .Append("|Marked=").Append(entity.markedForDeath ? 1 : 0)
                     .Append("|SpawnTick=").Append(entity.spawnTick)
                     .Append("|BoxCapabilities=").Append(entity.boxCapabilities)
+                    .Append("|Face=").Append(entity.position.face)
+                    .Append("|Presence=").Append(entity.boardPresence)
                     .Append('\n');
             }
         }
