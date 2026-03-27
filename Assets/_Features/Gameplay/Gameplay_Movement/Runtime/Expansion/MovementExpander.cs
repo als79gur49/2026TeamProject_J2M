@@ -39,8 +39,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             buffer.Clear();
             rejectedReasons.Clear();
-            var orderedEntities = new List<EntityState>();
-            snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
             for (var i = 0; i < sortedIntents.Count; i++)
             {
@@ -58,7 +56,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 switch (intent.CommandKind)
                 {
                     case MovementCommandKind.Interact:
-                        TryExpandInteract(snapshot, entity, intent, orderedEntities, buffer, rejectedReasons);
+                        TryExpandInteract(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
                     case MovementCommandKind.Move:
@@ -131,7 +129,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
-            IReadOnlyList<EntityState> orderedEntities,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -155,18 +152,17 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             var slideDelta = intent.Destination - source.position;
-            if (!TryFindNearestSlideStopper(target.position, slideDelta, orderedEntities, out var stopper))
+            if (!snapshot.TryGetBoxSlideDestination(target.position, slideDelta, out var destination, out var stopper))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideRayHasNoStopper|Cell=({target.position.x},{target.position.y})|Direction={ResolveFacing(source.position, intent.Destination)}");
                 return;
             }
 
-            var destination = stopper.position - slideDelta;
             if (destination == target.position)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideStopperAdjacent|Target={target.entityId}|Stopper={stopper.entityId}|Cell=({stopper.position.x},{stopper.position.y})");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideStopperAdjacent|Target={target.entityId}|{FormatStopper(stopper)}");
                 return;
             }
 
@@ -211,10 +207,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             var interactionDelta = intent.Destination - source.position;
             var landing = source.position - interactionDelta;
-            if (snapshot.IsBlockedForUnit(landing) && snapshot.TryGetUnitAt(landing, out var landingOccupant))
+            if (snapshot.TryGetUnitBlocker(landing, out var landingBlocker))
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ThrowLandingBlocked|Cell=({landing.x},{landing.y})|Occupant={landingOccupant.entityId}|Type={landingOccupant.type}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ThrowLandingBlocked|{FormatStopper(landingBlocker)}");
                 return;
             }
 
@@ -237,60 +233,22 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
         }
 
-        private static bool TryFindNearestSlideStopper(
-            Vector2Int origin,
-            Vector2Int delta,
-            IReadOnlyList<EntityState> orderedEntities,
-            out EntityState stopper)
+        private static string FormatStopper(SlideStopper stopper)
         {
-            stopper = default;
-            var bestDistance = int.MaxValue;
-
-            for (var i = 0; i < orderedEntities.Count; i++)
+            switch (stopper.Kind)
             {
-                var candidate = orderedEntities[i];
-                if (candidate.type == EntityType.Projectile)
-                {
-                    continue;
-                }
+                case SlideStopperKind.BoardEdge:
+                    return $"StopperKind=BoardEdge|Cell=({stopper.Cell.x},{stopper.Cell.y})";
 
-                if (!IsOnPositiveRay(candidate.position - origin, delta, out var distance))
-                {
-                    continue;
-                }
+                case SlideStopperKind.Terrain:
+                    return $"StopperKind=Terrain|Cell=({stopper.Cell.x},{stopper.Cell.y})";
 
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    stopper = candidate;
-                }
+                case SlideStopperKind.Entity:
+                    return $"StopperKind=Entity|Stopper={stopper.EntityId}|StopperType={stopper.EntityType}|Cell=({stopper.Cell.x},{stopper.Cell.y})";
+
+                default:
+                    return $"StopperKind=None|Cell=({stopper.Cell.x},{stopper.Cell.y})";
             }
-
-            return bestDistance != int.MaxValue;
-        }
-
-        private static bool IsOnPositiveRay(Vector2Int offset, Vector2Int delta, out int distance)
-        {
-            distance = 0;
-
-            if (delta.x != 0)
-            {
-                if (offset.y != 0 || offset.x == 0 || Math.Sign(offset.x) != Math.Sign(delta.x))
-                {
-                    return false;
-                }
-
-                distance = Math.Abs(offset.x);
-                return true;
-            }
-
-            if (offset.x != 0 || offset.y == 0 || Math.Sign(offset.y) != Math.Sign(delta.y))
-            {
-                return false;
-            }
-
-            distance = Math.Abs(offset.y);
-            return true;
         }
 
         private static bool TryExpandProjectileImpact(

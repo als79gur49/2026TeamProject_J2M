@@ -8,18 +8,33 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
         private readonly Dictionary<Vector2Int, int> _projectileOccupancy = new();
+        private readonly BoardBounds _boardBounds;
+        private readonly TerrainData _terrainData;
         private readonly Dictionary<Vector2Int, int> _unitOccupancy = new();
 
         public WorldState()
+            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty)
         {
         }
 
         internal WorldState(IEnumerable<EntityState> initialEntities)
+            : this(initialEntities, BoardBounds.Unbounded, TerrainData.Empty)
+        {
+        }
+
+        internal WorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData)
         {
             if (initialEntities == null)
             {
                 throw new ArgumentNullException(nameof(initialEntities));
             }
+
+            _boardBounds = boardBounds;
+            _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
+            ValidateTerrainBounds();
 
             foreach (var entity in initialEntities)
             {
@@ -32,7 +47,9 @@ namespace Game.Feature.Gameplay.BoardState
             return new WorldSnapshot(
                 new Dictionary<int, EntityState>(_entitiesById),
                 new Dictionary<Vector2Int, int>(_unitOccupancy),
-                new Dictionary<Vector2Int, int>(_projectileOccupancy));
+                new Dictionary<Vector2Int, int>(_projectileOccupancy),
+                _boardBounds,
+                _terrainData);
         }
 
         internal IWorldWriteContext CreateWriteContext()
@@ -42,6 +59,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void AddNewEntity(EntityState entity)
         {
+            if (!_boardBounds.Contains(entity.position))
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entity.entityId} is outside the configured board bounds at ({entity.position.x},{entity.position.y}).");
+            }
+
             if (_entitiesById.ContainsKey(entity.entityId))
             {
                 throw new InvalidOperationException("Duplicate entity id detected while adding entity.");
@@ -72,6 +95,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void SetOccupancy(EntityState entity)
         {
+            if (!_boardBounds.Contains(entity.position))
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entity.entityId} cannot occupy a cell outside the configured board bounds at ({entity.position.x},{entity.position.y}).");
+            }
+
             switch (entity.type)
             {
                 case EntityType.Projectile:
@@ -87,6 +116,26 @@ namespace Game.Feature.Gameplay.BoardState
         private bool TryGetEntity(int entityId, out EntityState entity)
         {
             return _entitiesById.TryGetValue(entityId, out entity);
+        }
+
+        private void ValidateTerrainBounds()
+        {
+            if (!_boardBounds.IsBounded)
+            {
+                return;
+            }
+
+            var blockingCells = _terrainData.OrderedUnitBlockingCells;
+            for (var i = 0; i < blockingCells.Count; i++)
+            {
+                if (_boardBounds.Contains(blockingCells[i]))
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException(
+                    $"Terrain cell ({blockingCells[i].x},{blockingCells[i].y}) is outside the configured board bounds.");
+            }
         }
 
         private void UpdateEntity(EntityState entity)

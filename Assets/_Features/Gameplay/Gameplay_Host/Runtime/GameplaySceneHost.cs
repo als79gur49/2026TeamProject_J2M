@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -41,8 +42,12 @@ namespace Game.Feature.Gameplay.Host
             EnsureComponents();
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
+            var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
 
-            WorldState = GameplayCompositionRoot.CreateWorldState(initialEntities);
+            WorldState = GameplayCompositionRoot.CreateWorldState(
+                initialEntities,
+                configuration.InitialBoardBounds,
+                initialTerrain);
             InputBuffer = new TickInputBuffer();
             var staticEntityLogics = BuildStaticEntityLogics(configuration);
             TickRunner = GameplayCompositionRoot.CreateTickRunner(

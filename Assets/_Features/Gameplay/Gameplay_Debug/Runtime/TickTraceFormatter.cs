@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Debug
 {
@@ -63,6 +64,8 @@ namespace Game.Feature.Gameplay.Debug
 
         private static void AppendSnapshotSections(StringBuilder builder, string label, WorldSnapshot snapshot)
         {
+            AppendSection(builder, $"{label}.BoardBounds", new[] { FormatBoardBounds(snapshot.BoardBounds) }, FormatString);
+            AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
@@ -92,6 +95,20 @@ namespace Game.Feature.Gameplay.Debug
             AddOccupancyLines(occupancyLines, "Projectile", projectileEntries);
 
             return occupancyLines;
+        }
+
+        private static List<string> GetTerrainEntries(WorldSnapshot snapshot)
+        {
+            var terrainLines = new List<string>();
+            var blockedCells = new List<Vector2Int>();
+            snapshot.EnumerateTerrainBlockedCellsOrdered(blockedCells);
+
+            for (var i = 0; i < blockedCells.Count; i++)
+            {
+                terrainLines.Add($"Cell=({blockedCells[i].x},{blockedCells[i].y})|BlocksUnit=1");
+            }
+
+            return terrainLines;
         }
 
         private static void AddOccupancyLines(
@@ -135,6 +152,16 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatString(string value)
         {
             return value;
+        }
+
+        private static string FormatBoardBounds(BoardBounds boardBounds)
+        {
+            if (!boardBounds.IsBounded)
+            {
+                return "Unbounded";
+            }
+
+            return $"Min=({boardBounds.MinInclusive.x},{boardBounds.MinInclusive.y})|Max=({boardBounds.MaxInclusive.x},{boardBounds.MaxInclusive.y})";
         }
 
         private static string FormatRawMovementIntent(RawMovementIntent rawIntent)

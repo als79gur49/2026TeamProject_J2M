@@ -14,12 +14,20 @@ namespace Game.Feature.Gameplay.Loop
 
         public static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
+            return CreateWorldState(initialEntities, BoardBounds.Unbounded, TerrainData.Empty);
+        }
+
+        public static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData)
+        {
             if (initialEntities == null)
             {
                 throw new ArgumentNullException(nameof(initialEntities));
             }
 
-            return new WorldState(initialEntities);
+            return new WorldState(initialEntities, boardBounds, terrainData ?? throw new ArgumentNullException(nameof(terrainData)));
         }
 
         public static TickPipeline CreateTickPipeline(WorldState worldState)

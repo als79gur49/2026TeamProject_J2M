@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -48,13 +49,22 @@ namespace Game.Feature.Gameplay.Host
                 CellSize = cellSize,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 GridOrigin = gridOrigin,
+                InitialBoardBounds = CreateBoardBounds(),
                 InitialMoveDelayTicks = initialMoveDelayTicks,
                 InitialEntities = CreateInitialEntities(),
+                InitialTerrain = GameplayTerrainData.Empty,
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
                 RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
                 TickIntervalSeconds = tickIntervalSeconds,
             };
+        }
+
+        private static BoardBounds CreateBoardBounds()
+        {
+            return new BoardBounds(
+                minInclusive: new Vector2Int(-3, -2),
+                maxInclusive: new Vector2Int(6, 4));
         }
 
         private EntityState[] CreateInitialEntities()

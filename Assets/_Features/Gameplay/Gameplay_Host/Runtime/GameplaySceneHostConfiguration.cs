@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -14,8 +15,10 @@ namespace Game.Feature.Gameplay.Host
         public float CellSize = 1f;
         public bool DirectionChangeConsumesDelay;
         public Vector3 GridOrigin = Vector3.zero;
+        public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public int InitialMoveDelayTicks = 0;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
+        public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
         public int RepeatedMoveIntervalTicks = 2;

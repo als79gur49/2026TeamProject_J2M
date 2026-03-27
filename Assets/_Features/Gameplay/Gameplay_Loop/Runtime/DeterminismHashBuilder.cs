@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -35,6 +36,12 @@ namespace Game.Feature.Gameplay.Loop
             var builder = new StringBuilder(512);
 
             builder.Append("Tick=").Append(tickIndex).Append('\n');
+            builder.Append("BoardBounds").Append('\n');
+            AppendBoardBounds(builder, finalSnapshot.BoardBounds);
+
+            builder.Append("Terrain").Append('\n');
+            AppendTerrainLines(builder, GetOrderedTerrain(finalSnapshot));
+
             builder.Append("Entities").Append('\n');
             AppendEntityLines(builder, tickResultData.FinalEntities);
 
@@ -98,6 +105,28 @@ namespace Game.Feature.Gameplay.Loop
             return occupancyEntries;
         }
 
+        private static List<Vector2Int> GetOrderedTerrain(WorldSnapshot finalSnapshot)
+        {
+            var terrainEntries = new List<Vector2Int>();
+            finalSnapshot.EnumerateTerrainBlockedCellsOrdered(terrainEntries);
+            return terrainEntries;
+        }
+
+        private static void AppendBoardBounds(StringBuilder builder, BoardBounds boardBounds)
+        {
+            if (!boardBounds.IsBounded)
+            {
+                builder.Append("Unbounded").Append('\n');
+                return;
+            }
+
+            builder
+                .Append(boardBounds.MinInclusive.x).Append('|')
+                .Append(boardBounds.MinInclusive.y).Append('|')
+                .Append(boardBounds.MaxInclusive.x).Append('|')
+                .Append(boardBounds.MaxInclusive.y).Append('\n');
+        }
+
         private static void AppendOccupancyLines(
             StringBuilder builder,
             IReadOnlyList<SnapshotOccupancyEntry> occupancyEntries)
@@ -115,6 +144,24 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.Cell.x).Append('|')
                     .Append(entry.Cell.y).Append('|')
                     .Append(entry.EntityId).Append('\n');
+            }
+        }
+
+        private static void AppendTerrainLines(
+            StringBuilder builder,
+            IReadOnlyList<Vector2Int> terrainEntries)
+        {
+            if (terrainEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < terrainEntries.Count; i++)
+            {
+                builder
+                    .Append(terrainEntries[i].x).Append('|')
+                    .Append(terrainEntries[i].y).Append('\n');
             }
         }
 
