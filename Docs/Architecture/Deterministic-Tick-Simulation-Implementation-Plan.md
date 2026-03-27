@@ -50,7 +50,6 @@
 
 아래 기능은 뼈대 고정 이후에 연다.
 
-- PushChain
 - Projectile 이동
 - `ImpactReservation`
 - Spawn
@@ -696,7 +695,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 현재 구현 메모:
 
 - `ImpactReservation`, attack input 정규화, projectile movement, spawn은 이미 연결돼 있다.
-- `PushChain`과 `edge reservation`은 테스트로 고정돼 있다.
+- `edge reservation`은 테스트로 고정돼 있다.
 - generic `on-hit` 시스템은 열지 않았고, 대신 same-tick 재진입 금지 경계를 테스트와 delayed-event 방향으로 고정했다.
 
 구현 순서 기록:
@@ -705,9 +704,8 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 2. Attack input 정규화
 3. Projectile movement
 4. Spawn
-5. PushChain
-6. edge reservation
-7. on-hit 확장 검토
+5. edge reservation
+6. on-hit 확장 검토
 
 원칙:
 
@@ -719,8 +717,15 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 현재 상태: 완료
 
 이 섹션은 Stage6를 구현하면서 고정한 상세 설계 기록이다.
-`PushChain`, `edge reservation`, `on-hit 확장 검토`는 새 Phase를 추가하지 않고, 기존 `Movement -> Attack -> Cleanup` 내부에만 합류한다.
-다만 아래 `InteractFlip` 소절은 current-state 구현 기록이 아니라, 같은 구조 위에 future box interaction을 얹기 위한 설계 addendum이다.
+`edge reservation`, `on-hit 확장 검토`는 새 Phase를 추가하지 않고, 기존 `Movement -> Attack -> Cleanup` 내부에만 합류한다.
+현재 구현은 아래 초기 addendum 대신 다음 규칙으로 고정한다.
+
+- 입력 경계는 `GameplayInputHost`가 tick마다 `Move`, `Interact`, `Throw`를 샘플링한다.
+- `TickInput.PlayerCommand`는 `MoveDirection`, `InteractPressed`, `ThrowPressed`를 deterministic하게 담는다.
+- `PlayerLogic`은 snapshot을 보고 상호작용을 추론하지 않고, 입력만 보고 `MoveIntent`, `ThrowIntent`, `InteractIntent`의 raw intent를 만든다.
+- 박스 능력은 `BoxCapabilities` flag(`Pushable`, `Throwable`, `LootOnInteractDestroy`)로 표현한다.
+- `Movement`는 `Move`, `Push`, `Throw`만 처리하고, `Interact` 성공 시 loot 지급과 `MarkDestroy`는 `Attack`에서 기록한다.
+- 실제 제거와 occupancy 정리는 `Cleanup`에서만 수행한다.
 
 현재 코드 기준 전제:
 
@@ -729,34 +734,32 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - `MoveAction`은 `Source`, `Destination`, `Facing`을 함께 가진다.
 - `Attack`은 explicit `Attack` / `FireProjectile` / synthetic `ImpactReservation`로 구분된다.
 
-### 7-9-1. PushChain 설계
+### 7-9-1. Direct Move Blocking 규칙
 
 목표:
 
-- `PushChain`을 Attack이 아니라 Movement 확장으로 연다.
-- 밀기 성공/실패는 `S0` 기준으로만 판정한다.
-- Commit에서는 선택된 체인만 이동시키고, 중간 damage나 remove는 하지 않는다.
+- 일반 `Move`는 `Unit`이나 `Box`를 밀지 않는다.
+- 이동 성공/실패는 `S0` 기준으로만 판정한다.
+- Commit에서는 선택된 move / box slide / throw만 적용하고, 중간 damage나 remove는 하지 않는다.
 
-초기 정책:
+현재 정책:
 
-- `PushChain`은 `Unit`만 대상으로 한다.
+- 일반 `Move`는 점유된 `Unit` cell에서 항상 실패한다.
+- 일반 `Move`는 점유된 `Box` cell에서도 항상 실패한다.
 - `Projectile`은 push 대상이 아니다.
-- 체인 끝이 비어 있어야만 성공한다.
-- 체인 중간에 `Unit`이 아닌 blocker가 있거나, push 불가 상태가 있으면 전체 실패다.
-- 부분 밀기는 금지한다.
-- 같은 체인 멤버를 공유하는 후보끼리는 동시에 선택될 수 없다.
+- 플레이어의 box interaction은 `Interact(BoxSlide)`와 `Throw`로만 연다.
+- 연속 entity shove나 partial push는 허용하지 않는다.
 
 현재 구조에 맞춘 최소 표현:
 
 - 새 raw intent 타입을 추가하지 않는다.
 - 기존 `RawMovementIntent` / `MoveIntent`를 그대로 사용한다.
-- `MovementExpander`가 `destination`에 `Unit`이 있는 경우 `Move` 대신 `PushChain` 후보를 생성한다.
-- 성공한 `PushChain` 후보는 하나의 `ActionGroup` 안에 여러 `MoveAction`을 담는다.
-- 이때 `MoveAction` 목록의 순서는 `체인 끝 -> 체인 시작`으로 고정한다.
+- `RawMovementIntent` / `MoveIntent`에 `Unit` push 전용 metadata는 두지 않는다.
+- `MovementExpander`는 `MoveIntent`가 점유된 `Unit` / `Box`를 만나면 기존 blocked move 규칙으로 끝낸다.
+- `Projectile`만 movement phase에서 예외적으로 `ProjectileImpact` 후보로 분기할 수 있다.
 
 반영된 모델 보강:
 
-- `ActionGroupKind.PushChain` 추가
 - `MoveAction`에 `Source` 좌표를 추가한다.
   이유:
   - Resolver가 `edge reservation`을 계산할 때 출발/도착 edge가 필요하다.
@@ -765,43 +768,38 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 Expander 알고리즘:
 
 1. source의 이동 delta를 계산한다.
-2. `destination`에 `Unit`이 없으면 기존 `Move` 후보 생성 규칙을 따른다.
-3. `destination`에 `Unit`이 있으면 같은 delta 방향으로 연속 점유 체인을 걷는다.
-4. 첫 빈칸을 찾으면 `PushChain` 성공 후보를 하나 만든다.
-5. 빈칸을 찾지 못하거나, 체인 중간에 push 불가 대상을 만나면 실패로 끝낸다.
-6. 실패 시 현재 구조를 유지하기 위해 초기 버전은 `Stop` 후보를 만들지 않고 `rejectedReasons`만 남긴다.
+2. projectile가 blocking target을 만나면 `ProjectileImpact` 후보를 만든다.
+3. 일반 `Move`가 점유된 `Unit` / `Box` / terrain blocker를 만나면 `BlockedDestination` reject로 끝낸다.
+4. 비어 있는 destination만 일반 `Move` 후보를 만든다.
+5. 실패 시 현재 구조를 유지하기 위해 `Stop` 후보를 만들지 않고 `rejectedReasons`만 남긴다.
 
-체인 멤버별 이동 규칙:
+이동 규칙:
 
-- 맨 끝 엔티티가 빈칸으로 이동
-- 그 앞 엔티티가 방금 비워질 칸으로 이동
-- 마지막으로 source가 원래 destination으로 이동
-- source의 facing은 이동 방향으로 갱신
-- 밀린 엔티티의 facing은 초기 버전에서는 유지한다
+- 성공한 일반 `Move`는 source만 1칸 이동한다.
+- source의 facing은 이동 방향으로 갱신한다.
+- box 위치 변경은 `BoxSlide` / `Throw` 규칙으로만 처리한다.
 
 Resolver 규칙:
 
 - 같은 `intentId`에서는 최대 하나의 후보만 선택
-- `PushChain` 후보는 아래 두 종류의 충돌을 함께 검사
+- 후보는 아래 충돌을 함께 검사한다.
   - 최종 `destination reservation` 충돌
-  - 체인 멤버 `entityId` 공유 충돌
-- 이미 선택된 후보와 체인 멤버를 공유하면 later candidate를 reject한다.
-- reject reason은 `SharedPushChainMember`로 고정한다.
+  - 이동 대상 `entityId` 공유 충돌
+- 이미 선택된 후보와 이동 대상 entity를 공유하면 later candidate를 reject한다.
+- reject reason은 `SharedMovedEntity`로 고정한다.
 
 Commit 규칙:
 
-- `MovementCommitter`는 `PushChain` group의 `MoveAction`을 리스트 순서대로 적용한다.
+- `MovementCommitter`는 선택된 movement group의 `MoveAction`을 리스트 순서대로 적용한다.
 - 이동 이벤트는 기존 `MoveCommitted` 포맷을 재사용한다.
-- `PushChain` 자체는 `PhaseTransientBuffer`를 사용하지 않는다.
 - Push 결과로 damage, destroy, spawn을 직접 만들지 않는다.
 
 테스트 우선순위:
 
-- `Movement_PushChain_SucceedsWhenChainEndsAtEmptyCell`
-- `Movement_PushChain_FailsWhenChainContainsUnpushableBlocker`
-- `Movement_PushChain_RejectsLaterCandidateThatSharesChainMember`
-- `Movement_PushChain_CommitsFromTailToHeadDeterministically`
-- `Replay_PushChainScenario_ProducesSameHashTraceAndEventLog`
+- `Movement_MoveIntoUnit_FailsWithoutPushing`
+- `Movement_ScriptedMoveIntoUnit_FailsWithoutPushing`
+- `Replay_PlayerMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_ScriptedMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog`
 
 ### 7-9-2. edge reservation 설계
 
@@ -813,7 +811,7 @@ Commit 규칙:
 
 초기 목적:
 
-- `PushChain` 다중 이동 경로 충돌 잠금
+- `Move` / `BoxSlide` / `Throw` 다중 이동 경로 충돌 잠금
 - 향후 고속 projectile / slide / multi-step path 확장을 위한 준비
 
 핵심 원칙:
@@ -851,7 +849,7 @@ Resolver 알고리즘 변경:
 
 초기 범위에서 명시적으로 다루는 것:
 
-- `PushChain` vs `PushChain` 경로 겹침
+- `Move` / `BoxSlide` / `Throw` 경로 겹침
 - 이후 고속 경로 확장 시 head-on crossing
 
 초기 범위에서 일부러 열지 않는 것:
@@ -867,286 +865,75 @@ Resolver 알고리즘 변경:
 - `Movement_EdgeReservation_DoesNotPersistAcrossTicks`
 - `Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog`
 
-### 7-9-3. Box / Interact Slide 설계
+### 7-9-3. Box interaction 구현 기준
 
-이 소절은 current-state 구현 기록이 아니라, 현재 결정론 구조 위에 박스 슬라이딩을 올릴 때의 확장 설계 addendum이다.
+현재 구현은 legacy `InteractSlide` / `InteractFlip` 명령 이름을 유지하지 않고, `Interact`의 movement 의미를 아래 모델로 고정한다.
 
-목표:
+- 입력 경계는 `GameplayInputHost`가 tick 경계에서 `Move`, `Interact`, `Throw`를 샘플링한다.
+- `TickInput.PlayerCommand`는 `MoveDirection`, `InteractPressed`, `ThrowPressed`를 가진다.
+- `PlayerLogic`은 입력만 보고 raw intent를 생산한다.
+  - `MoveDirection`이 있으면 `MoveIntent`
+  - `ThrowPressed`와 방향이 있으면 `ThrowIntent`
+  - `InteractPressed`와 방향이 있으면 `InteractIntent`
+- simulation core는 snapshot을 보고 "이건 push/throw/interact 중 무엇인가"를 자동 추론하지 않는다.
+- box 능력은 `BoxCapabilities` flag(`Pushable`, `Throwable`, `LootOnInteractDestroy`)로 표현한다.
 
-- `Box`를 `Movement` phase의 수동 물리 오브젝트로 추가한다.
-- 박스 슬라이딩은 별도 phase가 아니라 `Movement` 확장으로 연다.
-- 플레이어는 방향을 가진 `interact` 명령으로 인접한 박스를 그 방향으로 미끄러뜨린다.
-- 슬라이드 성공/실패는 계속 `S0` 기준으로만 판정한다.
+`Movement` phase 규칙:
 
-핵심 판단:
+- `Move`는 기존 이동 판정을 따른다.
+- 플레이어가 밀 수 있는 것은 오직 `Box`다.
+- 플레이어의 `Move`는 `Unit`을 밀지 않는다.
+- `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
+- `Interact`는 인접 `Pushable` 박스에 대해서만 movement 후보를 만들 수 있다.
+- 플레이어는 인접 `Pushable` 박스 1개만 slide 대상으로 삼는다.
+- `Interact` 성공 시 박스는 interaction 방향 ray 위의 가장 가까운 non-projectile stopper 직전까지 slide한다.
+- stopper가 없거나 stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
+- `Interact(BoxSlide)` 동안 player source는 anchor cell에 남는다.
+- `Throw`는 source entity를 고정한 채, 인접 `Throwable` 박스를 source 반대편 인접 cell로 이동시키는 후보를 만든다.
+- `Movement`는 위치, 경로, 점유, reservation만 처리한다.
+- `Movement`는 loot 지급, destroy mark, entity 제거를 직접 수행하지 않는다.
 
-- 이번 기능은 "플레이어가 이동하면서 박스를 민다"가 아니라 "플레이어는 제자리에 있고 박스만 이동한다"는 상호작용 규칙이다.
-- 따라서 기존 `Move` 의미를 암묵적으로 재사용하지 않고, movement 내부에서 명시적으로 구분되는 command가 필요하다.
-- 하지만 새 phase를 만들 필요는 없으므로, 초기 버전은 `RawMovementIntent` / `MoveIntent`에 `MovementCommandKind`를 추가하는 방향을 권장한다.
+`Attack` phase 규칙:
 
-권장 최소 모델:
+- `Interact`는 `InteractIntent`로만 들어온다.
+- 인접 `LootOnInteractDestroy` 박스에 성공하면 loot 지급 이벤트와 `MarkDestroy`만 기록한다.
+- destroy 대상은 same-tick 동안 occupancy를 유지한다.
+- commit 결과를 읽고 same-tick에 새 intent를 만들지 않는다.
 
-```csharp
-public enum EntityType
-{
-    None = 0,
-    Unit = 1,
-    Projectile = 2,
-    Box = 3,
-}
+`Cleanup` phase 규칙:
 
-public enum MovementCommandKind
-{
-    Move = 0,
-    InteractSlide = 1,
-    InteractFlip = 2,
-}
+- `markedForDeath` 엔티티 제거
+- occupancy 정리
+- Cleanup 이전 occupancy 제거 금지
 
-public readonly struct RawMovementIntent
-{
-    public int SourceId { get; }
-    public int Priority { get; }
-    public Vector2Int Destination { get; }
-    public MovementCommandKind CommandKind { get; }
-}
-```
+정렬/충돌 기준:
 
-의미:
-
-- `Destination`은 여전히 "이번 movement command가 향하는 인접 cell"이다.
-- `Move`에서는 source의 목적지다.
-- `InteractSlide`에서는 플레이어가 상호작용하려는 인접 박스의 cell이다.
-- `InteractFlip`에서도 플레이어가 상호작용하려는 인접 박스의 cell이다.
-
-`Box` 월드 정책:
-
-- `Box`는 `Projectile`이 아니므로 초기 버전에서는 `unitOccupancy` 계층에 포함한다.
-- 즉 `Box`는 `Unit`과 같은 동적 점유 계층에 있으나, autonomous `IEntityLogic`는 가지지 않는 수동 오브젝트다.
-- `Box`는 movement blocker다.
-- `Box`를 attack target으로 취급할지 여부는 이번 설계에서 고정하지 않는다.
-  - 현재 중앙 질의 규칙을 유지하면 새 selection 자체는 가능할 수 있다.
-  - 실제 combat targeting 정책이 갈라질 때 `CanBeTargetedForNewSelection`을 분리한다.
-
-`PlayerLogic` / 입력 모델 규칙:
-
-- box interaction을 열 때는 "한 tick에 플레이어가 movement phase에서 하나의 primary command만 낸다"는 규칙을 host에서 강제하는 것을 권장한다.
-- `PlayerLogic`은 host가 정규화한 primary command 하나만 raw intent로 변환한다.
-- `PlayerLogic`은 `Move`면 기존 `RawMovementIntent`를 1개 만들고, `InteractSlide` 또는 `InteractFlip`이면 같은 priority로 해당 `MovementCommandKind` raw intent를 1개 만든다.
-- 방향 없는 interact는 무효 command로 본다.
-- 같은 tick에 move/slide/flip 입력이 겹치면 host가 `PlayerPrimaryCommandKind` 하나로 먼저 정규화한다.
-- simulation core는 board 상태를 보고 `InteractSlide`와 `InteractFlip`을 자동 추론하지 않는다.
-
-`MovementExpander` 분기 정책:
-
-1. source entity와 인접 방향 유효성은 기존처럼 먼저 검증한다.
-2. `CommandKind == Move`면 현재 `Move / PushChain / ProjectileImpact` 경로를 유지한다.
-3. `CommandKind == InteractSlide`면 아래 전용 규칙으로 확장한다.
-4. `CommandKind == InteractFlip`이면 별도 `BoxFlip` 규칙으로 확장한다.
-
-`InteractSlide` 확장 규칙:
-
-1. `Destination`에는 반드시 `Box`가 있어야 한다.
-2. 박스 뒤 방향으로 같은 delta를 따라가며, `unitOccupancy` 기준 가장 가까운 blocker를 찾는다.
-3. blocker 바로 앞 cell까지가 슬라이드의 최종 도착점이다.
-4. blocker가 바로 박스 다음 칸이면 슬라이드는 실패다.
-5. 같은 ray 상에 blocker가 전혀 없으면 초기 버전에서는 실패다.
-
-중요한 초기 제약:
-
-- 현재 코드에는 authoritative board bounds나 `terrainData`가 아직 완전히 연결돼 있지 않다.
-- 따라서 "장애물이 나올 때까지 무한 슬라이드"를 월드 바깥 경계 없이 해석할 수 없다.
-- 이 때문에 초기 버전은 `S0` 상에서 명시적 stopper가 있는 경우에만 slide를 성공시킨다.
-- 이후 `terrainData`나 board bounds가 authoritative state로 들어오면, "맵 경계"를 stopper로 승격할 수 있다.
-
-`ActionGroup` 표현:
-
-- `ActionGroupKind.Slide`를 추가한다.
-- slide 성공 후보는 하나의 `ActionGroup` 안에 같은 `Box entityId`에 대한 여러 `MoveAction`을 담는다.
-- 각 `MoveAction`은 항상 한 칸 이동만 표현한다.
-- 목록 순서는 `slide 시작 cell -> 끝 cell` 순의 step-by-step으로 고정한다.
-
-예:
-
-- 플레이어 `(0,0)`
-- 박스 `(1,0)`
-- 벽 `(4,0)`
-- interact-right
-
-그러면 slide group의 moves는 아래처럼 된다.
-
-```text
-E=Box:(1,0)->(2,0)
-E=Box:(2,0)->(3,0)
-```
-
-이 표현을 쓰는 이유:
-
-- `destination reservation`이 경유 cell까지 잠글 수 있다.
-- 기존 `edge reservation` 규칙을 그대로 재사용할 수 있다.
-- multi-step path용 별도 path model을 당장 추가하지 않아도 된다.
-
-Resolver 규칙:
-
-- 기존 `MovementResolver`의 세 충돌 축을 유지한다.
-  - `destination reservation`
-  - `edge reservation`
-  - `shared moved entity`
-- slide group이 step-by-step `MoveAction`을 들고 있으면, 경유 cell과 경유 edge까지 기존 로직으로 잠글 수 있다.
-- 즉, box sliding 때문에 resolver phase 자체를 새로 만들 필요는 없다.
-
-Commit 규칙:
-
-- `MovementCommitter`는 `Slide` group의 `MoveAction`을 리스트 순서대로 적용한다.
-- 플레이어 source는 이동하지 않는다.
-- 다만 source의 facing은 interact direction으로 갱신하는 것을 권장한다.
-- box의 facing은 초기 버전에서는 slide direction으로 갱신하는 쪽을 권장한다.
-- slide는 `PhaseTransientBuffer`를 사용하지 않는다.
-- slide 결과로 damage, destroy, spawn을 직접 만들지 않는다.
-
-`PushChain`과의 관계:
-
-- 일반 `Move`가 `Box`를 향하면 기존 pushchain으로 승격하지 않는다.
-- 초기 정책에서 `PushChain`은 계속 `Unit` 전용이다.
-- `Box`는 이동 입력으로는 밀리지 않고, `InteractSlide` 또는 `InteractFlip` 같은 명시적 interaction command로만 움직인다.
-
-초기 비범위:
-
-- 박스가 다른 박스를 연쇄적으로 밀어내는 `BoxChainSlide`
-- 슬라이드 중 타일 반응
-- 슬라이드 중 damage / crush / trap 처리
-- projectile와 box의 계층 상호작용
-- slope, conveyor, ice 같은 보드 규칙
+- 총정렬 키는 `Priority desc -> SourceId asc -> IntentTypeOrder asc -> TargetCell(x,y) asc -> LocalSequence asc`다.
+- `IntentTypeOrder`는 `Interact > Throw > Move`다.
+- 같은 source, 같은 tick에서 충돌하면 `InteractLootDestroy -> Throw -> Slide/Move` 우선순위를 따른다.
 
 테스트 우선순위:
 
-- `PlayerLogic_InteractSlideCommand_ProducesSingleRawMovementIntent`
-- `Movement_BoxSlide_SucceedsWhenStopperExistsOnRay`
-- `Movement_BoxSlide_FailsWhenTargetIsNotBox`
-- `Movement_BoxSlide_FailsWhenRayHasNoStopper`
-- `Movement_BoxSlide_ReservesIntermediateCellsAgainstConcurrentMove`
+- `PlayerLogic_InteractCommand_ProducesSingleRawMovementIntent`
+- `PlayerLogic_ThrowCommand_ProducesSingleRawMovementIntent`
+- `PlayerLogic_InteractCommand_ProducesSingleRawAttackIntent`
+- `Movement_MoveIntoPushableBox_FailsWithoutExplicitInteract`
+- `Movement_MoveIntoUnit_FailsWithoutPushing`
+- `Movement_InteractPushableBox_SlidesUntilNearestStopper`
+- `Movement_InteractPushableBox_FailsWhenSlideRayHasNoStopper`
+- `Movement_InteractPushableBox_FailsWhenStopperIsAdjacent`
+- `Movement_InteractLootOnInteractDestroyBox_DoesNotMoveDuringMovementPhase`
+- `Movement_Throw_SucceedsWhenOppositeCellIsFree`
+- `Attack_InteractLootDestroy_MarksBoxAndKeepsOccupancyUntilCleanup`
 - `Replay_BoxSlideScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_PlayerMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_BoxInteractDestroyScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_BoxThrowScenario_ProducesSameHashTraceAndEventLog`
 
-### 7-9-4. Box / Interact Flip 설계
+### 7-9-4. Historical note
 
-이 소절은 current-state 구현 기록이 아니라, 기존 `InteractSlide` 옆에 "플레이어 반대편으로 박스를 넘기기"를 추가할 때의 확장 설계 addendum이다.
-
-목표:
-
-- `BoxFlip`을 `Movement` phase의 별도 interaction command로 연다.
-- 플레이어는 제자리에 남고, 인접 박스를 플레이어 반대편 인접 cell로 넘긴다.
-- 성공/실패는 계속 `S0` 기준으로만 판정한다.
-- `Slide`와 `Flip`은 서로 다른 command로 유지한다.
-
-핵심 판단:
-
-- 이 기능은 ray 기반 `Slide`가 아니라 source anchor 기준 반대편 landing만 갖는 근거리 relocate다.
-- box가 player 위를 넘어가는 연출은 view 책임이고, authoritative simulation은 중간 점유 상태를 만들지 않는다.
-- 따라서 `Slide`처럼 step-by-step `MoveAction` path로 모델링하지 않는다.
-- 초기 버전은 box 1개만 넘기며, chain, damage, trap 반응, mid-air collision은 열지 않는다.
-
-권장 최소 모델:
-
-```csharp
-public enum MovementCommandKind
-{
-    Move = 0,
-    InteractSlide = 1,
-    InteractFlip = 2,
-}
-
-public enum ActionGroupKind
-{
-    ...
-    Slide = 7,
-    Flip = 8,
-}
-```
-
-의미:
-
-- `InteractFlip`의 `Destination`은 "넘기려는 인접 박스의 현재 cell"이다.
-- 실제 landing cell은 `MovementExpander`가 `source.position`과 `Destination`을 이용해 계산한다.
-- host는 `InteractSlide`와 `InteractFlip` 중 하나를 explicit primary command로 골라 넘긴다.
-
-필수 중앙 질의 보강:
-
-- `Slide`와 달리 `Flip`은 stopper 없이도 landing cell 유효성을 판정해야 한다.
-- 따라서 authoritative board bounds가 아직 분리되지 않았다면, `WorldSnapshot` 중앙 질의에 "이 cell이 board 안쪽이며 box landing 가능인가"를 포함해야 한다.
-- 구현 형태는 `IsInsideBoard(cell)` 별도 함수 또는 `IsBlockedForUnit`에 bounds 포함 둘 중 하나로 고정한다.
-- 중요한 점은 `MovementExpander`가 world 바깥을 ad-hoc로 해석하지 않는 것이다.
-
-`InteractFlip` 확장 규칙:
-
-1. `Destination`에는 반드시 source와 orthogonal adjacent한 `Box`가 있어야 한다.
-2. `interactionDelta = Destination - source.position`을 계산한다.
-3. `landing = source.position - interactionDelta`를 계산한다.
-4. `landing`은 source와 orthogonal adjacent한 반대편 cell이어야 한다.
-5. `landing`이 board 밖이거나, `BlocksMovement` 기준 blocker가 있으면 실패다.
-6. `landing`에 다른 entity가 있고 그 entity가 같은 tick에 비워질 예정이어도, 판정 기준은 `S0`이므로 실패다.
-7. `source`가 서 있는 anchor cell은 transit occupancy로 취급하지 않는다.
-
-예:
-
-- 플레이어 `(0,0)`
-- 박스 `(-1,0)`
-- `InteractFlip(Left)`
-
-그러면 landing은 `(1,0)`이다.
-
-`ActionGroup` 표현:
-
-- `ActionGroupKind.Flip`을 추가한다.
-- flip 성공 후보는 하나의 `ActionGroup` 안에 같은 `Box entityId`에 대한 `MoveAction` 하나만 담는다.
-- 이 `MoveAction`은 `Box:(-1,0)->(1,0)`처럼 source anchor를 건너뛰는 비연속 landing을 표현한다.
-- authoritative simulation은 중간 `player cell` 점유를 만들지 않으므로, 별도 carry state나 임시 occupancy를 도입하지 않는다.
-
-이 표현을 쓰는 이유:
-
-- Committer는 기존 `MoveAction` 적용 경로를 재사용할 수 있다.
-- `Slide`처럼 경유 cell 예약을 하지 않아도 기능 의미를 온전히 표현할 수 있다.
-- 새 action type을 추가하지 않고도 "box만 이동하고 player는 정지"라는 결과를 명확히 표현할 수 있다.
-
-Resolver 규칙:
-
-- `Flip`도 기존 `destination reservation`과 `shared moved entity` 충돌 축은 유지한다.
-- 같은 `Box entityId`를 다른 `Flip`/`Slide`/`PushChain` 후보가 함께 움직이려 하면 later candidate를 reject한다.
-- `Flip`은 authoritative ground path를 가지지 않으므로, 초기 버전에서는 `edge reservation` 계산 대상에서 제외하는 것을 권장한다.
-- 즉, `Slide`의 경유 cell/edge 잠금 의미를 `Flip`에 억지로 재사용하지 않는다.
-- 이후 mid-air collision까지 열고 싶어지면 `edge reservation`이 아니라 별도 `TransitArcReservation` 같은 개념으로 분리한다.
-
-Commit 규칙:
-
-- `MovementCommitter`는 `Flip` group의 `MoveAction` 하나만 적용한다.
-- player source는 이동하지 않는다.
-- source의 facing은 interact direction으로 갱신한다.
-- box의 facing은 landing direction, 즉 `interactionDelta`의 반대 방향으로 갱신하는 것을 권장한다.
-- `Flip`은 `PhaseTransientBuffer`를 사용하지 않는다.
-- `Flip` 결과로 damage, destroy, spawn을 직접 만들지 않는다.
-
-`Slide` / `PushChain`과의 관계:
-
-- 일반 `Move`가 `Box`를 향해도 `Flip`으로 자동 승격하지 않는다.
-- `InteractSlide`와 `InteractFlip`은 명시적 command이며, 서로 fallback 관계를 만들지 않는다.
-- box 상호작용이 하나의 버튼에 묶여 있더라도, host나 mode layer가 tick 경계 전에 둘 중 하나를 선택해야 한다.
-- simulation core는 snapshot을 보고 "이번엔 slide가 더 맞다" 같은 추론을 하지 않는다.
-
-초기 비범위:
-
-- 한 번에 여러 박스를 넘기는 `BoxChainFlip`
-- 착지 후 추가 slide 연쇄
-- 공중 충돌, 공중 projectile 상호작용
-- 착지 damage, crush, trap 발동
-- landing cell이 같은 tick에 비워지는 경우를 허용하는 post-commit 재판정
-
-테스트 우선순위:
-
-- `PlayerLogic_InteractFlipCommand_ProducesSingleRawMovementIntent`
-- `Movement_BoxFlip_SucceedsWhenOppositeCellIsFree`
-- `Movement_BoxFlip_FailsWhenTargetIsNotAdjacentBox`
-- `Movement_BoxFlip_FailsWhenLandingCellIsBlocked`
-- `Movement_BoxFlip_FailsWhenLandingCellWouldOnlyBecomeFreeAfterLaterMove`
-- `Movement_BoxFlip_RejectsLaterCandidateThatMovesSameBox`
-- `Replay_BoxFlipScenario_ProducesSameHashTraceAndEventLog`
+- 문서의 예전 `InteractSlide` / `InteractFlip` command 이름은 history-only draft로 남긴다.
+- 현재 구현과 테스트의 authoritative meaning은 `Move`, `Throw`, `Interact(BoxSlide or LootDestroy)`, `BoxCapabilities`, `Movement -> Attack -> Cleanup`에 있다.
 
 ### 7-9-5. on-hit 확장 검토
 
@@ -1214,14 +1001,14 @@ Stage6에서 실제로 할 일:
 
 문서 순서와 현재 코드 상태를 함께 고려한 실제 순서는 아래가 맞다.
 
-1. `PushChain` 성공/실패와 shared-chain conflict를 먼저 연다.
+1. blocked move / projectile impact / box interaction 후보 분기를 먼저 연다.
 2. 그 다음 `MoveAction.Source`와 resolver 내부 `edge reservation`을 추가한다.
-3. `edge reservation`이 기존 `Move`, `ProjectileImpact`, `PushChain` 결정론을 깨지 않는지 replay로 고정한다.
+3. `edge reservation`이 기존 `Move`, `ProjectileImpact`, `BoxSlide`, `Throw` 결정론을 깨지 않는지 replay로 고정한다.
 4. `on-hit`은 구현보다 금지 경계와 delayed-event 방향만 문서화한다.
 
 이 순서를 지켜야 하는 이유:
 
-- `PushChain`이 먼저 열려야 `edge reservation`의 실제 적용 대상을 갖게 된다.
+- movement phase의 multi-move 후보가 먼저 열려야 `edge reservation`의 실제 적용 대상을 갖게 된다.
 - `edge reservation`을 먼저 열면 현재 one-step 구조에서는 실효성이 약하고 설계만 커진다.
 - `on-hit`을 먼저 열면 Commit 중간 intent 생성 금지 원칙을 깨기 쉽다.
 
@@ -1546,8 +1333,9 @@ current-state 메모:
 
 추가 current-state 메모:
 
-- `TickInput`은 현재 `tickIndex`만 가진 최소 구조다.
-- `ProjectileLogic`와 `ProjectileEntityLogicFactory`는 이미 존재하지만, `PlayerLogic` / `EnemyLogic` / `TerrainData`는 아직 없다.
+- `TickInput`은 현재 `tickIndex`와 `PlayerTickCommand` payload를 함께 가진다.
+- `ProjectileLogic`, `ProjectileEntityLogicFactory`, `PlayerLogic`는 이미 존재한다.
+- `EnemyLogic`와 `TerrainData`는 이 문서 기준으로 아직 target-state까지 정리되지 않았다.
 - `WorldState.CreateWriteContext()`는 `internal`이며, production runtime 경로에서는 `TickPipeline`이 사용하고, 테스트는 focused verification을 위해 직접 사용할 수 있다.
 - 따라서 "결정론 전투 코어"는 완료됐지만 "실제 runtime 조립 경로"와 "target-state 파일 분리"는 아직 닫히지 않았다.
 
@@ -2089,11 +1877,11 @@ runner가 plain class인 이유:
 1. New Input은 frame 단위로 샘플링한다.
 2. 샘플된 raw input은 host 계층에서 grid command로 양자화한다.
 3. 양자화된 command만 `TickInputBuffer`에 기록한다.
-4. simulation 계층은 `TickInput`만 보고 movement intent를 생성한다.
+4. simulation 계층은 `TickInput`만 보고 raw movement/attack intent를 생성한다.
 
 즉, 책임 경계는 아래 한 줄이다.
 
-`InputAction` -> host adapter -> grid command quantization -> `TickInputBuffer` -> `TickRunner` -> `PlayerLogic` -> `RawMovementIntent`
+`InputAction` -> host adapter -> grid command quantization -> `TickInputBuffer` -> `TickRunner` -> `PlayerLogic` -> raw movement/attack intents
 
 #### 15-15-1. 이번 슬라이스의 목표 범위
 
@@ -2101,10 +1889,12 @@ runner가 plain class인 이유:
 
 - 로컬 플레이어 1명
 - grid 4방향 이동
-- `Move` action만 사용
-- 1 tick당 최대 1개의 movement command
+- `Player/Move`, `Player/Interact`, `Player/Throw` action 사용
+- 1 tick당 movement phase에는 최대 1개의 player-generated raw movement intent
+- `Interact` 입력 시 같은 tick의 attack phase에는 `InteractLootDestroy` raw attack intent 1개 추가 가능
 - diagonal input 금지
-- attack / interact / look / jump는 이번 슬라이스에서 미사용
+- `Interact` / `Throw`는 box interaction 의미로 사용
+- 일반 combat attack, look, jump는 이번 슬라이스에서 미사용
 
 의도적으로 미루는 것:
 
@@ -2140,9 +1930,9 @@ New Input System은 `Vector2`를 연속적으로 제공하지만, deterministic 
 
 - keyboard WASD와 stick 입력을 같은 grid command로 수렴시킬 수 있다.
 - diagonal ambiguity를 host에서 제거할 수 있다.
-- simulation은 `Direction?` 수준의 command만 받으면 된다.
+- simulation은 `MoveDirection`과 `InteractPressed` / `ThrowPressed` 같은 flat command payload만 받으면 된다.
 
-#### 15-15-3. `TickInput` 목표 확장안
+#### 15-15-3. `TickInput` 구현 기준
 
 현재 `TickInput`은 `TickIndex`만 가진다.
 
@@ -2154,7 +1944,7 @@ public readonly struct TickInput
 }
 ```
 
-플레이어 이동을 위해 아래처럼 최소 확장을 권장한다.
+현재 구현은 아래처럼 player command를 flat payload로 확장한다.
 
 ```csharp
 public readonly struct TickInput
@@ -2168,15 +1958,16 @@ public readonly struct TickInput
 public readonly struct PlayerTickCommand
 {
     public Direction MoveDirection { get; }
-    public bool HasMove { get; }
+    public bool InteractPressed { get; }
+    public bool ThrowPressed { get; }
 }
 ```
 
-이번 단계에서 `PlayerTickCommand`를 별도 struct로 두는 이유:
+`PlayerTickCommand`를 별도 struct로 유지하는 이유:
 
-- 이후 attack / interact / confirm / cancel 같은 플레이어 명령을 같은 경계 안에서 확장하기 쉽다.
-- `TickInput`에 `moveDirection`, `attackPressed`, `interactPressed`를 평평하게 계속 붙이는 구조를 피할 수 있다.
-- replay/logging에서도 "이번 tick의 플레이어 명령"을 별도 단위로 다루기 쉽다.
+- 입력 샘플링 경계와 simulation 계층 사이 계약을 하나의 값 객체로 고정할 수 있다.
+- replay/logging에서 "이번 tick의 플레이어 명령"을 독립적으로 기록할 수 있다.
+- 이후 다른 플레이어 명령이 필요해져도 `TickInput` 자체를 흔들지 않고 확장할 수 있다.
 
 권장 위치:
 
@@ -2186,7 +1977,7 @@ public readonly struct PlayerTickCommand
 #### 15-15-4. `PlayerLogic` 역할 재정의
 
 이번 슬라이스에서 `PlayerLogic`은 "실제 입력 읽기"를 하지 않는다.
-`PlayerLogic`은 이미 양자화되어 `TickInput`에 담긴 명령을 읽고, 해당 플레이어 엔티티의 movement intent를 생성하는 순수 시뮬레이션 객체다.
+`PlayerLogic`은 이미 양자화되어 `TickInput`에 담긴 명령을 읽고, 해당 플레이어 엔티티의 raw intent를 생성하는 순수 시뮬레이션 객체다.
 
 권장 API 예시:
 
@@ -2197,16 +1988,17 @@ public sealed class PlayerLogic : IEntityLogic, IEntityLogicSourceBinding
 }
 ```
 
-`CollectMovementIntents(...)` 동작 규칙:
+`CollectMovementIntents(...)` / `CollectAttackIntents(...)` 동작 규칙:
 
-1. `input.PlayerCommand.HasMove == false`면 아무 intent도 생성하지 않는다.
-2. snapshot에서 자신의 entity를 찾지 못하면 생성하지 않는다.
-3. 사망 상태거나 `markedForDeath`면 생성하지 않는다.
-4. `MoveDirection`을 delta로 변환한다.
-5. 현재 좌표 + delta를 destination으로 한 `RawMovementIntent`를 하나 생성한다.
-6. priority는 player movement 기본 우선순위 상수로 고정한다.
+1. snapshot에서 자신의 entity를 찾지 못하면 생성하지 않는다.
+2. 사망 상태거나 `markedForDeath`면 생성하지 않는다.
+3. `InteractPressed`와 방향이 유효하면 `RawMovementIntent(CommandKind.Interact)`를 1개 만든다.
+4. `ThrowPressed`와 방향이 유효하면 `RawMovementIntent(CommandKind.Throw)`를 1개 만든다.
+5. 그 외 방향이 유효하면 `RawMovementIntent(CommandKind.Move)`를 1개 만든다.
+6. `InteractPressed`와 방향이 유효하면 `RawAttackIntent(InteractLootDestroy)`를 1개 만든다.
+7. priority는 player 기본 우선순위 상수로 고정한다.
 
-즉, `PlayerLogic`은 "명령 해석"은 하지만 "입력 샘플링"은 하지 않는다.
+즉, `PlayerLogic`은 "명령 해석"은 하지만 "입력 샘플링"이나 "월드 변형"은 하지 않는다.
 
 #### 15-15-5. New Input host adapter 설계
 
@@ -2216,6 +2008,8 @@ New Input System을 받는 Unity 계층은 deterministic asmdef 밖의 thin adap
 
 - `InputActionAsset` enable / disable
 - `Player/Move` action read
+- `Player/Interact` action read / buffer / pressed-state sample
+- `Player/Throw` action read / buffer / pressed-state sample
 - 현재 frame의 raw `Vector2` 보관
 - fixed-step 경계에서 다음 tick용 `PlayerTickCommand` 생성
 - `TickInputBuffer.Record(...)` 호출
@@ -2238,6 +2032,8 @@ public sealed class GameplayInputHost : MonoBehaviour
 - host는 `TickRunner`와 `TickInputBuffer`만 가진다.
 - input callback에서 즉시 simulation을 돌리지 않는다.
 - simulation 실행은 fixed-step tick 경계에서만 한다.
+- 현재 구현은 `Player/Throw` action을 우선 사용하고, 기존 input asset 호환을 위해 없을 때만 `Player/Flip`을 `Throw`의 fallback binding으로 허용한다.
+- 이 fallback은 host 계층의 asset compatibility일 뿐이며, simulation 경계 이후 의미는 항상 `ThrowPressed`다.
 
 #### 15-15-6. sampling과 hold-repeat 정책
 
@@ -2248,6 +2044,8 @@ grid movement에서 가장 중요한 것은 "버튼이 눌렸는가"보다 "이�
 - `Move` action은 hold를 허용한다.
 - 각 tick 경계에서 현재 `Move` vector를 읽어 그 순간의 direction을 계산한다.
 - direction이 있으면 그 tick에 movement attempt 1회를 기록한다.
+- `Interact` / `Throw`는 buffered input이 있거나 action이 현재 pressed 상태면 그 tick에 발행할 수 있다.
+- 단, direction이 없으면 `InteractPressed`, `ThrowPressed`는 commit payload에 기록하지 않는다.
 - direction이 없으면 빈 command를 기록하거나 default input으로 둔다.
 
 이 정책의 장점:
@@ -2272,10 +2070,12 @@ grid movement에서 가장 중요한 것은 "버튼이 눌렸는가"보다 "이�
 따라서 플레이어 입력이 들어와도 아래는 바뀌지 않는다.
 
 - blocked destination이면 이동 실패
-- pushchain 가능하면 pushchain 후보로 확장
-- interact slide command면 box slide 후보로 확장
-- interact flip command면 box flip 후보로 확장
-- shared chain 충돌이면 later candidate reject
+- player-generated `Move`는 `Unit`이나 `Box`를 자동 push로 승격하지 않는다.
+- `Interact` command는 `Pushable Box`에 대해서만 movement phase의 box slide 후보를 만들 수 있다.
+- `Interact` command는 `LootOnInteractDestroy Box`에 대해서는 attack phase의 interact 후보를 만든다.
+- `Throw` command는 `Throwable Box`에 대해서만 throw 후보로 확장된다.
+- generic/system movement도 `Unit` push를 열지 않는다.
+- shared moved entity 충돌이면 later candidate reject
 - cleanup/attack phase 순서
 
 즉, 입력이 추가되는 위치는 "intent 생산 계층"뿐이다.
@@ -2312,55 +2112,54 @@ var runner = GameplayCompositionRoot.CreateTickRunner(
 
 #### 15-15-9. box interaction 입력 확장안
 
-`15-15-3`의 최소 입력 모델은 movement만 여는 단계에는 충분하지만, `InteractSlide`와 `InteractFlip` 같은 box interaction을 열면 host가 "이 tick의 primary player command"를 하나로 결정해야 한다.
+현재 box interaction은 primary-command enum을 두지 않고, tick payload에 `MoveDirection`, `InteractPressed`, `ThrowPressed`를 함께 담는 구조로 고정한다.
 
-권장 확장:
+구현 기준:
 
 ```csharp
-public enum PlayerPrimaryCommandKind
-{
-    None = 0,
-    Move = 1,
-    InteractSlide = 2,
-    InteractFlip = 3,
-}
-
 public readonly struct PlayerTickCommand
 {
-    public PlayerPrimaryCommandKind PrimaryKind { get; }
-    public Direction Direction { get; }
+    public Direction MoveDirection { get; }
+    public bool InteractPressed { get; }
+    public bool ThrowPressed { get; }
 }
 ```
 
 host 결정 규칙:
 
 1. tick 경계에서 current move vector를 quantize한다.
-2. buffered `flip` input이 있고 direction이 유효하면 `InteractFlip(direction)`을 기록한다.
-3. `flip`이 없고 buffered `slide` input이 있으며 direction이 유효하면 `InteractSlide(direction)`을 기록한다.
-4. `slide`/`flip` input이 없고 direction이 유효하면 기존 hold-repeat 규칙에 따라 `Move(direction)`을 기록한다.
-5. 아무 primary command도 없으면 `None`을 기록한다.
+2. buffered `interact` input이 있거나 action이 현재 pressed 상태면 `InteractPressed = true`로 기록한다.
+3. buffered `throw` input이 있거나 action이 현재 pressed 상태면 `ThrowPressed = true`로 기록한다.
+4. direction이 유효하면 `MoveDirection`에 기록한다.
+5. 입력이 없으면 `default(PlayerTickCommand)`를 기록한다.
 
-이 설계를 쓰면 아래 경계가 유지된다.
+동일 tick에서 경계는 아래처럼 고정한다.
 
 - simulation 계층은 여전히 `TickInput`만 읽는다.
 - `PlayerLogic`은 여전히 intent 생산만 한다.
-- `InteractSlide`와 `InteractFlip`도 move와 같은 `Movement` phase 경로로 합류한다.
-- 같은 tick에 move와 box interaction이 동시에 primary intent로 생성되는 문제를 host에서 차단할 수 있다.
+- `Interact`는 host가 아니라 `PlayerLogic`에서 explicit `InteractIntent`로 변환된다.
+- `Throw`와 `Move`는 둘 다 `Movement` phase로 합류하지만, `Throw`가 `Move`보다 앞서 정렬된다.
+- `Interact`는 `Throw`, `Move`보다 앞서 정렬된다.
+- simulation core는 snapshot을 보고 상호작용 의미를 자동 추론하지 않는다.
 
 #### 15-15-10. 테스트 설계
 
 이번 입력 슬라이스를 구현할 때 아래 테스트를 권장한다.
 
 - `PlayerLogic_MoveCommand_ProducesSingleRawMovementIntent`
-- `PlayerLogic_InteractSlideCommand_ProducesSingleRawMovementIntent`
-- `PlayerLogic_InteractFlipCommand_ProducesSingleRawMovementIntent`
+- `PlayerLogic_ThrowCommand_ProducesSingleRawMovementIntent`
+- `PlayerLogic_InteractCommand_ProducesSingleRawAttackIntent`
+- `PlayerLogic_InteractInput_TakesPriorityOverThrowForMovementIntent`
 - `PlayerLogic_NoMoveCommand_ProducesNoIntent`
 - `PlayerLogic_DeadEntity_DoesNotProduceIntent`
 - `TickRunner_WithPlayerMoveInput_MovesPlayerOneCellPerTick`
-- `GameplayInputHost_InteractBufferedAtTickBoundary`
+- `GameplayInputHost_InteractBufferedAtTickBoundary_PrioritizesInteractOverMove`
+- `GameplayInputHost_ThrowBufferedAtTickBoundary_PrioritizesThrowOverMove`
 - `InputQuantizer_Vector2ToGridDirection_PicksDominantAxis`
 - `InputQuantizer_DiagonalTie_ReturnsNone`
 - `InputQuantizer_BelowDeadzone_ReturnsNone`
+- `Attack_InteractInput_BeatsBoxSlideForSameTickPlayerPayload`
+- `Movement_PlayerInput_ThrowBeatsMoveWhenBothArePresentInSameTickPayload`
 
 Unity host 계층 테스트는 최소화하고, 대부분을 순수 unit test로 유지한다.
 
@@ -2377,7 +2176,8 @@ New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한
 2. `PlayerLogic`을 추가한다.
 3. `PlayerLogic` unit test를 먼저 추가한다.
 4. host 계층의 input quantizer를 추가한다.
-5. `Assets/InputSystem_Actions.inputactions`의 `Player/Move`를 host에 연결한다.
+5. `Assets/InputSystem_Actions.inputactions`의 `Player/Move`, `Player/Interact`, `Player/Throw`를 host에 연결한다.
+   - 기존 asset에서는 `Player/Throw`가 없으면 host가 `Player/Flip`을 fallback으로 사용한다.
 6. scene host에서 `TickInputBuffer` / `TickRunner`와 연결한다.
 7. 마지막으로 실제 이동 플레이 테스트를 한다.
 
@@ -2392,11 +2192,12 @@ New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한
 현재 코드 기준으로는 아래처럼 읽는 것이 정확하다.
 
 - grid movement simulation 자체는 이미 가능하다.
-- `TickInputBuffer`와 `TickRunner`도 이미 존재한다.
-- 하지만 `TickInput`에 player command payload가 없고, `PlayerLogic`도 아직 없다.
-- 따라서 "플레이어가 New Input을 통해 실제로 grid 이동한다"는 최종 경로는 아직 미구현이다.
+- `TickInputBuffer`, `TickRunner`, `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`가 모두 존재한다.
+- 플레이어는 New Input을 통해 deterministic tick 경계에서 `Move`, `Interact`, `Throw`를 발행할 수 있다.
+- 현재 host는 `Player/Throw`를 우선 사용하고, 기존 input asset 호환을 위해 `Player/Flip`을 fallback binding으로 허용한다.
+- simulation 경계 이후에는 예전 `Flip` 의미를 따로 유지하지 않고 모두 `Throw` 의미로 정규화한다.
 
-즉, 현재 남은 본질은 movement rules가 아니라 "입력 경계와 player authority를 deterministic intent 생산 계층에 연결하는 작업"이다.
+즉, 현재 남은 본질은 기본 입력 경계 구현 자체가 아니라, legacy input asset 의존성을 얼마나 더 정리할지와 이후 UX/확장 범위를 어떻게 열지에 가깝다.
 
 #### 15-15-13. 이동 입력 Cooltime 설계
 

@@ -419,8 +419,7 @@ TickEnd
 
 - `Move`
 - `Push`
-- `Slide`
-- `Flip`
+- `Throw`
 - `ProjectileMove`
 
 ### 9-2. 입력 기준
@@ -433,9 +432,9 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 
 예:
 
-- `MoveIntent(Move) -> Move / PushChain / Stop`
-- `MoveIntent(InteractSlide) -> Slide / Fail`
-- `MoveIntent(InteractFlip) -> Flip / Fail`
+- `MoveIntent(Move) -> Move / Stop`
+- `InteractIntent -> BoxSlide / Fail`
+- `ThrowIntent -> Throw / Fail`
 - `ProjectileMoveIntent -> ProjectileMove / ImpactReservation`
 
 후보 생성 규칙:
@@ -444,27 +443,30 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - Intent 타입별 분기 순서는 문서와 테스트로 고정한다.
 - 후보 생성 후 정렬하고 `groupId`를 부여한다.
 
-### 9-4. PushChain 정책
+### 9-4. Direct Move Blocking 정책
 
-- `PushChain`은 Expander가 생성한다.
-- 체인 끝이 막혀 있으면 전체 실패다.
-- 부분 밀기 금지
-- 체인을 공유하는 후보끼리는 충돌이다.
+- 일반 `Move`는 점유된 `Unit`이나 `Box`를 밀지 않는다.
+- 플레이어가 생성한 `Move`는 box slide로도 자동 승격되지 않는다.
+- box 위치 변경은 `Interact(BoxSlide)`와 `Throw`로만 처리한다.
+- blocked destination이면 전체 실패다.
 - 같은 Intent에서는 최대 하나의 `ActionGroup`만 선택된다.
 
-### 9-5. BoxFlip 정책
+### 9-5. Box Interaction 정책
 
-- `BoxFlip`은 Expander가 생성하는 `Movement` 확장이다.
-- source entity는 제자리에 남고, 인접 `Box`만 source 반대편 인접 cell로 이동한다.
-- 성공/실패는 `S0` 기준으로만 판정한다.
-- target은 orthogonal adjacent `Box`여야 한다.
-- landing cell은 `source.position - (target.position - source.position)`으로 계산한다.
-- landing cell이 유효하지 않거나 `BlocksMovement` 기준 blocker가 있으면 전체 실패다.
-- source가 서 있는 anchor cell은 authoritative occupancy 경로에 포함하지 않는다.
-- 즉, box가 source cell을 중간 점유하는 same-tick state는 기록하지 않는다.
-- `Flip`은 slide처럼 step-by-step 경로 예약을 만들지 않는다.
-- 같은 Intent에서는 최대 하나의 `ActionGroup`만 선택된다.
-- `BoxFlip`은 damage, destroy, spawn, `PhaseTransientBuffer`를 직접 만들지 않는다.
+- `Box` 능력은 분산 bool이 아니라 `BoxCapabilities` flag로 표현한다.
+- 플레이어가 밀 수 있는 것은 오직 `Box`다.
+- 플레이어의 `Move`는 `Unit`도 `Pushable` 박스도 밀지 않는다.
+- `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
+- `Movement` phase는 `Interact`에 의한 single-target `BoxSlide`와 `Throwable` 박스에 대한 `Throw`만 처리한다.
+- `Interact`는 인접 `Pushable` 박스 1개만 대상으로 삼는다.
+- `BoxSlide`는 interaction 방향 ray 위의 가장 가까운 non-projectile stopper 직전까지 박스를 이동시킨다.
+- stopper가 없거나 stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
+- `BoxSlide` 동안 player source는 anchor cell에 남는다.
+- `Throw`는 source entity를 고정한 채 인접 박스를 source 반대편 인접 cell로 이동시키는 movement 확장이다.
+- `Throw` 성공/실패는 `S0` 기준으로만 판정한다.
+- `Interact`는 `Movement`와 `Attack`에 모두 걸치지만, box slide는 `Movement`, loot-destroy는 `Attack`이 처리한다.
+- `LootOnInteractDestroy`가 있는 박스에 대한 `Interact` 성공 시 loot 이벤트와 `MarkDestroy`만 기록한다.
+- 실제 제거와 occupancy 정리는 반드시 `Cleanup`에서만 수행한다.
 
 ### 9-6. Projectile 정책
 
@@ -499,6 +501,7 @@ Movement Commit은 선택된 이동 그룹만 적용한다.
 
 ### 10-1. 역할
 
+- `Interact`
 - `Attack`
 - `Laser`
 - `FireProjectile`
@@ -516,6 +519,7 @@ Movement Commit은 선택된 이동 그룹만 적용한다.
 - Attack Phase 시작 시 살아 있는 엔티티만 Attack Intent를 생성할 수 있다.
 - Attack Commit 중간에 죽더라도 이미 생성된 후보는 유지한다.
 - 같은 엔티티가 이동 후 공격하는 것은 허용한다.
+- `InteractIntent`는 플레이어 입력이 직접 생성한 raw intent만 사용한다.
 - `ImpactReservation`은 EntityLogic이 생성하는 Attack Intent가 아니라 Movement 결과로 넘어오는 system-generated input이다.
 - Attack Phase에서 Spawn된 엔티티는 같은 Tick에 새 Intent를 생성하지 않는다.
 
@@ -653,7 +657,7 @@ Assets/_Features/Gameplay/
 예:
 
 - `Move` 후보를 먼저 내는가
-- `PushChain` 후보를 먼저 내는가
+- `BoxSlide` 후보를 먼저 내는가
 - `Stop` 후보를 언제 추가하는가
 
 권장:
@@ -730,7 +734,7 @@ Assets/_Features/Gameplay/
 
 1. `WorldState`, `WorldSnapshot`, `TickPipeline`, `TickResult` 뼈대 작성
 2. `PhaseTransientBuffer`, raw intent 수집, post-sort ID 발급 구현
-3. `Unit` / `Projectile` 2계층 occupancy와 `PushChain` 구현
+3. `Unit` / `Projectile` 2계층 occupancy와 movement blocking 규칙 구현
 4. Attack Phase와 `ImpactReservation` 소비 구현
 5. Cleanup과 상태 전이 구현
 6. ViewBridge와 리플레이 테스트 구축
