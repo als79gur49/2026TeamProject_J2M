@@ -141,6 +141,7 @@ namespace Game.Feature.Gameplay.Host
                 type = EntityType.Box,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
+                boxCapabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
             };
         }
     }

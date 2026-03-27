@@ -79,16 +79,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 1),
-                    (SourceId: 20, IntentId: 2),
+                    (SourceId: 20, IntentId: 1),
+                    (SourceId: 10, IntentId: 2),
                 },
                 result.MovementPhaseResult.SortedIntents.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 3),
-                    (SourceId: 20, IntentId: 4),
+                    (SourceId: 20, IntentId: 3),
+                    (SourceId: 10, IntentId: 4),
                 },
                 result.AttackPhaseResult.SortedInputs.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
         }
@@ -576,8 +576,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     (SourceId: 1, Kind: AttackInputKind.EntityIntent, Sequence: 0),
-                    (SourceId: 1, Kind: AttackInputKind.ImpactReservation, Sequence: 2),
                     (SourceId: 2, Kind: AttackInputKind.EntityIntent, Sequence: 0),
+                    (SourceId: 1, Kind: AttackInputKind.ImpactReservation, Sequence: 2),
                 },
                 sortedInputs.Select(intent => (intent.SourceId, intent.InputKind, intent.LocalSequence)).ToArray());
         }
@@ -626,7 +626,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             sortedIntents.Sort(IntentComparer.Instance);
 
             CollectionAssert.AreEqual(
-                new Intent[] { first, second, third },
+                new Intent[] { second, third, first },
                 sortedIntents);
         }
 
@@ -801,6 +801,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             public void CollectAttackIntents(
                 WorldSnapshot snapshot,
+                in TickInput input,
                 List<RawAttackIntent> buffer)
             {
                 if (_attackIntent.HasValue)

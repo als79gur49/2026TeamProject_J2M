@@ -63,7 +63,7 @@ namespace Game.Feature.Gameplay.Entities
                     source.position + delta.Value));
         }
 
-        public void CollectAttackIntents(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
+        public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
         {
             if (snapshot == null)
             {

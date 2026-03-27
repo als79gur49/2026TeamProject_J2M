@@ -86,6 +86,7 @@ namespace Game.Feature.Gameplay.Loop
             var attackSnapshot = SnapshotBuilder.Create(_worldState);
             var attackPhaseResult = RunAttackPhase(
                 attackSnapshot,
+                in input,
                 entityLogicsForTick,
                 transientBuffer,
                 drainedDelayedAttackEffects,
@@ -180,6 +181,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private AttackPhaseResult RunAttackPhase(
             WorldSnapshot snapshot,
+            in TickInput input,
             IReadOnlyList<IEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
             List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
@@ -190,7 +192,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             phaseTrace.Add("Attack:Enter");
             var rawAttackIntents = new List<RawAttackIntent>();
-            _attackIntentCollector.Collect(snapshot, entityLogics, rawAttackIntents);
+            _attackIntentCollector.Collect(snapshot, in input, entityLogics, rawAttackIntents);
             var drainedImpactReservations = transientBuffer.DrainImpacts();
             var sortedInputs = NormalizeAttackInputs(rawAttackIntents, drainedImpactReservations, drainedDelayedAttackEffects);
             var expandedCandidates = new List<ActionGroup>();
@@ -258,7 +260,24 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < rawMovementIntents.Count; i++)
             {
                 var rawIntent = rawMovementIntents[i];
-                var moveIntent = new MoveIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.Destination, rawIntent.CommandKind);
+                MoveIntent moveIntent = rawIntent.CommandKind switch
+                {
+                    Movement.MovementCommandKind.Interact => new InteractMoveIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.Destination,
+                        rawIntent.LocalSequence),
+                    Movement.MovementCommandKind.Throw => new ThrowIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.Destination,
+                        rawIntent.LocalSequence),
+                    _ => new MoveIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.Destination,
+                        rawIntent.LocalSequence),
+                };
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);
             }

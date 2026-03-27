@@ -1,9 +1,12 @@
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
@@ -37,7 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_InteractSlideCommand_ProducesSingleRawMovementIntent()
+        public void PlayerLogic_ThrowCommand_ProducesSingleRawMovementIntent()
         {
             var worldState = GameplayCompositionRoot.CreateWorldState(new[]
             {
@@ -48,19 +51,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.InteractSlide(Direction.Right)),
+                new TickInput(1, PlayerTickCommand.Throw(Direction.Right)),
                 buffer);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.InteractSlide),
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Throw),
                 },
                 buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
         }
 
         [Test]
-        public void PlayerLogic_InteractFlipCommand_ProducesSingleRawMovementIntent()
+        public void PlayerLogic_InteractCommand_ProducesSingleRawMovementIntent()
         {
             var worldState = GameplayCompositionRoot.CreateWorldState(new[]
             {
@@ -71,15 +74,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)),
+                new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
                 buffer);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Destination: new Vector2Int(-1, 0), Command: MovementCommandKind.InteractFlip),
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Interact),
                 },
                 buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+        }
+
+        [Test]
+        public void PlayerLogic_InteractCommand_ProducesSingleRawAttackIntent()
+        {
+            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawAttackIntent>();
+
+            logic.CollectAttackIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Interact(Direction.Left)),
+                buffer);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, TargetCell: new Vector2Int(-1, 0), Command: AttackCommandKind.InteractLootDestroy),
+                },
+                buffer.Select(intent => (intent.SourceId, intent.TargetCell, intent.CommandKind)).ToArray());
+        }
+
+        [Test]
+        public void PlayerLogic_InteractInput_TakesPriorityOverThrowForMovementIntent()
+        {
+            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+            });
+            var logic = new PlayerLogic(entityId: 10);
+            var movementBuffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(
+                    1,
+                    PlayerTickCommand.Create(
+                        Direction.Right,
+                        interactPressed: true,
+                        throwPressed: true)),
+                movementBuffer);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Interact),
+                },
+                movementBuffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
         }
 
         [Test]
@@ -119,6 +173,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerLogic_ControlsEntity_ForMovementAndAttackPhases()
+        {
+            var logic = new PlayerLogic(entityId: 10);
+
+            Assert.That(logic.ControlsEntity(10, TickPhase.Movement), Is.True);
+            Assert.That(logic.ControlsEntity(10, TickPhase.Attack), Is.True);
+            Assert.That(logic.ControlsEntity(10, TickPhase.Cleanup), Is.False);
+            Assert.That(logic.ControlsEntity(20, TickPhase.Movement), Is.False);
+            Assert.That(logic.ControlsEntity(20, TickPhase.Attack), Is.False);
+        }
+
+        [Test]
         public void InputQuantizer_Vector2ToGridDirection_PicksDominantAxis()
         {
             var direction = GridMoveInputQuantizer.Quantize(new Vector2(0.8f, 0.2f), deadzone: 0.5f);
@@ -152,7 +218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var command = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
 
-            AssertCommand(command, PlayerPrimaryCommandKind.Move, Direction.Right);
+            AssertCommand(command, expectedDirection: Direction.Right);
         }
 
         [Test]
@@ -167,9 +233,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Right);
             var thirdTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
 
-            AssertCommand(firstTick, PlayerPrimaryCommandKind.Move, Direction.Right);
-            AssertCommand(secondTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(thirdTick, PlayerPrimaryCommandKind.Move, Direction.Right);
+            AssertCommand(firstTick, expectedDirection: Direction.Right);
+            AssertCommand(secondTick, expectedDirection: Direction.None);
+            AssertCommand(thirdTick, expectedDirection: Direction.Right);
         }
 
         [Test]
@@ -183,8 +249,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var firstTick = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
             var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Up);
 
-            AssertCommand(firstTick, PlayerPrimaryCommandKind.Move, Direction.Right);
-            AssertCommand(secondTick, PlayerPrimaryCommandKind.Move, Direction.Up);
+            AssertCommand(firstTick, expectedDirection: Direction.Right);
+            AssertCommand(secondTick, expectedDirection: Direction.Up);
         }
 
         [Test]
@@ -199,9 +265,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Right);
             var thirdTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
 
-            AssertCommand(firstTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(secondTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(thirdTick, PlayerPrimaryCommandKind.Move, Direction.Right);
+            AssertCommand(firstTick, expectedDirection: Direction.None);
+            AssertCommand(secondTick, expectedDirection: Direction.None);
+            AssertCommand(thirdTick, expectedDirection: Direction.Right);
         }
 
         [Test]
@@ -216,9 +282,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resetTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.None);
             var resumedTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
 
-            AssertCommand(firstTick, PlayerPrimaryCommandKind.Move, Direction.Right);
-            AssertCommand(resetTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(resumedTick, PlayerPrimaryCommandKind.Move, Direction.Right);
+            AssertCommand(firstTick, expectedDirection: Direction.Right);
+            AssertCommand(resetTick, expectedDirection: Direction.None);
+            AssertCommand(resumedTick, expectedDirection: Direction.Right);
         }
 
         [Test]
@@ -236,21 +302,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var delayedDirectionTick = cooldown.BuildCommand(currentTick: 5, quantizedDirection: Direction.Up);
             var issuedDirectionTick = cooldown.BuildCommand(currentTick: 6, quantizedDirection: Direction.Up);
 
-            AssertCommand(firstTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(secondTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(thirdTick, PlayerPrimaryCommandKind.Move, Direction.Right);
-            AssertCommand(directionChangeTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(delayedDirectionTick, PlayerPrimaryCommandKind.None, Direction.None);
-            AssertCommand(issuedDirectionTick, PlayerPrimaryCommandKind.Move, Direction.Up);
+            AssertCommand(firstTick, expectedDirection: Direction.None);
+            AssertCommand(secondTick, expectedDirection: Direction.None);
+            AssertCommand(thirdTick, expectedDirection: Direction.Right);
+            AssertCommand(directionChangeTick, expectedDirection: Direction.None);
+            AssertCommand(delayedDirectionTick, expectedDirection: Direction.None);
+            AssertCommand(issuedDirectionTick, expectedDirection: Direction.Up);
         }
 
         private static void AssertCommand(
             PlayerTickCommand command,
-            PlayerPrimaryCommandKind expectedKind,
             Direction expectedDirection)
         {
-            Assert.That(command.PrimaryKind, Is.EqualTo(expectedKind));
-            Assert.That(command.Direction, Is.EqualTo(expectedDirection));
+            Assert.That(command.MoveDirection, Is.EqualTo(expectedDirection));
+            Assert.That(command.InteractPressed, Is.False);
+            Assert.That(command.ThrowPressed, Is.False);
         }
 
         private static EntityState CreateUnit(

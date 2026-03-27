@@ -44,7 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
                     "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
                     "DamageCommitted|G=2|I=2|Target=30|Amount=1",
-                    "DestroyMarked|G=2|I=2|Target=30|FinalHp=0",
+                    "DestroyMarked|G=2|I=2|Target=30|FinalHp=0|Condition=WhenHpDepleted",
                     "CleanupRemoved|E=30",
                     "StateTransitioned|E=10|From=Acting|To=Idle|Timer=0",
                 },
@@ -104,10 +104,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
-        public void Replay_PushChainScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_ScriptedMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog()
         {
-            var firstReplay = RunPushChainReplaySequence();
-            var secondReplay = RunPushChainReplaySequence();
+            var firstReplay = RunScriptedMoveIntoUnitBlockedReplaySequence();
+            var secondReplay = RunScriptedMoveIntoUnitBlockedReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -121,10 +121,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=PushChain"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(2,0)->(3,0):Right,E=20:(1,0)->(2,0):Right,E=10:(0,0)->(1,0):Right]"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(3,0)|Facing=Right"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Reason=BlockedDestination|Cell=(1,0)"));
+            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
 
         [Test]
@@ -145,19 +145,18 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Slide"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(1,0)->(2,0):Right,E=30:(2,0)->(3,0):Right]"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FacingCommitted|G=1|I=1|E=10|Facing=Right"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=BoxSlide"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(2,0)|Facing=Right"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(3,0)|Facing=Right"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(3,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(3,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Pushable"));
         }
 
         [Test]
-        public void Replay_BoxFlipScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_PlayerMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog()
         {
-            var firstReplay = RunBoxFlipReplaySequence();
-            var secondReplay = RunBoxFlipReplaySequence();
+            var firstReplay = RunPlayerMoveIntoUnitBlockedReplaySequence();
+            var secondReplay = RunPlayerMoveIntoUnitBlockedReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -171,12 +170,61 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Flip"));
+            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+        }
+
+        [Test]
+        public void Replay_BoxInteractDestroyScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunBoxInteractDestroyReplaySequence();
+            var secondReplay = RunBoxInteractDestroyReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=InteractLootDestroy"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Command=Interact"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("LootGranted|G=1|I=2|Source=10|Target=30|Loot=BoxInteractDestroy"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=30"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=30|"));
+        }
+
+        [Test]
+        public void Replay_BoxThrowScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunBoxThrowReplaySequence();
+            var secondReplay = RunBoxThrowReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Throw"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("FacingCommitted|G=1|I=1|E=10|Facing=Left"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left|Marked=0|SpawnTick=0"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Throwable"));
         }
 
         [Test]
@@ -377,13 +425,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunPushChainReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunScriptedMoveIntoUnitBlockedReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
-                CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
             });
             var entityLogics = new IEntityLogic[]
             {
@@ -431,13 +478,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
+        private static IReadOnlyList<TickReplayFrame> RunBoxInteractDestroyReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.LootOnInteractDestroy),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
+                });
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunBoxSlideReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
-                CreateWall(entityId: 40, position: new Vector2Int(4, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable, facing: Direction.Left),
+                CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
             });
 
             return new TickReplayHarness().Run(
@@ -448,16 +515,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.InteractSlide(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunBoxFlipReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunPlayerMoveIntoUnitBlockedReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                CreateBox(entityId: 30, position: new Vector2Int(-1, 0)),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
             });
 
             return new TickReplayHarness().Run(
@@ -468,7 +535,27 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.InteractFlip(Direction.Left)),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunBoxThrowReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Throwable),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Throw(Direction.Left)),
                 });
         }
 
@@ -598,7 +685,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
             };
         }
 
-        private static EntityState CreateBox(int entityId, Vector2Int position)
+        private static EntityState CreateBox(
+            int entityId,
+            Vector2Int position,
+            BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
+            Direction facing = Direction.Left)
         {
             return new EntityState
             {
@@ -610,9 +701,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 type = EntityType.Box,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
-                facing = Direction.Left,
+                facing = facing,
                 markedForDeath = false,
                 spawnTick = 0,
+                boxCapabilities = capabilities,
             };
         }
 
@@ -683,7 +775,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }
             }
 
-            public void CollectAttackIntents(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
+            public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
             {
                 if (!snapshot.TryGetEntity(_sourceId, out var source) || source.hp <= 0 || source.markedForDeath)
                 {

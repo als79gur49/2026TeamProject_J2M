@@ -5,51 +5,95 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Intents
 {
-    public sealed class MoveIntent : Intent
+    public class MoveIntent : Intent
     {
         public MoveIntent(int sourceId, int priority)
-            : this(sourceId, priority, Vector2Int.zero, MovementCommandKind.Move)
+            : this(sourceId, priority, Vector2Int.zero, 0)
         {
         }
 
         public MoveIntent(int sourceId, int priority, Vector2Int destination)
-            : this(sourceId, priority, destination, MovementCommandKind.Move)
+            : this(sourceId, priority, destination, 0)
         {
         }
 
-        public MoveIntent(int sourceId, int priority, Vector2Int destination, MovementCommandKind commandKind)
+        public MoveIntent(int sourceId, int priority, Vector2Int destination, int localSequence = 0)
+            : this(sourceId, priority, destination, MovementCommandKind.Move, localSequence)
+        {
+        }
+
+        protected MoveIntent(
+            int sourceId,
+            int priority,
+            Vector2Int destination,
+            MovementCommandKind commandKind,
+            int localSequence)
             : base(sourceId, priority, TickPhase.Movement)
         {
             Destination = destination;
             CommandKind = commandKind;
+            LocalSequence = localSequence;
         }
 
         public Vector2Int Destination { get; }
 
         public MovementCommandKind CommandKind { get; }
 
+        public int LocalSequence { get; }
+
         protected internal override int GetTypeSortKey()
         {
-            return 0;
+            return 2;
+        }
+
+        protected internal override bool TryGetTargetCell(out Vector2Int targetCell)
+        {
+            targetCell = Destination;
+            return true;
+        }
+
+        protected internal override int GetLocalSequence()
+        {
+            return LocalSequence;
         }
 
         protected internal override int CompareSameType(Intent other)
         {
-            var otherMove = (MoveIntent)other;
+            return 0;
+        }
+    }
 
-            var result = ((int)CommandKind).CompareTo((int)otherMove.CommandKind);
-            if (result != 0)
-            {
-                return result;
-            }
+    public sealed class InteractMoveIntent : MoveIntent
+    {
+        public InteractMoveIntent(
+            int sourceId,
+            int priority,
+            Vector2Int destination,
+            int localSequence = 0)
+            : base(sourceId, priority, destination, MovementCommandKind.Interact, localSequence)
+        {
+        }
 
-            result = Destination.x.CompareTo(otherMove.Destination.x);
-            if (result != 0)
-            {
-                return result;
-            }
+        protected internal override int GetTypeSortKey()
+        {
+            return 0;
+        }
+    }
 
-            return Destination.y.CompareTo(otherMove.Destination.y);
+    public sealed class ThrowIntent : MoveIntent
+    {
+        public ThrowIntent(
+            int sourceId,
+            int priority,
+            Vector2Int destination,
+            int localSequence = 0)
+            : base(sourceId, priority, destination, MovementCommandKind.Throw, localSequence)
+        {
+        }
+
+        protected internal override int GetTypeSortKey()
+        {
+            return 1;
         }
     }
 }

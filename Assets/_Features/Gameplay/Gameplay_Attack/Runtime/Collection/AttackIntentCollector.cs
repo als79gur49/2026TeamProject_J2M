@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Attack.Collection
 {
@@ -9,6 +10,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
     {
         public void Collect(
             WorldSnapshot snapshot,
+            in TickInput input,
             IReadOnlyList<IEntityLogic> entityLogics,
             List<RawAttackIntent> buffer)
         {
@@ -31,7 +33,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
             for (var i = 0; i < entityLogics.Count; i++)
             {
-                entityLogics[i].CollectAttackIntents(snapshot, buffer);
+                entityLogics[i].CollectAttackIntents(snapshot, in input, buffer);
             }
 
             FilterDeadSources(snapshot, buffer);

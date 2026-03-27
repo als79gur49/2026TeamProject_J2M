@@ -79,7 +79,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entity.stateTimer).Append('|')
                     .Append((int)entity.facing).Append('|')
                     .Append(entity.markedForDeath ? 1 : 0).Append('|')
-                    .Append(entity.spawnTick).Append('\n');
+                    .Append(entity.spawnTick).Append('|')
+                    .Append((int)entity.boxCapabilities).Append('\n');
             }
         }
 

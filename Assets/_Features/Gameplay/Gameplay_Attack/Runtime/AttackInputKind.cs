@@ -2,8 +2,9 @@ namespace Game.Feature.Gameplay.Attack
 {
     public enum AttackInputKind
     {
-        EntityIntent = 0,
-        ImpactReservation = 1,
-        DelayedEffect = 2,
+        InteractIntent = 0,
+        EntityIntent = 1,
+        ImpactReservation = 2,
+        DelayedEffect = 3,
     }
 }

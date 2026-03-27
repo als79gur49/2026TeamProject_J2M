@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Entities
 
         void CollectAttackIntents(
             WorldSnapshot snapshot,
+            in TickInput input,
             List<RawAttackIntent> buffer);
     }
 

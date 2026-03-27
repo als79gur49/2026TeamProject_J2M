@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Entities
 {
     public sealed class PlayerLogic : IEntityLogic, IEntityLogicSourceBinding
     {
-        private const int DefaultMovementPriority = 100;
+        private const int DefaultCommandPriority = 100;
 
         private readonly int _entityId;
 
@@ -51,27 +51,47 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            var commandKind = ResolveCommandKind(input.PlayerCommand.PrimaryKind);
-            if (!commandKind.HasValue)
+            if (!TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
             {
                 return;
             }
 
-            if (!TryResolveDelta(input.PlayerCommand.Direction, out var delta))
+            if (input.PlayerCommand.InteractPressed)
             {
+                buffer.Add(
+                    new RawMovementIntent(
+                        entity.entityId,
+                        DefaultCommandPriority,
+                        entity.position + delta,
+                        MovementCommandKind.Interact,
+                        localSequence: 0));
+                return;
+            }
+
+            if (input.PlayerCommand.ThrowPressed)
+            {
+                buffer.Add(
+                    new RawMovementIntent(
+                        entity.entityId,
+                        DefaultCommandPriority,
+                        entity.position + delta,
+                        MovementCommandKind.Throw,
+                        localSequence: 0));
                 return;
             }
 
             buffer.Add(
                 new RawMovementIntent(
                     entity.entityId,
-                    DefaultMovementPriority,
+                    DefaultCommandPriority,
                     entity.position + delta,
-                    commandKind.Value));
+                    MovementCommandKind.Move,
+                    localSequence: 0));
         }
 
         public void CollectAttackIntents(
             WorldSnapshot snapshot,
+            in TickInput input,
             List<RawAttackIntent> buffer)
         {
             if (snapshot == null)
@@ -83,29 +103,38 @@ namespace Game.Feature.Gameplay.Entities
             {
                 throw new ArgumentNullException(nameof(buffer));
             }
+
+            if (!snapshot.TryGetEntity(_entityId, out var entity))
+            {
+                return;
+            }
+
+            if (entity.hp <= 0 || entity.markedForDeath)
+            {
+                return;
+            }
+
+            if (!input.PlayerCommand.InteractPressed)
+            {
+                return;
+            }
+
+            if (!TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
+            {
+                return;
+            }
+
+            buffer.Add(
+                RawAttackIntent.CreateInteractLootDestroy(
+                    entity.entityId,
+                    DefaultCommandPriority,
+                    entity.position + delta));
         }
 
         public bool ControlsEntity(int entityId, TickPhase phase)
         {
-            return phase == TickPhase.Movement && entityId == _entityId;
-        }
-
-        private static MovementCommandKind? ResolveCommandKind(PlayerPrimaryCommandKind primaryKind)
-        {
-            switch (primaryKind)
-            {
-                case PlayerPrimaryCommandKind.Move:
-                    return MovementCommandKind.Move;
-
-                case PlayerPrimaryCommandKind.InteractSlide:
-                    return MovementCommandKind.InteractSlide;
-
-                case PlayerPrimaryCommandKind.InteractFlip:
-                    return MovementCommandKind.InteractFlip;
-
-                default:
-                    return null;
-            }
+            return entityId == _entityId &&
+                   (phase == TickPhase.Movement || phase == TickPhase.Attack);
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

@@ -45,6 +45,12 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             for (var i = 0; i < sortedInputs.Count; i++)
             {
                 var intent = sortedInputs[i];
+                if (intent.CommandKind == AttackCommandKind.InteractLootDestroy)
+                {
+                    ExpandInteractLootDestroy(snapshot, intent, buffer, rejectedReasons);
+                    continue;
+                }
+
                 if (intent.CommandKind == AttackCommandKind.ImpactReservation)
                 {
                     ExpandSyntheticImpact(snapshot, intent, buffer, rejectedReasons);
@@ -122,6 +128,70 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 actionGroup.Destroys.Add(new DestroyAction(intent.TargetId));
                 buffer.Add(actionGroup);
             }
+        }
+
+        private static void ExpandInteractLootDestroy(
+            WorldSnapshot snapshot,
+            AttackIntent intent,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            if (intent is not InteractIntent || !intent.HasTargetCell)
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=MissingInteractTargetCell|Kind={intent.InputKind}|LocalSequence={intent.LocalSequence}");
+                return;
+            }
+
+            if (!snapshot.TryGetEntity(intent.SourceId, out var source))
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=MissingSource");
+                return;
+            }
+
+            if (source.hp <= 0 || source.markedForDeath)
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=SourceNotAttackCapable|Hp={source.hp}|Marked={source.markedForDeath}");
+                return;
+            }
+
+            if (!IsOrthogonallyAdjacent(source.position, intent.TargetCell))
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=InteractTargetNotAdjacent|SourceCell=({source.position.x},{source.position.y})|TargetCell=({intent.TargetCell.x},{intent.TargetCell.y})");
+                return;
+            }
+
+            if (!snapshot.TryGetUnitAt(intent.TargetCell, out var target) || target.type != EntityType.Box)
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=InteractTargetNotBox|TargetCell=({intent.TargetCell.x},{intent.TargetCell.y})|Target={target.entityId}|Type={target.type}");
+                return;
+            }
+
+            if ((target.boxCapabilities & BoxCapabilities.LootOnInteractDestroy) != BoxCapabilities.LootOnInteractDestroy)
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=InteractTargetMissingLootCapability|Target={target.entityId}|Capabilities={target.boxCapabilities}");
+                return;
+            }
+
+            if (!snapshot.CanBeTargetedForNewSelection(target.entityId))
+            {
+                rejectedReasons.Add(
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Reason=TargetNotSelectable|Target={target.entityId}");
+                return;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.InteractLootDestroy);
+            actionGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
+            buffer.Add(actionGroup);
         }
 
         private static void ExpandSyntheticImpact(

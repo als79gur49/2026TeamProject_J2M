@@ -39,7 +39,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             buffer.Clear();
             rejectedReasons.Clear();
-
             var orderedEntities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(orderedEntities);
 
@@ -58,16 +57,16 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
                 switch (intent.CommandKind)
                 {
+                    case MovementCommandKind.Interact:
+                        TryExpandInteract(snapshot, entity, intent, orderedEntities, buffer, rejectedReasons);
+                        break;
+
                     case MovementCommandKind.Move:
                         ExpandMove(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
-                    case MovementCommandKind.InteractSlide:
-                        TryExpandInteractSlide(snapshot, entity, intent, orderedEntities, buffer, rejectedReasons);
-                        break;
-
-                    case MovementCommandKind.InteractFlip:
-                        TryExpandInteractFlip(snapshot, entity, intent, buffer, rejectedReasons);
+                    case MovementCommandKind.Throw:
+                        TryExpandThrow(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
                     default:
@@ -96,8 +95,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 }
                 else
                 {
-                    TryExpandPushChain(snapshot, entity, intent, destinationEntity, buffer, rejectedReasons);
-                    return;
+                    // Move never upgrades into unit push. Occupied unit cells remain blocked.
                 }
             }
 
@@ -129,7 +127,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             buffer.Add(actionGroup);
         }
 
-        private static void TryExpandInteractSlide(
+        private static void TryExpandInteract(
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
@@ -140,19 +138,31 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (!snapshot.TryGetUnitAt(intent.Destination, out var target) || target.type != EntityType.Box)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideTargetNotBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}");
                 return;
             }
 
-            var delta = intent.Destination - source.position;
-            if (!TryFindNearestSlideStopper(target.position, delta, orderedEntities, out var stopper))
+            if (HasBoxCapability(target, BoxCapabilities.LootOnInteractDestroy))
+            {
+                return;
+            }
+
+            if (!HasBoxCapability(target, BoxCapabilities.Pushable))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotPushableBox|Cell=({target.position.x},{target.position.y})|Target={target.entityId}|Capabilities={target.boxCapabilities}");
+                return;
+            }
+
+            var slideDelta = intent.Destination - source.position;
+            if (!TryFindNearestSlideStopper(target.position, slideDelta, orderedEntities, out var stopper))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideRayHasNoStopper|Cell=({target.position.x},{target.position.y})|Direction={ResolveFacing(source.position, intent.Destination)}");
                 return;
             }
 
-            var destination = stopper.position - delta;
+            var destination = stopper.position - slideDelta;
             if (destination == target.position)
             {
                 rejectedReasons.Add(
@@ -165,39 +175,46 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.IntentId,
                 intent.SourceId,
                 intent.Priority,
-                ActionGroupKind.Slide);
+                ActionGroupKind.BoxSlide);
 
             var currentCell = target.position;
             while (currentCell != destination)
             {
-                var nextCell = currentCell + delta;
-                actionGroup.Moves.Add(new MoveAction(target.entityId, currentCell, nextCell, slideFacing));
+                var nextCell = currentCell + slideDelta;
+                actionGroup.Moves.Add(
+                    new MoveAction(
+                        target.entityId,
+                        currentCell,
+                        nextCell,
+                        slideFacing));
                 currentCell = nextCell;
             }
 
             buffer.Add(actionGroup);
         }
 
-        private static void TryExpandInteractFlip(
+        private static void TryExpandThrow(
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            if (!snapshot.TryGetUnitAt(intent.Destination, out var target) || target.type != EntityType.Box)
+            if (!snapshot.TryGetUnitAt(intent.Destination, out var target) ||
+                target.type != EntityType.Box ||
+                !HasBoxCapability(target, BoxCapabilities.Throwable))
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ThrowTargetNotThrowableBox|Cell=({intent.Destination.x},{intent.Destination.y})|Target={target.entityId}|Type={target.type}|Capabilities={target.boxCapabilities}");
                 return;
             }
 
             var interactionDelta = intent.Destination - source.position;
             var landing = source.position - interactionDelta;
-            if (snapshot.TryGetUnitAt(landing, out var landingOccupant))
+            if (snapshot.IsBlockedForUnit(landing) && snapshot.TryGetUnitAt(landing, out var landingOccupant))
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell=({landing.x},{landing.y})|Occupant={landingOccupant.entityId}|Type={landingOccupant.type}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ThrowLandingBlocked|Cell=({landing.x},{landing.y})|Occupant={landingOccupant.entityId}|Type={landingOccupant.type}");
                 return;
             }
 
@@ -205,14 +222,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.IntentId,
                 intent.SourceId,
                 intent.Priority,
-                ActionGroupKind.Flip);
+                ActionGroupKind.Throw);
             actionGroup.Moves.Add(
                 new MoveAction(
                     target.entityId,
                     target.position,
                     landing,
-                    ResolveCardinalFacing(-interactionDelta, "Flip requires an orthogonal adjacent interaction direction.")));
+                    ResolveCardinalFacing(-interactionDelta, "Throw requires an orthogonal adjacent interaction direction.")));
             buffer.Add(actionGroup);
+        }
+
+        private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
+        {
+            return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
         }
 
         private static bool TryFindNearestSlideStopper(
@@ -269,64 +291,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             distance = Math.Abs(offset.y);
             return true;
-        }
-
-        private static void TryExpandPushChain(
-            WorldSnapshot snapshot,
-            EntityState source,
-            MoveIntent intent,
-            EntityState firstDestinationOccupant,
-            List<ActionGroup> buffer,
-            List<string> rejectedReasons)
-        {
-            if (firstDestinationOccupant.type != EntityType.Unit)
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushChainBlockedByNonUnit|Cell=({firstDestinationOccupant.position.x},{firstDestinationOccupant.position.y})|Target={firstDestinationOccupant.entityId}|Type={firstDestinationOccupant.type}");
-                return;
-            }
-
-            var delta = intent.Destination - source.position;
-            var chain = new List<EntityState>();
-            var currentCell = intent.Destination;
-
-            while (snapshot.TryGetUnitAt(currentCell, out var occupant))
-            {
-                if (occupant.type != EntityType.Unit)
-                {
-                    rejectedReasons.Add(
-                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushChainBlockedByNonUnit|Cell=({occupant.position.x},{occupant.position.y})|Target={occupant.entityId}|Type={occupant.type}");
-                    return;
-                }
-
-                chain.Add(occupant);
-                currentCell += delta;
-            }
-
-            var actionGroup = new ActionGroup(
-                intent.IntentId,
-                intent.SourceId,
-                intent.Priority,
-                ActionGroupKind.PushChain);
-
-            for (var chainIndex = chain.Count - 1; chainIndex >= 0; chainIndex--)
-            {
-                var pushedEntity = chain[chainIndex];
-                actionGroup.Moves.Add(
-                    new MoveAction(
-                        pushedEntity.entityId,
-                        pushedEntity.position,
-                        pushedEntity.position + delta,
-                        pushedEntity.facing));
-            }
-
-            actionGroup.Moves.Add(
-                new MoveAction(
-                    source.entityId,
-                    source.position,
-                    intent.Destination,
-                    ResolveFacing(source.position, intent.Destination)));
-            buffer.Add(actionGroup);
         }
 
         private static bool TryExpandProjectileImpact(

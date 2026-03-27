@@ -68,7 +68,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
-                if (group.GroupKind == ActionGroupKind.Slide || group.GroupKind == ActionGroupKind.Flip)
+                if (group.GroupKind == ActionGroupKind.Throw)
                 {
                     var interactionSourceFacing = ResolveInteractionSourceFacing(snapshot, sortedIntents, group);
                     writeContext.SetFacing(group.SourceId, interactionSourceFacing);

@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.Model.Phases;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Model.Intents
 {
@@ -23,6 +24,17 @@ namespace Game.Feature.Gameplay.Model.Intents
         protected internal abstract int GetTypeSortKey();
 
         protected internal virtual int CompareSameType(Intent other)
+        {
+            return 0;
+        }
+
+        protected internal virtual bool TryGetTargetCell(out Vector2Int targetCell)
+        {
+            targetCell = default;
+            return false;
+        }
+
+        protected internal virtual int GetLocalSequence()
         {
             return 0;
         }

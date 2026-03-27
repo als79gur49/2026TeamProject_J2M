@@ -16,6 +16,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Model.Sorting;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
 using UnityEngine;
@@ -112,7 +113,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged|G=2|I=2|E=20|State=Acting|Timer=0",
                     "DamageCommitted|G=1|I=1|Target=30|Amount=1",
                     "DamageCommitted|G=2|I=2|Target=30|Amount=1",
-                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1",
+                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1|Condition=WhenHpDepleted",
                 },
                 attackPhaseResult.CommitEvents);
             Assert.That(snapshotAfterAttack.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
@@ -132,6 +133,90 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfterCleanup.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
             Assert.That(snapshotAfterCleanup.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
             Assert.That(snapshotAfterCleanup.TryGetEntity(30, out _), Is.False);
+        }
+
+        [Test]
+        public void Attack_InteractLootDestroy_MarksBoxAndKeepsOccupancyUntilCleanup()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Up),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.LootOnInteractDestroy),
+            });
+
+            var attackPhaseResult = RunAttackPhaseOnly(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                tickIndex: 5,
+                input: new TickInput(5, PlayerTickCommand.Interact(Direction.Right)));
+            var snapshotAfterAttack = SnapshotBuilder.Create(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "FacingCommitted|G=1|I=1|E=10|Facing=Right",
+                    "LootGranted|G=1|I=1|Source=10|Target=30|Loot=BoxInteractDestroy",
+                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=1|Condition=AlwaysMark",
+                },
+                attackPhaseResult.CommitEvents);
+            Assert.That(snapshotAfterAttack.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
+            Assert.That(snapshotAfterAttack.TryGetUnitAt(new Vector2Int(1, 0), out var boxAfterAttack), Is.True);
+            Assert.That(boxAfterAttack.entityId, Is.EqualTo(30));
+            Assert.That(boxAfterAttack.markedForDeath, Is.True);
+
+            var cleanupProcessor = new CleanupProcessor();
+            var cleanupResult = cleanupProcessor.Process(
+                snapshotAfterAttack,
+                worldState.CreateWriteContext(),
+                tickIndex: 5);
+            var snapshotAfterCleanup = SnapshotBuilder.Create(worldState);
+
+            CollectionAssert.AreEqual(new[] { 30 }, cleanupResult.RemovedEntityIds);
+            Assert.That(snapshotAfterCleanup.TryGetEntity(30, out _), Is.False);
+            Assert.That(snapshotAfterCleanup.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+        }
+
+        [Test]
+        public void Attack_InteractInput_BeatsBoxSlideForSameTickPlayerPayload()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateBox(
+                    entityId: 30,
+                    position: new Vector2Int(1, 0),
+                    capabilities: BoxCapabilities.Pushable | BoxCapabilities.LootOnInteractDestroy),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(
+                new TickInput(
+                    1,
+                    PlayerTickCommand.Create(
+                        Direction.Right,
+                        interactPressed: true,
+                        throwPressed: false)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[] { MovementCommandKind.Interact },
+                result.MovementPhaseResult.SortedIntents.Select(intent => intent.CommandKind).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { ActionGroupKind.InteractLootDestroy },
+                result.AttackPhaseResult.SelectedGroups.Select(group => group.GroupKind).ToArray());
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
+            Assert.That(result.EventLog, Does.Contain("LootGranted|G=1|I=2|Source=10|Target=30|Loot=BoxInteractDestroy"));
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
         }
 
         [Test]
@@ -187,7 +272,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "StateChanged|G=2|I=2|E=20|State=Acting|Timer=0",
                     "DamageCommitted|G=1|I=1|Target=30|Amount=1",
                     "DamageCommitted|G=2|I=2|Target=30|Amount=1",
-                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1",
+                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1|Condition=WhenHpDepleted",
                 },
                 firstRun.Result.AttackPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(new[] { 30 }, firstRun.Result.CleanupPhaseResult.RemovedEntityIds);
@@ -337,7 +422,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(projectileAfterTick.entityId, Is.EqualTo(11));
             Assert.That(projectileAfterTick.spawnTick, Is.EqualTo(4));
             Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4"));
-            Assert.That(result.Trace.Text, Does.Contain("Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=False|SpawnTick=4]"));
+            Assert.That(result.Trace.Text, Does.Contain("Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None]"));
         }
 
         [Test]
@@ -362,10 +447,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "StateChanged|G=1|I=2|E=20|State=Acting|Timer=0",
-                    "StateChanged|G=2|I=1|E=10|State=Acting|Timer=0",
-                    "SpawnCommitted|G=1|I=2|SpawnId=1|E=21|Pos=(2,0)|Type=Projectile|SpawnTick=6",
-                    "SpawnCommitted|G=2|I=1|SpawnId=2|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=6",
+                    "StateChanged|G=1|I=1|E=20|State=Acting|Timer=0",
+                    "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
+                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(2,0)|Type=Projectile|SpawnTick=6",
+                    "SpawnCommitted|G=2|I=2|SpawnId=2|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=6",
                 },
                 result.AttackPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(
@@ -441,7 +526,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     "DamageCommitted|G=2|I=2|Target=20|Amount=1",
                     "DamageCommitted|G=2|I=2|Target=21|Amount=1",
-                    "DestroyMarked|G=2|I=2|Target=21|FinalHp=0",
+                    "DestroyMarked|G=2|I=2|Target=21|FinalHp=0|Condition=WhenHpDepleted",
                 },
                 secondResult.AttackPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(new[] { 21 }, secondResult.CleanupPhaseResult.RemovedEntityIds);
@@ -543,8 +628,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 5, Command: AttackCommandKind.ImpactReservation, TargetId: 20, IsSynthetic: true),
                     (SourceId: 10, Command: AttackCommandKind.Attack, TargetId: 20, IsSynthetic: false),
+                    (SourceId: 5, Command: AttackCommandKind.ImpactReservation, TargetId: 20, IsSynthetic: true),
                 },
                 result.AttackPhaseResult
                     .SortedInputs
@@ -648,7 +733,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     "DamageCommitted|G=2|I=2|Target=20|Amount=1",
                     "DamageCommitted|G=2|I=2|Target=10|Amount=1",
-                    "DestroyMarked|G=2|I=2|Target=10|FinalHp=0",
+                    "DestroyMarked|G=2|I=2|Target=10|FinalHp=0|Condition=WhenHpDepleted",
                 },
                 result.AttackPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
@@ -849,11 +934,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static AttackPhaseResult RunAttackPhaseOnly(
             WorldState worldState,
             IReadOnlyList<IEntityLogic> entityLogics,
-            int tickIndex)
+            int tickIndex,
+            TickInput input = default)
         {
             var snapshot = SnapshotBuilder.Create(worldState);
             var rawAttackIntents = new List<RawAttackIntent>();
-            new AttackIntentCollector().Collect(snapshot, entityLogics, rawAttackIntents);
+            var effectiveInput = input.TickIndex == 0 ? new TickInput(tickIndex) : input;
+            new AttackIntentCollector().Collect(snapshot, in effectiveInput, entityLogics, rawAttackIntents);
             var drainedImpactReservations = new List<ImpactReservation>();
 
             var idAllocator = new IdAllocator();
@@ -984,6 +1071,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
+        private static EntityState CreateBox(
+            int entityId,
+            Vector2Int position,
+            BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
+            Direction facing = Direction.Right)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+                boxCapabilities = capabilities,
+            };
+        }
+
         private static string DumpUnitOccupancy(WorldSnapshot snapshot)
         {
             var entities = new List<EntityState>();
@@ -1064,6 +1171,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             public void CollectAttackIntents(
                 WorldSnapshot snapshot,
+                in TickInput input,
                 List<RawAttackIntent> buffer)
             {
                 if (_attackIntentFactory == null)
@@ -1112,6 +1220,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             public void CollectAttackIntents(
                 WorldSnapshot snapshot,
+                in TickInput input,
                 List<RawAttackIntent> buffer)
             {
                 if (_currentTickIndex <= 0)
@@ -1160,6 +1269,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             public void CollectAttackIntents(
                 WorldSnapshot snapshot,
+                in TickInput input,
                 List<RawAttackIntent> buffer)
             {
                 AttackCollectCallCount++;

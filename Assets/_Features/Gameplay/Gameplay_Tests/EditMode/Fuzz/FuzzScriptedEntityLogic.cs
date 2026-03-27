@@ -53,7 +53,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                     source.position + ResolveDelta(movementCommand.Direction)));
         }
 
-        public void CollectAttackIntents(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
+        public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
         {
             if (snapshot == null)
             {

@@ -134,7 +134,13 @@ namespace Game.Feature.Gameplay.Model.Sorting
 
         private static int CompareDestroyActions(DestroyAction left, DestroyAction right)
         {
-            return left.TargetId.CompareTo(right.TargetId);
+            var result = left.TargetId.CompareTo(right.TargetId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return ((int)left.Condition).CompareTo((int)right.Condition);
         }
 
         private static int CompareStateChangeActions(StateChangeAction left, StateChangeAction right)

@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 if (TryGetSharedMovedEntity(candidate, reservedMovedEntities, out var sharedEntityId))
                 {
                     rejectedReasons.Add(
-                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=SharedPushChainMember|Entity={sharedEntityId}");
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=SharedMovedEntity|Entity={sharedEntityId}");
                     continue;
                 }
 
@@ -156,7 +156,7 @@ namespace Game.Feature.Gameplay.Movement.Resolution
 
         private static bool RequiresEdgeReservation(ActionGroup candidate)
         {
-            return candidate.GroupKind != ActionGroupKind.Flip;
+            return candidate.GroupKind != ActionGroupKind.Throw;
         }
 
         private readonly struct EdgeReservation

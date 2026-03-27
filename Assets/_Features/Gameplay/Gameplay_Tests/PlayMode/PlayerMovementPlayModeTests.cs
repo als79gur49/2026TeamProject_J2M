@@ -70,56 +70,44 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GameplayInputHost_InteractBufferedAtTickBoundary_PrioritizesSlideOverMove()
+        public IEnumerator GameplayInputHost_InteractBufferedAtTickBoundary_PrioritizesInteractOverMove()
         {
-            var actions = CreateKeyboardMoveActions();
-            var host = CreateHost(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
-                    CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
-                },
-                actions: actions);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.LootOnInteractDestroy),
+            });
 
-            Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
-            yield return null;
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferInteract();
 
             host.InputHost.RunSingleTick();
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
+            Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
 
-            Release(_keyboard.eKey);
-            Release(_keyboard.dKey);
-            yield return DestroyHost(host, actions);
+            yield return DestroyHost(host);
         }
 
         [UnityTest]
-        public IEnumerator GameplayInputHost_FlipBufferedAtTickBoundary_PrioritizesFlipOverMove()
+        public IEnumerator GameplayInputHost_ThrowBufferedAtTickBoundary_PrioritizesThrowOverMove()
         {
-            var actions = CreateKeyboardMoveActions();
-            var host = CreateHost(
-                new[]
-                {
-                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(-1, 0)),
-                },
-                actions: actions);
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Throwable),
+            });
 
-            Press(_keyboard.aKey);
-            Press(_keyboard.qKey);
-            yield return null;
+            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.BufferThrow();
 
             host.InputHost.RunSingleTick();
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
             Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
-            Release(_keyboard.qKey);
-            Release(_keyboard.aKey);
-            yield return DestroyHost(host, actions);
+            yield return DestroyHost(host);
         }
 
         [UnityTest]
@@ -252,7 +240,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
         }
 
-        private static EntityState CreateBox(int entityId, Vector2Int position)
+        private static EntityState CreateBox(int entityId, Vector2Int position, BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable)
         {
             return new EntityState
             {
@@ -264,6 +252,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 type = EntityType.Box,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
+                boxCapabilities = capabilities,
             };
         }
 
@@ -294,14 +283,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var map = new InputActionMap("Player");
             var move = map.AddAction("Move", InputActionType.Value);
             var interact = map.AddAction("Interact", InputActionType.Button);
-            var flip = map.AddAction("Flip", InputActionType.Button);
+            var throwAction = map.AddAction("Throw", InputActionType.Button);
             move.AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/w")
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
             interact.AddBinding("<Keyboard>/e");
-            flip.AddBinding("<Keyboard>/q");
+            throwAction.AddBinding("<Keyboard>/q");
             actions.AddActionMap(map);
             return actions;
         }
@@ -324,7 +313,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
             }
 
-            public void CollectAttackIntents(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
+            public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
             {
                 if (snapshot.TryGetEntity(_sourceId, out var source) && source.hp > 0 && !source.markedForDeath)
                 {

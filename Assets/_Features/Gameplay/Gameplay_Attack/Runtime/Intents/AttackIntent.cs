@@ -3,10 +3,11 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.Model.Intents;
 using Game.Feature.Gameplay.Model.Phases;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Attack.Intents
 {
-    public sealed class AttackIntent : Intent
+    public class AttackIntent : Intent
     {
         public AttackIntent(int sourceId, int priority, int targetId)
             : this(
@@ -16,28 +17,41 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 AttackCommandKind.Attack,
                 AttackInputKind.EntityIntent,
                 0,
+                default,
+                hasTargetCell: false,
                 null,
                 null)
         {
         }
 
-        private AttackIntent(
+        internal AttackIntent(
             int sourceId,
             int priority,
             int targetId,
             AttackCommandKind commandKind,
             AttackInputKind inputKind,
             int localSequence,
+            Vector2Int targetCell,
+            bool hasTargetCell,
             ImpactReservation? impactReservation,
             DelayedAttackEffectRecord? delayedAttackEffect)
             : base(sourceId, priority, TickPhase.Attack)
         {
-            ValidateContract(targetId, commandKind, inputKind, impactReservation, delayedAttackEffect);
+            ValidateContract(
+                targetId,
+                commandKind,
+                inputKind,
+                targetCell,
+                hasTargetCell,
+                impactReservation,
+                delayedAttackEffect);
 
             TargetId = targetId;
             CommandKind = commandKind;
             InputKind = inputKind;
             LocalSequence = localSequence;
+            TargetCell = targetCell;
+            HasTargetCell = hasTargetCell;
             ImpactReservation = impactReservation;
             DelayedAttackEffect = delayedAttackEffect;
         }
@@ -50,15 +64,30 @@ namespace Game.Feature.Gameplay.Attack.Intents
 
         public int LocalSequence { get; }
 
+        public Vector2Int TargetCell { get; }
+
+        public bool HasTargetCell { get; }
+
         public ImpactReservation? ImpactReservation { get; }
 
         internal DelayedAttackEffectRecord? DelayedAttackEffect { get; }
 
-        public bool IsSynthetic => InputKind != AttackInputKind.EntityIntent;
+        public bool IsSynthetic => InputKind == AttackInputKind.ImpactReservation || InputKind == AttackInputKind.DelayedEffect;
 
         protected internal override int GetTypeSortKey()
         {
-            return 0;
+            return 3;
+        }
+
+        protected internal override bool TryGetTargetCell(out Vector2Int targetCell)
+        {
+            targetCell = TargetCell;
+            return HasTargetCell;
+        }
+
+        protected internal override int GetLocalSequence()
+        {
+            return LocalSequence;
         }
 
         protected internal override int CompareSameType(Intent other)
@@ -81,6 +110,27 @@ namespace Game.Feature.Gameplay.Attack.Intents
             if (result != 0)
             {
                 return result;
+            }
+
+            result = HasTargetCell.CompareTo(otherAttack.HasTargetCell);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            if (HasTargetCell && otherAttack.HasTargetCell)
+            {
+                result = TargetCell.x.CompareTo(otherAttack.TargetCell.x);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                result = TargetCell.y.CompareTo(otherAttack.TargetCell.y);
+                if (result != 0)
+                {
+                    return result;
+                }
             }
 
             result = TargetId.CompareTo(otherAttack.TargetId);
@@ -115,6 +165,8 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 AttackCommandKind.ImpactReservation,
                 AttackInputKind.ImpactReservation,
                 reservation.ReservationSequence,
+                default,
+                hasTargetCell: false,
                 reservation,
                 null);
         }
@@ -128,6 +180,8 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 AttackCommandKind.DelayedEffect,
                 AttackInputKind.DelayedEffect,
                 effectRecord.EffectSequence,
+                default,
+                hasTargetCell: false,
                 null,
                 effectRecord);
         }
@@ -141,6 +195,13 @@ namespace Game.Feature.Gameplay.Attack.Intents
 
                 case AttackCommandKind.FireProjectile:
                     return CreateFireProjectile(rawIntent.SourceId, rawIntent.Priority);
+
+                case AttackCommandKind.InteractLootDestroy:
+                    return new InteractIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.TargetCell,
+                        rawIntent.LocalSequence);
 
                 default:
                     throw new ArgumentOutOfRangeException(
@@ -159,6 +220,8 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 AttackCommandKind.FireProjectile,
                 AttackInputKind.EntityIntent,
                 0,
+                default,
+                hasTargetCell: false,
                 null,
                 null);
         }
@@ -167,6 +230,8 @@ namespace Game.Feature.Gameplay.Attack.Intents
             int targetId,
             AttackCommandKind commandKind,
             AttackInputKind inputKind,
+            Vector2Int targetCell,
+            bool hasTargetCell,
             ImpactReservation? impactReservation,
             DelayedAttackEffectRecord? delayedAttackEffect)
         {
@@ -186,6 +251,11 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     if (delayedAttackEffect.HasValue)
                     {
                         throw new ArgumentException("Direct attack commands must not carry delayed attack effect data.", nameof(delayedAttackEffect));
+                    }
+
+                    if (hasTargetCell)
+                    {
+                        throw new ArgumentException("Direct attack commands must not carry a target cell.", nameof(hasTargetCell));
                     }
 
                     if (targetId <= 0)
@@ -211,9 +281,42 @@ namespace Game.Feature.Gameplay.Attack.Intents
                         throw new ArgumentException("FireProjectile commands must not carry delayed attack effect data.", nameof(delayedAttackEffect));
                     }
 
+                    if (hasTargetCell)
+                    {
+                        throw new ArgumentException("FireProjectile commands must not carry a target cell.", nameof(hasTargetCell));
+                    }
+
                     if (targetId != 0)
                     {
                         throw new ArgumentOutOfRangeException(nameof(targetId), "FireProjectile commands must not carry a target ID.");
+                    }
+
+                    return;
+
+                case AttackCommandKind.InteractLootDestroy:
+                    if (inputKind != AttackInputKind.InteractIntent)
+                    {
+                        throw new ArgumentException("InteractLootDestroy commands must use the interact input kind.", nameof(inputKind));
+                    }
+
+                    if (impactReservation.HasValue)
+                    {
+                        throw new ArgumentException("InteractLootDestroy commands must not carry an impact reservation.", nameof(impactReservation));
+                    }
+
+                    if (delayedAttackEffect.HasValue)
+                    {
+                        throw new ArgumentException("InteractLootDestroy commands must not carry delayed attack effect data.", nameof(delayedAttackEffect));
+                    }
+
+                    if (!hasTargetCell)
+                    {
+                        throw new ArgumentException("InteractLootDestroy commands require a target cell.", nameof(hasTargetCell));
+                    }
+
+                    if (targetId != 0)
+                    {
+                        throw new ArgumentOutOfRangeException(nameof(targetId), "InteractLootDestroy commands must not carry a target ID.");
                     }
 
                     return;
@@ -232,6 +335,11 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     if (delayedAttackEffect.HasValue)
                     {
                         throw new ArgumentException("ImpactReservation commands must not carry delayed attack effect data.", nameof(delayedAttackEffect));
+                    }
+
+                    if (hasTargetCell)
+                    {
+                        throw new ArgumentException("ImpactReservation commands must not carry a target cell.", nameof(hasTargetCell));
                     }
 
                     if (targetId != impactReservation.Value.TargetId)
@@ -257,6 +365,11 @@ namespace Game.Feature.Gameplay.Attack.Intents
                         throw new ArgumentNullException(nameof(delayedAttackEffect), "DelayedEffect commands require delayed attack effect data.");
                     }
 
+                    if (hasTargetCell)
+                    {
+                        throw new ArgumentException("DelayedEffect commands must not carry a target cell.", nameof(hasTargetCell));
+                    }
+
                     if (targetId != delayedAttackEffect.Value.TargetId)
                     {
                         throw new ArgumentException("DelayedEffect commands must mirror the delayed target ID.", nameof(targetId));
@@ -267,6 +380,29 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 default:
                     throw new ArgumentOutOfRangeException(nameof(commandKind), commandKind, "Unsupported attack command kind.");
             }
+        }
+    }
+
+    public sealed class InteractIntent : AttackIntent
+    {
+        public InteractIntent(int sourceId, int priority, Vector2Int targetCell, int localSequence = 0)
+            : base(
+                sourceId,
+                priority,
+                0,
+                AttackCommandKind.InteractLootDestroy,
+                AttackInputKind.InteractIntent,
+                localSequence,
+                targetCell,
+                hasTargetCell: true,
+                null,
+                null)
+        {
+        }
+
+        protected internal override int GetTypeSortKey()
+        {
+            return 0;
         }
     }
 }

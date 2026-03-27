@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack.Intents;
+using Game.Feature.Gameplay.Model.Sorting;
 
 namespace Game.Feature.Gameplay.Attack.Sorting
 {
@@ -9,65 +10,7 @@ namespace Game.Feature.Gameplay.Attack.Sorting
 
         public int Compare(AttackIntent left, AttackIntent right)
         {
-            var result = left.SourceId.CompareTo(right.SourceId);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = ((int)left.InputKind).CompareTo((int)right.InputKind);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = left.LocalSequence.CompareTo(right.LocalSequence);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = ((int)left.CommandKind).CompareTo((int)right.CommandKind);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = right.Priority.CompareTo(left.Priority);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            result = left.TargetId.CompareTo(right.TargetId);
-            if (result != 0)
-            {
-                return result;
-            }
-
-            if (left.ImpactReservation.HasValue && right.ImpactReservation.HasValue)
-            {
-                result = ImpactReservationComparer.Instance.Compare(
-                    left.ImpactReservation.Value,
-                    right.ImpactReservation.Value);
-                if (result != 0)
-                {
-                    return result;
-                }
-            }
-
-            if (left.DelayedAttackEffect.HasValue && right.DelayedAttackEffect.HasValue)
-            {
-                result = DelayedAttackEffectRecordComparer.Instance.Compare(
-                    left.DelayedAttackEffect.Value,
-                    right.DelayedAttackEffect.Value);
-                if (result != 0)
-                {
-                    return result;
-                }
-            }
-
-            return left.IntentId.CompareTo(right.IntentId);
+            return IntentComparer.Instance.Compare(left, right);
         }
     }
 }

@@ -149,7 +149,12 @@ namespace Game.Feature.Gameplay.Debug
 
         private static string FormatRawAttackIntent(RawAttackIntent rawIntent)
         {
-            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Target={rawIntent.TargetId}|Command={rawIntent.CommandKind}";
+            if (rawIntent.HasTargetCell)
+            {
+                return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|TargetCell=({rawIntent.TargetCell.x},{rawIntent.TargetCell.y})|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
+            }
+
+            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Target={rawIntent.TargetId}|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
         }
 
         private static string FormatAttackIntent(AttackIntent intent)
@@ -163,6 +168,12 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Command=").Append(intent.CommandKind)
                 .Append("|Kind=").Append(intent.InputKind)
                 .Append("|LocalSequence=").Append(intent.LocalSequence);
+
+            if (intent.HasTargetCell)
+            {
+                builder
+                    .Append("|TargetCell=(").Append(intent.TargetCell.x).Append(',').Append(intent.TargetCell.y).Append(')');
+            }
 
             if (intent.ImpactReservation.HasValue)
             {
@@ -303,7 +314,9 @@ namespace Game.Feature.Gameplay.Debug
                     builder.Append(',');
                 }
 
-                builder.Append("Target=").Append(destroys[i].TargetId);
+                builder
+                    .Append("Target=").Append(destroys[i].TargetId)
+                    .Append(":Condition=").Append(destroys[i].Condition);
             }
 
             builder.Append(']');
@@ -366,7 +379,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEntityState(EntityState entity)
         {
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}";
         }
     }
 }

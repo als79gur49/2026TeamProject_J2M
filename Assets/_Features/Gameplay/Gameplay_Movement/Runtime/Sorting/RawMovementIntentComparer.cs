@@ -10,19 +10,19 @@ namespace Game.Feature.Gameplay.Movement.Sorting
 
         public int Compare(RawMovementIntent left, RawMovementIntent right)
         {
-            var result = left.SourceId.CompareTo(right.SourceId);
+            var result = right.Priority.CompareTo(left.Priority);
             if (result != 0)
             {
                 return result;
             }
 
-            result = right.Priority.CompareTo(left.Priority);
+            result = left.SourceId.CompareTo(right.SourceId);
             if (result != 0)
             {
                 return result;
             }
 
-            result = ((int)left.CommandKind).CompareTo((int)right.CommandKind);
+            result = GetCommandSortKey(left.CommandKind).CompareTo(GetCommandSortKey(right.CommandKind));
             if (result != 0)
             {
                 return result;
@@ -34,7 +34,37 @@ namespace Game.Feature.Gameplay.Movement.Sorting
                 return result;
             }
 
-            return left.Destination.y.CompareTo(right.Destination.y);
+            result = left.Destination.y.CompareTo(right.Destination.y);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.LocalSequence.CompareTo(right.LocalSequence);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return 0;
+        }
+
+        private static int GetCommandSortKey(MovementCommandKind commandKind)
+        {
+            switch (commandKind)
+            {
+                case MovementCommandKind.Interact:
+                    return 0;
+
+                case MovementCommandKind.Throw:
+                    return 1;
+
+                case MovementCommandKind.Move:
+                    return 2;
+
+                default:
+                    return 99;
+            }
         }
     }
 }

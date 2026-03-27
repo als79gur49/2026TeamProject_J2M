@@ -11,8 +11,7 @@ namespace Game.Feature.Gameplay.Host
         private InputActionAsset _actions;
         private float _accumulatedTime;
         private bool _autoAdvanceTicks;
-        private InputAction _flipAction;
-        private bool _hasBufferedFlip;
+        private bool _hasBufferedThrow;
         private bool _isInitialized;
         private TickInputBuffer _inputBuffer;
         private InputRepeatCooldown _inputRepeatCooldown;
@@ -24,6 +23,7 @@ namespace Game.Feature.Gameplay.Host
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _tickIntervalSeconds;
+        private InputAction _throwAction;
 
         public void Initialize(
             TickInputBuffer inputBuffer,
@@ -72,7 +72,7 @@ namespace Game.Feature.Gameplay.Host
             _moveDeadzone = moveDeadzone;
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
-            _hasBufferedFlip = false;
+            _hasBufferedThrow = false;
             _hasBufferedInteract = false;
             _sampledMoveInput = Vector2.zero;
             _inputRepeatCooldown = new InputRepeatCooldown(
@@ -113,7 +113,7 @@ namespace Game.Feature.Gameplay.Host
             var tickIndex = _runner.NextTickIndex;
             var quantizedDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
             var moveCommand = _inputRepeatCooldown.BuildCommand(tickIndex, quantizedDirection);
-            var playerCommand = ResolvePrimaryCommand(quantizedDirection, moveCommand);
+            var playerCommand = ResolveTickCommand(moveCommand);
 
             _inputBuffer.Record(new TickInput(tickIndex, playerCommand));
 
@@ -135,6 +135,18 @@ namespace Game.Feature.Gameplay.Host
             {
                 _inputRepeatCooldown?.Reset();
             }
+        }
+
+        public void BufferInteract()
+        {
+            EnsureInitialized();
+            _hasBufferedInteract = true;
+        }
+
+        public void BufferThrow()
+        {
+            EnsureInitialized();
+            _hasBufferedThrow = true;
         }
 
         private void Update()
@@ -175,16 +187,17 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Interact action on the provided InputActionAsset.");
             }
 
-            _flipAction = _actions.FindAction("Player/Flip", throwIfNotFound: false);
+            _throwAction = _actions.FindAction("Player/Throw", throwIfNotFound: false) ??
+                           _actions.FindAction("Player/Flip", throwIfNotFound: false);
 
             _moveAction.performed += OnMovePerformed;
             _moveAction.canceled += OnMoveCanceled;
             _interactAction.started += OnInteractStarted;
             _interactAction.performed += OnInteractPerformed;
-            if (_flipAction != null)
+            if (_throwAction != null)
             {
-                _flipAction.started += OnFlipStarted;
-                _flipAction.performed += OnFlipPerformed;
+                _throwAction.started += OnThrowStarted;
+                _throwAction.performed += OnThrowPerformed;
             }
 
             _sampledMoveInput = _moveAction.ReadValue<Vector2>();
@@ -219,14 +232,14 @@ namespace Game.Feature.Gameplay.Host
             _hasBufferedInteract = true;
         }
 
-        private void OnFlipPerformed(InputAction.CallbackContext context)
+        private void OnThrowPerformed(InputAction.CallbackContext context)
         {
-            _hasBufferedFlip = true;
+            _hasBufferedThrow = true;
         }
 
-        private void OnFlipStarted(InputAction.CallbackContext context)
+        private void OnThrowStarted(InputAction.CallbackContext context)
         {
-            _hasBufferedFlip = true;
+            _hasBufferedThrow = true;
         }
 
         private void UnbindActions()
@@ -245,11 +258,11 @@ namespace Game.Feature.Gameplay.Host
                 _interactAction = null;
             }
 
-            if (_flipAction != null)
+            if (_throwAction != null)
             {
-                _flipAction.started -= OnFlipStarted;
-                _flipAction.performed -= OnFlipPerformed;
-                _flipAction = null;
+                _throwAction.started -= OnThrowStarted;
+                _throwAction.performed -= OnThrowPerformed;
+                _throwAction = null;
             }
 
             if (_actions != null)
@@ -257,30 +270,31 @@ namespace Game.Feature.Gameplay.Host
                 _actions.Disable();
             }
 
-            _hasBufferedFlip = false;
+            _hasBufferedThrow = false;
             _hasBufferedInteract = false;
         }
 
-        private PlayerTickCommand ResolvePrimaryCommand(Direction quantizedDirection, PlayerTickCommand moveCommand)
+        private PlayerTickCommand ResolveTickCommand(PlayerTickCommand moveCommand)
         {
-            if (_hasBufferedFlip)
-            {
-                _hasBufferedFlip = false;
-                _hasBufferedInteract = false;
-                return quantizedDirection == Direction.None
-                    ? PlayerTickCommand.None
-                    : PlayerTickCommand.InteractFlip(quantizedDirection);
-            }
+            var interactPressed = _hasBufferedInteract || (_interactAction != null && _interactAction.IsPressed());
+            var throwPressed = _hasBufferedThrow || (_throwAction != null && _throwAction.IsPressed());
 
-            if (!_hasBufferedInteract)
-            {
-                return moveCommand;
-            }
+            var command = PlayerTickCommand.Create(
+                moveCommand.MoveDirection,
+                interactPressed && moveCommand.MoveDirection != Direction.None,
+                throwPressed && moveCommand.MoveDirection != Direction.None);
 
             _hasBufferedInteract = false;
-            return quantizedDirection == Direction.None
-                ? PlayerTickCommand.None
-                : PlayerTickCommand.InteractSlide(quantizedDirection);
+            _hasBufferedThrow = false;
+
+            if (command.MoveDirection == Direction.None &&
+                !command.InteractPressed &&
+                !command.ThrowPressed)
+            {
+                return PlayerTickCommand.None;
+            }
+
+            return command;
         }
     }
 }

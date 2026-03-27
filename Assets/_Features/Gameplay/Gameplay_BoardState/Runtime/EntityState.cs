@@ -1,7 +1,17 @@
+using System;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    [Flags]
+    public enum BoxCapabilities
+    {
+        None = 0,
+        Pushable = 1 << 0,
+        Throwable = 1 << 1,
+        LootOnInteractDestroy = 1 << 2,
+    }
+
     public struct EntityState
     {
         public int entityId;
@@ -15,5 +25,6 @@ namespace Game.Feature.Gameplay.BoardState
         public Direction facing;
         public bool markedForDeath;
         public int spawnTick;
+        public BoxCapabilities boxCapabilities;
     }
 }

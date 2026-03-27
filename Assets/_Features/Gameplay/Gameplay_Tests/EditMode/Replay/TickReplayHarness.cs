@@ -85,7 +85,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     .Append("|Timer=").Append(entity.stateTimer)
                     .Append("|Facing=").Append(entity.facing)
                     .Append("|Marked=").Append(entity.markedForDeath ? 1 : 0)
-                    .Append("|SpawnTick=").Append(entity.spawnTick);
+                    .Append("|SpawnTick=").Append(entity.spawnTick)
+                    .Append("|BoxCapabilities=").Append(entity.boxCapabilities);
             }
 
             return builder.ToString();

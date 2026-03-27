@@ -290,9 +290,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }));
 
             var attackParameters = methods[0].GetParameters();
-            Assert.That(attackParameters.Length, Is.EqualTo(2));
+            Assert.That(attackParameters.Length, Is.EqualTo(3));
             Assert.That(attackParameters[0].ParameterType, Is.EqualTo(typeof(WorldSnapshot)));
-            Assert.That(attackParameters[1].ParameterType, Is.EqualTo(typeof(List<RawAttackIntent>)));
+            Assert.That(attackParameters[1].ParameterType, Is.EqualTo(typeof(TickInput).MakeByRefType()));
+            Assert.That(attackParameters[2].ParameterType, Is.EqualTo(typeof(List<RawAttackIntent>)));
 
             var movementParameters = methods[1].GetParameters();
             Assert.That(movementParameters.Length, Is.EqualTo(3));

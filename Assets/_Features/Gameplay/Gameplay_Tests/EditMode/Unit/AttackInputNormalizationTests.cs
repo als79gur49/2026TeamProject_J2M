@@ -37,10 +37,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
+                    (SourceId: 20, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, TargetId: 200),
                     (SourceId: 10, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, TargetId: 100),
                     (SourceId: 10, Kind: AttackInputKind.ImpactReservation, LocalSequence: 1, TargetId: 110),
                     (SourceId: 10, Kind: AttackInputKind.ImpactReservation, LocalSequence: 2, TargetId: 111),
-                    (SourceId: 20, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, TargetId: 200),
                     (SourceId: 20, Kind: AttackInputKind.ImpactReservation, LocalSequence: 3, TargetId: 210),
                 },
                 normalizedInputs
@@ -93,10 +93,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (IntentId: 1, SourceId: 10, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, IsSynthetic: false),
-                    (IntentId: 2, SourceId: 10, Kind: AttackInputKind.ImpactReservation, LocalSequence: 1, IsSynthetic: true),
-                    (IntentId: 3, SourceId: 10, Kind: AttackInputKind.ImpactReservation, LocalSequence: 2, IsSynthetic: true),
-                    (IntentId: 4, SourceId: 20, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, IsSynthetic: false),
+                    (IntentId: 1, SourceId: 20, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, IsSynthetic: false),
+                    (IntentId: 2, SourceId: 10, Kind: AttackInputKind.EntityIntent, LocalSequence: 0, IsSynthetic: false),
+                    (IntentId: 3, SourceId: 10, Kind: AttackInputKind.ImpactReservation, LocalSequence: 1, IsSynthetic: true),
+                    (IntentId: 4, SourceId: 10, Kind: AttackInputKind.ImpactReservation, LocalSequence: 2, IsSynthetic: true),
                 },
                 normalizedInputs
                     .Select(intent => (intent.IntentId, intent.SourceId, intent.InputKind, intent.LocalSequence, intent.IsSynthetic))

@@ -8,8 +8,8 @@ namespace Game.Feature.Gameplay.Model.Groups
         Attack = 3,
         Cleanup = 4,
         ProjectileImpact = 5,
-        PushChain = 6,
-        Slide = 7,
-        Flip = 8,
+        Throw = 7,
+        InteractLootDestroy = 8,
+        BoxSlide = 9,
     }
 }
