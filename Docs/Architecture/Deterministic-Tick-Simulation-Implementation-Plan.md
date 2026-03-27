@@ -309,6 +309,7 @@ current-state 메모:
   - `private Dictionary<Vector2Int, int> projectileOccupancy`
   - `private BoardBounds boardBounds`
   - `private TerrainData terrainData`
+  - `MoveEntityTo`, `SpawnEntity`, `RemoveEntity`, `ApplyDamage`, `ApplyStateChange`, `MarkDestroy`, `SetFacing`
 - `WorldStateWriteContext`
   - `MoveEntity`
   - `ApplyDamage`
@@ -319,6 +320,13 @@ current-state 메모:
   - `SetFacing`
 
 핵심은 "월드 전체 객체를 넘겨주지 말고, 쓰기 capability만 Committer에 넘긴다"는 점이다.
+
+추가 구현 규칙:
+
+- `WorldStateWriteContext`는 low-level mutation choreography를 조합하지 않는 thin adapter다.
+- `IWorldStateMutationPort`는 `ClearOccupancy`, `SetOccupancy`, `UpdateEntity` 같은 저장소 조작이 아니라 의미 단위 원자 mutation만 노출한다.
+- `WorldState`는 spatial mutation 전에 중앙 placement query를 호출해서 `board bounds + terrain + blocking entity` legality를 검증한다.
+- validation 실패 시 occupancy와 entity record를 건드리지 않고 `InvalidOperationException`으로 중단한다.
 
 ### 5-3. WorldSnapshot와 질의 함수
 
@@ -342,6 +350,7 @@ current-state 메모:
 - `IsBlockedForUnit` 의미는 `board bounds + terrain blocker + blocking entity`다.
 - projectile layer는 box slide stopper와 `IsBlockedForUnit`에서 제외한다.
 - `MovementExpander`는 terrain/bounds/entity를 직접 ray scan하지 않고 중앙 query만 호출한다.
+- write-side mutation도 같은 `WorldQueryService` placement helper를 재사용해서 read/write legality가 갈라지지 않게 유지한다.
 
 ### 5-4. Intent와 ActionGroup
 
@@ -1339,25 +1348,25 @@ current-state 메모:
 
 ### 15-1. 조사 결과 요약
 
-현재 코드 기준으로 남은 항목은 세 묶음이다.
+현재 코드 기준으로 이번 정리에서 닫힌 항목은 세 묶음이다.
 
-1. composition root 정리
-   - `SnapshotEntityLogicProvider`, `GameplayEntityLogicProviderFactory`, `GameplayBootstrapper`, `GameplayCompositionRoot`가 책임상 분리됐지만 아직 `TickPipeline.cs`에 co-locate되어 있다.
-2. runtime tick driving 경로 부재
-   - `TickRunner`, `TickInputBuffer`가 아직 없어서 테스트 밖에서 공용 tick 실행 경로가 없다.
-   - 현재 테스트와 replay harness는 모두 `GameplayCompositionRoot.CreateTickPipeline(...)`를 직접 호출한다.
-3. concrete write-context 명시화 미완료
-   - `IWorldWriteContext`는 존재하지만 concrete `WorldStateWriteContext`는 아직 `WorldState` 내부 private `WriteContext`로만 존재한다.
-   - 다만 이것은 누락이라기보다, "concrete write path를 `WorldState` 내부에 숨긴다"는 초기 의도를 반영한 current-state다.
-   - 따라서 남은 작업의 본질은 "concrete type이 없다"가 아니라, "숨김 구조를 유지한 채 target-state 파일 분리와 구조 명시화를 어떻게 달성할 것인가"다.
+1. composition root / runtime tick driving 경로
+   - `GameplayBootstrapper`, `GameplayCompositionRoot`, `TickRunner`, `GameplaySceneHost` 경로가 분리되어 runtime 조립이 가능하다.
+2. concrete write-context 명시화 + authoritative invariant closure
+   - `WorldStateWriteContext`는 top-level concrete type이며 `IWorldWriteContext` capability만 노출한다.
+   - `WorldState`는 semantic mutation API를 explicit internal mutation port로 구현하고, spatial mutation legality를 authoritative하게 검증한다.
+3. bounded runtime entry path 고정
+   - public runtime `GameplayCompositionRoot.CreateWorldState(...)`와 `GameplaySceneHost.Initialize(...)`는 bounded board를 필수로 요구한다.
+   - unbounded world는 legacy compatibility / test-only helper 경로로만 유지된다.
 
 추가 current-state 메모:
 
 - `TickInput`은 현재 `tickIndex`와 `PlayerTickCommand` payload를 함께 가진다.
 - `ProjectileLogic`, `ProjectileEntityLogicFactory`, `PlayerLogic`는 이미 존재한다.
-- `EnemyLogic`와 `TerrainData`는 이 문서 기준으로 아직 target-state까지 정리되지 않았다.
 - `WorldState.CreateWriteContext()`는 `internal`이며, production runtime 경로에서는 `TickPipeline`이 사용하고, 테스트는 focused verification을 위해 직접 사용할 수 있다.
-- 따라서 "결정론 전투 코어"는 완료됐지만 "실제 runtime 조립 경로"와 "target-state 파일 분리"는 아직 닫히지 않았다.
+- `WorldStateWriteContext`는 thin capability adapter이며 board rule owner가 아니다.
+- read query와 write mutation은 모두 `WorldQueryService`의 중앙 placement policy를 재사용한다.
+- 따라서 현재 잔여 작업은 "결정론 전투 코어 부재"가 아니라, 추가 룰을 넣더라도 이 중앙 경계가 흔들리지 않게 유지하는 것이다.
 
 이번 설계는 이 중에서 아래 항목을 이번 정리 범위로 본다.
 
@@ -1460,85 +1469,19 @@ Assets/_Features/Gameplay/
 
 ### 15-5. `WorldStateWriteContext` 구체 설계
 
-조사 결과 기준 current-state 해석:
+현재 구현은 선택지 C를 실제 코드로 채택한 상태다.
 
-- 현재 nested private `WriteContext`는 accidental leftover가 아니다.
-- 초기 stage0 구현부터 `WorldState`의 concrete write path를 내부에 숨기는 방향으로 들어갔고, 이후 reflection 구조 테스트로 고정됐다.
-- 즉, 현재 구조의 핵심 의도는 "쓰기 capability는 interface로만 보이고, concrete mutation path는 `WorldState` 내부에 감춘다"는 점이다.
+핵심 해석:
 
-현재 nested private `WriteContext`를 top-level concrete type으로 꺼내려면, `WorldState` private helper에 직접 접근할 수 없다는 문제가 생긴다.
+- `WorldStateWriteContext`는 top-level concrete type이지만 역할은 capability adapter에 한정된다.
+- `WorldState`는 public mutation API를 열지 않고, internal explicit mutation port만 통해 concrete adapter와 연결된다.
+- board rule 해석은 adapter가 아니라 `WorldState` + `WorldQueryService`가 소유한다.
 
-따라서 이 항목의 설계 목표는 단순 추출이 아니라 아래 두 조건을 동시에 만족하는 것이다.
+이번 단계에서 추가로 고정한 규칙:
 
-1. target-state 파일 분리와 concrete type 명시화
-2. current-state가 의도적으로 확보한 concrete write path 은닉 유지
-
-#### 15-5-1. current-state의 실제 보호 수준
-
-현재 구조가 막고 있는 것:
-
-- `WorldState` public API를 통한 직접 mutation
-- 외부 코드가 concrete write context 타입에 정적으로 의존하는 것
-- same-assembly 코드가 `AddNewEntity`, `ClearOccupancy`, `RemoveEntity`, `SetOccupancy`, `TryGetEntity`, `UpdateEntity`를 직접 호출하는 것
-
-현재 구조가 완전히 막지는 않는 것:
-
-- `internal WorldState.CreateWriteContext()` 경로의 same-assembly 사용
-- `InternalsVisibleTo("Game.Feature.Gameplay.Tests")`를 통한 테스트의 직접 write-context 생성
-
-이 점은 설계 문서에 명시적으로 반영해야 한다.
-
-- production runtime 규칙은 "표준 경로에서 `TickPipeline`이 write context를 생성한다"로 읽어야 한다.
-- 테스트는 phase 단위 검증을 위해 internal factory를 직접 호출할 수 있다.
-- 따라서 "절대적으로 `TickPipeline`만 생성 가능"을 구조 invariant로 삼으면 current-state와 맞지 않는다.
-
-#### 15-5-2. 설계 선택지
-
-선택지 A. current-state 유지
-
-- `WriteContext`를 nested private로 그대로 둔다.
-- 장점:
-  - 은닉 강도가 가장 높다.
-  - private helper를 그대로 유지할 수 있다.
-  - 구현 리스크가 가장 낮다.
-- 단점:
-  - target-state의 `WorldStateWriteContext.cs`와 맞지 않는다.
-  - concrete write path를 문서/구조 관점에서 명시적으로 설명하기 어렵다.
-  - file split 기준에서는 남은 작업이 계속 남는다.
-
-선택지 B. top-level `WorldStateWriteContext` + `internal` mutation helper 공개
-
-- `WorldState` helper를 `internal`로 열고 top-level concrete type이 직접 호출한다.
-- 장점:
-  - 구현이 단순하다.
-  - 파일 분리가 쉽다.
-- 단점:
-  - current-state가 의도적으로 막아 둔 same-assembly direct mutation 통로가 넓어진다.
-  - "구조적으로 숨긴다"는 초기 의도와 충돌한다.
-
-선택지 C. top-level `WorldStateWriteContext` + explicit internal mutation port
-
-- `WorldState`는 public surface를 비운 채 internal explicit interface로만 mutation helper를 노출한다.
-- top-level concrete type은 이 port만 통해 mutation한다.
-- 장점:
-  - target-state 파일 분리 가능
-  - concrete type 명시화 가능
-  - same-assembly direct mutation 노출을 상대적으로 좁게 유지
-  - current-state 은닉 의도와 target-state 명시화를 모두 수용
-- 단점:
-  - interface/adapter 계층이 하나 추가된다.
-  - 구조 테스트 갱신이 필요하다.
-
-선택:
-
-- 이번 문서에서는 선택지 C를 채택한다.
-- 이유는 current-state의 의도된 은닉을 유지하면서도 target-state의 explicit concrete type 요구를 가장 무리 없이 만족시키기 때문이다.
-
-이번 단계에서는 아래 방식으로 해결한다.
-
-1. `WorldState`가 internal mutation port를 explicit interface로 구현한다.
-2. `WorldStateWriteContext`는 그 mutation port만 잡고 `IWorldWriteContext`를 구현한다.
-3. public surface에는 mutation 메서드를 계속 노출하지 않는다.
+1. internal mutation port는 저수준 저장소 조작 대신 의미 단위 원자 mutation만 노출한다.
+2. spatial mutation은 모두 `WorldState` 내부에서 placement legality를 검증한 뒤에만 실제 record/occupancy를 갱신한다.
+3. validation 실패 시 partial mutation을 남기지 않는다.
 
 권장 내부 인터페이스:
 
@@ -1546,11 +1489,13 @@ Assets/_Features/Gameplay/
 internal interface IWorldStateMutationPort
 {
     bool TryGetEntity(int entityId, out EntityState entity);
-    void AddNewEntity(EntityState entity);
-    void UpdateEntity(EntityState entity);
-    void ClearOccupancy(EntityState entity);
-    void SetOccupancy(EntityState entity);
-    void RemoveEntityRecord(int entityId);
+    void MoveEntityTo(int entityId, Vector2Int destination);
+    void SpawnEntity(EntityState entity);
+    void RemoveEntity(int entityId);
+    void ApplyDamage(int entityId, int amount);
+    void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
+    void MarkDestroy(int entityId);
+    void SetFacing(int entityId, Direction facing);
 }
 ```
 
@@ -1565,11 +1510,13 @@ public sealed class WorldState : IWorldStateMutationPort
     }
 
     bool IWorldStateMutationPort.TryGetEntity(int entityId, out EntityState entity) { ... }
-    void IWorldStateMutationPort.AddNewEntity(EntityState entity) { ... }
-    void IWorldStateMutationPort.UpdateEntity(EntityState entity) { ... }
-    void IWorldStateMutationPort.ClearOccupancy(EntityState entity) { ... }
-    void IWorldStateMutationPort.SetOccupancy(EntityState entity) { ... }
-    void IWorldStateMutationPort.RemoveEntityRecord(int entityId) { ... }
+    void IWorldStateMutationPort.MoveEntityTo(int entityId, Vector2Int destination) { ... }
+    void IWorldStateMutationPort.SpawnEntity(EntityState entity) { ... }
+    void IWorldStateMutationPort.RemoveEntity(int entityId) { ... }
+    void IWorldStateMutationPort.ApplyDamage(int entityId, int amount) { ... }
+    void IWorldStateMutationPort.ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer) { ... }
+    void IWorldStateMutationPort.MarkDestroy(int entityId) { ... }
+    void IWorldStateMutationPort.SetFacing(int entityId, Direction facing) { ... }
 }
 ```
 
@@ -1594,6 +1541,13 @@ internal sealed class WorldStateWriteContext : IWorldWriteContext
     public void SetFacing(int entityId, Direction facing) { ... }
 }
 ```
+
+authoritative placement 규칙:
+
+- `WorldQueryService.TryGetPlacementBlocker(...)`가 read/write 공용 placement policy다.
+- non-projectile final placement는 `board bounds + terrain + blocking entity`를 모두 통과해야 한다.
+- projectile도 terrain/bounds 정책을 같은 중앙 helper에서 명시적으로 적용한다.
+- self-move 예외는 `ignoredEntityId` 같은 중앙 query parameter로만 처리한다.
 
 이 설계의 장점:
 
@@ -1622,16 +1576,15 @@ internal sealed class WorldStateWriteContext : IWorldWriteContext
 
 #### 15-5-3. 마이그레이션 단계
 
-`WorldStateWriteContext` 추출은 아래처럼 두 단계로 나눈다.
+이 마이그레이션은 현재 구현에서 완료된 상태다.
 
 1. 보호 의미 보존 단계
-   - `IWorldStateMutationPort` 추가
-   - `WorldState`가 explicit interface 구현
-   - nested private `WriteContext`를 top-level `WorldStateWriteContext`로 이동
-   - `CreateWriteContext()`는 계속 `internal`
+   - `IWorldStateMutationPort`를 의미 단위 mutation API로 고정한다.
+   - `WorldState`가 explicit interface 구현으로 adapter와 연결된다.
+   - `CreateWriteContext()`는 계속 `internal`로 유지한다.
 2. 구조 잠금 단계
-   - reflection 구조 테스트 갱신
-   - same-assembly direct mutation 누수가 없는지 확인
+   - reflection 구조 테스트로 public/internal direct mutation 누수를 막는다.
+   - write-side placement invariant와 bounded runtime entry를 테스트로 고정한다.
    - `TickPipeline` runtime path와 테스트 path를 분리해 문서화
 
 이 순서를 따르는 이유:
@@ -1847,18 +1800,15 @@ runner가 plain class인 이유:
 
 ### 15-13. 구현 순서
 
-실제 구현은 아래 순서가 가장 안전하다.
+이 순서는 현재 구현에서 완료된 순서를 기록한다.
 
 1. `SnapshotEntityLogicProvider` / `GameplayEntityLogicProviderFactory` / `GameplayBootstrapper` / `GameplayCompositionRoot`를 파일 분리한다.
-   - 이 단계에서는 동작 변경 없이 relocation만 한다.
-2. `WorldStateWriteContext`를 top-level type으로 추출한다.
-   - `WorldState` explicit mutation port를 먼저 도입한다.
-3. 구조 테스트를 새 write-context 구조에 맞게 갱신한다.
-4. `TickInputBuffer`를 추가한다.
-5. `TickRunner`를 추가한다.
-6. `GameplayBootstrapper` / `GameplayCompositionRoot`에 runner 생성 API를 추가한다.
-7. runner/buffer unit test를 추가한다.
-8. 마지막으로 runtime host 연동이 필요하면 상위 계층에서 thin adapter를 붙인다.
+2. `WorldStateWriteContext`를 top-level type으로 추출하고 `WorldState` explicit mutation port를 도입한다.
+3. low-level mutation helper를 semantic atomic mutation으로 올리고 write-side placement invariant를 `WorldState`에 닫는다.
+4. `WorldQueryService`에 read/write 공용 placement helper를 추가한다.
+5. `TickInputBuffer`, `TickRunner`, runtime host 조립 경로를 연결한다.
+6. public runtime world 생성 경로에서 bounded board를 강제하고 legacy unbounded helper를 internal/test path로 제한한다.
+7. 구조 테스트, write-side invariant 테스트, replay determinism 테스트, host/playmode 회귀를 갱신한다.
 
 이 순서를 권장하는 이유:
 
@@ -2106,7 +2056,7 @@ grid movement에서 가장 중요한 것은 "버튼이 눌렸는가"보다 "이�
 
 권장 흐름:
 
-1. 상위 scene host가 `WorldState`, `TickInputBuffer`, `TickRunner`를 조립한다.
+1. 상위 scene host가 bounded `WorldState`, `TickInputBuffer`, `TickRunner`를 조립한다.
 2. `PlayerLogic(entityId)`를 static entity logic으로 추가한다.
 3. host가 New Input에서 읽은 명령을 tick마다 `TickInputBuffer`에 넣는다.
 4. runner가 해당 tick input으로 simulation을 실행한다.
@@ -2129,6 +2079,8 @@ var runner = GameplayCompositionRoot.CreateTickRunner(
 - deterministic asmdef는 New Input System 타입을 참조하지 않는다.
 - `PlayerLogic`은 테스트에서 plain `TickInput`으로 바로 검증할 수 있다.
 - scene host만 Unity 의존성을 가진다.
+- public runtime `GameplayCompositionRoot.CreateWorldState(...)`와 `GameplaySceneHost.Initialize(...)`는 bounded board를 강제한다.
+- unbounded world는 `CreateLegacyUnboundedWorldState(...)` 같은 internal helper를 통해서만 테스트/legacy 경로에서 사용한다.
 
 #### 15-15-9. box interaction 입력 확장안
 

@@ -78,6 +78,7 @@
 - 동적 점유 상태 보관
 - 제거 예약 상태 보관
 - Spawn 결과 반영
+- write mutation legality의 authoritative 검증
 
 초기 권장 내부 구조:
 
@@ -98,6 +99,10 @@
 
 - 샘플 씬의 외벽처럼 보이는 일부 blocker는 아직 terrain이 아니라 `EntityType.None` entity wall이다.
 - 따라서 중앙 이동 질의는 `board bounds + terrain + blocking entity`를 모두 보고, entity wall도 valid stopper로 유지한다.
+- 같은 중앙 질의를 write path에서도 재사용해서 `MoveEntity` / `SpawnEntity`의 최종 배치를 검증한다.
+- non-projectile final placement는 `board bounds + terrain + blocking entity`를 모두 통과해야 한다.
+- projectile의 terrain/bounds 정책도 별도 예외 플래그가 아니라 중앙 placement query에서 명시적으로 관리한다.
+- spatial mutation은 validation 이후에만 occupancy와 entity record를 갱신해서 partial mutation을 남기지 않는다.
 
 `effectOccupancy`는 실제 필요가 생길 때 추가한다.
 
@@ -135,6 +140,17 @@ dynamic entity 복구/조립 규칙:
 - `CleanupProcessor`
 
 이 셋만 `WorldState`를 변경할 수 있다.
+
+보조 규칙:
+
+- `WorldStateWriteContext`는 world mutation capability adapter다.
+- board rule 해석과 legality 판단은 `WorldState` + `WorldQueryService`가 소유한다.
+- Committer나 adapter는 `Clear -> Update -> Set` 같은 저수준 choreography를 소유하지 않는다.
+
+runtime 조립 규칙:
+
+- public runtime `GameplayCompositionRoot.CreateWorldState(...)`와 `GameplaySceneHost.Initialize(...)`는 bounded board를 필수로 요구한다.
+- unbounded board는 legacy compatibility 또는 test-only helper 경로로만 유지한다.
 
 ### 4-4. View
 
@@ -274,6 +290,7 @@ public class WorldSnapshot
 - `IsBlockedForUnit`은 `board bounds + terrain blocker + blocking entity`를 함께 본다.
 - projectile layer는 `IsBlockedForUnit`과 box slide stopper에서 제외한다.
 - `MovementExpander`는 직접 entity ray scan을 하지 않고, `WorldSnapshot` / `WorldQueryService`의 중앙 질의만 사용한다.
+- same placement policy를 write-side mutation도 재사용해서 read/write legality가 갈라지지 않게 유지한다.
 
 ### 5-5. ImpactReservation
 
