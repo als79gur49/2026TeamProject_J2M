@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -151,7 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_SlidesUntilNearestStopper()
+        public void Movement_InteractPushableBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -209,13 +210,114 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_FailsWhenSlideRayHasNoStopper()
+        public void Movement_InteractPushableBox_StopsBeforeTerrainBlocker()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
-            });
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                },
+                BoardBounds.Unbounded,
+                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+
+            var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 30, Source: new Vector2Int(1, 0), Destination: new Vector2Int(2, 0)),
+                    (EntityId: 30, Source: new Vector2Int(2, 0), Destination: new Vector2Int(3, 0)),
+                },
+                slideGroup.Moves
+                    .Select(move => (move.EntityId, move.Source, move.Destination))
+                    .ToArray());
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(3, 0)));
+            Assert.That(result.Trace.Text, Does.Contain("S0.Terrain"));
+        }
+
+        [Test]
+        public void Movement_InteractPushableBox_StopsBeforeBoardEdge()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+
+            var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 30, Source: new Vector2Int(1, 0), Destination: new Vector2Int(2, 0)),
+                    (EntityId: 30, Source: new Vector2Int(2, 0), Destination: new Vector2Int(3, 0)),
+                },
+                slideGroup.Moves
+                    .Select(move => (move.EntityId, move.Source, move.Destination))
+                    .ToArray());
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(3, 0)));
+            Assert.That(result.Trace.Text, Does.Contain("S0.BoardBounds"));
+        }
+
+        [Test]
+        public void Movement_InteractPushableBox_IgnoresProjectileAsSlideStopper()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateProjectile(entityId: 40, position: new Vector2Int(2, 0), hp: 1),
+                },
+                BoardBounds.Unbounded,
+                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(3, 0)));
+            Assert.That(finalSnapshot.TryGetProjectileAt(new Vector2Int(2, 0), out var projectile), Is.True);
+            Assert.That(projectile.entityId, Is.EqualTo(40));
+        }
+
+        [Test]
+        public void Movement_InteractPushableBox_FailsWhenUnboundedBoardHasNoStopper()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                },
+                BoardBounds.Unbounded,
+                GameplayTerrainData.Empty);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
@@ -239,7 +341,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_FailsWhenStopperIsAdjacent()
+        public void Movement_InteractPushableBox_FailsWhenEntityStopperIsAdjacent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -262,12 +364,44 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=SlideStopperAdjacent|Target=20|Stopper=30|Cell=(2,0)",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=SlideStopperAdjacent|Target=20|StopperKind=Entity|Stopper=30|StopperType=Box|Cell=(2,0)",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(2, 0)));
+        }
+
+        [Test]
+        public void Movement_InteractPushableBox_FailsWhenTerrainStopperIsAdjacent()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                },
+                BoardBounds.Unbounded,
+                new GameplayTerrainData(new[] { new Vector2Int(2, 0) }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=SlideStopperAdjacent|Target=20|StopperKind=Terrain|Cell=(2,0)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
         }
 
         [Test]
@@ -432,7 +566,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=ThrowLandingBlocked|Cell=(1,0)|Occupant=20|Type=Unit",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=ThrowLandingBlocked|StopperKind=Entity|Stopper=20|StopperType=Unit|Cell=(1,0)",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -867,15 +1001,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            var constructor = typeof(WorldState).GetConstructor(
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
+            return CreateWorldState(initialEntities, BoardBounds.Unbounded, GameplayTerrainData.Empty);
+        }
 
-            Assert.That(constructor, Is.Not.Null);
-
-            return (WorldState)constructor.Invoke(new object[] { initialEntities });
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData)
+        {
+            return new WorldState(initialEntities, boardBounds, terrainData);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

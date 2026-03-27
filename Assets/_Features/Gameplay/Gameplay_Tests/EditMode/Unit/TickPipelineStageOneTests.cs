@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -432,6 +433,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WorldSnapshot_IsBlockedForUnit_ConsidersBoardBoundsTerrainAndIgnoresProjectileLayer()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    new EntityState
+                    {
+                        entityId = 10,
+                        position = new Vector2Int(1, 0),
+                        hp = 3,
+                        maxHp = 3,
+                        teamId = 1,
+                        type = EntityType.Unit,
+                    },
+                    new EntityState
+                    {
+                        entityId = 20,
+                        position = new Vector2Int(2, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 1,
+                        type = EntityType.Projectile,
+                    },
+                    new EntityState
+                    {
+                        entityId = 30,
+                        position = new Vector2Int(3, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 0,
+                        type = EntityType.None,
+                    },
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                new GameplayTerrainData(new[] { new Vector2Int(0, 1) }));
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(snapshot.IsInsideBoard(new Vector2Int(0, 0)), Is.True);
+            Assert.That(snapshot.IsInsideBoard(new Vector2Int(-1, 0)), Is.False);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(-1, 0)), Is.True);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(0, 1)), Is.True);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(2, 0)), Is.False);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(3, 0)), Is.True);
+        }
+
+        [Test]
         public void WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy()
         {
             var worldState = CreateWorldState(new[]
@@ -719,15 +767,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            var constructor = typeof(WorldState).GetConstructor(
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
+            return CreateWorldState(initialEntities, BoardBounds.Unbounded, GameplayTerrainData.Empty);
+        }
 
-            Assert.That(constructor, Is.Not.Null);
-
-            return (WorldState)constructor.Invoke(new object[] { initialEntities });
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData)
+        {
+            return new WorldState(initialEntities, boardBounds, terrainData);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

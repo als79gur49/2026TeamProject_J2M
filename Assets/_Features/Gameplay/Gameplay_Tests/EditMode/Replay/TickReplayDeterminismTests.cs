@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
@@ -8,6 +7,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -128,7 +128,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
-        public void Replay_BoxSlideScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_BoxSlideEntityStopperScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunBoxSlideReplaySequence();
             var secondReplay = RunBoxSlideReplaySequence();
@@ -149,6 +149,50 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(2,0)|Facing=Right"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(3,0)|Facing=Right"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(3,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Pushable"));
+        }
+
+        [Test]
+        public void Replay_BoxSlideTerrainStopperScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunBoxSlideTerrainReplaySequence();
+            var secondReplay = RunBoxSlideTerrainReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("S0.Terrain"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(3,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Pushable"));
+        }
+
+        [Test]
+        public void Replay_BoxSlideBoardEdgeScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunBoxSlideBoardEdgeReplaySequence();
+            var secondReplay = RunBoxSlideBoardEdgeReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("S0.BoardBounds"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(3,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Pushable"));
         }
 
@@ -519,6 +563,52 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
+        private static IReadOnlyList<TickReplayFrame> RunBoxSlideTerrainReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable, facing: Direction.Left),
+                },
+                BoardBounds.Unbounded,
+                new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunBoxSlideBoardEdgeReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable, facing: Direction.Left),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
+                GameplayTerrainData.Empty);
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
+                });
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunPlayerMoveIntoUnitBlockedReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -728,15 +818,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            var constructor = typeof(WorldState).GetConstructor(
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
+            return CreateWorldState(initialEntities, BoardBounds.Unbounded, GameplayTerrainData.Empty);
+        }
 
-            Assert.That(constructor, Is.Not.Null);
-
-            return (WorldState)constructor.Invoke(new object[] { initialEntities });
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData)
+        {
+            return new WorldState(initialEntities, boardBounds, terrainData);
         }
 
         private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
