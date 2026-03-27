@@ -823,6 +823,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 rejectedReasons);
         }
 
+        [Test]
+        public void Movement_TopologyReservation_RejectsLaterCandidateThatAlsoChangesTopology()
+        {
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreateRotateGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 10,
+                    priority: 10,
+                    source: new SurfaceCell(FaceId.Floor, 0, 1),
+                    destination: new SurfaceCell(FaceId.Front, 0, 0),
+                    rotationKind: CubeRotationKind.Forward,
+                    updatedTopology: new CubeTopologyState(FaceId.Front)),
+                CreateRotateGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 20,
+                    priority: 5,
+                    source: new SurfaceCell(FaceId.Floor, 1, 0),
+                    destination: new SurfaceCell(FaceId.Back, 1, 1),
+                    rotationKind: CubeRotationKind.Backward,
+                    updatedTopology: new CubeTopologyState(FaceId.Back)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyReserved|Bottom=Front|Front=Ceiling|ReservedBy=1",
+                },
+                rejectedReasons);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -882,6 +921,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 actionGroup.Moves.Add(moves[i]);
             }
 
+            return actionGroup;
+        }
+
+        private static ActionGroup CreateRotateGroup(
+            int groupId,
+            int intentId,
+            int sourceId,
+            int priority,
+            SurfaceCell source,
+            SurfaceCell destination,
+            CubeRotationKind rotationKind,
+            CubeTopologyState updatedTopology)
+        {
+            var actionGroup = CreateMoveGroup(
+                groupId,
+                intentId,
+                sourceId,
+                priority,
+                new MoveAction(sourceId, source, destination, Direction.Up));
+            actionGroup.TopologyChanges.Add(new TopologyChangeAction(rotationKind, updatedTopology));
             return actionGroup;
         }
 

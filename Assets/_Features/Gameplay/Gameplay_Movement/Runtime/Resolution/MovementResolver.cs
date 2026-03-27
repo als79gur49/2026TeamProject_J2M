@@ -33,6 +33,7 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             var reservedDestinations = new HashSet<SurfaceCell>();
             var reservedEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
             var reservedAffectedEntities = new HashSet<int>();
+            TopologyReservation? topologyReservation = null;
 
             for (var i = 0; i < sortedCandidates.Count; i++)
             {
@@ -66,9 +67,16 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                     continue;
                 }
 
+                if (TryGetConflictingTopologyChange(candidate, topologyReservation, out var conflictingTopologyReservation))
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=TopologyReserved|Bottom={conflictingTopologyReservation.BottomFace}|Front={conflictingTopologyReservation.FrontFace}|ReservedBy={conflictingTopologyReservation.GroupId}");
+                    continue;
+                }
+
                 buffer.Add(candidate);
                 selectedIntentIds.Add(candidate.IntentId);
-                ReserveCandidate(candidate, reservedDestinations, reservedEdges, reservedAffectedEntities);
+                ReserveCandidate(candidate, reservedDestinations, reservedEdges, reservedAffectedEntities, ref topologyReservation);
             }
         }
 
@@ -76,7 +84,8 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             ActionGroup candidate,
             HashSet<SurfaceCell> reservedDestinations,
             IDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
-            ISet<int> reservedAffectedEntities)
+            ISet<int> reservedAffectedEntities,
+            ref TopologyReservation? topologyReservation)
         {
             for (var moveIndex = 0; moveIndex < candidate.Moves.Count; moveIndex++)
             {
@@ -103,6 +112,14 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             for (var presenceIndex = 0; presenceIndex < candidate.BoardPresenceChanges.Count; presenceIndex++)
             {
                 reservedAffectedEntities.Add(candidate.BoardPresenceChanges[presenceIndex].EntityId);
+            }
+
+            if (!topologyReservation.HasValue && candidate.TopologyChanges.Count > 0)
+            {
+                var topologyChange = candidate.TopologyChanges[0];
+                topologyReservation = new TopologyReservation(
+                    topologyChange.UpdatedTopology,
+                    candidate.GroupId);
             }
         }
 
@@ -192,6 +209,22 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             return false;
         }
 
+        private static bool TryGetConflictingTopologyChange(
+            ActionGroup candidate,
+            TopologyReservation? reservedTopologyReservation,
+            out TopologyReservation conflictingTopologyReservation)
+        {
+            conflictingTopologyReservation = default;
+
+            if (candidate.TopologyChanges.Count == 0 || !reservedTopologyReservation.HasValue)
+            {
+                return false;
+            }
+
+            conflictingTopologyReservation = reservedTopologyReservation.Value;
+            return true;
+        }
+
         private static bool RequiresEdgeReservation(ActionGroup candidate)
         {
             return candidate.GroupKind != ActionGroupKind.Flip;
@@ -219,6 +252,22 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             public SurfaceCell From { get; }
 
             public SurfaceCell To { get; }
+
+            public int GroupId { get; }
+        }
+
+        private readonly struct TopologyReservation
+        {
+            public TopologyReservation(CubeTopologyState topology, int groupId)
+            {
+                BottomFace = topology.BottomFace;
+                FrontFace = topology.FrontFace;
+                GroupId = groupId;
+            }
+
+            public FaceId BottomFace { get; }
+
+            public FaceId FrontFace { get; }
 
             public int GroupId { get; }
         }
