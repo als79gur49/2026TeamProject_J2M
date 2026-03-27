@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
@@ -818,7 +819,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            return CreateWorldState(initialEntities, BoardBounds.Unbounded, GameplayTerrainData.Empty);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
         private static WorldState CreateWorldState(
@@ -826,7 +827,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             BoardBounds boardBounds,
             GameplayTerrainData terrainData)
         {
-            return new WorldState(initialEntities, boardBounds, terrainData);
+            return boardBounds.IsBounded
+                ? GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData)
+                : GameplayWorldStateTestFactory.CreateLegacyUnbounded(initialEntities, terrainData);
         }
 
         private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding

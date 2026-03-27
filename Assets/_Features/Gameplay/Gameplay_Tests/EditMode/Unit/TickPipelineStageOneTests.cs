@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
+using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
@@ -201,7 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var inputBuffer = new TickInputBuffer();
             var runner = new TickRunner(
-                GameplayCompositionRoot.CreateTickPipeline(new WorldState()),
+                GameplayCompositionRoot.CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())),
                 inputBuffer,
                 startTickIndex: 4);
 
@@ -218,7 +219,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void TickRunner_RunTick_RejectsOutOfOrderTickIndex()
         {
             var runner = new TickRunner(
-                GameplayCompositionRoot.CreateTickPipeline(new WorldState()),
+                GameplayCompositionRoot.CreateTickPipeline(GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>())),
                 new TickInputBuffer(),
                 startTickIndex: 3);
 
@@ -767,7 +768,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            return CreateWorldState(initialEntities, BoardBounds.Unbounded, GameplayTerrainData.Empty);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
         private static WorldState CreateWorldState(
@@ -775,7 +776,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoardBounds boardBounds,
             GameplayTerrainData terrainData)
         {
-            return new WorldState(initialEntities, boardBounds, terrainData);
+            return boardBounds.IsBounded
+                ? GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData)
+                : GameplayWorldStateTestFactory.CreateLegacyUnbounded(initialEntities, terrainData);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

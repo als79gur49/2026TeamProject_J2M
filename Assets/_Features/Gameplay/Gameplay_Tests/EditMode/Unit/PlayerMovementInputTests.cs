@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -19,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_MoveCommand_ProducesSingleRawMovementIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
@@ -42,7 +43,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_ThrowCommand_ProducesSingleRawMovementIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
@@ -65,7 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_InteractCommand_ProducesSingleRawMovementIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
@@ -88,7 +89,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_InteractCommand_ProducesSingleRawAttackIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
@@ -111,7 +112,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_InteractInput_TakesPriorityOverThrowForMovementIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
@@ -139,7 +140,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_NoMoveCommand_ProducesNoIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
             });
@@ -157,7 +158,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void PlayerLogic_DeadEntity_DoesNotProduceIntent()
         {
-            var worldState = GameplayCompositionRoot.CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), hp: 0, markedForDeath: true),
             });
@@ -317,6 +318,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(command.MoveDirection, Is.EqualTo(expectedDirection));
             Assert.That(command.InteractPressed, Is.False);
             Assert.That(command.ThrowPressed, Is.False);
+        }
+
+        private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
         private static EntityState CreateUnit(

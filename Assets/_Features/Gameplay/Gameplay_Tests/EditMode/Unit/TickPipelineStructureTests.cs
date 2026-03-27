@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,6 +9,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -17,7 +19,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void RunTick_CompletesMovementAttackCleanup()
         {
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(new WorldState());
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()));
 
             var result = pipeline.RunTick(new TickInput(7));
 
@@ -116,22 +119,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var worldStateMethods = typeof(WorldState)
                 .GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
                 .Where(method => method.Name is
-                    "AddNewEntity" or
-                    "ClearOccupancy" or
+                    "ApplyDamage" or
+                    "ApplyStateChange" or
+                    "MarkDestroy" or
+                    "MoveEntityTo" or
                     "RemoveEntity" or
-                    "SetOccupancy" or
+                    "SetFacing" or
+                    "SpawnEntity" or
                     "TryGetEntity" or
-                    "UpdateEntity")
+                    "UpdateStoredEntity")
                 .ToArray();
             var leakedMutationMethods = typeof(WorldState)
                 .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
                 .Where(method => method.Name is
-                    "AddNewEntity" or
-                    "ClearOccupancy" or
+                    "ApplyDamage" or
+                    "ApplyStateChange" or
+                    "MarkDestroy" or
+                    "MoveEntityTo" or
                     "RemoveEntity" or
-                    "SetOccupancy" or
+                    "SetFacing" or
+                    "SpawnEntity" or
                     "TryGetEntity" or
-                    "UpdateEntity")
+                    "UpdateStoredEntity")
                 .Where(method => method.IsPublic || method.IsAssembly || method.IsFamily || method.IsFamilyOrAssembly)
                 .ToArray();
 

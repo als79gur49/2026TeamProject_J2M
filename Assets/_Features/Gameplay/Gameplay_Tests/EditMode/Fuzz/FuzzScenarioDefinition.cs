@@ -5,6 +5,7 @@ using System.Text;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Tests;
 
 namespace Game.Feature.Gameplay.Tests.Fuzz
 {
@@ -65,7 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
 
         public WorldState CreateWorldState()
         {
-            return new WorldState(_initialEntities);
+            return GameplayWorldStateTestFactory.CreateLegacyUnbounded(_initialEntities);
         }
 
         public IEntityLogic[] CreateEntityLogics()

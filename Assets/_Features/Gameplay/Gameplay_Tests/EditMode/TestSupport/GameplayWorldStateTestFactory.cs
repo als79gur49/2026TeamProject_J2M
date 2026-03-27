@@ -1,0 +1,52 @@
+using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
+using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
+using UnityEngine;
+
+namespace Game.Feature.Gameplay.Tests
+{
+    internal static class GameplayWorldStateTestFactory
+    {
+        private static readonly BoardBounds DefaultBoardBounds = new(
+            new Vector2Int(-32, -32),
+            new Vector2Int(32, 32));
+
+        public static WorldState CreateBounded(IEnumerable<EntityState> initialEntities)
+        {
+            return CreateBounded(initialEntities, DefaultBoardBounds, GameplayTerrainData.Empty);
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTerrainData terrainData)
+        {
+            return CreateBounded(initialEntities, DefaultBoardBounds, terrainData);
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData)
+        {
+            return GameplayCompositionRoot.CreateWorldState(
+                initialEntities,
+                boardBounds,
+                terrainData ?? GameplayTerrainData.Empty);
+        }
+
+        public static WorldState CreateLegacyUnbounded(IEnumerable<EntityState> initialEntities)
+        {
+            return CreateLegacyUnbounded(initialEntities, GameplayTerrainData.Empty);
+        }
+
+        public static WorldState CreateLegacyUnbounded(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTerrainData terrainData)
+        {
+            return GameplayCompositionRoot.CreateLegacyUnboundedWorldState(
+                initialEntities,
+                terrainData ?? GameplayTerrainData.Empty);
+        }
+    }
+}

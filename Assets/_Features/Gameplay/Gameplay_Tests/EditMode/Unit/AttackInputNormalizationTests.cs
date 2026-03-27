@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -138,7 +139,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void AttackExpander_SyntheticReservations_ExpandToDamageAndProjectileDestroyCandidates()
         {
-            var worldState = new WorldState(new[]
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
@@ -199,7 +200,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void TickTraceBuilder_EmitsDrainedReservations_AndNormalizedSyntheticInputs()
         {
-            var worldState = new WorldState(new[]
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),

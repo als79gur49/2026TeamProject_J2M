@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -244,15 +245,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            var constructor = typeof(WorldState).GetConstructor(
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
-
-            Assert.That(constructor, Is.Not.Null);
-
-            return (WorldState)constructor.Invoke(new object[] { initialEntities });
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

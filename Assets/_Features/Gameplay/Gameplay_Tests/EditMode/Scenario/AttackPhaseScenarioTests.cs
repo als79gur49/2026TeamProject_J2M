@@ -16,6 +16,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Model.Sorting;
+using Game.Feature.Gameplay.Tests;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using NUnit.Framework;
@@ -1123,15 +1124,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
-            var constructor = typeof(WorldState).GetConstructor(
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
-
-            Assert.That(constructor, Is.Not.Null);
-
-            return (WorldState)constructor.Invoke(new object[] { initialEntities });
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

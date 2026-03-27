@@ -198,6 +198,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CellSize = 1f,
                     DirectionChangeConsumesDelay = false,
                     GridOrigin = Vector3.zero,
+                    InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
                     InitialMoveDelayTicks = 0,
                     InitialEntities = initialEntities,
                     MoveDeadzone = 0.5f,
