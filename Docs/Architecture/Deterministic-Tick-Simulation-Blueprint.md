@@ -84,13 +84,20 @@
 - `entitiesById`
 - `unitOccupancy`
 - `projectileOccupancy`
+- `boardBounds`
 - `terrainData`
 
 설명:
 
 - `unitOccupancy`: 플레이어, 적, 소환 유닛
 - `projectileOccupancy`: 투사체, 날아가는 오브젝트
+- `boardBounds`: 보드 안/밖을 authoritative하게 판정하는 경계 데이터
 - `terrainData`: 벽, 바닥, 컨베이어 같은 정적 혹은 준정적 보드 데이터
+
+현재 구현 메모:
+
+- 샘플 씬의 외벽처럼 보이는 일부 blocker는 아직 terrain이 아니라 `EntityType.None` entity wall이다.
+- 따라서 중앙 이동 질의는 `board bounds + terrain + blocking entity`를 모두 보고, entity wall도 valid stopper로 유지한다.
 
 `effectOccupancy`는 실제 필요가 생길 때 추가한다.
 
@@ -241,13 +248,20 @@ Unity 구현 배치 기준:
 ```csharp
 public class WorldSnapshot
 {
+    public BoardBounds BoardBounds { get; }
     public IReadOnlyDictionary<int, EntityState> entitiesById;
     public IReadOnlyDictionary<Vector2Int, int> unitOccupancy;
     public IReadOnlyDictionary<Vector2Int, int> projectileOccupancy;
 
     public bool TryGetUnitAt(Vector2Int cell, out EntityState entity);
     public bool TryGetProjectileAt(Vector2Int cell, out EntityState entity);
+    public bool IsInsideBoard(Vector2Int cell);
     public bool IsBlockedForUnit(Vector2Int cell);
+    public bool TryGetBoxSlideDestination(
+        Vector2Int origin,
+        Vector2Int delta,
+        out Vector2Int destination,
+        out SlideStopper stopper);
 }
 ```
 
@@ -257,6 +271,9 @@ public class WorldSnapshot
 - Snapshot은 `EntityLogic`이나 `MonoBehaviour`를 참조하지 않는다.
 - Snapshot 순회는 결정론적 정렬 버퍼를 통해 수행한다.
 - 외부 호출부는 내부 저장 구조를 직접 알지 않는다.
+- `IsBlockedForUnit`은 `board bounds + terrain blocker + blocking entity`를 함께 본다.
+- projectile layer는 `IsBlockedForUnit`과 box slide stopper에서 제외한다.
+- `MovementExpander`는 직접 entity ray scan을 하지 않고, `WorldSnapshot` / `WorldQueryService`의 중앙 질의만 사용한다.
 
 ### 5-5. ImpactReservation
 
@@ -459,14 +476,19 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
 - `Movement` phase는 `Interact`에 의한 single-target `BoxSlide`와 `Throwable` 박스에 대한 `Throw`만 처리한다.
 - `Interact`는 인접 `Pushable` 박스 1개만 대상으로 삼는다.
-- `BoxSlide`는 interaction 방향 ray 위의 가장 가까운 non-projectile stopper 직전까지 박스를 이동시킨다.
-- stopper가 없거나 stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
+- `BoxSlide` 목적지 계산은 `WorldSnapshot` / `WorldQueryService`의 중앙 질의가 담당한다.
+- `BoxSlide` stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
+- projectile은 `BoxSlide` stopper가 아니다.
+- `BoxSlide`는 interaction 방향 ray 위의 첫 stopper 직전까지 박스를 이동시킨다.
+- bounded board에서는 stopper 없음 상태가 원칙적으로 발생하지 않는다.
+- stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
 - `BoxSlide` 동안 player source는 anchor cell에 남는다.
 - `Throw`는 source entity를 고정한 채 인접 박스를 source 반대편 인접 cell로 이동시키는 movement 확장이다.
 - `Throw` 성공/실패는 `S0` 기준으로만 판정한다.
 - `Interact`는 `Movement`와 `Attack`에 모두 걸치지만, box slide는 `Movement`, loot-destroy는 `Attack`이 처리한다.
 - `LootOnInteractDestroy`가 있는 박스에 대한 `Interact` 성공 시 loot 이벤트와 `MarkDestroy`만 기록한다.
 - 실제 제거와 occupancy 정리는 반드시 `Cleanup`에서만 수행한다.
+- 현재 sample scene의 `EntityType.None` blocker wall은 terrain wall이 아니라 entity stopper로 취급한다.
 
 ### 9-6. Projectile 정책
 
@@ -634,7 +656,7 @@ Assets/_Features/Gameplay/
 
 - `Gameplay_Model`: TickPhase, Intent, ActionGroup, ActionGroupKind, 공용 Actions, IntentComparer, ActionGroupComparer
 - `Gameplay_Loop`: TickRunner, InputBuffer, IdAllocator, TickPipeline, TickResultBuilder, PhaseTransientBuffer, DelayedAttackEffectQueue, GameplayCompositionRoot, GameplayBootstrapper
-- `Gameplay_BoardState`: WorldState, WorldSnapshot, SnapshotBuilder, TerrainData
+- `Gameplay_BoardState`: WorldState, WorldSnapshot, SnapshotBuilder, BoardBounds, TerrainData, SlideStopper, WorldQueryService
 - `Gameplay_Movement`: MoveIntent, raw movement collection, Expanders, Resolver, Committer
 - `Gameplay_Attack`: AttackIntent, raw attack collection, Expanders, Resolver, Committer, ImpactReservationExpander
 - `Gameplay_Cleanup`: CleanupProcessor, StateTransitionProcessor

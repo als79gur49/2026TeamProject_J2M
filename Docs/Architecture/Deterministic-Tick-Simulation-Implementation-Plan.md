@@ -129,7 +129,9 @@ Assets/_Features/Gameplay/
       EntityType.cs
       EntityPhaseState.cs
       Direction.cs
+      BoardBounds.cs
       TerrainData.cs
+      SlideStopper.cs
       WorldState.cs
       WorldSnapshot.cs
       SnapshotBuilder.cs
@@ -305,6 +307,7 @@ current-state 메모:
   - `private Dictionary<int, EntityState> entitiesById`
   - `private Dictionary<Vector2Int, int> unitOccupancy`
   - `private Dictionary<Vector2Int, int> projectileOccupancy`
+  - `private BoardBounds boardBounds`
   - `private TerrainData terrainData`
 - `WorldStateWriteContext`
   - `MoveEntity`
@@ -324,7 +327,9 @@ current-state 메모:
 - `TryGetEntity(int entityId, out EntityState entity)`
 - `TryGetUnitAt(Vector2Int cell, out EntityState entity)`
 - `TryGetProjectileAt(Vector2Int cell, out EntityState entity)`
+- `IsInsideBoard(Vector2Int cell)`
 - `IsBlockedForUnit(Vector2Int cell)`
+- `TryGetBoxSlideDestination(Vector2Int origin, Vector2Int delta, out Vector2Int destination, out SlideStopper stopper)`
 - `BlocksMovement(int entityId)`
 - `CanBeTargetedForNewSelection(int entityId)`
 - `EnumerateEntitiesOrdered(List<EntityState> buffer)`
@@ -334,6 +339,9 @@ current-state 메모:
 - Snapshot은 생성 후 절대 변경하지 않는다.
 - 외부는 occupancy 딕셔너리를 직접 순회하지 않는다.
 - 질의 정책은 중앙 함수에서만 계산한다.
+- `IsBlockedForUnit` 의미는 `board bounds + terrain blocker + blocking entity`다.
+- projectile layer는 box slide stopper와 `IsBlockedForUnit`에서 제외한다.
+- `MovementExpander`는 terrain/bounds/entity를 직접 ray scan하지 않고 중앙 query만 호출한다.
 
 ### 5-4. Intent와 ActionGroup
 
@@ -757,6 +765,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - `RawMovementIntent` / `MoveIntent`에 `Unit` push 전용 metadata는 두지 않는다.
 - `MovementExpander`는 `MoveIntent`가 점유된 `Unit` / `Box`를 만나면 기존 blocked move 규칙으로 끝낸다.
 - `Projectile`만 movement phase에서 예외적으로 `ProjectileImpact` 후보로 분기할 수 있다.
+- `Move` / `Throw` / `BoxSlide`의 blocked 판정은 중앙 `WorldSnapshot` query로 통합한다.
 
 반영된 모델 보강:
 
@@ -886,12 +895,17 @@ Resolver 알고리즘 변경:
 - `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
 - `Interact`는 인접 `Pushable` 박스에 대해서만 movement 후보를 만들 수 있다.
 - 플레이어는 인접 `Pushable` 박스 1개만 slide 대상으로 삼는다.
-- `Interact` 성공 시 박스는 interaction 방향 ray 위의 가장 가까운 non-projectile stopper 직전까지 slide한다.
+- `Interact(BoxSlide)` 목적지 계산은 `WorldSnapshot.TryGetBoxSlideDestination` 같은 중앙 query가 담당한다.
+- slide stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
+- projectile은 slide stopper가 아니다.
+- `Interact` 성공 시 박스는 interaction 방향 ray 위의 첫 stopper 직전까지 slide한다.
+- bounded board에서는 stopper 없음 상태가 원칙적으로 발생하지 않는다.
 - stopper가 없거나 stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
 - `Interact(BoxSlide)` 동안 player source는 anchor cell에 남는다.
 - `Throw`는 source entity를 고정한 채, 인접 `Throwable` 박스를 source 반대편 인접 cell로 이동시키는 후보를 만든다.
 - `Movement`는 위치, 경로, 점유, reservation만 처리한다.
 - `Movement`는 loot 지급, destroy mark, entity 제거를 직접 수행하지 않는다.
+- 현재 sample scene의 외벽처럼 보이는 일부 blocker는 terrain이 아니라 `EntityType.None` entity wall이며, 중앙 query에서 entity stopper로 계속 처리한다.
 
 `Attack` phase 규칙:
 
@@ -919,13 +933,19 @@ Resolver 알고리즘 변경:
 - `PlayerLogic_InteractCommand_ProducesSingleRawAttackIntent`
 - `Movement_MoveIntoPushableBox_FailsWithoutExplicitInteract`
 - `Movement_MoveIntoUnit_FailsWithoutPushing`
-- `Movement_InteractPushableBox_SlidesUntilNearestStopper`
-- `Movement_InteractPushableBox_FailsWhenSlideRayHasNoStopper`
-- `Movement_InteractPushableBox_FailsWhenStopperIsAdjacent`
+- `Movement_InteractPushableBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid`
+- `Movement_InteractPushableBox_StopsBeforeTerrainBlocker`
+- `Movement_InteractPushableBox_StopsBeforeBoardEdge`
+- `Movement_InteractPushableBox_IgnoresProjectileAsSlideStopper`
+- `Movement_InteractPushableBox_FailsWhenUnboundedBoardHasNoStopper`
+- `Movement_InteractPushableBox_FailsWhenEntityStopperIsAdjacent`
+- `Movement_InteractPushableBox_FailsWhenTerrainStopperIsAdjacent`
 - `Movement_InteractLootOnInteractDestroyBox_DoesNotMoveDuringMovementPhase`
 - `Movement_Throw_SucceedsWhenOppositeCellIsFree`
 - `Attack_InteractLootDestroy_MarksBoxAndKeepsOccupancyUntilCleanup`
-- `Replay_BoxSlideScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_BoxSlideEntityStopperScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_BoxSlideTerrainStopperScenario_ProducesSameHashTraceAndEventLog`
+- `Replay_BoxSlideBoardEdgeScenario_ProducesSameHashTraceAndEventLog`
 - `Replay_PlayerMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog`
 - `Replay_BoxInteractDestroyScenario_ProducesSameHashTraceAndEventLog`
 - `Replay_BoxThrowScenario_ProducesSameHashTraceAndEventLog`
