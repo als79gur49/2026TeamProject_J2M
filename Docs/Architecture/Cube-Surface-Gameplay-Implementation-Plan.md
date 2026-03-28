@@ -10,6 +10,11 @@
 - `Item`, `Push`, `Flip`을 `Movement` 단계로 통합한다.
 - `Cleanup` 지연 삭제와 즉시 점유 상실을 동시에 표현할 수 있게 만든다.
 
+현재 상태:
+
+- 2026-03-29 기준 구현 완료
+- 이 문서는 초기 실행 계획서를 현재 코드 기준 완료 기록으로 최신화한 버전이다.
+
 ## 2. 구현 원칙
 
 - 현재 틱 순서 `Movement -> Attack -> Cleanup`는 유지한다.
@@ -274,8 +279,8 @@ unbounded board 호환 규칙:
 
 - `Move`를 기본 입력으로 유지
 - `Push`와 `Flip`은 `Move`와 분리된 별도 입력으로 유지
-- 현재 `Throw` 입력을 `Flip` 의미로 치환
-- 기존 `Interact` 입력 경로는 호환용 alias로만 남기고 runtime 의미는 `Push`로 정규화
+- 입력 경계는 `Player/Move`, `Player/Push`, `Player/Flip`만 허용
+- `PlayerTickCommand`, `GameplayInputHost`, `PlayerLogic` public surface에서 legacy alias를 제거
 - 플레이어 이동 의도는 `Move`, `Push`, `Flip`만 생산하도록 정리
 
 대상 파일:
@@ -385,7 +390,7 @@ unbounded board 호환 규칙:
 
 작업:
 
-- `InteractLootDestroy` 경로 제거 또는 비활성화
+- `InteractLootDestroy` 경로 제거
 - `Attack`은 전투/투사체/지연공격만 유지
 
 대상 파일:
@@ -680,23 +685,25 @@ stripCenter =
 
 ## 4. 권장 구현 순서 체크리스트
 
-- [ ] 1단계: `SurfaceCell`, `FaceId`, `CubeTopologyState` 추가
-- [ ] 2단계: `EntityState`, `WorldState`, `WorldSnapshot`를 `SurfaceCell` 기준으로 교체
-- [ ] 3단계: 면 전환 질의와 활성 면 필터링 구현
-- [ ] 4단계: `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`를 `Move + Push + Flip` 중심으로 정리
-- [ ] 5단계: `MovementExpander`에 `Item -> Push -> Flip` 통합
-- [ ] 6단계: `MovementCommitter`에 topology 변경, `Detached` 전환, 삭제 예약 커밋 추가
-- [ ] 7단계: `Cleanup`이 점유 상태와 무관하게 삭제 예약만 소비하도록 수정
-- [ ] 8단계: `Attack`에서 박스 상호작용 제거
-- [ ] 9단계: view 좌표 변환과 활성 면 표시 반영
-- [ ] 10단계: 샘플 씬과 테스트 전체 갱신
+2026-03-29 기준 완료 기록:
+
+- [x] 1단계: `SurfaceCell`, `FaceId`, `CubeTopologyState` 추가
+- [x] 2단계: `EntityState`, `WorldState`, `WorldSnapshot`를 `SurfaceCell` 기준으로 교체
+- [x] 3단계: 면 전환 질의와 활성 면 필터링 구현
+- [x] 4단계: `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`를 `Move + Push + Flip` 중심으로 정리
+- [x] 5단계: `MovementExpander`에 `Item -> Push -> Flip` 통합
+- [x] 6단계: `MovementCommitter`에 topology 변경, `Detached` 전환, 삭제 예약 커밋 추가
+- [x] 7단계: `Cleanup`이 점유 상태와 무관하게 삭제 예약만 소비하도록 수정
+- [x] 8단계: `Attack`에서 박스 상호작용 제거
+- [x] 9단계: view 좌표 변환과 활성 면 표시 반영
+- [x] 10단계: 샘플 씬과 테스트 전체 갱신
 
 ## 5. 마이그레이션 메모
 
 - legacy `Throwable` capability alias는 제거되고 의미를 `Flip`으로 고정한다.
 - legacy `LootOnInteractDestroy` capability alias는 제거되고 의미를 `Item`으로 고정한다.
-- 현재 `InteractLootDestroy` 공격 경로는 임시 호환 단계 이후 제거 대상이다.
-- 현재 `Vector2Int` 중심 테스트는 모두 `SurfaceCell` 중심 시나리오로 바뀐다.
+- `InteractLootDestroy` 공격 경로는 제거되었고, `Attack`은 전투/투사체/지연공격만 유지한다.
+- `Vector2Int` 중심 테스트는 `SurfaceCell` 중심 시나리오로 이관되었다.
 
 ## 6. 완료 정의
 

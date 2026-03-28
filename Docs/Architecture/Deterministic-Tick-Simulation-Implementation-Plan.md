@@ -758,7 +758,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 
 - 일반 `Move`는 `Unit`이나 `Box`를 밀지 않는다.
 - 이동 성공/실패는 `S0` 기준으로만 판정한다.
-- Commit에서는 선택된 move / box slide / throw만 적용하고, 중간 damage나 remove는 하지 않는다.
+- Commit에서는 선택된 `Move` / `Push` / `Flip`만 적용하고, 중간 damage나 remove는 하지 않는다.
 
 현재 정책:
 
