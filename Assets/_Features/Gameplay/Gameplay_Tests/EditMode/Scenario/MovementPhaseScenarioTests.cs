@@ -417,7 +417,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractLootOnInteractDestroyBox_IsConsumedDuringMovementPhase()
+        public void Movement_InteractLootOnInteractDestroyBox_DetachesImmediatelyAndIsRemovedInCleanup()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -441,7 +441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=DetachedPendingCleanup",
+                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=Detached",
                     "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
                     "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
                 },
@@ -721,7 +721,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=DetachedPendingCleanup",
+                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=Detached",
                     "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
                 },
                 result.MovementPhaseResult.CommitEvents);

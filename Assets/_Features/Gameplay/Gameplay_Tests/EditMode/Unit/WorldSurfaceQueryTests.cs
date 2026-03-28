@@ -152,7 +152,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryGetSurfaceBoxSlideDestination_IgnoresDetachedPendingCleanupButStopsOnMarkedForDeath()
+        public void WorldSnapshot_GameplayQueries_HideDetachedEntities()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        CreateUnit(
+                            entityId: 20,
+                            position: new SurfaceCell(FaceId.Floor, 1, 0),
+                            boardPresence: EntityBoardPresence.Detached),
+                    },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            Assert.That(snapshot.TryGetEntity(20, out var detachedEntity), Is.True);
+            Assert.That(detachedEntity.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            Assert.That(snapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
+            Assert.That(snapshot.BlocksMovement(20), Is.False);
+            Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.False);
+        }
+
+        [Test]
+        public void WorldSnapshot_TryGetSurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeath()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -161,7 +184,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateUnit(
                             entityId: 20,
                             position: new SurfaceCell(FaceId.Front, 1, 0),
-                            boardPresence: EntityBoardPresence.DetachedPendingCleanup),
+                            boardPresence: EntityBoardPresence.Detached),
                         CreateUnit(
                             entityId: 30,
                             position: new SurfaceCell(FaceId.Front, 1, 1),

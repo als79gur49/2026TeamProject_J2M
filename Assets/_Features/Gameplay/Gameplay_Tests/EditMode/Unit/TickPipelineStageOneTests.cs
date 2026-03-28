@@ -503,7 +503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         maxHp = 1,
                         teamId = 1,
                         type = EntityType.Unit,
-                        boardPresence = EntityBoardPresence.DetachedPendingCleanup,
+                        boardPresence = EntityBoardPresence.Detached,
                     },
                     new EntityState
                     {

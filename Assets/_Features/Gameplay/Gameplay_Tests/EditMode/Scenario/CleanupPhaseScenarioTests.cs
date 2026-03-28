@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class CleanupPhaseScenarioTests
     {
         [Test]
-        public void Cleanup_DestroyMarkedEntity_IsRemovedOnlyInCleanup()
+        public void Cleanup_MarkedForDeathOccupyingEntity_RemainsBlockerUntilCleanupThenIsRemoved()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -30,6 +30,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.False);
+            Assert.That(afterSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+        }
+
+        [Test]
+        public void Cleanup_DetachedEntityWithoutDestroyMark_SurvivesCleanup()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(
+                    entityId: 10,
+                    position: new Vector2Int(1, 0),
+                    hp: 2,
+                    boardPresence: EntityBoardPresence.Detached),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var beforeSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(beforeSnapshot.TryGetEntity(10, out var entityBefore), Is.True);
+            Assert.That(entityBefore.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(beforeSnapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            Assert.That(beforeSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+
+            var result = pipeline.RunTick(new TickInput(6));
+            var afterSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(result.CleanupPhaseResult.RemovedEntityIds, Is.Empty);
+            Assert.That(afterSnapshot.TryGetEntity(10, out var entityAfter), Is.True);
+            Assert.That(entityAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(afterSnapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
             Assert.That(afterSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
         }
 
@@ -207,6 +236,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Vector2Int position,
             int hp,
             bool markedForDeath = false,
+            EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
             EntityPhaseState state = EntityPhaseState.Idle,
             int stateTimer = 0,
             int spawnTick = 0)
@@ -221,6 +251,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 type = EntityType.Unit,
                 state = state,
                 stateTimer = stateTimer,
+                boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
                 spawnTick = spawnTick,
             };
