@@ -95,7 +95,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator PlayerMove_PlayMode_PushInputSlidesPushBoxWithoutMovingPlayer()
+        public IEnumerator PlayerMove_PlayMode_PushInputStartsSlidingBoxWithoutMovingPlayer()
         {
             var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
@@ -114,10 +114,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
 
             Release(_keyboard.eKey);
             Release(_keyboard.dKey);
+            yield return null;
+
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
+
+            host.InputHost.RunSingleTick();
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
+
             yield return DestroyHost(host, actions);
         }
 
