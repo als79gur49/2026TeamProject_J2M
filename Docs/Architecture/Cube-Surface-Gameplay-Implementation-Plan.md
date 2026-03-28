@@ -196,21 +196,20 @@ active-face filter는 모든 placement 검사에 동일하게 적용하면 안 �
 
 #### 3-2-7. 박스 활성 면 슬라이드 질의 알고리즘
 
-`TryGetSurfaceBoxSlideDestination`는 활성 면 사이 shared edge 예외만 반영하고, 박스 스스로 topology를 바꾸지는 않는다.
+박스 슬라이드는 "한 번에 최종 destination 계산"이 아니라 "현재 tick의 다음 1칸 계산"으로 해석한다. 즉 `Push`는 박스를 `Sliding` 상태로 만들고, 매 tick `TryGetNextSurfaceBoxSlideCell` 기반으로 다음 1칸만 전진시킨다.
 
 bounded board 알고리즘:
 
 1. `origin.face`가 활성 면이 아니면 실패한다.
 2. `delta`는 orthogonal 1칸 방향만 허용한다.
-3. `current = origin`에서 시작해 다음 칸을 반복 계산한다.
-4. 다음 칸 계산은 `TryGetNextSurfaceBoxSlideCell` helper가 담당한다.
-5. helper는 아래 두 경우에만 face를 바꾼다.
+3. 다음 칸 계산은 `TryGetNextSurfaceBoxSlideCell` helper가 담당한다.
+4. helper는 아래 두 경우에만 face를 바꾼다.
    - `SurfaceCell(BottomFace, x, MaxY)`에서 `Up` -> `SurfaceCell(FrontFace, x, MinY)`
    - `SurfaceCell(FrontFace, x, MinY)`에서 `Down` -> `SurfaceCell(BottomFace, x, MaxY)`
-6. 그 외 경계 이탈은 모두 `BoardEdge` stopper로 끝낸다.
-7. 다음 칸이 terrain이면 현재 칸을 최종 destination으로 확정하고 `Terrain` stopper를 반환한다.
-8. 다음 칸에 active-face occupying entity가 있으면 현재 칸을 최종 destination으로 확정하고 `Entity` stopper를 반환한다.
-9. blocker가 없으면 `current = next`로 갱신하고 반복한다.
+5. 그 외 경계 이탈은 모두 `BoardEdge` stopper로 끝낸다.
+6. 다음 칸이 terrain이면 그 tick의 전진은 실패하고 `Terrain` stopper를 반환한다.
+7. 다음 칸에 active-face occupying entity가 있으면 그 tick의 전진은 실패하고 `Entity` stopper를 반환한다.
+8. blocker가 없으면 그 tick destination은 `next`다.
 
 추가 규칙:
 
@@ -221,9 +220,9 @@ bounded board 알고리즘:
 
 unbounded board 호환 규칙:
 
-- `BoardBounds.Unbounded`에서는 기존 planar ray-scan 의미를 유지한다.
+- `BoardBounds.Unbounded`에서는 기존 planar 1칸 이동 의미를 유지한다.
 - 이 모드에서는 face-crossing slide를 지원하지 않는다.
-- stopper를 하나도 찾지 못하면 기존 API 의미를 유지하기 위해 `false`를 반환한다.
+- stopper를 하나도 찾지 못해도 그 tick의 다음 1칸 전진은 성공한다.
 
 #### 3-2-8. 레거시 `Vector2Int` 호환 정책
 
@@ -299,9 +298,10 @@ unbounded board 호환 규칙:
   - 박스 삭제 예약
 - `Push` 처리:
   - `Push` 입력일 때만 후보 생성
-  - 슬라이드 성공
-  - 실패 시 `Push + Destroy`면 파괴
-  - 실패 시 `Destroy` 없으면 무효
+  - 성공 시 대상 박스를 1칸 이동시키고 `Sliding` 상태로 전환
+  - `Sliding` 박스는 이후 tick에도 자동으로 1칸 movement intent를 생성
+  - 다음 1칸 전진 실패 시 `Push + Destroy`면 파괴
+  - 다음 1칸 전진 실패 시 `Destroy` 없으면 `Sliding` 해제 후 정지
 - `Flip` 처리:
   - 반대편 1칸 이동
   - 앞벽 경계 넘김 금지
@@ -333,6 +333,7 @@ unbounded board 호환 규칙:
 - 플레이어 면 전환 시 `BottomFace` 갱신
 - `Item` 박스의 `Detached` 전환
 - `Item` 박스의 삭제 예약 반영
+- `Push` 성공 박스의 `Sliding` state / timer 반영
 - `Push + Destroy` 실패 박스의 `Detached` 전환과 삭제 예약 반영
 - `boardPresence`와 `markedForDeath`를 같은 커밋 경로에서 다루되 의미는 분리
 - 신규 이벤트 로그 추가
@@ -371,6 +372,7 @@ unbounded board 호환 규칙:
 - `Cleanup`이 `boardPresence` 값에 의존하지 않고 제거 대상을 결정함
 - 같은 틱에 점유를 잃은 엔티티도 삭제 예약이 있으면 `Cleanup`에서 실제 삭제됨
 - 향후 `Detached but alive` 상태가 추가되어도 `Cleanup` 수정이 필요 없음
+- `Sliding` 박스는 movement에서 timer refresh가 끊긴 tick의 cleanup 이후 `Idle`로 복귀함
 
 ### 3-7. 7단계: Attack 단계 정리
 
@@ -545,6 +547,7 @@ visible 여부는 gameplay와 같은 authoritative 상태를 따라야 한다.
 
 - `Item` 박스는 같은 틱에 `Detached`되면 즉시 사라진다.
 - `Push + Destroy` 실패 박스도 `Detached` 후 같은 틱에 사라진다.
+- `Push` 성공 박스는 같은 틱에 1칸만 전진하고 `Sliding` 상태를 유지한다.
 - 삭제 예약만 된 active-face blocker는 `Cleanup` 전까지 계속 보인다.
 
 #### 3-8-7. 회전 연속성 anchor
@@ -650,6 +653,7 @@ stripCenter =
 - 플레이어 전방 회전
 - 플레이어 후방 회전
 - `Bottom <-> Front` 박스 슬라이드 지속
+- `Push` 성공 후 subsequent tick 자동 슬라이드 지속
 - `Flip` 앞벽 경계 금지
 - `Item` 획득 후 같은 틱 플레이어 진입
 - `Item` 박스는 `Cleanup` 전까지 엔티티는 남아도 점유는 잃는지
@@ -698,6 +702,7 @@ stripCenter =
 - 플레이어만 면 전환을 트리거한다.
 - 박스는 `Bottom <-> Front` 경계만 넘고 회전을 트리거하지 않는다.
 - `Item`, `Push`, `Flip`이 모두 `Movement`에서 처리된다.
+- `Push`는 박스를 `Sliding` 상태로 만들어 이후 tick에도 1칸씩 계속 진행시킨다.
 - `Move`는 `Push` 박스를 자동으로 밀지 않는다.
 - `Item -> Push -> Flip` 우선순위가 테스트로 고정된다.
 - 점유 상실과 실제 삭제가 분리되어도 모순이 없다.
