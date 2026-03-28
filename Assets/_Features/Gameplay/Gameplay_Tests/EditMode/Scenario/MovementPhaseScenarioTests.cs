@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -1010,7 +1011,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_SlidingPushDestroyBox_WhenLaterSlideStops_DetachesAndRemovesBox()
+        public void Movement_SlidingPushDestroyBox_WhenLaterSlideStops_RemainsOnBoardAndBecomesIdle()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -1039,21 +1040,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "MoveCommitted|G=1|I=1|E=20|To=(2,0)|Facing=Right",
                 },
                 firstTick.MovementPhaseResult.CommitEvents);
+            Assert.That(secondTick.MovementPhaseResult.SelectedGroups, Is.Empty);
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 20, Kind: ActionGroupKind.Push, MoveCount: 0) },
-                secondTick.MovementPhaseResult
-                    .SelectedGroups
-                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, MoveCount: group.Moves.Count))
-                    .ToArray());
+                Array.Empty<string>(),
+                secondTick.MovementPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=Detached",
-                    "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
+                    "MovementRejected|Stage=Expand|Source=20|I=1|Reason=SlideStopped|Target=20|StopperKind=Entity|Stopper=90|StopperType=None|Cell=(3,0)",
                 },
-                secondTick.MovementPhaseResult.CommitEvents);
-            CollectionAssert.AreEqual(new[] { 20 }, secondTick.CleanupPhaseResult.RemovedEntityIds);
-            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
+                secondTick.MovementPhaseResult.RejectedReasons);
+            CollectionAssert.AreEqual(Array.Empty<int>(), secondTick.CleanupPhaseResult.RemovedEntityIds);
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
+            Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(pushedBox.stateTimer, Is.EqualTo(0));
         }
 
         [Test]

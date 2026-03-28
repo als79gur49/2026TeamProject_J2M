@@ -397,18 +397,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out var destination,
                     out var stopper))
             {
-                if (HasBoxCapability(source, BoxCapabilities.Destroy))
-                {
-                    var destroyGroup = new ActionGroup(
-                        intent.IntentId,
-                        intent.SourceId,
-                        intent.Priority,
-                        ActionGroupKind.Push);
-                    AddDetachAndMarkForDestroy(destroyGroup, source);
-                    buffer.Add(destroyGroup);
-                    return;
-                }
-
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideStopped|Target={source.entityId}|{FormatStopper(stopper)}");
                 return;
