@@ -455,7 +455,7 @@ TickEnd
 
 - `Move`
 - `Push`
-- `Throw`
+- `Flip`
 - `ProjectileMove`
 
 ### 9-2. 입력 기준
@@ -469,8 +469,8 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 예:
 
 - `MoveIntent(Move) -> Move / Stop`
-- `InteractIntent(Push alias) -> Push / Fail`
-- `ThrowIntent(Flip alias) -> Flip / Fail`
+- `PushIntent -> Push / Fail`
+- `FlipIntent -> Flip / Fail`
 - `ProjectileMoveIntent -> ProjectileMove / ImpactReservation`
 
 후보 생성 규칙:
@@ -489,16 +489,13 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 
 ### 9-5. Box Interaction 정책
 
-- legacy 용어 메모:
-  - 이 문단의 `Interact`는 현재 runtime의 `Push` alias다.
-  - 이 문단의 `Throw`는 현재 runtime의 `Flip` alias다.
-  - `BoxSlide`라는 이름의 terminal ray-scan query는 더 이상 authoritative runtime 규칙이 아니다.
+- `BoxSlide`라는 이름의 terminal ray-scan query는 더 이상 authoritative runtime 규칙이 아니다.
 - `Box` 능력은 분산 bool이 아니라 `BoxCapabilities` flag로 표현한다.
 - 플레이어가 밀 수 있는 것은 오직 `Box`다.
-- 플레이어의 `Move`는 `Unit`도 `Pushable` 박스도 밀지 않는다.
-- `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
+- 플레이어의 `Move`는 `Unit`도 `Push` 박스도 밀지 않는다.
+- `Move`는 `Push` 박스를 자동으로 밀지 않는다.
 - `Movement` phase는 `Push`에 의한 single-target 박스 slide 시작과 `Flip`만 처리한다.
-- `Push`는 인접 `Pushable` 박스 1개만 대상으로 삼는다.
+- `Push`는 인접 `Push` 박스 1개만 대상으로 삼는다.
 - authoritative push 판정은 `WorldSnapshot` / `WorldQueryService`의 중앙 next-step query가 담당한다.
 - push stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
 - projectile은 push stopper가 아니다.
@@ -509,8 +506,7 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - `Push` 동안 player source는 anchor cell에 남는다.
 - `Flip`는 source entity를 고정한 채 인접 박스를 source 반대편 인접 cell로 이동시키는 movement 확장이다.
 - `Flip` 성공/실패는 `S0` 기준으로만 판정한다.
-- `Interact`는 `Movement`와 `Attack`에 모두 걸치던 legacy 설명이지만, 현재 canonical 용어는 `Push`와 `Flip`이다.
-- `LootOnInteractDestroy`가 있는 박스에 대한 `Interact` 성공 시 loot 이벤트와 `MarkDestroy`만 기록한다.
+- `Item` 박스는 `Movement` phase의 `ActionGroupKind.Item`으로 정리되며, detach와 `MarkDestroy`만 기록한다.
 - 실제 제거와 occupancy 정리는 반드시 `Cleanup`에서만 수행한다.
 - 현재 sample scene의 `EntityType.None` blocker wall은 terrain wall이 아니라 entity stopper로 취급한다.
 
@@ -547,8 +543,8 @@ Movement Commit은 선택된 이동 그룹만 적용한다.
 
 ### 10-1. 역할
 
-- `Interact`
 - `Attack`
+- `ImpactReservation`
 - `Laser`
 - `FireProjectile`
 - `CastStart`
@@ -565,7 +561,7 @@ Movement Commit은 선택된 이동 그룹만 적용한다.
 - Attack Phase 시작 시 살아 있는 엔티티만 Attack Intent를 생성할 수 있다.
 - Attack Commit 중간에 죽더라도 이미 생성된 후보는 유지한다.
 - 같은 엔티티가 이동 후 공격하는 것은 허용한다.
-- `InteractIntent`는 플레이어 입력이 직접 생성한 raw intent만 사용한다.
+- 플레이어의 `Push` / `Flip` 입력은 Attack Intent가 아니라 Movement input에서 정규화한다.
 - `ImpactReservation`은 EntityLogic이 생성하는 Attack Intent가 아니라 Movement 결과로 넘어오는 system-generated input이다.
 - Attack Phase에서 Spawn된 엔티티는 같은 Tick에 새 Intent를 생성하지 않는다.
 
@@ -703,7 +699,7 @@ Assets/_Features/Gameplay/
 예:
 
 - `Move` 후보를 먼저 내는가
-- `BoxSlide` 후보를 먼저 내는가
+- `Push` 후보를 먼저 내는가
 - `Stop` 후보를 언제 추가하는가
 
 권장:

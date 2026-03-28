@@ -70,11 +70,11 @@
 - unit/scenario test는 모두 next-step semantic만 검증한다.
 - 문서 어디에도 `TryGetSurfaceBoxSlideDestination` / `TryGetBoxSlideDestination`를 canonical API처럼 설명하지 않는다.
 
-### 3-2. 리네이밍과 함께 제거: interaction alias 계층
+### 3-2. 완료: interaction alias 계층 제거
 
-이 계층은 runtime 의미를 바꾸지는 않지만, 코드 읽을 때 현재 semantics를 흐린다.
+2026-03-29 기준 이 계층은 제거 완료되었다. 아래 항목은 실제 제거 범위 기록이다.
 
-삭제 대상:
+제거 완료 범위:
 
 - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Collection/RawMovementIntent.cs`
   - `MovementCommandKind.Interact`
@@ -89,25 +89,36 @@
 - `Assets/_Features/Gameplay/Gameplay_Movement/Runtime/Intents/MoveIntent.cs`
   - `InteractMoveIntent`
   - `ThrowIntent`
+- canonical callsite 치환
+  - `TickPipeline`의 `InteractMoveIntent` 생성 -> `PushIntent`
+  - `MovementPhaseScenarioTests`의 helper 생성 -> `PushIntent`
+  - `PlayerLogic`은 movement core에서 `PushPressed` 의미를 직접 읽도록 정리
+  - `MovementCommitter`의 내부 `Interaction` 네이밍을 `Flip` 기준으로 정리
+- 문서
+  - `Docs/Architecture/Cube-Surface-Gameplay-Implementation-Plan.md`
+  - `Docs/Architecture/Deterministic-Tick-Simulation-Blueprint.md`
+  - `Docs/Architecture/Deterministic-Tick-Simulation-Implementation-Plan.md`
 
-동시에 canonical 이름으로 치환해야 하는 호출부:
+제거 이후 canonical 이름:
 
-- `InteractMoveIntent` -> `PushIntent`
-- `ThrowIntent` -> 삭제 또는 `FlipIntent` 직접 사용
-- `LootOnInteractDestroy` -> `Item`
-- `Pushable` / `Throwable` -> `Push` / `Flip`
+- `PushIntent`
+- `FlipIntent`
+- `BoxCapabilities.Push` / `Flip` / `Item` / `Destroy`
+- `ActionGroupKind.Push` / `Flip` / `Item`
 
-추가 수정 대상:
+남겨 둔 비범위:
 
-- `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs`
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs`
-- 문서 전반의 `Interact`, `Throw`, `BoxSlide`, `LootOnInteractDestroy` 표현
+- `PlayerTickCommand.InteractPressed` / `ThrowPressed`
+- `GameplayInputHost.BufferInteract()` / `BufferThrow()`
+- `Player/Interact` / `Player/Throw` input action fallback
+
+위 input compatibility alias는 3-3 단계에서 별도로 제거한다.
 
 예상 파손:
 
 - enum alias는 값은 같아도 이름이 사라지므로 source compile break가 바로 난다.
 - `InteractMoveIntent` 삭제 시 constructor symbol이 끊긴다.
-- `LootOnInteractDestroy`를 그대로 문서와 테스트 이름에 남기면 semantic drift가 다시 생긴다.
+- 문서와 테스트에 old vocabulary를 그대로 남기면 semantic drift가 다시 생긴다.
 
 완료 조건:
 

@@ -693,8 +693,8 @@ stripCenter =
 
 ## 5. 마이그레이션 메모
 
-- 현재 `Throwable`는 최종 의미상 `Flip`으로 옮긴다.
-- 현재 `LootOnInteractDestroy`는 최종 의미상 `Item`으로 옮긴다.
+- legacy `Throwable` capability alias는 제거되고 의미를 `Flip`으로 고정한다.
+- legacy `LootOnInteractDestroy` capability alias는 제거되고 의미를 `Item`으로 고정한다.
 - 현재 `InteractLootDestroy` 공격 경로는 임시 호환 단계 이후 제거 대상이다.
 - 현재 `Vector2Int` 중심 테스트는 모두 `SurfaceCell` 중심 시나리오로 바뀐다.
 
