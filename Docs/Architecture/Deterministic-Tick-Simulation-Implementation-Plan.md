@@ -337,14 +337,14 @@ current-state 메모:
 - `TryGetProjectileAt(Vector2Int cell, out EntityState entity)`
 - `IsInsideBoard(Vector2Int cell)`
 - `IsBlockedForUnit(Vector2Int cell)`
-- `TryGetBoxSlideDestination(Vector2Int origin, Vector2Int delta, out Vector2Int destination, out SlideStopper stopper)`
+- `TryResolveNextSurfaceBoxSlideStep(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out SlideStopper stopper)`
 - `BlocksMovement(int entityId)`
 - `CanBeTargetedForNewSelection(int entityId)`
 - `EnumerateEntitiesOrdered(List<EntityState> buffer)`
 
 중요 포인트:
 
-- 현재 cube-surface runtime의 authoritative push query는 `TryResolveNextSurfaceBoxSlideStep`이며, 위 `TryGetBoxSlideDestination`는 legacy terminal query다.
+- 현재 cube-surface runtime의 push query는 `TryResolveNextSurfaceBoxSlideStep` 하나만 authoritative하게 사용한다.
 
 - Snapshot은 생성 후 절대 변경하지 않는다.
 - 외부는 occupancy 딕셔너리를 직접 순회하지 않는다.
@@ -914,7 +914,6 @@ Resolver 알고리즘 변경:
 - `Sliding` 상태의 박스는 이후 tick에도 같은 방향으로 1칸씩 계속 이동한다.
 - 각 tick에서 다음 1칸이 막혀 있으면 push는 실패한다.
 - `Push` 동안 player source는 anchor cell에 남는다.
-- `TryGetBoxSlideDestination` 같은 terminal ray-scan query는 legacy compatibility로만 유지한다.
 - `Flip`는 source entity를 고정한 채, 인접 `Throwable` 박스를 source 반대편 인접 cell로 이동시키는 후보를 만든다.
 - `Movement`는 위치, 경로, 점유, reservation만 처리한다.
 - `Movement`는 loot 지급, destroy mark, entity 제거를 직접 수행하지 않는다.

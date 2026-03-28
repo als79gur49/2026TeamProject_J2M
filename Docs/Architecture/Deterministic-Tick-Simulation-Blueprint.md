@@ -273,15 +273,15 @@ public class WorldSnapshot
     public bool TryGetProjectileAt(Vector2Int cell, out EntityState entity);
     public bool IsInsideBoard(Vector2Int cell);
     public bool IsBlockedForUnit(Vector2Int cell);
-    public bool TryGetBoxSlideDestination(
-        Vector2Int origin,
+    public bool TryResolveNextSurfaceBoxSlideStep(
+        SurfaceCell origin,
         Vector2Int delta,
-        out Vector2Int destination,
+        out SurfaceCell destination,
         out SlideStopper stopper);
 }
 ```
 
-현재 cube-surface runtime의 authoritative slide query는 `TryResolveNextSurfaceBoxSlideStep`이며, 위 `TryGetBoxSlideDestination` 시그니처는 legacy terminal query로만 본다.
+현재 cube-surface runtime의 slide query는 `TryResolveNextSurfaceBoxSlideStep` 하나만 authoritative하게 사용한다.
 
 중요 규칙:
 
@@ -510,7 +510,6 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 - `Flip`는 source entity를 고정한 채 인접 박스를 source 반대편 인접 cell로 이동시키는 movement 확장이다.
 - `Flip` 성공/실패는 `S0` 기준으로만 판정한다.
 - `Interact`는 `Movement`와 `Attack`에 모두 걸치던 legacy 설명이지만, 현재 canonical 용어는 `Push`와 `Flip`이다.
-- `TryGetBoxSlideDestination` 같은 terminal ray-scan query는 legacy compatibility로만 남는다.
 - `LootOnInteractDestroy`가 있는 박스에 대한 `Interact` 성공 시 loot 이벤트와 `MarkDestroy`만 기록한다.
 - 실제 제거와 occupancy 정리는 반드시 `Cleanup`에서만 수행한다.
 - 현재 sample scene의 `EntityType.None` blocker wall은 terrain wall이 아니라 entity stopper로 취급한다.

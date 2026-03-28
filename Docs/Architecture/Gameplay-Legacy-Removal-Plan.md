@@ -27,11 +27,11 @@
 
 ## 3. 현재 정리 대상
 
-### 3-1. 즉시 제거 가능: terminal slide query 계층
+### 3-1. 완료: terminal slide query 계층 제거
 
-이 계층은 현재 runtime path에서 사용하지 않는다. 이름만 남아 있어 오해를 만든다.
+2026-03-29 기준 이 계층은 제거 완료되었다. 아래 항목은 실제 제거 범위 기록이다.
 
-삭제 대상:
+제거 완료 범위:
 
 - `Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldQueryService.cs`
   - `TryGetSurfaceBoxSlideDestination(...)`
@@ -53,7 +53,7 @@
   - `Docs/Architecture/Deterministic-Tick-Simulation-Blueprint.md`
   - `Docs/Architecture/Deterministic-Tick-Simulation-Implementation-Plan.md`
 
-삭제 이후 authoritative slide query는 아래 하나만 남긴다.
+제거 이후 authoritative slide query는 아래 하나만 남긴다.
 
 - `WorldSnapshot.TryResolveNextSurfaceBoxSlideStep(...)`
 - `WorldQueryService.TryResolveNextSurfaceBoxSlideStep(...)`

@@ -130,10 +130,6 @@ public bool TryResolveNextSurfaceBoxSlideStep(
 - `IsTerrainBlockedForUnit(Vector2Int cell)`
 - `IsBlockedForUnit(Vector2Int cell)`
 - `TryResolvePlayerStep(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out CubeRotationKind rotationKind, out CubeTopologyState updatedTopology)`
-- `TryGetSurfaceBoxSlideDestination(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out SlideStopper stopper)`
-- `TryGetLegacySurfaceBoxSlideDestination(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out SlideStopper stopper)`
-- `TryGetBoxSlideDestination(Vector2Int origin, Vector2Int delta, out Vector2Int destination, out SlideStopper stopper)`
-- `TryGetLegacyBoxSlideDestination(Vector2Int origin, Vector2Int delta, out Vector2Int destination, out SlideStopper stopper)`
 
 #### 3-2-4. 활성 면 필터 정책
 
@@ -231,17 +227,15 @@ unbounded board 호환 규칙:
 추가 legacy 정책:
 
 - detailed removal plan은 `Docs/Architecture/Gameplay-Legacy-Removal-Plan.md`를 따른다.
-- `TryGetLegacySurfaceBoxSlideDestination`와 `TryGetLegacyBoxSlideDestination`는 stopper 직전 terminal cell을 돌려주는 과거 ray-scan semantics를 유지한다.
-- `TryGetSurfaceBoxSlideDestination`와 `TryGetBoxSlideDestination`는 외부 호환을 위한 alias일 뿐이며, 의미는 각각 legacy terminal query와 동일하다.
-- runtime push, sliding continuation, movement expander는 이 terminal query를 사용하지 않는다.
+- terminal slide query 계층은 제거되었고, slide 질의는 `TryResolveNextSurfaceBoxSlideStep`만 남긴다.
+- cross-face slide는 `SurfaceCell` 기반 query로만 표현한다.
 
 #### 3-2-8. 레거시 `Vector2Int` 호환 정책
 
 - `Vector2Int` 기반 query는 모두 `SurfaceCell.FromPlanar(cell, topology.BottomFace)`로 해석한다.
 - 즉 레거시 query는 "현재 바닥면 평면 질의"만 표현할 수 있다.
-- `TryGetLegacyBoxSlideDestination(Vector2Int, ...)`는 결과를 planar 좌표로만 돌려주므로 face 정보가 소실된다.
-- 따라서 `MovementExpander`, `MovementResolver`, `MovementCommitter`가 topology나 cross-face 결과를 해석해야 하는 단계에서는 반드시 `SurfaceCell` API로 옮겨야 한다.
-- 레거시 overload는 기존 테스트와 임시 호출부를 깨지 않기 위한 마이그레이션 어댑터로만 유지한다.
+- 따라서 topology나 cross-face 결과를 해석해야 하는 단계에서는 반드시 `SurfaceCell` API를 사용해야 한다.
+- slide는 더 이상 `Vector2Int` compatibility overload를 제공하지 않는다.
 
 #### 3-2-9. 구현 체크포인트
 
@@ -265,9 +259,6 @@ unbounded board 호환 규칙:
 - `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtOtherBoardEdges`
 - `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_IgnoresDetachedOccupantOnNextCell`
 - `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsOnMarkedForDeathOccupantOnNextCell`
-- `WorldSnapshot_LegacySurfaceBoxSlideDestination_CrossesBottomFrontSharedEdgeToTerminalCell`
-- `WorldSnapshot_LegacySurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeathAlongRay`
-- `WorldSnapshot_LegacyBoxSlideDestination_UsesBottomFaceAsLegacyDefault`
 
 세부 완료 조건:
 
