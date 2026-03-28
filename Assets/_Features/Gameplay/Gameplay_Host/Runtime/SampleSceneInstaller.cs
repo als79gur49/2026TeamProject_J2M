@@ -53,10 +53,13 @@ namespace Game.Feature.Gameplay.Host
                 InitialMoveDelayTicks = initialMoveDelayTicks,
                 InitialEntities = CreateInitialEntities(),
                 InitialTerrain = GameplayTerrainData.Empty,
+                InitialTopology = new CubeTopologyState(FaceId.Floor),
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
                 RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
+                SnapViewCameraToTarget = configureMainCamera,
                 TickIntervalSeconds = tickIntervalSeconds,
+                ViewCamera = configureMainCamera ? Camera.main : null,
             };
         }
 
@@ -102,7 +105,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             camera.orthographic = true;
-            camera.orthographicSize = 4f;
+            camera.orthographicSize = 9f;
             camera.transform.position = new Vector3(0.75f, 0.25f, -10f);
             camera.transform.rotation = Quaternion.identity;
             camera.clearFlags = CameraClearFlags.SolidColor;

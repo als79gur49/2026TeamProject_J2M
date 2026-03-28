@@ -19,12 +19,15 @@ namespace Game.Feature.Gameplay.Host
         public int InitialMoveDelayTicks = 0;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
         public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;
+        public CubeTopologyState InitialTopology = new(FaceId.Floor);
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
         public int RepeatedMoveIntervalTicks = 2;
+        public bool SnapViewCameraToTarget;
         public float TickIntervalSeconds = 0.2f;
         public InputActionAsset Actions;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
+        public Camera ViewCamera;
         public IGameplayEntityViewFactory ViewFactory;
     }
 }

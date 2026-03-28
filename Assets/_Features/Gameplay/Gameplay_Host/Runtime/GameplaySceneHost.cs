@@ -14,6 +14,9 @@ namespace Game.Feature.Gameplay.Host
         private GameplayTickViewPresenter _presenter;
         private GameplayEntityViewBinder _viewBinder;
         private GameplayEntityViewRegistry _viewRegistry;
+        private Camera _viewCamera;
+        private Transform _viewCameraTarget;
+        private bool _snapViewCameraToTarget;
 
         public GameplayInputHost InputHost => _inputHost;
 
@@ -24,6 +27,8 @@ namespace Game.Feature.Gameplay.Host
         public TickRunner TickRunner { get; private set; }
 
         public GameplayEntityViewRegistry ViewRegistry => _viewRegistry;
+
+        public Transform ViewCameraTarget => _viewCameraTarget;
 
         public WorldState WorldState { get; private set; }
 
@@ -53,7 +58,8 @@ namespace Game.Feature.Gameplay.Host
             WorldState = GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
                 configuration.InitialBoardBounds,
-                initialTerrain);
+                initialTerrain,
+                configuration.InitialTopology);
             InputBuffer = new TickInputBuffer();
             var staticEntityLogics = BuildStaticEntityLogics(configuration);
             TickRunner = GameplayCompositionRoot.CreateTickRunner(
@@ -68,8 +74,17 @@ namespace Game.Feature.Gameplay.Host
                     ? new DefaultGameplayEntityViewFactory(_viewRegistry.transform, configuration.CellSize, configuration.PlayerEntityId)
                     : null);
             _viewBinder = new GameplayEntityViewBinder(_viewRegistry, viewFactory);
-            _presenter.Initialize(_viewBinder, configuration.GridOrigin, configuration.CellSize);
-            _presenter.PresentInitial(initialEntities);
+            ConfigureViewCamera(configuration);
+            EnsureViewCameraTarget();
+            _presenter.StripCenterChanged -= HandleStripCenterChanged;
+            _presenter.StripCenterChanged += HandleStripCenterChanged;
+            _presenter.Initialize(
+                _viewBinder,
+                configuration.InitialBoardBounds,
+                configuration.InitialTopology,
+                configuration.GridOrigin,
+                configuration.CellSize);
+            _presenter.PresentInitial(initialEntities, configuration.InitialTopology);
 
             _inputHost.Initialize(
                 InputBuffer,
@@ -89,6 +104,39 @@ namespace Game.Feature.Gameplay.Host
             _inputHost = GetComponent<GameplayInputHost>() ?? gameObject.AddComponent<GameplayInputHost>();
             _presenter = GetComponent<GameplayTickViewPresenter>() ?? gameObject.AddComponent<GameplayTickViewPresenter>();
             _viewRegistry = GetComponent<GameplayEntityViewRegistry>() ?? gameObject.AddComponent<GameplayEntityViewRegistry>();
+        }
+
+        private void ConfigureViewCamera(GameplaySceneHostConfiguration configuration)
+        {
+            _snapViewCameraToTarget = configuration.SnapViewCameraToTarget;
+            _viewCamera = configuration.ViewCamera ?? (_snapViewCameraToTarget ? Camera.main : null);
+        }
+
+        private void EnsureViewCameraTarget()
+        {
+            if (_viewCameraTarget != null)
+            {
+                return;
+            }
+
+            var targetObject = new GameObject("GameplayViewCameraTarget");
+            targetObject.transform.SetParent(transform, worldPositionStays: false);
+            _viewCameraTarget = targetObject.transform;
+        }
+
+        private void HandleStripCenterChanged(Vector3 stripCenter)
+        {
+            if (_viewCameraTarget != null)
+            {
+                _viewCameraTarget.position = stripCenter;
+            }
+
+            if (_snapViewCameraToTarget && _viewCamera != null)
+            {
+                var cameraPosition = stripCenter;
+                cameraPosition.z = _viewCamera.transform.position.z;
+                _viewCamera.transform.position = cameraPosition;
+            }
         }
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(GameplaySceneHostConfiguration configuration)

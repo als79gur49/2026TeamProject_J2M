@@ -24,6 +24,7 @@ namespace Game.Feature.Gameplay.Loop
                 CleanupPhaseResult.Empty,
                 Array.Empty<EntityState>(),
                 Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
                 string.Empty,
                 TickTrace.Empty)
         {
@@ -38,6 +39,7 @@ namespace Game.Feature.Gameplay.Loop
             CleanupPhaseResult cleanupPhaseResult,
             IEnumerable<EntityState> finalEntities,
             IEnumerable<string> eventLog,
+            CubeTopologyState finalTopology,
             string determinismHash,
             TickTrace trace)
         {
@@ -75,6 +77,7 @@ namespace Game.Feature.Gameplay.Loop
             _phaseTrace = new ReadOnlyCollection<string>(new List<string>(phaseTrace));
             _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
             _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
+            FinalTopology = finalTopology;
             DeterminismHash = determinismHash;
         }
 
@@ -93,6 +96,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<EntityState> FinalEntities => _finalEntities;
 
         public IReadOnlyList<string> EventLog => _eventLog;
+
+        internal CubeTopologyState FinalTopology { get; }
 
         public string DeterminismHash { get; }
 

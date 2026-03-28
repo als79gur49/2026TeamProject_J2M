@@ -132,6 +132,7 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult,
                 tickResultData.FinalEntities,
                 tickResultData.EventLog,
+                finalSnapshot.Topology,
                 determinismHash,
                 tickTrace);
         }
