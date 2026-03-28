@@ -296,8 +296,14 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            destination = origin + delta;
-            return IsInsideBoard(boardBounds, destination);
+            var candidate = origin + delta;
+            if (!IsInsideBoard(boardBounds, candidate))
+            {
+                return false;
+            }
+
+            destination = candidate;
+            return true;
         }
 
         public static bool TryResolveLocalFlipCells(
