@@ -126,11 +126,11 @@
 - box interaction 관련 type 이름이 runtime semantics와 동일하다.
 - 문서와 테스트 명명에서 `BoxSlide`, `InteractPushable`, `Throwable` 같은 옛 표현이 더 이상 주 경로를 설명하지 않는다.
 
-### 3-3. 높은 파급도: input compatibility alias 제거
+### 3-3. 완료: input compatibility alias 제거
 
-이 계층은 code cleanup 자체는 단순하지만, 실제 input asset 호환성과 연결되어 있어 더 위험하다.
+2026-03-29 기준 이 계층은 제거 완료되었다. 아래 항목은 실제 제거 범위 기록이다.
 
-삭제 대상:
+제거 완료 범위:
 
 - `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/PlayerTickCommand.cs`
   - `InteractPressed`
@@ -143,31 +143,32 @@
   - `BufferThrow()`
   - `"Player/Interact"` fallback
   - `"Player/Throw"` fallback
+  - internal `interact` / `throw` field, buffer, callback naming
+- `Assets/InputSystem_Actions.inputactions`
+  - `Player/Interact` action -> `Player/Push`
+  - legacy binding action references -> `Player/Push`
+- canonical callsite 치환
+  - `PlayerMovementInputTests`의 `interactPressed:` named argument -> `pushPressed:`
+  - `MovementPhaseScenarioTests`의 `interactPressed:` named argument -> `pushPressed:`
+  - empty-command assertion에서 legacy alias property 제거
+- 문서
+  - `Docs/Architecture/Deterministic-Tick-Simulation-Implementation-Plan.md`
 
-동시에 canonical 이름으로 바꿔야 하는 대상:
+제거 이후 canonical 이름:
 
-- `InteractPressed` -> `PushPressed`
-- `ThrowPressed` -> `FlipPressed`
-- `Player/Interact` -> `Player/Push`
-- `Player/Throw` -> `Player/Flip`
-
-직접 영향 파일:
-
-- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/PlayerLogic.cs`
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayInputHost.cs`
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/PlayerMovementInputTests.cs`
-- `Docs/Architecture/Deterministic-Tick-Simulation-Implementation-Plan.md`
+- `PlayerTickCommand.PushPressed`
+- `PlayerTickCommand.FlipPressed`
+- `GameplayInputHost.BufferPush()`
+- `GameplayInputHost.BufferFlip()`
+- `Player/Move`
+- `Player/Push`
+- `Player/Flip`
 
 예상 파손:
 
 - named argument `interactPressed:` / `throwPressed:` 사용부가 전부 compile break된다.
 - 외부 InputActionAsset이 아직 `Player/Interact`, `Player/Throw`를 쓰고 있으면 runtime input이 죽는다.
 - showcase scene, installer, test bootstrap이 legacy action name을 가정하고 있으면 scene-level bug가 난다.
-
-선행 조건:
-
-- input asset에서 `Player/Push`, `Player/Flip`가 실제로 존재하고 연결되어 있어야 한다.
-- scene/installer/test fixture가 canonical action name으로만 초기화되는지 먼저 확인해야 한다.
 
 완료 조건:
 

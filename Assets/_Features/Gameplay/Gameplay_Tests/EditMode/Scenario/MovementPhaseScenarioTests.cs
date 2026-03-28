@@ -751,7 +751,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     1,
                     PlayerTickCommand.Create(
                         Direction.Right,
-                        interactPressed: true,
+                        pushPressed: true,
                         flipPressed: true)));
 
             CollectionAssert.AreEqual(

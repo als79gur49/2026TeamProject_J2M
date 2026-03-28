@@ -7,10 +7,10 @@ namespace Game.Feature.Gameplay.Loop
     {
         public PlayerTickCommand(
             Direction moveDirection,
-            bool interactPressed = false,
+            bool pushPressed = false,
             bool flipPressed = false)
         {
-            if (moveDirection == Direction.None && (interactPressed || flipPressed))
+            if (moveDirection == Direction.None && (pushPressed || flipPressed))
             {
                 throw new ArgumentException("Push and Flip commands require a non-none move direction.", nameof(moveDirection));
             }
@@ -25,19 +25,15 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             MoveDirection = moveDirection;
-            InteractPressed = interactPressed;
+            PushPressed = pushPressed;
             FlipPressed = flipPressed;
         }
 
         public Direction MoveDirection { get; }
 
-        public bool InteractPressed { get; }
-
-        public bool PushPressed => InteractPressed;
+        public bool PushPressed { get; }
 
         public bool FlipPressed { get; }
-
-        public bool ThrowPressed => FlipPressed;
 
         public static PlayerTickCommand None => default;
 
@@ -46,19 +42,9 @@ namespace Game.Feature.Gameplay.Loop
             return new PlayerTickCommand(direction);
         }
 
-        public static PlayerTickCommand Interact(Direction direction)
-        {
-            return Push(direction);
-        }
-
         public static PlayerTickCommand Push(Direction direction)
         {
-            return new PlayerTickCommand(direction, interactPressed: true);
-        }
-
-        public static PlayerTickCommand Throw(Direction direction)
-        {
-            return Flip(direction);
+            return new PlayerTickCommand(direction, pushPressed: true);
         }
 
         public static PlayerTickCommand Flip(Direction direction)
@@ -68,10 +54,10 @@ namespace Game.Feature.Gameplay.Loop
 
         public static PlayerTickCommand Create(
             Direction moveDirection,
-            bool interactPressed = false,
+            bool pushPressed = false,
             bool flipPressed = false)
         {
-            return new PlayerTickCommand(moveDirection, interactPressed, flipPressed);
+            return new PlayerTickCommand(moveDirection, pushPressed, flipPressed);
         }
     }
 }

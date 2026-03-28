@@ -120,7 +120,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     1,
                     PlayerTickCommand.Create(
                         Direction.Right,
-                        interactPressed: true,
+                        pushPressed: true,
                         flipPressed: true)),
                 movementBuffer);
 
@@ -311,10 +311,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Direction expectedDirection)
         {
             Assert.That(command.MoveDirection, Is.EqualTo(expectedDirection));
-            Assert.That(command.InteractPressed, Is.False);
             Assert.That(command.PushPressed, Is.False);
             Assert.That(command.FlipPressed, Is.False);
-            Assert.That(command.ThrowPressed, Is.False);
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

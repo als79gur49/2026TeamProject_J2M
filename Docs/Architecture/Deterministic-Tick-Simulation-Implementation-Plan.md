@@ -739,8 +739,8 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 `edge reservation`, `on-hit 확장 검토`는 새 Phase를 추가하지 않고, 기존 `Movement -> Attack -> Cleanup` 내부에만 합류한다.
 현재 구현은 아래 초기 addendum 대신 다음 규칙으로 고정한다.
 
-- 입력 경계는 `GameplayInputHost`가 tick마다 `Move`, `Push`, `Flip` 의미의 입력을 샘플링한다. legacy `Interact`, `Throw` action name은 host compatibility alias로만 남는다.
-- `TickInput.PlayerCommand`는 `MoveDirection`과 push/flip pressed 의미를 deterministic하게 담는다. 현재 public surface에는 `InteractPressed`, `ThrowPressed` alias가 남아 있다.
+- 입력 경계는 `GameplayInputHost`가 tick마다 `Move`, `Push`, `Flip` 의미의 입력을 샘플링한다.
+- `TickInput.PlayerCommand`는 `MoveDirection`과 `PushPressed`, `FlipPressed` 의미를 deterministic하게 담는다.
 - `PlayerLogic`은 snapshot을 보고 상호작용을 추론하지 않고, 입력만 보고 `MoveIntent`, `FlipIntent`, `PushIntent`의 raw movement intent를 만든다.
 - 박스 능력은 `BoxCapabilities` flag(`Push`, `Flip`, `Item`, `Destroy`)로 표현한다.
 - `Movement`는 `Move`, `Push`, `Flip`, `Item`을 처리하고, 실제 제거와 occupancy 정리는 `Cleanup`에서만 수행한다.
@@ -888,15 +888,15 @@ Resolver 알고리즘 변경:
 
 현재 구현은 legacy `InteractSlide` / `InteractFlip` 명령 이름을 유지하지 않고, box interaction movement 의미를 `Push`와 `Flip`으로 고정한다.
 
-- 입력 경계는 `GameplayInputHost`가 tick 경계에서 `Move`, `Push`, `Flip` 의미의 입력을 샘플링한다. `Player/Interact`, `Player/Throw`는 host compatibility alias로만 남는다.
-- `TickInput.PlayerCommand`는 `MoveDirection`과 push/flip pressed 의미를 가진다. 현재 public surface에는 `InteractPressed`, `ThrowPressed` alias가 남아 있다.
+- 입력 경계는 `GameplayInputHost`가 tick 경계에서 `Move`, `Push`, `Flip` 의미의 입력을 샘플링한다.
+- `TickInput.PlayerCommand`는 `MoveDirection`과 `PushPressed`, `FlipPressed` 의미를 가진다.
 - `PlayerLogic`은 입력만 보고 raw movement intent를 생산한다.
   - `Flip` 의미 입력과 방향이 있으면 `FlipIntent`
   - 그렇지 않고 `Push` 의미 입력과 방향이 있으면 `PushIntent`
   - 그 외 방향이 있으면 `MoveIntent`
 - simulation core는 snapshot을 보고 입력 의미를 자동 추론하지 않는다.
 - box 능력은 `BoxCapabilities` flag(`Push`, `Flip`, `Item`, `Destroy`)로 표현한다.
-- canonical runtime 용어는 `Push` / `Flip` / `Item`이며, `Interact` / `Throw`는 input compatibility alias다.
+- canonical runtime 용어와 입력 action 이름은 모두 `Push` / `Flip` / `Item` 기준으로 고정한다.
 
 `Movement` phase 규칙:
 
@@ -1902,7 +1902,7 @@ New Input System은 `Vector2`를 연속적으로 제공하지만, deterministic 
 
 - keyboard WASD와 stick 입력을 같은 grid command로 수렴시킬 수 있다.
 - diagonal ambiguity를 host에서 제거할 수 있다.
-- simulation은 `MoveDirection`과 `InteractPressed` / `ThrowPressed` 같은 flat command payload만 받으면 된다.
+- simulation은 `MoveDirection`과 `PushPressed` / `FlipPressed` 같은 flat command payload만 받으면 된다.
 
 #### 15-15-3. `TickInput` 구현 기준
 
@@ -1930,8 +1930,8 @@ public readonly struct TickInput
 public readonly struct PlayerTickCommand
 {
     public Direction MoveDirection { get; }
-    public bool InteractPressed { get; }
-    public bool ThrowPressed { get; }
+    public bool PushPressed { get; }
+    public bool FlipPressed { get; }
 }
 ```
 
@@ -1964,8 +1964,8 @@ public sealed class PlayerLogic : IEntityLogic, IEntityLogicSourceBinding
 
 1. snapshot에서 자신의 entity를 찾지 못하면 생성하지 않는다.
 2. 사망 상태거나 `markedForDeath`면 생성하지 않는다.
-3. `ThrowPressed` 의미 입력과 방향이 유효하면 `RawMovementIntent(CommandKind.Flip)`를 1개 만든다.
-4. 그렇지 않고 `InteractPressed` 의미 입력과 방향이 유효하면 `RawMovementIntent(CommandKind.Push)`를 1개 만든다.
+3. `FlipPressed` 의미 입력과 방향이 유효하면 `RawMovementIntent(CommandKind.Flip)`를 1개 만든다.
+4. 그렇지 않고 `PushPressed` 의미 입력과 방향이 유효하면 `RawMovementIntent(CommandKind.Push)`를 1개 만든다.
 5. 그 외 방향이 유효하면 `RawMovementIntent(CommandKind.Move)`를 1개 만든다.
 6. player box interaction용 `RawAttackIntent`는 생성하지 않는다.
 7. priority는 player 기본 우선순위 상수로 고정한다.
@@ -1981,9 +1981,7 @@ New Input System을 받는 Unity 계층은 deterministic asmdef 밖의 thin adap
 - `InputActionAsset` enable / disable
 - `Player/Move` action read
 - `Player/Push` action read / buffer / pressed-state sample
-- legacy `Player/Interact` action fallback
 - `Player/Flip` action read / buffer / pressed-state sample
-- legacy `Player/Throw` action fallback
 - 현재 frame의 raw `Vector2` 보관
 - fixed-step 경계에서 다음 tick용 `PlayerTickCommand` 생성
 - `TickInputBuffer.Record(...)` 호출
@@ -2006,8 +2004,8 @@ public sealed class GameplayInputHost : MonoBehaviour
 - host는 `TickRunner`와 `TickInputBuffer`만 가진다.
 - input callback에서 즉시 simulation을 돌리지 않는다.
 - simulation 실행은 fixed-step tick 경계에서만 한다.
-- 현재 구현은 `Player/Flip` action을 우선 사용하고, 기존 input asset 호환을 위해 없을 때만 `Player/Throw`를 legacy fallback binding으로 허용한다.
-- 이 fallback은 host 계층의 asset compatibility일 뿐이며, simulation 경계 이후 의미는 항상 `Flip`이다.
+- `actions`가 제공되면 host는 `Player/Move`, `Player/Push`, `Player/Flip` action을 모두 직접 요구한다.
+- host는 legacy action fallback 없이 canonical action name만 허용한다.
 
 #### 15-15-6. sampling과 hold-repeat 정책
 
@@ -2096,16 +2094,16 @@ var runner = GameplayCompositionRoot.CreateTickRunner(
 public readonly struct PlayerTickCommand
 {
     public Direction MoveDirection { get; }
-    public bool InteractPressed { get; }
-    public bool ThrowPressed { get; }
+    public bool PushPressed { get; }
+    public bool FlipPressed { get; }
 }
 ```
 
 host 결정 규칙:
 
 1. tick 경계에서 current move vector를 quantize한다.
-2. buffered `interact` input이 있거나 action이 현재 pressed 상태면 `InteractPressed = true`로 기록한다.
-3. buffered `throw` input이 있거나 action이 현재 pressed 상태면 `ThrowPressed = true`로 기록한다.
+2. buffered `push` input이 있거나 action이 현재 pressed 상태면 `PushPressed = true`로 기록한다.
+3. buffered `flip` input이 있거나 action이 현재 pressed 상태면 `FlipPressed = true`로 기록한다.
 4. direction이 유효하면 `MoveDirection`에 기록한다.
 5. 입력이 없으면 `default(PlayerTickCommand)`를 기록한다.
 
@@ -2154,7 +2152,6 @@ New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한
 3. `PlayerLogic` unit test를 먼저 추가한다.
 4. host 계층의 input quantizer를 추가한다.
 5. `Assets/InputSystem_Actions.inputactions`의 `Player/Move`, `Player/Push`, `Player/Flip`를 host에 연결한다.
-   - 기존 asset에서는 `Player/Push`, `Player/Flip`가 없을 때만 host가 `Player/Interact`, `Player/Throw`를 legacy fallback으로 사용한다.
 6. scene host에서 `TickInputBuffer` / `TickRunner`와 연결한다.
 7. 마지막으로 실제 이동 플레이 테스트를 한다.
 
@@ -2171,10 +2168,10 @@ New Input 기반 플레이어 이동은 아래 순서로 여는 것을 권장한
 - grid movement simulation 자체는 이미 가능하다.
 - `TickInputBuffer`, `TickRunner`, `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`가 모두 존재한다.
 - 플레이어는 New Input을 통해 deterministic tick 경계에서 `Move`, `Push`, `Flip` 의미 입력을 발행할 수 있다.
-- 현재 host는 `Player/Push`, `Player/Flip`를 우선 사용하고, 기존 input asset 호환을 위해 `Player/Interact`, `Player/Throw` fallback binding을 허용한다.
-- simulation 경계 이후에는 legacy action name을 따로 유지하지 않고 모두 `Push`, `Flip` 의미로 정규화한다.
+- 현재 host는 `Player/Move`, `Player/Push`, `Player/Flip` action을 직접 요구한다.
+- simulation 경계와 입력 action 이름 모두 `Push`, `Flip` vocabulary만 사용한다.
 
-즉, 현재 남은 본질은 기본 입력 경계 구현 자체가 아니라, legacy input asset 의존성을 얼마나 더 정리할지와 이후 UX/확장 범위를 어떻게 열지에 가깝다.
+즉, 현재 남은 본질은 기본 입력 경계 구현 자체가 아니라, canonical input contract 위에서 이후 UX/확장 범위를 어떻게 열지에 가깝다.
 
 #### 15-15-13. 이동 입력 Cooltime 설계
 
