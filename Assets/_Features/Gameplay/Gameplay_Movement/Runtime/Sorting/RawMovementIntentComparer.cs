@@ -53,10 +53,10 @@ namespace Game.Feature.Gameplay.Movement.Sorting
         {
             switch (commandKind)
             {
-                case MovementCommandKind.Interact:
+                case MovementCommandKind.Push:
                     return 0;
 
-                case MovementCommandKind.Throw:
+                case MovementCommandKind.Flip:
                     return 1;
 
                 case MovementCommandKind.Move:

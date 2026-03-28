@@ -139,13 +139,13 @@ namespace Game.Feature.Gameplay.Host
 
         public void BufferInteract()
         {
-            EnsureInitialized();
-            _hasBufferedInteract = true;
+            BufferPush();
         }
 
         public void BufferPush()
         {
-            BufferInteract();
+            EnsureInitialized();
+            _hasBufferedInteract = true;
         }
 
         public void BufferThrow()
@@ -235,12 +235,12 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnInteractPerformed(InputAction.CallbackContext context)
         {
-            _hasBufferedInteract = true;
+            BufferPush();
         }
 
         private void OnInteractStarted(InputAction.CallbackContext context)
         {
-            _hasBufferedInteract = true;
+            BufferPush();
         }
 
         private void OnThrowPerformed(InputAction.CallbackContext context)
@@ -287,12 +287,12 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand ResolveTickCommand(PlayerTickCommand moveCommand)
         {
-            var interactPressed = _hasBufferedInteract || (_interactAction != null && _interactAction.IsPressed());
+            var pushPressed = _hasBufferedInteract || (_interactAction != null && _interactAction.IsPressed());
             var flipPressed = _hasBufferedThrow || (_throwAction != null && _throwAction.IsPressed());
 
             var command = PlayerTickCommand.Create(
                 moveCommand.MoveDirection,
-                interactPressed && moveCommand.MoveDirection != Direction.None,
+                pushPressed && moveCommand.MoveDirection != Direction.None,
                 flipPressed && moveCommand.MoveDirection != Direction.None);
 
             _hasBufferedInteract = false;

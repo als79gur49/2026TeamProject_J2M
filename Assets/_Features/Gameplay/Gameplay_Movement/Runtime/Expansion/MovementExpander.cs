@@ -61,12 +61,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
                 switch (intent.CommandKind)
                 {
-                    case MovementCommandKind.Interact:
+                    case MovementCommandKind.Push:
                     case MovementCommandKind.Move:
                         ExpandMoveLike(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
-                    case MovementCommandKind.Throw:
+                    case MovementCommandKind.Flip:
                         ExpandFlip(snapshot, entity, intent, buffer, rejectedReasons);
                         break;
 
@@ -116,7 +116,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         return;
                     }
 
-                    if (intent.CommandKind == MovementCommandKind.Interact &&
+                    if (intent.CommandKind == MovementCommandKind.Push &&
                         snapshot.Topology.IsFaceActive(target.position.face) &&
                         HasBoxCapability(target, BoxCapabilities.Push))
                     {
@@ -124,24 +124,24 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         return;
                     }
 
-                    if (intent.CommandKind == MovementCommandKind.Interact)
+                    if (intent.CommandKind == MovementCommandKind.Push)
                     {
                         rejectedReasons.Add(
-                            $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotPushableBox|Cell={FormatCell(target.position)}|Target={target.entityId}|Capabilities={target.boxCapabilities}");
+                            $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotPushBox|Cell={FormatCell(target.position)}|Target={target.entityId}|Capabilities={target.boxCapabilities}");
                         return;
                     }
                 }
-                else if (intent.CommandKind == MovementCommandKind.Interact)
+                else if (intent.CommandKind == MovementCommandKind.Push)
                 {
                     rejectedReasons.Add(
-                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
                     return;
                 }
             }
-            else if (intent.CommandKind == MovementCommandKind.Interact)
+            else if (intent.CommandKind == MovementCommandKind.Push)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=InteractTargetNotBox|Cell={FormatCell(destinationCell)}|Target=0|Type=None");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target=0|Type=None");
                 return;
             }
 

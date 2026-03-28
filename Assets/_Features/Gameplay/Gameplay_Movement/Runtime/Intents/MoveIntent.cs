@@ -70,7 +70,7 @@ namespace Game.Feature.Gameplay.Movement.Intents
             int priority,
             Vector2Int destination,
             int localSequence = 0)
-            : base(sourceId, priority, destination, MovementCommandKind.Interact, localSequence)
+            : base(sourceId, priority, destination, MovementCommandKind.Push, localSequence)
         {
         }
 

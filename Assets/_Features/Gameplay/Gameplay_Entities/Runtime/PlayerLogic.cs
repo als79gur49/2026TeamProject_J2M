@@ -75,7 +75,7 @@ namespace Game.Feature.Gameplay.Entities
                         entity.entityId,
                         DefaultCommandPriority,
                         entity.position + delta,
-                        MovementCommandKind.Interact,
+                        MovementCommandKind.Push,
                         localSequence: 0));
                 return;
             }

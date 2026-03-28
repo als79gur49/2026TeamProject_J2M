@@ -8,10 +8,10 @@ namespace Game.Feature.Gameplay.Model.Groups
         Attack = 3,
         Cleanup = 4,
         ProjectileImpact = 5,
-        Throw = 7,
-        Flip = Throw,
-        BoxSlide = 9,
-        Push = BoxSlide,
+        Flip = 7,
+        Throw = Flip,
+        Push = 9,
+        BoxSlide = Push,
         Item = 10,
     }
 }
