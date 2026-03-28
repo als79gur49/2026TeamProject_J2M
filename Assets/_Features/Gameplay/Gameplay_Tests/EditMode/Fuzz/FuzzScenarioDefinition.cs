@@ -66,7 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
 
         public WorldState CreateWorldState()
         {
-            return GameplayWorldStateTestFactory.CreateLegacyUnbounded(_initialEntities);
+            return GameplayWorldStateTestFactory.CreateBounded(_initialEntities);
         }
 
         public IEntityLogic[] CreateEntityLogics()

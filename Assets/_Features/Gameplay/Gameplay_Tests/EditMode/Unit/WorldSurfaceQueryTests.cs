@@ -321,8 +321,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_SucceedsWhenUnboundedBoardHasNoStopper()
         {
             var snapshot = CreateSnapshot(
-                GameplayWorldStateTestFactory.CreateLegacyUnbounded(
+                new WorldState(
                     new EntityState[0],
+                    BoardBounds.Unbounded,
                     GameplayTerrainData.Empty));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(

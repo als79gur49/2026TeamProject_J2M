@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -44,61 +45,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayCompositionRoot_PublicApi_DoesNotExposeUnboundedWorldFactory()
+        public void GameplayCompositionRoot_DeclaresOnlyBoundedWorldFactory()
         {
-            var publicDefaultFactory = typeof(GameplayCompositionRoot).GetMethod(
-                nameof(GameplayCompositionRoot.CreateWorldState),
-                BindingFlags.Static | BindingFlags.Public,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
-            var publicLegacyFactory = typeof(GameplayCompositionRoot).GetMethod(
-                "CreateLegacyUnboundedWorldState",
-                BindingFlags.Static | BindingFlags.Public);
+            var worldFactories = typeof(GameplayCompositionRoot)
+                .GetMethods(BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(method => method.ReturnType == typeof(WorldState))
+                .Select(method => method.Name)
+                .Distinct()
+                .OrderBy(name => name)
+                .ToArray();
 
-            Assert.That(publicDefaultFactory, Is.Null);
-            Assert.That(publicLegacyFactory, Is.Null);
-        }
-
-        [Test]
-        public void GameplayCompositionRoot_LegacyUnboundedHelper_IsInternalOnly_AndStillAvailableToTests()
-        {
-            var internalLegacyFactory = typeof(GameplayCompositionRoot).GetMethod(
-                "CreateLegacyUnboundedWorldState",
-                BindingFlags.Static | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(IEnumerable<EntityState>) },
-                modifiers: null);
-
-            Assert.That(internalLegacyFactory, Is.Not.Null);
-            Assert.That(internalLegacyFactory.IsAssembly, Is.True);
-
-            var worldState = GameplayCompositionRoot.CreateLegacyUnboundedWorldState(
+            CollectionAssert.AreEqual(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: Vector2Int.zero),
-                });
-
-            Assert.That(worldState.CreateSnapshot().BoardBounds.IsBounded, Is.False);
+                    nameof(GameplayCompositionRoot.CreateWorldState),
+                },
+                worldFactories);
         }
 
-        private static EntityState CreateUnit(int entityId, Vector2Int position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 3,
-                maxHp = 3,
-                teamId = 1,
-                type = EntityType.Unit,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.Right,
-                markedForDeath = false,
-                spawnTick = 0,
-            };
-        }
     }
 
     public sealed class GameplayViewProjectionTests

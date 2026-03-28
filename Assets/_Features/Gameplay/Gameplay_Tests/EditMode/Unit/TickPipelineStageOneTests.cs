@@ -872,9 +872,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoardBounds boardBounds,
             GameplayTerrainData terrainData)
         {
-            return boardBounds.IsBounded
-                ? GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData)
-                : GameplayWorldStateTestFactory.CreateLegacyUnbounded(initialEntities, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

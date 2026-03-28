@@ -38,44 +38,12 @@ namespace Game.Feature.Gameplay.Loop
             if (!boardBounds.IsBounded)
             {
                 throw new InvalidOperationException(
-                    "Runtime world creation requires bounded board bounds. Use the legacy unbounded helper only from tests or compatibility paths.");
+                    "Runtime world creation requires bounded board bounds. Unbounded boards are no longer supported by the composition root.");
             }
 
             return new WorldState(
                 initialEntities,
                 boardBounds,
-                terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
-                topology);
-        }
-
-        internal static WorldState CreateLegacyUnboundedWorldState(IEnumerable<EntityState> initialEntities)
-        {
-            return CreateLegacyUnboundedWorldState(initialEntities, TerrainData.Empty);
-        }
-
-        internal static WorldState CreateLegacyUnboundedWorldState(
-            IEnumerable<EntityState> initialEntities,
-            TerrainData terrainData)
-        {
-            return CreateLegacyUnboundedWorldState(
-                initialEntities,
-                terrainData,
-                new CubeTopologyState(FaceId.Floor));
-        }
-
-        internal static WorldState CreateLegacyUnboundedWorldState(
-            IEnumerable<EntityState> initialEntities,
-            TerrainData terrainData,
-            CubeTopologyState topology)
-        {
-            if (initialEntities == null)
-            {
-                throw new ArgumentNullException(nameof(initialEntities));
-            }
-
-            return new WorldState(
-                initialEntities,
-                BoardBounds.Unbounded,
                 terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
                 topology);
         }

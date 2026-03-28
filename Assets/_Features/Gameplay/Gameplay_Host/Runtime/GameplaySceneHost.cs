@@ -47,7 +47,7 @@ namespace Game.Feature.Gameplay.Host
             if (!configuration.InitialBoardBounds.IsBounded)
             {
                 throw new InvalidOperationException(
-                    "GameplaySceneHost requires bounded InitialBoardBounds. Unbounded boards are reserved for tests and legacy compatibility paths.");
+                    "GameplaySceneHost requires bounded InitialBoardBounds. Unbounded boards are not supported by runtime scene hosts.");
             }
 
             EnsureComponents();

@@ -48,31 +48,5 @@ namespace Game.Feature.Gameplay.Tests
                 terrainData ?? GameplayTerrainData.Empty,
                 topology);
         }
-
-        public static WorldState CreateLegacyUnbounded(IEnumerable<EntityState> initialEntities)
-        {
-            return CreateLegacyUnbounded(initialEntities, GameplayTerrainData.Empty);
-        }
-
-        public static WorldState CreateLegacyUnbounded(
-            IEnumerable<EntityState> initialEntities,
-            GameplayTerrainData terrainData)
-        {
-            return CreateLegacyUnbounded(
-                initialEntities,
-                terrainData,
-                new CubeTopologyState(FaceId.Floor));
-        }
-
-        public static WorldState CreateLegacyUnbounded(
-            IEnumerable<EntityState> initialEntities,
-            GameplayTerrainData terrainData,
-            CubeTopologyState topology)
-        {
-            return GameplayCompositionRoot.CreateLegacyUnboundedWorldState(
-                initialEntities,
-                terrainData ?? GameplayTerrainData.Empty,
-                topology);
-        }
     }
 }

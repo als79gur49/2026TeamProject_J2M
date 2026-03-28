@@ -279,7 +279,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                BoardBounds.Unbounded,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -360,7 +360,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                     CreateProjectile(entityId: 40, position: new Vector2Int(2, 0), hp: 1),
                 },
-                BoardBounds.Unbounded,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -379,7 +379,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushBox_StartsSlidingWhenUnboundedBoardHasNoStopper()
+        public void Movement_PushInputPushBox_StartsSlidingWhenBoundedLaneHasNoStopper()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -387,7 +387,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                BoardBounds.Unbounded,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 GameplayTerrainData.Empty);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -456,7 +456,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                     CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
-                BoardBounds.Unbounded,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
                 new GameplayTerrainData(new[] { new Vector2Int(2, 0) }));
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -1564,9 +1564,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             BoardBounds boardBounds,
             GameplayTerrainData terrainData)
         {
-            return boardBounds.IsBounded
-                ? GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData)
-                : GameplayWorldStateTestFactory.CreateLegacyUnbounded(initialEntities, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

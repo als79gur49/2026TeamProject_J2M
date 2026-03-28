@@ -572,7 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
                 },
-                BoardBounds.Unbounded,
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
                 new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
 
             return new TickReplayHarness().Run(
@@ -851,9 +851,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             BoardBounds boardBounds,
             GameplayTerrainData terrainData)
         {
-            return boardBounds.IsBounded
-                ? GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData)
-                : GameplayWorldStateTestFactory.CreateLegacyUnbounded(initialEntities, terrainData);
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
         }
 
         private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
