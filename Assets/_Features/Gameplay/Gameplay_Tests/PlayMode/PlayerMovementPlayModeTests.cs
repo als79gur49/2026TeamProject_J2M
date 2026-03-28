@@ -83,7 +83,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.RunSingleTick();
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
             Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
             Assert.That(boxView.gameObject.activeSelf, Is.False);
 

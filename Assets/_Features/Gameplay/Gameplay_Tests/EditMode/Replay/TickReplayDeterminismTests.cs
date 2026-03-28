@@ -221,10 +221,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
-        public void Replay_BoxInteractDestroyScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_ItemInteractScenario_ProducesSameHashTraceAndEventLog()
         {
-            var firstReplay = RunBoxInteractDestroyReplaySequence();
-            var secondReplay = RunBoxInteractDestroyReplaySequence();
+            var firstReplay = RunItemInteractReplaySequence();
+            var secondReplay = RunItemInteractReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -238,11 +238,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=InteractLootDestroy"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Item"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Command=Interact"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("LootGranted|G=1|I=2|Source=10|Target=30|Loot=BoxInteractDestroy"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("BoardPresenceCommitted|G=1|I=1|E=30|Presence=Detached"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("DestroyMarked|G=1|I=1|Target=30|Condition=AlwaysMark"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=30"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=30|"));
         }
 
@@ -523,7 +525,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunBoxInteractDestroyReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunItemInteractReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -535,16 +537,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new ScriptedCombatLogic(
-                        sourceId: 10,
-                        attackIntent: RawAttackIntent.CreateInteractLootDestroy(
-                            sourceId: 10,
-                            priority: 5,
-                            targetCell: new Vector2Int(1, 0))),
+                    new PlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1),
+                    new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
                 });
         }
 

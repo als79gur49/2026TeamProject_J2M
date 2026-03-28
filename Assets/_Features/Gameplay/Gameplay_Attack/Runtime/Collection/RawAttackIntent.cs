@@ -56,22 +56,6 @@ namespace Game.Feature.Gameplay.Attack.Collection
                 localSequence: 0);
         }
 
-        public static RawAttackIntent CreateInteractLootDestroy(
-            int sourceId,
-            int priority,
-            Vector2Int targetCell,
-            int localSequence = 0)
-        {
-            return new RawAttackIntent(
-                sourceId,
-                priority,
-                0,
-                AttackCommandKind.InteractLootDestroy,
-                targetCell,
-                hasTargetCell: true,
-                localSequence);
-        }
-
         private static void ValidateContract(int targetId, AttackCommandKind commandKind, bool hasTargetCell)
         {
             switch (commandKind)
@@ -102,24 +86,11 @@ namespace Game.Feature.Gameplay.Attack.Collection
 
                     return;
 
-                case AttackCommandKind.InteractLootDestroy:
-                    if (targetId != 0)
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(targetId), "InteractLootDestroy intents must not carry a target ID.");
-                    }
-
-                    if (!hasTargetCell)
-                    {
-                        throw new ArgumentException("InteractLootDestroy intents require a target cell.", nameof(hasTargetCell));
-                    }
-
-                    return;
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(commandKind),
                         commandKind,
-                        "Raw attack intents only support entity-generated Attack, FireProjectile, and InteractLootDestroy commands.");
+                        "Raw attack intents only support entity-generated Attack and FireProjectile commands.");
             }
         }
     }

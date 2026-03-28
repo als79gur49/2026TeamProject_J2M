@@ -137,54 +137,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Attack_InteractLootDestroy_MarksBoxAndKeepsOccupancyUntilCleanup()
-        {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Up),
-                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.LootOnInteractDestroy),
-            });
-
-            var attackPhaseResult = RunAttackPhaseOnly(
-                worldState,
-                new IEntityLogic[]
-                {
-                    new StubCombatLogic(
-                        attackIntentFactory: _ => RawAttackIntent.CreateInteractLootDestroy(
-                            sourceId: 10,
-                            priority: 100,
-                            targetCell: new Vector2Int(1, 0))),
-                },
-                tickIndex: 5,
-                input: new TickInput(5));
-            var snapshotAfterAttack = SnapshotBuilder.Create(worldState);
-
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "FacingCommitted|G=1|I=1|E=10|Facing=Right",
-                    "LootGranted|G=1|I=1|Source=10|Target=30|Loot=BoxInteractDestroy",
-                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=1|Condition=AlwaysMark",
-                },
-                attackPhaseResult.CommitEvents);
-            Assert.That(snapshotAfterAttack.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
-            Assert.That(snapshotAfterAttack.TryGetUnitAt(new Vector2Int(1, 0), out var boxAfterAttack), Is.True);
-            Assert.That(boxAfterAttack.entityId, Is.EqualTo(30));
-            Assert.That(boxAfterAttack.markedForDeath, Is.True);
-
-            var cleanupProcessor = new CleanupProcessor();
-            var cleanupResult = cleanupProcessor.Process(
-                snapshotAfterAttack,
-                worldState.CreateWriteContext(),
-                tickIndex: 5);
-            var snapshotAfterCleanup = SnapshotBuilder.Create(worldState);
-
-            CollectionAssert.AreEqual(new[] { 30 }, cleanupResult.RemovedEntityIds);
-            Assert.That(snapshotAfterCleanup.TryGetEntity(30, out _), Is.False);
-            Assert.That(snapshotAfterCleanup.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
-        }
-
-        [Test]
         public void Attack_PlayerInteractInput_DoesNotProduceLegacyInteractLootDestroyIntent()
         {
             var worldState = CreateWorldState(new[]

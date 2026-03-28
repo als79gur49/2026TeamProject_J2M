@@ -61,14 +61,6 @@ namespace Game.Feature.Gameplay.Attack.Commit
             {
                 var group = selectedGroups[groupIndex];
 
-                if (group.GroupKind == ActionGroupKind.InteractLootDestroy &&
-                    TryResolveInteractFacing(snapshot, group, out var interactFacing))
-                {
-                    writeContext.SetFacing(group.SourceId, interactFacing);
-                    commitEvents.Add(
-                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={interactFacing}");
-                }
-
                 for (var stateChangeIndex = 0; stateChangeIndex < group.StateChanges.Count; stateChangeIndex++)
                 {
                     var stateChange = group.StateChanges[stateChangeIndex];
@@ -144,12 +136,6 @@ namespace Game.Feature.Gameplay.Attack.Commit
 
                     destroyMarkedTargets.Add(destroy.TargetId);
 
-                    if (group.GroupKind == ActionGroupKind.InteractLootDestroy)
-                    {
-                        commitEvents.Add(
-                            $"LootGranted|G={group.GroupId}|I={group.IntentId}|Source={group.SourceId}|Target={destroy.TargetId}|Loot=BoxInteractDestroy");
-                    }
-
                     writeContext.MarkDestroy(destroy.TargetId);
                     commitEvents.Add(
                         $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|FinalHp={finalHp}|Condition={destroy.Condition}");
@@ -180,51 +166,6 @@ namespace Game.Feature.Gameplay.Attack.Commit
                     delayedAttackSequence++;
                 }
             }
-        }
-
-        private static bool TryResolveInteractFacing(
-            WorldSnapshot snapshot,
-            ActionGroup group,
-            out Direction facing)
-        {
-            facing = Direction.None;
-
-            if (!snapshot.TryGetEntity(group.SourceId, out var source))
-            {
-                return false;
-            }
-
-            if (group.Destroys.Count == 0 || !snapshot.TryGetEntity(group.Destroys[0].TargetId, out var target))
-            {
-                return false;
-            }
-
-            var delta = target.position - source.position;
-            if (delta == UnityEngine.Vector2Int.up)
-            {
-                facing = Direction.Up;
-                return true;
-            }
-
-            if (delta == UnityEngine.Vector2Int.right)
-            {
-                facing = Direction.Right;
-                return true;
-            }
-
-            if (delta == UnityEngine.Vector2Int.down)
-            {
-                facing = Direction.Down;
-                return true;
-            }
-
-            if (delta == UnityEngine.Vector2Int.left)
-            {
-                facing = Direction.Left;
-                return true;
-            }
-
-            return false;
         }
     }
 }

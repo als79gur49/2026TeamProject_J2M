@@ -196,13 +196,6 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 case AttackCommandKind.FireProjectile:
                     return CreateFireProjectile(rawIntent.SourceId, rawIntent.Priority);
 
-                case AttackCommandKind.InteractLootDestroy:
-                    return new InteractIntent(
-                        rawIntent.SourceId,
-                        rawIntent.Priority,
-                        rawIntent.TargetCell,
-                        rawIntent.LocalSequence);
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(rawIntent),
@@ -293,34 +286,6 @@ namespace Game.Feature.Gameplay.Attack.Intents
 
                     return;
 
-                case AttackCommandKind.InteractLootDestroy:
-                    if (inputKind != AttackInputKind.InteractIntent)
-                    {
-                        throw new ArgumentException("InteractLootDestroy commands must use the interact input kind.", nameof(inputKind));
-                    }
-
-                    if (impactReservation.HasValue)
-                    {
-                        throw new ArgumentException("InteractLootDestroy commands must not carry an impact reservation.", nameof(impactReservation));
-                    }
-
-                    if (delayedAttackEffect.HasValue)
-                    {
-                        throw new ArgumentException("InteractLootDestroy commands must not carry delayed attack effect data.", nameof(delayedAttackEffect));
-                    }
-
-                    if (!hasTargetCell)
-                    {
-                        throw new ArgumentException("InteractLootDestroy commands require a target cell.", nameof(hasTargetCell));
-                    }
-
-                    if (targetId != 0)
-                    {
-                        throw new ArgumentOutOfRangeException(nameof(targetId), "InteractLootDestroy commands must not carry a target ID.");
-                    }
-
-                    return;
-
                 case AttackCommandKind.ImpactReservation:
                     if (inputKind != AttackInputKind.ImpactReservation)
                     {
@@ -380,29 +345,6 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 default:
                     throw new ArgumentOutOfRangeException(nameof(commandKind), commandKind, "Unsupported attack command kind.");
             }
-        }
-    }
-
-    public sealed class InteractIntent : AttackIntent
-    {
-        public InteractIntent(int sourceId, int priority, Vector2Int targetCell, int localSequence = 0)
-            : base(
-                sourceId,
-                priority,
-                0,
-                AttackCommandKind.InteractLootDestroy,
-                AttackInputKind.InteractIntent,
-                localSequence,
-                targetCell,
-                hasTargetCell: true,
-                null,
-                null)
-        {
-        }
-
-        protected internal override int GetTypeSortKey()
-        {
-            return 0;
         }
     }
 }

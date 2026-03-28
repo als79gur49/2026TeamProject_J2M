@@ -10,7 +10,6 @@ namespace Game.Feature.Gameplay.Model.Groups
         ProjectileImpact = 5,
         Throw = 7,
         Flip = Throw,
-        InteractLootDestroy = 8,
         BoxSlide = 9,
         Push = BoxSlide,
         Item = 10,
