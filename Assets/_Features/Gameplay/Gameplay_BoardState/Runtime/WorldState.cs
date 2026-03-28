@@ -185,7 +185,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void ClearOccupancyForEntity(EntityState entity)
         {
-            if (!IsEntityStoredInOccupancy(entity))
+            if (!ShouldStoreEntityInOccupancy(entity))
             {
                 return;
             }
@@ -204,7 +204,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void SetOccupancyForEntity(EntityState entity)
         {
-            if (!IsEntityStoredInOccupancy(entity))
+            if (!ShouldStoreEntityInOccupancy(entity))
             {
                 return;
             }
@@ -279,9 +279,9 @@ namespace Game.Feature.Gameplay.BoardState
             _entitiesById[entity.entityId] = entity;
         }
 
-        private static bool IsEntityStoredInOccupancy(EntityState entity)
+        private static bool ShouldStoreEntityInOccupancy(EntityState entity)
         {
-            return entity.boardPresence != EntityBoardPresence.DetachedPendingCleanup;
+            return entity.boardPresence == EntityBoardPresence.Occupying;
         }
 
         private static string FormatPlacementBlocker(SlideStopper blocker)

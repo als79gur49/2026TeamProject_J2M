@@ -299,9 +299,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.Item);
-            actionGroup.BoardPresenceChanges.Add(
-                new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.DetachedPendingCleanup));
-            actionGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
+            AddDetachAndMarkForDestroy(actionGroup, target);
             actionGroup.Moves.Add(
                 new MoveAction(
                     source.entityId,
@@ -343,9 +341,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         intent.SourceId,
                         intent.Priority,
                         ActionGroupKind.Push);
-                    destroyGroup.BoardPresenceChanges.Add(
-                        new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.DetachedPendingCleanup));
-                    destroyGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
+                    AddDetachAndMarkForDestroy(destroyGroup, target);
                     buffer.Add(destroyGroup);
                     return;
                 }
@@ -380,6 +376,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             buffer.Add(actionGroup);
+        }
+
+        private static void AddDetachAndMarkForDestroy(ActionGroup actionGroup, EntityState target)
+        {
+            actionGroup.BoardPresenceChanges.Add(
+                new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.Detached));
+            actionGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
         }
 
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)

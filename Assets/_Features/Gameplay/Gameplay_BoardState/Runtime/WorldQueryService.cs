@@ -771,7 +771,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool IsEntityOccupyingBoard(EntityState entity)
         {
-            return entity.boardPresence != EntityBoardPresence.DetachedPendingCleanup;
+            return entity.boardPresence == EntityBoardPresence.Occupying;
         }
 
         private static bool ShouldEntityParticipateInActiveQueries(EntityState entity, CubeTopologyState topology)
