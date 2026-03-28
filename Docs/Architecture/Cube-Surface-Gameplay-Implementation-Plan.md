@@ -269,9 +269,10 @@ unbounded board 호환 규칙:
 작업:
 
 - `Move`를 기본 입력으로 유지
+- `Push`와 `Flip`은 `Move`와 분리된 별도 입력으로 유지
 - 현재 `Throw` 입력을 `Flip` 의미로 치환
-- `Interact`는 임시 호환 경로만 남기거나 제거 계획 수립
-- 플레이어 이동 의도는 `Move`와 `Flip`만 생산하도록 정리
+- 기존 `Interact` 입력 경로는 호환용 alias로만 남기고 runtime 의미는 `Push`로 정규화
+- 플레이어 이동 의도는 `Move`, `Push`, `Flip`만 생산하도록 정리
 
 대상 파일:
 
@@ -281,8 +282,9 @@ unbounded board 호환 규칙:
 
 완료 조건:
 
-- 플레이어 입력이 `Item`, `Push`를 위해 별도 `Attack` intent를 만들지 않음
-- `Flip`만 별도 movement command로 남음
+- 플레이어 입력이 `Item`, `Push`, `Flip`을 위해 별도 `Attack` intent를 만들지 않음
+- `Move`는 빈 칸 이동과 `Item` 처리만 담당하고 `Push`로 자동 승격되지 않음
+- `Push`, `Flip`만 별도 movement command로 남음
 
 ### 3-4. 4단계: Movement 규칙 통합
 
@@ -296,12 +298,16 @@ unbounded board 호환 규칙:
   - 박스를 점유에서 제거
   - 박스 삭제 예약
 - `Push` 처리:
+  - `Push` 입력일 때만 후보 생성
   - 슬라이드 성공
   - 실패 시 `Push + Destroy`면 파괴
   - 실패 시 `Destroy` 없으면 무효
 - `Flip` 처리:
   - 반대편 1칸 이동
   - 앞벽 경계 넘김 금지
+- 일반 `Move` 처리:
+  - 빈 칸 이동만 허용
+  - 점유된 `Push` 박스는 자동으로 밀지 않고 `BlockedDestination`으로 종료
 - 플레이어 면 전환 시 `TopologyChangeAction` 또는 동등 개념 추가
 
 대상 파일:
@@ -314,7 +320,8 @@ unbounded board 호환 규칙:
 완료 조건:
 
 - 박스 상호작용의 authoritative 판단이 `Movement`에만 존재
-- `Item`, `Push`, `Flip`이 같은 우선순위 규칙을 공유
+- `Item`, `Push`, `Flip`이 같은 단계 안에서 처리되되 입력 의미가 혼합되지 않음
+- `Move`는 `Push`로 자동 승격되지 않음
 
 ### 3-5. 5단계: Movement Commit 확장
 
@@ -444,7 +451,7 @@ unbounded board 호환 규칙:
 - [ ] 1단계: `SurfaceCell`, `FaceId`, `CubeTopologyState` 추가
 - [ ] 2단계: `EntityState`, `WorldState`, `WorldSnapshot`를 `SurfaceCell` 기준으로 교체
 - [ ] 3단계: 면 전환 질의와 활성 면 필터링 구현
-- [ ] 4단계: `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`를 `Move + Flip` 중심으로 정리
+- [ ] 4단계: `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`를 `Move + Push + Flip` 중심으로 정리
 - [ ] 5단계: `MovementExpander`에 `Item -> Push -> Flip` 통합
 - [ ] 6단계: `MovementCommitter`에 topology 변경, `Detached` 전환, 삭제 예약 커밋 추가
 - [ ] 7단계: `Cleanup`이 점유 상태와 무관하게 삭제 예약만 소비하도록 수정
@@ -468,5 +475,6 @@ unbounded board 호환 규칙:
 - 플레이어만 면 전환을 트리거한다.
 - 박스는 `Bottom <-> Front` 경계만 넘고 회전을 트리거하지 않는다.
 - `Item`, `Push`, `Flip`이 모두 `Movement`에서 처리된다.
+- `Move`는 `Push` 박스를 자동으로 밀지 않는다.
 - `Item -> Push -> Flip` 우선순위가 테스트로 고정된다.
 - 점유 상실과 실제 삭제가 분리되어도 모순이 없다.
