@@ -404,12 +404,235 @@ unbounded board 호환 규칙:
 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySurfaceProjector.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayEntityView.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs`
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs`
+- `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickResult.cs`
 
 완료 조건:
 
 - 활성 면만 보이고, 면 전환 결과가 시각적으로 일관됨
+
+#### 3-8-1. 설계 목표
+
+- View는 gameplay topology를 다시 계산하는 계층이 아니라, 이미 커밋된 `SurfaceCell`과 `CubeTopologyState`를 투영하는 계층이어야 한다.
+- 활성 면 규칙은 blueprint와 동일하게 `BottomFace`, `FrontFace` 두 면만 화면에 노출한다.
+- 플레이어의 전방/후방 회전은 순간이동처럼 보이면 안 되고, 인접 면으로 이어지는 연속 이동처럼 보여야 한다.
+- `Detached`와 inactive face는 즉시 숨기되, `markedForDeath`이면서 아직 `Occupying`인 엔티티는 `Cleanup` 전까지 계속 보이도록 유지한다.
+- View용 좌표 변환은 movement/attack/cleanup 규칙과 분리된 순수 projection 규약이어야 한다.
+
+#### 3-8-2. 책임 분해
+
+- `GameplayTickViewPresenter`
+  - tick 결과에서 authoritative topology와 entity 목록을 받아 화면 프레임을 구성한다.
+  - 이전 topology와 현재 topology를 비교해 연속성 anchor를 갱신한다.
+  - visible 판정, world position 계산, entity view pose 적용을 총괄한다.
+- `GameplaySurfaceProjector`
+  - `SurfaceCell + CubeTopologyState + BoardBounds + cellSize + gridOrigin + continuityAnchor`를 받아 최종 `WorldPosition`을 계산하는 순수 helper다.
+  - active face 슬롯 배치와 면별 offset 계산을 중앙화한다.
+- `GameplayEntityView`
+  - 개별 엔티티의 시각 표현만 담당한다.
+  - entity id 보관, visible on/off, 위치 반영, 필요 시 face 상태에 따른 간단한 visual state 적용만 가진다.
+- `GameplaySceneHost`
+  - presenter 초기화 시 보드 bounds, cell size, 초기 topology를 동일한 값으로 주입한다.
+  - presenter가 계산한 active-strip 기준점에 맞춰 카메라 target을 동기화한다.
+- `TickResult`
+  - `FinalEntities`만이 아니라 최종 topology도 presenter에 넘길 수 있어야 한다.
+  - presenter가 world state를 역참조하거나 event log를 다시 파싱하지 않도록 final view frame 입력을 직접 제공한다.
+
+#### 3-8-3. 고정 View 입력 계약
+
+이 단계에서 presenter가 소비할 입력 계약은 아래 의미로 고정한다.
+
+- `IReadOnlyList<EntityState> entities`
+- `CubeTopologyState topology`
+- `BoardBounds boardBounds`
+- `Vector3 gridOrigin`
+- `float cellSize`
+
+최소 API 형태는 아래 둘 중 하나로 정리한다.
+
+```csharp
+public void Initialize(
+    GameplayEntityViewBinder viewBinder,
+    BoardBounds boardBounds,
+    CubeTopologyState initialTopology,
+    Vector3 gridOrigin,
+    float cellSize);
+
+public void Present(TickResult result);
+```
+
+또는 `TickResult` 의존을 얇게 만들고 싶다면 아래 view-frame 형태로 분리한다.
+
+```csharp
+public readonly struct GameplayViewFrame
+{
+    public IReadOnlyList<EntityState> Entities { get; }
+    public CubeTopologyState Topology { get; }
+}
+```
+
+핵심 제약:
+
+- presenter는 `EntityState.position`만 보고 active face를 추론하면 안 된다.
+- presenter는 `BottomFace`를 직접 증가/감소시키며 gameplay 회전 규칙을 재구현하면 안 된다.
+- final topology는 `TickResult` 또는 동등한 frame input에서 직접 받아야 한다.
+
+#### 3-8-4. 면 투영 레이아웃
+
+활성 면 시각 배치는 "세로 2단 strip"으로 고정한다.
+
+- 화면 아래 strip은 `BottomFace`
+- 화면 위 strip은 `FrontFace`
+- `Left`, `Right`는 gameplay 공간이 아니므로 슬롯 자체를 만들지 않는다.
+- 두 면 모두 `x`는 좌 -> 우, `y`는 아래 -> 위로 동일하게 배치한다.
+- front face를 좌우 반전하거나 뒤집지 않는다.
+
+이 규칙은 blueprint의 shared edge 규칙과 직접 대응한다.
+
+- `SurfaceCell(BottomFace, x, MaxY)`는 아래 strip의 최상단 칸이다.
+- `SurfaceCell(FrontFace, x, MinY)`는 위 strip의 최하단 칸이다.
+- 두 칸은 world 상에서 서로 인접한 시각 위치를 가져야 한다.
+
+#### 3-8-5. `SurfaceCell -> WorldPosition` 변환 규약
+
+`GameplaySurfaceProjector`는 아래 순서로 world position을 계산한다.
+
+1. `boardBounds`에서 `width`, `height`를 계산한다.
+2. `cell.face`가 `BottomFace`인지 `FrontFace`인지 판정한다.
+3. inactive face면 변환 실패를 반환한다.
+4. `cell.x`, `cell.y`를 `MinInclusive` 기준 local offset으로 바꾼다.
+5. face slot offset과 continuity anchor를 더해 최종 world position을 만든다.
+
+권장 계산식:
+
+```csharp
+width = boardBounds.MaxInclusive.x - boardBounds.MinInclusive.x + 1;
+height = boardBounds.MaxInclusive.y - boardBounds.MinInclusive.y + 1;
+
+localX = (cell.x - boardBounds.MinInclusive.x) * cellSize;
+localY = (cell.y - boardBounds.MinInclusive.y) * cellSize;
+
+faceOffsetY = cell.face == topology.BottomFace
+    ? 0f
+    : height * cellSize;
+
+worldPosition =
+    gridOrigin +
+    continuityAnchor +
+    new Vector3(localX, localY + faceOffsetY, 0f);
+```
+
+추가 규칙:
+
+- `BoardBounds`는 bounded runtime만 허용하므로 projector도 bounded board 전제 위에서 동작한다.
+- 현행 샘플 씬의 `gridOrigin` 기준은 유지하되, face 배치 offset은 projector 한 곳에서만 계산한다.
+- view 계층에서 `SurfaceCell`을 `Vector2Int`로 암묵 변환해 사용하지 않는다.
+
+#### 3-8-6. visible 판정 정책
+
+visible 여부는 gameplay와 같은 authoritative 상태를 따라야 한다.
+
+- `topology.IsFaceActive(entity.position.face) == false`면 숨김
+- `entity.boardPresence != Occupying`면 숨김
+- `entity.boardPresence == Occupying`이고 active face 위면 표시
+- `markedForDeath == true`는 숨김 조건이 아니다
+- inactive face 엔티티는 destroy하지 않고 view만 비활성화한다
+
+이 정책으로 아래 규칙을 보장한다.
+
+- `Item` 박스는 같은 틱에 `Detached`되면 즉시 사라진다.
+- `Push + Destroy` 실패 박스도 `Detached` 후 같은 틱에 사라진다.
+- 삭제 예약만 된 active-face blocker는 `Cleanup` 전까지 계속 보인다.
+
+#### 3-8-7. 회전 연속성 anchor
+
+활성 strip을 매 tick `gridOrigin`에 바로 재배치하면, blueprint의 회전 규칙이 화면에서 순간이동처럼 보인다. 따라서 presenter는 topology 변화에 맞춰 `continuityAnchor`를 누적 갱신한다.
+
+판정 규칙:
+
+- 이전 `BottomFace`의 `Next`가 현재 `BottomFace`면 전방 회전
+- 이전 `BottomFace`의 `Prev`가 현재 `BottomFace`면 후방 회전
+- 같으면 회전 없음
+
+anchor 갱신 규칙:
+
+- 전방 회전: `continuityAnchor += Vector3.up * (height * cellSize)`
+- 후방 회전: `continuityAnchor += Vector3.down * (height * cellSize)`
+- 회전 없음: anchor 유지
+
+의도:
+
+- 전방 회전 시 새 `BottomFace`는 직전 frame의 `FrontFace`가 있던 자리로 내려온다.
+- 후방 회전 시 strip 전체가 반대 방향으로 이어져 보인다.
+- 플레이어는 `BottomFace` 경계에서 다음 면으로 "이어 걷는" 것처럼 보인다.
+
+이 anchor는 purely visual 상태이며 simulation state에 다시 반영하지 않는다.
+
+#### 3-8-8. 카메라/뷰 기준 동기화
+
+카메라는 entity를 다시 배치하는 용도가 아니라, presenter가 계산한 active strip 중심을 따라가는 용도여야 한다.
+
+- `GameplaySceneHost`는 presenter가 계산한 active strip bounds 또는 center를 받는다.
+- 카메라 target은 `Bottom + Front` 두 면을 모두 포함하는 세로 strip 중심으로 계산한다.
+- topology change가 있으면 같은 tick에 target을 갱신한다.
+- 실제 카메라 이동은 즉시 snap 또는 짧은 smoothing 중 하나를 선택할 수 있지만, tick 결과 자체를 바꾸면 안 된다.
+
+권장 중심점 계산:
+
+```csharp
+stripCenter =
+    gridOrigin +
+    continuityAnchor +
+    new Vector3(
+        (width - 1) * cellSize * 0.5f,
+        ((height * 2) - 1) * cellSize * 0.5f,
+        0f);
+```
+
+운영 규칙:
+
+- 초기 frame에서도 동일한 공식을 사용해 카메라 기준을 맞춘다.
+- active face가 바뀌어도 camera logic은 entity id나 입력 방향을 직접 보지 않는다.
+- view-only smoothing은 허용하지만, active strip 기준점 계산은 결정론적으로 고정한다.
+
+#### 3-8-9. Host 연결 방식
+
+- `GameplaySceneHost`는 presenter 초기화 시 world와 같은 bounds, 같은 topology, 같은 cell size를 넘겨야 한다.
+- `PresentInitial`은 `IReadOnlyList<EntityState>`만 받는 형태로 두지 말고, 초기 topology를 함께 받는 형태로 바꾼다.
+- `GameplayInputHost`는 tick 실행 후 `TickResult`를 presenter에 전달하되, presenter가 필요한 topology가 result에 없으면 안 된다.
+- `TickResult`는 최소한 `FinalTopology`를 public read-only로 노출한다.
+- `GameplayEntityViewFactory`는 topology-aware logic을 몰라도 되며, 생성 이후 pose 반영은 presenter 책임으로 둔다.
+
+#### 3-8-10. 구현 체크포인트
+
+- `GameplayTickViewPresenter`가 더 이상 `Vector2Int -> WorldPosition` 단일 함수를 중심으로 동작하지 않는다.
+- `SurfaceCell`의 face 정보가 world position 계산에 실제로 반영된다.
+- inactive face와 `Detached` 엔티티는 binder 단계가 아니라 presenter visibility policy에서 일관되게 숨겨진다.
+- topology change가 있는 tick에서도 entity pose와 camera target이 같은 topology 기준을 본다.
+- view는 event log parsing이나 movement rule 재실행 없이 최종 상태만으로 화면을 그린다.
+
+#### 3-8-11. 테스트 기준
+
+이 단계에서 최소한 아래 테스트를 고정한다.
+
+- `GameplayTickViewPresenter_PresentsOnlyBottomAndFrontFaces`
+- `GameplayTickViewPresenter_HidesDetachedEntitiesBeforeCleanupRemoval`
+- `GameplayTickViewPresenter_KeepsMarkedForDeathEntityVisibleWhileStillOccupying`
+- `GameplaySurfaceProjector_ProjectsFrontFaceAboveBottomFace`
+- `GameplayTickViewPresenter_ShiftsContinuityAnchorOnForwardRotation`
+- `GameplayTickViewPresenter_ShiftsContinuityAnchorOnBackwardRotation`
+- `GameplaySceneHost_SynchronizesCameraTargetWithPresentedTopology`
+
+세부 완료 조건:
+
+- `TickResult` 또는 동등한 view-frame이 authoritative topology를 view에 전달한다.
+- active face 2면 외 엔티티는 화면에 보이지 않는다.
+- `Detached` 엔티티는 `Cleanup` 전이라도 즉시 사라진다.
+- 전방/후방 회전이 strip continuity와 camera target에 일관되게 반영된다.
+- 같은 simulation 결과를 어떤 frame에서 다시 그려도 동일한 world pose를 재현할 수 있다.
 
 ### 3-9. 9단계: 샘플 데이터와 테스트 전면 갱신
 
