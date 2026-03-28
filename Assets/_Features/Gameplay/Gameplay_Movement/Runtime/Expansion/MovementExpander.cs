@@ -334,7 +334,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            var destinationResolved = TryResolveSlidingBoxStep(snapshot, target, delta, out var destination, out var stopper);
+            var destinationResolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                snapshot.Topology,
+                target.position,
+                delta,
+                out var destination,
+                out var stopper);
             if (!destinationResolved)
             {
                 if (HasBoxCapability(target, BoxCapabilities.Destroy))
@@ -385,7 +390,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 delta,
                 "Sliding push boxes require an orthogonal single-step direction.");
 
-            if (!TryResolveSlidingBoxStep(snapshot, source, delta, out var destination, out var stopper))
+            if (!snapshot.TryResolveNextSurfaceBoxSlideStep(
+                    snapshot.Topology,
+                    source.position,
+                    delta,
+                    out var destination,
+                    out var stopper))
             {
                 if (HasBoxCapability(source, BoxCapabilities.Destroy))
                 {
@@ -428,41 +438,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             actionGroup.BoardPresenceChanges.Add(
                 new BoardPresenceChangeAction(target.entityId, EntityBoardPresence.Detached));
             actionGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
-        }
-
-        private static bool TryResolveSlidingBoxStep(
-            WorldSnapshot snapshot,
-            EntityState source,
-            Vector2Int delta,
-            out SurfaceCell destination,
-            out SlideStopper stopper)
-        {
-            if (!snapshot.BoardBounds.IsBounded)
-            {
-                destination = source.position + delta;
-                if (snapshot.TryGetPlacementBlocker(snapshot.Topology, source.type, destination, source.entityId, out stopper))
-                {
-                    destination = default;
-                    return false;
-                }
-
-                stopper = default;
-                return true;
-            }
-
-            if (!snapshot.TryGetNextSurfaceBoxSlideCell(snapshot.Topology, source.position, delta, out destination, out stopper))
-            {
-                destination = default;
-                return false;
-            }
-
-            if (snapshot.TryGetPlacementBlocker(snapshot.Topology, source.type, destination, source.entityId, out stopper))
-            {
-                destination = default;
-                return false;
-            }
-
-            return true;
         }
 
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)

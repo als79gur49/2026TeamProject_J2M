@@ -339,7 +339,103 @@ namespace Game.Feature.Gameplay.BoardState
             return true;
         }
 
+        public static bool TryResolveNextSurfaceBoxSlideStep(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            ValidateQueryDictionaries(entitiesById, unitOccupancy);
+
+            if (terrainData == null)
+            {
+                throw new ArgumentNullException(nameof(terrainData));
+            }
+
+            ValidateSlideDelta(delta);
+
+            if (!topology.IsFaceActive(origin.face))
+            {
+                destination = default;
+                stopper = default;
+                return false;
+            }
+
+            if (!boardBounds.IsBounded)
+            {
+                destination = origin + delta;
+                if (TryGetSurfaceBoxSlideBlocker(
+                        entitiesById,
+                        unitOccupancy,
+                        topology,
+                        terrainData,
+                        destination,
+                        out stopper))
+                {
+                    destination = default;
+                    return false;
+                }
+
+                stopper = default;
+                return true;
+            }
+
+            if (!IsInsideBoard(boardBounds, origin))
+            {
+                throw new InvalidOperationException(
+                    $"Slide origin {origin} must be inside the configured board bounds.");
+            }
+
+            if (!TryGetNextSurfaceBoxSlideCell(topology, boardBounds, origin, delta, out destination, out stopper))
+            {
+                destination = default;
+                return false;
+            }
+
+            if (TryGetSurfaceBoxSlideBlocker(
+                    entitiesById,
+                    unitOccupancy,
+                    topology,
+                    terrainData,
+                    destination,
+                    out stopper))
+            {
+                destination = default;
+                return false;
+            }
+
+            return true;
+        }
+
         public static bool TryGetSurfaceBoxSlideDestination(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            return TryGetLegacySurfaceBoxSlideDestination(
+                entitiesById,
+                unitOccupancy,
+                topology,
+                boardBounds,
+                terrainData,
+                origin,
+                delta,
+                out destination,
+                out stopper);
+        }
+
+        public static bool TryGetLegacySurfaceBoxSlideDestination(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
             CubeTopologyState topology,
@@ -395,18 +491,15 @@ namespace Game.Feature.Gameplay.BoardState
                     return true;
                 }
 
-                if (terrainData.BlocksUnitMovement(next.PlanarPosition))
+                if (TryGetSurfaceBoxSlideBlocker(
+                        entitiesById,
+                        unitOccupancy,
+                        topology,
+                        terrainData,
+                        next,
+                        out stopper))
                 {
                     destination = current;
-                    stopper = SlideStopper.CreateTerrain(next);
-                    return true;
-                }
-
-                if (TryGetEntityAt(entitiesById, unitOccupancy, topology, next, out var entity) &&
-                    entity.type != EntityType.Projectile)
-                {
-                    destination = current;
-                    stopper = SlideStopper.CreateEntity(entity);
                     return true;
                 }
 
@@ -415,6 +508,29 @@ namespace Game.Feature.Gameplay.BoardState
         }
 
         public static bool TryGetBoxSlideDestination(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            Vector2Int origin,
+            Vector2Int delta,
+            out Vector2Int destination,
+            out SlideStopper stopper)
+        {
+            return TryGetLegacyBoxSlideDestination(
+                entitiesById,
+                unitOccupancy,
+                topology,
+                boardBounds,
+                terrainData,
+                origin,
+                delta,
+                out destination,
+                out stopper);
+        }
+
+        public static bool TryGetLegacyBoxSlideDestination(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
             CubeTopologyState topology,
@@ -441,6 +557,31 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             destination = default;
+            return false;
+        }
+
+        private static bool TryGetSurfaceBoxSlideBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            CubeTopologyState topology,
+            TerrainData terrainData,
+            SurfaceCell cell,
+            out SlideStopper stopper)
+        {
+            if (terrainData.BlocksUnitMovement(cell.PlanarPosition))
+            {
+                stopper = SlideStopper.CreateTerrain(cell);
+                return true;
+            }
+
+            if (TryGetEntityAt(entitiesById, unitOccupancy, topology, cell, out var entity) &&
+                entity.type != EntityType.Projectile)
+            {
+                stopper = SlideStopper.CreateEntity(entity);
+                return true;
+            }
+
+            stopper = default;
             return false;
         }
 

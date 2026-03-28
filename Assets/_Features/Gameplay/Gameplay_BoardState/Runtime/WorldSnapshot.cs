@@ -176,23 +176,60 @@ namespace Game.Feature.Gameplay.BoardState
                 out landingCell);
         }
 
-        public bool TryGetSurfaceBoxSlideDestination(
+        public bool TryResolveNextSurfaceBoxSlideStep(
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
             out SlideStopper stopper)
         {
-            return TryGetSurfaceBoxSlideDestination(_topology, origin, delta, out destination, out stopper);
+            return TryResolveNextSurfaceBoxSlideStep(_topology, origin, delta, out destination, out stopper);
         }
 
-        internal bool TryGetSurfaceBoxSlideDestination(
+        internal bool TryResolveNextSurfaceBoxSlideStep(
             CubeTopologyState topology,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
             out SlideStopper stopper)
         {
-            return WorldQueryService.TryGetSurfaceBoxSlideDestination(
+            return WorldQueryService.TryResolveNextSurfaceBoxSlideStep(
+                _entitiesById,
+                _unitOccupancy,
+                topology,
+                _boardBounds,
+                _terrainData,
+                origin,
+                delta,
+                out destination,
+                out stopper);
+        }
+
+        public bool TryGetSurfaceBoxSlideDestination(
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            return TryGetLegacySurfaceBoxSlideDestination(_topology, origin, delta, out destination, out stopper);
+        }
+
+        public bool TryGetLegacySurfaceBoxSlideDestination(
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            return TryGetLegacySurfaceBoxSlideDestination(_topology, origin, delta, out destination, out stopper);
+        }
+
+        internal bool TryGetLegacySurfaceBoxSlideDestination(
+            CubeTopologyState topology,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            return WorldQueryService.TryGetLegacySurfaceBoxSlideDestination(
                 _entitiesById,
                 _unitOccupancy,
                 topology,
@@ -210,7 +247,16 @@ namespace Game.Feature.Gameplay.BoardState
             out Vector2Int destination,
             out SlideStopper stopper)
         {
-            return WorldQueryService.TryGetBoxSlideDestination(
+            return TryGetLegacyBoxSlideDestination(origin, delta, out destination, out stopper);
+        }
+
+        public bool TryGetLegacyBoxSlideDestination(
+            Vector2Int origin,
+            Vector2Int delta,
+            out Vector2Int destination,
+            out SlideStopper stopper)
+        {
+            return WorldQueryService.TryGetLegacyBoxSlideDestination(
                 _entitiesById,
                 _unitOccupancy,
                 _topology,

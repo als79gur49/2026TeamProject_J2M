@@ -176,7 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryGetSurfaceBoxSlideDestination_CrossesBottomFrontSharedEdge()
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesBottomFrontSharedEdge()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -184,20 +184,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                     GameplayTerrainData.Empty));
 
-            var resolved = snapshot.TryGetSurfaceBoxSlideDestination(
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 0, 1),
                 Vector2Int.up,
                 out var destination,
                 out var stopper);
 
             Assert.That(resolved, Is.True);
-            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
-            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
-            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 2)));
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
         }
 
         [Test]
-        public void WorldSnapshot_TryGetSurfaceBoxSlideDestination_CrossesFrontBottomSharedEdgeBackToBottom()
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesFrontBottomSharedEdgeBackToBottom()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -205,20 +204,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                     GameplayTerrainData.Empty));
 
-            var resolved = snapshot.TryGetSurfaceBoxSlideDestination(
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 0, 0),
                 Vector2Int.down,
                 out var destination,
                 out var stopper);
 
             Assert.That(resolved, Is.True);
-            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
-            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, -1)));
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
         }
 
         [Test]
-        public void WorldSnapshot_TryGetSurfaceBoxSlideDestination_StopsAtOtherBoardEdges()
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtOtherBoardEdges()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -226,16 +224,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                     GameplayTerrainData.Empty));
 
-            var resolved = snapshot.TryGetSurfaceBoxSlideDestination(
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 0, 1),
                 Vector2Int.up,
                 out var destination,
                 out var stopper);
 
-            Assert.That(resolved, Is.True);
-            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
             Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
             Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 2)));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_IgnoresDetachedOccupantOnNextCell()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        CreateUnit(
+                            entityId: 20,
+                            position: new SurfaceCell(FaceId.Front, 1, 0),
+                            boardPresence: EntityBoardPresence.Detached),
+                    },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 0)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
         }
 
         [Test]
@@ -262,7 +286,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryGetSurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeath()
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsOnMarkedForDeathOccupantOnNextCell()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -280,7 +304,121 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                     GameplayTerrainData.Empty));
 
-            var resolved = snapshot.TryGetSurfaceBoxSlideDestination(
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Front, 1, 0),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(stopper.EntityId, Is.EqualTo(30));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 1)));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_SucceedsWhenUnboundedBoardHasNoStopper()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateLegacyUnbounded(
+                    new EntityState[0],
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Vector2Int.right,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
+        }
+
+        [Test]
+        public void WorldSnapshot_LegacySurfaceBoxSlideDestination_CrossesBottomFrontSharedEdgeToTerminalCell()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryGetLegacySurfaceBoxSlideDestination(
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 2)));
+        }
+
+        [Test]
+        public void WorldSnapshot_LegacySurfaceBoxSlideDestination_CrossesFrontBottomSharedEdgeBackToTerminalCell()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryGetLegacySurfaceBoxSlideDestination(
+                new SurfaceCell(FaceId.Front, 0, 0),
+                Vector2Int.down,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, -1)));
+        }
+
+        [Test]
+        public void WorldSnapshot_LegacySurfaceBoxSlideDestination_StopsAtOtherBoardEdges()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryGetLegacySurfaceBoxSlideDestination(
+                new SurfaceCell(FaceId.Front, 0, 1),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 2)));
+        }
+
+        [Test]
+        public void WorldSnapshot_LegacySurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeathAlongRay()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        CreateUnit(
+                            entityId: 20,
+                            position: new SurfaceCell(FaceId.Front, 1, 0),
+                            boardPresence: EntityBoardPresence.Detached),
+                        CreateUnit(
+                            entityId: 30,
+                            position: new SurfaceCell(FaceId.Front, 1, 1),
+                            markedForDeath: true),
+                    },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryGetLegacySurfaceBoxSlideDestination(
                 new SurfaceCell(FaceId.Floor, 1, 1),
                 Vector2Int.up,
                 out var destination,
@@ -354,7 +492,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryGetBoxSlideDestination_UsesBottomFaceAsLegacyDefault()
+        public void WorldSnapshot_LegacyBoxSlideDestination_UsesBottomFaceAsLegacyDefault()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -367,7 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     GameplayTerrainData.Empty,
                     new CubeTopologyState(FaceId.Front)));
 
-            var resolved = snapshot.TryGetBoxSlideDestination(
+            var resolved = snapshot.TryGetLegacyBoxSlideDestination(
                 new Vector2Int(0, 0),
                 Vector2Int.right,
                 out var destination,
