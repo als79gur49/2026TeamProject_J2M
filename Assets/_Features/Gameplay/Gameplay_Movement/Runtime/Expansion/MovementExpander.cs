@@ -116,7 +116,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         return;
                     }
 
-                    if (snapshot.Topology.IsFaceActive(target.position.face) &&
+                    if (intent.CommandKind == MovementCommandKind.Interact &&
+                        snapshot.Topology.IsFaceActive(target.position.face) &&
                         HasBoxCapability(target, BoxCapabilities.Push))
                     {
                         TryExpandPush(snapshot, source, target, intent, delta, stepFacing, buffer, rejectedReasons);

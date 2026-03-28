@@ -64,7 +64,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_InteractCommand_ProducesSingleRawMovementIntent()
+        public void PlayerLogic_PushCommand_ProducesSingleRawMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -75,7 +75,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Interact(Direction.Right)),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 buffer);
 
             CollectionAssert.AreEqual(
@@ -87,7 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_InteractCommand_DoesNotProduceRawAttackIntent()
+        public void PlayerLogic_PushCommand_DoesNotProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -98,14 +98,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CollectAttackIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Interact(Direction.Left)),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Left)),
                 buffer);
 
             Assert.That(buffer, Is.Empty);
         }
 
         [Test]
-        public void PlayerLogic_FlipInput_TakesPriorityOverInteractForMovementIntent()
+        public void PlayerLogic_FlipInput_TakesPriorityOverPushForMovementIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -312,6 +312,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(command.MoveDirection, Is.EqualTo(expectedDirection));
             Assert.That(command.InteractPressed, Is.False);
+            Assert.That(command.PushPressed, Is.False);
             Assert.That(command.FlipPressed, Is.False);
             Assert.That(command.ThrowPressed, Is.False);
         }

@@ -143,6 +143,11 @@ namespace Game.Feature.Gameplay.Host
             _hasBufferedInteract = true;
         }
 
+        public void BufferPush()
+        {
+            BufferInteract();
+        }
+
         public void BufferThrow()
         {
             BufferFlip();
@@ -186,10 +191,11 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Move action on the provided InputActionAsset.");
             }
 
-            _interactAction = _actions.FindAction("Player/Interact", throwIfNotFound: false);
+            _interactAction = _actions.FindAction("Player/Push", throwIfNotFound: false) ??
+                              _actions.FindAction("Player/Interact", throwIfNotFound: false);
             if (_interactAction == null)
             {
-                throw new InvalidOperationException("GameplayInputHost requires a Player/Interact action on the provided InputActionAsset.");
+                throw new InvalidOperationException("GameplayInputHost requires a Player/Push action or legacy Player/Interact action on the provided InputActionAsset.");
             }
 
             _throwAction = _actions.FindAction("Player/Flip", throwIfNotFound: false) ??

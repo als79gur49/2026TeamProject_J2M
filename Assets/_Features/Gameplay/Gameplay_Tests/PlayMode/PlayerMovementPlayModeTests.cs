@@ -70,6 +70,58 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_MoveIntoPushableBox_DoesNotSlideWithoutPushInput()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+                },
+                actions: actions);
+
+            Press(_keyboard.dKey);
+            yield return null;
+
+            host.InputHost.RunSingleTick();
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_PushInputSlidesPushableBoxWithoutMovingPlayer()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+                },
+                actions: actions);
+
+            Press(_keyboard.dKey);
+            Press(_keyboard.eKey);
+            yield return null;
+
+            host.InputHost.RunSingleTick();
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
+
+            Release(_keyboard.eKey);
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
         public IEnumerator GameplayInputHost_InteractBufferedAtTickBoundary_PrioritizesInteractOverMove()
         {
             var host = CreateHost(new[]
@@ -283,14 +335,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
             var map = new InputActionMap("Player");
             var move = map.AddAction("Move", InputActionType.Value);
-            var interact = map.AddAction("Interact", InputActionType.Button);
+            var pushAction = map.AddAction("Push", InputActionType.Button);
             var flipAction = map.AddAction("Flip", InputActionType.Button);
             move.AddCompositeBinding("2DVector")
                 .With("Up", "<Keyboard>/w")
                 .With("Down", "<Keyboard>/s")
                 .With("Left", "<Keyboard>/a")
                 .With("Right", "<Keyboard>/d");
-            interact.AddBinding("<Keyboard>/e");
+            pushAction.AddBinding("<Keyboard>/e");
             flipAction.AddBinding("<Keyboard>/q");
             actions.AddActionMap(map);
             return actions;

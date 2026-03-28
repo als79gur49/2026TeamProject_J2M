@@ -93,13 +93,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_MoveIntoPushableBox_PushesWithoutExplicitInteract()
+        public void Movement_MoveIntoPushableBox_FailsWithoutExplicitPush()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
-                CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -110,27 +109,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
-            Assert.That(slideGroup.GroupKind, Is.EqualTo(ActionGroupKind.BoxSlide));
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (EntityId: 30, Source: new Vector2Int(1, 0), Destination: new Vector2Int(2, 0), Facing: Direction.Right),
-                    (EntityId: 30, Source: new Vector2Int(2, 0), Destination: new Vector2Int(3, 0), Facing: Direction.Right),
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
                 },
-                slideGroup.Moves
-                    .Select(move => (move.EntityId, move.Source, move.Destination, move.Facing))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MoveCommitted|G=1|I=1|E=30|To=(2,0)|Facing=Right",
-                    "MoveCommitted|G=1|I=1|E=30|To=(3,0)|Facing=Right",
-                },
-                result.MovementPhaseResult.CommitEvents);
-            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+                result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(3, 0)));
+            Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
         }
 
         [Test]
@@ -164,7 +153,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
+        public void Movement_PushInputPushableBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -179,7 +168,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -222,7 +211,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_StopsBeforeTerrainBlocker()
+        public void Movement_PushInputPushableBox_StopsBeforeTerrainBlocker()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -239,7 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
             CollectionAssert.AreEqual(
@@ -257,7 +246,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_StopsBeforeBoardEdge()
+        public void Movement_PushInputPushableBox_StopsBeforeBoardEdge()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -274,7 +263,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
             CollectionAssert.AreEqual(
@@ -292,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_IgnoresProjectileAsSlideStopper()
+        public void Movement_PushInputPushableBox_IgnoresProjectileAsSlideStopper()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -310,7 +299,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
@@ -320,7 +309,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_FailsWhenUnboundedBoardHasNoStopper()
+        public void Movement_PushInputPushableBox_FailsWhenUnboundedBoardHasNoStopper()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -337,7 +326,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -353,7 +342,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_FailsWhenEntityStopperIsAdjacent()
+        public void Movement_PushInputPushableBox_FailsWhenEntityStopperIsAdjacent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -368,7 +357,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -385,7 +374,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_FailsWhenTerrainStopperIsAdjacent()
+        public void Movement_PushInputPushableBox_FailsWhenTerrainStopperIsAdjacent()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -402,7 +391,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -452,7 +441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractPushableBox_FailsWhenBoxLacksCapability()
+        public void Movement_PushInputPushableBox_FailsWhenBoxLacksCapability()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -466,7 +455,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);

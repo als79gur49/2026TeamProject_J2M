@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             if (moveDirection == Direction.None && (interactPressed || flipPressed))
             {
-                throw new ArgumentException("Interact and Flip commands require a non-none move direction.", nameof(moveDirection));
+                throw new ArgumentException("Push/Interact and Flip commands require a non-none move direction.", nameof(moveDirection));
             }
 
             if (moveDirection != Direction.None &&
@@ -33,6 +33,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public bool InteractPressed { get; }
 
+        public bool PushPressed => InteractPressed;
+
         public bool FlipPressed { get; }
 
         public bool ThrowPressed => FlipPressed;
@@ -47,6 +49,11 @@ namespace Game.Feature.Gameplay.Loop
         public static PlayerTickCommand Interact(Direction direction)
         {
             return new PlayerTickCommand(direction, interactPressed: true);
+        }
+
+        public static PlayerTickCommand Push(Direction direction)
+        {
+            return Interact(direction);
         }
 
         public static PlayerTickCommand Throw(Direction direction)

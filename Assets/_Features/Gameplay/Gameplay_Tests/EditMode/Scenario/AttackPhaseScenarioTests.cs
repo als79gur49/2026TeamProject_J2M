@@ -137,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Attack_PlayerInteractInput_DoesNotProduceLegacyInteractLootDestroyIntent()
+        public void Attack_PlayerPushInput_DoesNotProduceLegacyInteractLootDestroyIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -157,10 +157,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(
                 new TickInput(
                     1,
-                    PlayerTickCommand.Create(
-                        Direction.Right,
-                        interactPressed: true,
-                        flipPressed: false)));
+                    PlayerTickCommand.Push(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
