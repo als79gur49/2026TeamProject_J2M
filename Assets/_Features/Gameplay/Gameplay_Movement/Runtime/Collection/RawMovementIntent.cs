@@ -5,9 +5,7 @@ namespace Game.Feature.Gameplay.Movement
     public enum MovementCommandKind
     {
         Push = 0,
-        Interact = Push,
         Flip = 1,
-        Throw = Flip,
         Move = 2,
     }
 }

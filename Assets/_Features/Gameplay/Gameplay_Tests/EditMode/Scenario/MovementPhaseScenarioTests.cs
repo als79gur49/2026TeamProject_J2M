@@ -1384,7 +1384,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var rawIntent = rawMovementIntents[i];
                 MoveIntent moveIntent = rawIntent.CommandKind switch
                 {
-                    MovementCommandKind.Push => new InteractMoveIntent(
+                    MovementCommandKind.Push => new PushIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,

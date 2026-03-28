@@ -68,7 +68,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (input.PlayerCommand.InteractPressed)
+            if (input.PlayerCommand.PushPressed)
             {
                 buffer.Add(
                     new RawMovementIntent(
@@ -94,7 +94,7 @@ namespace Game.Feature.Gameplay.Entities
             in TickInput input,
             List<RawAttackIntent> buffer)
         {
-            // Player interaction is normalized into movement input in this stage.
+            // Player push/flip input is normalized into movement input in this stage.
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));

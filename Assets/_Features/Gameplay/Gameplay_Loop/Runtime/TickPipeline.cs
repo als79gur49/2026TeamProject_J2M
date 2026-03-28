@@ -263,7 +263,7 @@ namespace Game.Feature.Gameplay.Loop
                 var rawIntent = rawMovementIntents[i];
                 MoveIntent moveIntent = rawIntent.CommandKind switch
                 {
-                    Movement.MovementCommandKind.Push => new InteractMoveIntent(
+                    Movement.MovementCommandKind.Push => new PushIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,

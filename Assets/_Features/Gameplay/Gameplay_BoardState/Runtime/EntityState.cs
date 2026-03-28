@@ -10,9 +10,6 @@ namespace Game.Feature.Gameplay.BoardState
         Flip = 1 << 1,
         Item = 1 << 2,
         Destroy = 1 << 3,
-        Pushable = Push,
-        Throwable = Flip,
-        LootOnInteractDestroy = Item,
     }
 
     public struct EntityState

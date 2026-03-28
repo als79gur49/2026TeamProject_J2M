@@ -96,10 +96,10 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
                 if (group.GroupKind == ActionGroupKind.Flip)
                 {
-                    var interactionSourceFacing = ResolveInteractionSourceFacing(snapshot, sortedIntents, group);
-                    writeContext.SetFacing(group.SourceId, interactionSourceFacing);
+                    var flipSourceFacing = ResolveFlipSourceFacing(snapshot, sortedIntents, group);
+                    writeContext.SetFacing(group.SourceId, flipSourceFacing);
                     commitEvents.Add(
-                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={interactionSourceFacing}");
+                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={flipSourceFacing}");
                 }
 
                 for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return null;
         }
 
-        private static Direction ResolveInteractionSourceFacing(
+        private static Direction ResolveFlipSourceFacing(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
             ActionGroup group)
@@ -185,14 +185,14 @@ namespace Game.Feature.Gameplay.Movement.Commit
             if (!snapshot.TryGetEntity(group.SourceId, out var source))
             {
                 throw new InvalidOperationException(
-                    $"Interaction group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
+                    $"Flip group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
             }
 
             var intent = FindIntent(sortedIntents, group.IntentId);
             if (intent == null)
             {
                 throw new InvalidOperationException(
-                    $"Interaction group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
+                    $"Flip group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
             }
 
             var delta = intent.Destination - source.position;
@@ -217,7 +217,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             throw new InvalidOperationException(
-                $"Interaction group requires an orthogonal adjacent interaction direction. Source={group.SourceId}, Intent={group.IntentId}");
+                $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
         }
 
         private static SurfaceCell ResolveIntentTargetCell(SurfaceCell source, Vector2Int destination)

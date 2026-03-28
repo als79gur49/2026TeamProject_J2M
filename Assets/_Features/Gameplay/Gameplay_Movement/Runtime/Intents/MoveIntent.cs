@@ -63,9 +63,9 @@ namespace Game.Feature.Gameplay.Movement.Intents
         }
     }
 
-    public sealed class InteractMoveIntent : MoveIntent
+    public sealed class PushIntent : MoveIntent
     {
-        public InteractMoveIntent(
+        public PushIntent(
             int sourceId,
             int priority,
             Vector2Int destination,
@@ -94,18 +94,6 @@ namespace Game.Feature.Gameplay.Movement.Intents
         protected internal override int GetTypeSortKey()
         {
             return 1;
-        }
-    }
-
-    public sealed class ThrowIntent : FlipIntent
-    {
-        public ThrowIntent(
-            int sourceId,
-            int priority,
-            Vector2Int destination,
-            int localSequence = 0)
-            : base(sourceId, priority, destination, localSequence)
-        {
         }
     }
 }
