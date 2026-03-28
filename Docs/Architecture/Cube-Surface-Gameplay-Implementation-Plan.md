@@ -30,6 +30,7 @@
 - `CubeTopologyState` 추가
 - `CubeRotationKind` 추가
 - `EntityBoardPresence` 추가
+- `EntityBoardPresence`는 `Occupying`, `Detached`만 표현하고 삭제 예약 의미를 포함하지 않도록 정리
 - `EntityState`의 `position`을 `SurfaceCell`로 교체
 - `BoxCapabilities`를 `Push`, `Flip`, `Item`, `Destroy` 기준으로 재정의
 
@@ -49,7 +50,7 @@
 
 ### 3-2. 2단계: 점유와 스냅샷 질의 전환
 
-목표는 활성 면, 비활성 면, 삭제 예약 점유 규칙을 중앙 질의 계층에서 강제하는 것이다.
+목표는 활성 면, 비활성 면, 분리된 점유/삭제 예약 규칙을 중앙 질의 계층에서 강제하는 것이다.
 
 체크리스트 기준으로 이 절은 `2단계`와 `3단계`를 함께 다룬다. 아래 세부 설계는 특히 `3단계: 면 전환 질의와 활성 면 필터링 구현`을 구현 기준으로 고정한다.
 
@@ -58,7 +59,7 @@
 - `WorldState` 점유 키를 `SurfaceCell`로 전환
 - `WorldSnapshot` 질의를 `SurfaceCell` 기반으로 전환
 - 비활성 면 엔티티 제외 로직 추가
-- `DetachedPendingCleanup` 엔티티 점유 제외 로직 추가
+- `Detached` 엔티티 점유 제외 로직 추가
 - 플레이어 1칸 이동 시 면 전환 여부를 계산하는 중앙 함수 추가
 - 박스 슬라이드 시 `Bottom <-> Front` 경계 예외를 반영하는 중앙 함수 추가
 
@@ -93,7 +94,7 @@
   - 활성 면 필터, 면 전환, 박스 surface slide 질의를 public API로 노출한다.
   - `Vector2Int` overload는 마이그레이션 호환용으로만 유지한다.
 - `WorldQueryService`
-  - active/inactive face 판정, `DetachedPendingCleanup` 제외, 회전 경계 계산, shared edge slide 예외를 중앙화한다.
+  - active/inactive face 판정, `Detached` 제외, 회전 경계 계산, shared edge slide 예외를 중앙화한다.
   - read-side query와 write-side placement validation이 같은 helper를 재사용하게 만들어 read/write 규칙이 갈라지지 않게 한다.
 - `SnapshotBuilder`
   - 단순 snapshot 생성 wrapper로 유지한다.
@@ -138,10 +139,12 @@ public bool TryGetSurfaceBoxSlideDestination(
 - `TryGetUnitAt`, `TryGetProjectileAt`, `IsTerrainBlockedForUnit`, `IsBlockedForUnit`, `TryGetUnitBlocker`, `TryGetPlacementBlocker`, `EnumerateUnitOccupancyOrdered`, `EnumerateProjectileOccupancyOrdered`, `BlocksMovement`, `CanBeTargetedForNewSelection`은 모두 active-face policy를 적용한다.
 - `TryGetEntity(int entityId, out EntityState entity)`와 `EnumerateEntitiesOrdered`는 active-face filter를 적용하지 않는다.
   - 이유: `Cleanup`, determinism hash, debug dump는 비활성 면 엔티티도 authoritative하게 봐야 한다.
-- `markedForDeath == true`는 아직 board 위에 남아 있는 상태로 취급한다.
-  - 따라서 active face 위라면 movement blocker와 selection 대상 여부 판정에 계속 영향을 줄 수 있다.
-- `boardPresence == DetachedPendingCleanup`는 gameplay 점유를 즉시 잃은 상태다.
+- `markedForDeath == true`는 삭제 예약이지만, 아직 board 위에 남아 있는 상태로 취급한다.
+  - 따라서 `boardPresence == Occupying`이고 active face 위라면 movement blocker와 selection 대상 여부 판정에 계속 영향을 줄 수 있다.
+- `boardPresence == Detached`는 gameplay 점유를 즉시 잃은 상태다.
   - occupancy dictionary에 저장하지 않고, query layer도 방어적으로 한 번 더 제외한다.
+- `markedForDeath`와 `boardPresence`는 독립 축이다.
+  - `Detached` 자체는 제거 조건이 아니고, 실제 삭제 여부는 `markedForDeath` 또는 `hp <= 0`로만 결정한다.
 - `TerrainData`와 `BoardBounds`는 이번 단계에서도 planar data로 유지한다.
   - 즉 terrain과 bounds는 `SurfaceCell.face`별로 따로 들지 않고, 같은 `(x, y)` 규칙을 모든 face에 공통 적용한다.
 
@@ -152,7 +155,7 @@ active-face filter는 모든 placement 검사에 동일하게 적용하면 안 �
 - `Authoritative`
   - 사용처: `WorldState.SpawnEntity`, `WorldState.MoveEntityTo`
   - inactive face도 합법 위치로 검사할 수 있어야 한다.
-  - `DetachedPendingCleanup`만 제외하고, 나머지 occupying entity는 face와 무관하게 blocker가 된다.
+  - `Detached`만 제외하고, 나머지 occupying entity는 face와 무관하게 blocker가 된다.
 - `Gameplay`
   - 사용처: `WorldSnapshot.TryGetPlacementBlocker`, `TryGetUnitBlocker`, movement/attack phase 질의
   - inactive face cell이면 즉시 "질의 대상 아님"으로 처리한다.
@@ -213,7 +216,7 @@ bounded board 알고리즘:
 
 - projectile layer는 slide stopper에서 제외한다.
 - `markedForDeath` 엔티티는 stopper가 될 수 있다.
-- `DetachedPendingCleanup` 엔티티는 stopper가 될 수 없다.
+- `Detached` 엔티티는 stopper가 될 수 없다.
 - `FrontFace -> Ceiling`, `BottomFace -> Back` 같은 나머지 경계 전이는 열지 않는다.
 
 unbounded board 호환 규칙:
@@ -233,7 +236,7 @@ unbounded board 호환 규칙:
 #### 3-2-9. 구현 체크포인트
 
 - `WorldState` 생성과 mutation은 inactive face 엔티티를 정상 보관할 수 있어야 한다.
-- snapshot gameplay query는 inactive face와 `DetachedPendingCleanup`를 일관되게 숨겨야 한다.
+- snapshot gameplay query는 inactive face와 `Detached`를 일관되게 숨겨야 한다.
 - 플레이어 1칸 이동 query는 `destination + rotationKind + updatedTopology`를 한 번에 계산해야 한다.
 - 박스 slide query는 `Bottom <-> Front` 공유 경계만 예외로 열고 나머지는 stopper로 닫아야 한다.
 - 어느 phase도 면 경계 산술이나 active-face filtering을 직접 구현하지 않아야 한다.
@@ -250,7 +253,7 @@ unbounded board 호환 규칙:
 - `WorldSnapshot_TryResolvePlayerStep_DoesNotRotateFromFrontFaceOrSideEdge`
 - `WorldSnapshot_TryGetSurfaceBoxSlideDestination_CrossesBottomFrontSharedEdge`
 - `WorldSnapshot_TryGetSurfaceBoxSlideDestination_StopsAtOtherBoardEdges`
-- `WorldSnapshot_TryGetSurfaceBoxSlideDestination_IgnoresDetachedPendingCleanupButStopsOnMarkedForDeath`
+- `WorldSnapshot_TryGetSurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeath`
 - `WorldSnapshot_TryGetBoxSlideDestination_UsesBottomFaceAsLegacyDefault`
 
 세부 완료 조건:
@@ -315,14 +318,16 @@ unbounded board 호환 규칙:
 
 ### 3-5. 5단계: Movement Commit 확장
 
-목표는 이동 커밋이 좌표 이동뿐 아니라 보드 위상 변경과 점유 상실까지 반영하는 것이다.
+목표는 이동 커밋이 좌표 이동뿐 아니라 보드 위상 변경, 점유 상실, 삭제 예약까지 반영하는 것이다.
 
 작업:
 
 - `SurfaceCell` 기반 이동 커밋
 - 플레이어 면 전환 시 `BottomFace` 갱신
-- `Item` 박스의 `DetachedPendingCleanup` 전환
-- `Push + Destroy` 실패 박스의 삭제 예약과 점유 상실 반영
+- `Item` 박스의 `Detached` 전환
+- `Item` 박스의 삭제 예약 반영
+- `Push + Destroy` 실패 박스의 `Detached` 전환과 삭제 예약 반영
+- `boardPresence`와 `markedForDeath`를 같은 커밋 경로에서 다루되 의미는 분리
 - 신규 이벤트 로그 추가
 
 대상 파일:
@@ -334,16 +339,20 @@ unbounded board 호환 규칙:
 완료 조건:
 
 - 커밋만이 topology, 위치, 점유, 삭제 예약을 변경
+- `Detached`는 점유 상실만, `markedForDeath`는 삭제 예약만 의미함
 - `Cleanup` 이전에도 점유가 논리적으로 비워질 수 있음
 
 ### 3-6. 6단계: Cleanup 보강
 
-목표는 삭제 예약과 실제 제거의 의미를 분리하는 것이다.
+목표는 `Cleanup`을 "삭제 예약 소비 + 생존 엔티티 후처리" 단계로 고정하고, 점유 상태 예외를 제거하는 것이다.
 
 작업:
 
-- `markedForDeath` 또는 `DetachedPendingCleanup` 엔티티 제거
-- 제거 정책이 점유 정책과 충돌하지 않도록 정리
+- `hp <= 0` 또는 `markedForDeath` 엔티티만 제거
+- `boardPresence == Detached`는 제거 조건으로 해석하지 않음
+- 제거 대상 선별과 생존 엔티티 후처리 순서를 고정
+- 상태 타이머와 상태 전이는 제거 후 생존 엔티티에만 적용
+- 제거 정책이 점유 정책을 직접 읽지 않도록 정리
 
 대상 파일:
 
@@ -352,7 +361,9 @@ unbounded board 호환 규칙:
 
 완료 조건:
 
-- 같은 틱에 점유를 잃은 엔티티가 `Cleanup`에서만 실제 삭제됨
+- `Cleanup`이 `boardPresence` 값에 의존하지 않고 제거 대상을 결정함
+- 같은 틱에 점유를 잃은 엔티티도 삭제 예약이 있으면 `Cleanup`에서 실제 삭제됨
+- 향후 `Detached but alive` 상태가 추가되어도 `Cleanup` 수정이 필요 없음
 
 ### 3-7. 7단계: Attack 단계 정리
 
@@ -435,8 +446,8 @@ unbounded board 호환 규칙:
 - [ ] 3단계: 면 전환 질의와 활성 면 필터링 구현
 - [ ] 4단계: `PlayerTickCommand`, `PlayerLogic`, `GameplayInputHost`를 `Move + Flip` 중심으로 정리
 - [ ] 5단계: `MovementExpander`에 `Item -> Push -> Flip` 통합
-- [ ] 6단계: `MovementCommitter`에 topology 변경과 점유 상실 커밋 추가
-- [ ] 7단계: `Cleanup`이 `DetachedPendingCleanup`를 제거하도록 수정
+- [ ] 6단계: `MovementCommitter`에 topology 변경, `Detached` 전환, 삭제 예약 커밋 추가
+- [ ] 7단계: `Cleanup`이 점유 상태와 무관하게 삭제 예약만 소비하도록 수정
 - [ ] 8단계: `Attack`에서 박스 상호작용 제거
 - [ ] 9단계: view 좌표 변환과 활성 면 표시 반영
 - [ ] 10단계: 샘플 씬과 테스트 전체 갱신
