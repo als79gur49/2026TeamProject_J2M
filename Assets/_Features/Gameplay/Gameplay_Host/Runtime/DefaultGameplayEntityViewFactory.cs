@@ -37,7 +37,14 @@ namespace Game.Feature.Gameplay.Host
             var collider = viewObject.GetComponent<Collider>();
             if (collider != null)
             {
-                UnityEngine.Object.Destroy(collider);
+                if (Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(collider);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(collider);
+                }
             }
 
             var view = viewObject.AddComponent<GameplayEntityView>();
