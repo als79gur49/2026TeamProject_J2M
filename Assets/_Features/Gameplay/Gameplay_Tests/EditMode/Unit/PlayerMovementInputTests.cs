@@ -22,7 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
@@ -45,7 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
@@ -68,7 +68,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Interact),
+                    (SourceId: 10, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Push),
                 },
                 buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
         }
@@ -91,7 +91,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawAttackIntent>();
@@ -109,7 +109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
             var logic = new PlayerLogic(entityId: 10);
             var movementBuffer = new List<RawMovementIntent>();
@@ -137,7 +137,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
@@ -155,7 +155,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), hp: 0, markedForDeath: true),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 0, markedForDeath: true),
             });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
@@ -325,6 +325,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EntityState CreateUnit(
             int entityId,
             Vector2Int position,
+            int hp = 3,
+            bool markedForDeath = false)
+        {
+            return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, markedForDeath);
+        }
+
+        private static EntityState CreateUnit(
+            int entityId,
+            SurfaceCell position,
             int hp = 3,
             bool markedForDeath = false)
         {

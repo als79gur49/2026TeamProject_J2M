@@ -258,7 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.Destination))
                     .ToArray());
-            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(runner.NextTickIndex, Is.EqualTo(2));
         }
 
@@ -299,7 +299,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.Destination))
                     .ToArray());
-            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new Vector2Int(1, 1)));
+            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
             Assert.That(runner.NextTickIndex, Is.EqualTo(8));
             Assert.That(inputBuffer.HasBufferedInput(7), Is.False);
         }

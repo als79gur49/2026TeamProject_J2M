@@ -114,6 +114,11 @@ namespace Game.Feature.Gameplay.Host
 
         private static EntityState CreatePlayer(int entityId, Vector2Int position)
         {
+            return CreatePlayer(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreatePlayer(int entityId, SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -128,6 +133,11 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private static EntityState CreateWall(int entityId, Vector2Int position)
+        {
+            return CreateWall(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
         {
             return new EntityState
             {
@@ -144,6 +154,11 @@ namespace Game.Feature.Gameplay.Host
 
         private static EntityState CreateBox(int entityId, Vector2Int position)
         {
+            return CreateBox(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateBox(int entityId, SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -154,7 +169,7 @@ namespace Game.Feature.Gameplay.Host
                 type = EntityType.Box,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
-                boxCapabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
+                boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
             };
         }
     }

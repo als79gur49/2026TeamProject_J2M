@@ -84,7 +84,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 result.AttackPhaseResult.CommitEvents);
 
-            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(1));
             Assert.That(IsMarkedForDeath(snapshotAfter, 20), Is.False);
         }
@@ -137,15 +137,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Attack_PlayerPushInput_DoesNotProduceLegacyInteractLootDestroyIntent()
+        public void Attack_PlayerPushInput_ResolvesItemInMovement_AndLeavesAttackPhaseEmpty()
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
                 CreateBox(
                     entityId: 30,
-                    position: new Vector2Int(1, 0),
-                    capabilities: BoxCapabilities.Pushable | BoxCapabilities.LootOnInteractDestroy),
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
+                    capabilities: BoxCapabilities.Push | BoxCapabilities.Item),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -164,10 +164,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[] { ActionGroupKind.Item },
                 result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupKind).ToArray());
             CollectionAssert.AreEqual(
-                new[] { MovementCommandKind.Interact },
+                new[] { MovementCommandKind.Push },
                 result.MovementPhaseResult.SortedIntents.Select(intent => intent.CommandKind).ToArray());
             Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
-            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(result.EventLog, Does.Not.Contain("LootGranted"));
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
@@ -353,7 +353,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (GroupId: 1, IntentId: 1, SourceId: 10, SpawnId: 1, EntityId: 11, Cell: new Vector2Int(1, 0), Type: EntityType.Projectile, SpawnTick: 4),
+                    (GroupId: 1, IntentId: 1, SourceId: 10, SpawnId: 1, EntityId: 11, Cell: new SurfaceCell(FaceId.Floor, 1, 0), Type: EntityType.Projectile, SpawnTick: 4),
                 },
                 result.AttackPhaseResult
                     .ExpandedCandidates
@@ -376,7 +376,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(projectileAfterTick.entityId, Is.EqualTo(11));
             Assert.That(projectileAfterTick.spawnTick, Is.EqualTo(4));
             Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4"));
-            Assert.That(result.Trace.Text, Does.Contain("Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None]"));
+            Assert.That(result.Trace.Text, Does.Contain("Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|Face=Floor|Presence=Occupying]"));
         }
 
         [Test]
@@ -520,7 +520,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterTick), Is.True);
             Assert.That(projectileAfterTick.entityId, Is.EqualTo(10));
             Assert.That(snapshotAfter.TryGetEntity(10, out var entityAfterTick), Is.True);
-            Assert.That(entityAfterTick.position, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(entityAfterTick.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
         }
 
         [Test]
@@ -992,6 +992,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int hp,
             Direction facing = Direction.None)
         {
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, facing);
+        }
+
+        private static EntityState CreateUnit(
+            int entityId,
+            int teamId,
+            SurfaceCell position,
+            int hp,
+            Direction facing = Direction.None)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -1012,6 +1022,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int hp,
             Direction facing = Direction.None)
         {
+            return CreateProjectile(entityId, teamId, SurfaceCell.FromPlanar(position), hp, facing);
+        }
+
+        private static EntityState CreateProjectile(
+            int entityId,
+            int teamId,
+            SurfaceCell position,
+            int hp,
+            Direction facing = Direction.None)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -1028,7 +1048,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState CreateBox(
             int entityId,
             Vector2Int position,
-            BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
+            BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+            Direction facing = Direction.Right)
+        {
+            return CreateBox(entityId, SurfaceCell.FromPlanar(position), capabilities, facing);
+        }
+
+        private static EntityState CreateBox(
+            int entityId,
+            SurfaceCell position,
+            BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
             Direction facing = Direction.Right)
         {
             return new EntityState
@@ -1063,7 +1092,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return entity.hp;
         }
 
-        private static Vector2Int GetEntityPosition(WorldSnapshot snapshot, int entityId)
+        private static SurfaceCell GetEntityPosition(WorldSnapshot snapshot, int entityId)
         {
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             return entity.position;

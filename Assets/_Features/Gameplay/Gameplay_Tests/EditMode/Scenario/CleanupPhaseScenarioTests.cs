@@ -16,12 +16,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(1, 0), hp: 2, markedForDeath: true),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 2, markedForDeath: true),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
             var beforeSnapshot = CreateSnapshot(worldState);
 
-            Assert.That(beforeSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
+            Assert.That(beforeSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.True);
             Assert.That(beforeSnapshot.TryGetEntity(10, out var entityBefore), Is.True);
             Assert.That(entityBefore.markedForDeath, Is.True);
 
@@ -30,17 +30,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.False);
-            Assert.That(afterSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+            Assert.That(afterSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
         }
 
         [Test]
-        public void Cleanup_DetachedEntityWithoutDestroyMark_SurvivesCleanup()
+        public void Cleanup_DetachedEntityWithoutDestroyMark_RemainsDetachedAndSurvivesCleanup()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(
                     entityId: 10,
-                    position: new Vector2Int(1, 0),
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
                     hp: 2,
                     boardPresence: EntityBoardPresence.Detached),
             });
@@ -49,8 +49,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(beforeSnapshot.TryGetEntity(10, out var entityBefore), Is.True);
             Assert.That(entityBefore.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-            Assert.That(beforeSnapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
-            Assert.That(beforeSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+            Assert.That(beforeSnapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            Assert.That(beforeSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
 
             var result = pipeline.RunTick(new TickInput(6));
             var afterSnapshot = CreateSnapshot(worldState);
@@ -58,8 +58,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.CleanupPhaseResult.RemovedEntityIds, Is.Empty);
             Assert.That(afterSnapshot.TryGetEntity(10, out var entityAfter), Is.True);
             Assert.That(entityAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-            Assert.That(afterSnapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
-            Assert.That(afterSnapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
+            Assert.That(afterSnapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            Assert.That(afterSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
         }
 
         [Test]
@@ -67,7 +67,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(2, 0), hp: 0),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 2, 0), hp: 0),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
@@ -83,15 +83,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(3, 1), hp: 1, markedForDeath: true),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 3, 1), hp: 1, markedForDeath: true),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
 
             pipeline.RunTick(new TickInput(8));
 
             var afterSnapshot = CreateSnapshot(worldState);
-            Assert.That(afterSnapshot.IsBlockedForUnit(new Vector2Int(3, 1)), Is.False);
-            Assert.That(afterSnapshot.TryGetUnitAt(new Vector2Int(3, 1), out _), Is.False);
+            Assert.That(afterSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 3, 1)), Is.False);
+            Assert.That(afterSnapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 3, 1), out _), Is.False);
         }
 
         [Test]
@@ -101,7 +101,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(
                     entityId: 10,
-                    position: new Vector2Int(0, 0),
+                    position: new SurfaceCell(FaceId.Floor, 0, 0),
                     hp: 3,
                     state: EntityPhaseState.Cooldown,
                     stateTimer: 2,
@@ -124,14 +124,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(
                     entityId: 20,
-                    position: new Vector2Int(2, 0),
+                    position: new SurfaceCell(FaceId.Floor, 2, 0),
                     hp: 0,
                     state: EntityPhaseState.Cooldown,
                     stateTimer: 3,
                     spawnTick: 1),
                 CreateUnit(
                     entityId: 10,
-                    position: new Vector2Int(0, 0),
+                    position: new SurfaceCell(FaceId.Floor, 0, 0),
                     hp: 3,
                     state: EntityPhaseState.Cooldown,
                     stateTimer: 3,
@@ -160,7 +160,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(
                     entityId: 10,
-                    position: new Vector2Int(0, 0),
+                    position: new SurfaceCell(FaceId.Floor, 0, 0),
                     hp: 3,
                     state: EntityPhaseState.Cooldown,
                     stateTimer: 1,
@@ -205,21 +205,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 CreateUnit(
                     entityId: 30,
-                    position: new Vector2Int(2, 0),
+                    position: new SurfaceCell(FaceId.Floor, 2, 0),
                     hp: 4,
                     state: EntityPhaseState.Acting,
                     stateTimer: 1,
                     spawnTick: 1),
                 CreateUnit(
                     entityId: 10,
-                    position: new Vector2Int(0, 0),
+                    position: new SurfaceCell(FaceId.Floor, 0, 0),
                     hp: 4,
                     state: EntityPhaseState.Cooldown,
                     stateTimer: 2,
                     spawnTick: 1),
                 CreateUnit(
                     entityId: 20,
-                    position: new Vector2Int(1, 0),
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
                     hp: 0,
                     state: EntityPhaseState.Cooldown,
                     stateTimer: 5,
@@ -234,6 +234,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState CreateUnit(
             int entityId,
             Vector2Int position,
+            int hp,
+            bool markedForDeath = false,
+            EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
+            EntityPhaseState state = EntityPhaseState.Idle,
+            int stateTimer = 0,
+            int spawnTick = 0)
+        {
+            return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, markedForDeath, boardPresence, state, stateTimer, spawnTick);
+        }
+
+        private static EntityState CreateUnit(
+            int entityId,
+            SurfaceCell position,
             int hp,
             bool markedForDeath = false,
             EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,

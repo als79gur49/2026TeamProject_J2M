@@ -8,8 +8,14 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Movement.Commit;
+using Game.Feature.Gameplay.Movement.Expansion;
+using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.Movement.Resolution;
+using Game.Feature.Gameplay.Movement.Sorting;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -93,12 +99,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_MoveIntoPushableBox_FailsWithoutExplicitPush()
+        public void Movement_MoveIntoPushBox_FailsWithoutExplicitPush()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -153,12 +159,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
+        public void Movement_PushInputPushBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
-                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable, facing: Direction.Left),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push, facing: Direction.Left),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(4, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -173,7 +179,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Interact),
+                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Push),
                 },
                 result.MovementPhaseResult
                     .SortedIntents
@@ -182,7 +188,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
             Assert.That(slideGroup.GroupId, Is.EqualTo(1));
             Assert.That(slideGroup.SourceId, Is.EqualTo(10));
-            Assert.That(slideGroup.GroupKind, Is.EqualTo(ActionGroupKind.BoxSlide));
+            Assert.That(slideGroup.GroupKind, Is.EqualTo(ActionGroupKind.Push));
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -207,17 +213,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(3, 0)));
             Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Up));
             Assert.That(GetEntityFacing(worldState, 30), Is.EqualTo(Direction.Right));
-            Assert.That(result.Trace.Text, Does.Contain("Kind=BoxSlide"));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_StopsBeforeTerrainBlocker()
+        public void Movement_PushInputPushBox_StopsBeforeTerrainBlocker()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 BoardBounds.Unbounded,
                 new GameplayTerrainData(new[] { new Vector2Int(4, 0) }));
@@ -246,13 +252,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_StopsBeforeBoardEdge()
+        public void Movement_PushInputPushBox_StopsBeforeBoardEdge()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
                 GameplayTerrainData.Empty);
@@ -281,13 +287,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_IgnoresProjectileAsSlideStopper()
+        public void Movement_PushInputPushBox_IgnoresProjectileAsSlideStopper()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                     CreateProjectile(entityId: 40, position: new Vector2Int(2, 0), hp: 1),
                 },
                 BoardBounds.Unbounded,
@@ -309,13 +315,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_FailsWhenUnboundedBoardHasNoStopper()
+        public void Movement_PushInputPushBox_FailsWhenUnboundedBoardHasNoStopper()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 BoardBounds.Unbounded,
                 GameplayTerrainData.Empty);
@@ -342,13 +348,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_FailsWhenEntityStopperIsAdjacent()
+        public void Movement_PushInputPushBox_FailsWhenEntityStopperIsAdjacent()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
-                CreateBox(entityId: 30, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Pushable),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 30, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Push),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -374,13 +380,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_FailsWhenTerrainStopperIsAdjacent()
+        public void Movement_PushInputPushBox_FailsWhenTerrainStopperIsAdjacent()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
+                    CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
                 },
                 BoardBounds.Unbounded,
                 new GameplayTerrainData(new[] { new Vector2Int(2, 0) }));
@@ -406,12 +412,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_InteractLootOnInteractDestroyBox_DetachesImmediatelyAndIsRemovedInCleanup()
+        public void Movement_ItemBox_PlayerEntersCellInSameTick_AndCleanupRemovesBox()
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.LootOnInteractDestroy),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -420,7 +426,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Interact(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.SortedIntents.Count, Is.EqualTo(1));
@@ -436,12 +442,80 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 result.MovementPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
-            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
         }
 
         [Test]
-        public void Movement_PushInputPushableBox_FailsWhenBoxLacksCapability()
+        public void Movement_ItemBox_LosesBoardPresenceBeforeCleanupRemoval()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
+            });
+
+            var movementOnly = RunMovementPhaseOnly(
+                worldState,
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                new PlayerLogic(10));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=Detached",
+                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+                    "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
+                },
+                movementOnly.Result.CommitEvents);
+            Assert.That(movementOnly.SnapshotAfterMovement.TryGetEntity(20, out var itemBox), Is.True);
+            Assert.That(itemBox.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            Assert.That(movementOnly.SnapshotAfterMovement.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out var occupyingUnit), Is.True);
+            Assert.That(occupyingUnit.entityId, Is.EqualTo(10));
+            Assert.That(movementOnly.SnapshotAfterMovement.BlocksMovement(20), Is.False);
+        }
+
+        [Test]
+        public void Movement_PushInputOnItemPushFlipBox_ResolvesAsItemBeforePushOrFlip()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(
+                    entityId: 20,
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
+                    capabilities: BoxCapabilities.Item | BoxCapabilities.Push | BoxCapabilities.Flip),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Item) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=Detached",
+                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+                    "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Item"));
+            Assert.That(result.Trace.Text, Does.Contain("Command=Push"));
+        }
+
+        [Test]
+        public void Movement_PushInputPushBox_FailsWhenBoxLacksCapability()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -463,7 +537,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=InteractTargetNotPushableBox|Cell=(1,0)|Target=20|Capabilities=None",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=PushTargetNotPushBox|Cell=(1,0)|Target=20|Capabilities=None",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -471,12 +545,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_Throw_SucceedsWhenOppositeCellIsFree()
+        public void Movement_Flip_SucceedsWhenOppositeCellIsFree()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
-                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Throwable, facing: Direction.Left),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip, facing: Direction.Left),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -485,27 +559,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Throw(Direction.Left)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(-1, 0), Command: MovementCommandKind.Throw),
+                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(-1, 0), Command: MovementCommandKind.Flip),
                 },
                 result.MovementPhaseResult
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination, intent.CommandKind))
                     .ToArray());
-            var throwGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
-            Assert.That(throwGroup.GroupId, Is.EqualTo(1));
-            Assert.That(throwGroup.SourceId, Is.EqualTo(10));
-            Assert.That(throwGroup.GroupKind, Is.EqualTo(ActionGroupKind.Throw));
+            var flipGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            Assert.That(flipGroup.GroupId, Is.EqualTo(1));
+            Assert.That(flipGroup.SourceId, Is.EqualTo(10));
+            Assert.That(flipGroup.GroupKind, Is.EqualTo(ActionGroupKind.Flip));
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (EntityId: 30, Source: new Vector2Int(-1, 0), Destination: new Vector2Int(1, 0), Facing: Direction.Right),
                 },
-                throwGroup.Moves
+                flipGroup.Moves
                     .Select(move => (move.EntityId, move.Source, move.Destination, move.Facing))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -520,12 +594,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityFacing(worldState, 10), Is.EqualTo(Direction.Left));
             Assert.That(GetEntityFacing(worldState, 30), Is.EqualTo(Direction.Right));
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Throw"));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Flip"));
             Assert.That(result.Trace.Text, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
         }
 
         [Test]
-        public void Movement_Throw_FailsWhenTargetIsNotFlippableBox()
+        public void Movement_Flip_FailsWhenTargetIsNotFlippableBox()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -539,7 +613,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Throw(Direction.Left)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -555,12 +629,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_Throw_FailsWhenFlipLandingCellIsBlocked()
+        public void Movement_Flip_FailsWhenLandingCellIsBlocked()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Throwable),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -570,7 +644,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Throw(Direction.Left)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -587,13 +661,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PlayerInput_FlipBeatsMoveAndDoesNotPromoteToPush()
+        public void Movement_PlayerInput_FlipBeatsPushWhenBothButtonsArePressed()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable | BoxCapabilities.Throwable),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
                 },
                 new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(3, 0)),
                 GameplayTerrainData.Empty);
@@ -609,24 +683,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     1,
                     PlayerTickCommand.Create(
                         Direction.Right,
-                        interactPressed: false,
+                        interactPressed: true,
                         flipPressed: true)));
 
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Throw) },
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
                 result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
         }
 
         [Test]
-        public void Movement_Throw_RejectsFrontBoundaryCrossingInsteadOfTargetingFrontFaceBox()
+        public void Movement_Flip_RejectsFrontBoundaryCrossing()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1), facing: Direction.Up),
-                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Throwable),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Flip),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 GameplayTerrainData.Empty);
@@ -637,7 +711,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Throw(Direction.Up)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Up)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -652,7 +726,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_MoveAcrossBottomTopEdge_CommitsTopologyChange()
+        public void Movement_MoveAcrossBottomTopEdge_CommitsForwardTopologyChange()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -683,12 +757,136 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushDestroyBox_FailureDetachesAndRemovesBox()
+        public void Movement_MoveAcrossBottomBottomEdge_CommitsBackwardTopologyChange()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "TopologyCommitted|G=1|I=1|Rotation=Backward|Bottom=Back|Front=Floor",
+                    "MoveCommitted|G=1|I=1|E=10|To=Back(0,1)|Facing=Down",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(snapshotAfter.Topology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Back, 0, 1)));
+        }
+
+        [Test]
+        public void Movement_MoveFromFrontBottomEdge_FailsWithoutRotation()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=Front(0,-1)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+        }
+
+        [Test]
+        public void Movement_PushInputPushBox_ContinuesAcrossBottomFrontSharedEdge()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Up)));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=20|To=Front(0,0)|Facing=Up",
+                    "MoveCommitted|G=1|I=1|E=20|To=Front(0,1)|Facing=Up",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
+        }
+
+        [Test]
+        public void Movement_PushInputPushBox_ContinuesAcrossFrontBottomSharedEdgeBackToBottom()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Front, 0, 1)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), capabilities: BoxCapabilities.Push),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Down)));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=20|To=(0,1)|Facing=Down",
+                    "MoveCommitted|G=1|I=1|E=20|To=(0,0)|Facing=Down",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
+        }
+
+        [Test]
+        public void Movement_PushDestroyBox_WhenSlideStopperIsAdjacent_DetachesAndRemovesBox()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable | BoxCapabilities.Destroy),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
                 CreateNonUnitBlocker(entityId: 90, position: new Vector2Int(2, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -698,11 +896,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.BoxSlide, MoveCount: 0) },
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Push, MoveCount: 0) },
                 result.MovementPhaseResult
                     .SelectedGroups
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, MoveCount: group.Moves.Count))
@@ -720,12 +918,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_Throw_RejectsLaterCandidateThatMovesSameBox()
+        public void Movement_Flip_RejectsLaterCandidateThatMovesSameBox()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Throwable),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
                 CreateUnit(entityId: 20, position: new Vector2Int(2, 0), teamId: 2),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -733,13 +931,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(1, 0), MovementCommandKind.Throw)),
+                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(1, 0), MovementCommandKind.Flip)),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Throw(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
 
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Throw) },
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
                 result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
@@ -1028,6 +1226,78 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return (result, DumpUnitOccupancy(CreateSnapshot(worldState)));
         }
 
+        private static (MovementPhaseResult Result, WorldSnapshot SnapshotAfterMovement) RunMovementPhaseOnly(
+            WorldState worldState,
+            TickInput input,
+            params IEntityLogic[] entityLogics)
+        {
+            var snapshot = CreateSnapshot(worldState);
+            var rawMovementIntents = new List<RawMovementIntent>();
+            new MovementIntentCollector().Collect(snapshot, in input, entityLogics, rawMovementIntents);
+
+            var idAllocator = new IdAllocator();
+            idAllocator.ResetForTick(input.TickIndex);
+            rawMovementIntents.Sort(RawMovementIntentComparer.Instance);
+
+            var sortedIntents = new List<MoveIntent>(rawMovementIntents.Count);
+            for (var i = 0; i < rawMovementIntents.Count; i++)
+            {
+                var rawIntent = rawMovementIntents[i];
+                MoveIntent moveIntent = rawIntent.CommandKind switch
+                {
+                    MovementCommandKind.Push => new InteractMoveIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.Destination,
+                        rawIntent.LocalSequence),
+                    MovementCommandKind.Flip => new FlipIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.Destination,
+                        rawIntent.LocalSequence),
+                    _ => new MoveIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.Destination,
+                        rawIntent.LocalSequence),
+                };
+                moveIntent.AssignIntentId(idAllocator.AllocateIntentId());
+                sortedIntents.Add(moveIntent);
+            }
+
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+            new MovementExpander().Expand(snapshot, sortedIntents, expandedCandidates, rejectedReasons);
+            expandedCandidates.Sort(ActionGroupComparer.Instance);
+            for (var i = 0; i < expandedCandidates.Count; i++)
+            {
+                expandedCandidates[i].AssignGroupId(idAllocator.AllocateGroupId());
+            }
+
+            var selectedGroups = new List<ActionGroup>();
+            new MovementResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
+
+            var commitEvents = new List<string>();
+            new MovementCommitter().Commit(
+                snapshot,
+                sortedIntents,
+                input.TickIndex,
+                worldState.CreateWriteContext(),
+                new PhaseTransientBuffer(),
+                selectedGroups,
+                commitEvents);
+
+            return (
+                new MovementPhaseResult(
+                    rawMovementIntents,
+                    sortedIntents,
+                    expandedCandidates,
+                    selectedGroups,
+                    commitEvents,
+                    rejectedReasons),
+                CreateSnapshot(worldState));
+        }
+
         private static EntityState CreateUnit(int entityId, Vector2Int position, int hp = 3, int teamId = 1, Direction facing = Direction.Right)
         {
             return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, teamId, facing);
@@ -1049,6 +1319,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EntityState CreateNonUnitBlocker(int entityId, Vector2Int position)
         {
+            return CreateNonUnitBlocker(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateNonUnitBlocker(int entityId, SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -1064,7 +1339,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState CreateBox(
             int entityId,
             Vector2Int position,
-            BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
+            BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
             Direction facing = Direction.Right)
         {
             return CreateBox(entityId, SurfaceCell.FromPlanar(position), capabilities, facing);
@@ -1073,7 +1348,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState CreateBox(
             int entityId,
             SurfaceCell position,
-            BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable,
+            BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
             Direction facing = Direction.Right)
         {
             return new EntityState
@@ -1090,6 +1365,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         private static EntityState CreateProjectile(int entityId, Vector2Int position, int hp)
+        {
+            return CreateProjectile(entityId, SurfaceCell.FromPlanar(position), hp);
+        }
+
+        private static EntityState CreateProjectile(int entityId, SurfaceCell position, int hp)
         {
             return new EntityState
             {

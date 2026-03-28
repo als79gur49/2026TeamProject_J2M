@@ -36,7 +36,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var host = CreateHost(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
@@ -54,7 +54,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var host = CreateHost(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 actions: actions);
 
@@ -70,15 +70,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator PlayerMove_PlayMode_MoveIntoPushableBox_DoesNotSlideWithoutPushInput()
+        public IEnumerator PlayerMove_PlayMode_MoveIntoPushBox_DoesNotSlideWithoutPushInput()
         {
             var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
-                    CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
                 },
                 actions: actions);
 
@@ -95,15 +95,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator PlayerMove_PlayMode_PushInputSlidesPushableBoxWithoutMovingPlayer()
+        public IEnumerator PlayerMove_PlayMode_PushInputSlidesPushBoxWithoutMovingPlayer()
         {
             var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Pushable),
-                    CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
                 },
                 actions: actions);
 
@@ -122,16 +122,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GameplayInputHost_InteractBufferedAtTickBoundary_PrioritizesInteractOverMove()
+        public IEnumerator GameplayInputHost_PushBufferedAtTickBoundary_PrioritizesPushOverMove()
         {
             var host = CreateHost(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.LootOnInteractDestroy),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
-            host.InputHost.BufferInteract();
+            host.InputHost.BufferPush();
 
             host.InputHost.RunSingleTick();
 
@@ -147,8 +147,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var host = CreateHost(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Throwable),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.left);
@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var host = CreateHost(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
@@ -189,7 +189,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var host = CreateHost(
                 new[]
                 {
-                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 },
                 actions: null,
                 staticEntityLogics: new IEntityLogic[]
@@ -211,8 +211,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var host = CreateHost(new[]
             {
-                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
-                CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 1, 0)),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
@@ -265,6 +265,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static EntityState CreateUnit(int entityId, Vector2Int position)
         {
+            return CreateUnit(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateUnit(int entityId, SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -280,6 +285,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static EntityState CreateWall(int entityId, Vector2Int position)
         {
+            return CreateWall(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
             return new EntityState
             {
                 entityId = entityId,
@@ -293,7 +303,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
         }
 
-        private static EntityState CreateBox(int entityId, Vector2Int position, BoxCapabilities capabilities = BoxCapabilities.Pushable | BoxCapabilities.Throwable)
+        private static EntityState CreateBox(int entityId, Vector2Int position, BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip)
+        {
+            return CreateBox(entityId, SurfaceCell.FromPlanar(position), capabilities);
+        }
+
+        private static EntityState CreateBox(int entityId, SurfaceCell position, BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip)
         {
             return new EntityState
             {

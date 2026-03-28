@@ -42,7 +42,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var entity), Is.True);
-            Assert.That(entity.position, Is.EqualTo(Vector2Int.zero));
+            Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
             Assert.That(occupant.entityId, Is.EqualTo(10));
             Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
@@ -80,7 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var entity), Is.True);
-            Assert.That(entity.position, Is.EqualTo(Vector2Int.zero));
+            Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
             Assert.That(occupant.entityId, Is.EqualTo(10));
             Assert.That(snapshot.TryGetUnitAt(Vector2Int.right, out _), Is.False);
