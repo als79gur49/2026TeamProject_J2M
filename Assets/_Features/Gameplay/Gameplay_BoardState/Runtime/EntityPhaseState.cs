@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.BoardState
         Idle = 1,
         Acting = 2,
         Cooldown = 3,
-        Dead = 4,
+        Sliding = 4,
+        Dead = 5,
     }
 }

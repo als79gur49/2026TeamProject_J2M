@@ -59,6 +59,7 @@ namespace Game.Feature.Gameplay.Cleanup
             {
                 case EntityPhaseState.Acting:
                 case EntityPhaseState.Cooldown:
+                case EntityPhaseState.Sliding:
                     nextState = EntityPhaseState.Idle;
                     return true;
 

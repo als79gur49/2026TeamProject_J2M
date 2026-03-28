@@ -70,6 +70,14 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
+                for (var stateChangeIndex = 0; stateChangeIndex < group.StateChanges.Count; stateChangeIndex++)
+                {
+                    var stateChange = group.StateChanges[stateChangeIndex];
+                    writeContext.ApplyStateChange(stateChange.EntityId, stateChange.State, stateChange.StateTimer);
+                    commitEvents.Add(
+                        $"StateChanged|G={group.GroupId}|I={group.IntentId}|E={stateChange.EntityId}|State={stateChange.State}|Timer={stateChange.StateTimer}");
+                }
+
                 for (var presenceIndex = 0; presenceIndex < group.BoardPresenceChanges.Count; presenceIndex++)
                 {
                     var boardPresenceChange = group.BoardPresenceChanges[presenceIndex];

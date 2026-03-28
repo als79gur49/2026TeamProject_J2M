@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 {
     internal sealed class MovementExpander
     {
+        private const int SlidingStateTimerTicks = 2;
+
         public void Expand(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
@@ -85,6 +87,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
+            if (IsSlidingPushBox(source))
+            {
+                ExpandSlidingPushBoxMove(snapshot, source, intent, buffer, rejectedReasons);
+                return;
+            }
+
             var delta = ResolveIntentDelta(source.position, intent.Destination);
             var stepFacing = ResolveCardinalFacing(
                 delta,
@@ -326,14 +334,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            if (!snapshot.TryGetSurfaceBoxSlideDestination(snapshot.Topology, target.position, delta, out var destination, out var stopper))
-            {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideRayHasNoStopper|Cell={FormatCell(target.position)}|Direction={stepFacing}");
-                return;
-            }
-
-            if (destination == target.position)
+            var destinationResolved = TryResolveSlidingBoxStep(snapshot, target, delta, out var destination, out var stopper);
+            if (!destinationResolved)
             {
                 if (HasBoxCapability(target, BoxCapabilities.Destroy))
                 {
@@ -357,25 +359,67 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.Push);
-            var currentCell = target.position;
+            actionGroup.StateChanges.Add(
+                new StateChangeAction(
+                    target.entityId,
+                    EntityPhaseState.Sliding,
+                    SlidingStateTimerTicks));
+            actionGroup.Moves.Add(
+                new MoveAction(
+                    target.entityId,
+                    target.position,
+                    destination,
+                    stepFacing));
+            buffer.Add(actionGroup);
+        }
 
-            while (currentCell != destination)
+        private static void ExpandSlidingPushBoxMove(
+            WorldSnapshot snapshot,
+            EntityState source,
+            MoveIntent intent,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            var delta = ResolveIntentDelta(source.position, intent.Destination);
+            var stepFacing = ResolveCardinalFacing(
+                delta,
+                "Sliding push boxes require an orthogonal single-step direction.");
+
+            if (!TryResolveSlidingBoxStep(snapshot, source, delta, out var destination, out var stopper))
             {
-                if (!snapshot.TryGetNextSurfaceBoxSlideCell(snapshot.Topology, currentCell, delta, out var nextCell, out _))
+                if (HasBoxCapability(source, BoxCapabilities.Destroy))
                 {
-                    throw new InvalidOperationException(
-                        $"Surface box slide path for entity {target.entityId} terminated before the resolved destination {destination}.");
+                    var destroyGroup = new ActionGroup(
+                        intent.IntentId,
+                        intent.SourceId,
+                        intent.Priority,
+                        ActionGroupKind.Push);
+                    AddDetachAndMarkForDestroy(destroyGroup, source);
+                    buffer.Add(destroyGroup);
+                    return;
                 }
 
-                actionGroup.Moves.Add(
-                    new MoveAction(
-                        target.entityId,
-                        currentCell,
-                        nextCell,
-                        stepFacing));
-                currentCell = nextCell;
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideStopped|Target={source.entityId}|{FormatStopper(stopper)}");
+                return;
             }
 
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Push);
+            actionGroup.StateChanges.Add(
+                new StateChangeAction(
+                    source.entityId,
+                    EntityPhaseState.Sliding,
+                    SlidingStateTimerTicks));
+            actionGroup.Moves.Add(
+                new MoveAction(
+                    source.entityId,
+                    source.position,
+                    destination,
+                    stepFacing));
             buffer.Add(actionGroup);
         }
 
@@ -386,9 +430,51 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             actionGroup.Destroys.Add(new DestroyAction(target.entityId, DestroyCondition.AlwaysMark));
         }
 
+        private static bool TryResolveSlidingBoxStep(
+            WorldSnapshot snapshot,
+            EntityState source,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out SlideStopper stopper)
+        {
+            if (!snapshot.BoardBounds.IsBounded)
+            {
+                destination = source.position + delta;
+                if (snapshot.TryGetPlacementBlocker(snapshot.Topology, source.type, destination, source.entityId, out stopper))
+                {
+                    destination = default;
+                    return false;
+                }
+
+                stopper = default;
+                return true;
+            }
+
+            if (!snapshot.TryGetNextSurfaceBoxSlideCell(snapshot.Topology, source.position, delta, out destination, out stopper))
+            {
+                destination = default;
+                return false;
+            }
+
+            if (snapshot.TryGetPlacementBlocker(snapshot.Topology, source.type, destination, source.entityId, out stopper))
+            {
+                destination = default;
+                return false;
+            }
+
+            return true;
+        }
+
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
         {
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static bool IsSlidingPushBox(EntityState entity)
+        {
+            return entity.type == EntityType.Box &&
+                   entity.state == EntityPhaseState.Sliding &&
+                   HasBoxCapability(entity, BoxCapabilities.Push);
         }
 
         private static string FormatStopper(SlideStopper stopper)
