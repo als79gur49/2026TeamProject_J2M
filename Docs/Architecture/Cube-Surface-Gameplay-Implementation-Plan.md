@@ -91,7 +91,8 @@
   - inactive face 엔티티도 저장 가능해야 하므로 active-face 정책을 직접 소유하지 않는다.
 - `WorldSnapshot`
   - phase 코드가 호출하는 read facade다.
-  - 활성 면 필터, 면 전환, 박스 surface slide 질의를 public API로 노출한다.
+  - 활성 면 필터, 면 전환, 박스의 authoritative next-step slide 질의를 public API로 노출한다.
+  - stopper 직전 terminal cell을 돌려주는 ray-scan query는 legacy compatibility로만 유지한다.
   - `Vector2Int` overload는 마이그레이션 호환용으로만 유지한다.
 - `WorldQueryService`
   - active/inactive face 판정, `Detached` 제외, 회전 경계 계산, shared edge slide 예외를 중앙화한다.
@@ -115,7 +116,7 @@ public bool TryResolvePlayerStep(
     out SurfaceCell destination,
     out CubeRotationKind rotationKind,
     out CubeTopologyState updatedTopology);
-public bool TryGetSurfaceBoxSlideDestination(
+public bool TryResolveNextSurfaceBoxSlideStep(
     SurfaceCell origin,
     Vector2Int delta,
     out SurfaceCell destination,
@@ -129,7 +130,10 @@ public bool TryGetSurfaceBoxSlideDestination(
 - `IsTerrainBlockedForUnit(Vector2Int cell)`
 - `IsBlockedForUnit(Vector2Int cell)`
 - `TryResolvePlayerStep(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out CubeRotationKind rotationKind, out CubeTopologyState updatedTopology)`
+- `TryGetSurfaceBoxSlideDestination(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out SlideStopper stopper)`
+- `TryGetLegacySurfaceBoxSlideDestination(SurfaceCell origin, Vector2Int delta, out SurfaceCell destination, out SlideStopper stopper)`
 - `TryGetBoxSlideDestination(Vector2Int origin, Vector2Int delta, out Vector2Int destination, out SlideStopper stopper)`
+- `TryGetLegacyBoxSlideDestination(Vector2Int origin, Vector2Int delta, out Vector2Int destination, out SlideStopper stopper)`
 
 #### 3-2-4. 활성 면 필터 정책
 
@@ -196,13 +200,13 @@ active-face filter는 모든 placement 검사에 동일하게 적용하면 안 �
 
 #### 3-2-7. 박스 활성 면 슬라이드 질의 알고리즘
 
-박스 슬라이드는 "한 번에 최종 destination 계산"이 아니라 "현재 tick의 다음 1칸 계산"으로 해석한다. 즉 `Push`는 박스를 `Sliding` 상태로 만들고, 매 tick `TryGetNextSurfaceBoxSlideCell` 기반으로 다음 1칸만 전진시킨다.
+박스 슬라이드는 "한 번에 최종 destination 계산"이 아니라 "현재 tick의 다음 1칸 계산"으로 해석한다. 즉 `Push`는 박스를 `Sliding` 상태로 만들고, 매 tick `TryResolveNextSurfaceBoxSlideStep`이 authoritative하게 다음 1칸만 판정한다.
 
 bounded board 알고리즘:
 
 1. `origin.face`가 활성 면이 아니면 실패한다.
 2. `delta`는 orthogonal 1칸 방향만 허용한다.
-3. 다음 칸 계산은 `TryGetNextSurfaceBoxSlideCell` helper가 담당한다.
+3. `TryResolveNextSurfaceBoxSlideStep`은 다음 칸 geometry 계산에 `TryGetNextSurfaceBoxSlideCell` helper를 사용한다.
 4. helper는 아래 두 경우에만 face를 바꾼다.
    - `SurfaceCell(BottomFace, x, MaxY)`에서 `Up` -> `SurfaceCell(FrontFace, x, MinY)`
    - `SurfaceCell(FrontFace, x, MinY)`에서 `Down` -> `SurfaceCell(BottomFace, x, MaxY)`
@@ -224,11 +228,18 @@ unbounded board 호환 규칙:
 - 이 모드에서는 face-crossing slide를 지원하지 않는다.
 - stopper를 하나도 찾지 못해도 그 tick의 다음 1칸 전진은 성공한다.
 
+추가 legacy 정책:
+
+- detailed removal plan은 `Docs/Architecture/Gameplay-Legacy-Removal-Plan.md`를 따른다.
+- `TryGetLegacySurfaceBoxSlideDestination`와 `TryGetLegacyBoxSlideDestination`는 stopper 직전 terminal cell을 돌려주는 과거 ray-scan semantics를 유지한다.
+- `TryGetSurfaceBoxSlideDestination`와 `TryGetBoxSlideDestination`는 외부 호환을 위한 alias일 뿐이며, 의미는 각각 legacy terminal query와 동일하다.
+- runtime push, sliding continuation, movement expander는 이 terminal query를 사용하지 않는다.
+
 #### 3-2-8. 레거시 `Vector2Int` 호환 정책
 
 - `Vector2Int` 기반 query는 모두 `SurfaceCell.FromPlanar(cell, topology.BottomFace)`로 해석한다.
 - 즉 레거시 query는 "현재 바닥면 평면 질의"만 표현할 수 있다.
-- `TryGetBoxSlideDestination(Vector2Int, ...)`는 결과를 planar 좌표로만 돌려주므로 face 정보가 소실된다.
+- `TryGetLegacyBoxSlideDestination(Vector2Int, ...)`는 결과를 planar 좌표로만 돌려주므로 face 정보가 소실된다.
 - 따라서 `MovementExpander`, `MovementResolver`, `MovementCommitter`가 topology나 cross-face 결과를 해석해야 하는 단계에서는 반드시 `SurfaceCell` API로 옮겨야 한다.
 - 레거시 overload는 기존 테스트와 임시 호출부를 깨지 않기 위한 마이그레이션 어댑터로만 유지한다.
 
@@ -250,10 +261,13 @@ unbounded board 호환 규칙:
 - `WorldSnapshot_TryResolvePlayerStep_RotatesForwardFromBottomTopEdge`
 - `WorldSnapshot_TryResolvePlayerStep_RotatesBackwardFromBottomBottomEdge`
 - `WorldSnapshot_TryResolvePlayerStep_DoesNotRotateFromFrontFaceOrSideEdge`
-- `WorldSnapshot_TryGetSurfaceBoxSlideDestination_CrossesBottomFrontSharedEdge`
-- `WorldSnapshot_TryGetSurfaceBoxSlideDestination_StopsAtOtherBoardEdges`
-- `WorldSnapshot_TryGetSurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeath`
-- `WorldSnapshot_TryGetBoxSlideDestination_UsesBottomFaceAsLegacyDefault`
+- `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesBottomFrontSharedEdge`
+- `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtOtherBoardEdges`
+- `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_IgnoresDetachedOccupantOnNextCell`
+- `WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsOnMarkedForDeathOccupantOnNextCell`
+- `WorldSnapshot_LegacySurfaceBoxSlideDestination_CrossesBottomFrontSharedEdgeToTerminalCell`
+- `WorldSnapshot_LegacySurfaceBoxSlideDestination_IgnoresDetachedButStopsOnMarkedForDeathAlongRay`
+- `WorldSnapshot_LegacyBoxSlideDestination_UsesBottomFaceAsLegacyDefault`
 
 세부 완료 조건:
 

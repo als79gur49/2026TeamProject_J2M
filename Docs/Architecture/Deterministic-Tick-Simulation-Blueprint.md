@@ -281,6 +281,8 @@ public class WorldSnapshot
 }
 ```
 
+현재 cube-surface runtime의 authoritative slide query는 `TryResolveNextSurfaceBoxSlideStep`이며, 위 `TryGetBoxSlideDestination` 시그니처는 legacy terminal query로만 본다.
+
 중요 규칙:
 
 - Snapshot은 생성 후 불변이다.
@@ -467,8 +469,8 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 예:
 
 - `MoveIntent(Move) -> Move / Stop`
-- `InteractIntent -> BoxSlide / Fail`
-- `ThrowIntent -> Throw / Fail`
+- `InteractIntent(Push alias) -> Push / Fail`
+- `ThrowIntent(Flip alias) -> Flip / Fail`
 - `ProjectileMoveIntent -> ProjectileMove / ImpactReservation`
 
 후보 생성 규칙:
@@ -481,28 +483,34 @@ Expander는 하나의 Intent를 여러 `ActionGroup` 후보로 확장한다.
 
 - 일반 `Move`는 점유된 `Unit`이나 `Box`를 밀지 않는다.
 - 플레이어가 생성한 `Move`는 box slide로도 자동 승격되지 않는다.
-- box 위치 변경은 `Interact(BoxSlide)`와 `Throw`로만 처리한다.
+- box 위치 변경은 canonical 용어로는 `Push`와 `Flip`로만 처리한다.
 - blocked destination이면 전체 실패다.
 - 같은 Intent에서는 최대 하나의 `ActionGroup`만 선택된다.
 
 ### 9-5. Box Interaction 정책
 
+- legacy 용어 메모:
+  - 이 문단의 `Interact`는 현재 runtime의 `Push` alias다.
+  - 이 문단의 `Throw`는 현재 runtime의 `Flip` alias다.
+  - `BoxSlide`라는 이름의 terminal ray-scan query는 더 이상 authoritative runtime 규칙이 아니다.
 - `Box` 능력은 분산 bool이 아니라 `BoxCapabilities` flag로 표현한다.
 - 플레이어가 밀 수 있는 것은 오직 `Box`다.
 - 플레이어의 `Move`는 `Unit`도 `Pushable` 박스도 밀지 않는다.
 - `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
-- `Movement` phase는 `Interact`에 의한 single-target `BoxSlide`와 `Throwable` 박스에 대한 `Throw`만 처리한다.
-- `Interact`는 인접 `Pushable` 박스 1개만 대상으로 삼는다.
-- `BoxSlide` 목적지 계산은 `WorldSnapshot` / `WorldQueryService`의 중앙 질의가 담당한다.
-- `BoxSlide` stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
-- projectile은 `BoxSlide` stopper가 아니다.
-- `BoxSlide`는 interaction 방향 ray 위의 첫 stopper 직전까지 박스를 이동시킨다.
-- bounded board에서는 stopper 없음 상태가 원칙적으로 발생하지 않는다.
-- stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
-- `BoxSlide` 동안 player source는 anchor cell에 남는다.
-- `Throw`는 source entity를 고정한 채 인접 박스를 source 반대편 인접 cell로 이동시키는 movement 확장이다.
-- `Throw` 성공/실패는 `S0` 기준으로만 판정한다.
-- `Interact`는 `Movement`와 `Attack`에 모두 걸치지만, box slide는 `Movement`, loot-destroy는 `Attack`이 처리한다.
+- `Movement` phase는 `Push`에 의한 single-target 박스 slide 시작과 `Flip`만 처리한다.
+- `Push`는 인접 `Pushable` 박스 1개만 대상으로 삼는다.
+- authoritative push 판정은 `WorldSnapshot` / `WorldQueryService`의 중앙 next-step query가 담당한다.
+- push stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
+- projectile은 push stopper가 아니다.
+- `Push` 성공 시 박스는 그 tick에 1칸만 이동하고 `Sliding` 상태가 된다.
+- `Sliding` 상태의 박스는 이후 tick에도 같은 방향으로 1칸씩 계속 이동한다.
+- bounded board에서도 각 tick은 "다음 1칸 가능 여부"만 판정한다.
+- 현재 tick의 다음 1칸으로 전진할 수 없으면 push는 실패한다.
+- `Push` 동안 player source는 anchor cell에 남는다.
+- `Flip`는 source entity를 고정한 채 인접 박스를 source 반대편 인접 cell로 이동시키는 movement 확장이다.
+- `Flip` 성공/실패는 `S0` 기준으로만 판정한다.
+- `Interact`는 `Movement`와 `Attack`에 모두 걸치던 legacy 설명이지만, 현재 canonical 용어는 `Push`와 `Flip`이다.
+- `TryGetBoxSlideDestination` 같은 terminal ray-scan query는 legacy compatibility로만 남는다.
 - `LootOnInteractDestroy`가 있는 박스에 대한 `Interact` 성공 시 loot 이벤트와 `MarkDestroy`만 기록한다.
 - 실제 제거와 occupancy 정리는 반드시 `Cleanup`에서만 수행한다.
 - 현재 sample scene의 `EntityType.None` blocker wall은 terrain wall이 아니라 entity stopper로 취급한다.

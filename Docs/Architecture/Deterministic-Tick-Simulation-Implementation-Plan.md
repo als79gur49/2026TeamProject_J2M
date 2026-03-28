@@ -344,6 +344,8 @@ current-state 메모:
 
 중요 포인트:
 
+- 현재 cube-surface runtime의 authoritative push query는 `TryResolveNextSurfaceBoxSlideStep`이며, 위 `TryGetBoxSlideDestination`는 legacy terminal query다.
+
 - Snapshot은 생성 후 절대 변경하지 않는다.
 - 외부는 occupancy 딕셔너리를 직접 순회하지 않는다.
 - 질의 정책은 중앙 함수에서만 계산한다.
@@ -764,7 +766,7 @@ Phase 간 디버깅과 테스트를 위해 결과 타입을 분리한다.
 - 일반 `Move`는 점유된 `Unit` cell에서 항상 실패한다.
 - 일반 `Move`는 점유된 `Box` cell에서도 항상 실패한다.
 - `Projectile`은 push 대상이 아니다.
-- 플레이어의 box interaction은 `Interact(BoxSlide)`와 `Throw`로만 연다.
+- 플레이어의 box interaction은 canonical 용어로는 `Push`와 `Flip`로만 연다.
 - 연속 entity shove나 partial push는 허용하지 않는다.
 
 현재 구조에 맞춘 최소 표현:
@@ -891,10 +893,11 @@ Resolver 알고리즘 변경:
 - `TickInput.PlayerCommand`는 `MoveDirection`, `InteractPressed`, `ThrowPressed`를 가진다.
 - `PlayerLogic`은 입력만 보고 raw intent를 생산한다.
   - `MoveDirection`이 있으면 `MoveIntent`
-  - `ThrowPressed`와 방향이 있으면 `ThrowIntent`
-  - `InteractPressed`와 방향이 있으면 `InteractIntent`
-- simulation core는 snapshot을 보고 "이건 push/throw/interact 중 무엇인가"를 자동 추론하지 않는다.
+  - `ThrowPressed`와 방향이 있으면 `ThrowIntent` (`Flip` legacy alias)
+  - `InteractPressed`와 방향이 있으면 `InteractIntent` (`Push` legacy alias)
+- simulation core는 snapshot을 보고 입력 의미를 자동 추론하지 않는다.
 - box 능력은 `BoxCapabilities` flag(`Pushable`, `Throwable`, `LootOnInteractDestroy`)로 표현한다.
+- canonical runtime 용어는 `Push` / `Flip`이며, `Interact` / `Throw`는 compatibility alias다.
 
 `Movement` phase 규칙:
 
@@ -902,16 +905,17 @@ Resolver 알고리즘 변경:
 - 플레이어가 밀 수 있는 것은 오직 `Box`다.
 - 플레이어의 `Move`는 `Unit`을 밀지 않는다.
 - `Move`는 `Pushable` 박스를 자동으로 밀지 않는다.
-- `Interact`는 인접 `Pushable` 박스에 대해서만 movement 후보를 만들 수 있다.
-- 플레이어는 인접 `Pushable` 박스 1개만 slide 대상으로 삼는다.
-- `Interact(BoxSlide)` 목적지 계산은 `WorldSnapshot.TryGetBoxSlideDestination` 같은 중앙 query가 담당한다.
-- slide stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
-- projectile은 slide stopper가 아니다.
-- `Interact` 성공 시 박스는 interaction 방향 ray 위의 첫 stopper 직전까지 slide한다.
-- bounded board에서는 stopper 없음 상태가 원칙적으로 발생하지 않는다.
-- stopper가 없거나 stopper가 대상 박스에 인접해 있으면 slide는 실패한다.
-- `Interact(BoxSlide)` 동안 player source는 anchor cell에 남는다.
-- `Throw`는 source entity를 고정한 채, 인접 `Throwable` 박스를 source 반대편 인접 cell로 이동시키는 후보를 만든다.
+- `Push`는 인접 `Pushable` 박스에 대해서만 movement 후보를 만들 수 있다.
+- 플레이어는 인접 `Pushable` 박스 1개만 push 대상으로 삼는다.
+- authoritative push 판정은 `WorldSnapshot.TryResolveNextSurfaceBoxSlideStep` 같은 중앙 next-step query가 담당한다.
+- push stopper는 `BoardEdge -> Terrain -> Entity` 순서로 판정한다.
+- projectile은 push stopper가 아니다.
+- `Push` 성공 시 박스는 그 tick에 1칸 이동하고 `Sliding` 상태가 된다.
+- `Sliding` 상태의 박스는 이후 tick에도 같은 방향으로 1칸씩 계속 이동한다.
+- 각 tick에서 다음 1칸이 막혀 있으면 push는 실패한다.
+- `Push` 동안 player source는 anchor cell에 남는다.
+- `TryGetBoxSlideDestination` 같은 terminal ray-scan query는 legacy compatibility로만 유지한다.
+- `Flip`는 source entity를 고정한 채, 인접 `Throwable` 박스를 source 반대편 인접 cell로 이동시키는 후보를 만든다.
 - `Movement`는 위치, 경로, 점유, reservation만 처리한다.
 - `Movement`는 loot 지급, destroy mark, entity 제거를 직접 수행하지 않는다.
 - 현재 sample scene의 외벽처럼 보이는 일부 blocker는 terrain이 아니라 `EntityType.None` entity wall이며, 중앙 query에서 entity stopper로 계속 처리한다.
