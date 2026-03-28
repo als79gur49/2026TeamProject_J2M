@@ -949,7 +949,7 @@ Resolver 알고리즘 변경:
 - `Movement_PushInputPushBox_StartsSlidingBeforeTerrainBlocker`
 - `Movement_PushInputPushBox_StartsSlidingBeforeBoardEdge`
 - `Movement_PushInputPushBox_IgnoresProjectileAsSlideStopper`
-- `Movement_PushInputPushBox_StartsSlidingWhenUnboundedBoardHasNoStopper`
+- `Movement_PushInputPushBox_StartsSlidingWhenBoundedLaneHasNoStopper`
 - `Movement_PushInputPushBox_FailsWhenEntityStopperIsAdjacent`
 - `Movement_PushInputPushBox_FailsWhenTerrainStopperIsAdjacent`
 - `Attack_PlayerPushInput_ResolvesItemInMovement_AndLeavesAttackPhaseEmpty`
@@ -1359,7 +1359,7 @@ current-state 메모:
    - `WorldState`는 semantic mutation API를 explicit internal mutation port로 구현하고, spatial mutation legality를 authoritative하게 검증한다.
 3. bounded runtime entry path 고정
    - public runtime `GameplayCompositionRoot.CreateWorldState(...)`와 `GameplaySceneHost.Initialize(...)`는 bounded board를 필수로 요구한다.
-   - unbounded world는 legacy compatibility / test-only helper 경로로만 유지된다.
+   - runtime/scenario/replay/fuzz fixture도 bounded board만 사용하고, 남은 unbounded compatibility는 low-level board query 검증에만 국한된다.
 
 추가 current-state 메모:
 
@@ -1809,7 +1809,7 @@ runner가 plain class인 이유:
 3. low-level mutation helper를 semantic atomic mutation으로 올리고 write-side placement invariant를 `WorldState`에 닫는다.
 4. `WorldQueryService`에 read/write 공용 placement helper를 추가한다.
 5. `TickInputBuffer`, `TickRunner`, runtime host 조립 경로를 연결한다.
-6. public runtime world 생성 경로에서 bounded board를 강제하고 legacy unbounded helper를 internal/test path로 제한한다.
+6. public runtime world 생성 경로에서 bounded board를 강제한 뒤, runtime fixture가 기대하던 legacy unbounded helper를 제거한다.
 7. 구조 테스트, write-side invariant 테스트, replay determinism 테스트, host/playmode 회귀를 갱신한다.
 
 이 순서를 권장하는 이유:
@@ -2082,7 +2082,7 @@ var runner = GameplayCompositionRoot.CreateTickRunner(
 - `PlayerLogic`은 테스트에서 plain `TickInput`으로 바로 검증할 수 있다.
 - scene host만 Unity 의존성을 가진다.
 - public runtime `GameplayCompositionRoot.CreateWorldState(...)`와 `GameplaySceneHost.Initialize(...)`는 bounded board를 강제한다.
-- unbounded world는 `CreateLegacyUnboundedWorldState(...)` 같은 internal helper를 통해서만 테스트/legacy 경로에서 사용한다.
+- runtime fixture는 bounded world만 만들고, unbounded compatibility는 low-level board/query verification에서만 직접 다룬다.
 
 #### 15-15-9. box interaction 입력 확장안
 

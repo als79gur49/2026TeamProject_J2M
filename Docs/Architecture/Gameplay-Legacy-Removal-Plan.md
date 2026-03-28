@@ -176,34 +176,46 @@
 - `PlayerTickCommand` public surface에서 `Interact` / `Throw` 흔적이 사라진다.
 - repo 내 입력 경계 문서가 canonical action name만 설명한다.
 
-### 3-4. 별도 트랙: legacy unbounded helper 제거
+### 3-4. 완료: legacy unbounded helper 제거
 
-이 계층은 legacy이긴 하지만, push naming cleanup과는 다른 주제다. 같은 작업으로 묶으면 diff가 커지고 실패 원인 추적이 어려워진다.
+2026-03-29 기준 이 계층은 제거 완료되었다. 아래 항목은 실제 제거 범위 기록이다.
 
-삭제 후보:
+제거 완료 범위:
 
 - `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/GameplayCompositionRoot.cs`
   - `CreateLegacyUnboundedWorldState(...)`
+  - unbounded helper를 전제하던 예외 메시지 정리
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/GameplayWorldStateTestFactory.cs`
   - `CreateLegacyUnbounded(...)`
+- bounded fixture migration
+  - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs`
+  - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs`
+  - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/TickReplayDeterminismTests.cs`
+  - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Fuzz/FuzzScenarioDefinition.cs`
+  - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`
+- low-level query coverage 정리
+  - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSurfaceQueryTests.cs`
+    - helper 대신 `BoardBounds.Unbounded`를 직접 갖는 low-level snapshot 구성으로 의도 분리
+- 문서
+  - `Docs/Architecture/Deterministic-Tick-Simulation-Implementation-Plan.md`
 
-주요 의존 테스트:
+제거 이후 canonical 경로:
 
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs`
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/MovementPhaseScenarioTests.cs`
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/TickReplayDeterminismTests.cs`
-- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Fuzz/FuzzScenarioDefinition.cs`
+- runtime/scenario/replay/fuzz world fixture는 `GameplayWorldStateTestFactory.CreateBounded(...)`만 사용한다.
+- `GameplayCompositionRoot`는 bounded world 생성만 담당한다.
+- 남은 unbounded 의미는 low-level `WorldQueryService` / `WorldSnapshot` compatibility 검증에서만 직접 다룬다.
 
 예상 파손:
 
-- replay/fuzz/scenario test의 일부 fixture가 bounded factory로 이주하기 전까지 대량 compile break가 난다.
-- runtime guard test는 "internal legacy helper가 남아 있음"을 전제로 작성되어 있어 테스트 의도 자체를 바꿔야 한다.
+- helper symbol을 직접 호출하던 모든 테스트/도구는 compile break가 난다.
+- unbounded lane을 암묵 가정하던 scenario/replay fixture는 명시적인 bounded board를 주지 않으면 edge semantics가 섞일 수 있다.
+- runtime guard test는 "internal helper가 남아 있음"에서 "helper가 완전히 사라짐"으로 의도를 바꿔야 한다.
 
-권장 정책:
+완료 조건:
 
-- unbounded helper는 별도 문서 또는 별도 PR로 다룬다.
-- 먼저 "runtime은 bounded-only"를 유지한 채 test fixture migration부터 끝내고 제거한다.
+- `CreateLegacyUnboundedWorldState(...)` / `CreateLegacyUnbounded(...)`의 repo 내 callsite가 0이다.
+- runtime fixture 생성 경로에서 unbounded helper 이름이 더 이상 보이지 않는다.
+- low-level unbounded compatibility coverage와 runtime fixture 경로가 문서/테스트에서 분리되어 설명된다.
 
 ## 4. 권장 삭제 순서
 
@@ -253,6 +265,6 @@
 - slide query는 `TryResolveNextSurfaceBoxSlideStep` 하나만 authoritative하게 남는다.
 - movement vocabulary는 `Move`, `Push`, `Flip`, `Item`, `Destroy`만 남는다.
 - input vocabulary는 `Player/Move`, `Player/Push`, `Player/Flip`만 남는다.
-- runtime world 생성은 bounded-only이며, unbounded는 별도 테스트 전략이 정리된 뒤 완전히 제거된다.
+- runtime world 생성과 주요 test fixture는 bounded-only이며, 남은 unbounded compatibility는 low-level query 검증에만 국한된다.
 
 이 상태가 되어야 cube-surface runtime, deterministic 문서, 테스트 명명, input 경계가 모두 같은 의미 체계를 공유한다.
