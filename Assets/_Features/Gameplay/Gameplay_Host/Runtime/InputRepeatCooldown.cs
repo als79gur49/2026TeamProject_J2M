@@ -46,23 +46,20 @@ namespace Game.Feature.Gameplay.Host
         {
         }
 
-        public PlayerTickCommand BuildCommand(int currentTick, Direction quantizedDirection)
+        public bool EvaluatePlainMove(int currentTick, Direction quantizedDirection)
         {
-            if (currentTick <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(currentTick), "Tick indices must be positive.");
-            }
+            ValidateTick(currentTick);
 
             if (quantizedDirection == Direction.None)
             {
                 Reset();
-                return PlayerTickCommand.None;
+                return false;
             }
 
             if (!_hasActiveHold)
             {
                 BeginHold(currentTick, quantizedDirection, allowImmediateIssue: _initialMoveDelayTicks == 0);
-                return TryIssueFirstMove(currentTick);
+                return IsMoveAllowed(currentTick);
             }
 
             if (quantizedDirection != _heldDirection)
@@ -71,20 +68,32 @@ namespace Game.Feature.Gameplay.Host
                     currentTick,
                     quantizedDirection,
                     allowImmediateIssue: !_directionChangeConsumesDelay || _initialMoveDelayTicks == 0);
-                return TryIssueFirstMove(currentTick);
+                return IsMoveAllowed(currentTick);
             }
 
-            if (!_hasIssuedMoveForHold)
+            return IsMoveAllowed(currentTick);
+        }
+
+        public void CommitPlainMove(int currentTick, Direction quantizedDirection)
+        {
+            ValidateTick(currentTick);
+
+            if (quantizedDirection == Direction.None)
             {
-                return TryIssueFirstMove(currentTick);
+                throw new InvalidOperationException("Cannot commit a plain move when the sampled direction is none.");
             }
 
-            if (currentTick < _nextMoveAllowedTick)
+            if (!_hasActiveHold || quantizedDirection != _heldDirection)
             {
-                return PlayerTickCommand.None;
+                throw new InvalidOperationException("Plain move commit requires an active hold for the sampled direction.");
             }
 
-            return Issue(currentTick);
+            if (!IsMoveAllowed(currentTick))
+            {
+                throw new InvalidOperationException("Plain move commit attempted before the cadence allows issuance.");
+            }
+
+            Issue(currentTick);
         }
 
         public void Reset()
@@ -107,21 +116,28 @@ namespace Game.Feature.Gameplay.Host
             _nextMoveAllowedTick = 0;
         }
 
-        private PlayerTickCommand TryIssueFirstMove(int currentTick)
+        private bool IsMoveAllowed(int currentTick)
         {
-            if (currentTick < _firstMoveAllowedTick)
+            if (!_hasIssuedMoveForHold)
             {
-                return PlayerTickCommand.None;
+                return currentTick >= _firstMoveAllowedTick;
             }
 
-            return Issue(currentTick);
+            return currentTick >= _nextMoveAllowedTick;
         }
 
-        private PlayerTickCommand Issue(int currentTick)
+        private void Issue(int currentTick)
         {
             _hasIssuedMoveForHold = true;
             _nextMoveAllowedTick = currentTick + _repeatedMoveIntervalTicks;
-            return PlayerTickCommand.Move(_heldDirection);
+        }
+
+        private static void ValidateTick(int currentTick)
+        {
+            if (currentTick <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(currentTick), "Tick indices must be positive.");
+            }
         }
     }
 }

@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private InputActionAsset _actions;
         private float _accumulatedTime;
+        private bool _areActionsBound;
         private bool _autoAdvanceTicks;
         private bool _hasBufferedFlip;
         private bool _isInitialized;
@@ -113,9 +114,8 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
 
             var tickIndex = _runner.NextTickIndex;
-            var quantizedDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
-            var moveCommand = _inputRepeatCooldown.BuildCommand(tickIndex, quantizedDirection);
-            var playerCommand = ResolveTickCommand(moveCommand);
+            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
+            var playerCommand = BuildPlayerCommand(tickIndex, sampledDirection);
 
             _inputBuffer.Record(new TickInput(tickIndex, playerCommand));
 
@@ -159,6 +159,14 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void OnEnable()
+        {
+            if (_isInitialized)
+            {
+                BindActions();
+            }
+        }
+
         private void OnDisable()
         {
             UnbindActions();
@@ -171,7 +179,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void BindActions()
         {
-            if (_actions == null)
+            if (_actions == null || _areActionsBound)
             {
                 return;
             }
@@ -202,6 +210,7 @@ namespace Game.Feature.Gameplay.Host
             _flipAction.started += OnFlipStarted;
             _flipAction.performed += OnFlipPerformed;
 
+            _areActionsBound = true;
             _sampledMoveInput = _moveAction.ReadValue<Vector2>();
         }
 
@@ -272,31 +281,39 @@ namespace Game.Feature.Gameplay.Host
                 _actions.Disable();
             }
 
+            _areActionsBound = false;
             _hasBufferedFlip = false;
             _hasBufferedPush = false;
+            _sampledMoveInput = Vector2.zero;
+            _inputRepeatCooldown?.Reset();
         }
 
-        private PlayerTickCommand ResolveTickCommand(PlayerTickCommand moveCommand)
+        private PlayerTickCommand BuildPlayerCommand(int tickIndex, Direction sampledDirection)
         {
             var pushPressed = _hasBufferedPush || (_pushAction != null && _pushAction.IsPressed());
             var flipPressed = _hasBufferedFlip || (_flipAction != null && _flipAction.IsPressed());
-
-            var command = PlayerTickCommand.Create(
-                moveCommand.MoveDirection,
-                pushPressed: pushPressed && moveCommand.MoveDirection != Direction.None,
-                flipPressed: flipPressed && moveCommand.MoveDirection != Direction.None);
+            var plainMoveAllowed = _inputRepeatCooldown.EvaluatePlainMove(tickIndex, sampledDirection);
 
             _hasBufferedPush = false;
             _hasBufferedFlip = false;
 
-            if (command.MoveDirection == Direction.None &&
-                !command.PushPressed &&
-                !command.FlipPressed)
+            if (sampledDirection == Direction.None)
             {
                 return PlayerTickCommand.None;
             }
 
-            return command;
+            if (pushPressed || flipPressed)
+            {
+                return PlayerTickCommand.Create(sampledDirection, pushPressed, flipPressed);
+            }
+
+            if (!plainMoveAllowed)
+            {
+                return PlayerTickCommand.None;
+            }
+
+            _inputRepeatCooldown.CommitPlainMove(tickIndex, sampledDirection);
+            return PlayerTickCommand.Move(sampledDirection);
         }
     }
 }
