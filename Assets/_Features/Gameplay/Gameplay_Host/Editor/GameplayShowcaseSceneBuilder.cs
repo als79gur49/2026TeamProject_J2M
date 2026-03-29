@@ -12,12 +12,14 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         private const string ActionsAssetPath = "Assets/InputSystem_Actions.inputactions";
         private const string TraversalScenePath = "Assets/Scenes/CubeSurfaceTraversalShowcase.unity";
         private const string BoxScenePath = "Assets/Scenes/BoxInteractionShowcase.unity";
+        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
 
         [MenuItem("Tools/Gameplay/Build Showcase Scenes")]
         public static void BuildAllScenes()
         {
             BuildTraversalScene();
             BuildBoxInteractionScene();
+            BuildCombinedGameplayScene();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
         }
@@ -40,6 +42,16 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(15, 6)),
                 1.15f,
                 CreateBoxInteractionAnnotations);
+        }
+
+        public static void BuildCombinedGameplayScene()
+        {
+            BuildScene<CombinedGameplayShowcaseInstaller>(
+                CombinedScenePath,
+                "Combined Gameplay Showcase",
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(15, 6)),
+                1.15f,
+                CreateCombinedGameplayAnnotations);
         }
 
         private static void BuildScene<TInstaller>(
@@ -134,6 +146,78 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             CreateWorldLabel(
                 "Push + Flip + Destroy",
                 ProjectFloorCell(gridOrigin, boardBounds, cellSize, 10, 3) + new Vector3(0f, 0.9f, -0.25f),
+                0.14f,
+                56,
+                TextAnchor.MiddleCenter);
+        }
+
+        private static void CreateCombinedGameplayAnnotations(BoardBounds boardBounds, float cellSize)
+        {
+            var gridOrigin = GameplayShowcaseSceneInstallerBase.CalculateCenteredGridOrigin(boardBounds, cellSize);
+
+            CreateWorldLabel(
+                "Move: WASD / Push: E / Flip: Q",
+                new Vector3(0f, 8.6f, -0.25f),
+                0.18f,
+                72,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Player surface traversal",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 1, 6) + new Vector3(0f, 1f, -0.25f),
+                0.11f,
+                44,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Push box across faces",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 14, 6) + new Vector3(0f, 1f, -0.25f),
+                0.11f,
+                44,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Push",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 3, 1) + new Vector3(0f, 0.9f, -0.25f),
+                0.14f,
+                56,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Item",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 3, 3) + new Vector3(0f, 0.9f, -0.25f),
+                0.14f,
+                56,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Push + Destroy",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 6, 3) + new Vector3(0f, 0.9f, -0.25f),
+                0.12f,
+                48,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Flip",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 3, 5) + new Vector3(0f, 0.9f, -0.25f),
+                0.14f,
+                56,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Push + Flip",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 10, 1) + new Vector3(0f, 0.9f, -0.25f),
+                0.14f,
+                56,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Flip + Item",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 10, 3) + new Vector3(0f, 0.9f, -0.25f),
+                0.14f,
+                56,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Push + Flip + Destroy",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 13, 3) + new Vector3(0f, 0.9f, -0.25f),
+                0.12f,
+                48,
+                TextAnchor.MiddleCenter);
+            CreateWorldLabel(
+                "Push + Flip + Item",
+                ProjectFloorCell(gridOrigin, boardBounds, cellSize, 10, 5) + new Vector3(0f, 0.9f, -0.25f),
                 0.14f,
                 56,
                 TextAnchor.MiddleCenter);
