@@ -157,6 +157,7 @@ namespace Game.Feature.Gameplay.Entities
                 source.markedForDeath ||
                 source.boardPresence != EntityBoardPresence.Occupying ||
                 source.state != EntityPhaseState.Sliding ||
+                source.stateTimer > 0 ||
                 (source.boxCapabilities & BoxCapabilities.Push) != BoxCapabilities.Push ||
                 !snapshot.Topology.IsFaceActive(source.position.face))
             {

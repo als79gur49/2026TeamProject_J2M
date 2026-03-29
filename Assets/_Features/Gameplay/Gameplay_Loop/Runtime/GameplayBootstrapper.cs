@@ -23,7 +23,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics)
         {
-            return new TickPipeline(worldState, entityLogics, _entityLogicProvider);
+            return CreateTickPipeline(worldState, entityLogics, GameplayTimingProfile.CreateDefault());
+        }
+
+        public TickPipeline CreateTickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            GameplayTimingProfile timingProfile)
+        {
+            return new TickPipeline(worldState, entityLogics, _entityLogicProvider, timingProfile);
         }
 
         public TickRunner CreateTickRunner(
@@ -39,13 +47,28 @@ namespace Game.Feature.Gameplay.Loop
             TickInputBuffer inputBuffer,
             int startTickIndex = 1)
         {
+            return CreateTickRunner(
+                worldState,
+                entityLogics,
+                inputBuffer,
+                GameplayTimingProfile.CreateDefault(),
+                startTickIndex);
+        }
+
+        public TickRunner CreateTickRunner(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            TickInputBuffer inputBuffer,
+            GameplayTimingProfile timingProfile,
+            int startTickIndex = 1)
+        {
             if (inputBuffer == null)
             {
                 throw new ArgumentNullException(nameof(inputBuffer));
             }
 
             return new TickRunner(
-                CreateTickPipeline(worldState, entityLogics),
+                CreateTickPipeline(worldState, entityLogics, timingProfile),
                 inputBuffer,
                 startTickIndex);
         }

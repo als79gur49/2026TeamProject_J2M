@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<EntityState>(),
                 Array.Empty<string>(),
                 new CubeTopologyState(FaceId.Floor),
+                TickPresentationData.Empty,
                 string.Empty,
                 TickTrace.Empty)
         {
@@ -40,6 +41,35 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntityState> finalEntities,
             IEnumerable<string> eventLog,
             CubeTopologyState finalTopology,
+            string determinismHash,
+            TickTrace trace)
+            : this(
+                tickIndex,
+                completedPhases,
+                phaseTrace,
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult,
+                finalEntities,
+                eventLog,
+                finalTopology,
+                TickPresentationData.Empty,
+                determinismHash,
+                trace)
+        {
+        }
+
+        internal TickResult(
+            int tickIndex,
+            IEnumerable<TickPhase> completedPhases,
+            IEnumerable<string> phaseTrace,
+            MovementPhaseResult movementPhaseResult,
+            AttackPhaseResult attackPhaseResult,
+            CleanupPhaseResult cleanupPhaseResult,
+            IEnumerable<EntityState> finalEntities,
+            IEnumerable<string> eventLog,
+            CubeTopologyState finalTopology,
+            TickPresentationData presentationData,
             string determinismHash,
             TickTrace trace)
         {
@@ -68,9 +98,15 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(determinismHash));
             }
 
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
+            PresentationData = presentationData;
             Trace = trace ?? throw new ArgumentNullException(nameof(trace));
             TickIndex = tickIndex;
             _completedPhases = new ReadOnlyCollection<TickPhase>(new List<TickPhase>(completedPhases));
@@ -98,6 +134,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> EventLog => _eventLog;
 
         internal CubeTopologyState FinalTopology { get; }
+
+        public TickPresentationData PresentationData { get; }
 
         public string DeterminismHash { get; }
 

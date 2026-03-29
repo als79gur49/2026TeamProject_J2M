@@ -13,9 +13,10 @@ namespace Game.Feature.Gameplay.Host
             entityId = newEntityId;
         }
 
-        public void ApplyPose(Vector3 worldPosition)
+        public void ApplyPose(Vector3 worldPosition, Quaternion worldRotation)
         {
             transform.position = worldPosition;
+            transform.rotation = worldRotation;
         }
 
         public void SetVisible(bool isVisible)

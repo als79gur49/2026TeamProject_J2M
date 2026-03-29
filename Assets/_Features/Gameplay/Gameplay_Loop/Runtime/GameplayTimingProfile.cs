@@ -1,0 +1,191 @@
+using System;
+using UnityEngine;
+
+namespace Game.Feature.Gameplay.Loop
+{
+    public sealed class GameplayTimingProfile
+    {
+        public const int DefaultSimulationTicksPerSecond = 60;
+        public const float DefaultLegacyTickIntervalSeconds = 0.2f;
+        public const float DefaultFlipArcHeightInCells = 0.65f;
+        public const int DefaultMaxTicksPerFrame = 8;
+
+        public GameplayTimingProfile(
+            int simulationTicksPerSecond,
+            float initialMoveDelaySeconds,
+            float repeatedMoveIntervalSeconds,
+            float boxSlideStepIntervalSeconds,
+            float pushMotionDurationSeconds,
+            float flipMotionDurationSeconds,
+            float flipArcHeightInCells,
+            int maxTicksPerFrame)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            if (initialMoveDelaySeconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialMoveDelaySeconds),
+                    "Initial move delay must be zero or greater.");
+            }
+
+            if (repeatedMoveIntervalSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(repeatedMoveIntervalSeconds),
+                    "Repeated move interval must be greater than zero.");
+            }
+
+            if (boxSlideStepIntervalSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(boxSlideStepIntervalSeconds),
+                    "Box slide step interval must be greater than zero.");
+            }
+
+            if (pushMotionDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(pushMotionDurationSeconds),
+                    "Push motion duration must be greater than zero.");
+            }
+
+            if (flipMotionDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(flipMotionDurationSeconds),
+                    "Flip motion duration must be greater than zero.");
+            }
+
+            if (flipArcHeightInCells <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(flipArcHeightInCells),
+                    "Flip arc height must be greater than zero.");
+            }
+
+            if (maxTicksPerFrame <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(maxTicksPerFrame),
+                    "Max ticks per frame must be greater than zero.");
+            }
+
+            SimulationTicksPerSecond = simulationTicksPerSecond;
+            SimulationTickIntervalSeconds = 1f / simulationTicksPerSecond;
+            InitialMoveDelaySeconds = initialMoveDelaySeconds;
+            RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
+            BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
+            PushMotionDurationSeconds = pushMotionDurationSeconds;
+            FlipMotionDurationSeconds = flipMotionDurationSeconds;
+            FlipArcHeightInCells = flipArcHeightInCells;
+            MaxTicksPerFrame = maxTicksPerFrame;
+            InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
+            RepeatedMoveIntervalTicks = SecondsToTicks(repeatedMoveIntervalSeconds, simulationTicksPerSecond);
+            BoxSlideStepIntervalTicks = SecondsToTicks(boxSlideStepIntervalSeconds, simulationTicksPerSecond);
+        }
+
+        public int SimulationTicksPerSecond { get; }
+
+        public float SimulationTickIntervalSeconds { get; }
+
+        public float InitialMoveDelaySeconds { get; }
+
+        public float RepeatedMoveIntervalSeconds { get; }
+
+        public float BoxSlideStepIntervalSeconds { get; }
+
+        public float PushMotionDurationSeconds { get; }
+
+        public float FlipMotionDurationSeconds { get; }
+
+        public float FlipArcHeightInCells { get; }
+
+        public int MaxTicksPerFrame { get; }
+
+        public int InitialMoveDelayTicks { get; }
+
+        public int RepeatedMoveIntervalTicks { get; }
+
+        public int BoxSlideStepIntervalTicks { get; }
+
+        public static GameplayTimingProfile CreateDefault()
+        {
+            return CreateFromLegacy(
+                DefaultSimulationTicksPerSecond,
+                initialMoveDelayTicks: 0,
+                repeatedMoveIntervalTicks: 2,
+                legacyTickIntervalSeconds: DefaultLegacyTickIntervalSeconds,
+                flipArcHeightInCells: DefaultFlipArcHeightInCells,
+                maxTicksPerFrame: DefaultMaxTicksPerFrame);
+        }
+
+        public static GameplayTimingProfile CreateFromLegacy(
+            int simulationTicksPerSecond,
+            int initialMoveDelayTicks,
+            int repeatedMoveIntervalTicks,
+            float legacyTickIntervalSeconds,
+            float flipArcHeightInCells,
+            int maxTicksPerFrame)
+        {
+            if (initialMoveDelayTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(initialMoveDelayTicks),
+                    "Initial move delay ticks must be zero or greater.");
+            }
+
+            if (repeatedMoveIntervalTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(repeatedMoveIntervalTicks),
+                    "Repeated move interval ticks must be greater than zero.");
+            }
+
+            if (legacyTickIntervalSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(legacyTickIntervalSeconds),
+                    "Legacy tick interval must be greater than zero.");
+            }
+
+            return new GameplayTimingProfile(
+                simulationTicksPerSecond,
+                initialMoveDelayTicks * legacyTickIntervalSeconds,
+                repeatedMoveIntervalTicks * legacyTickIntervalSeconds,
+                legacyTickIntervalSeconds,
+                legacyTickIntervalSeconds,
+                legacyTickIntervalSeconds,
+                flipArcHeightInCells,
+                maxTicksPerFrame);
+        }
+
+        public static int SecondsToTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            if (seconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(seconds), "Seconds must be zero or greater.");
+            }
+
+            var roundedTicks = Mathf.RoundToInt(seconds * simulationTicksPerSecond);
+            if (allowZero && seconds <= 0f)
+            {
+                return 0;
+            }
+
+            return Mathf.Max(1, roundedTicks);
+        }
+    }
+}

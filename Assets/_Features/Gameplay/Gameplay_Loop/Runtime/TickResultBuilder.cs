@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -61,7 +62,11 @@ namespace Game.Feature.Gameplay.Loop
             AddRange(eventLog, cleanupPhaseResult.TimerChanges);
             AddRange(eventLog, cleanupPhaseResult.StateTransitions);
 
-            return new TickResultData(finalEntities, pendingDelayedAttackEffects, eventLog);
+            return new TickResultData(
+                finalEntities,
+                pendingDelayedAttackEffects,
+                eventLog,
+                BuildPresentationData(finalSnapshot, movementPhaseResult));
         }
 
         private static void AddRange(List<string> destination, IReadOnlyList<string> source)
@@ -71,6 +76,55 @@ namespace Game.Feature.Gameplay.Loop
                 destination.Add(source[i]);
             }
         }
+
+        private static TickPresentationData BuildPresentationData(
+            WorldSnapshot finalSnapshot,
+            MovementPhaseResult movementPhaseResult)
+        {
+            var entityMotions = new List<TickEntityMotion>();
+
+            for (var groupIndex = 0; groupIndex < movementPhaseResult.SelectedGroups.Count; groupIndex++)
+            {
+                var group = movementPhaseResult.SelectedGroups[groupIndex];
+                var motionKind = ResolveMotionKind(group.GroupKind);
+                if (motionKind == TickEntityMotionKind.None)
+                {
+                    continue;
+                }
+
+                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                {
+                    var move = group.Moves[moveIndex];
+                    if (!finalSnapshot.TryGetEntity(move.EntityId, out var entity) ||
+                        entity.type != EntityType.Box ||
+                        entity.boardPresence != EntityBoardPresence.Occupying)
+                    {
+                        continue;
+                    }
+
+                    entityMotions.Add(
+                        new TickEntityMotion(
+                            move.EntityId,
+                            motionKind,
+                            move.SourceCell,
+                            move.DestinationCell));
+                }
+            }
+
+            return entityMotions.Count == 0
+                ? TickPresentationData.Empty
+                : new TickPresentationData(entityMotions);
+        }
+
+        private static TickEntityMotionKind ResolveMotionKind(ActionGroupKind groupKind)
+        {
+            return groupKind switch
+            {
+                ActionGroupKind.Push => TickEntityMotionKind.Push,
+                ActionGroupKind.Flip => TickEntityMotionKind.Flip,
+                _ => TickEntityMotionKind.None,
+            };
+        }
     }
 
     internal sealed class TickResultData
@@ -78,11 +132,25 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<string> _eventLog;
         private readonly ReadOnlyCollection<EntityState> _finalEntities;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _pendingDelayedAttackEffects;
+        private readonly TickPresentationData _presentationData;
 
         public TickResultData(
             IEnumerable<EntityState> finalEntities,
             IEnumerable<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
             IEnumerable<string> eventLog)
+            : this(
+                finalEntities,
+                pendingDelayedAttackEffects,
+                eventLog,
+                TickPresentationData.Empty)
+        {
+        }
+
+        public TickResultData(
+            IEnumerable<EntityState> finalEntities,
+            IEnumerable<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
+            IEnumerable<string> eventLog,
+            TickPresentationData presentationData)
         {
             if (finalEntities == null)
             {
@@ -99,6 +167,7 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(eventLog));
             }
 
+            _presentationData = presentationData ?? throw new ArgumentNullException(nameof(presentationData));
             _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
             _pendingDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(pendingDelayedAttackEffects));
             _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
@@ -109,5 +178,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<DelayedAttackEffectRecord> PendingDelayedAttackEffects => _pendingDelayedAttackEffects;
 
         public IReadOnlyList<string> EventLog => _eventLog;
+
+        public TickPresentationData PresentationData => _presentationData;
     }
 }

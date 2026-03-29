@@ -26,6 +26,8 @@ namespace Game.Feature.Gameplay.Host
 
         public TickRunner TickRunner { get; private set; }
 
+        public GameplayTimingProfile TimingProfile { get; private set; }
+
         public GameplayEntityViewRegistry ViewRegistry => _viewRegistry;
 
         public Transform ViewCameraTarget => _viewCameraTarget;
@@ -54,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
+            TimingProfile = configuration.CreateTimingProfile();
 
             WorldState = GameplayCompositionRoot.CreateWorldState(
                 initialEntities,
@@ -66,6 +69,7 @@ namespace Game.Feature.Gameplay.Host
                 WorldState,
                 staticEntityLogics,
                 InputBuffer,
+                TimingProfile,
                 startTickIndex: 1);
 
             _viewRegistry.Rebuild();
@@ -83,7 +87,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialBoardBounds,
                 configuration.InitialTopology,
                 configuration.GridOrigin,
-                configuration.CellSize);
+                configuration.CellSize,
+                TimingProfile);
             _presenter.PresentInitial(initialEntities, configuration.InitialTopology);
 
             _inputHost.Initialize(
@@ -91,10 +96,8 @@ namespace Game.Feature.Gameplay.Host
                 TickRunner,
                 _presenter,
                 configuration.Actions,
-                configuration.TickIntervalSeconds,
+                TimingProfile,
                 configuration.MoveDeadzone,
-                configuration.InitialMoveDelayTicks,
-                configuration.RepeatedMoveIntervalTicks,
                 configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks);
         }

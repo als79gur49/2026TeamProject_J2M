@@ -60,6 +60,14 @@ namespace Game.Feature.Gameplay.Loop
             return CreateDefaultBootstrapper().CreateTickPipeline(worldState, entityLogics);
         }
 
+        public static TickPipeline CreateTickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            GameplayTimingProfile timingProfile)
+        {
+            return CreateDefaultBootstrapper().CreateTickPipeline(worldState, entityLogics, timingProfile);
+        }
+
         public static TickRunner CreateTickRunner(
             WorldState worldState,
             TickInputBuffer inputBuffer)
@@ -74,6 +82,21 @@ namespace Game.Feature.Gameplay.Loop
             int startTickIndex = 1)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(worldState, entityLogics, inputBuffer, startTickIndex);
+        }
+
+        public static TickRunner CreateTickRunner(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            TickInputBuffer inputBuffer,
+            GameplayTimingProfile timingProfile,
+            int startTickIndex = 1)
+        {
+            return CreateDefaultBootstrapper().CreateTickRunner(
+                worldState,
+                entityLogics,
+                inputBuffer,
+                timingProfile,
+                startTickIndex);
         }
     }
 }

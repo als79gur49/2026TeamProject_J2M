@@ -30,7 +30,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ISnapshotEntityLogicProvider _entityLogicProvider;
         private readonly IReadOnlyList<IEntityLogic> _staticEntityLogics;
         private readonly MovementIntentCollector _movementIntentCollector = new();
-        private readonly MovementExpander _movementExpander = new();
+        private readonly MovementExpander _movementExpander;
         private readonly MovementResolver _movementResolver = new();
         private readonly AttackIntentCollector _attackIntentCollector = new();
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
@@ -49,6 +49,19 @@ namespace Game.Feature.Gameplay.Loop
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             ISnapshotEntityLogicProvider entityLogicProvider)
+            : this(
+                worldState,
+                entityLogics,
+                entityLogicProvider,
+                GameplayTimingProfile.CreateDefault())
+        {
+        }
+
+        internal TickPipeline(
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            ISnapshotEntityLogicProvider entityLogicProvider,
+            GameplayTimingProfile timingProfile)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -60,6 +73,8 @@ namespace Game.Feature.Gameplay.Loop
             _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
+            _movementExpander = new MovementExpander(
+                timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)));
         }
 
         public TickResult RunTick(in TickInput input)
@@ -133,6 +148,7 @@ namespace Game.Feature.Gameplay.Loop
                 tickResultData.FinalEntities,
                 tickResultData.EventLog,
                 finalSnapshot.Topology,
+                tickResultData.PresentationData,
                 determinismHash,
                 tickTrace);
         }

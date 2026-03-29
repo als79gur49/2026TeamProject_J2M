@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement;
@@ -11,7 +12,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 {
     internal sealed class MovementExpander
     {
-        private const int SlidingStateTimerTicks = 2;
+        private readonly int _slidingStateTimerTicks;
+
+        public MovementExpander()
+            : this(GameplayTimingProfile.CreateDefault())
+        {
+        }
+
+        public MovementExpander(GameplayTimingProfile timingProfile)
+        {
+            _slidingStateTimerTicks = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)))
+                .BoxSlideStepIntervalTicks;
+        }
 
         public void Expand(
             WorldSnapshot snapshot,
@@ -80,7 +92,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
         }
 
-        private static void ExpandMoveLike(
+        private void ExpandMoveLike(
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
@@ -324,7 +336,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             buffer.Add(actionGroup);
         }
 
-        private static void TryExpandPush(
+        private void TryExpandPush(
             WorldSnapshot snapshot,
             EntityState source,
             EntityState target,
@@ -368,7 +380,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 new StateChangeAction(
                     target.entityId,
                     EntityPhaseState.Sliding,
-                    SlidingStateTimerTicks));
+                    _slidingStateTimerTicks));
             actionGroup.Moves.Add(
                 new MoveAction(
                     target.entityId,
@@ -378,7 +390,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             buffer.Add(actionGroup);
         }
 
-        private static void ExpandSlidingPushBoxMove(
+        private void ExpandSlidingPushBoxMove(
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
@@ -397,8 +409,17 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out var destination,
                     out var stopper))
             {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=SlideStopped|Target={source.entityId}|{FormatStopper(stopper)}");
+                var stopGroup = new ActionGroup(
+                    intent.IntentId,
+                    intent.SourceId,
+                    intent.Priority,
+                    ActionGroupKind.Stop);
+                stopGroup.StateChanges.Add(
+                    new StateChangeAction(
+                        source.entityId,
+                        EntityPhaseState.Idle,
+                        stateTimer: 0));
+                buffer.Add(stopGroup);
                 return;
             }
 
@@ -411,7 +432,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 new StateChangeAction(
                     source.entityId,
                     EntityPhaseState.Sliding,
-                    SlidingStateTimerTicks));
+                    _slidingStateTimerTicks));
             actionGroup.Moves.Add(
                 new MoveAction(
                     source.entityId,

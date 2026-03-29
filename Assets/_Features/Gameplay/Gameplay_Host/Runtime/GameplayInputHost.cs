@@ -16,13 +16,14 @@ namespace Game.Feature.Gameplay.Host
         private TickInputBuffer _inputBuffer;
         private InputRepeatCooldown _inputRepeatCooldown;
         private InputAction _flipAction;
+        private int _maxTicksPerFrame;
         private InputAction _moveAction;
         private float _moveDeadzone;
         private GameplayTickViewPresenter _presenter;
         private InputAction _pushAction;
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
-        private float _tickIntervalSeconds;
+        private float _simulationTickIntervalSeconds;
         private bool _hasBufferedPush;
 
         public void Initialize(
@@ -30,10 +31,8 @@ namespace Game.Feature.Gameplay.Host
             TickRunner runner,
             GameplayTickViewPresenter presenter,
             InputActionAsset actions,
-            float tickIntervalSeconds,
+            GameplayTimingProfile timingProfile,
             float moveDeadzone,
-            int initialMoveDelayTicks,
-            int repeatedMoveIntervalTicks,
             bool directionChangeConsumesDelay,
             bool autoAdvanceTicks)
         {
@@ -52,11 +51,6 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(presenter));
             }
 
-            if (tickIntervalSeconds <= 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(tickIntervalSeconds), "Tick interval must be greater than zero.");
-            }
-
             if (moveDeadzone < 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(moveDeadzone), "Move deadzone must be zero or greater.");
@@ -68,7 +62,9 @@ namespace Game.Feature.Gameplay.Host
             _runner = runner;
             _presenter = presenter;
             _actions = actions;
-            _tickIntervalSeconds = tickIntervalSeconds;
+            _simulationTickIntervalSeconds = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)))
+                .SimulationTickIntervalSeconds;
+            _maxTicksPerFrame = timingProfile.MaxTicksPerFrame;
             _moveDeadzone = moveDeadzone;
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
@@ -76,8 +72,7 @@ namespace Game.Feature.Gameplay.Host
             _hasBufferedPush = false;
             _sampledMoveInput = Vector2.zero;
             _inputRepeatCooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks,
-                repeatedMoveIntervalTicks,
+                timingProfile,
                 directionChangeConsumesDelay);
             _isInitialized = true;
 
@@ -96,11 +91,18 @@ namespace Game.Feature.Gameplay.Host
             _accumulatedTime += deltaTime;
 
             var executedTickCount = 0;
-            while (_accumulatedTime >= _tickIntervalSeconds)
+            while (_accumulatedTime >= _simulationTickIntervalSeconds &&
+                   executedTickCount < _maxTicksPerFrame)
             {
-                _accumulatedTime -= _tickIntervalSeconds;
+                _accumulatedTime -= _simulationTickIntervalSeconds;
                 RunSingleTick();
                 executedTickCount++;
+            }
+
+            if (executedTickCount == _maxTicksPerFrame &&
+                _accumulatedTime >= _simulationTickIntervalSeconds)
+            {
+                _accumulatedTime = Mathf.Min(_accumulatedTime, _simulationTickIntervalSeconds);
             }
 
             return executedTickCount;

@@ -36,6 +36,16 @@ namespace Game.Feature.Gameplay.Host
             _directionChangeConsumesDelay = directionChangeConsumesDelay;
         }
 
+        public InputRepeatCooldown(
+            GameplayTimingProfile timingProfile,
+            bool directionChangeConsumesDelay)
+            : this(
+                (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile))).InitialMoveDelayTicks,
+                timingProfile.RepeatedMoveIntervalTicks,
+                directionChangeConsumesDelay)
+        {
+        }
+
         public PlayerTickCommand BuildCommand(int currentTick, Direction quantizedDirection)
         {
             if (currentTick <= 0)
