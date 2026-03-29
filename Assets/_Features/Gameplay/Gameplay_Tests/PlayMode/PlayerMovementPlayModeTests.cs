@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
@@ -63,7 +63,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
@@ -132,7 +132,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.BufferPush();
 
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
             Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
@@ -163,6 +163,215 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator GameplayInputHost_PushBufferedDuringRepeatLock_IsNotDropped()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            host.InputHost.BufferPush();
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_FlipBufferedDuringRepeatLock_IsNotDropped()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(-1f, 0f, 0f)));
+
+            host.InputHost.BufferFlip();
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_NoSampledDirection_DropsBufferedPushAndFlip()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+            });
+
+            host.InputHost.SetRawMoveInput(new Vector2(1f, 1f));
+            host.InputHost.BufferPush();
+            host.InputHost.BufferFlip();
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            Assert.That(GetViewPosition(host, entityId: 31), Is.EqualTo(new Vector3(-1f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_InteractionTick_DoesNotConsumePlainMoveCadence()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+            });
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferPush();
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_PushBufferedDuringInitialDelay_UsesSampledDirection()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                },
+                actions: null,
+                staticEntityLogics: null,
+                initialMoveDelayTicks: 2);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferPush();
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+
+            for (var i = 0; i < host.TimingProfile.InitialMoveDelayTicks - 1; i++)
+            {
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            }
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_FlipBufferedDuringDirectionChangeDelay_UsesSampledDirection()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+                },
+                actions: null,
+                staticEntityLogics: null,
+                initialMoveDelayTicks: 2,
+                directionChangeConsumesDelay: true);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+
+            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.BufferFlip();
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            for (var i = 0; i < host.TimingProfile.InitialMoveDelayTicks - 1; i++)
+            {
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(0f);
+                Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            }
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(-1f, 0f, 0f)));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_Reenable_RebindsInputActions()
+        {
+            var actions = CreateKeyboardMoveActions();
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                actions: actions);
+
+            host.InputHost.enabled = false;
+            yield return null;
+
+            Press(_keyboard.dKey);
+            yield return null;
+
+            host.InputHost.enabled = true;
+            yield return null;
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
+        }
+
+        [UnityTest]
         public IEnumerator PlayerMove_PlayMode_HoldInputRepeatsAtConfiguredTickInterval()
         {
             var host = CreateHost(new[]
@@ -172,7 +381,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
             for (var i = 0; i < host.TimingProfile.RepeatedMoveIntervalTicks - 2; i++)
@@ -186,7 +395,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
             host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(2f, 0f, 0f)));
 
             yield return DestroyHost(host);
@@ -249,7 +458,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         private static GameplaySceneHost CreateHost(
             EntityState[] initialEntities,
             InputActionAsset actions,
-            IEntityLogic[] staticEntityLogics = null)
+            IEntityLogic[] staticEntityLogics = null,
+            int initialMoveDelayTicks = 0,
+            int repeatedMoveIntervalTicks = 2,
+            bool directionChangeConsumesDelay = false)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -262,20 +474,20 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     AutoCreateViews = true,
                     BoxSlideStepIntervalSeconds = 0.2f,
                     CellSize = 1f,
-                    DirectionChangeConsumesDelay = false,
+                    DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                     FlipArcHeightInCells = 0.65f,
                     FlipMotionDurationSeconds = 0.2f,
-                    GridOrigin = new Vector3(-8f, -8f, 0f),
+                    GridOrigin = Vector3.zero,
                     InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
-                    InitialMoveDelaySeconds = 0f,
-                    InitialMoveDelayTicks = 0,
+                    InitialMoveDelaySeconds = -1f,
+                    InitialMoveDelayTicks = initialMoveDelayTicks,
                     InitialEntities = initialEntities,
                     MaxTicksPerFrame = 8,
                     MoveDeadzone = 0.5f,
                     PlayerEntityId = 10,
                     PushMotionDurationSeconds = 0.2f,
-                    RepeatedMoveIntervalSeconds = 0.4f,
-                    RepeatedMoveIntervalTicks = 2,
+                    RepeatedMoveIntervalSeconds = -1f,
+                    RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
                     SimulationTicksPerSecond = 60,
                     StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
                     TickIntervalSeconds = 0.2f,

@@ -212,9 +212,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 repeatedMoveIntervalTicks: 2,
                 directionChangeConsumesDelay: false);
 
-            var command = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
+            var canIssueMove = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
 
-            AssertCommand(command, expectedDirection: Direction.Right);
+            Assert.That(canIssueMove, Is.True);
         }
 
         [Test]
@@ -225,13 +225,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 repeatedMoveIntervalTicks: 2,
                 directionChangeConsumesDelay: false);
 
-            var firstTick = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Right);
-            var thirdTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
+            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            cooldown.CommitPlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
+            var thirdTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
 
-            AssertCommand(firstTick, expectedDirection: Direction.Right);
-            AssertCommand(secondTick, expectedDirection: Direction.None);
-            AssertCommand(thirdTick, expectedDirection: Direction.Right);
+            Assert.That(firstTick, Is.True);
+            Assert.That(secondTick, Is.False);
+            Assert.That(thirdTick, Is.True);
         }
 
         [Test]
@@ -242,11 +243,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 repeatedMoveIntervalTicks: 2,
                 directionChangeConsumesDelay: false);
 
-            var firstTick = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Up);
+            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            cooldown.CommitPlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Up);
 
-            AssertCommand(firstTick, expectedDirection: Direction.Right);
-            AssertCommand(secondTick, expectedDirection: Direction.Up);
+            Assert.That(firstTick, Is.True);
+            Assert.That(secondTick, Is.True);
         }
 
         [Test]
@@ -257,13 +259,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 repeatedMoveIntervalTicks: 2,
                 directionChangeConsumesDelay: false);
 
-            var firstTick = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Right);
-            var thirdTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
+            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
+            var thirdTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
 
-            AssertCommand(firstTick, expectedDirection: Direction.None);
-            AssertCommand(secondTick, expectedDirection: Direction.None);
-            AssertCommand(thirdTick, expectedDirection: Direction.Right);
+            Assert.That(firstTick, Is.False);
+            Assert.That(secondTick, Is.False);
+            Assert.That(thirdTick, Is.True);
         }
 
         [Test]
@@ -274,13 +276,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 repeatedMoveIntervalTicks: 2,
                 directionChangeConsumesDelay: false);
 
-            var firstTick = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
-            var resetTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.None);
-            var resumedTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
+            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            cooldown.CommitPlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            var resetTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.None);
+            var resumedTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
 
-            AssertCommand(firstTick, expectedDirection: Direction.Right);
-            AssertCommand(resetTick, expectedDirection: Direction.None);
-            AssertCommand(resumedTick, expectedDirection: Direction.Right);
+            Assert.That(firstTick, Is.True);
+            Assert.That(resetTick, Is.False);
+            Assert.That(resumedTick, Is.True);
         }
 
         [Test]
@@ -291,28 +294,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 repeatedMoveIntervalTicks: 2,
                 directionChangeConsumesDelay: true);
 
-            var firstTick = cooldown.BuildCommand(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.BuildCommand(currentTick: 2, quantizedDirection: Direction.Right);
-            var thirdTick = cooldown.BuildCommand(currentTick: 3, quantizedDirection: Direction.Right);
-            var directionChangeTick = cooldown.BuildCommand(currentTick: 4, quantizedDirection: Direction.Up);
-            var delayedDirectionTick = cooldown.BuildCommand(currentTick: 5, quantizedDirection: Direction.Up);
-            var issuedDirectionTick = cooldown.BuildCommand(currentTick: 6, quantizedDirection: Direction.Up);
+            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
+            var thirdTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
+            cooldown.CommitPlainMove(currentTick: 3, quantizedDirection: Direction.Right);
+            var directionChangeTick = cooldown.EvaluatePlainMove(currentTick: 4, quantizedDirection: Direction.Up);
+            var delayedDirectionTick = cooldown.EvaluatePlainMove(currentTick: 5, quantizedDirection: Direction.Up);
+            var issuedDirectionTick = cooldown.EvaluatePlainMove(currentTick: 6, quantizedDirection: Direction.Up);
 
-            AssertCommand(firstTick, expectedDirection: Direction.None);
-            AssertCommand(secondTick, expectedDirection: Direction.None);
-            AssertCommand(thirdTick, expectedDirection: Direction.Right);
-            AssertCommand(directionChangeTick, expectedDirection: Direction.None);
-            AssertCommand(delayedDirectionTick, expectedDirection: Direction.None);
-            AssertCommand(issuedDirectionTick, expectedDirection: Direction.Up);
+            Assert.That(firstTick, Is.False);
+            Assert.That(secondTick, Is.False);
+            Assert.That(thirdTick, Is.True);
+            Assert.That(directionChangeTick, Is.False);
+            Assert.That(delayedDirectionTick, Is.False);
+            Assert.That(issuedDirectionTick, Is.True);
         }
 
-        private static void AssertCommand(
-            PlayerTickCommand command,
-            Direction expectedDirection)
+        [Test]
+        public void InputRepeatCooldown_UncommittedInteractionTick_DoesNotConsumeCadence()
         {
-            Assert.That(command.MoveDirection, Is.EqualTo(expectedDirection));
-            Assert.That(command.PushPressed, Is.False);
-            Assert.That(command.FlipPressed, Is.False);
+            var cooldown = new InputRepeatCooldown(
+                initialMoveDelayTicks: 0,
+                repeatedMoveIntervalTicks: 2,
+                directionChangeConsumesDelay: false);
+
+            var interactionTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            var deferredPlainMoveTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
+            cooldown.CommitPlainMove(currentTick: 2, quantizedDirection: Direction.Right);
+            var lockedTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
+            var nextCadenceTick = cooldown.EvaluatePlainMove(currentTick: 4, quantizedDirection: Direction.Right);
+
+            Assert.That(interactionTick, Is.True);
+            Assert.That(deferredPlainMoveTick, Is.True);
+            Assert.That(lockedTick, Is.False);
+            Assert.That(nextCadenceTick, Is.True);
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
