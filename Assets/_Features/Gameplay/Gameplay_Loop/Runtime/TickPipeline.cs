@@ -125,13 +125,22 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace);
 
             var finalAuthoritativeSnapshot = SnapshotBuilder.Create(_worldState);
+            var presentationBuildContext = new TickPresentationBuildContext(
+                preMovementSnapshot,
+                postMovementSnapshot,
+                postAttackSnapshot,
+                finalAuthoritativeSnapshot,
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,
                 pendingDelayedAttackEffects,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult);
+                cleanupPhaseResult,
+                presentationBuildContext);
             var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData);
             var tickTrace = _tickTraceBuilder.Build(
                 input.TickIndex,
