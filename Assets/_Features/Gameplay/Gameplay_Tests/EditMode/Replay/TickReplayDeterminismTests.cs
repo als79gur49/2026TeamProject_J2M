@@ -317,10 +317,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Source=10|Priority=5|Target=0|Command=FireProjectile"));
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(1,0)|Type=Projectile|SpawnTick=1"));
-            Assert.That(firstReplay[1].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=21|Target=20|At=(2,0)|Damage=1|Sequence=1"));
-            Assert.That(firstReplay[1].EventLogDump, Does.Contain("CleanupRemoved|E=21"));
-            Assert.That(firstReplay[2].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=3"));
-            Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("E=22|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=3"));
+            Assert.That(firstReplay[13].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=21|Target=20|At=(2,0)|Damage=1|Sequence=1"));
+            Assert.That(firstReplay[13].EventLogDump, Does.Contain("CleanupRemoved|E=21"));
+            Assert.That(firstReplay[14].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=15"));
+            Assert.That(firstReplay[14].FinalEntitiesDump, Does.Contain("E=22|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=12|Facing=Right|Marked=0|SpawnTick=15"));
         }
 
         [Test]
@@ -664,19 +664,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     attackIntentsByTick: new Dictionary<int, RawAttackIntent>
                     {
                         { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
-                        { 3, RawAttackIntent.CreateFireProjectile(10, 5) },
+                        { 15, RawAttackIntent.CreateFireProjectile(10, 5) },
                     }),
             };
 
             return new TickReplayHarness().Run(
                 worldState,
                 entityLogics,
-                new[]
-                {
-                    new TickInput(1),
-                    new TickInput(2),
-                    new TickInput(3),
-                });
+                Enumerable.Range(1, 15)
+                    .Select(tickIndex => new TickInput(tickIndex))
+                    .ToArray());
         }
 
         private static IReadOnlyList<TickReplayFrame> RunOnHitBoundaryReplaySequence()

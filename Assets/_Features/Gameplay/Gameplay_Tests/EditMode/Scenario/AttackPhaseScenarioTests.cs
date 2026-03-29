@@ -340,6 +340,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     new StubCombatLogic(attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
                 });
+            var defaultTimingProfile = GameplayTimingProfile.CreateDefault();
 
             var result = pipeline.RunTick(new TickInput(4));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -375,8 +376,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterTick), Is.True);
             Assert.That(projectileAfterTick.entityId, Is.EqualTo(11));
             Assert.That(projectileAfterTick.spawnTick, Is.EqualTo(4));
+            Assert.That(projectileAfterTick.stateTimer, Is.EqualTo(defaultTimingProfile.ProjectileStepIntervalTicks));
             Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4"));
-            Assert.That(result.Trace.Text, Does.Contain("Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer=0|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|Face=Floor|Presence=Occupying]"));
+            Assert.That(result.Trace.Text, Does.Contain($"Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer={defaultTimingProfile.ProjectileStepIntervalTicks}|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|Face=Floor|Presence=Occupying]"));
         }
 
         [Test]
@@ -428,12 +430,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Attack_SpawnedProjectile_BeginsMovingOnNextTickOnly()
+        public void Attack_SpawnedProjectile_BeginsMovingOnlyAfterConfiguredCadence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
-                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
             });
             var logic = new TickScriptedCombatLogic(
                 10,
@@ -441,7 +442,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
                 });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, new IEntityLogic[] { logic });
+            var timingProfile = CreateTimingProfile(
+                simulationTicksPerSecond: 60,
+                projectileStepIntervalSeconds: 0.2f);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[] { logic },
+                timingProfile);
 
             logic.SetTickIndex(1);
             var firstResult = pipeline.RunTick(new TickInput(1));
@@ -452,75 +459,153 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(1,0)|Type=Projectile|SpawnTick=1",
+                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=1",
                 },
                 firstResult.AttackPhaseResult.CommitEvents);
             Assert.That(firstResult.EventLog.Any(evt => evt.Contains("ImpactReservationCreated")), Is.False);
             Assert.That(snapshotAfterFirstTick.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterFirstTick), Is.True);
-            Assert.That(projectileAfterFirstTick.entityId, Is.EqualTo(21));
+            Assert.That(projectileAfterFirstTick.entityId, Is.EqualTo(11));
+            Assert.That(projectileAfterFirstTick.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks));
 
-            logic.SetTickIndex(2);
-            var secondResult = pipeline.RunTick(new TickInput(2));
-            var snapshotAfterSecondTick = CreateSnapshot(worldState);
+            var idleResults = RunTicks(
+                pipeline,
+                startTickIndex: 2,
+                endTickIndex: timingProfile.ProjectileStepIntervalTicks + 1,
+                beforeTick: logic.SetTickIndex);
+            var snapshotBeforeFirstMove = CreateSnapshot(worldState);
+
+            Assert.That(idleResults.All(result => result.MovementPhaseResult.SortedIntents.Count == 0), Is.True);
+            Assert.That(snapshotBeforeFirstMove.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileBeforeFirstMove), Is.True);
+            Assert.That(projectileBeforeFirstMove.entityId, Is.EqualTo(11));
+            Assert.That(projectileBeforeFirstMove.stateTimer, Is.EqualTo(0));
+
+            logic.SetTickIndex(timingProfile.ProjectileStepIntervalTicks + 2);
+            var firstMoveResult = pipeline.RunTick(new TickInput(timingProfile.ProjectileStepIntervalTicks + 2));
+            var snapshotAfterFirstMove = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[] { (SourceId: 21, IntentId: 1, Destination: new Vector2Int(2, 0)) },
-                secondResult.MovementPhaseResult
+                new[] { (SourceId: 11, IntentId: 1, Destination: new Vector2Int(2, 0)) },
+                firstMoveResult.MovementPhaseResult
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "ImpactReservationCreated|G=1|I=1|Source=21|Target=20|At=(2,0)|Damage=1|Sequence=1",
+                    "StateChanged|G=1|I=1|E=11|State=Idle|Timer=12",
+                    "MoveCommitted|G=1|I=1|E=11|To=(2,0)|Facing=Right",
                 },
-                secondResult.MovementPhaseResult.CommitEvents);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DamageCommitted|G=2|I=2|Target=20|Amount=1",
-                    "DamageCommitted|G=2|I=2|Target=21|Amount=1",
-                    "DestroyMarked|G=2|I=2|Target=21|FinalHp=0|Condition=WhenHpDepleted",
-                },
-                secondResult.AttackPhaseResult.CommitEvents);
-            CollectionAssert.AreEqual(new[] { 21 }, secondResult.CleanupPhaseResult.RemovedEntityIds);
-            Assert.That(snapshotAfterSecondTick.TryGetEntity(21, out _), Is.False);
-            Assert.That(snapshotAfterSecondTick.TryGetEntity(20, out var targetAfterSecondTick), Is.True);
-            Assert.That(targetAfterSecondTick.hp, Is.EqualTo(1));
-            Assert.That(targetAfterSecondTick.markedForDeath, Is.False);
+                firstMoveResult.MovementPhaseResult.CommitEvents);
+            Assert.That(snapshotAfterFirstMove.TryGetProjectileAt(new Vector2Int(2, 0), out var projectileAfterFirstMove), Is.True);
+            Assert.That(projectileAfterFirstMove.entityId, Is.EqualTo(11));
+            Assert.That(projectileAfterFirstMove.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks - 1));
         }
 
         [Test]
-        public void Movement_PreExistingProjectileInWorldState_BeginsMovingOnFirstTickOfFreshPipeline()
+        public void Movement_PreExistingProjectileAt60Tps_PreservesRealTimeCadence()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var timingProfile = CreateTimingProfile(
+                simulationTicksPerSecond: 60,
+                projectileStepIntervalSeconds: 0.2f);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile);
 
-            var result = pipeline.RunTick(new TickInput(1));
-            var snapshotAfter = CreateSnapshot(worldState);
+            var firstResult = pipeline.RunTick(new TickInput(1));
+            var snapshotAfterFirstTick = CreateSnapshot(worldState);
+
+            Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(snapshotAfterFirstTick.TryGetProjectileAt(new Vector2Int(0, 0), out var projectileAfterFirstTick), Is.True);
+            Assert.That(projectileAfterFirstTick.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks - 1));
+
+            RunTicks(
+                pipeline,
+                startTickIndex: 2,
+                endTickIndex: timingProfile.ProjectileStepIntervalTicks);
+
+            var firstMoveResult = pipeline.RunTick(new TickInput(timingProfile.ProjectileStepIntervalTicks + 1));
+            var snapshotAfterFirstMove = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)),
-                },
-                result.MovementPhaseResult
+                new[] { (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)) },
+                firstMoveResult.MovementPhaseResult
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
                     .ToArray());
+            Assert.That(snapshotAfterFirstMove.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterFirstMove), Is.True);
+            Assert.That(projectileAfterFirstMove.entityId, Is.EqualTo(10));
+            Assert.That(projectileAfterFirstMove.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks - 1));
+
+            RunTicks(
+                pipeline,
+                startTickIndex: timingProfile.ProjectileStepIntervalTicks + 2,
+                endTickIndex: (timingProfile.ProjectileStepIntervalTicks * 2));
+
+            var secondMoveResult = pipeline.RunTick(new TickInput((timingProfile.ProjectileStepIntervalTicks * 2) + 1));
+            var snapshotAfterSecondMove = CreateSnapshot(worldState);
+
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
-                },
-                result.MovementPhaseResult.CommitEvents);
-            Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterTick), Is.True);
-            Assert.That(projectileAfterTick.entityId, Is.EqualTo(10));
-            Assert.That(snapshotAfter.TryGetEntity(10, out var entityAfterTick), Is.True);
-            Assert.That(entityAfterTick.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                new[] { (SourceId: 10, IntentId: 1, Destination: new Vector2Int(2, 0)) },
+                secondMoveResult.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
+                    .ToArray());
+            Assert.That(snapshotAfterSecondMove.TryGetProjectileAt(new Vector2Int(2, 0), out var projectileAfterSecondMove), Is.True);
+            Assert.That(projectileAfterSecondMove.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void Movement_PreExistingProjectileAt120Tps_PreservesSameRealTimeCadence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
+            });
+            var timingProfile = CreateTimingProfile(
+                simulationTicksPerSecond: 120,
+                projectileStepIntervalSeconds: 0.2f);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile);
+
+            var firstResult = pipeline.RunTick(new TickInput(1));
+            Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
+
+            RunTicks(
+                pipeline,
+                startTickIndex: 2,
+                endTickIndex: timingProfile.ProjectileStepIntervalTicks);
+
+            var firstMoveResult = pipeline.RunTick(new TickInput(timingProfile.ProjectileStepIntervalTicks + 1));
+            CollectionAssert.AreEqual(
+                new[] { (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)) },
+                firstMoveResult.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
+                    .ToArray());
+
+            RunTicks(
+                pipeline,
+                startTickIndex: timingProfile.ProjectileStepIntervalTicks + 2,
+                endTickIndex: (timingProfile.ProjectileStepIntervalTicks * 2));
+
+            var secondMoveResult = pipeline.RunTick(new TickInput((timingProfile.ProjectileStepIntervalTicks * 2) + 1));
+            var snapshotAfterSecondMove = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (SourceId: 10, IntentId: 1, Destination: new Vector2Int(2, 0)) },
+                secondMoveResult.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
+                    .ToArray());
+            Assert.That(snapshotAfterSecondMove.TryGetProjectileAt(new Vector2Int(2, 0), out var projectileAfterSecondMove), Is.True);
+            Assert.That(projectileAfterSecondMove.entityId, Is.EqualTo(10));
         }
 
         [Test]
@@ -536,7 +621,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new Dictionary<int, RawAttackIntent>
                 {
                     { 1, RawAttackIntent.CreateFireProjectile(10, 5) },
-                    { 3, RawAttackIntent.CreateFireProjectile(10, 5) },
+                    { 15, RawAttackIntent.CreateFireProjectile(10, 5) },
                 });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, new IEntityLogic[] { logic });
 
@@ -544,14 +629,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var firstResult = pipeline.RunTick(new TickInput(1));
             var firstProjectileId = firstResult.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().Entity.entityId;
 
-            logic.SetTickIndex(2);
-            var secondResult = pipeline.RunTick(new TickInput(2));
+            var intermediateResults = RunTicks(
+                pipeline,
+                startTickIndex: 2,
+                endTickIndex: 14,
+                beforeTick: logic.SetTickIndex);
+            var cleanupResult = intermediateResults.Last();
 
-            logic.SetTickIndex(3);
-            var thirdResult = pipeline.RunTick(new TickInput(3));
-            var secondProjectileId = thirdResult.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().Entity.entityId;
+            logic.SetTickIndex(15);
+            var secondSpawnResult = pipeline.RunTick(new TickInput(15));
+            var secondProjectileId = secondSpawnResult.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().Entity.entityId;
 
-            CollectionAssert.AreEqual(new[] { 20, firstProjectileId }, secondResult.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
+            CollectionAssert.AreEqual(new[] { 20, firstProjectileId }, cleanupResult.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
             Assert.That(secondProjectileId, Is.EqualTo(firstProjectileId + 1));
             Assert.That(secondProjectileId, Is.Not.EqualTo(firstProjectileId));
         }
@@ -1118,6 +1207,60 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(createSnapshotMethod, Is.Not.Null);
 
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
+        }
+
+        private static GameplayTimingProfile CreateTimingProfile(
+            int simulationTicksPerSecond = 60,
+            float initialMoveDelaySeconds = 0f,
+            float repeatedMoveIntervalSeconds = 0.4f,
+            float boxSlideStepIntervalSeconds = 0.2f,
+            float projectileStepIntervalSeconds = 0.2f,
+            float pushMotionDurationSeconds = 0.2f,
+            float flipMotionDurationSeconds = 0.2f,
+            float flipArcHeightInCells = 0.65f,
+            int maxTicksPerFrame = 8)
+        {
+            return new GameplayTimingProfile(
+                simulationTicksPerSecond,
+                initialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds,
+                boxSlideStepIntervalSeconds,
+                projectileStepIntervalSeconds,
+                pushMotionDurationSeconds,
+                flipMotionDurationSeconds,
+                flipArcHeightInCells,
+                maxTicksPerFrame);
+        }
+
+        private static List<TickResult> RunTicks(
+            TickPipeline pipeline,
+            int startTickIndex,
+            int endTickIndex,
+            Action<int> beforeTick = null)
+        {
+            if (pipeline == null)
+            {
+                throw new ArgumentNullException(nameof(pipeline));
+            }
+
+            if (startTickIndex <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(startTickIndex));
+            }
+
+            if (endTickIndex < startTickIndex)
+            {
+                throw new ArgumentOutOfRangeException(nameof(endTickIndex));
+            }
+
+            var results = new List<TickResult>(endTickIndex - startTickIndex + 1);
+            for (var tickIndex = startTickIndex; tickIndex <= endTickIndex; tickIndex++)
+            {
+                beforeTick?.Invoke(tickIndex);
+                results.Add(pipeline.RunTick(new TickInput(tickIndex)));
+            }
+
+            return results;
         }
 
         private sealed class StubCombatLogic : IEntityLogic, IEntityLogicSourceBinding

@@ -230,7 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayCompositionRoot_CreateTickRunner_UsesDefaultProvider()
+        public void GameplayCompositionRoot_CreateTickRunner_UsesDefaultProviderWithProjectileCadence()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -246,24 +246,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
             });
             var runner = GameplayCompositionRoot.CreateTickRunner(worldState, new TickInputBuffer());
+            var timingProfile = GameplayTimingProfile.CreateDefault();
 
-            var result = runner.RunNextTick();
+            var firstResult = runner.RunNextTick();
+
+            Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+
+            for (var tick = 2; tick <= timingProfile.ProjectileStepIntervalTicks; tick++)
+            {
+                runner.RunNextTick();
+            }
+
+            var moveResult = runner.RunNextTick();
 
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (SourceId: 10, Destination: new Vector2Int(1, 0)),
                 },
-                result.MovementPhaseResult
+                moveResult.MovementPhaseResult
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.Destination))
                     .ToArray());
-            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(runner.NextTickIndex, Is.EqualTo(2));
+            Assert.That(moveResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(runner.NextTickIndex, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks + 2));
         }
 
         [Test]
-        public void GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileRecovery()
+        public void GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileCadence()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -280,6 +291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var bootstrapper = GameplayCompositionRoot.CreateDefaultBootstrapper();
             var inputBuffer = new TickInputBuffer();
+            var timingProfile = GameplayTimingProfile.CreateDefault();
 
             inputBuffer.Record(new TickInput(7));
 
@@ -288,19 +300,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<IEntityLogic>(),
                 inputBuffer,
                 startTickIndex: 7);
-            var result = runner.RunNextTick();
+            var firstResult = runner.RunNextTick();
+
+            Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
+
+            for (var tick = 8; tick <= (7 + timingProfile.ProjectileStepIntervalTicks - 1); tick++)
+            {
+                runner.RunNextTick();
+            }
+
+            var moveResult = runner.RunNextTick();
 
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (SourceId: 20, Destination: new Vector2Int(1, 1)),
                 },
-                result.MovementPhaseResult
+                moveResult.MovementPhaseResult
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.Destination))
                     .ToArray());
-            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
-            Assert.That(runner.NextTickIndex, Is.EqualTo(8));
+            Assert.That(moveResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(runner.NextTickIndex, Is.EqualTo(7 + timingProfile.ProjectileStepIntervalTicks + 1));
             Assert.That(inputBuffer.HasBufferedInput(7), Is.False);
         }
 
