@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class SnapshotReadQueries
     {
+        // Snapshot queries always read committed logical occupancy. Presenter interpolation never changes these answers.
         public static bool TryGetEntityAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,

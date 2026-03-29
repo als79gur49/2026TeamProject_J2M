@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    // Read-only view over committed gameplay state. Entity positions and occupancy are the only gameplay coordinates.
     public sealed class WorldSnapshot
     {
         private readonly BoardBounds _boardBounds;
@@ -39,6 +40,7 @@ namespace Game.Feature.Gameplay.BoardState
             return _entitiesById.TryGetValue(entityId, out entity);
         }
 
+        // Cell queries always resolve against committed authoritative occupancy, not render-time motion tracks.
         public bool TryGetUnitAt(SurfaceCell cell, out EntityState entity)
         {
             return TryGetUnitAt(_topology, cell, out entity);

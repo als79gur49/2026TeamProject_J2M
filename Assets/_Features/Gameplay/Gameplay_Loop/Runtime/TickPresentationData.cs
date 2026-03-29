@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Loop
 
     public readonly struct TickEntityMotion
     {
+        // Motion records describe a render transition between already-committed logical cells.
         public TickEntityMotion(
             int entityId,
             TickEntityMotionKind motionKind,
@@ -41,6 +42,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
 
+        // Presentation data is render-only metadata layered on top of authoritative gameplay state.
         public TickPresentationData(IEnumerable<TickEntityMotion> entityMotions)
         {
             if (entityMotions == null)

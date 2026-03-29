@@ -92,10 +92,10 @@ namespace Game.Feature.Gameplay.Loop
             var writeContext = _worldState.CreateWriteContext();
             var drainedDelayedAttackEffects = _delayedAttackEffectQueue.Drain(input.TickIndex);
 
-            var movementSnapshot = SnapshotBuilder.Create(_worldState);
-            var entityLogicsForTick = BuildEntityLogicsForTick(movementSnapshot);
+            var preMovementSnapshot = SnapshotBuilder.Create(_worldState);
+            var entityLogicsForTick = BuildEntityLogicsForTick(preMovementSnapshot);
             var movementPhaseResult = RunMovementPhase(
-                movementSnapshot,
+                preMovementSnapshot,
                 in input,
                 entityLogicsForTick,
                 transientBuffer,
@@ -103,9 +103,10 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
 
-            var attackSnapshot = SnapshotBuilder.Create(_worldState);
+            // Attack resolves against the authoritative state produced by movement commit.
+            var postMovementSnapshot = SnapshotBuilder.Create(_worldState);
             var attackPhaseResult = RunAttackPhase(
-                attackSnapshot,
+                postMovementSnapshot,
                 in input,
                 entityLogicsForTick,
                 transientBuffer,
@@ -115,31 +116,31 @@ namespace Game.Feature.Gameplay.Loop
                 completedPhases,
                 phaseTrace);
 
-            var cleanupSnapshot = SnapshotBuilder.Create(_worldState);
+            var postAttackSnapshot = SnapshotBuilder.Create(_worldState);
             var cleanupPhaseResult = RunCleanupPhase(
-                cleanupSnapshot,
+                postAttackSnapshot,
                 input.TickIndex,
                 writeContext,
                 completedPhases,
                 phaseTrace);
 
-            var finalSnapshot = SnapshotBuilder.Create(_worldState);
+            var finalAuthoritativeSnapshot = SnapshotBuilder.Create(_worldState);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
-                finalSnapshot,
+                finalAuthoritativeSnapshot,
                 pendingDelayedAttackEffects,
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult);
-            var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalSnapshot, tickResultData);
+            var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData);
             var tickTrace = _tickTraceBuilder.Build(
                 input.TickIndex,
-                movementSnapshot,
+                preMovementSnapshot,
                 movementPhaseResult,
-                attackSnapshot,
+                postMovementSnapshot,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                finalSnapshot,
+                finalAuthoritativeSnapshot,
                 tickResultData,
                 determinismHash);
 
@@ -152,7 +153,7 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult,
                 tickResultData.FinalEntities,
                 tickResultData.EventLog,
-                finalSnapshot.Topology,
+                finalAuthoritativeSnapshot.Topology,
                 tickResultData.PresentationData,
                 determinismHash,
                 tickTrace);

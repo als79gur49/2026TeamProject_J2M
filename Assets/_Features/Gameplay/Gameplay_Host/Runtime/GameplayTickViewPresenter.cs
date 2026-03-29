@@ -91,13 +91,13 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
         private readonly Dictionary<int, MotionTrack> _motionTracks = new();
-        private readonly Dictionary<int, GameplayEntityPose> _steadyPoses = new();
+        private readonly Dictionary<int, GameplayEntityPose> _committedTargetPoses = new();
         private readonly List<int> _completedTrackIds = new();
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
 
         private CubeTopologyState _currentTopology;
-        private bool _hasAnyAuthoritativeFrame;
+        private bool _hasAnyCommittedFrame;
         private GameplayTimingProfile _timingProfile;
         private GameplaySurfaceProjector _projector;
         private GameplayEntityViewBinder _viewBinder;
@@ -132,8 +132,8 @@ namespace Game.Feature.Gameplay.Host
             ContinuityAnchor = Vector3.zero;
             ActiveStripCenter = _projector.GetActiveStripCenter(ContinuityAnchor);
             _hasPresentedFrame = false;
-            _hasAnyAuthoritativeFrame = false;
-            _steadyPoses.Clear();
+            _hasAnyCommittedFrame = false;
+            _committedTargetPoses.Clear();
             _motionTracks.Clear();
             _viewsByEntityId.Clear();
             _isInitialized = true;
@@ -147,14 +147,15 @@ namespace Game.Feature.Gameplay.Host
             }
 
             EnsureInitialized();
-            var previousAuthoritativePoses = new Dictionary<int, GameplayEntityPose>(_steadyPoses);
+            var previousCommittedTargetPoses = new Dictionary<int, GameplayEntityPose>(_committedTargetPoses);
             var previousTopology = _currentTopology;
             var previousContinuityAnchor = ContinuityAnchor;
 
-            StoreAuthoritativeFrame(result.FinalEntities, result.FinalTopology, updateContinuity: true);
+            // WorldState remains authoritative; presenter only caches the latest committed render targets.
+            StoreCommittedFrame(result.FinalEntities, result.FinalTopology, updateContinuity: true);
             RefreshMotionClips(
                 result.PresentationData,
-                previousAuthoritativePoses,
+                previousCommittedTargetPoses,
                 previousTopology,
                 previousContinuityAnchor);
         }
@@ -168,7 +169,7 @@ namespace Game.Feature.Gameplay.Host
 
             EnsureInitialized();
             _motionTracks.Clear();
-            StoreAuthoritativeFrame(entities, topology, updateContinuity: false);
+            StoreCommittedFrame(entities, topology, updateContinuity: false);
             UpdatePresentation(0f);
         }
 
@@ -181,14 +182,14 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
-            if (!_hasAnyAuthoritativeFrame)
+            if (!_hasAnyCommittedFrame)
             {
                 return;
             }
 
             _completedTrackIds.Clear();
 
-            foreach (var pair in _steadyPoses)
+            foreach (var pair in _committedTargetPoses)
             {
                 var entityId = pair.Key;
                 if (!_viewsByEntityId.TryGetValue(entityId, out var view) || view == null)
@@ -227,7 +228,7 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void StoreAuthoritativeFrame(
+        private void StoreCommittedFrame(
             IReadOnlyList<EntityState> entities,
             CubeTopologyState topology,
             bool updateContinuity)
@@ -238,18 +239,18 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _currentTopology = topology;
-            StoreAuthoritativeEntities(entities, topology);
+            StoreCommittedEntityTargets(entities, topology);
 
             ActiveStripCenter = _projector.GetActiveStripCenter(ContinuityAnchor);
             StripCenterChanged?.Invoke(ActiveStripCenter);
             _hasPresentedFrame = true;
-            _hasAnyAuthoritativeFrame = true;
+            _hasAnyCommittedFrame = true;
         }
 
-        private void StoreAuthoritativeEntities(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
+        private void StoreCommittedEntityTargets(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
         {
             _visibleEntityIds.Clear();
-            _steadyPoses.Clear();
+            _committedTargetPoses.Clear();
 
             for (var i = 0; i < entities.Count; i++)
             {
@@ -268,7 +269,7 @@ namespace Game.Feature.Gameplay.Host
 
                 _viewsByEntityId[entity.entityId] = view;
                 _visibleEntityIds.Add(entity.entityId);
-                _steadyPoses[entity.entityId] = new GameplayEntityPose(
+                _committedTargetPoses[entity.entityId] = new GameplayEntityPose(
                     worldPosition,
                     ResolveWorldRotation(entity.facing));
             }
@@ -276,7 +277,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void RefreshMotionClips(
             TickPresentationData presentationData,
-            IReadOnlyDictionary<int, GameplayEntityPose> previousAuthoritativePoses,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedTargetPoses,
             CubeTopologyState previousTopology,
             Vector3 previousContinuityAnchor)
         {
@@ -295,7 +296,7 @@ namespace Game.Feature.Gameplay.Host
             _completedTrackIds.Clear();
             foreach (var pair in _motionTracks)
             {
-                if (!_steadyPoses.TryGetValue(pair.Key, out var authoritativePose))
+                if (!_committedTargetPoses.TryGetValue(pair.Key, out var committedTargetPose))
                 {
                     _completedTrackIds.Add(pair.Key);
                     continue;
@@ -306,7 +307,7 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                pair.Value.AlignToAuthoritativePose(authoritativePose);
+                pair.Value.AlignToCommittedTargetPose(committedTargetPose);
             }
 
             for (var i = 0; i < _completedTrackIds.Count; i++)
@@ -317,7 +318,7 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
-                if (!_steadyPoses.TryGetValue(motion.EntityId, out var authoritativePose))
+                if (!_committedTargetPoses.TryGetValue(motion.EntityId, out var committedTargetPose))
                 {
                     _motionTracks.Remove(motion.EntityId);
                     continue;
@@ -325,8 +326,8 @@ namespace Game.Feature.Gameplay.Host
 
                 var startPose = ResolveMotionStartPose(
                     motion,
-                    previousAuthoritativePoses,
-                    authoritativePose,
+                    previousCommittedTargetPoses,
+                    committedTargetPose,
                     previousTopology,
                     previousContinuityAnchor);
                 if (_motionTracks.TryGetValue(motion.EntityId, out var existingTrack) &&
@@ -334,9 +335,9 @@ namespace Game.Feature.Gameplay.Host
                 {
                     startPose = existingTrack.TailEndPose;
                 }
-                else if (previousAuthoritativePoses.TryGetValue(motion.EntityId, out var previousAuthoritativePose))
+                else if (previousCommittedTargetPoses.TryGetValue(motion.EntityId, out var previousCommittedTargetPose))
                 {
-                    startPose = new GameplayEntityPose(startPose.Position, previousAuthoritativePose.Rotation);
+                    startPose = new GameplayEntityPose(startPose.Position, previousCommittedTargetPose.Rotation);
                 }
 
                 if (!_motionTracks.TryGetValue(motion.EntityId, out var track))
@@ -348,7 +349,7 @@ namespace Game.Feature.Gameplay.Host
                 track.Append(MotionClip.Create(
                     motion.MotionKind,
                     startPose,
-                    authoritativePose,
+                    committedTargetPose,
                     ResolveMotionDurationSeconds(motion.MotionKind),
                     _timingProfile.FlipArcHeightInCells * _projector.CellSize));
             }
@@ -356,8 +357,8 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayEntityPose ResolveMotionStartPose(
             TickEntityMotion motion,
-            IReadOnlyDictionary<int, GameplayEntityPose> previousAuthoritativePoses,
-            GameplayEntityPose authoritativePose,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedTargetPoses,
+            GameplayEntityPose committedTargetPose,
             CubeTopologyState previousTopology,
             Vector3 previousContinuityAnchor)
         {
@@ -367,9 +368,9 @@ namespace Game.Feature.Gameplay.Host
                 return track.TailEndPose;
             }
 
-            if (previousAuthoritativePoses.TryGetValue(motion.EntityId, out var previousAuthoritativePose))
+            if (previousCommittedTargetPoses.TryGetValue(motion.EntityId, out var previousCommittedTargetPose))
             {
-                return previousAuthoritativePose;
+                return previousCommittedTargetPose;
             }
 
             if (_projector.TryProject(
@@ -378,10 +379,10 @@ namespace Game.Feature.Gameplay.Host
                     previousContinuityAnchor,
                     out var sourceWorldPosition))
             {
-                return new GameplayEntityPose(sourceWorldPosition, authoritativePose.Rotation);
+                return new GameplayEntityPose(sourceWorldPosition, committedTargetPose.Rotation);
             }
 
-            return authoritativePose;
+            return committedTargetPose;
         }
 
         private float ResolveMotionDurationSeconds(TickEntityMotionKind motionKind)
@@ -466,14 +467,14 @@ namespace Game.Feature.Gameplay.Host
                 _clips.Add(clip);
             }
 
-            public void AlignToAuthoritativePose(GameplayEntityPose authoritativePose)
+            public void AlignToCommittedTargetPose(GameplayEntityPose committedTargetPose)
             {
                 if (_clips.Count == 0)
                 {
                     return;
                 }
 
-                var positionDelta = authoritativePose.Position - TailEndPose.Position;
+                var positionDelta = committedTargetPose.Position - TailEndPose.Position;
                 if (positionDelta.sqrMagnitude > 0f)
                 {
                     for (var i = 0; i < _clips.Count; i++)
@@ -482,7 +483,7 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                _clips[_clips.Count - 1].SetEndPose(authoritativePose);
+                _clips[_clips.Count - 1].SetEndPose(committedTargetPose);
             }
 
             public GameplayEntityPose SampleAndAdvance(float deltaTime, GameplayEntityPose fallbackPose)

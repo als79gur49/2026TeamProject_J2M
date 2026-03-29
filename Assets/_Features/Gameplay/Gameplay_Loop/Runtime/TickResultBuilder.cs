@@ -81,6 +81,7 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot finalSnapshot,
             MovementPhaseResult movementPhaseResult)
         {
+            // Motion clips are derived from the committed final snapshot. Gameplay has already advanced to these cells.
             var entityMotions = new List<TickEntityMotion>();
 
             for (var groupIndex = 0; groupIndex < movementPhaseResult.SelectedGroups.Count; groupIndex++)

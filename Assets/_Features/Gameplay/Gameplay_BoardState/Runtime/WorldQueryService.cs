@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class WorldQueryService
     {
+        // Service wrappers preserve authoritative snapshot semantics; callers must not substitute render positions.
         public static bool TryGetEntityAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,
