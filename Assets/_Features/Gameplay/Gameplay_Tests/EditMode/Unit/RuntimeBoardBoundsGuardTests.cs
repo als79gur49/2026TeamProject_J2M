@@ -339,6 +339,156 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        GridOrigin = Vector3.zero,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                            CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                    });
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
+
+                var snapshot = host.WorldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 2, 0), out var pushedBox), Is.True);
+                Assert.That(pushedBox.entityId, Is.EqualTo(20));
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+                Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
+
+                var renderedPosition = GetViewPosition(host, 20);
+                Assert.That(renderedPosition.x, Is.GreaterThan(1f));
+                Assert.That(renderedPosition.x, Is.LessThan(2f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        GridOrigin = Vector3.zero,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                            CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                            CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 2, 0), facing: Direction.Left),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                    });
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.BufferPush();
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
+
+                var snapshot = host.WorldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 2, 0), out var pushedBox), Is.True);
+                Assert.That(pushedBox.entityId, Is.EqualTo(20));
+                Assert.That(snapshot.TryGetProjectileAt(new SurfaceCell(FaceId.Floor, 2, 0), out var projectile), Is.True);
+                Assert.That(projectile.entityId, Is.EqualTo(30));
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+                Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
+
+                var renderedPosition = GetViewPosition(host, 20);
+                Assert.That(renderedPosition.x, Is.GreaterThan(1f));
+                Assert.That(renderedPosition.x, Is.LessThan(2f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_FlipMotion_KeepsWorldQueriesOnCommittedLandingCellWhileViewInterpolates()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_FlipMotion_KeepsWorldQueriesOnCommittedLandingCellWhileViewInterpolates");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        GridOrigin = Vector3.zero,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                            CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, -1, 0), facing: Direction.Left),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                    });
+
+                host.InputHost.SetRawMoveInput(Vector2.left);
+                host.InputHost.BufferFlip();
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds * 0.5f);
+
+                var snapshot = host.WorldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out var flippedBox), Is.True);
+                Assert.That(flippedBox.entityId, Is.EqualTo(20));
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, -1, 0), out _), Is.False);
+                Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
+
+                var renderedPosition = GetViewPosition(host, 20);
+                Assert.That(renderedPosition.x, Is.GreaterThan(-1f));
+                Assert.That(renderedPosition.x, Is.Not.EqualTo(1f).Within(0.01f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_PushMotion_MidpointInterpolatesBetweenSourceAndDestination()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PushMotion_MidpointInterpolatesBetweenSourceAndDestination");
@@ -761,6 +911,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = EntityPhaseState.Idle,
                 facing = facing,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+            };
+        }
+
+        private static EntityState CreateSurfaceProjectile(int entityId, SurfaceCell position, Direction facing)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 1,
+                type = EntityType.Projectile,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 
