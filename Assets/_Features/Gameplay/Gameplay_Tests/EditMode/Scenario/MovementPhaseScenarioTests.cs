@@ -248,6 +248,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var secondTick = pipeline.RunTick(new TickInput(13));
+            var laterIdleTicks = RunTicks(pipeline, startTickIndex: 14, endTickIndex: 24);
             var thirdTick = pipeline.RunTick(new TickInput(25));
             var snapshotAfter = CreateSnapshot(worldState);
 
@@ -275,6 +276,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "MoveCommitted|G=1|I=1|E=30|To=(3,0)|Facing=Right",
                 },
                 secondTick.MovementPhaseResult.CommitEvents);
+            Assert.That(laterIdleTicks.All(result => result.MovementPhaseResult.CommitEvents.Count == 0), Is.True);
             CollectionAssert.AreEqual(
                 new[]
                 {
