@@ -228,7 +228,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void EnsurePlacementIsLegal(EntityState entity, SurfaceCell cell, int ignoredEntityId)
         {
-            if (!WorldQueryService.TryGetAuthoritativePlacementBlocker(
+            if (!WorldPlacementPolicy.TryGetAuthoritativePlacementBlocker(
                     _entitiesById,
                     _unitOccupancy,
                     _projectileOccupancy,

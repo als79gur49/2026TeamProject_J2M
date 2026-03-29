@@ -61,17 +61,17 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool IsInsideBoard(SurfaceCell cell)
         {
-            return WorldQueryService.IsInsideBoard(_boardBounds, cell);
+            return _boardBounds.Contains(cell.PlanarPosition);
         }
 
         public bool IsInsideBoard(Vector2Int cell)
         {
-            return WorldQueryService.IsInsideBoard(_boardBounds, cell);
+            return _boardBounds.Contains(cell);
         }
 
         public bool IsTerrainBlockedForUnit(SurfaceCell cell)
         {
-            return WorldQueryService.IsTerrainBlockedForUnit(_topology, _terrainData, cell);
+            return SnapshotReadQueries.IsTerrainBlockedForUnit(_topology, _terrainData, cell);
         }
 
         public bool IsTerrainBlockedForUnit(Vector2Int cell)
@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool IsBlockedForUnit(SurfaceCell cell)
         {
-            return WorldQueryService.IsBlockedForUnit(_entitiesById, _unitOccupancy, _topology, _boardBounds, _terrainData, cell);
+            return WorldPlacementPolicy.IsBlockedForUnit(_entitiesById, _unitOccupancy, _topology, _boardBounds, _terrainData, cell);
         }
 
         public bool IsBlockedForUnit(Vector2Int cell)
@@ -105,7 +105,7 @@ namespace Game.Feature.Gameplay.BoardState
             int ignoredEntityId,
             out SlideStopper blocker)
         {
-            return WorldQueryService.TryGetGameplayPlacementBlocker(
+            return WorldPlacementPolicy.TryGetGameplayPlacementBlocker(
                 _entitiesById,
                 _unitOccupancy,
                 _projectileOccupancy,
@@ -134,7 +134,7 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            return WorldQueryService.TryResolvePlayerStep(
+            return SurfaceTraversalQueries.TryResolvePlayerStep(
                 _topology,
                 _boardBounds,
                 origin,
@@ -151,7 +151,7 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            return WorldQueryService.TryResolvePlayerStep(
+            return SurfaceTraversalQueries.TryResolvePlayerStep(
                 _topology,
                 _boardBounds,
                 origin,
@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.BoardState
             out SurfaceCell targetCell,
             out SurfaceCell landingCell)
         {
-            return WorldQueryService.TryResolveLocalFlipCells(
+            return SurfaceTraversalQueries.TryResolveLocalFlipCells(
                 _topology,
                 _boardBounds,
                 actorCell,
@@ -192,7 +192,7 @@ namespace Game.Feature.Gameplay.BoardState
             out SurfaceCell destination,
             out SlideStopper stopper)
         {
-            return WorldQueryService.TryResolveNextSurfaceBoxSlideStep(
+            return SurfaceSlideQueries.TryResolveNextSurfaceBoxSlideStep(
                 _entitiesById,
                 _unitOccupancy,
                 topology,
@@ -206,17 +206,17 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool BlocksMovement(int entityId)
         {
-            return WorldQueryService.BlocksMovement(_entitiesById, _topology, entityId);
+            return SnapshotReadQueries.BlocksMovement(_entitiesById, _topology, entityId);
         }
 
         public bool CanBeTargetedForNewSelection(int entityId)
         {
-            return WorldQueryService.CanBeTargetedForNewSelection(_entitiesById, _topology, entityId);
+            return SnapshotReadQueries.CanBeTargetedForNewSelection(_entitiesById, _topology, entityId);
         }
 
         public void EnumerateEntitiesOrdered(List<EntityState> buffer)
         {
-            WorldQueryService.EnumerateEntitiesOrdered(_entitiesById, buffer);
+            SnapshotReadQueries.EnumerateEntitiesOrdered(_entitiesById, buffer);
         }
 
         internal bool TryGetUnitBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -229,7 +229,7 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell,
             out SlideStopper blocker)
         {
-            return WorldQueryService.TryGetUnitBlocker(
+            return WorldPlacementPolicy.TryGetUnitBlocker(
                 _entitiesById,
                 _unitOccupancy,
                 topology,
@@ -246,43 +246,27 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void EnumerateTerrainBlockedCellsOrdered(List<Vector2Int> buffer)
         {
-            WorldQueryService.EnumerateTerrainBlockedCellsOrdered(_terrainData, buffer);
+            SnapshotReadQueries.EnumerateTerrainBlockedCellsOrdered(_terrainData, buffer);
         }
 
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
-            WorldQueryService.EnumerateOccupancyOrdered(_entitiesById, _unitOccupancy, _topology, buffer);
+            SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _unitOccupancy, _topology, buffer);
         }
 
         internal void EnumerateProjectileOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
-            WorldQueryService.EnumerateOccupancyOrdered(_entitiesById, _projectileOccupancy, _topology, buffer);
+            SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _projectileOccupancy, _topology, buffer);
         }
 
         internal bool TryGetUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
-            return WorldQueryService.TryGetEntityAt(_entitiesById, _unitOccupancy, topology, cell, out entity);
+            return SnapshotReadQueries.TryGetEntityAt(_entitiesById, _unitOccupancy, topology, cell, out entity);
         }
 
         internal bool TryGetProjectileAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
-            return WorldQueryService.TryGetEntityAt(_entitiesById, _projectileOccupancy, topology, cell, out entity);
-        }
-
-        internal bool TryGetNextSurfaceBoxSlideCell(
-            CubeTopologyState topology,
-            SurfaceCell current,
-            Vector2Int delta,
-            out SurfaceCell next,
-            out SlideStopper stopper)
-        {
-            return WorldQueryService.TryGetNextSurfaceBoxSlideCell(
-                topology,
-                _boardBounds,
-                current,
-                delta,
-                out next,
-                out stopper);
+            return SnapshotReadQueries.TryGetEntityAt(_entitiesById, _projectileOccupancy, topology, cell, out entity);
         }
 
         private SurfaceCell CreateDefaultQueryCell(Vector2Int cell)
