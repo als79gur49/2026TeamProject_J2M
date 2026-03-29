@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Loop
             float initialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds,
             float boxSlideStepIntervalSeconds,
+            float projectileStepIntervalSeconds,
             float pushMotionDurationSeconds,
             float flipMotionDurationSeconds,
             float flipArcHeightInCells,
@@ -46,6 +47,13 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentOutOfRangeException(
                     nameof(boxSlideStepIntervalSeconds),
                     "Box slide step interval must be greater than zero.");
+            }
+
+            if (projectileStepIntervalSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(projectileStepIntervalSeconds),
+                    "Projectile step interval must be greater than zero.");
             }
 
             if (pushMotionDurationSeconds <= 0f)
@@ -81,6 +89,7 @@ namespace Game.Feature.Gameplay.Loop
             InitialMoveDelaySeconds = initialMoveDelaySeconds;
             RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
+            ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
             FlipArcHeightInCells = flipArcHeightInCells;
@@ -88,6 +97,7 @@ namespace Game.Feature.Gameplay.Loop
             InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
             RepeatedMoveIntervalTicks = SecondsToTicks(repeatedMoveIntervalSeconds, simulationTicksPerSecond);
             BoxSlideStepIntervalTicks = SecondsToTicks(boxSlideStepIntervalSeconds, simulationTicksPerSecond);
+            ProjectileStepIntervalTicks = SecondsToTicks(projectileStepIntervalSeconds, simulationTicksPerSecond);
         }
 
         public int SimulationTicksPerSecond { get; }
@@ -99,6 +109,8 @@ namespace Game.Feature.Gameplay.Loop
         public float RepeatedMoveIntervalSeconds { get; }
 
         public float BoxSlideStepIntervalSeconds { get; }
+
+        public float ProjectileStepIntervalSeconds { get; }
 
         public float PushMotionDurationSeconds { get; }
 
@@ -113,6 +125,8 @@ namespace Game.Feature.Gameplay.Loop
         public int RepeatedMoveIntervalTicks { get; }
 
         public int BoxSlideStepIntervalTicks { get; }
+
+        public int ProjectileStepIntervalTicks { get; }
 
         public static GameplayTimingProfile CreateDefault()
         {
@@ -158,6 +172,7 @@ namespace Game.Feature.Gameplay.Loop
                 simulationTicksPerSecond,
                 initialMoveDelayTicks * legacyTickIntervalSeconds,
                 repeatedMoveIntervalTicks * legacyTickIntervalSeconds,
+                legacyTickIntervalSeconds,
                 legacyTickIntervalSeconds,
                 legacyTickIntervalSeconds,
                 legacyTickIntervalSeconds,

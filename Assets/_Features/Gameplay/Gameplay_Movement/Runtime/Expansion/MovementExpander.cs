@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 {
     internal sealed class MovementExpander
     {
+        private readonly int _projectileStateTimerTicks;
         private readonly int _slidingStateTimerTicks;
 
         public MovementExpander()
@@ -21,8 +22,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
         public MovementExpander(GameplayTimingProfile timingProfile)
         {
-            _slidingStateTimerTicks = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)))
-                .BoxSlideStepIntervalTicks;
+            var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _projectileStateTimerTicks = resolvedTimingProfile.ProjectileStepIntervalTicks;
+            _slidingStateTimerTicks = resolvedTimingProfile.BoxSlideStepIntervalTicks;
         }
 
         public void Expand(
@@ -223,7 +225,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             buffer.Add(actionGroup);
         }
 
-        private static void ExpandProjectileMove(
+        private void ExpandProjectileMove(
             WorldSnapshot snapshot,
             EntityState entity,
             MoveIntent intent,
@@ -267,6 +269,11 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.Move);
+            actionGroup.StateChanges.Add(
+                new StateChangeAction(
+                    entity.entityId,
+                    entity.state,
+                    _projectileStateTimerTicks));
             actionGroup.Moves.Add(
                 new MoveAction(
                     intent.SourceId,

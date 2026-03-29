@@ -50,6 +50,11 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (source.stateTimer > 0)
+            {
+                return;
+            }
+
             var delta = ResolveDelta(source.facing);
             if (!delta.HasValue)
             {

@@ -29,6 +29,7 @@ namespace Game.Feature.Gameplay.Host
         public float FlipMotionDurationSeconds = -1f;
         public float FlipArcHeightInCells = GameplayTimingProfile.DefaultFlipArcHeightInCells;
         public float BoxSlideStepIntervalSeconds = -1f;
+        public float ProjectileStepIntervalSeconds = -1f;
         public float RepeatedMoveIntervalSeconds = -1f;
         public int RepeatedMoveIntervalTicks = 2;
         public int SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
@@ -47,6 +48,7 @@ namespace Game.Feature.Gameplay.Host
                 ResolveInitialMoveDelaySeconds(legacyTickIntervalSeconds),
                 ResolveRepeatedMoveIntervalSeconds(legacyTickIntervalSeconds),
                 ResolveBoxSlideStepIntervalSeconds(legacyTickIntervalSeconds),
+                ResolveProjectileStepIntervalSeconds(legacyTickIntervalSeconds),
                 ResolvePushMotionDurationSeconds(legacyTickIntervalSeconds),
                 ResolveFlipMotionDurationSeconds(legacyTickIntervalSeconds),
                 FlipArcHeightInCells > 0f
@@ -75,6 +77,13 @@ namespace Game.Feature.Gameplay.Host
         {
             return BoxSlideStepIntervalSeconds > 0f
                 ? BoxSlideStepIntervalSeconds
+                : legacyTickIntervalSeconds;
+        }
+
+        private float ResolveProjectileStepIntervalSeconds(float legacyTickIntervalSeconds)
+        {
+            return ProjectileStepIntervalSeconds > 0f
+                ? ProjectileStepIntervalSeconds
                 : legacyTickIntervalSeconds;
         }
 

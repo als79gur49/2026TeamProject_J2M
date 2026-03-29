@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly MovementResolver _movementResolver = new();
         private readonly AttackIntentCollector _attackIntentCollector = new();
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
-        private readonly AttackExpander _attackExpander = new();
+        private readonly AttackExpander _attackExpander;
         private readonly AttackResolver _attackResolver = new();
         private readonly MovementCommitter _movementCommitter = new();
         private readonly AttackCommitter _attackCommitter = new();
@@ -43,7 +43,9 @@ namespace Game.Feature.Gameplay.Loop
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
+        private readonly int _projectileStepIntervalTicks;
         private readonly WorldState _worldState;
+        private bool _hasInitializedProjectileCadence;
 
         public TickPipeline(
             WorldState worldState,
@@ -73,12 +75,15 @@ namespace Game.Feature.Gameplay.Loop
             _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
-            _movementExpander = new MovementExpander(
-                timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)));
+            var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _projectileStepIntervalTicks = resolvedTimingProfile.ProjectileStepIntervalTicks;
+            _movementExpander = new MovementExpander(resolvedTimingProfile);
+            _attackExpander = new AttackExpander(resolvedTimingProfile);
         }
 
         public TickResult RunTick(in TickInput input)
         {
+            InitializeProjectileCadenceForSessionStart();
             _idAllocator.ResetForTick(input.TickIndex);
 
             var completedPhases = new List<TickPhase>(3);
@@ -151,6 +156,42 @@ namespace Game.Feature.Gameplay.Loop
                 tickResultData.PresentationData,
                 determinismHash,
                 tickTrace);
+        }
+
+        private void InitializeProjectileCadenceForSessionStart()
+        {
+            if (_hasInitializedProjectileCadence)
+            {
+                return;
+            }
+
+            _hasInitializedProjectileCadence = true;
+
+            var snapshot = SnapshotBuilder.Create(_worldState);
+            var orderedEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            if (orderedEntities.Count == 0)
+            {
+                return;
+            }
+
+            var writeContext = _worldState.CreateWriteContext();
+
+            for (var i = 0; i < orderedEntities.Count; i++)
+            {
+                var entity = orderedEntities[i];
+                if (entity.type != EntityType.Projectile ||
+                    entity.spawnTick != 0 ||
+                    entity.stateTimer > 0 ||
+                    entity.hp <= 0 ||
+                    entity.markedForDeath)
+                {
+                    continue;
+                }
+
+                writeContext.ApplyStateChange(entity.entityId, entity.state, _projectileStepIntervalTicks);
+            }
         }
 
         private MovementPhaseResult RunMovementPhase(

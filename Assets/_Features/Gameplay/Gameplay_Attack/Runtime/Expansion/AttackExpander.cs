@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using UnityEngine;
@@ -12,6 +13,18 @@ namespace Game.Feature.Gameplay.Attack.Expansion
     {
         private const int StageThreeDamageAmount = 1;
         private const int SpawnedProjectileHp = 1;
+        private readonly int _projectileStateTimerTicks;
+
+        public AttackExpander()
+            : this(GameplayTimingProfile.CreateDefault())
+        {
+        }
+
+        public AttackExpander(GameplayTimingProfile timingProfile)
+        {
+            _projectileStateTimerTicks = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)))
+                .ProjectileStepIntervalTicks;
+        }
 
         public void Expand(
             WorldSnapshot snapshot,
@@ -223,7 +236,7 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             buffer.Add(actionGroup);
         }
 
-        private static void ExpandFireProjectile(
+        private void ExpandFireProjectile(
             WorldSnapshot snapshot,
             EntityState source,
             AttackIntent intent,
@@ -267,7 +280,7 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             buffer.Add(actionGroup);
         }
 
-        private static EntityState CreateProjectileTemplate(EntityState source, Vector2Int spawnPosition)
+        private EntityState CreateProjectileTemplate(EntityState source, Vector2Int spawnPosition)
         {
             return new EntityState
             {
@@ -278,7 +291,7 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 teamId = source.teamId,
                 type = EntityType.Projectile,
                 state = EntityPhaseState.Idle,
-                stateTimer = 0,
+                stateTimer = _projectileStateTimerTicks,
                 facing = source.facing,
                 markedForDeath = false,
                 spawnTick = 0,
