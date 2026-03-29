@@ -48,6 +48,33 @@ namespace Game.Feature.Gameplay.Loop
                 topology);
         }
 
+        public static WorldState CreateSessionStartWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            GameplayTimingProfile timingProfile)
+        {
+            return CreateSessionStartWorldState(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor),
+                timingProfile);
+        }
+
+        public static WorldState CreateSessionStartWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile)
+        {
+            var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(
+                initialEntities,
+                timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)));
+            return CreateWorldState(normalizedInitialEntities, boardBounds, terrainData, topology);
+        }
+
         public static TickPipeline CreateTickPipeline(WorldState worldState)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(worldState);
@@ -97,6 +124,44 @@ namespace Game.Feature.Gameplay.Loop
                 inputBuffer,
                 timingProfile,
                 startTickIndex);
+        }
+    }
+
+    internal static class SessionStartEntityNormalizer
+    {
+        public static List<EntityState> Normalize(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTimingProfile timingProfile)
+        {
+            if (initialEntities == null)
+            {
+                throw new ArgumentNullException(nameof(initialEntities));
+            }
+
+            if (timingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(timingProfile));
+            }
+
+            var normalizedEntities = new List<EntityState>();
+
+            foreach (var entity in initialEntities)
+            {
+                var normalizedEntity = entity;
+
+                if (normalizedEntity.type == EntityType.Projectile &&
+                    normalizedEntity.spawnTick == 0 &&
+                    normalizedEntity.stateTimer == 0 &&
+                    normalizedEntity.hp > 0 &&
+                    !normalizedEntity.markedForDeath)
+                {
+                    normalizedEntity.stateTimer = timingProfile.ProjectileStepIntervalTicks;
+                }
+
+                normalizedEntities.Add(normalizedEntity);
+            }
+
+            return normalizedEntities;
         }
     }
 }

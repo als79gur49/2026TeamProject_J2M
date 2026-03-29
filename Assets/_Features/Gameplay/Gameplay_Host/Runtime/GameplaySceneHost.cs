@@ -58,11 +58,15 @@ namespace Game.Feature.Gameplay.Host
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             TimingProfile = configuration.CreateTimingProfile();
 
-            WorldState = GameplayCompositionRoot.CreateWorldState(
+            WorldState = GameplayCompositionRoot.CreateSessionStartWorldState(
                 initialEntities,
                 configuration.InitialBoardBounds,
                 initialTerrain,
-                configuration.InitialTopology);
+                configuration.InitialTopology,
+                TimingProfile);
+            var initialSnapshot = SnapshotBuilder.Create(WorldState);
+            var presentedInitialEntities = new List<EntityState>();
+            initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
             InputBuffer = new TickInputBuffer();
             var staticEntityLogics = BuildStaticEntityLogics(configuration);
             TickRunner = GameplayCompositionRoot.CreateTickRunner(
@@ -89,7 +93,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.GridOrigin,
                 configuration.CellSize,
                 TimingProfile);
-            _presenter.PresentInitial(initialEntities, configuration.InitialTopology);
+            _presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
 
             _inputHost.Initialize(
                 InputBuffer,
