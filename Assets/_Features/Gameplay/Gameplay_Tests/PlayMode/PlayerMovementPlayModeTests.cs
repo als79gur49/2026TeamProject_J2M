@@ -41,6 +41,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
@@ -62,6 +63,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
@@ -86,6 +88,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
             Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
@@ -97,38 +100,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         [UnityTest]
         public IEnumerator PlayerMove_PlayMode_PushInputStartsSlidingBoxWithoutMovingPlayer()
         {
-            var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                     CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
-                },
-                actions: actions);
+                });
 
-            Press(_keyboard.dKey);
-            Press(_keyboard.eKey);
-            yield return null;
-
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.BufferPush();
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
             Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
 
-            Release(_keyboard.eKey);
-            Release(_keyboard.dKey);
-            yield return null;
-
-            host.InputHost.RunSingleTick();
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
-
-            host.InputHost.RunSingleTick();
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(3f, 0f, 0f)));
-
-            yield return DestroyHost(host, actions);
+            yield return DestroyHost(host);
         }
 
         [UnityTest]
@@ -144,6 +132,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.BufferPush();
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
             Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
@@ -165,6 +154,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.BufferFlip();
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
             Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
@@ -182,12 +172,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
+            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+
+            for (var i = 0; i < host.TimingProfile.RepeatedMoveIntervalTicks - 2; i++)
+            {
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(0f);
+            }
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
 
             host.InputHost.RunSingleTick();
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
-
-            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(2f, 0f, 0f)));
 
             yield return DestroyHost(host);
@@ -208,6 +207,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 });
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
 
             Assert.That(host.ViewRegistry.TryGetView(11, out var projectileView), Is.True);
             Assert.That(projectileView.gameObject.activeSelf, Is.True);
@@ -227,12 +227,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
 
             host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
             Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
 
             yield return DestroyHost(host);
@@ -257,15 +260,23 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     Actions = actions,
                     AutoAdvanceTicks = false,
                     AutoCreateViews = true,
+                    BoxSlideStepIntervalSeconds = 0.2f,
                     CellSize = 1f,
                     DirectionChangeConsumesDelay = false,
-                    GridOrigin = Vector3.zero,
+                    FlipArcHeightInCells = 0.65f,
+                    FlipMotionDurationSeconds = 0.2f,
+                    GridOrigin = new Vector3(-8f, -8f, 0f),
                     InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
+                    InitialMoveDelaySeconds = 0f,
                     InitialMoveDelayTicks = 0,
                     InitialEntities = initialEntities,
+                    MaxTicksPerFrame = 8,
                     MoveDeadzone = 0.5f,
                     PlayerEntityId = 10,
+                    PushMotionDurationSeconds = 0.2f,
+                    RepeatedMoveIntervalSeconds = 0.4f,
                     RepeatedMoveIntervalTicks = 2,
+                    SimulationTicksPerSecond = 60,
                     StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
                     TickIntervalSeconds = 0.2f,
                 });

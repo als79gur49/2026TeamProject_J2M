@@ -188,6 +188,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Cleanup_SlidingState_DoesNotAutoTransitionWhenTimerReachesZero()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(
+                    entityId: 10,
+                    position: new SurfaceCell(FaceId.Floor, 0, 0),
+                    hp: 3,
+                    state: EntityPhaseState.Sliding,
+                    stateTimer: 1,
+                    spawnTick: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(14));
+            var afterSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "TimerTicked|E=10|State=Sliding|From=1|To=0",
+                },
+                result.CleanupPhaseResult.TimerChanges);
+            Assert.That(result.CleanupPhaseResult.StateTransitions, Is.Empty);
+            Assert.That(GetEntityState(afterSnapshot, 10).stateTimer, Is.EqualTo(0));
+            Assert.That(GetEntityState(afterSnapshot, 10).state, Is.EqualTo(EntityPhaseState.Sliding));
+        }
+
+        [Test]
         public void Cleanup_SameInput_ProducesDeterministicResult()
         {
             var firstRun = RunDeterministicCleanupTick();
