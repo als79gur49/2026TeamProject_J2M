@@ -504,13 +504,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         public void Movement_PreExistingProjectileAt60Tps_PreservesRealTimeCadence()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
-            });
             var timingProfile = CreateTimingProfile(
                 simulationTicksPerSecond: 60,
                 projectileStepIntervalSeconds: 0.2f);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
+                },
+                timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
@@ -562,13 +564,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         public void Movement_PreExistingProjectileAt120Tps_PreservesSameRealTimeCadence()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
-            });
             var timingProfile = CreateTimingProfile(
                 simulationTicksPerSecond: 120,
                 projectileStepIntervalSeconds: 0.2f);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateProjectile(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 1, facing: Direction.Right),
+                },
+                timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
@@ -1196,6 +1200,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTimingProfile timingProfile)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, timingProfile);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)

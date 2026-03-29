@@ -14,14 +14,21 @@ namespace Game.Feature.Gameplay.Tests
 
         public static WorldState CreateBounded(IEnumerable<EntityState> initialEntities)
         {
-            return CreateBounded(initialEntities, DefaultBoardBounds, GameplayTerrainData.Empty);
+            return CreateBounded(initialEntities, DefaultBoardBounds, GameplayTerrainData.Empty, GameplayTimingProfile.CreateDefault());
         }
 
         public static WorldState CreateBounded(
             IEnumerable<EntityState> initialEntities,
             GameplayTerrainData terrainData)
         {
-            return CreateBounded(initialEntities, DefaultBoardBounds, terrainData);
+            return CreateBounded(initialEntities, DefaultBoardBounds, terrainData, GameplayTimingProfile.CreateDefault());
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTimingProfile timingProfile)
+        {
+            return CreateBounded(initialEntities, DefaultBoardBounds, GameplayTerrainData.Empty, timingProfile);
         }
 
         public static WorldState CreateBounded(
@@ -33,7 +40,22 @@ namespace Game.Feature.Gameplay.Tests
                 initialEntities,
                 boardBounds,
                 terrainData,
-                new CubeTopologyState(FaceId.Floor));
+                new CubeTopologyState(FaceId.Floor),
+                GameplayTimingProfile.CreateDefault());
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            GameplayTimingProfile timingProfile)
+        {
+            return CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor),
+                timingProfile);
         }
 
         public static WorldState CreateBounded(
@@ -42,11 +64,27 @@ namespace Game.Feature.Gameplay.Tests
             GameplayTerrainData terrainData,
             CubeTopologyState topology)
         {
-            return GameplayCompositionRoot.CreateWorldState(
+            return CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                topology,
+                GameplayTimingProfile.CreateDefault());
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology,
+            GameplayTimingProfile timingProfile)
+        {
+            return GameplayCompositionRoot.CreateSessionStartWorldState(
                 initialEntities,
                 boardBounds,
                 terrainData ?? GameplayTerrainData.Empty,
-                topology);
+                topology,
+                timingProfile ?? GameplayTimingProfile.CreateDefault());
         }
     }
 }

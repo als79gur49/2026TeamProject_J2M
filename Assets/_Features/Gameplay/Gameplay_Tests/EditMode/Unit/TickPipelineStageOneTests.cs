@@ -327,6 +327,75 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_NormalizesPreExistingProjectileCadence()
+        {
+            var timingProfile = new GameplayTimingProfile(
+                simulationTicksPerSecond: 120,
+                initialMoveDelaySeconds: 0f,
+                repeatedMoveIntervalSeconds: 0.4f,
+                boxSlideStepIntervalSeconds: 0.2f,
+                projectileStepIntervalSeconds: 0.2f,
+                pushMotionDurationSeconds: 0.2f,
+                flipMotionDurationSeconds: 0.2f,
+                flipArcHeightInCells: 0.65f,
+                maxTicksPerFrame: 8);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    new EntityState
+                    {
+                        entityId = 10,
+                        position = new Vector2Int(0, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 1,
+                        type = EntityType.Projectile,
+                        facing = Direction.Right,
+                    },
+                },
+                timingProfile);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(snapshot.TryGetProjectileAt(new Vector2Int(0, 0), out var projectile), Is.True);
+            Assert.That(projectile.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks));
+        }
+
+        [Test]
+        public void RunTick_UsesAuthoritativeProjectileStateTimerWithoutSessionStartMutation()
+        {
+            var worldState = GameplayCompositionRoot.CreateWorldState(
+                new[]
+                {
+                    new EntityState
+                    {
+                        entityId = 10,
+                        position = new Vector2Int(0, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 1,
+                        type = EntityType.Projectile,
+                        facing = Direction.Right,
+                    },
+                },
+                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                GameplayTimingProfile.CreateDefault());
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[] { (SourceId: 10, IntentId: 1, Destination: new Vector2Int(1, 0)) },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
+                    .ToArray());
+            Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+        }
+
+        [Test]
         public void WorldSnapshot_EnumeratesEntitiesInEntityIdOrder()
         {
             var worldState = CreateWorldState(new[]
@@ -1052,6 +1121,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTimingProfile timingProfile)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, timingProfile);
         }
 
         private static WorldState CreateWorldState(
