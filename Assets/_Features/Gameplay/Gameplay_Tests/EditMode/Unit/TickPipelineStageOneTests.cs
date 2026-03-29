@@ -884,6 +884,171 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 rejectedReasons);
         }
 
+        [Test]
+        public void TickPresentationDataBuilder_BuildsMoveMotionForUnitMove()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, sourceCell, Direction.Up),
+                }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, destinationCell, Direction.Right),
+                }).CreateSnapshot();
+            var actionGroup = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.Move);
+            actionGroup.AssignGroupId(1);
+            actionGroup.Moves.Add(new MoveAction(10, sourceCell, destinationCell, Direction.Right));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResult(actionGroup),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 10, Kind: TickEntityMotionKind.Move, Source: sourceCell, Destination: destinationCell),
+                },
+                presentationData.EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+        }
+
+        [Test]
+        public void TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(11, EntityType.Projectile, sourceCell, Direction.Right),
+                }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(11, EntityType.Projectile, destinationCell, Direction.Right),
+                }).CreateSnapshot();
+            var actionGroup = new ActionGroup(intentId: 1, sourceId: 11, priority: 5, ActionGroupKind.Move);
+            actionGroup.AssignGroupId(1);
+            actionGroup.Moves.Add(new MoveAction(11, sourceCell, destinationCell, Direction.Right));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResult(actionGroup),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 11, Kind: TickEntityMotionKind.ProjectileMove, Source: sourceCell, Destination: destinationCell),
+                },
+                presentationData.EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+        }
+
+        [Test]
+        public void TickPresentationDataBuilder_BuildsTopologyAndVisibilityPresentationRecords()
+        {
+            var initialTopology = new CubeTopologyState(FaceId.Floor);
+            var rotatedTopology = new CubeTopologyState(FaceId.Front);
+            var actorSourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var actorDestinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var itemCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var projectileCell = new SurfaceCell(FaceId.Front, 0, 1);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1));
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, actorSourceCell, Direction.Up),
+                    CreateEntity(20, EntityType.Box, itemCell, Direction.Up),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                initialTopology).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, actorDestinationCell, Direction.Up),
+                    CreateEntity(20, EntityType.Box, itemCell, Direction.Up, boardPresence: EntityBoardPresence.Detached, markedForDeath: true),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                rotatedTopology).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, actorDestinationCell, Direction.Up),
+                    CreateEntity(20, EntityType.Box, itemCell, Direction.Up, boardPresence: EntityBoardPresence.Detached, markedForDeath: true),
+                    CreateEntity(30, EntityType.Projectile, projectileCell, Direction.Up),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                rotatedTopology).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, actorDestinationCell, Direction.Up),
+                    CreateEntity(30, EntityType.Projectile, projectileCell, Direction.Up),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                rotatedTopology).CreateSnapshot();
+
+            var movementGroup = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.Item);
+            movementGroup.AssignGroupId(1);
+            movementGroup.Moves.Add(new MoveAction(10, actorSourceCell, actorDestinationCell, Direction.Up));
+            movementGroup.BoardPresenceChanges.Add(new BoardPresenceChangeAction(20, EntityBoardPresence.Detached));
+            movementGroup.TopologyChanges.Add(new TopologyChangeAction(CubeRotationKind.Forward, rotatedTopology));
+
+            var spawnedProjectile = CreateEntity(30, EntityType.Projectile, projectileCell, Direction.Up);
+            spawnedProjectile.spawnTick = 1;
+            var attackGroup = new ActionGroup(intentId: 2, sourceId: 10, priority: 5, ActionGroupKind.Attack);
+            attackGroup.AssignGroupId(2);
+            attackGroup.Spawns.Add(new SpawnAction(1, spawnedProjectile));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(movementGroup),
+                    CreateAttackPhaseResult(attackGroup),
+                    new CleanupPhaseResult(new[] { 20 }, Array.Empty<string>(), Array.Empty<string>())));
+
+            Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
+            Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
+            Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(initialTopology));
+            Assert.That(presentationData.TopologyMotion.Value.DestinationTopology, Is.EqualTo(rotatedTopology));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 20, Kind: TickVisibilityChangeKind.Detach),
+                    (EntityId: 30, Kind: TickVisibilityChangeKind.Spawn),
+                    (EntityId: 20, Kind: TickVisibilityChangeKind.Remove),
+                },
+                presentationData.VisibilityChanges
+                    .Select(change => (change.EntityId, change.ChangeKind))
+                    .ToArray());
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -895,6 +1060,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             GameplayTerrainData terrainData)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
         }
 
         private static WorldSnapshot CreateSnapshot(WorldState worldState)
@@ -962,6 +1136,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new MoveAction(sourceId, source, destination, Direction.Up));
             actionGroup.TopologyChanges.Add(new TopologyChangeAction(rotationKind, updatedTopology));
             return actionGroup;
+        }
+
+        private static MovementPhaseResult CreateMovementPhaseResult(params ActionGroup[] selectedGroups)
+        {
+            return new MovementPhaseResult(
+                Array.Empty<RawMovementIntent>(),
+                Array.Empty<MoveIntent>(),
+                selectedGroups,
+                selectedGroups,
+                Array.Empty<string>(),
+                Array.Empty<string>());
+        }
+
+        private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)
+        {
+            return new AttackPhaseResult(
+                Array.Empty<RawAttackIntent>(),
+                Array.Empty<ImpactReservation>(),
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<AttackIntent>(),
+                selectedGroups,
+                selectedGroups,
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                Array.Empty<string>());
+        }
+
+        private static EntityState CreateEntity(
+            int entityId,
+            EntityType entityType,
+            SurfaceCell position,
+            Direction facing,
+            EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
+            bool markedForDeath = false)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 1,
+                type = entityType,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+                boardPresence = boardPresence,
+                markedForDeath = markedForDeath,
+            };
         }
 
         private sealed class StubEntityLogic : IEntityLogic, IEntityLogicSourceBinding

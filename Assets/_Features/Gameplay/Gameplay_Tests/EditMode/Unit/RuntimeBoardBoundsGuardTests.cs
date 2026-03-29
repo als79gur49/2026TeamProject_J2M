@@ -298,9 +298,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplaySceneHost_SynchronizesCameraTargetWithPresentedTopology()
+        public void GameplayTickViewPresenter_TopologyMotion_MidpointInterpolatesContinuityAnchor()
         {
-            var hostObject = new GameObject("GameplaySceneHost_SynchronizesCameraTargetWithPresentedTopology");
+            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_MidpointInterpolatesContinuityAnchor");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var rotatedTopology = new CubeTopologyState(FaceId.Front);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    initialTopology,
+                    Vector3.zero,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    },
+                    initialTopology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                        },
+                        rotatedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>())));
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+
+                Assert.That(presenter.ContinuityAnchor.y, Is.GreaterThan(0f));
+                Assert.That(presenter.ContinuityAnchor.y, Is.LessThan(2f));
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                Assert.That(view.transform.position.y, Is.GreaterThan(0f));
+                Assert.That(view.transform.position.y, Is.LessThan(2f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_InterpolatesCameraTargetWithPresentedTopologyMotion()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_InterpolatesCameraTargetWithPresentedTopologyMotion");
 
             try
             {
@@ -327,10 +389,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 host.InputHost.SetRawMoveInput(Vector2.up);
                 host.InputHost.RunSingleTick();
-                host.Presenter.UpdatePresentation(0f);
+                host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
+
+                Assert.That(host.ViewCameraTarget.position.y, Is.GreaterThan(initialTarget.y));
+                Assert.That(host.ViewCameraTarget.position.y, Is.LessThan(initialTarget.y + 2f));
+
+                host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
 
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(initialTarget + new Vector3(0f, 2f, 0f)));
                 Assert.That(GetViewPosition(host, 10), Is.EqualTo(new Vector3(0f, 2f, 0f)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        GridOrigin = Vector3.zero,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                    });
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.RunSingleTick();
+                host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
+
+                var snapshot = host.WorldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out var movedUnit), Is.True);
+                Assert.That(movedUnit.entityId, Is.EqualTo(10));
+                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
+
+                var renderedPosition = GetViewPosition(host, 10);
+                Assert.That(renderedPosition.x, Is.GreaterThan(0f));
+                Assert.That(renderedPosition.x, Is.LessThan(1f));
             }
             finally
             {
@@ -485,6 +598,279 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_MoveMotion_MidpointInterpolatesBetweenSourceAndDestination()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_MoveMotion_MidpointInterpolatesBetweenSourceAndDestination");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    Vector3.zero,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(
+                                    10,
+                                    TickEntityMotionKind.Move,
+                                    new SurfaceCell(FaceId.Floor, 0, 0),
+                                    new SurfaceCell(FaceId.Floor, 1, 0)),
+                            })));
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(10, out var view), Is.True);
+                Assert.That(view.transform.position.x, Is.GreaterThan(0f));
+                Assert.That(view.transform.position.x, Is.LessThan(1f));
+                Assert.That(view.transform.position.y, Is.EqualTo(0f).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_ProjectileMoveMotion_MidpointInterpolatesBetweenSourceAndDestination()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_ProjectileMoveMotion_MidpointInterpolatesBetweenSourceAndDestination");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    Vector3.zero,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(
+                                    30,
+                                    TickEntityMotionKind.ProjectileMove,
+                                    new SurfaceCell(FaceId.Floor, 0, 0),
+                                    new SurfaceCell(FaceId.Floor, 1, 0)),
+                            })));
+                presenter.UpdatePresentation(timingProfile.ProjectileStepIntervalSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(30, out var view), Is.True);
+                Assert.That(view.transform.position.x, Is.GreaterThan(0f));
+                Assert.That(view.transform.position.x, Is.LessThan(1f));
+                Assert.That(view.transform.position.y, Is.EqualTo(0f).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_DetachVisibility_KeepsTargetVisibleUntilTrackCompletes()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_DetachVisibility_KeepsTargetVisibleUntilTrackCompletes");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    Vector3.zero,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                        CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Up),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(
+                                    10,
+                                    TickEntityMotionKind.Move,
+                                    new SurfaceCell(FaceId.Floor, 0, 0),
+                                    new SurfaceCell(FaceId.Floor, 1, 0)),
+                            },
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(
+                                    20,
+                                    TickVisibilityChangeKind.Detach,
+                                    new SurfaceCell(FaceId.Floor, 1, 0),
+                                    topology,
+                                    Direction.Up),
+                            })));
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(20, out var detachedView), Is.True);
+                Assert.That(detachedView.gameObject.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+                Assert.That(detachedView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_RemoveVisibility_KeepsTargetVisibleUntilTrackCompletes()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_RemoveVisibility_KeepsTargetVisibleUntilTrackCompletes");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    Vector3.zero,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(
+                                    30,
+                                    TickVisibilityChangeKind.Remove,
+                                    new SurfaceCell(FaceId.Floor, 1, 0),
+                                    topology,
+                                    Direction.Right),
+                            })));
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(30, out var removedView), Is.True);
+                Assert.That(removedView.gameObject.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+                Assert.That(removedView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
