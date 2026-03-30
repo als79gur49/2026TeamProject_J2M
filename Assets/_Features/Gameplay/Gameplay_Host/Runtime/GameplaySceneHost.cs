@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayTickViewPresenter _presenter;
         private GameplayEntityViewBinder _viewBinder;
         private GameplayEntityViewRegistry _viewRegistry;
+        private GameplayCameraRig _viewCameraRig;
         private Camera _viewCamera;
         private Transform _viewCameraTarget;
         private bool _snapViewCameraToTarget;
@@ -90,15 +91,15 @@ namespace Game.Feature.Gameplay.Host
             _viewBinder = new GameplayEntityViewBinder(_viewRegistry, viewFactory);
             ConfigureViewCamera(configuration);
             EnsureViewCameraTarget();
-            _presenter.StripCenterChanged -= HandleStripCenterChanged;
-            _presenter.StripCenterChanged += HandleStripCenterChanged;
             _presenter.Initialize(
                 _viewBinder,
                 configuration.InitialBoardBounds,
                 configuration.InitialTopology,
                 configuration.GridOrigin,
                 configuration.CellSize,
-                TimingProfile);
+                TimingProfile,
+                _boardRoot);
+            ConfigureViewCameraRig();
             _presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
 
             _inputHost.Initialize(
@@ -169,22 +170,21 @@ namespace Game.Feature.Gameplay.Host
             _viewCameraTarget = _boardRoot != null ? _boardRoot.CameraTargetRoot : null;
         }
 
-        private void HandleStripCenterChanged(Vector3 localStripCenter)
+        private void ConfigureViewCameraRig()
         {
-            if (_viewCameraTarget != null)
+            if (!_snapViewCameraToTarget || _viewCamera == null || _viewCameraTarget == null)
             {
-                _viewCameraTarget.localPosition = localStripCenter;
-                _viewCameraTarget.localRotation = Quaternion.identity;
+                if (_viewCameraRig != null)
+                {
+                    _viewCameraRig.enabled = false;
+                }
+
+                return;
             }
 
-            if (_snapViewCameraToTarget && _viewCamera != null)
-            {
-                var cameraPosition = _viewCameraTarget != null
-                    ? _viewCameraTarget.position
-                    : localStripCenter;
-                cameraPosition.z = _viewCamera.transform.position.z;
-                _viewCamera.transform.position = cameraPosition;
-            }
+            _viewCameraRig = GetComponent<GameplayCameraRig>() ?? gameObject.AddComponent<GameplayCameraRig>();
+            _viewCameraRig.enabled = true;
+            _viewCameraRig.Initialize(_viewCamera, _viewCameraTarget, _presenter.VisibleCubeBounds);
         }
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(GameplaySceneHostConfiguration configuration)

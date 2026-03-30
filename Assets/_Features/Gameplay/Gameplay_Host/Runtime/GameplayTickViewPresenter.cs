@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
-        private readonly AnchorTrack _topologyTrack = new();
+        private readonly RotationTrack _boardRotationTrack = new();
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
@@ -21,23 +21,29 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
 
-        private Vector3 _committedContinuityAnchor;
+        private GameplayBoardRoot _boardRoot;
         private CubeTopologyState _committedTopology;
         private bool _hasAnyCommittedFrame;
-        private bool _hasPresentedFrame;
         private bool _isInitialized;
-        private Vector3 _presentedContinuityAnchor;
+        private Quaternion _presentedBoardRotation = Quaternion.identity;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
 
-        public event Action<Vector3> StripCenterChanged;
-
-        public Vector3 ActiveStripCenter { get; private set; }
-
-        public Vector3 ContinuityAnchor => _presentedContinuityAnchor;
-
         public CubeTopologyState CurrentTopology => _committedTopology;
+
+        public Quaternion PresentedBoardRotation => _presentedBoardRotation;
+
+        public Vector3 CubeCenter => _projector != null ? _projector.GetCubeCenter() : Vector3.zero;
+
+        public Bounds VisibleCubeBounds
+        {
+            get
+            {
+                EnsureInitialized();
+                return _projector.GetVisibleCubeBounds(_committedTopology);
+            }
+        }
 
         public void Initialize(
             GameplayEntityViewBinder viewBinder,
@@ -45,21 +51,20 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState initialTopology,
             Vector3 gridOrigin,
             float cellSize,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            GameplayBoardRoot boardRoot = null)
         {
             if (viewBinder == null)
             {
                 throw new ArgumentNullException(nameof(viewBinder));
             }
 
+            _boardRoot = boardRoot;
             _viewBinder = viewBinder;
             _projector = new GameplayCubeProjector(boardBounds, gridOrigin, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _committedTopology = initialTopology;
-            _committedContinuityAnchor = Vector3.zero;
-            _presentedContinuityAnchor = Vector3.zero;
-            ActiveStripCenter = _projector.GetCubeCenter();
-            _hasPresentedFrame = false;
+            _presentedBoardRotation = Quaternion.identity;
             _hasAnyCommittedFrame = false;
             _committedLocalTargetPoses.Clear();
             _entityTypesByEntityId.Clear();
@@ -67,7 +72,8 @@ namespace Game.Feature.Gameplay.Host
             _localMotionTracks.Clear();
             _visibilityTracks.Clear();
             _viewsByEntityId.Clear();
-            _topologyTrack.Clear();
+            _boardRotationTrack.Clear();
+            ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
             _isInitialized = true;
         }
 
@@ -84,7 +90,7 @@ namespace Game.Feature.Gameplay.Host
             var previousCommittedTopology = _committedTopology;
 
             // WorldState remains authoritative; presentation tracks only delay what is rendered.
-            StoreCommittedFrame(result.FinalEntities, result.FinalTopology, updateContinuity: true);
+            StoreCommittedFrame(result.FinalEntities, result.FinalTopology);
             RefreshTopologyTrack(result.PresentationData);
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
@@ -102,12 +108,11 @@ namespace Game.Feature.Gameplay.Host
             _visibilityTracks.Clear();
             _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
-            _topologyTrack.Clear();
-            _committedContinuityAnchor = Vector3.zero;
-            _presentedContinuityAnchor = Vector3.zero;
+            _boardRotationTrack.Clear();
             _committedTopology = topology;
-            StoreCommittedFrame(entities, topology, updateContinuity: false);
-            ApplyPresentedContinuityAnchor(_committedContinuityAnchor, forceNotify: true);
+            _presentedBoardRotation = Quaternion.identity;
+            StoreCommittedFrame(entities, topology);
+            ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
             UpdatePresentation(0f);
         }
 
@@ -125,10 +130,10 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var presentedContinuityAnchor = _topologyTrack.HasClips
-                ? _topologyTrack.SampleAndAdvance(deltaTime, _committedContinuityAnchor)
-                : _committedContinuityAnchor;
-            ApplyPresentedContinuityAnchor(presentedContinuityAnchor);
+            var presentedBoardRotation = _boardRotationTrack.HasClips
+                ? _boardRotationTrack.SampleAndAdvance(deltaTime, Quaternion.identity)
+                : Quaternion.identity;
+            ApplyPresentedBoardRotation(presentedBoardRotation);
 
             _completedMotionTrackIds.Clear();
             _completedVisibilityTrackIds.Clear();
@@ -173,7 +178,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 view.SetVisible(true);
-                view.ApplyLocalPose(localPose.Position + _presentedContinuityAnchor, localPose.Rotation);
+                view.ApplyLocalPose(localPose.Position, localPose.Rotation);
                 _visibleEntityIds.Add(entityId);
             }
 
@@ -211,17 +216,10 @@ namespace Game.Feature.Gameplay.Host
 
         private void StoreCommittedFrame(
             IReadOnlyList<EntityState> entities,
-            CubeTopologyState topology,
-            bool updateContinuity)
+            CubeTopologyState topology)
         {
-            if (updateContinuity && _hasPresentedFrame)
-            {
-                _committedContinuityAnchor = Vector3.zero;
-            }
-
             _committedTopology = topology;
             StoreCommittedEntityTargets(entities, topology);
-            _hasPresentedFrame = true;
             _hasAnyCommittedFrame = true;
         }
 
@@ -258,8 +256,23 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(presentationData));
             }
 
-            _topologyTrack.Clear();
-            ApplyPresentedContinuityAnchor(_committedContinuityAnchor);
+            _boardRotationTrack.Clear();
+
+            if (!presentationData.TopologyMotion.HasValue ||
+                presentationData.TopologyMotion.Value.RotationKind == CubeRotationKind.None)
+            {
+                ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
+                return;
+            }
+
+            var topologyMotion = presentationData.TopologyMotion.Value;
+            var startRotation = _presentedBoardRotation * ResolveTopologyRotationOffset(topologyMotion.RotationKind);
+            _boardRotationTrack.Append(
+                RotationClip.Create(
+                    startRotation,
+                    Quaternion.identity,
+                    ResolveTopologyMotionDurationSeconds(topologyMotion)));
+            ApplyPresentedBoardRotation(startRotation, forceApply: true);
         }
 
         private void RefreshMotionClips(
@@ -554,17 +567,26 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void ApplyPresentedContinuityAnchor(Vector3 continuityAnchor, bool forceNotify = false)
+        private void ApplyPresentedBoardRotation(Quaternion boardRotation, bool forceApply = false)
         {
-            if (!forceNotify &&
-                (_presentedContinuityAnchor - continuityAnchor).sqrMagnitude <= 0.000001f)
+            if (!forceApply &&
+                Quaternion.Angle(_presentedBoardRotation, boardRotation) <= 0.001f)
             {
                 return;
             }
 
-            _presentedContinuityAnchor = continuityAnchor;
-            ActiveStripCenter = _projector.GetCubeCenter();
-            StripCenterChanged?.Invoke(ActiveStripCenter);
+            _presentedBoardRotation = boardRotation;
+            _boardRoot?.ApplyPresentationRotation(boardRotation, CubeCenter);
+        }
+
+        private static Quaternion ResolveTopologyRotationOffset(CubeRotationKind rotationKind)
+        {
+            return rotationKind switch
+            {
+                CubeRotationKind.Forward => Quaternion.Euler(-90f, 0f, 0f),
+                CubeRotationKind.Backward => Quaternion.Euler(90f, 0f, 0f),
+                _ => Quaternion.identity,
+            };
         }
 
         private static int GetVisibilityPriority(TickVisibilityChangeKind changeKind)
@@ -619,15 +641,15 @@ namespace Game.Feature.Gameplay.Host
             public Quaternion Rotation { get; }
         }
 
-        private sealed class AnchorTrack
+        private sealed class RotationTrack
         {
-            private readonly List<AnchorClip> _clips = new();
+            private readonly List<RotationClip> _clips = new();
 
             public bool HasClips => _clips.Count > 0;
 
-            public Vector3 TailEndValue => _clips[_clips.Count - 1].EndValue;
+            public Quaternion TailEndValue => _clips[_clips.Count - 1].EndValue;
 
-            public void Append(AnchorClip clip)
+            public void Append(RotationClip clip)
             {
                 if (clip == null)
                 {
@@ -642,7 +664,7 @@ namespace Game.Feature.Gameplay.Host
                 _clips.Clear();
             }
 
-            public Vector3 SampleAndAdvance(float deltaTime, Vector3 fallbackValue)
+            public Quaternion SampleAndAdvance(float deltaTime, Quaternion fallbackValue)
             {
                 if (_clips.Count == 0)
                 {
@@ -678,9 +700,9 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private sealed class AnchorClip
+        private sealed class RotationClip
         {
-            private AnchorClip(Vector3 startValue, Vector3 endValue, float durationSeconds)
+            private RotationClip(Quaternion startValue, Quaternion endValue, float durationSeconds)
             {
                 StartValue = startValue;
                 EndValue = endValue;
@@ -688,9 +710,9 @@ namespace Game.Feature.Gameplay.Host
                 ElapsedSeconds = 0f;
             }
 
-            public Vector3 StartValue { get; }
+            public Quaternion StartValue { get; }
 
-            public Vector3 EndValue { get; }
+            public Quaternion EndValue { get; }
 
             public float DurationSeconds { get; }
 
@@ -700,9 +722,9 @@ namespace Game.Feature.Gameplay.Host
 
             public bool IsComplete => RemainingSeconds <= 0.0001f;
 
-            public static AnchorClip Create(Vector3 startValue, Vector3 endValue, float durationSeconds)
+            public static RotationClip Create(Quaternion startValue, Quaternion endValue, float durationSeconds)
             {
-                return new AnchorClip(startValue, endValue, Mathf.Max(durationSeconds, 0.0001f));
+                return new RotationClip(startValue, endValue, Mathf.Max(durationSeconds, 0.0001f));
             }
 
             public float Advance(float deltaTime)
@@ -717,13 +739,13 @@ namespace Game.Feature.Gameplay.Host
                 return Mathf.Max(0f, deltaTime - consumedTime);
             }
 
-            public Vector3 Sample()
+            public Quaternion Sample()
             {
                 var t = DurationSeconds <= 0f
                     ? 1f
                     : Mathf.Clamp01(ElapsedSeconds / DurationSeconds);
 
-                return Vector3.LerpUnclamped(StartValue, EndValue, EaseOutQuad(t));
+                return Quaternion.SlerpUnclamped(StartValue, EndValue, EaseOutQuad(t));
             }
         }
 

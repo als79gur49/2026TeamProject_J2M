@@ -138,6 +138,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.BoardRoot.EntityRoot.parent, Is.EqualTo(host.BoardRoot.transform));
                 Assert.That(host.BoardRoot.CameraTargetRoot.parent, Is.EqualTo(host.BoardRoot.transform));
                 Assert.That(host.ViewCameraTarget, Is.SameAs(host.BoardRoot.CameraTargetRoot));
+                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(new Vector3(1f, 2f, 0f)));
                 Assert.That(host.ViewRegistry.SearchRoot, Is.SameAs(host.BoardRoot.EntityRoot));
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out var view), Is.True);
@@ -465,7 +466,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new CubeTopologyState(FaceId.Front)));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(Vector3.zero));
+                Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.LessThan(0.001f));
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
                 Assert.That(
                     view.transform.position,
@@ -515,7 +516,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new CubeTopologyState(FaceId.Floor)));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(Vector3.zero));
+                Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.LessThan(0.001f));
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
                 Assert.That(
                     view.transform.position,
@@ -531,15 +532,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_TopologyMotion_SnapsUntilBoardRotationTrackExists()
+        public void GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_SnapsUntilBoardRotationTrackExists");
+            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation");
 
             try
             {
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                registry.ConfigureSearchRoot(boardRoot.EntityRoot);
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(boardRoot.EntityRoot));
                 var timingProfile = new GameplayTimingProfile(
                     simulationTicksPerSecond: 60,
                     initialMoveDelaySeconds: 0f,
@@ -552,14 +556,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     maxTicksPerFrame: 8);
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
                 var rotatedTopology = new CubeTopologyState(FaceId.Front);
+                var cubeCenter = new Vector3(2f, 1f, -3f);
 
                 presenter.Initialize(
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     initialTopology,
-                    Vector3.zero,
+                    cubeCenter,
                     1f,
-                    timingProfile);
+                    timingProfile,
+                    boardRoot);
                 presenter.PresentInitial(
                     new[]
                     {
@@ -580,14 +586,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickVisibilityChange>())));
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
 
-                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(Vector3.zero));
+                Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.GreaterThan(0.1f));
+                Assert.That(Quaternion.Angle(boardRoot.transform.localRotation, presenter.PresentedBoardRotation), Is.LessThan(0.001f));
+                Assert.That(boardRoot.CameraTargetRoot.position, Is.EqualTo(cubeCenter));
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    rotatedTopology,
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    cubeCenter: cubeCenter);
                 Assert.That(
-                    view.transform.position,
-                    Is.EqualTo(GetProjectedEntityPosition(
-                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                        rotatedTopology,
-                        new SurfaceCell(FaceId.Front, 0, 0))));
+                    Vector3.Distance(view.transform.position, boardRoot.transform.TransformPoint(destinationPosition)),
+                    Is.LessThan(0.001f));
+                Assert.That(Vector3.Distance(view.transform.position, destinationPosition), Is.GreaterThan(0.01f));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+
+                Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(Vector3.Distance(view.transform.position, destinationPosition), Is.LessThan(0.001f));
             }
             finally
             {
@@ -596,9 +612,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplaySceneHost_CameraTarget_StaysOnCubeCenterBeforeCameraRig()
+        public void GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringBoardRotation()
         {
-            var hostObject = new GameObject("GameplaySceneHost_CameraTarget_StaysOnCubeCenterBeforeCameraRig");
+            var hostObject = new GameObject("GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringBoardRotation");
 
             try
             {
@@ -633,10 +649,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(initialTarget, Is.EqualTo(expectedCenter));
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
+                Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.GreaterThan(0.1f));
+                Assert.That(
+                    Vector3.Distance(
+                        GetViewPosition(host, 10),
+                        GetProjectedEntityPosition(
+                            new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                            new CubeTopologyState(FaceId.Front),
+                            new SurfaceCell(FaceId.Front, 0, 0))),
+                    Is.GreaterThan(0.01f));
 
                 host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
 
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
+                Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
                 Assert.That(
                     GetViewPosition(host, 10),
                     Is.EqualTo(GetProjectedEntityPosition(
@@ -647,6 +673,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter");
+            var cameraObject = new GameObject("ViewCamera");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.orthographic = true;
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        GridOrigin = new Vector3(1.5f, -0.5f, 2f),
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        SnapViewCameraToTarget = true,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                        ViewCamera = viewCamera,
+                    });
+
+                var expectedCenter = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    new Vector3(1.5f, -0.5f, 2f),
+                    1f).GetCubeCenter();
+
+                Assert.That(host.GetComponent<GameplayCameraRig>(), Is.Not.Null);
+                Assert.That(viewCamera.orthographic, Is.False);
+                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
+                Assert.That(
+                    Vector3.Angle(viewCamera.transform.forward, (expectedCenter - viewCamera.transform.position).normalized),
+                    Is.LessThan(0.1f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
             }
         }
 

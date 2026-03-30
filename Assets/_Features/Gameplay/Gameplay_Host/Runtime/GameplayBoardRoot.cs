@@ -12,12 +12,15 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Transform boardSurfaceRoot;
         [SerializeField] private Transform entityRoot;
         [SerializeField] private Transform cameraTargetRoot;
+        [SerializeField] private Vector3 presentationPivotLocalPoint;
 
         public Transform BoardSurfaceRoot => boardSurfaceRoot;
 
         public Transform EntityRoot => entityRoot;
 
         public Transform CameraTargetRoot => cameraTargetRoot;
+
+        public Vector3 PresentationPivotLocalPoint => presentationPivotLocalPoint;
 
         private void Awake()
         {
@@ -26,13 +29,25 @@ namespace Game.Feature.Gameplay.Host
 
         public void EnsureHierarchy()
         {
-            transform.localPosition = Vector3.zero;
-            transform.localRotation = Quaternion.identity;
-            transform.localScale = Vector3.one;
-
             boardSurfaceRoot = EnsureChild(boardSurfaceRoot, BoardSurfaceRootObjectName);
             entityRoot = EnsureChild(entityRoot, EntityRootObjectName);
             cameraTargetRoot = EnsureChild(cameraTargetRoot, CameraTargetRootObjectName);
+            ApplyPresentationRotation(Quaternion.identity, presentationPivotLocalPoint);
+        }
+
+        public void ApplyPresentationRotation(Quaternion localRotation, Vector3 pivotLocalPoint)
+        {
+            presentationPivotLocalPoint = pivotLocalPoint;
+            transform.localRotation = localRotation;
+            transform.localPosition = pivotLocalPoint - (localRotation * pivotLocalPoint);
+            transform.localScale = Vector3.one;
+
+            if (cameraTargetRoot != null)
+            {
+                cameraTargetRoot.localPosition = pivotLocalPoint;
+                cameraTargetRoot.localRotation = Quaternion.identity;
+                cameraTargetRoot.localScale = Vector3.one;
+            }
         }
 
         private Transform EnsureChild(Transform existingChild, string childName)

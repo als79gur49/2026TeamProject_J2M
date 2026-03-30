@@ -104,10 +104,10 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            camera.orthographic = true;
-            camera.orthographicSize = 9f;
-            camera.transform.position = new Vector3(0.75f, 0.25f, -10f);
-            camera.transform.rotation = Quaternion.identity;
+            camera.orthographic = false;
+            camera.fieldOfView = 50f;
+            camera.transform.position = new Vector3(0.75f, 3.5f, -8.5f);
+            camera.transform.rotation = Quaternion.Euler(24f, 28f, 0f);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.92f, 0.94f, 0.98f);
         }

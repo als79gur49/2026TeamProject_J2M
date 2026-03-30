@@ -62,15 +62,10 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var width = boardBounds.MaxInclusive.x - boardBounds.MinInclusive.x + 1;
-            var height = boardBounds.MaxInclusive.y - boardBounds.MinInclusive.y + 1;
-            var verticalHalfExtent = height * cellSize + 1f;
-            var horizontalHalfExtent = ((width - 1) * cellSize * 0.5f + 1f) / Mathf.Max(camera.aspect, 0.01f);
-
-            camera.orthographic = true;
-            camera.orthographicSize = Mathf.Max(verticalHalfExtent, horizontalHalfExtent);
-            camera.transform.position = new Vector3(0f, 0f, -10f);
-            camera.transform.rotation = Quaternion.identity;
+            camera.orthographic = false;
+            camera.fieldOfView = 50f;
+            camera.transform.position = new Vector3(0f, 3.5f, -7.5f);
+            camera.transform.rotation = Quaternion.Euler(24f, 28f, 0f);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.93f, 0.95f, 0.98f);
         }
