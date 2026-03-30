@@ -46,7 +46,7 @@ namespace Game.Feature.Gameplay.Host
                 PitchDegrees = 35f,
                 YawDegrees = 0f,
                 DistanceMode = GameplayCameraRig.DistanceMode.Manual,
-                ManualDistance = 15f,
+                ManualDistance = 16f,
                 FramingPadding = 1.2f,
                 PerspectiveFieldOfView = 50f,
                 NearClipPlane = 0.03f,

@@ -22,6 +22,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private int repeatedMoveIntervalTicks = 2;
         [SerializeField] private float tickIntervalSeconds = 0.2f;
 
+        protected bool AutoCreateViews => autoCreateViews;
+
         protected int PlayerEntityId => playerEntityId;
 
         protected virtual CubeTopologyState InitialTopology => new(FaceId.Floor);
@@ -68,6 +70,16 @@ namespace Game.Feature.Gameplay.Host
         protected virtual GameplayCameraSettings CreateCameraSettings()
         {
             return GameplayCameraSettings.CreateShowcaseDefault();
+        }
+
+        protected virtual IGameplayEntityViewFactory CreateViewFactory(GameplayBoardRoot boardRoot)
+        {
+            if (!autoCreateViews || boardRoot == null)
+            {
+                return null;
+            }
+
+            return new DefaultGameplayEntityViewFactory(boardRoot.EntityRoot, cellSize, playerEntityId);
         }
 
         protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
@@ -167,6 +179,14 @@ namespace Game.Feature.Gameplay.Host
             BoardBounds boardBounds,
             GameplayCameraSettings cameraSettings)
         {
+            return CreateConfiguration(boardBounds, cameraSettings, ResolveViewFactory());
+        }
+
+        private GameplaySceneHostConfiguration CreateConfiguration(
+            BoardBounds boardBounds,
+            GameplayCameraSettings cameraSettings,
+            IGameplayEntityViewFactory viewFactory)
+        {
             var entities = new List<EntityState>();
             PopulateInitialEntities(entities, boardBounds);
 
@@ -189,7 +209,14 @@ namespace Game.Feature.Gameplay.Host
                 SnapViewCameraToTarget = configureMainCamera,
                 TickIntervalSeconds = tickIntervalSeconds,
                 ViewCamera = configureMainCamera ? Camera.main : null,
+                ViewFactory = viewFactory,
             };
+        }
+
+        private IGameplayEntityViewFactory ResolveViewFactory()
+        {
+            var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
+            return CreateViewFactory(boardRoot);
         }
 
         private void ConfigureSceneCamera(

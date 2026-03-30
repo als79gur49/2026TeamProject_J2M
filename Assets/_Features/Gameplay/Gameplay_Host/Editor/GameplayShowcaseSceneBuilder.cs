@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         {
             BuildScene<CombinedGameplayShowcaseInstaller>(
                 CombinedScenePath,
-                "Combined Gameplay Showcase");
+                "Box Slide Test Scene");
         }
 
         private static void BuildScene<TInstaller>(
