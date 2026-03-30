@@ -113,7 +113,7 @@ GameplaySceneHost
 ```
 
 - `GameplayEntityView.ApplyLocalPose(...)` 추가
-- 기존 `ApplyPose(...)`는 임시 호환 경로로 남기거나 내부에서 `ApplyLocalPose`로 위임
+- 기존 `ApplyPose(...)`는 migration 동안만 임시 호환 경로로 두고, 최종 cleanup 단계에서 제거
 - `GameplayEntityViewRegistry`와 view factory parent를 `EntityRoot` 기준으로 연결
 - presenter 내부 pose 캐시를 "world pose"가 아니라 "board-local pose" 의미로 재정의
 - board root가 identity일 때 기존 시각 결과가 바뀌지 않도록 유지
@@ -131,7 +131,7 @@ GameplaySceneHost
 구현 결과 메모:
 
 - `GameplayBoardRoot`를 추가했고, `GameplaySceneHost`가 아래 hierarchy를 런타임에서 보장하도록 반영했다.
-- `GameplayEntityView.ApplyLocalPose(...)`를 추가했고, 기존 `ApplyPose(...)`는 parent 기준 local pose로 위임하는 호환 경로로 유지했다.
+- `GameplayEntityView.ApplyLocalPose(...)`를 추가했고, migration 동안 남겨 둔 `ApplyPose(...)` 호환 경로는 8단계 cleanup에서 제거했다.
 - entity view 생성 parent를 `EntityRoot`로 옮겼고, `GameplayEntityViewRegistry`도 `EntityRoot`를 검색 기준으로 재구성하도록 정리했다.
 - presenter의 pose 캐시와 적용 경로는 `board-local pose + topology continuity local offset` 의미로 유지되며, board root가 identity일 때 기존 시각 결과가 유지된다.
 - guard test를 추가해 board root hierarchy 생성, entity root parent 연결, local pose 적용을 고정했다.
@@ -401,14 +401,18 @@ GameplaySceneHost
 
 - `GameplayShowcaseSceneBuilder`는 더 이상 `ProjectFloorCell(...)`와 `TextMesh` world label을 생성하지 않고, showcase root마다 `GameplayShowcaseSceneScaffold`를 통해 `GameplayBoardRoot`, `GameplayCameraRig`, overlay presenter를 기본 scaffold로 심도록 전환했다.
 - 새 `GameplayShowcaseOverlay` / `GameplayShowcaseOverlayContent`를 추가해서 showcase annotation을 board 위 world label이 아니라 screen-space overlay 패널로 표현하도록 바꿨다.
-- `GameplayShowcaseSceneInstallerBase`는 showcase host 구성에서 `GridOrigin = Vector3.zero`를 사용하도록 바꿨고, 기존 `CalculateCenteredGridOrigin(...)`는 deprecated 경로로 남겨 두었다.
+- `GameplayShowcaseSceneInstallerBase`는 showcase host 구성에서 cube-centered board-local contract만 사용하도록 정리했고, 남아 있던 `CalculateCenteredGridOrigin(...)` helper는 8단계 cleanup에서 제거했다.
 - 각 showcase installer는 scene별 overlay 문구를 직접 제공하도록 변경했고, builder와 runtime이 같은 annotation source를 공유하도록 정리했다.
 - `GameplayShowcaseSceneScaffold`는 기존 showcase scene에 남아 있던 legacy `Label_*` `TextMesh` root를 제거하고, prebuilt scene이 아직 재생성되지 않았더라도 play 진입 시 새 3D showcase scaffold를 자동 보장하도록 정리했다.
-- edit mode test `GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_Creates3DScaffoldAndRemovesLegacyLabels`, `GameplayShowcaseSceneInstallerBase_CreateConfiguration_UsesZeroGridOrigin`를 추가해 showcase scaffold와 cube-centered builder contract를 고정했다.
+- edit mode test `GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_Creates3DScaffoldAndRemovesLegacyLabels`, `GameplayPresentationCleanup_RemovesLegacyGridOriginContracts`를 통해 showcase scaffold와 legacy grid-origin 제거 계약을 고정했다.
 
 ### 5-9. 8단계: Cleanup / Legacy 제거
 
 목표는 migration 중 남겨 둔 strip 전용 API와 compatibility path를 제거하는 것이다.
+
+진행 상태:
+
+- 완료 (2026-03-30)
 
 대상 파일:
 
@@ -419,7 +423,7 @@ GameplaySceneHost
 
 구현 태스크:
 
-- `gridOrigin` 제거 또는 deprecated 처리
+- `gridOrigin` 제거
 - strip-specific projector와 helper 제거
 - `ContinuityAnchor` 관련 dead code 제거
 - strip center 기반 camera target 개념 제거
@@ -433,6 +437,14 @@ GameplaySceneHost
 완료 조건:
 
 - 3D presentation migration이 구조적으로 완료된다
+
+구현 결과 메모:
+
+- `GameplaySceneHostConfiguration.GridOrigin`, `GameplayTickViewPresenter.Initialize(..., gridOrigin, ...)`, `GameplayBoardSurfaceRenderer.Initialize(..., cubeCenter, ...)`를 제거해 presentation 좌표 기준을 `board-local cube center = Vector3.zero` 하나로 고정했다.
+- `GameplayCubeProjector`의 translation overload를 제거했고, cube center는 `GameplayBoardRoot`의 world transform만으로 승격되도록 정리했다.
+- `GameplayStripProjector`, `GameplayShowcaseSceneInstallerBase.CalculateCenteredGridOrigin(...)`, `GameplayEntityView.ApplyPose(...)`를 삭제해 strip/compatibility public surface를 정리했다.
+- sample scene과 showcase/runtime test fixture에서 legacy `gridOrigin` 직렬화/설정을 제거했고, world offset이 필요한 검증은 host/root transform 기준으로 전환했다.
+- edit mode test `GameplayPresentationCleanup_RemovesLegacyGridOriginContracts`를 추가했고, runtime/playmode guard test도 projector local pose + board root world transform 계약에 맞춰 갱신했다.
 
 ## 6. 권장 PR 분리
 
