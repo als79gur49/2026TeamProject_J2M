@@ -6,108 +6,6 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public sealed class GameplaySurfaceProjector
-    {
-        private readonly BoardBounds _boardBounds;
-        private readonly float _cellSize;
-        private readonly Vector3 _gridOrigin;
-
-        public GameplaySurfaceProjector(
-            BoardBounds boardBounds,
-            Vector3 gridOrigin,
-            float cellSize)
-        {
-            if (!boardBounds.IsBounded)
-            {
-                throw new InvalidOperationException("GameplaySurfaceProjector requires bounded board bounds.");
-            }
-
-            if (cellSize <= 0f)
-            {
-                throw new ArgumentOutOfRangeException(nameof(cellSize), "Cell size must be greater than zero.");
-            }
-
-            _boardBounds = boardBounds;
-            _gridOrigin = gridOrigin;
-            _cellSize = cellSize;
-        }
-
-        public BoardBounds BoardBounds => _boardBounds;
-
-        public float CellSize => _cellSize;
-
-        public Vector3 GridOrigin => _gridOrigin;
-
-        public int Width => _boardBounds.MaxInclusive.x - _boardBounds.MinInclusive.x + 1;
-
-        public int Height => _boardBounds.MaxInclusive.y - _boardBounds.MinInclusive.y + 1;
-
-        public bool TryProject(
-            SurfaceCell cell,
-            CubeTopologyState topology,
-            Vector3 continuityAnchor,
-            out Vector3 worldPosition)
-        {
-            if (!TryProjectWithoutContinuity(cell, topology, out worldPosition))
-            {
-                return false;
-            }
-
-            worldPosition += continuityAnchor;
-            return true;
-        }
-
-        public bool TryProjectWithoutContinuity(
-            SurfaceCell cell,
-            CubeTopologyState topology,
-            out Vector3 worldPosition)
-        {
-            if (!_boardBounds.Contains(cell.PlanarPosition) || !topology.IsFaceActive(cell.face))
-            {
-                worldPosition = default;
-                return false;
-            }
-
-            var localX = cell.x * _cellSize;
-            var localY = cell.y * _cellSize;
-            var faceOffsetY = ResolveFaceOffsetY(cell.face, topology);
-            worldPosition = _gridOrigin + new Vector3(localX, localY + faceOffsetY, 0f);
-            return true;
-        }
-
-        public Vector3 GetActiveStripCenter(Vector3 continuityAnchor)
-        {
-            var centerX = (_boardBounds.MinInclusive.x + _boardBounds.MaxInclusive.x) * _cellSize * 0.5f;
-            var centerY = (_boardBounds.MinInclusive.y * _cellSize) +
-                          (((Height * 2) - 1) * _cellSize * 0.5f);
-
-            return _gridOrigin +
-                   continuityAnchor +
-                   new Vector3(centerX, centerY, 0f);
-        }
-
-        public Vector3 GetContinuityStepOffset()
-        {
-            return Vector3.up * (Height * _cellSize);
-        }
-
-        private float ResolveFaceOffsetY(FaceId face, CubeTopologyState topology)
-        {
-            if (face == topology.BottomFace)
-            {
-                return 0f;
-            }
-
-            if (face == topology.FrontFace)
-            {
-                return Height * _cellSize;
-            }
-
-            throw new InvalidOperationException(
-                $"Cannot project inactive face {face}. Bottom={topology.BottomFace}, Front={topology.FrontFace}");
-        }
-    }
-
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
         private readonly AnchorTrack _topologyTrack = new();
@@ -128,7 +26,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasPresentedFrame;
         private bool _isInitialized;
         private Vector3 _presentedContinuityAnchor;
-        private GameplaySurfaceProjector _projector;
+        private GameplayStripProjector _projector;
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
 
@@ -154,7 +52,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewBinder = viewBinder;
-            _projector = new GameplaySurfaceProjector(boardBounds, gridOrigin, cellSize);
+            _projector = new GameplayStripProjector(boardBounds, gridOrigin, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _committedTopology = initialTopology;
             _committedContinuityAnchor = Vector3.zero;
@@ -334,7 +232,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entity = entities[i];
                 if (!ShouldPresent(entity, topology) ||
-                    !_projector.TryProjectWithoutContinuity(entity.position, topology, out var localBoardPosition))
+                    !_projector.TryProjectEntityCell(entity.position, topology, out var projectedPose))
                 {
                     continue;
                 }
@@ -346,9 +244,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _viewsByEntityId[entity.entityId] = view;
-                _committedLocalTargetPoses[entity.entityId] = new GameplayEntityPose(
-                    localBoardPosition,
-                    ResolveLocalRotation(entity.facing));
+                _committedLocalTargetPoses[entity.entityId] = CreateEntityPose(projectedPose, entity.facing);
             }
         }
 
@@ -599,13 +495,20 @@ namespace Game.Feature.Gameplay.Host
             out GameplayEntityPose pose)
         {
             pose = default;
-            if (!_projector.TryProjectWithoutContinuity(cell, topology, out var localBoardPosition))
+            if (!_projector.TryProjectEntityCell(cell, topology, out var projectedPose))
             {
                 return false;
             }
 
-            pose = new GameplayEntityPose(localBoardPosition, ResolveLocalRotation(facing));
+            pose = CreateEntityPose(projectedPose, facing);
             return true;
+        }
+
+        private static GameplayEntityPose CreateEntityPose(ProjectedCellPose projectedPose, Direction facing)
+        {
+            return new GameplayEntityPose(
+                projectedPose.LocalPosition,
+                projectedPose.LocalRotation * ResolveFacingLocalRotation(facing));
         }
 
         private float ResolveMotionDurationSeconds(TickEntityMotionKind motionKind)
@@ -712,7 +615,7 @@ namespace Game.Feature.Gameplay.Host
                    topology.IsFaceActive(entity.position.face);
         }
 
-        private static Quaternion ResolveLocalRotation(Direction facing)
+        private static Quaternion ResolveFacingLocalRotation(Direction facing)
         {
             var zRotation = facing switch
             {
