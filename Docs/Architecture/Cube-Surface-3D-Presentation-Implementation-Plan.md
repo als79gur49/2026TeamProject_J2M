@@ -363,12 +363,20 @@ GameplaySceneHost
 
 목표는 테스트 씬과 자동 scene builder를 3D presentation 구조에 맞게 바꾸는 것이다.
 
+진행 상태:
+
+- 완료 (2026-03-30)
+
 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Editor/GameplayShowcaseSceneBuilder.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CubeSurfaceTraversalShowcaseInstaller.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/BoxInteractionShowcaseInstaller.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseOverlay.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseOverlayContent.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneScaffold.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`
 - `Assets/Scenes/CubeSurfaceTraversalShowcase.unity`
 - `Assets/Scenes/BoxInteractionShowcase.unity`
 - `Assets/Scenes/CombinedGameplayShowcase.unity`
@@ -388,6 +396,15 @@ GameplaySceneHost
 완료 조건:
 
 - 테스트 씬 자동 생성 도구가 새 3D contract를 사용한다
+
+구현 결과 메모:
+
+- `GameplayShowcaseSceneBuilder`는 더 이상 `ProjectFloorCell(...)`와 `TextMesh` world label을 생성하지 않고, showcase root마다 `GameplayShowcaseSceneScaffold`를 통해 `GameplayBoardRoot`, `GameplayCameraRig`, overlay presenter를 기본 scaffold로 심도록 전환했다.
+- 새 `GameplayShowcaseOverlay` / `GameplayShowcaseOverlayContent`를 추가해서 showcase annotation을 board 위 world label이 아니라 screen-space overlay 패널로 표현하도록 바꿨다.
+- `GameplayShowcaseSceneInstallerBase`는 showcase host 구성에서 `GridOrigin = Vector3.zero`를 사용하도록 바꿨고, 기존 `CalculateCenteredGridOrigin(...)`는 deprecated 경로로 남겨 두었다.
+- 각 showcase installer는 scene별 overlay 문구를 직접 제공하도록 변경했고, builder와 runtime이 같은 annotation source를 공유하도록 정리했다.
+- `GameplayShowcaseSceneScaffold`는 기존 showcase scene에 남아 있던 legacy `Label_*` `TextMesh` root를 제거하고, prebuilt scene이 아직 재생성되지 않았더라도 play 진입 시 새 3D showcase scaffold를 자동 보장하도록 정리했다.
+- edit mode test `GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_Creates3DScaffoldAndRemovesLegacyLabels`, `GameplayShowcaseSceneInstallerBase_CreateConfiguration_UsesZeroGridOrigin`를 추가해 showcase scaffold와 cube-centered builder contract를 고정했다.
 
 ### 5-9. 8단계: Cleanup / Legacy 제거
 
