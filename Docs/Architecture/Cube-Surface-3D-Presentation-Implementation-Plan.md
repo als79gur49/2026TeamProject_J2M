@@ -20,7 +20,15 @@
 - 기존 테스트를 무시하고 밀어붙이지 않는다. 각 단계마다 새 contract를 테스트로 고정한다.
 - inactive face policy는 끝까지 유지한다.
   - 엔티티는 active face만 렌더링
-  - inactive face는 필요 시 decorative shell만 렌더링
+  - inactive face shell은 기본값에서 렌더링하지 않고 debug mode에서만 허용
+
+### 2-1. 2026-03-31 시각 수정 기준
+
+이번 수정에서 추가로 고정할 presentation 기준은 아래 세 가지다.
+
+- 기본 화면에는 `BottomFace`, `FrontFace`만 보인다. `TopVisibleFace`, `BackVisibleFace`는 debug mode가 아니면 렌더링하지 않는다.
+- box와 wall visual은 cube 외부가 아니라 cube 내부 방향으로 mount 배치한다. entity anchor는 interior offset을 쓰고, model center는 추가로 반 두께만큼 내부로 이동한다.
+- 카메라는 front wall을 정면에 가깝게 유지하되 floor도 함께 보이는 front-biased elevated angle을 사용한다. 구현 기본값은 `pitch = 18`, `yaw = 0`이다.
 
 ## 3. 구현 범위
 
@@ -32,7 +40,8 @@
 - topology motion을 board rotation으로 표현
 - perspective camera rig 적용
 - 유닛/박스/벽/투사체를 cube 기반 primitive로 표시
-- active/decorative board shell 표시
+- active board shell 표시
+- inactive shell debug toggle 유지
 - showcase scene builder와 showcase scene 갱신
 
 ### 3-2. 비범위
@@ -200,7 +209,7 @@ GameplaySceneHost
 - `TryProjectEntityCell(...)` 구현
   - active face만 허용
 - `TryProjectSurfaceCell(...)` 구현
-  - active face + decorative face 지원 분리
+  - active face 기본 지원 + inactive face debug 지원 분리
 - presenter가 strip projector 대신 cube projector를 사용하도록 전환
 - strip projection 기준 unit test를 3D face projection 기준 테스트로 교체
 
@@ -219,7 +228,7 @@ GameplaySceneHost
 구현 결과 메모:
 
 - `GameplayCubeProjector`를 추가했고, `Bottom / Front / TopVisible / BackVisible` face slot에 대한 board-local face frame, cube center, visible bounds 계산을 런타임 helper로 고정했다.
-- entity projection은 active face만 허용하고, surface projection은 active face와 decorative visible face를 모두 해석하도록 분리했다.
+- entity projection은 active face만 허용하고, surface projection은 active face 기본 + inactive debug shell 확장으로 분리했다.
 - `GameplayTickViewPresenter`는 strip projector 대신 cube projector를 사용하도록 전환했고, topology presentation은 4단계 board rotation 전까지 `snap` 동작으로 유지했다.
 - 기존 `StripCenterChanged` 호환 경로는 남겨두되, 이 단계부터는 strip center가 아니라 cube center를 내보내도록 정리했다.
 - edit mode guard test는 `GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane`, `GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane`, `GameplayCubeProjector_RejectsInactiveFaceEntityProjection`, `GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D` 기준으로 교체했다.
@@ -251,6 +260,7 @@ GameplaySceneHost
   - perspective camera 기준
   - cube center 추적
   - rotation 중 framing 유지
+- camera 기본 구도를 floor + front wall 동시 가시 angle로 재설정
 - installer의 기본 camera 설정을 orthographic -> perspective로 전환
 
 검증:
@@ -271,6 +281,9 @@ GameplaySceneHost
 - `GameplayBoardRoot.ApplyPresentationRotation(...)`를 추가해 cube center를 pivot으로 회전할 때도 `CameraTargetRoot`의 world position이 고정되도록 정리했다.
 - `GameplaySceneHost`는 presenter에 `GameplayBoardRoot`를 직접 연결하고, camera target 이벤트 구독 대신 board root의 cube center target을 그대로 사용하도록 바꿨다.
 - 신규 `GameplayCameraRig`를 추가했고, host가 perspective camera를 rig에 연결해 cube center를 계속 바라보도록 구성했다.
+- 기본 camera yaw를 `180`, pitch를 `18`로 조정해 world `+Z`에 놓인 front wall 중심성을 유지하면서도 floor가 함께 보이는 전방 상부 구도를 만들었다.
+- `GameplayCubeProjector`는 active bottom/front seam에 `1 cell` gap을 두고 face를 안쪽으로 분리하며, `GameplayEntityVisualProfile`은 cube 내부 mount를 유지한 채 small reveal만 남겨 seam edge box가 다음 면에서도 읽히도록 보정했다.
+- viewport regression test를 추가해 기본 camera pose에서 floor/front 모두 `+X`가 screen right로 투영되는지 고정했다.
 - showcase/sample installer의 기본 camera 설정을 orthographic에서 perspective로 바꿨다.
 - edit mode guard test를 `GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation`, `GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringBoardRotation`, `GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter` 기준으로 갱신했다.
 
@@ -299,6 +312,7 @@ GameplaySceneHost
   - wall entity
 - facing과 model 축 정렬이 어긋나면 `ModelRoot` child를 추가해 보정
 - material/color 정책 유지 또는 role별 세분화
+- box와 wall은 cube 내부 방향 mount profile 사용
 
 검증:
 
@@ -314,9 +328,10 @@ GameplaySceneHost
 
 - `DefaultGameplayEntityViewFactory`에서 `PrimitiveType.Quad`를 제거하고, root view 아래 `ModelRoot -> Cube primitive` 구조를 생성하도록 전환했다.
 - `GameplayEntityView`에 `ModelRoot`와 `ConfigureModelRoot(...)`를 추가해 presenter가 적용하는 board-local pose와 모델 자체의 보정/오프셋을 분리했다.
-- 신규 `GameplayEntityVisualProfile`을 추가해 `Unit / Box / Projectile / Wall(EntityType.None)`별 cube scale과 face-normal 방향 lift 값을 고정했다.
+- 신규 `GameplayEntityVisualProfile`을 추가해 `Unit / Box / Projectile / Wall(EntityType.None)`별 cube scale과 depth profile을 고정했다.
+- entity projection anchor는 face plane 바깥이 아니라 cube 내부 방향 offset을 사용하고, box/wall 포함 모든 model center는 추가로 반 두께만큼 내부로 이동시켜 shell 바깥으로 새지 않게 한다.
 - visual primitive는 모두 collider를 제거한 `Cube`로 생성되며, player/unit/box/projectile/wall role별 color 정책은 유지했다.
-- edit mode guard test에 `GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot`, `DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders`를 추가해 model pivot, cube primitive, collider 제거, entity type별 visual profile 계약을 고정했다.
+- edit mode guard test에 `GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot`, `DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders`, `GameplayEntityVisualProfile_BoxVisualRecedesIntoFaceInterior`, `GameplayEntityVisualProfile_WallVisualRecedesIntoFaceInterior`를 추가해 model pivot, cube primitive, collider 제거, interior mount 계약을 고정했다.
 
 ### 5-7. 6단계: Board Surface Renderer 추가
 
@@ -336,14 +351,15 @@ GameplaySceneHost
 
 - board shell renderer 추가
 - `BoardSurfaceRoot` 아래 visible tile pool 구성
-- active face tile과 decorative face tile material 분리
+- active face tile 기본 구성
+- inactive face tile은 debug mode에서만 선택적으로 구성
 - topology 변경 시 shell orientation 갱신
 - wall entity는 1차에서 board shell과 합치지 않고 entity로 유지
 
 검증:
 
 - active faces가 cube tile 형태로 보임
-- decorative faces는 톤 다운된 재질로 보임
+- inactive faces는 기본 화면에서 보이지 않음
 - entity cube와 surface tile이 z-fighting 없이 공존
 
 완료 조건:
@@ -353,9 +369,9 @@ GameplaySceneHost
 구현 결과 메모:
 
 - `GameplayBoardSurfaceRenderer`를 추가했고, `BoardSurfaceRoot/VisibleTilePool` 아래에서 visible face 타일을 primitive cube pool로 유지하도록 구현했다.
-- surface tile은 `GameplayCubeProjector.TryProjectSurfaceCell(...)` 결과를 재사용해 active bottom/front와 decorative top/back를 같은 board-local 규칙으로 배치한다.
+- surface tile은 `GameplayCubeProjector.TryProjectSurfaceCell(...)` 결과를 재사용해 기본적으로 active bottom/front만 배치하고, inactive top/back는 debug toggle에서만 확장 가능하도록 정리한다.
 - tile은 face plane 기준으로 절반 두께만 cube 안쪽으로 밀어 넣어 배치해서 entity visual과 z-fighting 없이 공존하도록 정리했다.
-- active bottom/front와 decorative top/back는 각각 분리된 unlit material role을 사용해 decorative face가 gameplay-active처럼 보이지 않도록 톤을 낮췄다.
+- inactive face는 기본값에서 생성하지 않고, debug 노출이 필요할 때만 별도 unlit material role을 적용한다.
 - `GameplayBoardRoot`가 `BoardSurfaceRenderer` 보장을 담당하고, `GameplaySceneHost`는 초기화 시 renderer를 구성한 뒤 presenter topology commit에 맞춰 shell face assignment를 즉시 갱신하도록 연결했다.
 - guard test에 `GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles`를 추가했고, host 초기화/board rotation 테스트에도 surface renderer 연결과 topology refresh를 검증하도록 보강했다.
 
@@ -547,12 +563,17 @@ GameplaySceneHost
 
 - `GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane`
 - `GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane`
+- `GameplayCubeProjector_FrontFaceRows_RiseAwayFromFloor`
 - `GameplayCubeProjector_RejectsInactiveFaceEntityProjection`
 - `GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D`
 - `GameplayTickViewPresenter_TopologyMotion_RotatesBoardRoot`
 - `GameplaySceneHost_CameraRigTracksCubeCenter`
 - `DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders`
+- `GameplayEntityVisualProfile_BoxVisualRecedesIntoFaceInterior`
+- `GameplayEntityVisualProfile_WallVisualRecedesIntoFaceInterior`
 - `GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles`
+- `Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationHasWallBlocker`
+- `Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationTerrainBlocked`
 
 ## 8. 수동 검증 체크리스트
 
@@ -561,9 +582,10 @@ GameplaySceneHost
 1. 플레이어가 `Bottom -> Front` 회전 시 정상적으로 이어 보이는가
 2. 박스가 `Bottom <-> Front` 경계를 넘을 때 visual snapping이 없는가
 3. inactive face 엔티티가 기본 화면에 보이지 않는가
-4. 벽 entity와 바닥 shell이 겹쳐 깨지지 않는가
-5. 카메라가 회전 중에도 플레이 영역을 잃지 않는가
-6. showcase scene에서 입력, push, flip, projectile이 모두 기존 규칙대로 동작하는가
+4. inactive face shell이 기본 화면에 노출되지 않는가
+5. box와 wall이 cube 외부가 아니라 내부 공간 쪽에 정상적으로 mount되는가
+6. 카메라가 front wall과 floor를 동시에 보여 주면서도 회전 중 플레이 영역을 잃지 않는가
+7. showcase scene에서 입력, push, flip, projectile이 모두 기존 규칙대로 동작하는가
 
 ## 9. 리스크 관리
 
@@ -571,13 +593,14 @@ GameplaySceneHost
 
 - presenter와 board root의 pose space가 이중 적용될 수 있다
 - topology motion과 entity motion 보간이 서로 다른 기준 좌표를 쓸 수 있다
-- inactive face decorative shell이 gameplay-active처럼 보일 수 있다
+- oblique camera, inverted face frame, exterior-mounted entity visual이 플레이 공간 인지를 흐릴 수 있다
 
 ### 9-2. 대응 방식
 
 - pose contract는 무조건 board-local 하나로 단일화
 - topology motion 테스트를 projector 테스트보다 먼저 추가하지 않는다
-- decorative face는 명확히 낮은 채도/밝기 재질을 사용
+- inactive face는 기본값에서 숨기고, face frame과 entity depth를 interior mount 기준으로 고정한다
+- camera 기본 yaw/pitch를 front wall + floor 동시 가시 preset으로 고정한다
 
 ## 10. 최종 완료 정의
 
