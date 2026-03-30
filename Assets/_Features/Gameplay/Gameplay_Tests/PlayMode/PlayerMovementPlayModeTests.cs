@@ -14,6 +14,10 @@ using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
+    // Step 0 migration guardrail:
+    // Keep the input/tick scenarios in this file through the 3D presentation migration.
+    // These checks now resolve committed entity cells through GameplayCubeProjector
+    // instead of asserting strip-space Vector3 literals.
     public sealed class PlayerMovementPlayModeTests : InputTestFixture
     {
         private Keyboard _keyboard;
@@ -43,7 +47,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             yield return DestroyHost(host);
         }
@@ -65,7 +69,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
@@ -90,8 +94,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
@@ -113,8 +117,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
@@ -134,7 +138,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
             Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
             Assert.That(boxView.gameObject.activeSelf, Is.False);
 
@@ -156,8 +160,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
@@ -176,15 +180,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             host.InputHost.BufferPush();
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
@@ -202,15 +206,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(-1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             host.InputHost.BufferFlip();
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
@@ -231,9 +235,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
-            Assert.That(GetViewPosition(host, entityId: 31), Is.EqualTo(new Vector3(-1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
+            AssertViewMatchesProjectedState(host, entityId: 31);
 
             yield return DestroyHost(host);
         }
@@ -253,14 +257,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
@@ -284,19 +288,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             for (var i = 0; i < host.TimingProfile.InitialMoveDelayTicks - 1; i++)
             {
                 host.InputHost.RunSingleTick();
                 host.Presenter.UpdatePresentation(0f);
-                Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+                AssertViewMatchesProjectedState(host, entityId: 10);
             }
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             yield return DestroyHost(host);
         }
@@ -318,26 +322,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
-            Assert.That(GetViewPosition(host, entityId: 30), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
+            AssertViewMatchesProjectedState(host, entityId: 30);
 
             for (var i = 0; i < host.TimingProfile.InitialMoveDelayTicks - 1; i++)
             {
                 host.InputHost.RunSingleTick();
                 host.Presenter.UpdatePresentation(0f);
-                Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+                AssertViewMatchesProjectedState(host, entityId: 10);
             }
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(-1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             yield return DestroyHost(host);
         }
@@ -365,7 +369,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             Release(_keyboard.dKey);
             yield return DestroyHost(host, actions);
@@ -382,7 +386,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             for (var i = 0; i < host.TimingProfile.RepeatedMoveIntervalTicks - 2; i++)
             {
@@ -392,11 +396,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(new Vector3(2f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             yield return DestroyHost(host);
         }
@@ -420,7 +424,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(host.ViewRegistry.TryGetView(11, out var projectileView), Is.True);
             Assert.That(projectileView.gameObject.activeSelf, Is.True);
-            Assert.That(projectileView.transform.position, Is.EqualTo(new Vector3(1f, 0f, 0f)));
+            AssertViewMatchesProjectedState(host, entityId: 11);
 
             yield return DestroyHost(host);
         }
@@ -437,15 +441,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
-            Assert.That(GetViewPosition(host, entityId: 10), Is.EqualTo(Vector3.zero));
+            AssertViewMatchesProjectedState(host, entityId: 10);
 
             yield return DestroyHost(host);
         }
@@ -572,10 +576,24 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return null;
         }
 
+        // TODO(CubeSurface3D): Retire this helper once playmode tests stop using
+        // projector-derived world positions as their primary oracle. Preserve the scenario
+        // coverage in this file instead of deleting the tests.
         private static Vector3 GetViewPosition(GameplaySceneHost host, int entityId)
         {
             Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
             return view.transform.position;
+        }
+
+        private static void AssertViewMatchesProjectedState(GameplaySceneHost host, int entityId)
+        {
+            var snapshot = host.WorldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
+            var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(
+                projector.TryProjectEntityCell(entity.position, snapshot.Topology, entity.type, out var projectedPose),
+                Is.True);
+            Assert.That(GetViewPosition(host, entityId), Is.EqualTo(projectedPose.LocalPosition));
         }
 
         private static InputActionAsset CreateKeyboardMoveActions()

@@ -142,8 +142,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out var view), Is.True);
                 Assert.That(view.transform.parent, Is.EqualTo(host.BoardRoot.EntityRoot));
-                Assert.That(view.transform.localPosition, Is.EqualTo(new Vector3(1f, 2f, 0f)));
-                Assert.That(view.transform.position, Is.EqualTo(new Vector3(5f, 0f, 0f)));
+                var projector = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    new Vector3(1f, 2f, 0f),
+                    1f);
+                Assert.That(
+                    projector.TryProjectEntityCell(
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        new CubeTopologyState(FaceId.Floor),
+                        EntityType.Unit,
+                        out var projectedPose),
+                    Is.True);
+                Assert.That(view.transform.localPosition, Is.EqualTo(projectedPose.LocalPosition));
+                Assert.That(view.transform.position, Is.EqualTo(host.BoardRoot.transform.TransformPoint(projectedPose.LocalPosition)));
             }
             finally
             {
@@ -224,39 +235,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(pose.Normal, Is.EqualTo(Vector3.up));
         }
 
-        // TODO(CubeSurface3D): Replace with
-        // GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane and
-        // GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane.
         [Test]
-        public void GameplayStripProjector_ProjectsFrontFaceAboveBottomFace()
+        public void GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane()
         {
-            var projector = new GameplayStripProjector(
+            var projector = new GameplayCubeProjector(
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                Vector3.zero,
                 1f);
             var topology = new CubeTopologyState(FaceId.Floor);
 
             Assert.That(
-                projector.TryProjectEntityCell(new SurfaceCell(FaceId.Floor, 1, 2), topology, out var bottomPose),
-                Is.True);
-            Assert.That(
-                projector.TryProjectEntityCell(new SurfaceCell(FaceId.Front, 1, 0), topology, out var frontPose),
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Floor, 1, 2),
+                    topology,
+                    EntityType.Unit,
+                    out var bottomPose),
                 Is.True);
 
-            Assert.That(bottomPose.LocalPosition, Is.EqualTo(new Vector3(1f, 2f, 0f)));
-            Assert.That(frontPose.LocalPosition, Is.EqualTo(new Vector3(1f, 3f, 0f)));
-            Assert.That(Quaternion.Angle(bottomPose.LocalRotation, Quaternion.identity), Is.LessThan(0.001f));
-            Assert.That(Quaternion.Angle(frontPose.LocalRotation, Quaternion.identity), Is.LessThan(0.001f));
-            Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.forward));
-            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.forward));
+            Assert.That(bottomPose.LocalPosition.y, Is.EqualTo(1.58f).Within(0.001f));
+            Assert.That(bottomPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(bottomPose.LocalPosition.z, Is.EqualTo(-1f).Within(0.001f));
+            Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.up));
+            Assert.That(
+                Quaternion.Angle(bottomPose.LocalRotation, Quaternion.LookRotation(Vector3.up, Vector3.back)),
+                Is.LessThan(0.001f));
         }
 
-        // TODO(CubeSurface3D): Replace with GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D.
-        // Preserve the active-face visibility guardrail, but stop asserting strip-space world positions.
         [Test]
-        public void GameplayTickViewPresenter_PresentsOnlyBottomAndFrontFaces()
+        public void GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_PresentsOnlyBottomAndFrontFaces");
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Front, 1, 0),
+                    topology,
+                    EntityType.Unit,
+                    out var frontPose),
+                Is.True);
+
+            Assert.That(frontPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(frontPose.LocalPosition.y, Is.EqualTo(-1f).Within(0.001f));
+            Assert.That(frontPose.LocalPosition.z, Is.EqualTo(-1.58f).Within(0.001f));
+            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.back));
+            Assert.That(
+                Quaternion.Angle(frontPose.LocalRotation, Quaternion.LookRotation(Vector3.back, Vector3.up)),
+                Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_RejectsInactiveFaceEntityProjection()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Ceiling, 1, 1),
+                    topology,
+                    EntityType.Unit,
+                    out _),
+                Is.False);
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D");
 
             try
             {
@@ -283,13 +332,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(10, out var bottomView), Is.True);
                 Assert.That(bottomView.gameObject.activeSelf, Is.True);
-                Assert.That(bottomView.transform.localPosition, Is.EqualTo(new Vector3(0f, 1f, 0f)));
-                Assert.That(bottomView.transform.position, Is.EqualTo(new Vector3(0f, 1f, 0f)));
+                Assert.That(bottomView.transform.localPosition, Is.EqualTo(GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 0, 1))));
+                Assert.That(bottomView.transform.position, Is.EqualTo(bottomView.transform.localPosition));
 
                 Assert.That(registry.TryGetView(20, out var frontView), Is.True);
                 Assert.That(frontView.gameObject.activeSelf, Is.True);
-                Assert.That(frontView.transform.localPosition, Is.EqualTo(new Vector3(1f, 2f, 0f)));
-                Assert.That(frontView.transform.position, Is.EqualTo(new Vector3(1f, 2f, 0f)));
+                Assert.That(frontView.transform.localPosition, Is.EqualTo(GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Front, 1, 0))));
+                Assert.That(frontView.transform.position, Is.EqualTo(frontView.transform.localPosition));
 
                 Assert.That(registry.TryGetView(30, out _), Is.False);
             }
@@ -375,12 +430,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        // TODO(CubeSurface3D): Replace continuity-anchor assertions with
-        // GameplayTickViewPresenter_TopologyMotion_RotatesBoardRoot.
         [Test]
-        public void GameplayTickViewPresenter_ShiftsContinuityAnchorOnForwardRotation()
+        public void GameplayTickViewPresenter_ForwardTopologyChange_UsesProjectedCubePose()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_ShiftsContinuityAnchorOnForwardRotation");
+            var rootObject = new GameObject("GameplayTickViewPresenter_ForwardTopologyChange_UsesProjectedCubePose");
 
             try
             {
@@ -412,9 +465,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new CubeTopologyState(FaceId.Front)));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(new Vector3(0f, 2f, 0f)));
+                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(Vector3.zero));
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
-                Assert.That(view.transform.position, Is.EqualTo(new Vector3(0f, 2f, 0f)));
+                Assert.That(
+                    view.transform.position,
+                    Is.EqualTo(GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        new CubeTopologyState(FaceId.Front),
+                        new SurfaceCell(FaceId.Front, 0, 0))));
             }
             finally
             {
@@ -423,9 +481,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_ShiftsContinuityAnchorOnBackwardRotation()
+        public void GameplayTickViewPresenter_BackwardTopologyChange_UsesProjectedCubePose()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_ShiftsContinuityAnchorOnBackwardRotation");
+            var rootObject = new GameObject("GameplayTickViewPresenter_BackwardTopologyChange_UsesProjectedCubePose");
 
             try
             {
@@ -457,9 +515,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new CubeTopologyState(FaceId.Floor)));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(new Vector3(0f, -2f, 0f)));
+                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(Vector3.zero));
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
-                Assert.That(view.transform.position, Is.EqualTo(new Vector3(0f, -1f, 0f)));
+                Assert.That(
+                    view.transform.position,
+                    Is.EqualTo(GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        new CubeTopologyState(FaceId.Floor),
+                        new SurfaceCell(FaceId.Floor, 0, 1))));
             }
             finally
             {
@@ -468,9 +531,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_TopologyMotion_MidpointInterpolatesContinuityAnchor()
+        public void GameplayTickViewPresenter_TopologyMotion_SnapsUntilBoardRotationTrackExists()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_MidpointInterpolatesContinuityAnchor");
+            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_SnapsUntilBoardRotationTrackExists");
 
             try
             {
@@ -517,11 +580,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickVisibilityChange>())));
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
 
-                Assert.That(presenter.ContinuityAnchor.y, Is.GreaterThan(0f));
-                Assert.That(presenter.ContinuityAnchor.y, Is.LessThan(2f));
+                Assert.That(presenter.ContinuityAnchor, Is.EqualTo(Vector3.zero));
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
-                Assert.That(view.transform.position.y, Is.GreaterThan(0f));
-                Assert.That(view.transform.position.y, Is.LessThan(2f));
+                Assert.That(
+                    view.transform.position,
+                    Is.EqualTo(GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        rotatedTopology,
+                        new SurfaceCell(FaceId.Front, 0, 0))));
             }
             finally
             {
@@ -529,12 +595,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        // TODO(CubeSurface3D): Replace strip-center camera assertions with
-        // GameplaySceneHost_CameraRigTracksCubeCenter.
         [Test]
-        public void GameplaySceneHost_InterpolatesCameraTargetWithPresentedTopologyMotion()
+        public void GameplaySceneHost_CameraTarget_StaysOnCubeCenterBeforeCameraRig()
         {
-            var hostObject = new GameObject("GameplaySceneHost_InterpolatesCameraTargetWithPresentedTopologyMotion");
+            var hostObject = new GameObject("GameplaySceneHost_CameraTarget_StaysOnCubeCenterBeforeCameraRig");
 
             try
             {
@@ -558,18 +622,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
 
                 var initialTarget = host.ViewCameraTarget.position;
+                var expectedCenter = new GameplayCubeProjector(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    Vector3.zero,
+                    1f).GetCubeCenter();
 
                 host.InputHost.SetRawMoveInput(Vector2.up);
                 host.InputHost.RunSingleTick();
                 host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
 
-                Assert.That(host.ViewCameraTarget.position.y, Is.GreaterThan(initialTarget.y));
-                Assert.That(host.ViewCameraTarget.position.y, Is.LessThan(initialTarget.y + 2f));
+                Assert.That(initialTarget, Is.EqualTo(expectedCenter));
+                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
 
                 host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
 
-                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(initialTarget + new Vector3(0f, 2f, 0f)));
-                Assert.That(GetViewPosition(host, 10), Is.EqualTo(new Vector3(0f, 2f, 0f)));
+                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
+                Assert.That(
+                    GetViewPosition(host, 10),
+                    Is.EqualTo(GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        new CubeTopologyState(FaceId.Front),
+                        new SurfaceCell(FaceId.Front, 0, 0))));
             }
             finally
             {
@@ -614,8 +687,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
 
                 var renderedPosition = GetViewPosition(host, 10);
-                Assert.That(renderedPosition.x, Is.GreaterThan(0f));
-                Assert.That(renderedPosition.x, Is.LessThan(1f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 0, 0));
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 1, 0));
+                Assert.That(renderedPosition.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(renderedPosition.x, Is.LessThan(destinationPosition.x));
             }
             finally
             {
@@ -663,8 +744,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
 
                 var renderedPosition = GetViewPosition(host, 20);
-                Assert.That(renderedPosition.x, Is.GreaterThan(1f));
-                Assert.That(renderedPosition.x, Is.LessThan(2f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    EntityType.Box);
+                Assert.That(renderedPosition.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(renderedPosition.x, Is.LessThan(destinationPosition.x));
             }
             finally
             {
@@ -715,8 +806,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
 
                 var renderedPosition = GetViewPosition(host, 20);
-                Assert.That(renderedPosition.x, Is.GreaterThan(1f));
-                Assert.That(renderedPosition.x, Is.LessThan(2f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    EntityType.Box);
+                Assert.That(renderedPosition.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(renderedPosition.x, Is.LessThan(destinationPosition.x));
             }
             finally
             {
@@ -764,8 +865,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
 
                 var renderedPosition = GetViewPosition(host, 20);
-                Assert.That(renderedPosition.x, Is.GreaterThan(-1f));
-                Assert.That(renderedPosition.x, Is.Not.EqualTo(1f).Within(0.01f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, -1, 0),
+                    EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                    new CubeTopologyState(FaceId.Floor),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Box);
+                Assert.That(renderedPosition.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(renderedPosition.x, Is.LessThan(destinationPosition.x));
             }
             finally
             {
@@ -828,9 +939,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
-                Assert.That(view.transform.position.x, Is.GreaterThan(0f));
-                Assert.That(view.transform.position.x, Is.LessThan(1f));
-                Assert.That(view.transform.position.y, Is.EqualTo(0f).Within(0.001f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 0, 0));
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 1, 0));
+                Assert.That(view.transform.position.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(view.transform.position.x, Is.LessThan(destinationPosition.x));
+                Assert.That(view.transform.position.y, Is.EqualTo(sourcePosition.y).Within(0.001f));
+                Assert.That(view.transform.position.z, Is.EqualTo(sourcePosition.z).Within(0.001f));
             }
             finally
             {
@@ -893,9 +1013,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.ProjectileStepIntervalSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(30, out var view), Is.True);
-                Assert.That(view.transform.position.x, Is.GreaterThan(0f));
-                Assert.That(view.transform.position.x, Is.LessThan(1f));
-                Assert.That(view.transform.position.y, Is.EqualTo(0f).Within(0.001f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    EntityType.Projectile);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Projectile);
+                Assert.That(view.transform.position.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(view.transform.position.x, Is.LessThan(destinationPosition.x));
+                Assert.That(view.transform.position.y, Is.EqualTo(sourcePosition.y).Within(0.001f));
+                Assert.That(view.transform.position.z, Is.EqualTo(sourcePosition.z).Within(0.001f));
             }
             finally
             {
@@ -1101,9 +1232,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
-                Assert.That(view.transform.position.x, Is.GreaterThan(1f));
-                Assert.That(view.transform.position.x, Is.LessThan(2f));
-                Assert.That(view.transform.position.y, Is.EqualTo(0f).Within(0.001f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    EntityType.Box);
+                Assert.That(view.transform.position.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(view.transform.position.x, Is.LessThan(destinationPosition.x));
+                Assert.That(view.transform.position.y, Is.EqualTo(sourcePosition.y).Within(0.001f));
+                Assert.That(view.transform.position.z, Is.EqualTo(sourcePosition.z).Within(0.001f));
             }
             finally
             {
@@ -1183,15 +1325,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
-                Assert.That(view.transform.position.x, Is.GreaterThan(0f));
-                Assert.That(view.transform.position.x, Is.LessThan(1f));
+                var firstSourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    EntityType.Box);
+                var firstDestinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Box);
+                Assert.That(view.transform.position.x, Is.GreaterThan(firstSourcePosition.x));
+                Assert.That(view.transform.position.x, Is.LessThan(firstDestinationPosition.x));
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
-                Assert.That(view.transform.position.x, Is.EqualTo(1f).Within(0.001f));
+                Assert.That(view.transform.position, Is.EqualTo(firstDestinationPosition));
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
-                Assert.That(view.transform.position.x, Is.GreaterThan(1f));
-                Assert.That(view.transform.position.x, Is.LessThan(2f));
+                var secondDestinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 1)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    EntityType.Box);
+                Assert.That(view.transform.position.x, Is.GreaterThan(firstDestinationPosition.x));
+                Assert.That(view.transform.position.x, Is.LessThan(secondDestinationPosition.x));
             }
             finally
             {
@@ -1255,7 +1412,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(30, out var view), Is.True);
                 Assert.That(view.transform.position.x, Is.EqualTo(0f).Within(0.15f));
-                Assert.That(view.transform.position.y, Is.GreaterThan(0.2f));
+                Assert.That(
+                    view.transform.position.y,
+                    Is.GreaterThan(GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                        topology,
+                        new SurfaceCell(FaceId.Floor, -1, 0),
+                        EntityType.Box).y + 0.2f));
             }
             finally
             {
@@ -1318,9 +1481,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.FlipMotionDurationSeconds);
 
                 Assert.That(registry.TryGetView(30, out var view), Is.True);
-                Assert.That(view.transform.position, Is.EqualTo(new Vector3(1f, 0f, 0f)));
                 Assert.That(
-                    Quaternion.Angle(view.transform.rotation, Quaternion.Euler(0f, 0f, -90f)),
+                    view.transform.position,
+                    Is.EqualTo(GetProjectedEntityPosition(
+                        new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                        topology,
+                        new SurfaceCell(FaceId.Floor, 1, 0),
+                        EntityType.Box)));
+                Assert.That(
+                    Quaternion.Angle(
+                        view.transform.rotation,
+                        GetProjectedEntityRotation(
+                            new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
+                            topology,
+                            new SurfaceCell(FaceId.Floor, 1, 0),
+                            Direction.Right,
+                            EntityType.Box)),
                     Is.LessThan(0.1f));
             }
             finally
@@ -1402,11 +1578,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(30, out var view), Is.True);
-                Assert.That(view.transform.position.x, Is.GreaterThan(0f));
-                Assert.That(view.transform.position.x, Is.LessThan(1f));
-                Assert.That(view.transform.position.y, Is.EqualTo(1f).Within(0.001f));
+                var sourcePosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(2, 2)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(
+                    new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(2, 2)),
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 1, 1),
+                    EntityType.Box);
+                Assert.That(view.transform.position.x, Is.GreaterThan(sourcePosition.x));
+                Assert.That(view.transform.position.x, Is.LessThan(destinationPosition.x));
+                Assert.That(view.transform.position.y, Is.EqualTo(sourcePosition.y).Within(0.001f));
+                Assert.That(view.transform.position.z, Is.EqualTo(sourcePosition.z).Within(0.001f));
                 Assert.That(
-                    Quaternion.Angle(view.transform.rotation, Quaternion.Euler(0f, 0f, -90f)),
+                    Quaternion.Angle(
+                        view.transform.rotation,
+                        GetProjectedEntityRotation(
+                            new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(2, 2)),
+                            topology,
+                            new SurfaceCell(FaceId.Floor, 1, 1),
+                            Direction.Right,
+                            EntityType.Box)),
                     Is.LessThan(0.1f));
             }
             finally
@@ -1486,6 +1680,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
             };
+        }
+
+        private static Vector3 GetProjectedEntityPosition(
+            BoardBounds boardBounds,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            EntityType entityType = EntityType.Unit,
+            float cellSize = 1f,
+            Vector3? cubeCenter = null)
+        {
+            var projector = cubeCenter.HasValue
+                ? new GameplayCubeProjector(boardBounds, cubeCenter.Value, cellSize)
+                : new GameplayCubeProjector(boardBounds, cellSize);
+            Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
+            return projectedPose.LocalPosition;
+        }
+
+        private static Quaternion GetProjectedEntityRotation(
+            BoardBounds boardBounds,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            Direction facing,
+            EntityType entityType = EntityType.Unit,
+            float cellSize = 1f,
+            Vector3? cubeCenter = null)
+        {
+            var projector = cubeCenter.HasValue
+                ? new GameplayCubeProjector(boardBounds, cubeCenter.Value, cellSize)
+                : new GameplayCubeProjector(boardBounds, cellSize);
+            Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
+            return projectedPose.LocalRotation * ResolveFacingLocalRotation(facing);
+        }
+
+        private static Quaternion ResolveFacingLocalRotation(Direction facing)
+        {
+            var zRotation = facing switch
+            {
+                Direction.Up => 0f,
+                Direction.Right => -90f,
+                Direction.Down => 180f,
+                Direction.Left => 90f,
+                _ => 0f,
+            };
+
+            return Quaternion.Euler(0f, 0f, zRotation);
         }
 
         private static Vector3 GetViewPosition(GameplaySceneHost host, int entityId)
