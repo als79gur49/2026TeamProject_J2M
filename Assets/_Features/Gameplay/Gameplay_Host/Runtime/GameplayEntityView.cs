@@ -13,10 +13,24 @@ namespace Game.Feature.Gameplay.Host
             entityId = newEntityId;
         }
 
+        public void ApplyLocalPose(Vector3 localPosition, Quaternion localRotation)
+        {
+            transform.localPosition = localPosition;
+            transform.localRotation = localRotation;
+        }
+
         public void ApplyPose(Vector3 worldPosition, Quaternion worldRotation)
         {
-            transform.position = worldPosition;
-            transform.rotation = worldRotation;
+            var parent = transform.parent;
+            if (parent == null)
+            {
+                transform.SetPositionAndRotation(worldPosition, worldRotation);
+                return;
+            }
+
+            ApplyLocalPose(
+                parent.InverseTransformPoint(worldPosition),
+                Quaternion.Inverse(parent.rotation) * worldRotation);
         }
 
         public void SetVisible(bool isVisible)

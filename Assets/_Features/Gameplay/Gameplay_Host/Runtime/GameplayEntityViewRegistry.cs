@@ -7,14 +7,24 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayEntityViewRegistry : MonoBehaviour
     {
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
+        private Transform _searchRoot;
 
         private void Awake()
         {
+            _searchRoot ??= transform;
             Rebuild();
         }
 
         private void OnTransformChildrenChanged()
         {
+            Rebuild();
+        }
+
+        public Transform SearchRoot => _searchRoot != null ? _searchRoot : transform;
+
+        public void ConfigureSearchRoot(Transform searchRoot)
+        {
+            _searchRoot = searchRoot != null ? searchRoot : transform;
             Rebuild();
         }
 
@@ -52,7 +62,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _viewsByEntityId.Clear();
 
-            var views = GetComponentsInChildren<GameplayEntityView>(includeInactive: true);
+            var views = SearchRoot.GetComponentsInChildren<GameplayEntityView>(includeInactive: true);
             for (var i = 0; i < views.Length; i++)
             {
                 var view = views[i];

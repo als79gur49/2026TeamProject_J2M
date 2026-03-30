@@ -10,6 +10,9 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplaySceneHost : MonoBehaviour
     {
+        private const string BoardRootObjectName = "GameplayBoardRoot";
+
+        private GameplayBoardRoot _boardRoot;
         private GameplayInputHost _inputHost;
         private GameplayTickViewPresenter _presenter;
         private GameplayEntityViewBinder _viewBinder;
@@ -27,6 +30,8 @@ namespace Game.Feature.Gameplay.Host
         public TickRunner TickRunner { get; private set; }
 
         public GameplayTimingProfile TimingProfile { get; private set; }
+
+        public GameplayBoardRoot BoardRoot => _boardRoot;
 
         public GameplayEntityViewRegistry ViewRegistry => _viewRegistry;
 
@@ -76,10 +81,11 @@ namespace Game.Feature.Gameplay.Host
                 TimingProfile,
                 startTickIndex: 1);
 
-            _viewRegistry.Rebuild();
+            EnsureBoardRootHierarchy();
+            _viewRegistry.ConfigureSearchRoot(_boardRoot.EntityRoot);
             var viewFactory = configuration.ViewFactory ??
                 (configuration.AutoCreateViews
-                    ? new DefaultGameplayEntityViewFactory(_viewRegistry.transform, configuration.CellSize, configuration.PlayerEntityId)
+                    ? new DefaultGameplayEntityViewFactory(_boardRoot.EntityRoot, configuration.CellSize, configuration.PlayerEntityId)
                     : null);
             _viewBinder = new GameplayEntityViewBinder(_viewRegistry, viewFactory);
             ConfigureViewCamera(configuration);
@@ -113,6 +119,45 @@ namespace Game.Feature.Gameplay.Host
             _viewRegistry = GetComponent<GameplayEntityViewRegistry>() ?? gameObject.AddComponent<GameplayEntityViewRegistry>();
         }
 
+        private void EnsureBoardRootHierarchy()
+        {
+            _boardRoot = FindExistingBoardRoot();
+            if (_boardRoot == null)
+            {
+                var boardRootObject = new GameObject(BoardRootObjectName);
+                boardRootObject.transform.SetParent(transform, worldPositionStays: false);
+                _boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
+            }
+            else
+            {
+                _boardRoot.transform.SetParent(transform, worldPositionStays: false);
+                _boardRoot.gameObject.name = BoardRootObjectName;
+            }
+
+            _boardRoot.EnsureHierarchy();
+        }
+
+        private GameplayBoardRoot FindExistingBoardRoot()
+        {
+            for (var i = 0; i < transform.childCount; i++)
+            {
+                var child = transform.GetChild(i);
+                if (child.TryGetComponent<GameplayBoardRoot>(out var boardRoot))
+                {
+                    return boardRoot;
+                }
+            }
+
+            var namedChild = transform.Find(BoardRootObjectName);
+            if (namedChild != null)
+            {
+                return namedChild.GetComponent<GameplayBoardRoot>() ??
+                       namedChild.gameObject.AddComponent<GameplayBoardRoot>();
+            }
+
+            return null;
+        }
+
         private void ConfigureViewCamera(GameplaySceneHostConfiguration configuration)
         {
             _snapViewCameraToTarget = configuration.SnapViewCameraToTarget;
@@ -121,26 +166,22 @@ namespace Game.Feature.Gameplay.Host
 
         private void EnsureViewCameraTarget()
         {
-            if (_viewCameraTarget != null)
-            {
-                return;
-            }
-
-            var targetObject = new GameObject("GameplayViewCameraTarget");
-            targetObject.transform.SetParent(transform, worldPositionStays: false);
-            _viewCameraTarget = targetObject.transform;
+            _viewCameraTarget = _boardRoot != null ? _boardRoot.CameraTargetRoot : null;
         }
 
-        private void HandleStripCenterChanged(Vector3 stripCenter)
+        private void HandleStripCenterChanged(Vector3 localStripCenter)
         {
             if (_viewCameraTarget != null)
             {
-                _viewCameraTarget.position = stripCenter;
+                _viewCameraTarget.localPosition = localStripCenter;
+                _viewCameraTarget.localRotation = Quaternion.identity;
             }
 
             if (_snapViewCameraToTarget && _viewCamera != null)
             {
-                var cameraPosition = stripCenter;
+                var cameraPosition = _viewCameraTarget != null
+                    ? _viewCameraTarget.position
+                    : localStripCenter;
                 cameraPosition.z = _viewCamera.transform.position.z;
                 _viewCamera.transform.position = cameraPosition;
             }

@@ -272,7 +272,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 view.SetVisible(true);
-                view.ApplyPose(localPose.Position + _presentedContinuityAnchor, localPose.Rotation);
+                view.ApplyLocalPose(localPose.Position + _presentedContinuityAnchor, localPose.Rotation);
                 _visibleEntityIds.Add(entityId);
             }
 
@@ -334,7 +334,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entity = entities[i];
                 if (!ShouldPresent(entity, topology) ||
-                    !_projector.TryProjectWithoutContinuity(entity.position, topology, out var localWorldPosition))
+                    !_projector.TryProjectWithoutContinuity(entity.position, topology, out var localBoardPosition))
                 {
                     continue;
                 }
@@ -347,8 +347,8 @@ namespace Game.Feature.Gameplay.Host
 
                 _viewsByEntityId[entity.entityId] = view;
                 _committedLocalTargetPoses[entity.entityId] = new GameplayEntityPose(
-                    localWorldPosition,
-                    ResolveWorldRotation(entity.facing));
+                    localBoardPosition,
+                    ResolveLocalRotation(entity.facing));
             }
         }
 
@@ -599,12 +599,12 @@ namespace Game.Feature.Gameplay.Host
             out GameplayEntityPose pose)
         {
             pose = default;
-            if (!_projector.TryProjectWithoutContinuity(cell, topology, out var localWorldPosition))
+            if (!_projector.TryProjectWithoutContinuity(cell, topology, out var localBoardPosition))
             {
                 return false;
             }
 
-            pose = new GameplayEntityPose(localWorldPosition, ResolveWorldRotation(facing));
+            pose = new GameplayEntityPose(localBoardPosition, ResolveLocalRotation(facing));
             return true;
         }
 
@@ -712,7 +712,7 @@ namespace Game.Feature.Gameplay.Host
                    topology.IsFaceActive(entity.position.face);
         }
 
-        private static Quaternion ResolveWorldRotation(Direction facing)
+        private static Quaternion ResolveLocalRotation(Direction facing)
         {
             var zRotation = facing switch
             {
