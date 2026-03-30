@@ -222,6 +222,63 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot()
+        {
+            var viewObject = new GameObject("GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot");
+
+            try
+            {
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(10);
+                var expectedRotation = Quaternion.Euler(15f, 25f, 35f);
+
+                view.ConfigureModelRoot(new Vector3(0.1f, 0.2f, 0.3f), expectedRotation);
+
+                Assert.That(view.ModelRoot, Is.Not.Null);
+                Assert.That(view.ModelRoot.parent, Is.EqualTo(view.transform));
+                Assert.That(view.ModelRoot.localPosition, Is.EqualTo(new Vector3(0.1f, 0.2f, 0.3f)));
+                Assert.That(Quaternion.Angle(view.ModelRoot.localRotation, expectedRotation), Is.LessThan(0.001f));
+                Assert.That(view.ModelRoot.localScale, Is.EqualTo(Vector3.one));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(viewObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders");
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
+
+                AssertVisualMatchesProfile(
+                    factory.CreateView(CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0))),
+                    GameplayEntityVisualProfile.Create(EntityType.Unit, 1f),
+                    new Color(0.2f, 0.85f, 0.35f));
+                AssertVisualMatchesProfile(
+                    factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)),
+                    GameplayEntityVisualProfile.Create(EntityType.Box, 1f),
+                    new Color(0.72f, 0.5f, 0.24f));
+                AssertVisualMatchesProfile(
+                    factory.CreateView(CreateSurfaceProjectile(30, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)),
+                    GameplayEntityVisualProfile.Create(EntityType.Projectile, 1f),
+                    new Color(0.9f, 0.4f, 0.2f));
+                AssertVisualMatchesProfile(
+                    factory.CreateView(CreateSurfaceWall(40, new SurfaceCell(FaceId.Floor, 0, 0))),
+                    GameplayEntityVisualProfile.Create(EntityType.None, 1f),
+                    new Color(0.25f, 0.28f, 0.33f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
         public void ProjectedCellPose_NormalizesNormalVector()
         {
             var pose = new ProjectedCellPose(
@@ -1759,6 +1816,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EntityState CreateSurfaceWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
         private static Vector3 GetProjectedEntityPosition(
             BoardBounds boardBounds,
             CubeTopologyState topology,
@@ -1808,6 +1881,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
             return view.transform.position;
+        }
+
+        private static void AssertVisualMatchesProfile(
+            GameplayEntityView view,
+            GameplayEntityVisualProfile expectedProfile,
+            Color expectedColor)
+        {
+            Assert.That(view, Is.Not.Null);
+            Assert.That(view.transform.parent, Is.Not.Null);
+            Assert.That(view.GetComponent<Renderer>(), Is.Null);
+            Assert.That(view.ModelRoot, Is.Not.Null);
+            Assert.That(view.ModelRoot.parent, Is.EqualTo(view.transform));
+            Assert.That(view.ModelRoot.localPosition, Is.EqualTo(expectedProfile.ModelLocalPosition));
+            Assert.That(
+                Quaternion.Angle(view.ModelRoot.localRotation, expectedProfile.ModelLocalRotation),
+                Is.LessThan(0.001f));
+            Assert.That(view.ModelRoot.localScale, Is.EqualTo(Vector3.one));
+            Assert.That(view.ModelRoot.childCount, Is.EqualTo(1));
+
+            var visual = view.ModelRoot.GetChild(0);
+            Assert.That(visual.localPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(Quaternion.Angle(visual.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+            Assert.That(visual.localScale, Is.EqualTo(expectedProfile.ModelLocalScale));
+            Assert.That(visual.GetComponent<Collider>(), Is.Null);
+
+            var meshFilter = visual.GetComponent<MeshFilter>();
+            Assert.That(meshFilter, Is.Not.Null);
+            Assert.That(meshFilter.sharedMesh, Is.Not.Null);
+            Assert.That(meshFilter.sharedMesh.name, Does.Contain("Cube").IgnoreCase);
+
+            var renderer = visual.GetComponent<Renderer>();
+            Assert.That(renderer, Is.Not.Null);
+            AssertColorApproximately(renderer.sharedMaterial.color, expectedColor);
+        }
+
+        private static void AssertColorApproximately(Color actual, Color expected)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.001f));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.001f));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.001f));
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.001f));
         }
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory
