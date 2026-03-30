@@ -944,13 +944,117 @@ namespace Game.Feature.Gameplay.Host
             private GameplayEntityPose SampleFlip(float t)
             {
                 var easedT = Mathf.Clamp01(t);
-                var controlPoint = (StartPose.Position + EndPose.Position) * 0.5f + (Vector3.up * _flipArcHeightWorld);
-                var firstLerp = Vector3.LerpUnclamped(StartPose.Position, controlPoint, easedT);
-                var secondLerp = Vector3.LerpUnclamped(controlPoint, EndPose.Position, easedT);
-                var position = Vector3.LerpUnclamped(firstLerp, secondLerp, easedT);
-                var baseRotation = Quaternion.Slerp(StartPose.Rotation, EndPose.Rotation, easedT);
-                var flipRotation = Quaternion.AngleAxis(180f * Mathf.Sin(Mathf.PI * easedT), Vector3.forward);
-                return new GameplayEntityPose(position, flipRotation * baseRotation);
+                if (!TryResolveFlipBasis(out var liftAxis, out var flipAxis))
+                {
+                    return SampleLinear(easedT);
+                }
+
+                if (!TrySampleFlipArcPosition(easedT, liftAxis, flipAxis, out var position))
+                {
+                    return SampleLinear(easedT);
+                }
+
+                return new GameplayEntityPose(
+                    position,
+                    SampleFlipRotation(easedT, flipAxis));
+            }
+
+            private bool TryResolveFlipBasis(out Vector3 liftAxis, out Vector3 flipAxis)
+            {
+                liftAxis = default;
+                flipAxis = default;
+
+                var travelDelta = EndPose.Position - StartPose.Position;
+                if (travelDelta.sqrMagnitude <= 0.000001f)
+                {
+                    return false;
+                }
+
+                var surfaceNormal = ResolveFlipSurfaceNormal();
+                if (surfaceNormal.sqrMagnitude <= 0.000001f)
+                {
+                    return false;
+                }
+
+                liftAxis = -surfaceNormal.normalized;
+                flipAxis = Vector3.Cross(travelDelta.normalized, liftAxis);
+                if (flipAxis.sqrMagnitude <= 0.000001f)
+                {
+                    return false;
+                }
+
+                flipAxis.Normalize();
+                return true;
+            }
+
+            private Vector3 ResolveFlipSurfaceNormal()
+            {
+                var startNormal = StartPose.Rotation * Vector3.forward;
+                var endNormal = EndPose.Rotation * Vector3.forward;
+                var averagedNormal = startNormal + endNormal;
+
+                if (averagedNormal.sqrMagnitude > 0.000001f)
+                {
+                    return averagedNormal.normalized;
+                }
+
+                if (startNormal.sqrMagnitude > 0.000001f)
+                {
+                    return startNormal.normalized;
+                }
+
+                return endNormal.sqrMagnitude > 0.000001f
+                    ? endNormal.normalized
+                    : Vector3.zero;
+            }
+
+            private bool TrySampleFlipArcPosition(
+                float normalizedTime,
+                Vector3 liftAxis,
+                Vector3 flipAxis,
+                out Vector3 position)
+            {
+                position = default;
+
+                var chord = EndPose.Position - StartPose.Position;
+                var chordLength = chord.magnitude;
+                if (chordLength <= 0.000001f)
+                {
+                    return false;
+                }
+
+                var halfChord = chordLength * 0.5f;
+                var sagitta = Mathf.Clamp(_flipArcHeightWorld, 0.0001f, halfChord * 0.95f);
+                var radius = ((halfChord * halfChord) + (sagitta * sagitta)) / (2f * sagitta);
+                var midpoint = (StartPose.Position + EndPose.Position) * 0.5f;
+
+                // Offset the circle center opposite the lift axis so the sampled midpoint bulges outward.
+                var center = midpoint - (liftAxis * (radius - sagitta));
+                var startRadius = StartPose.Position - center;
+                var endRadius = EndPose.Position - center;
+                if (startRadius.sqrMagnitude <= 0.000001f ||
+                    endRadius.sqrMagnitude <= 0.000001f)
+                {
+                    return false;
+                }
+
+                var totalAngle = Vector3.SignedAngle(startRadius, endRadius, flipAxis);
+                if (Mathf.Abs(totalAngle) <= 0.0001f)
+                {
+                    return false;
+                }
+
+                var rotatedRadius = Quaternion.AngleAxis(totalAngle * normalizedTime, flipAxis) * startRadius;
+                position = center + rotatedRadius;
+                return true;
+            }
+
+            private Quaternion SampleFlipRotation(float normalizedTime, Vector3 flipAxis)
+            {
+                var tumbleRotation = Quaternion.AngleAxis(180f * normalizedTime, flipAxis);
+                var endCorrection = EndPose.Rotation * Quaternion.Inverse(Quaternion.AngleAxis(180f, flipAxis) * StartPose.Rotation);
+                var correctionRotation = Quaternion.Slerp(Quaternion.identity, endCorrection, normalizedTime);
+                return correctionRotation * tumbleRotation * StartPose.Rotation;
             }
         }
 
