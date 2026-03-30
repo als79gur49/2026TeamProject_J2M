@@ -94,6 +94,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot");
+            hostObject.transform.position = new Vector3(4f, -2f, 0f);
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        GridOrigin = new Vector3(1f, 2f, 0f),
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Up,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                    });
+
+                Assert.That(host.BoardRoot, Is.Not.Null);
+                Assert.That(host.BoardRoot.transform.parent, Is.EqualTo(host.transform));
+                Assert.That(host.BoardRoot.BoardSurfaceRoot.parent, Is.EqualTo(host.BoardRoot.transform));
+                Assert.That(host.BoardRoot.EntityRoot.parent, Is.EqualTo(host.BoardRoot.transform));
+                Assert.That(host.BoardRoot.CameraTargetRoot.parent, Is.EqualTo(host.BoardRoot.transform));
+                Assert.That(host.ViewCameraTarget, Is.SameAs(host.BoardRoot.CameraTargetRoot));
+                Assert.That(host.ViewRegistry.SearchRoot, Is.SameAs(host.BoardRoot.EntityRoot));
+
+                Assert.That(host.ViewRegistry.TryGetView(10, out var view), Is.True);
+                Assert.That(view.transform.parent, Is.EqualTo(host.BoardRoot.EntityRoot));
+                Assert.That(view.transform.localPosition, Is.EqualTo(new Vector3(1f, 2f, 0f)));
+                Assert.That(view.transform.position, Is.EqualTo(new Vector3(5f, 0f, 0f)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void GameplayCompositionRoot_DeclaresOnlyBoundedWorldFactory()
         {
             var worldFactories = typeof(GameplayCompositionRoot)
@@ -114,8 +172,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
     }
 
+    // Step 0 migration guardrail:
+    // Keep lifecycle, visibility, and motion sequencing coverage in this class.
+    // Replace the strip-specific tests called out below once board-local pose,
+    // cube projection, and camera rig contracts land.
     public sealed class GameplayViewProjectionTests
     {
+        [Test]
+        public void GameplayEntityView_ApplyLocalPose_UsesLocalTransformSpace()
+        {
+            var rootObject = new GameObject("GameplayEntityView_ApplyLocalPose_UsesLocalTransformSpace");
+            rootObject.transform.position = new Vector3(5f, 7f, 0f);
+
+            try
+            {
+                var parentObject = new GameObject("EntityRoot");
+                parentObject.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                parentObject.transform.localPosition = new Vector3(2f, -3f, 0f);
+
+                var viewObject = new GameObject("EntityView");
+                viewObject.transform.SetParent(parentObject.transform, worldPositionStays: false);
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(10);
+
+                view.ApplyLocalPose(new Vector3(1f, 4f, 0f), Quaternion.Euler(0f, 0f, 90f));
+
+                Assert.That(view.transform.localPosition, Is.EqualTo(new Vector3(1f, 4f, 0f)));
+                Assert.That(view.transform.position, Is.EqualTo(new Vector3(8f, 8f, 0f)));
+                Assert.That(
+                    Quaternion.Angle(view.transform.localRotation, Quaternion.Euler(0f, 0f, 90f)),
+                    Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        // TODO(CubeSurface3D): Replace with
+        // GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane and
+        // GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane.
         [Test]
         public void GameplaySurfaceProjector_ProjectsFrontFaceAboveBottomFace()
         {
@@ -136,6 +232,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontWorld, Is.EqualTo(new Vector3(1f, 3f, 0f)));
         }
 
+        // TODO(CubeSurface3D): Replace with GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D.
+        // Preserve the active-face visibility guardrail, but stop asserting strip-space world positions.
         [Test]
         public void GameplayTickViewPresenter_PresentsOnlyBottomAndFrontFaces()
         {
@@ -166,10 +264,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(10, out var bottomView), Is.True);
                 Assert.That(bottomView.gameObject.activeSelf, Is.True);
+                Assert.That(bottomView.transform.localPosition, Is.EqualTo(new Vector3(0f, 1f, 0f)));
                 Assert.That(bottomView.transform.position, Is.EqualTo(new Vector3(0f, 1f, 0f)));
 
                 Assert.That(registry.TryGetView(20, out var frontView), Is.True);
                 Assert.That(frontView.gameObject.activeSelf, Is.True);
+                Assert.That(frontView.transform.localPosition, Is.EqualTo(new Vector3(1f, 2f, 0f)));
                 Assert.That(frontView.transform.position, Is.EqualTo(new Vector3(1f, 2f, 0f)));
 
                 Assert.That(registry.TryGetView(30, out _), Is.False);
@@ -256,6 +356,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        // TODO(CubeSurface3D): Replace continuity-anchor assertions with
+        // GameplayTickViewPresenter_TopologyMotion_RotatesBoardRoot.
         [Test]
         public void GameplayTickViewPresenter_ShiftsContinuityAnchorOnForwardRotation()
         {
@@ -408,6 +510,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        // TODO(CubeSurface3D): Replace strip-center camera assertions with
+        // GameplaySceneHost_CameraRigTracksCubeCenter.
         [Test]
         public void GameplaySceneHost_InterpolatesCameraTargetWithPresentedTopologyMotion()
         {
