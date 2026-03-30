@@ -182,11 +182,16 @@ GameplaySceneHost
 
 목표는 active face entity를 실제 3D cube 위에 올리는 것이다. 이 단계에서는 topology motion을 아직 즉시 전환으로 두어도 된다.
 
+진행 상태:
+
+- 완료 (2026-03-30)
+
 대상 파일:
 
 - 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCubeProjector.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs`
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`
+- `Assets/_Features/Gameplay/Gameplay_Tests/PlayMode/PlayerMovementPlayModeTests.cs`
 
 구현 태스크:
 
@@ -210,6 +215,15 @@ GameplaySceneHost
 
 - 엔티티가 3D cube 위에 올바른 face orientation으로 표시된다
 - strip Y-offset 전제가 presenter에서 제거된다
+
+구현 결과 메모:
+
+- `GameplayCubeProjector`를 추가했고, `Bottom / Front / TopVisible / BackVisible` face slot에 대한 board-local face frame, cube center, visible bounds 계산을 런타임 helper로 고정했다.
+- entity projection은 active face만 허용하고, surface projection은 active face와 decorative visible face를 모두 해석하도록 분리했다.
+- `GameplayTickViewPresenter`는 strip projector 대신 cube projector를 사용하도록 전환했고, topology presentation은 4단계 board rotation 전까지 `snap` 동작으로 유지했다.
+- 기존 `StripCenterChanged` 호환 경로는 남겨두되, 이 단계부터는 strip center가 아니라 cube center를 내보내도록 정리했다.
+- edit mode guard test는 `GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane`, `GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane`, `GameplayCubeProjector_RejectsInactiveFaceEntityProjection`, `GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D` 기준으로 교체했다.
+- play mode 입력 시나리오 테스트의 view oracle도 strip-space 고정값 대신 `GameplayCubeProjector` 기반 projected pose 비교로 바꿨다.
 
 ### 5-5. 4단계: Board Rotation과 Camera Rig
 
