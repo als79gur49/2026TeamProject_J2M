@@ -137,6 +137,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.BoardRoot.BoardSurfaceRoot.parent, Is.EqualTo(host.BoardRoot.transform));
                 Assert.That(host.BoardRoot.EntityRoot.parent, Is.EqualTo(host.BoardRoot.transform));
                 Assert.That(host.BoardRoot.CameraTargetRoot.parent, Is.EqualTo(host.BoardRoot.transform));
+                Assert.That(host.BoardSurfaceRenderer, Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.transform, Is.EqualTo(host.BoardRoot.BoardSurfaceRoot));
                 Assert.That(host.ViewCameraTarget, Is.SameAs(host.BoardRoot.CameraTargetRoot));
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(new Vector3(1f, 2f, 0f)));
                 Assert.That(host.ViewRegistry.SearchRoot, Is.SameAs(host.BoardRoot.EntityRoot));
@@ -358,6 +360,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     EntityType.Unit,
                     out _),
                 Is.False);
+        }
+
+        [Test]
+        public void GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles()
+        {
+            var rootObject = new GameObject("GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var cubeCenter = new Vector3(2f, 1f, -3f);
+
+                renderer.Initialize(boardBounds, cubeCenter, 1f, topology);
+
+                Assert.That(renderer.VisibleTilePoolRoot.parent, Is.EqualTo(renderer.transform));
+                Assert.That(renderer.VisibleTilePoolRoot.childCount, Is.EqualTo(16));
+                Assert.That(renderer.ActiveTileCount, Is.EqualTo(16));
+
+                var bottomTile = FindSurfaceTile(renderer, "ActiveBottom_Floor_0_0");
+                var frontTile = FindSurfaceTile(renderer, "ActiveFront_Front_1_1");
+                var topTile = FindSurfaceTile(renderer, "DecorativeTop_Ceiling_0_1");
+                var backTile = FindSurfaceTile(renderer, "DecorativeBack_Back_1_0");
+
+                AssertSurfaceTileMatchesProjection(bottomTile, boardBounds, topology, new SurfaceCell(FaceId.Floor, 0, 0), cubeCenter);
+                AssertSurfaceTileMatchesProjection(frontTile, boardBounds, topology, new SurfaceCell(FaceId.Front, 1, 1), cubeCenter);
+                AssertSurfaceTileMatchesProjection(topTile, boardBounds, topology, new SurfaceCell(FaceId.Ceiling, 0, 1), cubeCenter);
+                AssertSurfaceTileMatchesProjection(backTile, boardBounds, topology, new SurfaceCell(FaceId.Back, 1, 0), cubeCenter);
+
+                Assert.That(bottomTile.GetComponent<Collider>(), Is.Null);
+                Assert.That(frontTile.GetComponent<Collider>(), Is.Null);
+                Assert.That(topTile.GetComponent<Collider>(), Is.Null);
+                Assert.That(backTile.GetComponent<Collider>(), Is.Null);
+
+                Assert.That(bottomTile.GetComponent<Renderer>().sharedMaterial, Is.Not.SameAs(topTile.GetComponent<Renderer>().sharedMaterial));
+                Assert.That(frontTile.GetComponent<Renderer>().sharedMaterial, Is.Not.SameAs(backTile.GetComponent<Renderer>().sharedMaterial));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
         }
 
         [Test]
@@ -706,6 +750,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(initialTarget, Is.EqualTo(expectedCenter));
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
+                Assert.That(FindSurfaceTile(host.BoardSurfaceRenderer, "ActiveBottom_Front_0_0"), Is.Not.Null);
+                Assert.That(FindSurfaceTile(host.BoardSurfaceRenderer, "ActiveFront_Ceiling_0_0"), Is.Not.Null);
                 Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.GreaterThan(0.1f));
                 Assert.That(
                     Vector3.Distance(
@@ -1875,6 +1921,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
 
             return Quaternion.Euler(0f, 0f, zRotation);
+        }
+
+        private static GameObject FindSurfaceTile(GameplayBoardSurfaceRenderer renderer, string tileName)
+        {
+            Assert.That(renderer, Is.Not.Null);
+            Assert.That(renderer.VisibleTilePoolRoot, Is.Not.Null);
+            var tile = renderer.VisibleTilePoolRoot.Find(tileName);
+            Assert.That(tile, Is.Not.Null, $"Expected board surface tile '{tileName}' to exist.");
+            return tile.gameObject;
+        }
+
+        private static void AssertSurfaceTileMatchesProjection(
+            GameObject tile,
+            BoardBounds boardBounds,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            Vector3 cubeCenter,
+            float cellSize = 1f)
+        {
+            Assert.That(tile, Is.Not.Null);
+
+            var projector = new GameplayCubeProjector(boardBounds, cubeCenter, cellSize);
+            Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
+
+            var tileTransform = tile.transform;
+            var expectedPosition = projectedPose.LocalPosition - (projectedPose.Normal * (tileTransform.localScale.z * 0.5f));
+
+            Assert.That(tileTransform.localPosition, Is.EqualTo(expectedPosition));
+            Assert.That(Quaternion.Angle(tileTransform.localRotation, projectedPose.LocalRotation), Is.LessThan(0.001f));
+            Assert.That(tileTransform.localScale.x, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
+            Assert.That(tileTransform.localScale.y, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
+            Assert.That(tileTransform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
         }
 
         private static Vector3 GetViewPosition(GameplaySceneHost host, int entityId)

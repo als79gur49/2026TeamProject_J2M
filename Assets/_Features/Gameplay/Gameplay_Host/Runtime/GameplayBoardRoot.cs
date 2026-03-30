@@ -22,6 +22,9 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector3 PresentationPivotLocalPoint => presentationPivotLocalPoint;
 
+        public GameplayBoardSurfaceRenderer BoardSurfaceRenderer =>
+            boardSurfaceRoot != null ? boardSurfaceRoot.GetComponent<GameplayBoardSurfaceRenderer>() : null;
+
         private void Awake()
         {
             EnsureHierarchy();
@@ -48,6 +51,19 @@ namespace Game.Feature.Gameplay.Host
                 cameraTargetRoot.localRotation = Quaternion.identity;
                 cameraTargetRoot.localScale = Vector3.one;
             }
+        }
+
+        public GameplayBoardSurfaceRenderer EnsureBoardSurfaceRenderer()
+        {
+            EnsureHierarchy();
+
+            var surfaceRenderer = boardSurfaceRoot.GetComponent<GameplayBoardSurfaceRenderer>();
+            if (surfaceRenderer == null)
+            {
+                surfaceRenderer = boardSurfaceRoot.gameObject.AddComponent<GameplayBoardSurfaceRenderer>();
+            }
+
+            return surfaceRenderer;
         }
 
         private Transform EnsureChild(Transform existingChild, string childName)

@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Host
         private const string BoardRootObjectName = "GameplayBoardRoot";
 
         private GameplayBoardRoot _boardRoot;
+        private GameplayBoardSurfaceRenderer _boardSurfaceRenderer;
         private GameplayInputHost _inputHost;
         private GameplayTickViewPresenter _presenter;
         private GameplayEntityViewBinder _viewBinder;
@@ -33,6 +34,8 @@ namespace Game.Feature.Gameplay.Host
         public GameplayTimingProfile TimingProfile { get; private set; }
 
         public GameplayBoardRoot BoardRoot => _boardRoot;
+
+        public GameplayBoardSurfaceRenderer BoardSurfaceRenderer => _boardSurfaceRenderer;
 
         public GameplayEntityViewRegistry ViewRegistry => _viewRegistry;
 
@@ -83,6 +86,7 @@ namespace Game.Feature.Gameplay.Host
                 startTickIndex: 1);
 
             EnsureBoardRootHierarchy();
+            _boardSurfaceRenderer = _boardRoot.EnsureBoardSurfaceRenderer();
             _viewRegistry.ConfigureSearchRoot(_boardRoot.EntityRoot);
             var viewFactory = configuration.ViewFactory ??
                 (configuration.AutoCreateViews
@@ -91,6 +95,7 @@ namespace Game.Feature.Gameplay.Host
             _viewBinder = new GameplayEntityViewBinder(_viewRegistry, viewFactory);
             ConfigureViewCamera(configuration);
             EnsureViewCameraTarget();
+            _presenter.TopologyCommitted -= HandlePresentedTopologyCommitted;
             _presenter.Initialize(
                 _viewBinder,
                 configuration.InitialBoardBounds,
@@ -99,6 +104,12 @@ namespace Game.Feature.Gameplay.Host
                 configuration.CellSize,
                 TimingProfile,
                 _boardRoot);
+            _boardSurfaceRenderer.Initialize(
+                configuration.InitialBoardBounds,
+                configuration.GridOrigin,
+                configuration.CellSize,
+                configuration.InitialTopology);
+            _presenter.TopologyCommitted += HandlePresentedTopologyCommitted;
             ConfigureViewCameraRig();
             _presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
 
@@ -185,6 +196,19 @@ namespace Game.Feature.Gameplay.Host
             _viewCameraRig = GetComponent<GameplayCameraRig>() ?? gameObject.AddComponent<GameplayCameraRig>();
             _viewCameraRig.enabled = true;
             _viewCameraRig.Initialize(_viewCamera, _viewCameraTarget, _presenter.VisibleCubeBounds);
+        }
+
+        private void OnDestroy()
+        {
+            if (_presenter != null)
+            {
+                _presenter.TopologyCommitted -= HandlePresentedTopologyCommitted;
+            }
+        }
+
+        private void HandlePresentedTopologyCommitted(CubeTopologyState topology)
+        {
+            _boardSurfaceRenderer?.RefreshTopology(topology);
         }
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(GameplaySceneHostConfiguration configuration)

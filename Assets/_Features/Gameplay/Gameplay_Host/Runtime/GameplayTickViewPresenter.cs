@@ -30,6 +30,8 @@ namespace Game.Feature.Gameplay.Host
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
 
+        public event Action<CubeTopologyState> TopologyCommitted;
+
         public CubeTopologyState CurrentTopology => _committedTopology;
 
         public Quaternion PresentedBoardRotation => _presentedBoardRotation;
@@ -221,6 +223,7 @@ namespace Game.Feature.Gameplay.Host
             _committedTopology = topology;
             StoreCommittedEntityTargets(entities, topology);
             _hasAnyCommittedFrame = true;
+            TopologyCommitted?.Invoke(_committedTopology);
         }
 
         private void StoreCommittedEntityTargets(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
