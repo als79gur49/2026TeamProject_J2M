@@ -1040,6 +1040,70 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationHasWallBlocker()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateNonUnitBlocker(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=Front(0,0)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+        }
+
+        [Test]
+        public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationTerrainBlocked()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[] { new Vector2Int(0, 0) }));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=Front(0,0)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+        }
+
+        [Test]
         public void Movement_MoveAcrossBottomBottomEdge_CommitsBackwardTopologyChange()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
