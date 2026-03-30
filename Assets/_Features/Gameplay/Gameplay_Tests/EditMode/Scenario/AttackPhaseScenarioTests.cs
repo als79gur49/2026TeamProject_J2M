@@ -174,6 +174,69 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Attack_CompositeItemConsumption_RejectsConsumedBoxTarget_AndUsesPostMovePlayerPosition()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateBox(
+                    entityId: 30,
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
+                    capabilities: BoxCapabilities.Item | BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 2, 0), hp: 3),
+                CreateUnit(entityId: 50, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 3),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                    new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 40, 30, 10)),
+                    new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 50, 10, 5)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, IntentId: 2, TargetId: 30),
+                    (SourceId: 50, IntentId: 3, TargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "AttackRejected|Stage=Expand|I=2|Source=40|Target=30|Reason=TargetNotSelectable",
+                },
+                result.AttackPhaseResult.RejectedReasons);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (GroupId: 2, SourceId: 50, DamageTargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SelectedGroups
+                    .Select(group => (group.GroupId, group.SourceId, DamageTargetId: group.Damages.Single().TargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateChanged|G=2|I=3|E=50|State=Acting|Timer=0",
+                    "DamageCommitted|G=2|I=3|Target=10|Amount=1",
+                },
+                result.AttackPhaseResult.CommitEvents);
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetEntityHp(snapshotAfter, 10), Is.EqualTo(2));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
+            Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=30"));
+        }
+
+        [Test]
         public void Attack_FatalDamage_IsRemovedByCleanupAtTickEnd()
         {
             var firstRun = RunFatalAttackTick();

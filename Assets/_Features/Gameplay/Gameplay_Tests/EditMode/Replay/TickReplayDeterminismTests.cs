@@ -247,6 +247,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void Replay_CompositeItemAttackScenario_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunCompositeItemAttackReplaySequence();
+            var secondReplay = RunCompositeItemAttackReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Item"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("BoardPresenceCommitted|G=1|I=1|E=30|Presence=Detached"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("DamageCommitted|G=2|I=3|Target=10|Amount=1"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=30"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("Target=30|Amount=1"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=2|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=30|"));
+        }
+
+        [Test]
         public void Replay_FlipBoxScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunFlipBoxReplaySequence();
@@ -540,6 +567,30 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new[]
                 {
                     new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunCompositeItemAttackReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item | BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 2, 0), hp: 3),
+                CreateUnit(entityId: 50, teamId: 2, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 3),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                    new ScriptedCombatLogic(sourceId: 40, attackIntent: new RawAttackIntent(40, 10, 30)),
+                    new ScriptedCombatLogic(sourceId: 50, attackIntent: new RawAttackIntent(50, 5, 10)),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 });
         }
 

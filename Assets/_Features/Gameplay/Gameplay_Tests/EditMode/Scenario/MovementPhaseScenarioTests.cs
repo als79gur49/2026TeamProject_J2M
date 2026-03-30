@@ -688,6 +688,64 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_PushInputOnItemPushFlipDestroyBox_ResolvesAsItemBeforePushFlipOrDestroy_AndViewShowsDetachRemove()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(
+                    entityId: 20,
+                    position: new SurfaceCell(FaceId.Floor, 1, 0),
+                    capabilities: BoxCapabilities.Item | BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Item) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "BoardPresenceCommitted|G=1|I=1|E=20|Presence=Detached",
+                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+                    "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 10, Kind: TickEntityMotionKind.Move, Source: new SurfaceCell(FaceId.Floor, 0, 0), Destination: new SurfaceCell(FaceId.Floor, 1, 0)),
+                },
+                result.PresentationData
+                    .EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 20, Kind: TickVisibilityChangeKind.Detach),
+                    (EntityId: 20, Kind: TickVisibilityChangeKind.Remove),
+                },
+                result.PresentationData
+                    .VisibilityChanges
+                    .Select(change => (change.EntityId, change.ChangeKind))
+                    .ToArray());
+            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Item"));
+            Assert.That(result.Trace.Text, Does.Contain("Command=Push"));
+        }
+
+        [Test]
         public void Movement_PushInputPushBox_FailsWhenBoxLacksCapability()
         {
             var worldState = CreateWorldState(new[]
@@ -808,6 +866,49 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(-1, 0)));
+        }
+
+        [Test]
+        public void Movement_FlipInputOnItemFlipDestroyBox_UsesFlipBranch_WithoutConsumeOrDestroy()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(
+                    entityId: 30,
+                    position: new Vector2Int(-1, 0),
+                    capabilities: BoxCapabilities.Item | BoxCapabilities.Flip | BoxCapabilities.Destroy,
+                    facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "FacingCommitted|G=1|I=1|E=10|Facing=Left",
+                    "MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("BoardPresenceCommitted")), Is.False);
+            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("DestroyMarked")), Is.False);
+            Assert.That(result.CleanupPhaseResult.RemovedEntityIds, Is.Empty);
+            Assert.That(result.PresentationData.VisibilityChanges, Is.Empty);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var flippedBox), Is.True);
+            Assert.That(flippedBox.boxCapabilities, Is.EqualTo(BoxCapabilities.Item | BoxCapabilities.Flip | BoxCapabilities.Destroy));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Flip"));
         }
 
         [Test]
