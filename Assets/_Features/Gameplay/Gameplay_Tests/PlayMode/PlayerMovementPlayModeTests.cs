@@ -588,12 +588,21 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var snapshot = host.WorldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
+            Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
             Assert.That(
                 projector.TryProjectEntityCell(entity.position, snapshot.Topology, entity.type, out var projectedPose),
                 Is.True);
             Assert.That(
-                GetViewPosition(host, entityId),
+                projector.TryResolveEntityRotation(entity.position, snapshot.Topology, entity.facing, out var projectedRotation),
+                Is.True);
+            Assert.That(
+                view.transform.position,
                 Is.EqualTo(host.BoardRoot.transform.TransformPoint(projectedPose.LocalPosition)));
+            Assert.That(
+                Quaternion.Angle(
+                    view.transform.rotation,
+                    host.BoardRoot.transform.rotation * projectedRotation),
+                Is.LessThan(0.1f));
         }
 
         private static InputActionAsset CreateKeyboardMoveActions()

@@ -247,7 +247,11 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _viewsByEntityId[entity.entityId] = view;
-                _committedLocalTargetPoses[entity.entityId] = CreateEntityPose(projectedPose, entity.facing);
+                _committedLocalTargetPoses[entity.entityId] = CreateEntityPose(
+                    entity.position,
+                    topology,
+                    projectedPose,
+                    entity.facing);
             }
         }
 
@@ -504,15 +508,23 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            pose = CreateEntityPose(projectedPose, facing);
+            pose = CreateEntityPose(cell, topology, projectedPose, facing);
             return true;
         }
 
-        private static GameplayEntityPose CreateEntityPose(ProjectedCellPose projectedPose, Direction facing)
+        private GameplayEntityPose CreateEntityPose(
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            ProjectedCellPose projectedPose,
+            Direction facing)
         {
+            var localRotation = _projector.TryResolveEntityRotation(cell, topology, facing, out var resolvedRotation)
+                ? resolvedRotation
+                : projectedPose.LocalRotation;
+
             return new GameplayEntityPose(
                 projectedPose.LocalPosition,
-                projectedPose.LocalRotation * ResolveFacingLocalRotation(facing));
+                localRotation);
         }
 
         private float ResolveMotionDurationSeconds(TickEntityMotionKind motionKind)
@@ -585,8 +597,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return rotationKind switch
             {
-                CubeRotationKind.Forward => Quaternion.Euler(-90f, 0f, 0f),
-                CubeRotationKind.Backward => Quaternion.Euler(90f, 0f, 0f),
+                CubeRotationKind.Forward => Quaternion.Euler(90f, 0f, 0f),
+                CubeRotationKind.Backward => Quaternion.Euler(-90f, 0f, 0f),
                 _ => Quaternion.identity,
             };
         }
@@ -606,20 +618,6 @@ namespace Game.Feature.Gameplay.Host
         {
             return entity.boardPresence == EntityBoardPresence.Occupying &&
                    topology.IsFaceActive(entity.position.face);
-        }
-
-        private static Quaternion ResolveFacingLocalRotation(Direction facing)
-        {
-            var zRotation = facing switch
-            {
-                Direction.Up => 0f,
-                Direction.Right => -90f,
-                Direction.Down => 180f,
-                Direction.Left => 90f,
-                _ => 0f,
-            };
-
-            return Quaternion.Euler(0f, 0f, zRotation);
         }
 
         private void EnsureInitialized()

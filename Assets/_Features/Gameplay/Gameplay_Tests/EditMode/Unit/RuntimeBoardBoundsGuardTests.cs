@@ -278,6 +278,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayEntityVisualProfile_BoxVisualRecedesIntoFaceInterior()
+        {
+            var profile = GameplayEntityVisualProfile.Create(EntityType.Box, 1f);
+
+            Assert.That(profile.ModelLocalPosition.z, Is.LessThan(0f));
+            Assert.That(profile.ModelLocalPosition.z, Is.GreaterThan(-(profile.ModelLocalScale.z * 0.5f)));
+            Assert.That(profile.ModelLocalScale.z, Is.GreaterThan(0f));
+        }
+
+        [Test]
+        public void GameplayEntityVisualProfile_WallVisualRecedesIntoFaceInterior()
+        {
+            var profile = GameplayEntityVisualProfile.Create(EntityType.None, 1f);
+
+            Assert.That(profile.ModelLocalPosition.z, Is.LessThan(0f));
+            Assert.That(profile.ModelLocalPosition.z, Is.GreaterThan(-(profile.ModelLocalScale.z * 0.5f)));
+            Assert.That(profile.ModelLocalScale.z, Is.GreaterThan(0f));
+        }
+
+        [Test]
         public void ProjectedCellPose_NormalizesNormalVector()
         {
             var pose = new ProjectedCellPose(
@@ -308,12 +328,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     out var bottomPose),
                 Is.True);
 
-            Assert.That(bottomPose.LocalPosition.y, Is.EqualTo(1.58f).Within(0.001f));
+            Assert.That(bottomPose.LocalPosition.y, Is.EqualTo(-1.42f).Within(0.001f));
             Assert.That(bottomPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
-            Assert.That(bottomPose.LocalPosition.z, Is.EqualTo(-1f).Within(0.001f));
-            Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.up));
+            Assert.That(bottomPose.LocalPosition.z, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.down));
             Assert.That(
-                Quaternion.Angle(bottomPose.LocalRotation, Quaternion.LookRotation(Vector3.up, Vector3.back)),
+                Quaternion.Angle(bottomPose.LocalRotation, Quaternion.LookRotation(Vector3.down, Vector3.forward)),
                 Is.LessThan(0.001f));
         }
 
@@ -334,12 +354,225 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.True);
 
             Assert.That(frontPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
-            Assert.That(frontPose.LocalPosition.y, Is.EqualTo(-1f).Within(0.001f));
-            Assert.That(frontPose.LocalPosition.z, Is.EqualTo(-1.58f).Within(0.001f));
-            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.back));
+            Assert.That(frontPose.LocalPosition.y, Is.EqualTo(-0.5f).Within(0.001f));
+            Assert.That(frontPose.LocalPosition.z, Is.EqualTo(1.42f).Within(0.001f));
+            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.forward));
             Assert.That(
-                Quaternion.Angle(frontPose.LocalRotation, Quaternion.LookRotation(Vector3.back, Vector3.up)),
+                Quaternion.Angle(frontPose.LocalRotation, Quaternion.LookRotation(Vector3.forward, Vector3.up)),
                 Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_FrontFaceRows_RiseAwayFromFloor()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    topology,
+                    EntityType.Unit,
+                    out var lowerRowPose),
+                Is.True);
+            Assert.That(
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Front, 0, 1),
+                    topology,
+                    EntityType.Unit,
+                    out var upperRowPose),
+                Is.True);
+
+            Assert.That(upperRowPose.LocalPosition.y, Is.GreaterThan(lowerRowPose.LocalPosition.y));
+            Assert.That(upperRowPose.LocalPosition.z, Is.EqualTo(lowerRowPose.LocalPosition.z).Within(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_FloorRows_AdvanceTowardPositiveZ()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    topology,
+                    EntityType.Unit,
+                    out var backRowPose),
+                Is.True);
+            Assert.That(
+                projector.TryProjectEntityCell(
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    topology,
+                    EntityType.Unit,
+                    out var frontRowPose),
+                Is.True);
+
+            Assert.That(frontRowPose.LocalPosition.z, Is.GreaterThan(backRowPose.LocalPosition.z));
+            Assert.That(frontRowPose.LocalPosition.y, Is.EqualTo(backRowPose.LocalPosition.y).Within(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_SeparatesFloorAndFrontFacesWithOneCellSeamGap()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryProjectSurfaceCell(
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    topology,
+                    out var floorTopRowPose),
+                Is.True);
+            Assert.That(
+                projector.TryProjectSurfaceCell(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    topology,
+                    out var frontBottomRowPose),
+                Is.True);
+
+            Assert.That(floorTopRowPose.LocalPosition.z, Is.EqualTo(0f).Within(0.001f));
+            Assert.That(frontBottomRowPose.LocalPosition.y, Is.EqualTo(0f).Within(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_FloorRightFacing_AlignsWithPositiveXAxis()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryResolveEntityRotation(
+                    new SurfaceCell(FaceId.Floor, 0, 0),
+                    topology,
+                    Direction.Right,
+                    out var rotation),
+                Is.True);
+
+            Assert.That(Vector3.Angle(rotation * Vector3.up, Vector3.right), Is.LessThan(0.001f));
+            Assert.That(Vector3.Angle(rotation * Vector3.forward, Vector3.down), Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_FrontRightFacing_AlignsWithPositiveXAxis()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                1f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryResolveEntityRotation(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    topology,
+                    Direction.Right,
+                    out var rotation),
+                Is.True);
+
+            Assert.That(Vector3.Angle(rotation * Vector3.up, Vector3.right), Is.LessThan(0.001f));
+            Assert.That(Vector3.Angle(rotation * Vector3.forward, Vector3.forward), Is.LessThan(0.001f));
+        }
+
+        [Test]
+        public void GameplayCameraRig_DefaultPose_ProjectsFloorPositiveXToScreenRight()
+        {
+            var rigObject = new GameObject("GameplayCameraRig_DefaultPose_ProjectsFloorPositiveXToScreenRight");
+            var cameraObject = new GameObject("ViewCamera");
+            var targetObject = new GameObject("CameraTarget");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+                var rig = rigObject.AddComponent<GameplayCameraRig>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var projector = new GameplayCubeProjector(boardBounds, 1f);
+                rig.Initialize(viewCamera, targetObject.transform, projector.GetVisibleCubeBounds(topology));
+
+                Assert.That(
+                    projector.TryProjectEntityCell(
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        topology,
+                        EntityType.Unit,
+                        out var leftPose),
+                    Is.True);
+                Assert.That(
+                    projector.TryProjectEntityCell(
+                        new SurfaceCell(FaceId.Floor, 1, 0),
+                        topology,
+                        EntityType.Unit,
+                        out var rightPose),
+                    Is.True);
+
+                var leftViewport = viewCamera.WorldToViewportPoint(leftPose.LocalPosition);
+                var rightViewport = viewCamera.WorldToViewportPoint(rightPose.LocalPosition);
+
+                Assert.That(leftViewport.z, Is.GreaterThan(0f));
+                Assert.That(rightViewport.z, Is.GreaterThan(0f));
+                Assert.That(rightViewport.x, Is.GreaterThan(leftViewport.x));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rigObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        public void GameplayCameraRig_DefaultPose_ProjectsFrontPositiveXToScreenRight()
+        {
+            var rigObject = new GameObject("GameplayCameraRig_DefaultPose_ProjectsFrontPositiveXToScreenRight");
+            var cameraObject = new GameObject("ViewCamera");
+            var targetObject = new GameObject("CameraTarget");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+                var rig = rigObject.AddComponent<GameplayCameraRig>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var projector = new GameplayCubeProjector(boardBounds, 1f);
+                rig.Initialize(viewCamera, targetObject.transform, projector.GetVisibleCubeBounds(topology));
+
+                Assert.That(
+                    projector.TryProjectEntityCell(
+                        new SurfaceCell(FaceId.Front, 0, 0),
+                        topology,
+                        EntityType.Unit,
+                        out var leftPose),
+                    Is.True);
+                Assert.That(
+                    projector.TryProjectEntityCell(
+                        new SurfaceCell(FaceId.Front, 1, 0),
+                        topology,
+                        EntityType.Unit,
+                        out var rightPose),
+                    Is.True);
+
+                var leftViewport = viewCamera.WorldToViewportPoint(leftPose.LocalPosition);
+                var rightViewport = viewCamera.WorldToViewportPoint(rightPose.LocalPosition);
+
+                Assert.That(leftViewport.z, Is.GreaterThan(0f));
+                Assert.That(rightViewport.z, Is.GreaterThan(0f));
+                Assert.That(rightViewport.x, Is.GreaterThan(leftViewport.x));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rigObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
         }
 
         [Test]
@@ -374,26 +607,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 renderer.Initialize(boardBounds, 1f, topology);
 
                 Assert.That(renderer.VisibleTilePoolRoot.parent, Is.EqualTo(renderer.transform));
-                Assert.That(renderer.VisibleTilePoolRoot.childCount, Is.EqualTo(16));
-                Assert.That(renderer.ActiveTileCount, Is.EqualTo(16));
+                Assert.That(renderer.VisibleTilePoolRoot.childCount, Is.EqualTo(8));
+                Assert.That(renderer.ActiveTileCount, Is.EqualTo(8));
 
                 var bottomTile = FindSurfaceTile(renderer, "ActiveBottom_Floor_0_0");
                 var frontTile = FindSurfaceTile(renderer, "ActiveFront_Front_1_1");
-                var topTile = FindSurfaceTile(renderer, "DecorativeTop_Ceiling_0_1");
-                var backTile = FindSurfaceTile(renderer, "DecorativeBack_Back_1_0");
 
                 AssertSurfaceTileMatchesProjection(bottomTile, boardBounds, topology, new SurfaceCell(FaceId.Floor, 0, 0));
                 AssertSurfaceTileMatchesProjection(frontTile, boardBounds, topology, new SurfaceCell(FaceId.Front, 1, 1));
-                AssertSurfaceTileMatchesProjection(topTile, boardBounds, topology, new SurfaceCell(FaceId.Ceiling, 0, 1));
-                AssertSurfaceTileMatchesProjection(backTile, boardBounds, topology, new SurfaceCell(FaceId.Back, 1, 0));
 
                 Assert.That(bottomTile.GetComponent<Collider>(), Is.Null);
                 Assert.That(frontTile.GetComponent<Collider>(), Is.Null);
-                Assert.That(topTile.GetComponent<Collider>(), Is.Null);
-                Assert.That(backTile.GetComponent<Collider>(), Is.Null);
-
-                Assert.That(bottomTile.GetComponent<Renderer>().sharedMaterial, Is.Not.SameAs(topTile.GetComponent<Renderer>().sharedMaterial));
-                Assert.That(frontTile.GetComponent<Renderer>().sharedMaterial, Is.Not.SameAs(backTile.GetComponent<Renderer>().sharedMaterial));
+                Assert.That(renderer.VisibleTilePoolRoot.Find("DecorativeTop_Ceiling_0_1"), Is.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("DecorativeBack_Back_1_0"), Is.Null);
             }
             finally
             {
@@ -811,6 +1037,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     Vector3.Angle(viewCamera.transform.forward, (expectedCenter - viewCamera.transform.position).normalized),
                     Is.LessThan(0.1f));
+                Assert.That(viewCamera.transform.position.y, Is.GreaterThan(expectedCenter.y));
+                Assert.That(viewCamera.transform.position.z, Is.GreaterThan(expectedCenter.z));
+                Assert.That(viewCamera.transform.forward.y, Is.LessThan(-0.25f));
+                Assert.That(viewCamera.transform.forward.z, Is.LessThan(-0.9f));
+                Assert.That(Mathf.Abs(viewCamera.transform.forward.x), Is.LessThan(0.01f));
             }
             finally
             {
@@ -1875,22 +2106,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float cellSize = 1f)
         {
             var projector = new GameplayCubeProjector(boardBounds, cellSize);
-            Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
-            return projectedPose.LocalRotation * ResolveFacingLocalRotation(facing);
-        }
-
-        private static Quaternion ResolveFacingLocalRotation(Direction facing)
-        {
-            var zRotation = facing switch
-            {
-                Direction.Up => 0f,
-                Direction.Right => -90f,
-                Direction.Down => 180f,
-                Direction.Left => 90f,
-                _ => 0f,
-            };
-
-            return Quaternion.Euler(0f, 0f, zRotation);
+            Assert.That(projector.TryResolveEntityRotation(cell, topology, facing, out var rotation), Is.True);
+            return rotation;
         }
 
         private static GameObject FindSurfaceTile(GameplayBoardSurfaceRenderer renderer, string tileName)

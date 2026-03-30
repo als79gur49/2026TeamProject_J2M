@@ -8,9 +8,11 @@ namespace Game.Feature.Gameplay.Host
     {
         private const float DefaultEntitySurfaceOffsetMultiplier = 0.08f;
         private const float ProjectileSurfaceOffsetMultiplier = 0.18f;
+        private const float ActiveFaceSeamGapMultiplier = 1f;
 
         private readonly BoardBounds _boardBounds;
         private readonly float _cellSize;
+        private readonly float _faceSeamHalfGap;
         private readonly float _halfDepth;
         private readonly float _halfHeight;
         private readonly float _halfWidth;
@@ -29,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
 
             _boardBounds = boardBounds;
             _cellSize = cellSize;
+            _faceSeamHalfGap = _cellSize * ActiveFaceSeamGapMultiplier * 0.5f;
             _halfWidth = Width * _cellSize * 0.5f;
             _halfHeight = Height * _cellSize * 0.5f;
             _halfDepth = Height * _cellSize * 0.5f;
@@ -65,7 +68,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            projectedPose = ProjectCell(slot, cell, ResolveEntitySurfaceOffset(entityType));
+            projectedPose = ProjectCell(slot, cell, -ResolveEntitySurfaceOffset(entityType));
             return true;
         }
 
@@ -82,6 +85,23 @@ namespace Game.Feature.Gameplay.Host
             }
 
             projectedPose = ProjectCell(slot, cell, 0f);
+            return true;
+        }
+
+        public bool TryResolveEntityRotation(
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            Direction facing,
+            out Quaternion rotation)
+        {
+            if (!_boardBounds.Contains(cell.PlanarPosition) ||
+                !TryResolveEntitySlot(cell.face, topology, out var slot))
+            {
+                rotation = default;
+                return false;
+            }
+
+            rotation = ResolveEntityRotation(ResolveFrame(slot), facing);
             return true;
         }
 
@@ -155,29 +175,29 @@ namespace Game.Feature.Gameplay.Host
             return slot switch
             {
                 CubeFaceSlot.Bottom => new FaceFrame(
-                    Vector3.up,
-                    Vector3.right,
-                    Vector3.back,
-                    Vector3.up * _halfHeight,
-                    Quaternion.LookRotation(Vector3.up, Vector3.back)),
-                CubeFaceSlot.Front => new FaceFrame(
-                    Vector3.back,
-                    Vector3.right,
-                    Vector3.up,
-                    Vector3.back * _halfDepth,
-                    Quaternion.LookRotation(Vector3.back, Vector3.up)),
-                CubeFaceSlot.Top => new FaceFrame(
                     Vector3.down,
                     Vector3.right,
                     Vector3.forward,
-                    Vector3.down * _halfHeight,
+                    (Vector3.down * _halfHeight) + (Vector3.back * _faceSeamHalfGap),
                     Quaternion.LookRotation(Vector3.down, Vector3.forward)),
-                CubeFaceSlot.Back => new FaceFrame(
+                CubeFaceSlot.Front => new FaceFrame(
                     Vector3.forward,
                     Vector3.right,
                     Vector3.up,
-                    Vector3.forward * _halfDepth,
+                    (Vector3.forward * _halfDepth) + (Vector3.up * _faceSeamHalfGap),
                     Quaternion.LookRotation(Vector3.forward, Vector3.up)),
+                CubeFaceSlot.Top => new FaceFrame(
+                    Vector3.up,
+                    Vector3.right,
+                    Vector3.back,
+                    (Vector3.up * _halfHeight) + (Vector3.back * _faceSeamHalfGap),
+                    Quaternion.LookRotation(Vector3.up, Vector3.back)),
+                CubeFaceSlot.Back => new FaceFrame(
+                    Vector3.back,
+                    Vector3.right,
+                    Vector3.up,
+                    (Vector3.back * _halfDepth) + (Vector3.up * _faceSeamHalfGap),
+                    Quaternion.LookRotation(Vector3.back, Vector3.up)),
                 _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, null),
             };
         }
@@ -192,6 +212,19 @@ namespace Game.Feature.Gameplay.Host
             return entityType == EntityType.Projectile
                 ? ProjectileSurfaceOffsetMultiplier * _cellSize
                 : DefaultEntitySurfaceOffsetMultiplier * _cellSize;
+        }
+
+        private static Quaternion ResolveEntityRotation(FaceFrame frame, Direction facing)
+        {
+            var upAxis = facing switch
+            {
+                Direction.Right => frame.PositionRightAxis,
+                Direction.Down => -frame.PositionUpAxis,
+                Direction.Left => -frame.PositionRightAxis,
+                _ => frame.PositionUpAxis,
+            };
+
+            return Quaternion.LookRotation(frame.Normal, upAxis);
         }
 
         private enum CubeFaceSlot

@@ -3,7 +3,8 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests",
   "references": [
     "Game.Feature.Gameplay",
-    "Game.Feature.Gameplay.Host"
+    "Game.Feature.Gameplay.Host",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [
     "Editor"

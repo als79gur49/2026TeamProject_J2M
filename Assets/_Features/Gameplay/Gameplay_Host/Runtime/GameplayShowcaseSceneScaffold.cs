@@ -31,8 +31,8 @@ namespace Game.Feature.Gameplay.Host
 
             camera.orthographic = false;
             camera.fieldOfView = 50f;
-            camera.transform.position = new Vector3(0f, 3.5f, -7.5f);
-            camera.transform.rotation = Quaternion.Euler(24f, 28f, 0f);
+            camera.transform.position = new Vector3(0f, 3.5f, 7.5f);
+            camera.transform.rotation = Quaternion.Euler(24f, 152f, 0f);
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.93f, 0.95f, 0.98f);
         }

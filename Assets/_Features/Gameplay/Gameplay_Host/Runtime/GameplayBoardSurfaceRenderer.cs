@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Host
         private const float TileCoverageMultiplier = 0.98f;
         private const float TileThicknessMultiplier = 0.08f;
 
-        [SerializeField] private bool renderDecorativeFaces = true;
+        [SerializeField] private bool renderDecorativeFaces = false;
         [SerializeField] private Transform visibleTilePoolRoot;
 
         private readonly List<Material> _ownedMaterials = new();

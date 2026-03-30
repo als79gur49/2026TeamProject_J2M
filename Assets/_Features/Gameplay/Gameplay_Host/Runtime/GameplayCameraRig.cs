@@ -6,8 +6,8 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public sealed class GameplayCameraRig : MonoBehaviour
     {
-        [SerializeField] private float pitchDegrees = 26f;
-        [SerializeField] private float yawDegrees = 32f;
+        [SerializeField] private float pitchDegrees = 18f;
+        [SerializeField] private float yawDegrees = 180f;
         [SerializeField] private float framingPadding = 1.2f;
         [SerializeField] private float perspectiveFieldOfView = 50f;
         [SerializeField] private float nearClipPlane = 0.03f;
