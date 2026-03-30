@@ -209,27 +209,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void ProjectedCellPose_NormalizesNormalVector()
+        {
+            var pose = new ProjectedCellPose(
+                new Vector3(1f, 2f, 3f),
+                Quaternion.Euler(0f, 0f, 45f),
+                new Vector3(0f, 3f, 0f));
+
+            Assert.That(pose.LocalPosition, Is.EqualTo(new Vector3(1f, 2f, 3f)));
+            Assert.That(
+                Quaternion.Angle(pose.LocalRotation, Quaternion.Euler(0f, 0f, 45f)),
+                Is.LessThan(0.001f));
+            Assert.That(pose.Normal, Is.EqualTo(Vector3.up));
+        }
+
         // TODO(CubeSurface3D): Replace with
         // GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane and
         // GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane.
         [Test]
-        public void GameplaySurfaceProjector_ProjectsFrontFaceAboveBottomFace()
+        public void GameplayStripProjector_ProjectsFrontFaceAboveBottomFace()
         {
-            var projector = new GameplaySurfaceProjector(
+            var projector = new GameplayStripProjector(
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 Vector3.zero,
                 1f);
             var topology = new CubeTopologyState(FaceId.Floor);
 
             Assert.That(
-                projector.TryProject(new SurfaceCell(FaceId.Floor, 1, 2), topology, Vector3.zero, out var bottomWorld),
+                projector.TryProjectEntityCell(new SurfaceCell(FaceId.Floor, 1, 2), topology, out var bottomPose),
                 Is.True);
             Assert.That(
-                projector.TryProject(new SurfaceCell(FaceId.Front, 1, 0), topology, Vector3.zero, out var frontWorld),
+                projector.TryProjectEntityCell(new SurfaceCell(FaceId.Front, 1, 0), topology, out var frontPose),
                 Is.True);
 
-            Assert.That(bottomWorld, Is.EqualTo(new Vector3(1f, 2f, 0f)));
-            Assert.That(frontWorld, Is.EqualTo(new Vector3(1f, 3f, 0f)));
+            Assert.That(bottomPose.LocalPosition, Is.EqualTo(new Vector3(1f, 2f, 0f)));
+            Assert.That(frontPose.LocalPosition, Is.EqualTo(new Vector3(1f, 3f, 0f)));
+            Assert.That(Quaternion.Angle(bottomPose.LocalRotation, Quaternion.identity), Is.LessThan(0.001f));
+            Assert.That(Quaternion.Angle(frontPose.LocalRotation, Quaternion.identity), Is.LessThan(0.001f));
+            Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.forward));
+            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.forward));
         }
 
         // TODO(CubeSurface3D): Replace with GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D.
