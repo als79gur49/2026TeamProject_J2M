@@ -109,7 +109,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = new Vector3(1f, 2f, 0f),
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                         InitialEntities = new[]
                         {
@@ -140,14 +139,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(host.BoardSurfaceRenderer, Is.Not.Null);
                 Assert.That(host.BoardSurfaceRenderer.transform, Is.EqualTo(host.BoardRoot.BoardSurfaceRoot));
                 Assert.That(host.ViewCameraTarget, Is.SameAs(host.BoardRoot.CameraTargetRoot));
-                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(new Vector3(1f, 2f, 0f)));
+                Assert.That(host.ViewCameraTarget.position, Is.EqualTo(hostObject.transform.position));
                 Assert.That(host.ViewRegistry.SearchRoot, Is.SameAs(host.BoardRoot.EntityRoot));
 
                 Assert.That(host.ViewRegistry.TryGetView(10, out var view), Is.True);
                 Assert.That(view.transform.parent, Is.EqualTo(host.BoardRoot.EntityRoot));
                 var projector = new GameplayCubeProjector(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                    new Vector3(1f, 2f, 0f),
                     1f);
                 Assert.That(
                     projector.TryProjectEntityCell(
@@ -186,10 +184,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
     }
 
-    // Step 0 migration guardrail:
-    // Keep lifecycle, visibility, and motion sequencing coverage in this class.
-    // Replace the strip-specific tests called out below once board-local pose,
-    // cube projection, and camera rig contracts land.
+    // Final presentation guardrail:
+    // Keep lifecycle, visibility, and motion sequencing coverage in this class so
+    // the board-local cube contract stays fixed after the strip migration removal.
     public sealed class GameplayViewProjectionTests
     {
         [Test]
@@ -372,9 +369,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
                 var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
                 var topology = new CubeTopologyState(FaceId.Floor);
-                var cubeCenter = new Vector3(2f, 1f, -3f);
+                rootObject.transform.position = new Vector3(2f, 1f, -3f);
 
-                renderer.Initialize(boardBounds, cubeCenter, 1f, topology);
+                renderer.Initialize(boardBounds, 1f, topology);
 
                 Assert.That(renderer.VisibleTilePoolRoot.parent, Is.EqualTo(renderer.transform));
                 Assert.That(renderer.VisibleTilePoolRoot.childCount, Is.EqualTo(16));
@@ -385,10 +382,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var topTile = FindSurfaceTile(renderer, "DecorativeTop_Ceiling_0_1");
                 var backTile = FindSurfaceTile(renderer, "DecorativeBack_Back_1_0");
 
-                AssertSurfaceTileMatchesProjection(bottomTile, boardBounds, topology, new SurfaceCell(FaceId.Floor, 0, 0), cubeCenter);
-                AssertSurfaceTileMatchesProjection(frontTile, boardBounds, topology, new SurfaceCell(FaceId.Front, 1, 1), cubeCenter);
-                AssertSurfaceTileMatchesProjection(topTile, boardBounds, topology, new SurfaceCell(FaceId.Ceiling, 0, 1), cubeCenter);
-                AssertSurfaceTileMatchesProjection(backTile, boardBounds, topology, new SurfaceCell(FaceId.Back, 1, 0), cubeCenter);
+                AssertSurfaceTileMatchesProjection(bottomTile, boardBounds, topology, new SurfaceCell(FaceId.Floor, 0, 0));
+                AssertSurfaceTileMatchesProjection(frontTile, boardBounds, topology, new SurfaceCell(FaceId.Front, 1, 1));
+                AssertSurfaceTileMatchesProjection(topTile, boardBounds, topology, new SurfaceCell(FaceId.Ceiling, 0, 1));
+                AssertSurfaceTileMatchesProjection(backTile, boardBounds, topology, new SurfaceCell(FaceId.Back, 1, 0));
 
                 Assert.That(bottomTile.GetComponent<Collider>(), Is.Null);
                 Assert.That(frontTile.GetComponent<Collider>(), Is.Null);
@@ -420,7 +417,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     GameplayTimingProfile.CreateDefault());
                 presenter.PresentInitial(
@@ -472,7 +468,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     GameplayTimingProfile.CreateDefault());
                 presenter.PresentInitial(
@@ -513,7 +508,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     GameplayTimingProfile.CreateDefault());
                 presenter.PresentInitial(
@@ -548,7 +542,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     initialTopology,
-                    Vector3.zero,
                     1f,
                     GameplayTimingProfile.CreateDefault());
                 presenter.PresentInitial(
@@ -598,7 +591,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     initialTopology,
-                    Vector3.zero,
                     1f,
                     GameplayTimingProfile.CreateDefault());
                 presenter.PresentInitial(
@@ -658,12 +650,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var initialTopology = new CubeTopologyState(FaceId.Floor);
                 var rotatedTopology = new CubeTopologyState(FaceId.Front);
                 var cubeCenter = new Vector3(2f, 1f, -3f);
+                rootObject.transform.position = cubeCenter;
 
                 presenter.Initialize(
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     initialTopology,
-                    cubeCenter,
                     1f,
                     timingProfile,
                     boardRoot);
@@ -694,8 +686,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var destinationPosition = GetProjectedEntityPosition(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                     rotatedTopology,
-                    new SurfaceCell(FaceId.Front, 0, 0),
-                    cubeCenter: cubeCenter);
+                    new SurfaceCell(FaceId.Front, 0, 0));
                 Assert.That(
                     Vector3.Distance(view.transform.position, boardRoot.transform.TransformPoint(destinationPosition)),
                     Is.LessThan(0.001f));
@@ -726,7 +717,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = Vector3.zero,
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                         InitialEntities = new[]
                         {
@@ -741,7 +731,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var initialTarget = host.ViewCameraTarget.position;
                 var expectedCenter = new GameplayCubeProjector(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                    Vector3.zero,
                     1f).GetCubeCenter();
 
                 host.InputHost.SetRawMoveInput(Vector2.up);
@@ -783,6 +772,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter");
+            hostObject.transform.position = new Vector3(1.5f, -0.5f, 2f);
             var cameraObject = new GameObject("ViewCamera");
 
             try
@@ -797,7 +787,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = new Vector3(1.5f, -0.5f, 2f),
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                         InitialEntities = new[]
                         {
@@ -813,8 +802,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var expectedCenter = new GameplayCubeProjector(
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                    new Vector3(1.5f, -0.5f, 2f),
                     1f).GetCubeCenter();
+                expectedCenter = host.BoardRoot.transform.TransformPoint(expectedCenter);
 
                 Assert.That(host.GetComponent<GameplayCameraRig>(), Is.Not.Null);
                 Assert.That(viewCamera.orthographic, Is.False);
@@ -844,7 +833,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = Vector3.zero,
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                         InitialEntities = new[]
                         {
@@ -898,7 +886,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = Vector3.zero,
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                         InitialEntities = new[]
                         {
@@ -957,7 +944,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = Vector3.zero,
                         InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                         InitialEntities = new[]
                         {
@@ -1019,7 +1005,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
                         CellSize = 1f,
-                        GridOrigin = Vector3.zero,
                         InitialBoardBounds = new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
                         InitialEntities = new[]
                         {
@@ -1090,7 +1075,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1164,7 +1148,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1240,7 +1223,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1317,7 +1299,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1383,7 +1364,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1459,7 +1439,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1562,7 +1541,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1632,7 +1610,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(-2, 0), new Vector2Int(2, 1)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1711,7 +1688,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     binder,
                     new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(2, 2)),
                     topology,
-                    Vector3.zero,
                     1f,
                     timingProfile);
                 presenter.PresentInitial(
@@ -1883,12 +1859,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CubeTopologyState topology,
             SurfaceCell cell,
             EntityType entityType = EntityType.Unit,
-            float cellSize = 1f,
-            Vector3? cubeCenter = null)
+            float cellSize = 1f)
         {
-            var projector = cubeCenter.HasValue
-                ? new GameplayCubeProjector(boardBounds, cubeCenter.Value, cellSize)
-                : new GameplayCubeProjector(boardBounds, cellSize);
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
             Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
             return projectedPose.LocalPosition;
         }
@@ -1899,12 +1872,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell cell,
             Direction facing,
             EntityType entityType = EntityType.Unit,
-            float cellSize = 1f,
-            Vector3? cubeCenter = null)
+            float cellSize = 1f)
         {
-            var projector = cubeCenter.HasValue
-                ? new GameplayCubeProjector(boardBounds, cubeCenter.Value, cellSize)
-                : new GameplayCubeProjector(boardBounds, cellSize);
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
             Assert.That(projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose), Is.True);
             return projectedPose.LocalRotation * ResolveFacingLocalRotation(facing);
         }
@@ -1937,12 +1907,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoardBounds boardBounds,
             CubeTopologyState topology,
             SurfaceCell cell,
-            Vector3 cubeCenter,
             float cellSize = 1f)
         {
             Assert.That(tile, Is.Not.Null);
 
-            var projector = new GameplayCubeProjector(boardBounds, cubeCenter, cellSize);
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
             Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
 
             var tileTransform = tile.transform;

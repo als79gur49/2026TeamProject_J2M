@@ -16,7 +16,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private bool configureMainCamera = true;
         [SerializeField] private float cellSize = 1.2f;
         [SerializeField] private bool directionChangeConsumesDelay;
-        [SerializeField] private Vector3 gridOrigin = new(-1.2f, -0.6f, 0f);
         [SerializeField] private int initialMoveDelayTicks;
         [SerializeField] private float moveDeadzone = 0.5f;
         [SerializeField] private int playerEntityId = 10;
@@ -48,7 +47,6 @@ namespace Game.Feature.Gameplay.Host
                 AutoCreateViews = autoCreateViews,
                 CellSize = cellSize,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
-                GridOrigin = gridOrigin,
                 InitialBoardBounds = CreateBoardBounds(),
                 InitialMoveDelayTicks = initialMoveDelayTicks,
                 InitialEntities = CreateInitialEntities(),

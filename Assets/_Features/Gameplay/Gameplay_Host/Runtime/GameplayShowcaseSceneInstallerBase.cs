@@ -75,17 +75,6 @@ namespace Game.Feature.Gameplay.Host
             GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(camera);
         }
 
-        [Obsolete("Showcase scenes now use cube-centered board roots. Prefer Vector3.zero or GameplayCubeProjector cube center.")]
-        public static Vector3 CalculateCenteredGridOrigin(BoardBounds boardBounds, float cellSize)
-        {
-            var width = boardBounds.MaxInclusive.x - boardBounds.MinInclusive.x + 1;
-            var height = boardBounds.MaxInclusive.y - boardBounds.MinInclusive.y + 1;
-            return new Vector3(
-                -((width - 1) * cellSize * 0.5f),
-                -(((height * 2) - 1) * cellSize * 0.5f),
-                0f);
-        }
-
         protected static EntityState CreatePlayer(int entityId, SurfaceCell position, Direction facing = Direction.Up)
         {
             return new EntityState
@@ -168,7 +157,6 @@ namespace Game.Feature.Gameplay.Host
                 AutoCreateViews = autoCreateViews,
                 CellSize = cellSize,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
-                GridOrigin = Vector3.zero,
                 InitialBoardBounds = boardBounds,
                 InitialMoveDelayTicks = initialMoveDelayTicks,
                 InitialEntities = entities.ToArray(),

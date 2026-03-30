@@ -61,7 +61,6 @@ namespace Game.Feature.Gameplay.Host
 
         public void Initialize(
             BoardBounds boardBounds,
-            Vector3 cubeCenter,
             float cellSize,
             CubeTopologyState topology)
         {
@@ -77,7 +76,7 @@ namespace Game.Feature.Gameplay.Host
 
             _boardBounds = boardBounds;
             _cellSize = cellSize;
-            _projector = new GameplayCubeProjector(boardBounds, cubeCenter, cellSize);
+            _projector = new GameplayCubeProjector(boardBounds, cellSize);
             EnsureVisibleTilePoolRoot();
             EnsureMaterials();
             EnsureTilePool(GetRequiredTileCount());

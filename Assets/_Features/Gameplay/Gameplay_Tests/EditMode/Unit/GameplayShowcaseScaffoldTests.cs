@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayShowcaseSceneInstallerBase_CreateConfiguration_UsesZeroGridOrigin()
+        public void GameplayPresentationCleanup_RemovesLegacyGridOriginContracts()
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
@@ -83,7 +83,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     installer,
                     new object[] { boardBounds });
 
-                Assert.That(configuration.GridOrigin, Is.EqualTo(Vector3.zero));
+                Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
+                Assert.That(
+                    typeof(GameplaySceneHostConfiguration).GetField(
+                        "GridOrigin",
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic),
+                    Is.Null);
+                Assert.That(
+                    typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                        "CalculateCenteredGridOrigin",
+                        BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic),
+                    Is.Null);
             }
             finally
             {

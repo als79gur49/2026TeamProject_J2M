@@ -15,7 +15,6 @@ namespace Game.Feature.Gameplay.Host
         public bool AutoCreateViews = true;
         public float CellSize = 1f;
         public bool DirectionChangeConsumesDelay;
-        public Vector3 GridOrigin = Vector3.zero;
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
         public int InitialMoveDelayTicks = 0;

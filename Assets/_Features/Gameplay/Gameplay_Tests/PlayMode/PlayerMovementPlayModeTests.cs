@@ -14,10 +14,9 @@ using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
 {
-    // Step 0 migration guardrail:
-    // Keep the input/tick scenarios in this file through the 3D presentation migration.
-    // These checks now resolve committed entity cells through GameplayCubeProjector
-    // instead of asserting strip-space Vector3 literals.
+    // Final presentation guardrail:
+    // Keep the input/tick scenarios in this file and validate them through the
+    // cube projector plus board-root world transform instead of strip-space literals.
     public sealed class PlayerMovementPlayModeTests : InputTestFixture
     {
         private Keyboard _keyboard;
@@ -481,7 +480,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                     FlipArcHeightInCells = 0.65f,
                     FlipMotionDurationSeconds = 0.2f,
-                    GridOrigin = Vector3.zero,
                     InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
                     InitialMoveDelaySeconds = -1f,
                     InitialMoveDelayTicks = initialMoveDelayTicks,
@@ -593,7 +591,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(
                 projector.TryProjectEntityCell(entity.position, snapshot.Topology, entity.type, out var projectedPose),
                 Is.True);
-            Assert.That(GetViewPosition(host, entityId), Is.EqualTo(projectedPose.LocalPosition));
+            Assert.That(
+                GetViewPosition(host, entityId),
+                Is.EqualTo(host.BoardRoot.transform.TransformPoint(projectedPose.LocalPosition)));
         }
 
         private static InputActionAsset CreateKeyboardMoveActions()

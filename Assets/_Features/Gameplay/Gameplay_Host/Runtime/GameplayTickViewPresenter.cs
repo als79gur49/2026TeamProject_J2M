@@ -51,7 +51,6 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityViewBinder viewBinder,
             BoardBounds boardBounds,
             CubeTopologyState initialTopology,
-            Vector3 gridOrigin,
             float cellSize,
             GameplayTimingProfile timingProfile,
             GameplayBoardRoot boardRoot = null)
@@ -63,7 +62,7 @@ namespace Game.Feature.Gameplay.Host
 
             _boardRoot = boardRoot;
             _viewBinder = viewBinder;
-            _projector = new GameplayCubeProjector(boardBounds, gridOrigin, cellSize);
+            _projector = new GameplayCubeProjector(boardBounds, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _committedTopology = initialTopology;
             _presentedBoardRotation = Quaternion.identity;

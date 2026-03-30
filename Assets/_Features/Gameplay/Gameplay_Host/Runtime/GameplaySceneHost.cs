@@ -100,13 +100,11 @@ namespace Game.Feature.Gameplay.Host
                 _viewBinder,
                 configuration.InitialBoardBounds,
                 configuration.InitialTopology,
-                configuration.GridOrigin,
                 configuration.CellSize,
                 TimingProfile,
                 _boardRoot);
             _boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,
-                configuration.GridOrigin,
                 configuration.CellSize,
                 configuration.InitialTopology);
             _presenter.TopologyCommitted += HandlePresentedTopologyCommitted;

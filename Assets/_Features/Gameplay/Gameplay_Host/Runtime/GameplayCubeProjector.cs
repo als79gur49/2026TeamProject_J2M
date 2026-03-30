@@ -10,18 +10,12 @@ namespace Game.Feature.Gameplay.Host
         private const float ProjectileSurfaceOffsetMultiplier = 0.18f;
 
         private readonly BoardBounds _boardBounds;
-        private readonly Vector3 _cubeCenter;
         private readonly float _cellSize;
         private readonly float _halfDepth;
         private readonly float _halfHeight;
         private readonly float _halfWidth;
 
         public GameplayCubeProjector(BoardBounds boardBounds, float cellSize)
-            : this(boardBounds, Vector3.zero, cellSize)
-        {
-        }
-
-        public GameplayCubeProjector(BoardBounds boardBounds, Vector3 cubeCenter, float cellSize)
         {
             if (!boardBounds.IsBounded)
             {
@@ -34,7 +28,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _boardBounds = boardBounds;
-            _cubeCenter = cubeCenter;
             _cellSize = cellSize;
             _halfWidth = Width * _cellSize * 0.5f;
             _halfHeight = Height * _cellSize * 0.5f;
@@ -45,7 +38,7 @@ namespace Game.Feature.Gameplay.Host
 
         public float CellSize => _cellSize;
 
-        public Vector3 CubeCenter => _cubeCenter;
+        public Vector3 CubeCenter => Vector3.zero;
 
         public int Width => _boardBounds.MaxInclusive.x - _boardBounds.MinInclusive.x + 1;
 
@@ -101,7 +94,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector3 GetCubeCenter()
         {
-            return _cubeCenter;
+            return Vector3.zero;
         }
 
         private bool TryResolveEntitySlot(FaceId face, CubeTopologyState topology, out CubeFaceSlot slot)
@@ -150,8 +143,7 @@ namespace Game.Feature.Gameplay.Host
             var centeredX = ResolveCenteredCoordinate(cell.x, _boardBounds.MinInclusive.x, Width);
             var centeredY = ResolveCenteredCoordinate(cell.y, _boardBounds.MinInclusive.y, Height);
             var frame = ResolveFrame(slot);
-            var localPosition = _cubeCenter +
-                                frame.PlaneCenterOffset +
+            var localPosition = frame.PlaneCenterOffset +
                                 (frame.PositionRightAxis * centeredX) +
                                 (frame.PositionUpAxis * centeredY) +
                                 (frame.Normal * surfaceOffset);
