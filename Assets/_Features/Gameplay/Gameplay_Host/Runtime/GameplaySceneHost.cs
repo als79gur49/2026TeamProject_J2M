@@ -108,7 +108,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.CellSize,
                 configuration.InitialTopology);
             _presenter.TopologyCommitted += HandlePresentedTopologyCommitted;
-            ConfigureViewCameraRig();
+            ConfigureViewCameraRig(configuration.CameraSettings);
             _presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
 
             _inputHost.Initialize(
@@ -179,7 +179,7 @@ namespace Game.Feature.Gameplay.Host
             _viewCameraTarget = _boardRoot != null ? _boardRoot.CameraTargetRoot : null;
         }
 
-        private void ConfigureViewCameraRig()
+        private void ConfigureViewCameraRig(GameplayCameraSettings cameraSettings)
         {
             if (!_snapViewCameraToTarget || _viewCamera == null || _viewCameraTarget == null)
             {
@@ -193,6 +193,7 @@ namespace Game.Feature.Gameplay.Host
 
             _viewCameraRig = GetComponent<GameplayCameraRig>() ?? gameObject.AddComponent<GameplayCameraRig>();
             _viewCameraRig.enabled = true;
+            _viewCameraRig.ApplySettings(cameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault());
             _viewCameraRig.Initialize(_viewCamera, _viewCameraTarget, _presenter.VisibleCubeBounds);
         }
 

@@ -29,25 +29,36 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("SampleSceneInstaller requires an InputActionAsset reference.");
             }
 
+            var boardBounds = CreateBoardBounds();
+            var cameraSettings = CreateCameraSettings();
+
             if (configureMainCamera)
             {
-                ConfigureCamera();
+                ConfigureCamera(boardBounds, cameraSettings);
             }
 
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
-            host.Initialize(CreateConfiguration());
+            host.Initialize(CreateConfiguration(boardBounds, cameraSettings));
         }
 
         private GameplaySceneHostConfiguration CreateConfiguration()
+        {
+            return CreateConfiguration(CreateBoardBounds(), CreateCameraSettings());
+        }
+
+        private GameplaySceneHostConfiguration CreateConfiguration(
+            BoardBounds boardBounds,
+            GameplayCameraSettings cameraSettings)
         {
             return new GameplaySceneHostConfiguration
             {
                 Actions = actions,
                 AutoAdvanceTicks = autoAdvanceTicks,
                 AutoCreateViews = autoCreateViews,
+                CameraSettings = cameraSettings,
                 CellSize = cellSize,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
-                InitialBoardBounds = CreateBoardBounds(),
+                InitialBoardBounds = boardBounds,
                 InitialMoveDelayTicks = initialMoveDelayTicks,
                 InitialEntities = CreateInitialEntities(),
                 InitialTerrain = GameplayTerrainData.Empty,
@@ -94,7 +105,12 @@ namespace Game.Feature.Gameplay.Host
             return entities.ToArray();
         }
 
-        private static void ConfigureCamera()
+        private GameplayCameraSettings CreateCameraSettings()
+        {
+            return GameplayCameraSettings.CreateSampleDefault();
+        }
+
+        private void ConfigureCamera(BoardBounds boardBounds, GameplayCameraSettings cameraSettings)
         {
             var camera = Camera.main;
             if (camera == null)
@@ -102,12 +118,12 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            camera.orthographic = false;
-            camera.fieldOfView = 50f;
-            camera.transform.position = new Vector3(0.75f, 3.5f, 8.5f);
-            camera.transform.rotation = Quaternion.Euler(24f, 152f, 0f);
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.92f, 0.94f, 0.98f);
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
+            GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(
+                camera,
+                cameraSettings,
+                Vector3.zero,
+                projector.GetVisibleCubeBounds(new CubeTopologyState(FaceId.Floor)));
         }
 
         private static EntityState CreatePlayer(int entityId, Vector2Int position)

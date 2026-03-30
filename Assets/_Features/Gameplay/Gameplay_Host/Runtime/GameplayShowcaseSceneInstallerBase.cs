@@ -36,7 +36,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var boardBounds = CreateBoardBounds();
-            GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(gameObject, GetShowcaseOverlayContent());
+            var cameraSettings = CreateCameraSettings();
+            GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
+                gameObject,
+                GetShowcaseOverlayContent(),
+                cameraSettings);
 
             if (configureMainCamera)
             {
@@ -44,7 +48,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
-            host.Initialize(CreateConfiguration(boardBounds));
+            host.Initialize(CreateConfiguration(boardBounds, cameraSettings));
         }
 
         protected abstract BoardBounds CreateBoardBounds();
@@ -61,18 +65,27 @@ namespace Game.Feature.Gameplay.Host
             return GameplayTerrainData.Empty;
         }
 
+        protected virtual GameplayCameraSettings CreateCameraSettings()
+        {
+            return GameplayCameraSettings.CreateShowcaseDefault();
+        }
+
         protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
+
+        public GameplayCameraSettings GetCameraSettings()
+        {
+            return CreateCameraSettings();
+        }
+
+        public void ConfigureBootstrapCamera(Camera camera)
+        {
+            ConfigureSceneCamera(camera, CreateBoardBounds(), CreateCameraSettings());
+        }
 
         protected virtual void ConfigureCamera(BoardBounds boardBounds)
         {
-            _ = boardBounds;
             var camera = Camera.main;
-            if (camera == null)
-            {
-                return;
-            }
-
-            GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(camera);
+            ConfigureSceneCamera(camera, boardBounds, CreateCameraSettings());
         }
 
         protected static EntityState CreatePlayer(int entityId, SurfaceCell position, Direction facing = Direction.Up)
@@ -147,6 +160,13 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplaySceneHostConfiguration CreateConfiguration(BoardBounds boardBounds)
         {
+            return CreateConfiguration(boardBounds, CreateCameraSettings());
+        }
+
+        private GameplaySceneHostConfiguration CreateConfiguration(
+            BoardBounds boardBounds,
+            GameplayCameraSettings cameraSettings)
+        {
             var entities = new List<EntityState>();
             PopulateInitialEntities(entities, boardBounds);
 
@@ -155,6 +175,7 @@ namespace Game.Feature.Gameplay.Host
                 Actions = actions,
                 AutoAdvanceTicks = autoAdvanceTicks,
                 AutoCreateViews = autoCreateViews,
+                CameraSettings = cameraSettings,
                 CellSize = cellSize,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 InitialBoardBounds = boardBounds,
@@ -169,6 +190,24 @@ namespace Game.Feature.Gameplay.Host
                 TickIntervalSeconds = tickIntervalSeconds,
                 ViewCamera = configureMainCamera ? Camera.main : null,
             };
+        }
+
+        private void ConfigureSceneCamera(
+            Camera camera,
+            BoardBounds boardBounds,
+            GameplayCameraSettings cameraSettings)
+        {
+            if (camera == null)
+            {
+                return;
+            }
+
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
+            GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(
+                camera,
+                cameraSettings,
+                Vector3.zero,
+                projector.GetVisibleCubeBounds(InitialTopology));
         }
 
         private static void AddWallIfNeeded(

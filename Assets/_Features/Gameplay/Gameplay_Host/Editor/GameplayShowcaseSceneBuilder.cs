@@ -50,12 +50,15 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             where TInstaller : GameplayShowcaseSceneInstallerBase
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-            GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(Camera.main);
 
             var installerObject = new GameObject(rootObjectName);
             var installer = installerObject.AddComponent<TInstaller>();
             AssignActions(installer);
-            GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(installerObject, installer.GetShowcaseOverlayContent());
+            GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
+                installerObject,
+                installer.GetShowcaseOverlayContent(),
+                installer.GetCameraSettings());
+            installer.ConfigureBootstrapCamera(Camera.main);
 
             EditorSceneManager.SaveScene(scene, scenePath);
         }

@@ -11,6 +11,17 @@ namespace Game.Feature.Gameplay.Host
 
         public static void EnsureInstallerScaffold(GameObject installerRoot, GameplayShowcaseOverlayContent overlayContent)
         {
+            EnsureInstallerScaffold(
+                installerRoot,
+                overlayContent,
+                GameplayCameraSettings.CreateShowcaseDefault());
+        }
+
+        public static void EnsureInstallerScaffold(
+            GameObject installerRoot,
+            GameplayShowcaseOverlayContent overlayContent,
+            GameplayCameraSettings cameraSettings)
+        {
             if (installerRoot == null)
             {
                 throw new ArgumentNullException(nameof(installerRoot));
@@ -18,23 +29,36 @@ namespace Game.Feature.Gameplay.Host
 
             DestroyLegacyWorldLabels(installerRoot.scene);
             EnsureBoardRoot(installerRoot.transform);
-            EnsureCameraRig(installerRoot);
+            EnsureCameraRig(installerRoot, cameraSettings);
             EnsureOverlay(installerRoot, overlayContent);
         }
 
         public static void ConfigureDefaultSceneCamera(Camera camera)
+        {
+            ConfigureDefaultSceneCamera(camera, GameplayCameraSettings.CreateShowcaseDefault());
+        }
+
+        public static void ConfigureDefaultSceneCamera(Camera camera, GameplayCameraSettings cameraSettings)
+        {
+            ConfigureDefaultSceneCamera(camera, cameraSettings, Vector3.zero, default);
+        }
+
+        public static void ConfigureDefaultSceneCamera(
+            Camera camera,
+            GameplayCameraSettings cameraSettings,
+            Vector3 targetPosition,
+            Bounds visibleCubeBounds)
         {
             if (camera == null)
             {
                 return;
             }
 
-            camera.orthographic = false;
-            camera.fieldOfView = 50f;
-            camera.transform.position = new Vector3(0f, 3.5f, 7.5f);
-            camera.transform.rotation = Quaternion.Euler(24f, 152f, 0f);
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.93f, 0.95f, 0.98f);
+            GameplayCameraRig.ApplySettingsToCamera(
+                camera,
+                cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault(),
+                targetPosition,
+                visibleCubeBounds);
         }
 
         private static GameplayBoardRoot EnsureBoardRoot(Transform installerRoot)
@@ -77,10 +101,11 @@ namespace Game.Feature.Gameplay.Host
                    namedChild.gameObject.AddComponent<GameplayBoardRoot>();
         }
 
-        private static GameplayCameraRig EnsureCameraRig(GameObject installerRoot)
+        private static GameplayCameraRig EnsureCameraRig(GameObject installerRoot, GameplayCameraSettings cameraSettings)
         {
-            return installerRoot.GetComponent<GameplayCameraRig>() ??
-                   installerRoot.AddComponent<GameplayCameraRig>();
+            var rig = installerRoot.GetComponent<GameplayCameraRig>() ?? installerRoot.AddComponent<GameplayCameraRig>();
+            rig.ApplySettings(cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault());
+            return rig;
         }
 
         private static GameplayShowcaseOverlay EnsureOverlay(GameObject installerRoot, GameplayShowcaseOverlayContent overlayContent)

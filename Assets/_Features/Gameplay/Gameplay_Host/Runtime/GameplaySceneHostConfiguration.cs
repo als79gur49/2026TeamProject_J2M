@@ -32,6 +32,7 @@ namespace Game.Feature.Gameplay.Host
         public float RepeatedMoveIntervalSeconds = -1f;
         public int RepeatedMoveIntervalTicks = 2;
         public int SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
+        public GameplayCameraSettings CameraSettings = GameplayCameraSettings.CreateRuntimeDefault();
         public bool SnapViewCameraToTarget;
         public float TickIntervalSeconds = 0.2f;
         public InputActionAsset Actions;
