@@ -36,6 +36,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var boardBounds = CreateBoardBounds();
+            GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(gameObject, GetShowcaseOverlayContent());
+
             if (configureMainCamera)
             {
                 ConfigureCamera(boardBounds);
@@ -49,27 +51,31 @@ namespace Game.Feature.Gameplay.Host
 
         protected abstract void PopulateInitialEntities(List<EntityState> entities, BoardBounds boardBounds);
 
+        public GameplayShowcaseOverlayContent GetShowcaseOverlayContent()
+        {
+            return CreateShowcaseOverlayContent();
+        }
+
         protected virtual GameplayTerrainData CreateTerrainData(BoardBounds boardBounds)
         {
             return GameplayTerrainData.Empty;
         }
 
+        protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
+
         protected virtual void ConfigureCamera(BoardBounds boardBounds)
         {
+            _ = boardBounds;
             var camera = Camera.main;
             if (camera == null)
             {
                 return;
             }
 
-            camera.orthographic = false;
-            camera.fieldOfView = 50f;
-            camera.transform.position = new Vector3(0f, 3.5f, -7.5f);
-            camera.transform.rotation = Quaternion.Euler(24f, 28f, 0f);
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(0.93f, 0.95f, 0.98f);
+            GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(camera);
         }
 
+        [Obsolete("Showcase scenes now use cube-centered board roots. Prefer Vector3.zero or GameplayCubeProjector cube center.")]
         public static Vector3 CalculateCenteredGridOrigin(BoardBounds boardBounds, float cellSize)
         {
             var width = boardBounds.MaxInclusive.x - boardBounds.MinInclusive.x + 1;
@@ -162,7 +168,7 @@ namespace Game.Feature.Gameplay.Host
                 AutoCreateViews = autoCreateViews,
                 CellSize = cellSize,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
-                GridOrigin = CalculateCenteredGridOrigin(boardBounds, cellSize),
+                GridOrigin = Vector3.zero,
                 InitialBoardBounds = boardBounds,
                 InitialMoveDelayTicks = initialMoveDelayTicks,
                 InitialEntities = entities.ToArray(),

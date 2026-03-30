@@ -65,5 +65,19 @@ namespace Game.Feature.Gameplay.Host
             return (face == FaceId.Floor && cell.y == boardBounds.MaxInclusive.y) ||
                    (face == FaceId.Front && cell.y == boardBounds.MinInclusive.y);
         }
+
+        protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()
+        {
+            return new GameplayShowcaseOverlayContent(
+                "Combined Gameplay Showcase",
+                "Traverse shared edges on the left, then move into the box interaction lanes on the right without leaving the same 3D cube presentation.",
+                "Move: WASD   Push: E   Flip: Q",
+                new[]
+                {
+                    "The left opening demonstrates player-led topology rotation across visible faces.",
+                    "Center and right lanes stack Push, Flip, Destroy, and Item box capabilities for mixed scenarios.",
+                    "A top-edge box near the shared opening checks cross-face push presentation while the board rotates.",
+                });
+        }
     }
 }
