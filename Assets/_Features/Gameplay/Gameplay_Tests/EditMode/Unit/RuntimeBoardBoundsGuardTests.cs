@@ -576,6 +576,98 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayCameraRig_ManualDistance_KeepsPositionWhenFieldOfViewChanges()
+        {
+            var rigObject = new GameObject("GameplayCameraRig_ManualDistance_KeepsPositionWhenFieldOfViewChanges");
+            var cameraObject = new GameObject("ViewCamera");
+            var targetObject = new GameObject("CameraTarget");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+                var rig = rigObject.AddComponent<GameplayCameraRig>();
+                var visibleBounds = new Bounds(Vector3.zero, new Vector3(4f, 4f, 4f));
+
+                rig.ApplySettings(new GameplayCameraSettings
+                {
+                    PitchDegrees = 35f,
+                    YawDegrees = 0f,
+                    PerspectiveFieldOfView = 60f,
+                    FramingPadding = 1.2f,
+                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    ManualDistance = 7f,
+                });
+                rig.Initialize(viewCamera, targetObject.transform, visibleBounds);
+                var initialPosition = viewCamera.transform.position;
+
+                rig.ApplySettings(new GameplayCameraSettings
+                {
+                    PitchDegrees = 35f,
+                    YawDegrees = 0f,
+                    PerspectiveFieldOfView = 30f,
+                    FramingPadding = 1.2f,
+                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    ManualDistance = 7f,
+                });
+
+                Assert.That(Vector3.Distance(viewCamera.transform.position, initialPosition), Is.LessThan(0.0001f));
+                Assert.That(viewCamera.fieldOfView, Is.EqualTo(30f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rigObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        public void GameplayCameraRig_AutoFit_ChangesDistanceWhenFieldOfViewChanges()
+        {
+            var rigObject = new GameObject("GameplayCameraRig_AutoFit_ChangesDistanceWhenFieldOfViewChanges");
+            var cameraObject = new GameObject("ViewCamera");
+            var targetObject = new GameObject("CameraTarget");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+                var rig = rigObject.AddComponent<GameplayCameraRig>();
+                var visibleBounds = new Bounds(Vector3.zero, new Vector3(4f, 4f, 4f));
+
+                rig.ApplySettings(new GameplayCameraSettings
+                {
+                    PitchDegrees = 35f,
+                    YawDegrees = 0f,
+                    PerspectiveFieldOfView = 60f,
+                    FramingPadding = 1.2f,
+                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                });
+                rig.Initialize(viewCamera, targetObject.transform, visibleBounds);
+                var initialDistance = Vector3.Distance(viewCamera.transform.position, targetObject.transform.position);
+
+                rig.ApplySettings(new GameplayCameraSettings
+                {
+                    PitchDegrees = 35f,
+                    YawDegrees = 0f,
+                    PerspectiveFieldOfView = 30f,
+                    FramingPadding = 1.2f,
+                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                });
+                var narrowedDistance = Vector3.Distance(viewCamera.transform.position, targetObject.transform.position);
+
+                Assert.That(narrowedDistance, Is.GreaterThan(initialDistance));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rigObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
         public void GameplayCubeProjector_RejectsInactiveFaceEntityProjection()
         {
             var projector = new GameplayCubeProjector(
@@ -1038,10 +1130,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Vector3.Angle(viewCamera.transform.forward, (expectedCenter - viewCamera.transform.position).normalized),
                     Is.LessThan(0.1f));
                 Assert.That(viewCamera.transform.position.y, Is.GreaterThan(expectedCenter.y));
-                Assert.That(viewCamera.transform.position.z, Is.GreaterThan(expectedCenter.z));
+                Assert.That(viewCamera.transform.position.z, Is.LessThan(expectedCenter.z));
                 Assert.That(viewCamera.transform.forward.y, Is.LessThan(-0.25f));
-                Assert.That(viewCamera.transform.forward.z, Is.LessThan(-0.9f));
+                Assert.That(viewCamera.transform.forward.z, Is.GreaterThan(0.9f));
                 Assert.That(Mathf.Abs(viewCamera.transform.forward.x), Is.LessThan(0.01f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_AppliesConfiguredCameraSettingsToRigAndCamera()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_AppliesConfiguredCameraSettingsToRigAndCamera");
+            var cameraObject = new GameObject("ViewCamera");
+
+            try
+            {
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                var expectedCameraSettings = new GameplayCameraSettings
+                {
+                    PitchDegrees = 18f,
+                    YawDegrees = 31f,
+                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    ManualDistance = 9f,
+                    FramingPadding = 1.35f,
+                    PerspectiveFieldOfView = 47f,
+                    NearClipPlane = 0.15f,
+                    FarClipPlane = 77f,
+                    ClearFlags = CameraClearFlags.SolidColor,
+                    BackgroundColor = new Color(0.1f, 0.2f, 0.3f),
+                };
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CameraSettings = expectedCameraSettings,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        SnapViewCameraToTarget = true,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        TickIntervalSeconds = 0.2f,
+                        ViewCamera = viewCamera,
+                    });
+
+                var rig = host.GetComponent<GameplayCameraRig>();
+                Assert.That(rig, Is.Not.Null);
+                Assert.That(rig.PitchDegrees, Is.EqualTo(expectedCameraSettings.PitchDegrees).Within(0.0001f));
+                Assert.That(rig.YawDegrees, Is.EqualTo(expectedCameraSettings.YawDegrees).Within(0.0001f));
+                Assert.That(rig.CurrentDistanceMode, Is.EqualTo(expectedCameraSettings.DistanceMode));
+                Assert.That(rig.ManualDistance, Is.EqualTo(expectedCameraSettings.ManualDistance).Within(0.0001f));
+                Assert.That(rig.FramingPadding, Is.EqualTo(expectedCameraSettings.FramingPadding).Within(0.0001f));
+                Assert.That(rig.PerspectiveFieldOfView, Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
+                Assert.That(rig.NearClipPlane, Is.EqualTo(expectedCameraSettings.NearClipPlane).Within(0.0001f));
+                Assert.That(rig.FarClipPlane, Is.EqualTo(expectedCameraSettings.FarClipPlane).Within(0.0001f));
+                Assert.That(rig.ClearFlags, Is.EqualTo(expectedCameraSettings.ClearFlags));
+                Assert.That(rig.BackgroundColor, Is.EqualTo(expectedCameraSettings.BackgroundColor));
+                Assert.That(viewCamera.fieldOfView, Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
+                Assert.That(viewCamera.clearFlags, Is.EqualTo(expectedCameraSettings.ClearFlags));
+                Assert.That(viewCamera.backgroundColor, Is.EqualTo(expectedCameraSettings.BackgroundColor));
             }
             finally
             {

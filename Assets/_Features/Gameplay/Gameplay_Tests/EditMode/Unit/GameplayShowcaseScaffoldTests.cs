@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -34,7 +35,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         "Move: WASD",
                         new[] { "First highlight", "Second highlight" }));
 
-                Assert.That(installerObject.GetComponent<GameplayCameraRig>(), Is.Not.Null);
+                var rig = installerObject.GetComponent<GameplayCameraRig>();
+                var expectedCameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
+                Assert.That(rig, Is.Not.Null);
+                AssertCameraSettings(rig, expectedCameraSettings);
                 Assert.That(installerObject.GetComponent<GameplayShowcaseOverlay>(), Is.Not.Null);
 
                 var overlay = installerObject.GetComponent<GameplayShowcaseOverlay>();
@@ -82,8 +86,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var configuration = (GameplaySceneHostConfiguration)createConfiguration.Invoke(
                     installer,
                     new object[] { boardBounds });
+                var expectedCameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
 
                 Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
+                Assert.That(configuration.CameraSettings, Is.Not.Null);
+                AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(
                         "GridOrigin",
@@ -97,8 +104,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                Object.DestroyImmediate(actions);
+                UnityEngine.Object.DestroyImmediate(actions);
                 EditorSceneManager.CloseScene(scene, removeScene: true);
+            }
+        }
+
+        [Test]
+        public void SampleSceneInstaller_CreateConfiguration_UsesSampleCameraSettingsPreset()
+        {
+            var installerObject = new GameObject("SampleSceneInstaller");
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+
+            try
+            {
+                var installer = installerObject.AddComponent<SampleSceneInstaller>();
+                SetPrivateField(typeof(SampleSceneInstaller), installer, "actions", actions);
+
+                var createConfiguration = typeof(SampleSceneInstaller).GetMethod(
+                    "CreateConfiguration",
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    binder: null,
+                    types: Type.EmptyTypes,
+                    modifiers: null);
+
+                Assert.That(createConfiguration, Is.Not.Null);
+
+                var configuration = (GameplaySceneHostConfiguration)createConfiguration.Invoke(installer, null);
+                var expectedCameraSettings = GameplayCameraSettings.CreateSampleDefault();
+
+                Assert.That(configuration.CameraSettings, Is.Not.Null);
+                AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(actions);
+                UnityEngine.Object.DestroyImmediate(installerObject);
             }
         }
 
@@ -110,6 +150,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
+        }
+
+        private static void SetPrivateField(Type type, object target, string fieldName, object value)
+        {
+            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(target, value);
+        }
+
+        private static void AssertCameraSettings(GameplayCameraRig rig, GameplayCameraSettings expected)
+        {
+            Assert.That(rig.CurrentDistanceMode, Is.EqualTo(expected.DistanceMode));
+            Assert.That(rig.PitchDegrees, Is.EqualTo(expected.PitchDegrees).Within(0.0001f));
+            Assert.That(rig.YawDegrees, Is.EqualTo(expected.YawDegrees).Within(0.0001f));
+            Assert.That(rig.ManualDistance, Is.EqualTo(expected.ManualDistance).Within(0.0001f));
+            Assert.That(rig.FramingPadding, Is.EqualTo(expected.FramingPadding).Within(0.0001f));
+            Assert.That(rig.PerspectiveFieldOfView, Is.EqualTo(expected.PerspectiveFieldOfView).Within(0.0001f));
+            Assert.That(rig.NearClipPlane, Is.EqualTo(expected.NearClipPlane).Within(0.0001f));
+            Assert.That(rig.FarClipPlane, Is.EqualTo(expected.FarClipPlane).Within(0.0001f));
+            Assert.That(rig.ClearFlags, Is.EqualTo(expected.ClearFlags));
+            Assert.That(rig.BackgroundColor, Is.EqualTo(expected.BackgroundColor));
+        }
+
+        private static void AssertCameraSettings(GameplayCameraSettings actual, GameplayCameraSettings expected)
+        {
+            Assert.That(actual.DistanceMode, Is.EqualTo(expected.DistanceMode));
+            Assert.That(actual.PitchDegrees, Is.EqualTo(expected.PitchDegrees).Within(0.0001f));
+            Assert.That(actual.YawDegrees, Is.EqualTo(expected.YawDegrees).Within(0.0001f));
+            Assert.That(actual.ManualDistance, Is.EqualTo(expected.ManualDistance).Within(0.0001f));
+            Assert.That(actual.FramingPadding, Is.EqualTo(expected.FramingPadding).Within(0.0001f));
+            Assert.That(actual.PerspectiveFieldOfView, Is.EqualTo(expected.PerspectiveFieldOfView).Within(0.0001f));
+            Assert.That(actual.NearClipPlane, Is.EqualTo(expected.NearClipPlane).Within(0.0001f));
+            Assert.That(actual.FarClipPlane, Is.EqualTo(expected.FarClipPlane).Within(0.0001f));
+            Assert.That(actual.ClearFlags, Is.EqualTo(expected.ClearFlags));
+            Assert.That(actual.BackgroundColor, Is.EqualTo(expected.BackgroundColor));
         }
 
         private sealed class TestGameplayShowcaseInstaller : GameplayShowcaseSceneInstallerBase
