@@ -140,6 +140,10 @@ GameplaySceneHost
 
 목표는 presenter가 strip-specific 산술을 직접 아는 구조를 끊고, projection 결과를 pose struct로 받는 구조로 바꾸는 것이다.
 
+진행 상태:
+
+- 완료 (2026-03-30)
+
 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs`
@@ -166,6 +170,13 @@ GameplaySceneHost
 완료 조건:
 
 - presenter 내부에서 `x/y strip offset` 직접 계산 코드가 사라진다
+
+구현 결과 메모:
+
+- `ProjectedCellPose`를 추가해 projector가 `LocalPosition`, `LocalRotation`, `Normal`을 반환하는 공통 pose 계약을 고정했다.
+- 기존 strip projection 책임을 `GameplayStripProjector`로 분리했고, strip continuity/center 계산도 presenter 밖으로 이동시켰다.
+- `GameplayTickViewPresenter`의 local pose 해석은 projector가 반환한 pose contract만 사용하도록 정리했고, entity facing 회전은 projector local rotation 위에 합성되도록 분리했다.
+- guard test를 갱신해 `ProjectedCellPose`의 normal/local rotation 계약과 strip projector projection 결과를 고정했다.
 
 ### 5-4. 3단계: Cube Projector 구현
 
