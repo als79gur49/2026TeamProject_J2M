@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
+        private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
@@ -26,7 +27,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasPresentedFrame;
         private bool _isInitialized;
         private Vector3 _presentedContinuityAnchor;
-        private GameplayStripProjector _projector;
+        private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
         private GameplayEntityViewBinder _viewBinder;
 
@@ -52,15 +53,16 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewBinder = viewBinder;
-            _projector = new GameplayStripProjector(boardBounds, gridOrigin, cellSize);
+            _projector = new GameplayCubeProjector(boardBounds, gridOrigin, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _committedTopology = initialTopology;
             _committedContinuityAnchor = Vector3.zero;
             _presentedContinuityAnchor = Vector3.zero;
-            ActiveStripCenter = _projector.GetActiveStripCenter(_presentedContinuityAnchor);
+            ActiveStripCenter = _projector.GetCubeCenter();
             _hasPresentedFrame = false;
             _hasAnyCommittedFrame = false;
             _committedLocalTargetPoses.Clear();
+            _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
             _localMotionTracks.Clear();
             _visibilityTracks.Clear();
@@ -98,6 +100,7 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
             _localMotionTracks.Clear();
             _visibilityTracks.Clear();
+            _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
             _topologyTrack.Clear();
             _committedContinuityAnchor = Vector3.zero;
@@ -191,6 +194,7 @@ namespace Game.Feature.Gameplay.Host
                 if (!visibilityTrack.TargetVisibility && !_committedLocalTargetPoses.ContainsKey(entityId))
                 {
                     _retainedLocalTargetPoses.Remove(entityId);
+                    _entityTypesByEntityId.Remove(entityId);
                 }
             }
 
@@ -212,10 +216,7 @@ namespace Game.Feature.Gameplay.Host
         {
             if (updateContinuity && _hasPresentedFrame)
             {
-                _committedContinuityAnchor = ResolveCommittedContinuityAnchor(
-                    _committedTopology,
-                    topology,
-                    _committedContinuityAnchor);
+                _committedContinuityAnchor = Vector3.zero;
             }
 
             _committedTopology = topology;
@@ -231,8 +232,10 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < entities.Count; i++)
             {
                 var entity = entities[i];
+                _entityTypesByEntityId[entity.entityId] = entity.type;
+
                 if (!ShouldPresent(entity, topology) ||
-                    !_projector.TryProjectEntityCell(entity.position, topology, out var projectedPose))
+                    !_projector.TryProjectEntityCell(entity.position, topology, entity.type, out var projectedPose))
                 {
                     continue;
                 }
@@ -255,25 +258,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(presentationData));
             }
 
-            if (presentationData.TopologyMotion.HasValue)
-            {
-                var startAnchor = _topologyTrack.HasClips
-                    ? _topologyTrack.TailEndValue
-                    : _presentedContinuityAnchor;
-
-                _topologyTrack.Append(
-                    AnchorClip.Create(
-                        startAnchor,
-                        _committedContinuityAnchor,
-                        ResolveTopologyMotionDurationSeconds(presentationData.TopologyMotion.Value)));
-                return;
-            }
-
-            if (_topologyTrack.HasClips)
-            {
-                return;
-            }
-
+            _topologyTrack.Clear();
             ApplyPresentedContinuityAnchor(_committedContinuityAnchor);
         }
 
@@ -429,7 +414,7 @@ namespace Game.Feature.Gameplay.Host
 
             var sourceTopology = motion.SourceTopology ?? previousCommittedTopology;
             var sourceFacing = motion.SourceFacing ?? motion.DestinationFacing ?? Direction.Up;
-            return TryResolveLocalPose(motion.SourceCell, sourceTopology, sourceFacing, out var sourcePose)
+            return TryResolveLocalPose(motion.EntityId, motion.SourceCell, sourceTopology, sourceFacing, out var sourcePose)
                 ? sourcePose
                 : fallbackPose;
         }
@@ -448,7 +433,7 @@ namespace Game.Feature.Gameplay.Host
 
             var destinationTopology = motion.DestinationTopology ?? _committedTopology;
             var destinationFacing = motion.DestinationFacing ?? motion.SourceFacing ?? Direction.Up;
-            return TryResolveLocalPose(motion.DestinationCell, destinationTopology, destinationFacing, out var destinationPose)
+            return TryResolveLocalPose(motion.EntityId, motion.DestinationCell, destinationTopology, destinationFacing, out var destinationPose)
                 ? destinationPose
                 : default;
         }
@@ -475,7 +460,7 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
-            return TryResolveLocalPose(change.Cell, change.Topology, change.Facing, out localPose);
+            return TryResolveLocalPose(change.EntityId, change.Cell, change.Topology, change.Facing, out localPose);
         }
 
         private bool TryResolveFallbackLocalPose(int entityId, out GameplayEntityPose localPose)
@@ -489,13 +474,17 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private bool TryResolveLocalPose(
+            int entityId,
             SurfaceCell cell,
             CubeTopologyState topology,
             Direction facing,
             out GameplayEntityPose pose)
         {
             pose = default;
-            if (!_projector.TryProjectEntityCell(cell, topology, out var projectedPose))
+            var entityType = _entityTypesByEntityId.TryGetValue(entityId, out var knownEntityType)
+                ? knownEntityType
+                : EntityType.Unit;
+            if (!_projector.TryProjectEntityCell(cell, topology, entityType, out var projectedPose))
             {
                 return false;
             }
@@ -574,28 +563,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _presentedContinuityAnchor = continuityAnchor;
-            ActiveStripCenter = _projector.GetActiveStripCenter(_presentedContinuityAnchor);
+            ActiveStripCenter = _projector.GetCubeCenter();
             StripCenterChanged?.Invoke(ActiveStripCenter);
-        }
-
-        private Vector3 ResolveCommittedContinuityAnchor(
-            CubeTopologyState previousTopology,
-            CubeTopologyState currentTopology,
-            Vector3 currentContinuityAnchor)
-        {
-            var stepDistance = _projector.GetContinuityStepOffset();
-
-            if (FaceIdUtility.GetNext(previousTopology.BottomFace) == currentTopology.BottomFace)
-            {
-                return currentContinuityAnchor + stepDistance;
-            }
-
-            if (FaceIdUtility.GetPrevious(previousTopology.BottomFace) == currentTopology.BottomFace)
-            {
-                return currentContinuityAnchor - stepDistance;
-            }
-
-            return currentContinuityAnchor;
         }
 
         private static int GetVisibilityPriority(TickVisibilityChangeKind changeKind)
