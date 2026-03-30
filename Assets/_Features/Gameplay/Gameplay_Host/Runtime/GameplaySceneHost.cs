@@ -57,13 +57,13 @@ namespace Game.Feature.Gameplay.Host
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             TimingProfile = configuration.CreateTimingProfile();
+            var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, TimingProfile);
 
-            WorldState = GameplayCompositionRoot.CreateSessionStartWorldState(
-                initialEntities,
+            WorldState = GameplayCompositionRoot.CreateWorldState(
+                normalizedInitialEntities,
                 configuration.InitialBoardBounds,
                 initialTerrain,
-                configuration.InitialTopology,
-                TimingProfile);
+                configuration.InitialTopology);
             var initialSnapshot = SnapshotBuilder.Create(WorldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);

@@ -79,12 +79,15 @@ namespace Game.Feature.Gameplay.Tests
             CubeTopologyState topology,
             GameplayTimingProfile timingProfile)
         {
-            return GameplayCompositionRoot.CreateSessionStartWorldState(
+            var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(
                 initialEntities,
+                timingProfile ?? GameplayTimingProfile.CreateDefault());
+
+            return GameplayCompositionRoot.CreateWorldState(
+                normalizedInitialEntities,
                 boardBounds,
                 terrainData ?? GameplayTerrainData.Empty,
-                topology,
-                timingProfile ?? GameplayTimingProfile.CreateDefault());
+                topology);
         }
     }
 }
