@@ -278,6 +278,10 @@ GameplaySceneHost
 
 목표는 테스트 씬의 유닛, 박스, 벽, 투사체를 square/quad에서 cube 기반 visual로 교체하는 것이다.
 
+진행 상태:
+
+- 완료 (2026-03-30)
+
 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`
@@ -305,6 +309,14 @@ GameplaySceneHost
 완료 조건:
 
 - 테스트 씬 내부 square visual이 cube visual로 완전히 대체된다
+
+구현 결과 메모:
+
+- `DefaultGameplayEntityViewFactory`에서 `PrimitiveType.Quad`를 제거하고, root view 아래 `ModelRoot -> Cube primitive` 구조를 생성하도록 전환했다.
+- `GameplayEntityView`에 `ModelRoot`와 `ConfigureModelRoot(...)`를 추가해 presenter가 적용하는 board-local pose와 모델 자체의 보정/오프셋을 분리했다.
+- 신규 `GameplayEntityVisualProfile`을 추가해 `Unit / Box / Projectile / Wall(EntityType.None)`별 cube scale과 face-normal 방향 lift 값을 고정했다.
+- visual primitive는 모두 collider를 제거한 `Cube`로 생성되며, player/unit/box/projectile/wall role별 color 정책은 유지했다.
+- edit mode guard test에 `GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot`, `DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders`를 추가해 model pivot, cube primitive, collider 제거, entity type별 visual profile 계약을 고정했다.
 
 ### 5-7. 6단계: Board Surface Renderer 추가
 
@@ -497,7 +509,7 @@ GameplaySceneHost
 - `GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D`
 - `GameplayTickViewPresenter_TopologyMotion_RotatesBoardRoot`
 - `GameplaySceneHost_CameraRigTracksCubeCenter`
-- `DefaultGameplayEntityViewFactory_CreatesCubeBasedViews`
+- `DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders`
 - `GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles`
 
 ## 8. 수동 검증 체크리스트
