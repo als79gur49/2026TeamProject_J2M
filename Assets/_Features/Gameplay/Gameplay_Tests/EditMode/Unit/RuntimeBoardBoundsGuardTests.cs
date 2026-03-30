@@ -45,6 +45,55 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 20,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 1,
+                                maxHp = 1,
+                                teamId = 1,
+                                type = EntityType.Projectile,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        SimulationTicksPerSecond = 10,
+                        TickIntervalSeconds = 0.1f,
+                        ProjectileStepIntervalSeconds = 0.3f,
+                    });
+
+                var snapshot = host.WorldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetProjectileAt(new SurfaceCell(FaceId.Floor, 0, 0), out var projectile), Is.True);
+                Assert.That(projectile.entityId, Is.EqualTo(20));
+                Assert.That(projectile.stateTimer, Is.EqualTo(host.TimingProfile.ProjectileStepIntervalTicks));
+                Assert.That(projectile.stateTimer, Is.EqualTo(3));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void GameplayCompositionRoot_DeclaresOnlyBoundedWorldFactory()
         {
             var worldFactories = typeof(GameplayCompositionRoot)
