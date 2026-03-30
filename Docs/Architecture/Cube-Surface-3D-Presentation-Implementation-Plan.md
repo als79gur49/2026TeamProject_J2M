@@ -229,12 +229,17 @@ GameplaySceneHost
 
 목표는 topology 변경을 strip scroll이 아니라 board rotation으로 보이게 만드는 것이다.
 
+진행 상태:
+
+- 완료 (2026-03-30)
+
 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickViewPresenter.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs`
 - 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraRig.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/SampleSceneInstaller.cs`
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`
 
 구현 태스크:
@@ -258,6 +263,16 @@ GameplaySceneHost
 
 - 플레이어 face traversal 시 큐브가 회전하는 연출이 동작
 - strip continuity 관련 API와 테스트가 제거 가능 상태가 된다
+
+구현 결과 메모:
+
+- `GameplayTickViewPresenter`에서 `ContinuityAnchor`, `StripCenterChanged`, strip continuity offset 적용 경로를 제거했고, topology motion을 `board root` 회전 track으로 바꿨다.
+- topology 변경 시 presenter는 destination topology 기준 local pose를 즉시 커밋하고, `CubeRotationKind`에 따라 `board root`를 `X`축 기준 `-90 / +90 -> identity`로 보간해 큐브가 회전하는 연출을 만든다.
+- `GameplayBoardRoot.ApplyPresentationRotation(...)`를 추가해 cube center를 pivot으로 회전할 때도 `CameraTargetRoot`의 world position이 고정되도록 정리했다.
+- `GameplaySceneHost`는 presenter에 `GameplayBoardRoot`를 직접 연결하고, camera target 이벤트 구독 대신 board root의 cube center target을 그대로 사용하도록 바꿨다.
+- 신규 `GameplayCameraRig`를 추가했고, host가 perspective camera를 rig에 연결해 cube center를 계속 바라보도록 구성했다.
+- showcase/sample installer의 기본 camera 설정을 orthographic에서 perspective로 바꿨다.
+- edit mode guard test를 `GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation`, `GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringBoardRotation`, `GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter` 기준으로 갱신했다.
 
 ### 5-6. 5단계: Cube Entity Visual 전환
 
