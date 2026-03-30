@@ -322,6 +322,10 @@ GameplaySceneHost
 
 목표는 바닥과 벽면을 3D cube shell로 표시하는 것이다.
 
+진행 상태:
+
+- 완료 (2026-03-30)
+
 대상 파일:
 
 - 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayBoardSurfaceRenderer.cs`
@@ -345,6 +349,15 @@ GameplaySceneHost
 완료 조건:
 
 - 바닥과 벽면이 더 이상 "빈 공간 위의 엔티티"처럼 보이지 않는다
+
+구현 결과 메모:
+
+- `GameplayBoardSurfaceRenderer`를 추가했고, `BoardSurfaceRoot/VisibleTilePool` 아래에서 visible face 타일을 primitive cube pool로 유지하도록 구현했다.
+- surface tile은 `GameplayCubeProjector.TryProjectSurfaceCell(...)` 결과를 재사용해 active bottom/front와 decorative top/back를 같은 board-local 규칙으로 배치한다.
+- tile은 face plane 기준으로 절반 두께만 cube 안쪽으로 밀어 넣어 배치해서 entity visual과 z-fighting 없이 공존하도록 정리했다.
+- active bottom/front와 decorative top/back는 각각 분리된 unlit material role을 사용해 decorative face가 gameplay-active처럼 보이지 않도록 톤을 낮췄다.
+- `GameplayBoardRoot`가 `BoardSurfaceRenderer` 보장을 담당하고, `GameplaySceneHost`는 초기화 시 renderer를 구성한 뒤 presenter topology commit에 맞춰 shell face assignment를 즉시 갱신하도록 연결했다.
+- guard test에 `GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles`를 추가했고, host 초기화/board rotation 테스트에도 surface renderer 연결과 topology refresh를 검증하도록 보강했다.
 
 ### 5-8. 7단계: Showcase Scene / Builder 전환
 
