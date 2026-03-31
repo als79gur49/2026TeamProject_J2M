@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Entities
             return new SnapshotEntityLogicProvider(
                 new IEntityLogicFactory[]
                 {
+                    new EnemyEntityLogicFactory(),
                     new SlidingBoxEntityLogicFactory(),
                     new ProjectileEntityLogicFactory(),
                 });
