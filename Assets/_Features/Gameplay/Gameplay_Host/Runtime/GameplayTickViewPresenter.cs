@@ -20,6 +20,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
+        private readonly Dictionary<int, EnemyAnimatorDriver> _enemyAnimatorDriversByEntityId = new();
+        private readonly EnemyViewPresentationMapper _enemyViewPresentationMapper = new();
+        private readonly Dictionary<int, EnemyViewPresentationState> _enemyViewPresentationStates = new();
         private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _processingEntityIds = new();
@@ -86,6 +89,7 @@ namespace Game.Feature.Gameplay.Host
             _presentedBoardRotation = Quaternion.identity;
             _hasAnyCommittedFrame = false;
             _committedLocalTargetPoses.Clear();
+            _enemyAnimatorDriversByEntityId.Clear();
             _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
@@ -115,6 +119,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
             RefreshTransitionVisibilityState(result.PresentationData);
+            ApplyEnemyPresentation(result);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -127,6 +132,7 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
             _localMotionTracks.Clear();
             _visibilityTracks.Clear();
+            _enemyAnimatorDriversByEntityId.Clear();
             _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
@@ -134,6 +140,7 @@ namespace Game.Feature.Gameplay.Host
             _committedTopology = topology;
             _presentedBoardRotation = Quaternion.identity;
             StoreCommittedFrame(entities, topology);
+            ApplyInitialEnemyPresentation(entities);
             ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
             UpdatePresentation(0f);
         }
@@ -196,6 +203,13 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
+                var hasActiveMotion = _localMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
+                                      activeMotionTrack.HasClips;
+                if (TryGetEnemyAnimatorDriver(entityId, out var enemyAnimatorDriver))
+                {
+                    enemyAnimatorDriver.SyncRuntimeState(isVisible, hasActiveMotion);
+                }
+
                 if (!isVisible)
                 {
                     continue;
@@ -228,6 +242,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewBinder.HideViewsExcept(_visibleEntityIds);
+            SyncHiddenEnemyDrivers();
         }
 
         private void LateUpdate()
@@ -270,6 +285,7 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _viewsByEntityId[entity.entityId] = view;
+                CacheEnemyAnimatorDriver(entity.entityId, view);
                 _committedLocalTargetPoses[entity.entityId] = CreateEntityPose(
                     entity.position,
                     topology,
@@ -806,6 +822,81 @@ namespace Game.Feature.Gameplay.Host
             {
                 _processingEntityIdBuffer.Add(entityId);
             }
+        }
+
+        private void ApplyEnemyPresentation(TickResult result)
+        {
+            _enemyViewPresentationMapper.Build(result, _viewsByEntityId, _enemyViewPresentationStates);
+
+            foreach (var pair in _enemyViewPresentationStates)
+            {
+                if (TryGetEnemyAnimatorDriver(pair.Key, out var driver))
+                {
+                    driver.Apply(pair.Value);
+                }
+            }
+        }
+
+        private void ApplyInitialEnemyPresentation(IReadOnlyList<EntityState> entities)
+        {
+            for (var i = 0; i < entities.Count; i++)
+            {
+                if (!_enemyViewPresentationMapper.TryMapInitial(entities[i], out var state) ||
+                    !TryGetEnemyAnimatorDriver(state.EntityId, out var driver))
+                {
+                    continue;
+                }
+
+                driver.Apply(state);
+                driver.SyncRuntimeState(_committedLocalTargetPoses.ContainsKey(state.EntityId), isMoving: false);
+            }
+        }
+
+        private void CacheEnemyAnimatorDriver(int entityId, GameplayEntityView view)
+        {
+            if (view != null &&
+                view.TryGetComponent<EnemyAnimatorDriver>(out var driver) &&
+                driver != null)
+            {
+                _enemyAnimatorDriversByEntityId[entityId] = driver;
+                return;
+            }
+
+            _enemyAnimatorDriversByEntityId.Remove(entityId);
+        }
+
+        private void SyncHiddenEnemyDrivers()
+        {
+            foreach (var pair in _enemyAnimatorDriversByEntityId)
+            {
+                if (_visibleEntityIds.Contains(pair.Key))
+                {
+                    continue;
+                }
+
+                pair.Value.SyncRuntimeState(isVisible: false, isMoving: false);
+            }
+        }
+
+        private bool TryGetEnemyAnimatorDriver(int entityId, out EnemyAnimatorDriver driver)
+        {
+            if (_enemyAnimatorDriversByEntityId.TryGetValue(entityId, out driver) &&
+                driver != null)
+            {
+                return true;
+            }
+
+            if (_viewsByEntityId.TryGetValue(entityId, out var view) &&
+                view != null &&
+                view.TryGetComponent<EnemyAnimatorDriver>(out driver) &&
+                driver != null)
+            {
+                _enemyAnimatorDriversByEntityId[entityId] = driver;
+                return true;
+            }
+
+            driver = null;
+            return false;
         }
 
         private void ApplyPresentedBoardRotation(Quaternion boardRotation, bool forceApply = false)

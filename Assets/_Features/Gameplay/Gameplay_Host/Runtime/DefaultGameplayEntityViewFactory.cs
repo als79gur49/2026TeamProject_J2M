@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -45,6 +46,12 @@ namespace Game.Feature.Gameplay.Host
 
             var view = viewObject.AddComponent<GameplayEntityView>();
             view.Initialize(entity.entityId);
+
+            if (entity.type == EntityType.Unit &&
+                entity.aiMode != EnemyAiMode.None)
+            {
+                viewObject.AddComponent<EnemyAnimatorDriver>();
+            }
 
             var visualProfile = GameplayEntityVisualProfile.Create(entity.type, _cellSize);
             view.ConfigureModelRoot(visualProfile.ModelLocalPosition, visualProfile.ModelLocalRotation);
