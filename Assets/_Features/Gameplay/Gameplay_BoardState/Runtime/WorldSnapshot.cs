@@ -163,6 +163,21 @@ namespace Game.Feature.Gameplay.BoardState
                 out updatedTopology);
         }
 
+        public bool TryResolveUnitStep(
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            return TryResolvePlayerStep(
+                origin,
+                delta,
+                out destination,
+                out rotationKind,
+                out updatedTopology);
+        }
+
         internal bool TryResolveLocalFlipCells(
             SurfaceCell actorCell,
             Vector2Int delta,

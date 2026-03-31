@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public IEntityLogic Create(in EntityState entity)
         {
-            return new EnemyLogic(entity.entityId);
+            return new EnemyLogic(entity.entityId, EnemyAiConfig.CreateDefaultMelee());
         }
     }
 }
