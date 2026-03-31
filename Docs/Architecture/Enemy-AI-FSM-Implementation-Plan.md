@@ -275,6 +275,8 @@
 
 ### 7-6. 6단계: 테스트 고정
 
+2026-04-01 구현 완료.
+
 목표는 적 FSM 구조를 테스트로 고정하는 것이다.
 
 작업:
@@ -293,6 +295,13 @@
 
 - 적 FSM 전이와 intent 생성이 테스트로 보호된다.
 - view 유무가 tick 결과를 바꾸지 않음이 보장된다.
+
+구현 메모:
+
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs`에 `BeforeAttack` 재평가와 `Dead` 고정 unit test를 추가해 AI stage별 전이 규칙을 직접 보호
+- 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs`에 multi-tick `Patrol -> Chase -> Attack -> Recover` 시나리오와 적 사망 cleanup 시나리오를 추가
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/TickReplayDeterminismTests.cs`에 enemy FSM replay sequence 고정 테스트를 추가해 per-tick hash/trace/final dump 안정성을 검증
+- 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs`에 presenter 적용 유무가 이후 tick authoritative 결과를 바꾸지 않음을 검증하는 host-side isolation test를 추가
 
 ## 8. 권장 타입 구조
 
