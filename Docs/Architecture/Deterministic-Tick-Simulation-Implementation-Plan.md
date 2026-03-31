@@ -66,7 +66,8 @@
 
 - `WorldState` 내부 컬렉션은 `private`로 감춘다.
 - 읽기 계층은 `WorldSnapshot`만 받는다.
-- 쓰기 계층은 `IWorldWriteContext`만 받는다.
+- 쓰기 계층 consumer는 phase-specific commit context만 받는다.
+- `IWorldWriteContext`는 `CreateWriteContext()`가 반환하는 aggregate write handle로 유지한다.
 - `TickPipeline`만 `WorldStateWriteContext`를 생성해서 Committer에 전달한다.
 - `EntityLogic`, Expander, Resolver는 `WorldState` 참조를 받지 않는다.
 - Phase 경계는 `RunMovementPhase`, `RunAttackPhase`, `RunCleanupPhase` 메서드로 분리한다.
@@ -1322,7 +1323,7 @@ current-state 메모:
 1. `Gameplay.asmdef`와 테스트 asmdef 생성
 2. `TickPipeline`, `TickInput`, `TickResult`, `TickPhase` 빈 뼈대 생성
 3. `EntityState`, `WorldState`, `WorldSnapshot`, `SnapshotBuilder`, `IdAllocator` 작성
-4. `IWorldWriteContext`와 `WorldStateWriteContext`로 쓰기 경계 고정
+4. aggregate `IWorldWriteContext`와 phase-specific commit context, `WorldStateWriteContext`로 쓰기 경계 고정
 5. `IEntityLogic`, `PlayerLogic`, `EnemyLogic` 빈 구현 추가
 6. 최소 `MoveIntent` 수집부터 Movement 수직 슬라이스 완성
 7. 최소 `AttackIntent` 수직 슬라이스 완성
@@ -1355,7 +1356,7 @@ current-state 메모:
 1. composition root / runtime tick driving 경로
    - `GameplayBootstrapper`, `GameplayCompositionRoot`, `TickRunner`, `GameplaySceneHost` 경로가 분리되어 runtime 조립이 가능하다.
 2. concrete write-context 명시화 + authoritative invariant closure
-   - `WorldStateWriteContext`는 top-level concrete type이며 `IWorldWriteContext` capability만 노출한다.
+   - `WorldStateWriteContext`는 top-level concrete type이며 aggregate `IWorldWriteContext`와 phase-specific commit capability를 함께 구현한다.
    - `WorldState`는 semantic mutation API를 explicit internal mutation port로 구현하고, spatial mutation legality를 authoritative하게 검증한다.
 3. bounded runtime entry path 고정
    - public runtime `GameplayCompositionRoot.CreateWorldState(...)`와 `GameplaySceneHost.Initialize(...)`는 bounded board를 필수로 요구한다.
@@ -1467,7 +1468,7 @@ Assets/_Features/Gameplay/
 - `TickPipeline.cs`에서는 nested/co-located type을 제거한다.
 - `ProjectileEntityLogicFactory`는 기존처럼 `ProjectileLogic.cs`에 co-locate를 유지해도 된다.
   - 이 파일은 이미 `Gameplay_Entities` 계층에 있기 때문이다.
-- `WorldStateWriteContext`는 별도 파일로 추출하되 capability 경계는 `IWorldWriteContext`로 유지한다.
+- `WorldStateWriteContext`는 별도 파일로 추출하되 aggregate `IWorldWriteContext`와 phase-specific commit context 경계를 함께 유지한다.
 
 ### 15-5. `WorldStateWriteContext` 구체 설계
 
@@ -1491,13 +1492,46 @@ Assets/_Features/Gameplay/
 internal interface IWorldStateMutationPort
 {
     bool TryGetEntity(int entityId, out EntityState entity);
-    void MoveEntityTo(int entityId, Vector2Int destination);
+    void MoveEntityTo(int entityId, SurfaceCell destination);
     void SpawnEntity(EntityState entity);
     void RemoveEntity(int entityId);
     void ApplyDamage(int entityId, int amount);
     void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
     void MarkDestroy(int entityId);
     void SetFacing(int entityId, Direction facing);
+    void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
+    void SetTopology(CubeTopologyState topology);
+}
+
+internal interface IMovementCommitContext
+{
+    void MoveEntity(int entityId, SurfaceCell destination);
+    void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
+    void MarkDestroy(int entityId);
+    void SetFacing(int entityId, Direction facing);
+    void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
+    void SetTopology(CubeTopologyState topology);
+}
+
+internal interface IAttackCommitContext
+{
+    void ApplyDamage(int entityId, int amount);
+    void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
+    void MarkDestroy(int entityId);
+    void SpawnEntity(EntityState entity);
+}
+
+internal interface ICleanupCommitContext
+{
+    void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
+    void RemoveEntity(int entityId);
+}
+
+internal interface IWorldWriteContext
+    : IMovementCommitContext,
+      IAttackCommitContext,
+      ICleanupCommitContext
+{
 }
 ```
 
@@ -1512,13 +1546,15 @@ public sealed class WorldState : IWorldStateMutationPort
     }
 
     bool IWorldStateMutationPort.TryGetEntity(int entityId, out EntityState entity) { ... }
-    void IWorldStateMutationPort.MoveEntityTo(int entityId, Vector2Int destination) { ... }
+    void IWorldStateMutationPort.MoveEntityTo(int entityId, SurfaceCell destination) { ... }
     void IWorldStateMutationPort.SpawnEntity(EntityState entity) { ... }
     void IWorldStateMutationPort.RemoveEntity(int entityId) { ... }
     void IWorldStateMutationPort.ApplyDamage(int entityId, int amount) { ... }
     void IWorldStateMutationPort.ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer) { ... }
     void IWorldStateMutationPort.MarkDestroy(int entityId) { ... }
     void IWorldStateMutationPort.SetFacing(int entityId, Direction facing) { ... }
+    void IWorldStateMutationPort.SetBoardPresence(int entityId, EntityBoardPresence boardPresence) { ... }
+    void IWorldStateMutationPort.SetTopology(CubeTopologyState topology) { ... }
 }
 ```
 
@@ -1534,13 +1570,15 @@ internal sealed class WorldStateWriteContext : IWorldWriteContext
         _port = port;
     }
 
-    public void MoveEntity(int entityId, Vector2Int destination) { ... }
+    public void MoveEntity(int entityId, SurfaceCell destination) { ... }
     public void ApplyDamage(int entityId, int amount) { ... }
     public void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer) { ... }
     public void MarkDestroy(int entityId) { ... }
     public void SpawnEntity(EntityState entity) { ... }
     public void RemoveEntity(int entityId) { ... }
     public void SetFacing(int entityId, Direction facing) { ... }
+    public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence) { ... }
+    public void SetTopology(CubeTopologyState topology) { ... }
 }
 ```
 
@@ -1555,7 +1593,8 @@ authoritative placement 규칙:
 
 - `WorldStateWriteContext`를 top-level file/type로 분리할 수 있다.
 - `WorldState` public API는 여전히 비어 있게 유지할 수 있다.
-- Committer는 계속 `IWorldWriteContext`만 받는다.
+- `MovementCommitter`, `AttackCommitter`, `CleanupProcessor`는 각 phase에 필요한 commit capability만 받는다.
+- `CreateWriteContext()`는 테스트와 pipeline이 재사용할 aggregate handle을 계속 제공한다.
 - same-assembly 내부에서도 mutation helper를 임의 호출하기 어렵게 만든다.
 - current-state nested/private 구조가 가지던 "concrete write path 은닉" 의도를 형태만 바꿔 유지할 수 있다.
 

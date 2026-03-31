@@ -144,6 +144,7 @@ dynamic entity 복구/조립 규칙:
 보조 규칙:
 
 - `WorldStateWriteContext`는 world mutation capability adapter다.
+- `IWorldWriteContext`는 aggregate write handle이며, phase consumer는 `IMovementCommitContext`, `IAttackCommitContext`, `ICleanupCommitContext` 같은 좁은 capability에 의존한다.
 - board rule 해석과 legality 판단은 `WorldState` + `WorldQueryService`가 소유한다.
 - Committer나 adapter는 `Clear -> Update -> Set` 같은 저수준 choreography를 소유하지 않는다.
 
