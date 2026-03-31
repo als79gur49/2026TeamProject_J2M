@@ -137,6 +137,65 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyLogic_BeforeAttackStage_ReevaluatesPostMovementSnapshot_AndCommitsAttackMode()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40);
+            var transitions = new List<string>();
+
+            ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                EnemyAiTransitionStage.BeforeAttack,
+                worldState.CreateWriteContext(),
+                transitions);
+
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+            Assert.That(enemy.aiStateTimer, Is.Zero);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "EnemyAiTransition|Stage=BeforeAttack|E=40|From=Chase|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange",
+                },
+                transitions);
+        }
+
+        [Test]
+        public void EnemyLogic_DeadSource_CommitsDeadMode()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, hp: 0),
+            });
+            var logic = new EnemyLogic(entityId: 40);
+            var transitions = new List<string>();
+
+            ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                EnemyAiTransitionStage.BeforeMovement,
+                worldState.CreateWriteContext(),
+                transitions);
+
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Dead));
+            Assert.That(enemy.aiStateTimer, Is.Zero);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase|FromTimer=0|To=Dead|ToTimer=0|Reason=Dead",
+                },
+                transitions);
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_PatrolEnemy_IsMaterializedDuringTick()
         {
             var worldState = CreateWorldState(new[]

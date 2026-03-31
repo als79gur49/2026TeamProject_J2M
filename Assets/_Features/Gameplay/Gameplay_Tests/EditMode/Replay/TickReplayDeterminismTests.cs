@@ -501,6 +501,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(timedResult.Trace.Text, Does.Contain("AiTimer=1"));
         }
 
+        [Test]
+        public void Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState()
+        {
+            var firstReplay = RunEnemyAiReplaySequence();
+            var secondReplay = RunEnemyAiReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Chase"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("AiMode=Recover"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("AiTimer=1"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40|From=Chase|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("EnemyAiTransition|Stage=AfterAttack|E=40|From=Attack|FromTimer=0|To=Recover|ToTimer=1|Reason=AttackCommitted"));
+            Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("AiTimer=0"));
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -533,6 +560,25 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     new TickInput(1),
                     new TickInput(2),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunEnemyAiReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[0],
+                new[]
+                {
+                    new TickInput(1),
+                    new TickInput(2),
+                    new TickInput(3),
                 });
         }
 
