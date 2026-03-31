@@ -20,7 +20,7 @@
 
 ## 2. 현재 상태
 
-2026-03-31 기준 현재 코드베이스는 다음 상태다.
+2026-04-01 기준 현재 코드베이스는 다음 상태다.
 
 - `IEntityLogic` 구조가 이미 존재한다.
 - `IMovementEntityLogic`, `IAttackEntityLogic`가 분리되어 있다.
@@ -28,9 +28,10 @@
 - `TickPresentationData`와 `GameplayTickViewPresenter`가 view 보간과 렌더 지연을 처리한다.
 - `EnemyAiMode` authoritative 상태가 `EntityState`, hash, trace, replay dump에 반영되어 있다.
 - `EnemyLogic` 골격과 적 로직 자동 materialization 경로가 연결되었다.
+- `EnemyAiConfig`와 helper policy 분리로 4단계 진입 전 최소 구조 보정이 반영되었다.
 - 상태 전이 commit은 아직 연결되지 않았다.
 
-즉, 기반 구조와 최소 적 로직 골격, 생성 경로 연결까지 준비되어 있고, 다음은 상태 전이 완성 단계다.
+즉, 기반 구조와 최소 적 로직 골격, 생성 경로 연결, 4단계 진입 전 구조 보정까지 준비되어 있고, 다음은 상태 전이 완성 단계다.
 
 ## 3. 구현 원칙
 
@@ -203,12 +204,15 @@
 - `Chase` 규칙 정의
 - `Attack` 규칙 정의
 - `Recover` 규칙 정의
-- 감지 범위, 공격 범위, 회복 tick 수를 config로 분리
+- 도입된 `EnemyAiConfig` 값을 상태 전이 규칙과 실제 intent/commit 흐름에 연결
 
 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyLogic.cs`
 - 신규 `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyTargetSelector.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyMovementPolicy.cs`
+- 신규 `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyCombatPolicy.cs`
 
 완료 조건:
 
@@ -216,6 +220,13 @@
 - 감지 후에는 추적한다.
 - 사거리 진입 시 공격한다.
 - 공격 후 recover 상태를 거친다.
+
+4단계 진입 전 구조 보정 메모:
+
+- `EnemyAiConfig`를 먼저 도입해 감지 범위, 공격 범위, priority, recover tick을 상수 대신 rule data로 이동
+- `EnemyLogic`은 authoritative 상태 조회, mode 분기, helper 조합만 담당하는 coordinator로 유지
+- 결정론적 타겟 선택은 `EnemyTargetSelector`, 이동 규칙은 `EnemyMovementPolicy`, 공격 intent 생성은 `EnemyCombatPolicy`로 분리
+- 적 이동 경로는 `WorldSnapshot.TryResolvePlayerStep(...)`에 직접 묶지 않고 의미 중립 alias인 `TryResolveUnitStep(...)`를 사용
 
 ### 7-5. 5단계: View 연결
 
@@ -268,6 +279,9 @@ Assets/_Features/Gameplay/
     Runtime/
       EnemyAiMode.cs
       EnemyAiConfig.cs
+      EnemyTargetSelector.cs
+      EnemyMovementPolicy.cs
+      EnemyCombatPolicy.cs
       EnemyLogic.cs
       EnemyEntityLogicFactory.cs
   Gameplay_Host/
