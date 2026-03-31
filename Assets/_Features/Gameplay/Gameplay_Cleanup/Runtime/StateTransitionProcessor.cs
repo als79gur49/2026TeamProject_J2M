@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Cleanup
     {
         public void Process(
             List<EntityState> survivingEntities,
-            IWorldWriteContext writeContext,
+            ICleanupCommitContext writeContext,
             List<string> stateTransitions)
         {
             if (survivingEntities == null)

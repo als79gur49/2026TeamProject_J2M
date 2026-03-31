@@ -169,7 +169,7 @@ namespace Game.Feature.Gameplay.Loop
             in TickInput input,
             IReadOnlyList<IEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
-            IWorldWriteContext writeContext,
+            IMovementCommitContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
@@ -214,7 +214,7 @@ namespace Game.Feature.Gameplay.Loop
             PhaseTransientBuffer transientBuffer,
             List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
             int tickIndex,
-            IWorldWriteContext writeContext,
+            IAttackCommitContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {
@@ -267,7 +267,7 @@ namespace Game.Feature.Gameplay.Loop
         private CleanupPhaseResult RunCleanupPhase(
             WorldSnapshot snapshot,
             int tickIndex,
-            IWorldWriteContext writeContext,
+            ICleanupCommitContext writeContext,
             List<TickPhase> completedPhases,
             List<string> phaseTrace)
         {

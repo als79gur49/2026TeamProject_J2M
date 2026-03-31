@@ -18,7 +18,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
             int tickIndex,
-            IWorldWriteContext writeContext,
+            IMovementCommitContext writeContext,
             PhaseTransientBuffer transientBuffer,
             IReadOnlyList<ActionGroup> selectedGroups,
             List<string> commitEvents)

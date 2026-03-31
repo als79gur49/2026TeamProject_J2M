@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
     {
         public void Commit(
             WorldSnapshot snapshot,
-            IWorldWriteContext writeContext,
+            IAttackCommitContext writeContext,
             int tickIndex,
             IDelayedAttackEffectSink delayedAttackEffectSink,
             IReadOnlyList<ActionGroup> selectedGroups,

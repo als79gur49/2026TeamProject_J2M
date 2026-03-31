@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Cleanup
 
         public CleanupPhaseResult Process(
             WorldSnapshot snapshot,
-            IWorldWriteContext writeContext,
+            ICleanupCommitContext writeContext,
             int tickIndex)
         {
             if (snapshot == null)

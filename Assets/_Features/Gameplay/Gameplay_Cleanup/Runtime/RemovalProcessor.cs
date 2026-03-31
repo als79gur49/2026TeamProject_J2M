@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Cleanup
     {
         public void Process(
             IReadOnlyList<EntityState> orderedEntities,
-            IWorldWriteContext writeContext,
+            ICleanupCommitContext writeContext,
             List<EntityState> survivingEntities,
             List<int> removedEntityIds)
         {
