@@ -423,6 +423,8 @@ MonoBehaviour:
   playerEntityId: 10
   repeatedMoveIntervalTicks: 2
   tickIntervalSeconds: 0.2
+  topologyMotionDurationSeconds: 3
+  topologyRotationVisualMapping: 0
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0
