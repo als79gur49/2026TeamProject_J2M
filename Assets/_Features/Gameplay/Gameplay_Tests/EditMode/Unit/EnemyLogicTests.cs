@@ -127,9 +127,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(attackBuffer, Is.Empty);
         }
 
+        [Test]
+        public void DefaultEntityLogicProvider_PatrolEnemy_IsMaterializedDuringTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, Destination: new Vector2Int(1, 0)),
+                },
+                result.MovementPhaseResult
+                    .SortedIntents
+                    .Select(intent => (intent.SourceId, intent.Destination))
+                    .ToArray());
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_AttackEnemy_IsMaterializedDuringTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static Vector2Int GetEntityPosition(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
+            return entity.position.PlanarPosition;
+        }
+
+        private static int GetEntityHp(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
+            return entity.hp;
         }
 
         private static EntityState CreateUnit(
