@@ -2,11 +2,16 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.Attack.Collection;
+using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Actions;
+using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -302,6 +307,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     factory.CreateView(CreateSurfaceWall(40, new SurfaceCell(FaceId.Floor, 0, 0))),
                     GameplayEntityVisualProfile.Create(EntityType.None, 1f),
                     new Color(0.25f, 0.28f, 0.33f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_AiControlledUnit_AddsEnemyAnimatorDriver()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_AddsEnemyAnimatorDriver");
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
+                var enemyView = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.Patrol));
+                var playerView = factory.CreateView(CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)));
+
+                Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(playerView.GetComponent<EnemyAnimatorDriver>(), Is.Null);
             }
             finally
             {
@@ -1208,6 +1233,130 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var targetCell = new SurfaceCell(FaceId.Floor, 1, 1);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                        CreateSurfaceUnit(50, targetCell, aiMode: EnemyAiMode.Chase),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(40, out var attackerView), Is.True);
+                Assert.That(registry.TryGetView(50, out var targetView), Is.True);
+
+                var attackerDriver = attackerView.GetComponent<EnemyAnimatorDriver>();
+                var targetDriver = targetView.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(attackerDriver, Is.Not.Null);
+                Assert.That(targetDriver, Is.Not.Null);
+
+                var attackGroup = new ActionGroup(intentId: 1, sourceId: 40, priority: 100, ActionGroupKind.Attack);
+                attackGroup.Damages.Add(new DamageAction(targetId: 50, amount: 1));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, destinationCell, aiMode: EnemyAiMode.Recover, facing: Direction.Right),
+                        CreateSurfaceUnit(50, targetCell, aiMode: EnemyAiMode.Chase),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        new[]
+                        {
+                            new TickEntityMotion(40, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                        },
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>()),
+                    attackPhaseResult: CreateAttackPhaseResult(attackGroup)));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(attackerDriver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(attackerDriver.AttackSignalCount, Is.EqualTo(1));
+                Assert.That(attackerDriver.IsMoving, Is.True);
+                Assert.That(targetDriver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(targetDriver.HitSignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_RemovedEnemy_MapsDeathSignalToAnimatorDriver()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_RemovedEnemy_MapsDeathSignalToAnimatorDriver");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, sourceCell, aiMode: EnemyAiMode.Chase),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(40, out var view), Is.True);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    Array.Empty<EntityState>(),
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        new[]
+                        {
+                            new TickVisibilityChange(40, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Up),
+                        }),
+                    cleanupPhaseResult: new CleanupPhaseResult(
+                        new[] { 40 },
+                        Array.Empty<string>(),
+                        Array.Empty<string>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
+                Assert.That(view.gameObject.activeSelf, Is.True);
             }
             finally
             {
@@ -2869,15 +3018,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static TickResult CreateTickResult(
             EntityState[] finalEntities,
             CubeTopologyState topology,
-            TickPresentationData presentationData = null)
+            TickPresentationData presentationData = null,
+            MovementPhaseResult movementPhaseResult = null,
+            AttackPhaseResult attackPhaseResult = null,
+            CleanupPhaseResult cleanupPhaseResult = null)
         {
             return new TickResult(
                 1,
                 Array.Empty<TickPhase>(),
                 Array.Empty<string>(),
-                MovementPhaseResult.Empty,
-                AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty,
+                movementPhaseResult ?? MovementPhaseResult.Empty,
+                attackPhaseResult ?? AttackPhaseResult.Empty,
+                cleanupPhaseResult ?? CleanupPhaseResult.Empty,
                 finalEntities,
                 Array.Empty<string>(),
                 topology,
@@ -2886,11 +3038,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 TickTrace.Empty);
         }
 
+        private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)
+        {
+            return new AttackPhaseResult(
+                Array.Empty<RawAttackIntent>(),
+                Array.Empty<ImpactReservation>(),
+                Array.Empty<AttackIntent>(),
+                Array.Empty<ActionGroup>(),
+                selectedGroups,
+                Array.Empty<string>(),
+                Array.Empty<string>());
+        }
+
         private static EntityState CreateSurfaceUnit(
             int entityId,
             SurfaceCell position,
             EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
-            bool markedForDeath = false)
+            bool markedForDeath = false,
+            EnemyAiMode aiMode = EnemyAiMode.None,
+            Direction facing = Direction.Up)
         {
             return new EntityState
             {
@@ -2901,9 +3067,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId = 1,
                 type = EntityType.Unit,
                 state = EntityPhaseState.Idle,
-                facing = Direction.Up,
+                facing = facing,
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
+                aiMode = aiMode,
             };
         }
 
@@ -3162,11 +3329,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory
         {
+            private readonly bool _attachEnemyAnimatorDriver;
             private readonly Transform _parent;
 
-            public TestViewFactory(Transform parent)
+            public TestViewFactory(Transform parent, bool attachEnemyAnimatorDriver = false)
             {
                 _parent = parent;
+                _attachEnemyAnimatorDriver = attachEnemyAnimatorDriver;
             }
 
             public GameplayEntityView CreateView(in EntityState entity)
@@ -3175,6 +3344,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 viewObject.transform.SetParent(_parent, worldPositionStays: false);
                 var view = viewObject.AddComponent<GameplayEntityView>();
                 view.Initialize(entity.entityId);
+
+                if (_attachEnemyAnimatorDriver &&
+                    entity.aiMode != EnemyAiMode.None)
+                {
+                    viewObject.AddComponent<EnemyAnimatorDriver>();
+                }
+
                 return view;
             }
         }
