@@ -26,6 +26,23 @@ namespace Game.Feature.Gameplay.Entities
             List<RawAttackIntent> buffer);
     }
 
+    public enum EnemyAiTransitionStage
+    {
+        BeforeMovement = 0,
+        BeforeAttack = 1,
+        AfterAttack = 2,
+    }
+
+    public interface IEnemyAiStateLogic : IEntityLogic
+    {
+        void CommitAiTransitions(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            EnemyAiTransitionStage stage,
+            IEnemyAiCommitContext writeContext,
+            List<string> transitions);
+    }
+
     public interface IEntityLogicSourceBinding
     {
         int ControlledEntityId { get; }
@@ -40,12 +57,16 @@ namespace Game.Feature.Gameplay.Entities
     public sealed class EntityLogicSet
     {
         public EntityLogicSet(
+            IReadOnlyList<IEnemyAiStateLogic> aiStateLogics,
             IReadOnlyList<IMovementEntityLogic> movementLogics,
             IReadOnlyList<IAttackEntityLogic> attackLogics)
         {
+            AiStateLogics = aiStateLogics ?? throw new System.ArgumentNullException(nameof(aiStateLogics));
             MovementLogics = movementLogics ?? throw new System.ArgumentNullException(nameof(movementLogics));
             AttackLogics = attackLogics ?? throw new System.ArgumentNullException(nameof(attackLogics));
         }
+
+        public IReadOnlyList<IEnemyAiStateLogic> AiStateLogics { get; }
 
         public IReadOnlyList<IMovementEntityLogic> MovementLogics { get; }
 

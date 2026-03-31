@@ -230,6 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var trace = new TickTraceBuilder().Build(
                 7,
                 snapshot,
+                new EnemyAiPhaseResult(new List<string>(), new List<string>(), new List<string>()),
                 MovementPhaseResult.Empty,
                 snapshot,
                 attackPhaseResult,

@@ -1453,27 +1453,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 WorldSnapshot snapshot,
                 IReadOnlyList<IEntityLogic> staticEntityLogics)
             {
+                var aiStateLogics = new List<IEnemyAiStateLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
                 var movementLogics = new List<IMovementEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
                 var attackLogics = new List<IAttackEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
 
                 for (var i = 0; i < staticEntityLogics.Count; i++)
                 {
-                    AddEntityLogic(staticEntityLogics[i], movementLogics, attackLogics);
+                    AddEntityLogic(staticEntityLogics[i], aiStateLogics, movementLogics, attackLogics);
                 }
 
                 for (var i = 0; i < _dynamicEntityLogics.Count; i++)
                 {
-                    AddEntityLogic(_dynamicEntityLogics[i], movementLogics, attackLogics);
+                    AddEntityLogic(_dynamicEntityLogics[i], aiStateLogics, movementLogics, attackLogics);
                 }
 
-                return new EntityLogicSet(movementLogics, attackLogics);
+                return new EntityLogicSet(aiStateLogics, movementLogics, attackLogics);
             }
 
             private static void AddEntityLogic(
                 IEntityLogic entityLogic,
+                List<IEnemyAiStateLogic> aiStateLogics,
                 List<IMovementEntityLogic> movementLogics,
                 List<IAttackEntityLogic> attackLogics)
             {
+                if (entityLogic is IEnemyAiStateLogic aiStateLogic)
+                {
+                    aiStateLogics.Add(aiStateLogic);
+                }
+
                 if (entityLogic is IMovementEntityLogic movementLogic)
                 {
                     movementLogics.Add(movementLogic);

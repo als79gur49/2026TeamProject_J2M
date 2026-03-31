@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.Entities;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -24,6 +25,11 @@ namespace Game.Feature.Gameplay.BoardState
         public void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer)
         {
             _port.ApplyStateChange(entityId, state, stateTimer);
+        }
+
+        public void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer)
+        {
+            _port.ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
         }
 
         public void MarkDestroy(int entityId)

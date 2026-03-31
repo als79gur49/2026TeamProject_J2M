@@ -103,11 +103,17 @@ namespace Game.Feature.Gameplay.Entities
 
         private static EntityLogicSet BuildEntityLogicSet(IReadOnlyList<IEntityLogic> entityLogics)
         {
+            var aiStateLogics = new List<IEnemyAiStateLogic>(entityLogics.Count);
             var movementLogics = new List<IMovementEntityLogic>(entityLogics.Count);
             var attackLogics = new List<IAttackEntityLogic>(entityLogics.Count);
 
             for (var i = 0; i < entityLogics.Count; i++)
             {
+                if (entityLogics[i] is IEnemyAiStateLogic aiStateLogic)
+                {
+                    aiStateLogics.Add(aiStateLogic);
+                }
+
                 if (entityLogics[i] is IMovementEntityLogic movementLogic)
                 {
                     movementLogics.Add(movementLogic);
@@ -120,6 +126,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EntityLogicSet(
+                aiStateLogics.AsReadOnly(),
                 movementLogics.AsReadOnly(),
                 attackLogics.AsReadOnly());
         }
@@ -134,6 +141,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return HasPhaseOwnershipConflict<IMovementEntityLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflict<IEnemyAiStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflict<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
         }
 

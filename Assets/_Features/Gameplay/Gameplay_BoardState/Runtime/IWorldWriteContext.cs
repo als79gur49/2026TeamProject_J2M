@@ -1,5 +1,12 @@
+using Game.Feature.Gameplay.Entities;
+
 namespace Game.Feature.Gameplay.BoardState
 {
+    public interface IEnemyAiCommitContext
+    {
+        void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
+    }
+
     internal interface IMovementCommitContext
     {
         void MoveEntity(int entityId, SurfaceCell destination);
@@ -33,7 +40,7 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
     }
 
-    internal interface IWorldWriteContext : IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext
+    internal interface IWorldWriteContext : IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyAiCommitContext
     {
     }
 }

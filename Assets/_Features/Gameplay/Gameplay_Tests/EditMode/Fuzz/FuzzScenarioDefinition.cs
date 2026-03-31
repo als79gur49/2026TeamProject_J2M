@@ -191,6 +191,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                     .Append("|SpawnTick=").Append(entity.spawnTick)
                     .Append("|BoxCapabilities=").Append(entity.boxCapabilities)
                     .Append("|AiMode=").Append(entity.aiMode)
+                    .Append("|AiTimer=").Append(entity.aiStateTimer)
                     .Append("|Face=").Append(entity.position.face)
                     .Append("|Presence=").Append(entity.boardPresence)
                     .Append('\n');

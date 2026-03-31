@@ -441,7 +441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(projectileAfterTick.spawnTick, Is.EqualTo(4));
             Assert.That(projectileAfterTick.stateTimer, Is.EqualTo(defaultTimingProfile.ProjectileStepIntervalTicks));
             Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4"));
-            Assert.That(result.Trace.Text, Does.Contain($"Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer={defaultTimingProfile.ProjectileStepIntervalTicks}|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|AiMode=None|Face=Floor|Presence=Occupying]"));
+            Assert.That(result.Trace.Text, Does.Contain($"Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer={defaultTimingProfile.ProjectileStepIntervalTicks}|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|AiMode=None|AiTimer=0|Face=Floor|Presence=Occupying]"));
         }
 
         [Test]

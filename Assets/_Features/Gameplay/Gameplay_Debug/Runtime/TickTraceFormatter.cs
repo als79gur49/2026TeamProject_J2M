@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Debug
         public string Format(
             int tickIndex,
             WorldSnapshot s0Snapshot,
+            EnemyAiPhaseResult enemyAiPhaseResult,
             MovementPhaseResult movementPhaseResult,
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.Debug
             builder.Append("Tick ").Append(tickIndex.ToString("D5")).Append('\n');
 
             AppendSnapshotSections(builder, "S0", s0Snapshot);
+            AppendSection(builder, "EnemyAi.BeforeMovementTransitions", enemyAiPhaseResult.BeforeMovementTransitions, FormatString);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
             AppendSection(builder, "Movement.Candidates", movementPhaseResult.ExpandedCandidates, FormatActionGroup);
@@ -40,6 +42,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendOccupancySection(builder, "Movement.OccupancyAfter", s1Snapshot);
 
             AppendSnapshotSections(builder, "S1", s1Snapshot);
+            AppendSection(builder, "EnemyAi.BeforeAttackTransitions", enemyAiPhaseResult.BeforeAttackTransitions, FormatString);
             AppendSection(builder, "Attack.RawIntents", attackPhaseResult.RawIntents, FormatRawAttackIntent);
             AppendSection(builder, "Attack.DrainedImpacts", attackPhaseResult.DrainedImpactReservations, FormatImpactReservation);
             AppendSection(builder, "Attack.DrainedDelayedEffects", attackPhaseResult.DrainedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
@@ -48,6 +51,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Attack.SelectedGroups", attackPhaseResult.SelectedGroups, FormatActionGroup);
             AppendSection(builder, "Attack.CommitEvents", attackPhaseResult.CommitEvents, FormatString);
+            AppendSection(builder, "EnemyAi.AfterAttackTransitions", enemyAiPhaseResult.AfterAttackTransitions, FormatString);
 
             AppendSection(builder, "Cleanup.RemovedIds", cleanupPhaseResult.RemovedEntityIds, value => value.ToString());
             AppendSection(builder, "Cleanup.TimerChanges", cleanupPhaseResult.TimerChanges, FormatString);
@@ -462,7 +466,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEntityState(EntityState entity)
         {
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|AiMode={entity.aiMode}|Face={entity.position.face}|Presence={entity.boardPresence}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|Face={entity.position.face}|Presence={entity.boardPresence}";
         }
 
         private static string FormatCell(SurfaceCell cell)

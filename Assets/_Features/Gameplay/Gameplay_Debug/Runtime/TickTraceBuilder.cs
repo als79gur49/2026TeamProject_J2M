@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Debug
         public TickTrace Build(
             int tickIndex,
             WorldSnapshot s0Snapshot,
+            EnemyAiPhaseResult enemyAiPhaseResult,
             MovementPhaseResult movementPhaseResult,
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
@@ -27,6 +28,11 @@ namespace Game.Feature.Gameplay.Debug
             if (movementPhaseResult == null)
             {
                 throw new ArgumentNullException(nameof(movementPhaseResult));
+            }
+
+            if (enemyAiPhaseResult == null)
+            {
+                throw new ArgumentNullException(nameof(enemyAiPhaseResult));
             }
 
             if (s1Snapshot == null)
@@ -63,6 +69,7 @@ namespace Game.Feature.Gameplay.Debug
                 _formatter.Format(
                     tickIndex,
                     s0Snapshot,
+                    enemyAiPhaseResult,
                     movementPhaseResult,
                     s1Snapshot,
                     attackPhaseResult,

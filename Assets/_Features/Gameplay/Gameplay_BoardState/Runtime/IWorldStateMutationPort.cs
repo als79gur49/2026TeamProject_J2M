@@ -1,3 +1,5 @@
+using Game.Feature.Gameplay.Entities;
+
 namespace Game.Feature.Gameplay.BoardState
 {
     internal interface IWorldStateMutationPort
@@ -8,6 +10,7 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
         void ApplyDamage(int entityId, int amount);
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
+        void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
         void MarkDestroy(int entityId);
         void SetFacing(int entityId, Direction facing);
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);

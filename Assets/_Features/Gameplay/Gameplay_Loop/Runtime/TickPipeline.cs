@@ -88,8 +88,10 @@ namespace Game.Feature.Gameplay.Loop
             var writeContext = _worldState.CreateWriteContext();
             var drainedDelayedAttackEffects = _delayedAttackEffectQueue.Drain(input.TickIndex);
 
+            var initialSnapshot = SnapshotBuilder.Create(_worldState);
+            var entityLogicsForTick = _entityLogicProvider.Build(initialSnapshot, _staticEntityLogics);
+            var aiPhaseResult = RunEnemyAiPhase(entityLogicsForTick.AiStateLogics, initialSnapshot, in input, writeContext);
             var preMovementSnapshot = SnapshotBuilder.Create(_worldState);
-            var entityLogicsForTick = _entityLogicProvider.Build(preMovementSnapshot, _staticEntityLogics);
             var movementPhaseResult = RunMovementPhase(
                 preMovementSnapshot,
                 in input,
@@ -101,6 +103,14 @@ namespace Game.Feature.Gameplay.Loop
 
             // Attack resolves against the authoritative state produced by movement commit.
             var postMovementSnapshot = SnapshotBuilder.Create(_worldState);
+            CommitEnemyAiTransitions(
+                postMovementSnapshot,
+                in input,
+                entityLogicsForTick.AiStateLogics,
+                EnemyAiTransitionStage.BeforeAttack,
+                writeContext,
+                aiPhaseResult.BeforeAttackTransitions);
+            postMovementSnapshot = SnapshotBuilder.Create(_worldState);
             var attackPhaseResult = RunAttackPhase(
                 postMovementSnapshot,
                 in input,
@@ -113,6 +123,14 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace);
 
             var postAttackSnapshot = SnapshotBuilder.Create(_worldState);
+            CommitEnemyAiTransitions(
+                postAttackSnapshot,
+                in input,
+                entityLogicsForTick.AiStateLogics,
+                EnemyAiTransitionStage.AfterAttack,
+                writeContext,
+                aiPhaseResult.AfterAttackTransitions);
+            postAttackSnapshot = SnapshotBuilder.Create(_worldState);
             var cleanupPhaseResult = RunCleanupPhase(
                 postAttackSnapshot,
                 input.TickIndex,
@@ -141,6 +159,7 @@ namespace Game.Feature.Gameplay.Loop
             var tickTrace = _tickTraceBuilder.Build(
                 input.TickIndex,
                 preMovementSnapshot,
+                aiPhaseResult,
                 movementPhaseResult,
                 postMovementSnapshot,
                 attackPhaseResult,
@@ -162,6 +181,43 @@ namespace Game.Feature.Gameplay.Loop
                 tickResultData.PresentationData,
                 determinismHash,
                 tickTrace);
+        }
+
+        private EnemyAiPhaseResult RunEnemyAiPhase(
+            IReadOnlyList<IEnemyAiStateLogic> entityLogics,
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IEnemyAiCommitContext writeContext)
+        {
+            var beforeMovementTransitions = new List<string>();
+            CommitEnemyAiTransitions(
+                snapshot,
+                in input,
+                entityLogics,
+                EnemyAiTransitionStage.BeforeMovement,
+                writeContext,
+                beforeMovementTransitions);
+
+            return new EnemyAiPhaseResult(
+                beforeMovementTransitions,
+                new List<string>(),
+                new List<string>());
+        }
+
+        private static void CommitEnemyAiTransitions(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<IEnemyAiStateLogic> entityLogics,
+            EnemyAiTransitionStage stage,
+            IEnemyAiCommitContext writeContext,
+            List<string> transitions)
+        {
+            transitions.Clear();
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                entityLogics[i].CommitAiTransitions(snapshot, in input, stage, writeContext, transitions);
+            }
         }
 
         private MovementPhaseResult RunMovementPhase(
@@ -395,5 +451,24 @@ namespace Game.Feature.Gameplay.Loop
             return new SpawnAction(_idAllocator.AllocateSpawnId(), entity);
         }
 
+    }
+
+    internal sealed class EnemyAiPhaseResult
+    {
+        public EnemyAiPhaseResult(
+            List<string> beforeMovementTransitions,
+            List<string> beforeAttackTransitions,
+            List<string> afterAttackTransitions)
+        {
+            BeforeMovementTransitions = beforeMovementTransitions ?? throw new ArgumentNullException(nameof(beforeMovementTransitions));
+            BeforeAttackTransitions = beforeAttackTransitions ?? throw new ArgumentNullException(nameof(beforeAttackTransitions));
+            AfterAttackTransitions = afterAttackTransitions ?? throw new ArgumentNullException(nameof(afterAttackTransitions));
+        }
+
+        public List<string> BeforeMovementTransitions { get; }
+
+        public List<string> BeforeAttackTransitions { get; }
+
+        public List<string> AfterAttackTransitions { get; }
     }
 }

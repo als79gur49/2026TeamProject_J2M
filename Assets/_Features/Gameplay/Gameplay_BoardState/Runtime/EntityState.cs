@@ -29,5 +29,6 @@ namespace Game.Feature.Gameplay.BoardState
         public int spawnTick;
         public BoxCapabilities boxCapabilities;
         public EnemyAiMode aiMode;
+        public int aiStateTimer;
     }
 }

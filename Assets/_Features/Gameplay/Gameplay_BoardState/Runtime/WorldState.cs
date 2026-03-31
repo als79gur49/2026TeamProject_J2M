@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
@@ -129,6 +130,18 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.state = state;
             entity.stateTimer = stateTimer;
+            UpdateStoredEntity(entity);
+        }
+
+        private void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer)
+        {
+            if (!TryGetEntity(entityId, out var entity))
+            {
+                return;
+            }
+
+            entity.aiMode = aiMode;
+            entity.aiStateTimer = aiStateTimer;
             UpdateStoredEntity(entity);
         }
 
@@ -344,6 +357,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer)
         {
             ApplyStateChange(entityId, state, stateTimer);
+        }
+
+        void IWorldStateMutationPort.ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer)
+        {
+            ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
         }
 
         void IWorldStateMutationPort.MarkDestroy(int entityId)

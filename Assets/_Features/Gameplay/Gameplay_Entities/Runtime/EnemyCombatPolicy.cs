@@ -33,6 +33,15 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
+        public static bool IsTargetInAttackRange(
+            in EntityState source,
+            in EntityState target,
+            in EnemyAiConfig config)
+        {
+            var distance = GetPlanarDistance(source.position, target.position);
+            return distance.HasValue && distance.Value <= config.AttackRange;
+        }
+
         private static int? GetPlanarDistance(SurfaceCell source, SurfaceCell target)
         {
             if (source.face != target.face)
