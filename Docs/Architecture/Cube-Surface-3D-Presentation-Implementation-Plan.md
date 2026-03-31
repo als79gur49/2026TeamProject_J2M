@@ -248,7 +248,6 @@ GameplaySceneHost
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHost.cs`
 - 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraRig.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/SampleSceneInstaller.cs`
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`
 
 구현 태스크:

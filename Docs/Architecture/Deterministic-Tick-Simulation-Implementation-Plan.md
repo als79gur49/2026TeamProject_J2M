@@ -2413,11 +2413,11 @@ PlayMode test 목적:
 - 보간 animation이 tick cadence보다 길어 input feel을 해치지 않는가
 - blocked move에서 view가 떨리거나 원위치 snap을 반복하지 않는가
 
-현재 sample 검증 경로(v2):
+현재 showcase 검증 경로(v2):
 
-- `Assets/Scenes/SampleScene.unity`에는 `SampleSceneInstaller`가 배치된다.
+- `Assets/Scenes/CombinedGameplayShowcase.unity`에는 `CombinedGameplayShowcaseInstaller`가 배치된다.
 - installer는 inspector로 직렬화된 `Assets/InputSystem_Actions.inputactions` reference를 사용한다.
-- installer가 `GameplaySceneHost`를 초기화하고 sample world / presenter / auto-created view를 구성한다.
+- installer가 `GameplaySceneHost`를 초기화하고 showcase world / presenter / auto-created view를 구성한다.
 - `Player/Move(Vector2)`는 `Assets/InputSystem_Actions.inputactions`의 `Player/Move`를 사용한다.
 
 #### 15-15-19. 구현 순서 갱신
