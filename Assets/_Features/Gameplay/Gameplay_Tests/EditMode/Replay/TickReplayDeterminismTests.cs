@@ -436,6 +436,49 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(resultWithDelayedEvent.Trace.Text, Does.Contain("ExecuteTick=2"));
         }
 
+        [Test]
+        public void Snapshot_EntityState_PreservesEnemyAiMode()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(40, out var entity), Is.True);
+            Assert.That(entity.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+        }
+
+        [Test]
+        public void DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState()
+        {
+            var idlePipeline = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.None),
+                }));
+            var chasePipeline = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+                }));
+
+            var idleResult = idlePipeline.RunTick(new TickInput(1));
+            var chaseResult = chasePipeline.RunTick(new TickInput(1));
+            var chaseReplay = new TickReplayHarness().Run(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+                }),
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(chaseResult.DeterminismHash));
+            Assert.That(chaseResult.Trace.Text, Does.Contain("AiMode=Chase"));
+            Assert.That(chaseReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Chase"));
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -788,12 +831,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp)
+        private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp, EnemyAiMode aiMode = EnemyAiMode.None)
         {
-            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp);
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode);
         }
 
-        private static EntityState CreateUnit(int entityId, int teamId, SurfaceCell position, int hp)
+        private static EntityState CreateUnit(int entityId, int teamId, SurfaceCell position, int hp, EnemyAiMode aiMode = EnemyAiMode.None)
         {
             return new EntityState
             {
@@ -808,6 +851,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 facing = Direction.Right,
                 markedForDeath = false,
                 spawnTick = 0,
+                aiMode = aiMode,
             };
         }
 
