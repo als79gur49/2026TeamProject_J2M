@@ -5,9 +5,11 @@ using System.Reflection;
 using Game.Feature.Gameplay.Attack.Commit;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Cleanup;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Movement.Commit;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
@@ -71,6 +73,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(exportedTypes, Does.Not.Contain(typeof(IdAllocator).FullName));
             Assert.That(exportedTypes, Does.Not.Contain(typeof(EntityIdAllocator).FullName));
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(IWorldWriteContext).FullName));
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(IMovementCommitContext).FullName));
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(IAttackCommitContext).FullName));
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(ICleanupCommitContext).FullName));
         }
 
         [Test]
@@ -92,6 +98,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void Committers_DependOnPhaseSpecificWriteCapabilities()
+        {
+            var movementCommitMethod = typeof(MovementCommitter).GetMethod(
+                "Commit",
+                BindingFlags.Instance | BindingFlags.Public);
+            var attackCommitMethod = typeof(AttackCommitter).GetMethod(
+                "Commit",
+                BindingFlags.Instance | BindingFlags.Public);
+            var cleanupProcessMethod = typeof(CleanupProcessor).GetMethod(
+                "Process",
+                BindingFlags.Instance | BindingFlags.Public);
+
+            Assert.That(movementCommitMethod, Is.Not.Null);
+            Assert.That(attackCommitMethod, Is.Not.Null);
+            Assert.That(cleanupProcessMethod, Is.Not.Null);
+
+            var movementParameterTypes = movementCommitMethod
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .ToArray();
+            var attackParameterTypes = attackCommitMethod
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .ToArray();
+            var cleanupParameterTypes = cleanupProcessMethod
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .ToArray();
+
+            Assert.That(movementParameterTypes, Has.Member(typeof(IMovementCommitContext)));
+            Assert.That(movementParameterTypes, Has.No.Member(typeof(IWorldWriteContext)));
+            Assert.That(attackParameterTypes, Has.Member(typeof(IAttackCommitContext)));
+            Assert.That(attackParameterTypes, Has.No.Member(typeof(IWorldWriteContext)));
+            Assert.That(cleanupParameterTypes, Has.Member(typeof(ICleanupCommitContext)));
+            Assert.That(cleanupParameterTypes, Has.No.Member(typeof(IWorldWriteContext)));
+        }
+
+        [Test]
         public void WorldState_DoesNotExposeDirectPublicMutationApi()
         {
             var publicInstanceMembers = typeof(WorldState)
@@ -107,7 +151,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 publicInstanceMembers,
                 Is.Empty,
-                "WorldState mutation must remain behind IWorldWriteContext capabilities.");
+                "WorldState mutation must remain behind aggregate world write capabilities.");
         }
 
         [Test]
@@ -146,6 +190,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(typeof(WorldStateWriteContext).IsNotPublic, Is.True);
             Assert.That(typeof(IWorldWriteContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
+            Assert.That(typeof(IMovementCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
+            Assert.That(typeof(IAttackCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
+            Assert.That(typeof(ICleanupCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
             Assert.That(createWriteContextMethod, Is.Not.Null);
             Assert.That(createWriteContextMethod.IsAssembly, Is.True);
             Assert.That(createWriteContextMethod.ReturnType, Is.EqualTo(typeof(IWorldWriteContext)));
