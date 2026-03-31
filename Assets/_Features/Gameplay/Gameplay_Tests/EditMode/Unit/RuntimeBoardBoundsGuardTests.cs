@@ -1657,6 +1657,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         CreateSurfaceBox(30, shownCell, Direction.Right),
                     },
                     initialTopology);
+                Assert.That(registry.TryGetView(20, out var initialRetainedView), Is.True);
+                var initialRetainedWorldPosition = initialRetainedView.transform.position;
+                var initialRetainedWorldRotation = initialRetainedView.transform.rotation;
 
                 presenter.Present(
                     CreateTickResult(
@@ -1692,19 +1695,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(registry.TryGetView(30, out var shownView), Is.True);
                 Assert.That(shownView.gameObject.activeSelf, Is.True);
 
-                var retainedTransitionPosition = GetTransitionProjectedEntityPosition(
+                var retainedTransitionPosition = GetPresenterTransitionLocalPosition(
                     boardBounds,
                     initialTopology,
                     rotatedTopology,
                     retainedCell,
                     EntityType.Box);
-                var retainedTransitionRotation = GetTransitionProjectedEntityRotation(
+                var retainedTransitionRotation = GetPresenterTransitionLocalRotation(
                     boardBounds,
                     initialTopology,
                     rotatedTopology,
                     retainedCell,
                     Direction.Left);
 
+                Assert.That(Vector3.Distance(retainedView.transform.position, initialRetainedWorldPosition), Is.LessThan(0.001f));
+                Assert.That(Quaternion.Angle(retainedView.transform.rotation, initialRetainedWorldRotation), Is.LessThan(0.001f));
                 Assert.That(Vector3.Distance(retainedView.transform.localPosition, retainedTransitionPosition), Is.LessThan(0.001f));
                 Assert.That(Quaternion.Angle(retainedView.transform.localRotation, retainedTransitionRotation), Is.LessThan(0.001f));
 
