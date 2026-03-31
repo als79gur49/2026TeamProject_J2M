@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack.Collection;
@@ -21,6 +22,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(logic, Is.InstanceOf<IMovementEntityLogic>());
             Assert.That(logic, Is.InstanceOf<IAttackEntityLogic>());
             Assert.That(logic.ControlledEntityId, Is.EqualTo(40));
+        }
+
+        [Test]
+        public void EnemyLogic_InvalidConfig_ThrowsArgumentException()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => new EnemyLogic(entityId: 40, default));
+
+            Assert.That(exception.ParamName, Is.EqualTo("config"));
         }
 
         [Test]

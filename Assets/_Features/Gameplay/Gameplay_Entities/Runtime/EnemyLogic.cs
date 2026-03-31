@@ -24,6 +24,21 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentOutOfRangeException(nameof(entityId), "Enemy logic requires a positive entity ID.");
             }
 
+            if (config.SenseRange <= 0)
+            {
+                throw new ArgumentException("Enemy logic requires a config with a positive sense range.", nameof(config));
+            }
+
+            if (config.AttackRange <= 0)
+            {
+                throw new ArgumentException("Enemy logic requires a config with a positive attack range.", nameof(config));
+            }
+
+            if (config.RecoverTicks < 0)
+            {
+                throw new ArgumentException("Enemy logic requires a config with a non-negative recover tick count.", nameof(config));
+            }
+
             _entityId = entityId;
             _config = config;
         }
