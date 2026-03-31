@@ -33,6 +33,16 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
+            Expand(snapshot, sortedIntents, null, buffer, rejectedReasons);
+        }
+
+        public void Expand(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ISet<int> playerTraversalSourceIds,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -79,7 +89,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     case MovementCommandKind.Push:
                     case MovementCommandKind.Move:
-                        ExpandMoveLike(snapshot, entity, intent, buffer, rejectedReasons);
+                        ExpandMoveLike(snapshot, entity, intent, playerTraversalSourceIds, buffer, rejectedReasons);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -98,6 +108,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
+            ISet<int> playerTraversalSourceIds,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -111,17 +122,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             var stepFacing = ResolveCardinalFacing(
                 delta,
                 "Movement intents must remain orthogonal single-step commands.");
-            var hasResolvedStep = snapshot.TryResolvePlayerStep(
-                source.position,
-                delta,
-                out var destinationCell,
-                out var rotationKind,
-                out var updatedTopology);
-            if (!hasResolvedStep)
+            var usesPlayerTraversal = playerTraversalSourceIds != null && playerTraversalSourceIds.Contains(source.entityId);
+            if (!TryResolveTraversalStep(
+                    snapshot,
+                    source,
+                    delta,
+                    usesPlayerTraversal,
+                    out var destinationCell,
+                    out var rotationKind,
+                    out var updatedTopology))
             {
-                destinationCell = source.position + delta;
-                rotationKind = CubeRotationKind.None;
-                updatedTopology = snapshot.Topology;
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=TraversalRejected|Origin={FormatCell(source.position)}");
+                return;
             }
 
             var movementTopology = rotationKind == CubeRotationKind.None
@@ -175,6 +188,46 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             ExpandMove(source, intent, destinationCell, stepFacing, rotationKind, updatedTopology, buffer);
+        }
+
+        private static bool TryResolveTraversalStep(
+            WorldSnapshot snapshot,
+            EntityState source,
+            Vector2Int delta,
+            bool usesPlayerTraversal,
+            out SurfaceCell destinationCell,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            if (!usesPlayerTraversal && !snapshot.Topology.IsFaceActive(source.position.face))
+            {
+                destinationCell = default;
+                rotationKind = CubeRotationKind.None;
+                updatedTopology = snapshot.Topology;
+                return false;
+            }
+
+            var hasResolvedStep = usesPlayerTraversal
+                ? snapshot.TryResolvePlayerStep(
+                    source.position,
+                    delta,
+                    out destinationCell,
+                    out rotationKind,
+                    out updatedTopology)
+                : snapshot.TryResolveUnitStep(
+                    source.position,
+                    delta,
+                    out destinationCell,
+                    out rotationKind,
+                    out updatedTopology);
+            if (!hasResolvedStep)
+            {
+                destinationCell = source.position + delta;
+                rotationKind = CubeRotationKind.None;
+                updatedTopology = snapshot.Topology;
+            }
+
+            return usesPlayerTraversal || rotationKind == CubeRotationKind.None;
         }
 
         private static void ExpandFlip(

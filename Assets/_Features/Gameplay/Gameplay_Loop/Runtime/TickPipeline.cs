@@ -233,9 +233,10 @@ namespace Game.Feature.Gameplay.Loop
             var rawMovementIntents = new List<RawMovementIntent>();
             _movementIntentCollector.Collect(snapshot, in input, entityLogics, rawMovementIntents);
             var sortedIntents = BuildMovementIntents(rawMovementIntents);
+            var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogics);
             var expandedCandidates = new List<ActionGroup>();
             var rejectedReasons = new List<string>();
-            _movementExpander.Expand(snapshot, sortedIntents, expandedCandidates, rejectedReasons);
+            _movementExpander.Expand(snapshot, sortedIntents, playerTraversalSourceIds, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
 
@@ -261,6 +262,22 @@ namespace Game.Feature.Gameplay.Loop
                 selectedGroups,
                 commitEvents,
                 rejectedReasons);
+        }
+
+        private static HashSet<int> CollectPlayerTraversalSourceIds(IReadOnlyList<IMovementEntityLogic> entityLogics)
+        {
+            var playerTraversalSourceIds = new HashSet<int>();
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                if (entityLogics[i] is PlayerLogic &&
+                    entityLogics[i] is IEntityLogicSourceBinding binding)
+                {
+                    playerTraversalSourceIds.Add(binding.ControlledEntityId);
+                }
+            }
+
+            return playerTraversalSourceIds;
         }
 
         private AttackPhaseResult RunAttackPhase(

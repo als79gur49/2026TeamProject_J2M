@@ -132,6 +132,11 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             Vector2Int delta)
         {
+            if (!snapshot.Topology.IsFaceActive(source.position.face))
+            {
+                return false;
+            }
+
             var hasResolvedStep = snapshot.TryResolveUnitStep(
                 source.position,
                 delta,
@@ -144,6 +149,11 @@ namespace Game.Feature.Gameplay.Entities
                 destinationCell = source.position + delta;
                 rotationKind = CubeRotationKind.None;
                 updatedTopology = snapshot.Topology;
+            }
+
+            if (rotationKind != CubeRotationKind.None)
+            {
+                return false;
             }
 
             var movementTopology = rotationKind == CubeRotationKind.None

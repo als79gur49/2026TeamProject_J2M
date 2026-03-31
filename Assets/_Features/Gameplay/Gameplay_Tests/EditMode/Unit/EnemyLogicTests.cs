@@ -7,6 +7,9 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.Movement.Expansion;
+using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.Model.Groups;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -53,6 +56,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyLogic_PatrolMode_BottomFaceBoundary_DoesNotProduceMovementIntent()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: new SurfaceCell(FaceId.Floor, 1, 1),
+                        aiMode: EnemyAiMode.Patrol,
+                        facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
+            var logic = new EnemyLogic(entityId: 40);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
         public void EnemyLogic_ChaseMode_ProducesMovementTowardNearestOpponent()
         {
             var worldState = CreateWorldState(new[]
@@ -94,6 +119,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     (SourceId: 40, Destination: new Vector2Int(0, 1), Command: MovementCommandKind.Move),
                 },
                 buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+        }
+
+        [Test]
+        public void EnemyLogic_ChaseMode_BoundaryStep_DoesNotCreateTopologyChangingMovementGroup()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(
+                        entityId: 10,
+                        teamId: 1,
+                        position: new SurfaceCell(FaceId.Floor, 1, 0),
+                        aiMode: EnemyAiMode.None),
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: new SurfaceCell(FaceId.Floor, 1, 1),
+                        aiMode: EnemyAiMode.Chase,
+                        facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
+            var snapshot = worldState.CreateSnapshot();
+            var sortedIntents = new List<MoveIntent>
+            {
+                CreateMoveIntent(sourceId: 40, priority: 50, destination: new Vector2Int(1, 2), intentId: 1),
+            };
+            var expandedCandidates = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            new MovementExpander().Expand(snapshot, sortedIntents, null, expandedCandidates, rejectedReasons);
+
+            Assert.That(expandedCandidates, Is.Empty);
+            Assert.That(rejectedReasons, Has.Some.Contains("Reason=BlockedDestination"));
+            Assert.That(rejectedReasons, Has.None.Contains("TopologyCommitted"));
         }
 
         [Test]
@@ -334,6 +393,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
         }
 
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, Game.Feature.Gameplay.BoardState.TerrainData.Empty);
+        }
+
         private static Vector2Int GetEntityPosition(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
@@ -378,6 +444,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 aiMode = aiMode,
                 aiStateTimer = aiStateTimer,
             };
+        }
+
+        private static EntityState CreateUnit(
+            int entityId,
+            int teamId,
+            SurfaceCell position,
+            EnemyAiMode aiMode,
+            Direction facing = Direction.Right,
+            int hp = 3,
+            int aiStateTimer = 0)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
+                type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = facing,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                aiMode = aiMode,
+                aiStateTimer = aiStateTimer,
+            };
+        }
+
+        private static MoveIntent CreateMoveIntent(int sourceId, int priority, Vector2Int destination, int intentId)
+        {
+            var intent = new MoveIntent(sourceId, priority, destination);
+            intent.AssignIntentId(intentId);
+            return intent;
         }
     }
 }

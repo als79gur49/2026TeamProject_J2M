@@ -190,6 +190,44 @@ namespace Game.Feature.Gameplay.BoardState
                 out updatedTopology);
         }
 
+        public static bool TryResolveUnitStep(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell origin,
+            Direction direction,
+            out SurfaceCell destination,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            return SurfaceTraversalQueries.TryResolveUnitStep(
+                topology,
+                boardBounds,
+                origin,
+                direction,
+                out destination,
+                out rotationKind,
+                out updatedTopology);
+        }
+
+        public static bool TryResolveUnitStep(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            return SurfaceTraversalQueries.TryResolveUnitStep(
+                topology,
+                boardBounds,
+                origin,
+                delta,
+                out destination,
+                out rotationKind,
+                out updatedTopology);
+        }
+
         public static bool TryResolveLocalFlipCells(
             CubeTopologyState topology,
             BoardBounds boardBounds,

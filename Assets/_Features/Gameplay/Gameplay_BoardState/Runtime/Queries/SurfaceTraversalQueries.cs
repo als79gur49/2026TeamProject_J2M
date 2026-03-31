@@ -33,13 +33,7 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            ValidateSlideDelta(delta);
-
-            destination = default;
-            rotationKind = CubeRotationKind.None;
-            updatedTopology = topology;
-
-            if (!topology.IsFaceActive(origin.face))
+            if (!TryBeginStepResolution(topology, origin, delta, out destination, out rotationKind, out updatedTopology))
             {
                 return false;
             }
@@ -49,14 +43,43 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            var candidate = origin + delta;
-            if (!boardBounds.Contains(candidate.PlanarPosition))
+            return TryResolveOrdinaryStep(boardBounds, origin, delta, ref destination);
+        }
+
+        public static bool TryResolveUnitStep(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell origin,
+            Direction direction,
+            out SurfaceCell destination,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            return TryResolveUnitStep(
+                topology,
+                boardBounds,
+                origin,
+                DirectionToDelta(direction),
+                out destination,
+                out rotationKind,
+                out updatedTopology);
+        }
+
+        public static bool TryResolveUnitStep(
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            if (!TryBeginStepResolution(topology, origin, delta, out destination, out rotationKind, out updatedTopology))
             {
                 return false;
             }
 
-            destination = candidate;
-            return true;
+            return TryResolveOrdinaryStep(boardBounds, origin, delta, ref destination);
         }
 
         public static bool TryResolveLocalFlipCells(
@@ -98,6 +121,39 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 throw new InvalidOperationException("Slide queries require an orthogonal single-cell direction.");
             }
+        }
+
+        private static bool TryBeginStepResolution(
+            CubeTopologyState topology,
+            SurfaceCell origin,
+            Vector2Int delta,
+            out SurfaceCell destination,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            ValidateSlideDelta(delta);
+
+            destination = default;
+            rotationKind = CubeRotationKind.None;
+            updatedTopology = topology;
+
+            return topology.IsFaceActive(origin.face);
+        }
+
+        private static bool TryResolveOrdinaryStep(
+            BoardBounds boardBounds,
+            SurfaceCell origin,
+            Vector2Int delta,
+            ref SurfaceCell destination)
+        {
+            var candidate = origin + delta;
+            if (!boardBounds.Contains(candidate.PlanarPosition))
+            {
+                return false;
+            }
+
+            destination = candidate;
+            return true;
         }
 
         private static bool TryResolveBottomFaceRotation(

@@ -176,6 +176,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WorldSnapshot_TryResolveUnitStep_BottomFaceTopEdge_DoesNotRotateOrLeakDestination()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveUnitStep(
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                Vector2Int.up,
+                out var destination,
+                out var rotationKind,
+                out var updatedTopology);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
+            Assert.That(rotationKind, Is.EqualTo(CubeRotationKind.None));
+            Assert.That(updatedTopology, Is.EqualTo(snapshot.Topology));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolveUnitStep_InteriorMove_StaysOnActiveFaceWithoutRotation()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveUnitStep(
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Vector2Int.up,
+                out var destination,
+                out var rotationKind,
+                out var updatedTopology);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(rotationKind, Is.EqualTo(CubeRotationKind.None));
+            Assert.That(updatedTopology, Is.EqualTo(snapshot.Topology));
+        }
+
+        [Test]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesBottomFrontSharedEdge()
         {
             var snapshot = CreateSnapshot(

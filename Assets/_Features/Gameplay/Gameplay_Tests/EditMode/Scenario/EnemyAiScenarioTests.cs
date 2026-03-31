@@ -96,9 +96,55 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=40"));
         }
 
+        [Test]
+        public void EnemyAi_MultiTick_BoundaryPatrol_NeverCommitsTopologyChange()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: new SurfaceCell(FaceId.Floor, 0, 0),
+                        hp: 3,
+                        aiMode: EnemyAiMode.Patrol,
+                        facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var topologyAfterFirstTick = worldState.CreateSnapshot().Topology;
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var topologyAfterSecondTick = worldState.CreateSnapshot().Topology;
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var topologyAfterThirdTick = worldState.CreateSnapshot().Topology;
+
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(topologyAfterFirstTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(topologyAfterSecondTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(topologyAfterThirdTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
+            Assert.That(firstTick.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
+            Assert.That(secondTick.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
+            Assert.That(thirdTick.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
+            Assert.That(firstTick.EventLog, Has.None.Contains("TopologyCommitted"));
+            Assert.That(secondTick.EventLog, Has.None.Contains("TopologyCommitted"));
+            Assert.That(thirdTick.EventLog, Has.None.Contains("TopologyCommitted"));
+            Assert.That(firstTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+            Assert.That(secondTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+            Assert.That(thirdTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, Game.Feature.Gameplay.BoardState.TerrainData.Empty);
         }
 
         private static EntityState GetEntity(WorldState worldState, int entityId)
@@ -119,6 +165,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 entityId = entityId,
                 position = SurfaceCell.FromPlanar(position),
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
+                type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = facing,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                aiMode = aiMode,
+                aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateUnit(
+            int entityId,
+            int teamId,
+            SurfaceCell position,
+            int hp,
+            EnemyAiMode aiMode = EnemyAiMode.None,
+            Direction facing = Direction.Right)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
                 hp = hp,
                 maxHp = hp,
                 teamId = teamId,

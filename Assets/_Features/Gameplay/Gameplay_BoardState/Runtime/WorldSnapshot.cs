@@ -170,7 +170,9 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            return TryResolvePlayerStep(
+            return SurfaceTraversalQueries.TryResolveUnitStep(
+                _topology,
+                _boardBounds,
                 origin,
                 delta,
                 out destination,
