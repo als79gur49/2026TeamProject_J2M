@@ -30,8 +30,9 @@
 - `EnemyLogic` 골격과 적 로직 자동 materialization 경로가 연결되었다.
 - `EnemyAiConfig`와 helper policy 분리로 4단계 진입 전 최소 구조 보정이 반영되었다.
 - `aiStateTimer`를 포함한 FSM 상태 전이 commit이 tick pipeline에 연결되었다.
+- `EnemyViewPresentationMapper`와 `EnemyAnimatorDriver`를 통해 적 상태의 host-side view 해석 경로가 연결되었다.
 
-즉, 기반 구조, 적 로직 골격, 생성 경로, 상태 전이 commit까지 1차 수직 슬라이스 핵심 로직이 연결되었고, 다음은 view 연결과 테스트 범위 확대 단계다.
+즉, 기반 구조, 적 로직 골격, 생성 경로, 상태 전이 commit, view 해석 경로까지 1차 수직 슬라이스 핵심 로직이 연결되었고, 다음은 테스트 범위 확대와 연출 보강 단계다.
 
 ## 3. 구현 원칙
 
@@ -242,6 +243,8 @@
 
 ### 7-5. 5단계: View 연결
 
+2026-04-01 구현 완료.
+
 목표는 logic을 건드리지 않고 view가 적 상태를 해석하게 하는 것이다.
 
 작업:
@@ -259,6 +262,16 @@
 
 - animation 유무와 관계없이 logic 결과가 동일하다.
 - animation은 logic 전이에 영향을 주지 않는다.
+
+구현 메모:
+
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyViewPresentationMapper.cs` 추가
+- `TickResult`의 movement/attack/cleanup 결과를 host-side `EnemyViewPresentationState`로 변환
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs` 추가
+- `EnemyAnimatorDriver`는 optional `Animator`에 `aiMode`, `IsMoving`, `Attack`, `Hit`, `Death` 신호를 전달하고, animator가 없어도 동일한 logic 결과를 유지
+- `GameplayTickViewPresenter`가 enemy presentation state를 driver에 전달하고 motion visibility 갱신과 함께 runtime moving/visible 상태를 동기화
+- `DefaultGameplayEntityViewFactory`가 AI-controlled unit view에 driver를 자동 부착
+- host edit mode 테스트로 enemy attack/hit/death signal 전달과 기본 factory 부착 경로를 고정
 
 ### 7-6. 6단계: 테스트 고정
 
