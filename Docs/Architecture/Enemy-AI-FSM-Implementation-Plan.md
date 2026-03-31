@@ -29,9 +29,9 @@
 - `EnemyAiMode` authoritative 상태가 `EntityState`, hash, trace, replay dump에 반영되어 있다.
 - `EnemyLogic` 골격과 적 로직 자동 materialization 경로가 연결되었다.
 - `EnemyAiConfig`와 helper policy 분리로 4단계 진입 전 최소 구조 보정이 반영되었다.
-- 상태 전이 commit은 아직 연결되지 않았다.
+- `aiStateTimer`를 포함한 FSM 상태 전이 commit이 tick pipeline에 연결되었다.
 
-즉, 기반 구조와 최소 적 로직 골격, 생성 경로 연결, 4단계 진입 전 구조 보정까지 준비되어 있고, 다음은 상태 전이 완성 단계다.
+즉, 기반 구조, 적 로직 골격, 생성 경로, 상태 전이 commit까지 1차 수직 슬라이스 핵심 로직이 연결되었고, 다음은 view 연결과 테스트 범위 확대 단계다.
 
 ## 3. 구현 원칙
 
@@ -196,6 +196,8 @@
 
 ### 7-4. 4단계: 상태 전이와 행동 규칙 완성
 
+2026-04-01 구현 완료.
+
 목표는 첫 번째 표준 적 FSM을 실제로 완성하는 것이다.
 
 작업:
@@ -227,6 +229,16 @@
 - `EnemyLogic`은 authoritative 상태 조회, mode 분기, helper 조합만 담당하는 coordinator로 유지
 - 결정론적 타겟 선택은 `EnemyTargetSelector`, 이동 규칙은 `EnemyMovementPolicy`, 공격 intent 생성은 `EnemyCombatPolicy`로 분리
 - 적 이동 경로는 `WorldSnapshot.TryResolvePlayerStep(...)`에 직접 묶지 않고 의미 중립 alias인 `TryResolveUnitStep(...)`를 사용
+
+구현 메모:
+
+- `EntityState`에 `aiStateTimer`를 추가해 `Recover` cooldown을 AI authoritative state로 보존
+- `WorldState`/`WorldStateWriteContext`/`IWorldStateMutationPort`에 `ApplyEnemyAiState(...)` commit 경로 추가
+- `TickPipeline`에 `BeforeMovement`, `BeforeAttack`, `AfterAttack` AI 전이 시점을 추가해 same-tick 전이와 intent 생산을 연결
+- `EnemyLogic`은 `IEnemyAiStateLogic`을 함께 구현하고, 전이 규칙은 `EnemyAiStateResolver` helper로 분리
+- `Patrol -> Chase`, `Chase -> Attack`, `Attack -> Recover`, `Recover -> Chase/Patrol` 전이를 authoritative commit으로 고정
+- trace, replay dump, determinism hash에 `AiTimer`를 반영
+- unit/replay 테스트로 전이, recover countdown, hash 반영을 검증
 
 ### 7-5. 5단계: View 연결
 
@@ -305,6 +317,7 @@ Assets/_Features/Gameplay/
 - 공격 가능 거리 진입 시 attack intent 생성
 - recover 중에는 공격 intent 미생성
 - 타겟 상실 시 `Patrol` 복귀
+- recover countdown 종료 후 `Chase` 재진입
 
 ### 9-2. Scenario
 
@@ -316,6 +329,7 @@ Assets/_Features/Gameplay/
 
 - 동일한 initial state와 input에서 동일한 최종 snapshot 보장
 - 적 AI 상태가 determinism hash에 반영됨을 검증
+- `aiStateTimer`가 trace/replay dump/hash에 반영됨을 검증
 
 ## 10. 2차 확장 계획
 
