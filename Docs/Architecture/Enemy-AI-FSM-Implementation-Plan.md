@@ -27,9 +27,10 @@
 - `WorldState`와 `WorldSnapshot`이 authoritative state와 read facade를 분리하고 있다.
 - `TickPresentationData`와 `GameplayTickViewPresenter`가 view 보간과 렌더 지연을 처리한다.
 - `EnemyAiMode` authoritative 상태가 `EntityState`, hash, trace, replay dump에 반영되어 있다.
-- `EnemyLogic` 골격이 추가되었지만, 적 로직 자동 materialization과 상태 전이 commit은 아직 연결되지 않았다.
+- `EnemyLogic` 골격과 적 로직 자동 materialization 경로가 연결되었다.
+- 상태 전이 commit은 아직 연결되지 않았다.
 
-즉, 기반 구조와 최소 적 로직 골격은 준비되어 있고, 다음은 생성 경로 연결과 상태 전이 완성 단계다.
+즉, 기반 구조와 최소 적 로직 골격, 생성 경로 연결까지 준비되어 있고, 다음은 상태 전이 완성 단계다.
 
 ## 3. 구현 원칙
 
@@ -165,6 +166,8 @@
 
 ### 7-3. 3단계: 적 Logic 생성 경로 연결
 
+2026-04-01 구현 완료.
+
 목표는 런타임에서 적 엔티티에 대응하는 logic을 자동 조립하는 것이다.
 
 작업:
@@ -182,6 +185,13 @@
 완료 조건:
 
 - world snapshot에 적 엔티티가 존재하면 대응하는 `EnemyLogic`이 materialize된다.
+
+구현 메모:
+
+- 신규 `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyEntityLogicFactory.cs` 추가
+- 적 엔티티 식별 규칙을 `EntityType.Unit && aiMode != EnemyAiMode.None`으로 고정
+- `GameplayEntityLogicProviderFactory.CreateDefault()`에 `EnemyEntityLogicFactory` 등록
+- 기본 composition root 경로에서 적 patrol/attack logic이 자동 materialize되는 edit mode 테스트 추가
 
 ### 7-4. 4단계: 상태 전이와 행동 규칙 완성
 
