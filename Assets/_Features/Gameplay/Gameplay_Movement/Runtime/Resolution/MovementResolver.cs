@@ -33,7 +33,8 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             var reservedDestinations = new HashSet<SurfaceCell>();
             var reservedEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
             var reservedAffectedEntities = new HashSet<int>();
-            TopologyReservation? topologyReservation = null;
+            ExclusiveGroupReservation? firstSelectedReservation = null;
+            ExclusiveGroupReservation? topologyExclusiveReservation = null;
 
             for (var i = 0; i < sortedCandidates.Count; i++)
             {
@@ -42,6 +43,17 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=IntentAlreadySelected");
+                    continue;
+                }
+
+                if (TryGetTopologyExclusiveConflict(
+                        candidate,
+                        firstSelectedReservation,
+                        topologyExclusiveReservation,
+                        out var exclusiveConflict))
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=TopologyExclusive|BlockedBy={exclusiveConflict.GroupId}|BlockingKind={exclusiveConflict.GroupKind}|BlockingTopologyChange={exclusiveConflict.HasTopologyChange}");
                     continue;
                 }
 
@@ -67,16 +79,15 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                     continue;
                 }
 
-                if (TryGetConflictingTopologyChange(candidate, topologyReservation, out var conflictingTopologyReservation))
-                {
-                    rejectedReasons.Add(
-                        $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=TopologyReserved|Bottom={conflictingTopologyReservation.BottomFace}|Front={conflictingTopologyReservation.FrontFace}|ReservedBy={conflictingTopologyReservation.GroupId}");
-                    continue;
-                }
-
                 buffer.Add(candidate);
                 selectedIntentIds.Add(candidate.IntentId);
-                ReserveCandidate(candidate, reservedDestinations, reservedEdges, reservedAffectedEntities, ref topologyReservation);
+                ReserveCandidate(
+                    candidate,
+                    reservedDestinations,
+                    reservedEdges,
+                    reservedAffectedEntities,
+                    ref firstSelectedReservation,
+                    ref topologyExclusiveReservation);
             }
         }
 
@@ -85,7 +96,8 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             HashSet<SurfaceCell> reservedDestinations,
             IDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
             ISet<int> reservedAffectedEntities,
-            ref TopologyReservation? topologyReservation)
+            ref ExclusiveGroupReservation? firstSelectedReservation,
+            ref ExclusiveGroupReservation? topologyExclusiveReservation)
         {
             for (var moveIndex = 0; moveIndex < candidate.Moves.Count; moveIndex++)
             {
@@ -114,12 +126,20 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 reservedAffectedEntities.Add(candidate.BoardPresenceChanges[presenceIndex].EntityId);
             }
 
-            if (!topologyReservation.HasValue && candidate.TopologyChanges.Count > 0)
+            if (!firstSelectedReservation.HasValue)
             {
-                var topologyChange = candidate.TopologyChanges[0];
-                topologyReservation = new TopologyReservation(
-                    topologyChange.UpdatedTopology,
-                    candidate.GroupId);
+                firstSelectedReservation = new ExclusiveGroupReservation(
+                    candidate.GroupId,
+                    candidate.GroupKind,
+                    HasTopologyChange(candidate));
+            }
+
+            if (!topologyExclusiveReservation.HasValue && HasTopologyChange(candidate))
+            {
+                topologyExclusiveReservation = new ExclusiveGroupReservation(
+                    candidate.GroupId,
+                    candidate.GroupKind,
+                    hasTopologyChange: true);
             }
         }
 
@@ -209,25 +229,42 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             return false;
         }
 
-        private static bool TryGetConflictingTopologyChange(
+        private static bool TryGetTopologyExclusiveConflict(
             ActionGroup candidate,
-            TopologyReservation? reservedTopologyReservation,
-            out TopologyReservation conflictingTopologyReservation)
+            ExclusiveGroupReservation? firstSelectedReservation,
+            ExclusiveGroupReservation? topologyExclusiveReservation,
+            out ExclusiveGroupReservation conflictingReservation)
         {
-            conflictingTopologyReservation = default;
+            conflictingReservation = default;
 
-            if (candidate.TopologyChanges.Count == 0 || !reservedTopologyReservation.HasValue)
+            if (HasTopologyChange(candidate))
+            {
+                if (!firstSelectedReservation.HasValue)
+                {
+                    return false;
+                }
+
+                conflictingReservation = firstSelectedReservation.Value;
+                return true;
+            }
+
+            if (!topologyExclusiveReservation.HasValue)
             {
                 return false;
             }
 
-            conflictingTopologyReservation = reservedTopologyReservation.Value;
+            conflictingReservation = topologyExclusiveReservation.Value;
             return true;
         }
 
         private static bool RequiresEdgeReservation(ActionGroup candidate)
         {
             return candidate.GroupKind != ActionGroupKind.Flip;
+        }
+
+        private static bool HasTopologyChange(ActionGroup candidate)
+        {
+            return candidate.TopologyChanges.Count > 0;
         }
 
         private static string FormatCell(SurfaceCell cell)
@@ -256,20 +293,20 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             public int GroupId { get; }
         }
 
-        private readonly struct TopologyReservation
+        private readonly struct ExclusiveGroupReservation
         {
-            public TopologyReservation(CubeTopologyState topology, int groupId)
+            public ExclusiveGroupReservation(int groupId, ActionGroupKind groupKind, bool hasTopologyChange)
             {
-                BottomFace = topology.BottomFace;
-                FrontFace = topology.FrontFace;
                 GroupId = groupId;
+                GroupKind = groupKind;
+                HasTopologyChange = hasTopologyChange;
             }
 
-            public FaceId BottomFace { get; }
-
-            public FaceId FrontFace { get; }
-
             public int GroupId { get; }
+
+            public ActionGroupKind GroupKind { get; }
+
+            public bool HasTopologyChange { get; }
         }
 
         private readonly struct UndirectedEdgeKey : IEquatable<UndirectedEdgeKey>

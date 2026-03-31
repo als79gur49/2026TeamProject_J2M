@@ -6,6 +6,13 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public enum GameplayPresentationPhase
+    {
+        Idle = 0,
+        EntityMotion = 1,
+        TopologyTransition = 2,
+    }
+
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
         private readonly RotationTrack _boardRotationTrack = new();
@@ -33,6 +40,12 @@ namespace Game.Feature.Gameplay.Host
         public event Action<CubeTopologyState> TopologyCommitted;
 
         public CubeTopologyState CurrentTopology => _committedTopology;
+
+        public GameplayPresentationPhase CurrentPresentationPhase => ResolveCurrentPresentationPhase();
+
+        public bool IsPresentationActive => CurrentPresentationPhase != GameplayPresentationPhase.Idle;
+
+        public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
 
         public Quaternion PresentedBoardRotation => _presentedBoardRotation;
 
@@ -277,7 +290,7 @@ namespace Game.Feature.Gameplay.Host
                 RotationClip.Create(
                     startRotation,
                     Quaternion.identity,
-                    ResolveTopologyMotionDurationSeconds(topologyMotion)));
+                    ResolveTopologyMotionDurationSeconds()));
             ApplyPresentedBoardRotation(startRotation, forceApply: true);
         }
 
@@ -537,11 +550,9 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
-        private float ResolveTopologyMotionDurationSeconds(TickTopologyMotion topologyMotion)
+        private float ResolveTopologyMotionDurationSeconds()
         {
-            return topologyMotion.RotationKind == CubeRotationKind.None
-                ? _timingProfile.PushMotionDurationSeconds
-                : _timingProfile.PushMotionDurationSeconds;
+            return _timingProfile.TopologyMotionDurationSeconds;
         }
 
         private float ResolveVisibilityDurationSeconds(int entityId)
@@ -626,6 +637,42 @@ namespace Game.Feature.Gameplay.Host
             {
                 throw new InvalidOperationException("GameplayTickViewPresenter must be initialized before use.");
             }
+        }
+
+        private GameplayPresentationPhase ResolveCurrentPresentationPhase()
+        {
+            if (_boardRotationTrack.HasClips)
+            {
+                return GameplayPresentationPhase.TopologyTransition;
+            }
+
+            if (HasActiveEntityPresentationClips())
+            {
+                return GameplayPresentationPhase.EntityMotion;
+            }
+
+            return GameplayPresentationPhase.Idle;
+        }
+
+        private bool HasActiveEntityPresentationClips()
+        {
+            foreach (var pair in _localMotionTracks)
+            {
+                if (pair.Value.HasClips)
+                {
+                    return true;
+                }
+            }
+
+            foreach (var pair in _visibilityTracks)
+            {
+                if (pair.Value.IsActive)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private readonly struct GameplayEntityPose
@@ -1068,6 +1115,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             public bool IsComplete => _clip.IsComplete;
+
+            public bool IsActive => !_clip.IsComplete;
 
             public bool TargetVisibility => _clip.FinalVisibility;
 

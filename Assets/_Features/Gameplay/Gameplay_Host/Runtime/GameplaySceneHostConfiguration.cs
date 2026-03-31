@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
         public float PushMotionDurationSeconds = -1f;
+        public float TopologyMotionDurationSeconds = -1f;
         public float FlipMotionDurationSeconds = -1f;
         public float FlipArcHeightInCells = GameplayTimingProfile.DefaultFlipArcHeightInCells;
         public float BoxSlideStepIntervalSeconds = -1f;
@@ -43,14 +44,23 @@ namespace Game.Feature.Gameplay.Host
         public GameplayTimingProfile CreateTimingProfile()
         {
             var legacyTickIntervalSeconds = ResolveLegacyTickIntervalSeconds();
+            var initialMoveDelaySeconds = ResolveInitialMoveDelaySeconds(legacyTickIntervalSeconds);
+            var repeatedMoveIntervalSeconds = ResolveRepeatedMoveIntervalSeconds(legacyTickIntervalSeconds);
+            var boxSlideStepIntervalSeconds = ResolveBoxSlideStepIntervalSeconds(legacyTickIntervalSeconds);
+            var projectileStepIntervalSeconds = ResolveProjectileStepIntervalSeconds(legacyTickIntervalSeconds);
+            var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds(legacyTickIntervalSeconds);
+            var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
+            var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds(legacyTickIntervalSeconds);
+
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
-                ResolveInitialMoveDelaySeconds(legacyTickIntervalSeconds),
-                ResolveRepeatedMoveIntervalSeconds(legacyTickIntervalSeconds),
-                ResolveBoxSlideStepIntervalSeconds(legacyTickIntervalSeconds),
-                ResolveProjectileStepIntervalSeconds(legacyTickIntervalSeconds),
-                ResolvePushMotionDurationSeconds(legacyTickIntervalSeconds),
-                ResolveFlipMotionDurationSeconds(legacyTickIntervalSeconds),
+                initialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds,
+                boxSlideStepIntervalSeconds,
+                projectileStepIntervalSeconds,
+                pushMotionDurationSeconds,
+                topologyMotionDurationSeconds,
+                flipMotionDurationSeconds,
                 FlipArcHeightInCells > 0f
                     ? FlipArcHeightInCells
                     : GameplayTimingProfile.DefaultFlipArcHeightInCells,
@@ -92,6 +102,13 @@ namespace Game.Feature.Gameplay.Host
             return PushMotionDurationSeconds > 0f
                 ? PushMotionDurationSeconds
                 : legacyTickIntervalSeconds;
+        }
+
+        private float ResolveTopologyMotionDurationSeconds(float pushMotionDurationSeconds)
+        {
+            return TopologyMotionDurationSeconds > 0f
+                ? TopologyMotionDurationSeconds
+                : pushMotionDurationSeconds;
         }
 
         private float ResolveFlipMotionDurationSeconds(float legacyTickIntervalSeconds)

@@ -22,6 +22,13 @@ namespace Game.Feature.Gameplay.Loop
         Remove = 3,
     }
 
+    public enum TickTransitionVisibilityMode
+    {
+        None = 0,
+        RetainUntilTransitionComplete = 1,
+        ShowAtTransitionStart = 2,
+    }
+
     public readonly struct TickEntityMotion
     {
         // Motion records describe a render transition between already-committed logical cells.
@@ -125,15 +132,44 @@ namespace Game.Feature.Gameplay.Loop
         public Direction Facing { get; }
     }
 
+    public readonly struct TickTransitionVisibilityChange
+    {
+        public TickTransitionVisibilityChange(
+            int entityId,
+            TickTransitionVisibilityMode mode,
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            Direction facing)
+        {
+            EntityId = entityId;
+            Mode = mode;
+            Cell = cell;
+            Topology = topology;
+            Facing = facing;
+        }
+
+        public int EntityId { get; }
+
+        public TickTransitionVisibilityMode Mode { get; }
+
+        public SurfaceCell Cell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction Facing { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
             Array.Empty<TickEntityMotion>(),
             topologyMotion: null,
-            Array.Empty<TickVisibilityChange>());
+            Array.Empty<TickVisibilityChange>(),
+            Array.Empty<TickTransitionVisibilityChange>());
 
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly TickTopologyMotion? _topologyMotion;
+        private readonly ReadOnlyCollection<TickTransitionVisibilityChange> _transitionVisibilityChanges;
         private readonly ReadOnlyCollection<TickVisibilityChange> _visibilityChanges;
 
         // Presentation data is render-only metadata layered on top of authoritative gameplay state.
@@ -149,6 +185,19 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEntityMotion> entityMotions,
             TickTopologyMotion? topologyMotion,
             IEnumerable<TickVisibilityChange> visibilityChanges)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                Array.Empty<TickTransitionVisibilityChange>())
+        {
+        }
+
+        public TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges)
         {
             if (entityMotions == null)
             {
@@ -160,9 +209,16 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(visibilityChanges));
             }
 
+            if (transitionVisibilityChanges == null)
+            {
+                throw new ArgumentNullException(nameof(transitionVisibilityChanges));
+            }
+
             _entityMotions = new ReadOnlyCollection<TickEntityMotion>(new List<TickEntityMotion>(entityMotions));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
+            _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
+                new List<TickTransitionVisibilityChange>(transitionVisibilityChanges));
         }
 
         public IReadOnlyList<TickEntityMotion> EntityMotions => _entityMotions;
@@ -170,5 +226,7 @@ namespace Game.Feature.Gameplay.Loop
         public TickTopologyMotion? TopologyMotion => _topologyMotion;
 
         public IReadOnlyList<TickVisibilityChange> VisibilityChanges => _visibilityChanges;
+
+        public IReadOnlyList<TickTransitionVisibilityChange> TransitionVisibilityChanges => _transitionVisibilityChanges;
     }
 }

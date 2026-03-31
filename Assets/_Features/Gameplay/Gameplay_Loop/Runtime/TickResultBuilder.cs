@@ -178,18 +178,25 @@ namespace Game.Feature.Gameplay.Loop
         {
             var entityMotions = new List<TickEntityMotion>();
             var visibilityChanges = new List<TickVisibilityChange>();
+            var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
 
             BuildMovementPresentation(context, entityMotions, visibilityChanges);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges);
 
             var topologyMotion = BuildTopologyMotion(context);
+            BuildTransitionVisibilityPresentation(context, visibilityChanges, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
                    visibilityChanges.Count == 0 &&
+                   transitionVisibilityChanges.Count == 0 &&
                    !topologyMotion.HasValue
                 ? TickPresentationData.Empty
-                : new TickPresentationData(entityMotions, topologyMotion, visibilityChanges);
+                : new TickPresentationData(
+                    entityMotions,
+                    topologyMotion,
+                    visibilityChanges,
+                    transitionVisibilityChanges);
         }
 
         private static void BuildMovementPresentation(
@@ -273,6 +280,76 @@ namespace Game.Feature.Gameplay.Loop
                 sourceTopology,
                 destinationTopology,
                 ResolveRotationKind(context.MovementPhaseResult.SelectedGroups, sourceTopology, destinationTopology));
+        }
+
+        private static void BuildTransitionVisibilityPresentation(
+            in TickPresentationBuildContext context,
+            IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            List<TickTransitionVisibilityChange> transitionVisibilityChanges)
+        {
+            var sourceTopology = context.PreMovementSnapshot.Topology;
+            var destinationTopology = context.FinalAuthoritativeSnapshot.Topology;
+            if (sourceTopology.Equals(destinationTopology))
+            {
+                return;
+            }
+
+            var excludedEntityIds = CollectTransitionVisibilityExcludedEntityIds(
+                context.MovementPhaseResult.SelectedGroups,
+                visibilityChanges);
+            var preMovementEntities = new List<EntityState>();
+            context.PreMovementSnapshot.EnumerateEntitiesOrdered(preMovementEntities);
+
+            for (var i = 0; i < preMovementEntities.Count; i++)
+            {
+                var entity = preMovementEntities[i];
+                if (excludedEntityIds.Contains(entity.entityId) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, sourceTopology))
+                {
+                    continue;
+                }
+
+                if (context.FinalAuthoritativeSnapshot.TryGetEntity(entity.entityId, out var destinationEntity) &&
+                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(destinationEntity, destinationTopology))
+                {
+                    continue;
+                }
+
+                transitionVisibilityChanges.Add(
+                    new TickTransitionVisibilityChange(
+                        entity.entityId,
+                        TickTransitionVisibilityMode.RetainUntilTransitionComplete,
+                        entity.position,
+                        sourceTopology,
+                        entity.facing));
+            }
+
+            var finalEntities = new List<EntityState>();
+            context.FinalAuthoritativeSnapshot.EnumerateEntitiesOrdered(finalEntities);
+
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (excludedEntityIds.Contains(entity.entityId) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, destinationTopology))
+                {
+                    continue;
+                }
+
+                if (context.PreMovementSnapshot.TryGetEntity(entity.entityId, out var sourceEntity) &&
+                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(sourceEntity, sourceTopology))
+                {
+                    continue;
+                }
+
+                transitionVisibilityChanges.Add(
+                    new TickTransitionVisibilityChange(
+                        entity.entityId,
+                        TickTransitionVisibilityMode.ShowAtTransitionStart,
+                        entity.position,
+                        destinationTopology,
+                        entity.facing));
+            }
         }
 
         private static void AppendEntityMotions(
@@ -365,6 +442,29 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return TickEntityMotionKind.None;
+        }
+
+        private static HashSet<int> CollectTransitionVisibilityExcludedEntityIds(
+            IReadOnlyList<ActionGroup> selectedGroups,
+            IReadOnlyList<TickVisibilityChange> visibilityChanges)
+        {
+            var excludedEntityIds = new HashSet<int>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                {
+                    excludedEntityIds.Add(group.Moves[moveIndex].EntityId);
+                }
+            }
+
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                excludedEntityIds.Add(visibilityChanges[i].EntityId);
+            }
+
+            return excludedEntityIds;
         }
 
         private static bool TryResolveEntityType(

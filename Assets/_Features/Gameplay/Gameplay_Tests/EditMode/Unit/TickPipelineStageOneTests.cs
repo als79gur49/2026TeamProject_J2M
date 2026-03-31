@@ -948,7 +948,79 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyReserved|Bottom=Front|Front=Ceiling|ReservedBy=1",
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=True",
+                },
+                rejectedReasons);
+        }
+
+        [Test]
+        public void Movement_TopologyExclusive_RejectsLaterOrdinaryCandidateAfterTopologySelected()
+        {
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreateRotateGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 10,
+                    priority: 10,
+                    source: new SurfaceCell(FaceId.Floor, 0, 1),
+                    destination: new SurfaceCell(FaceId.Front, 0, 0),
+                    rotationKind: CubeRotationKind.Forward,
+                    updatedTopology: new CubeTopologyState(FaceId.Front)),
+                CreateMoveGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 20,
+                    priority: 5,
+                    new MoveAction(entityId: 20, source: new Vector2Int(2, 0), destination: new Vector2Int(1, 0), facing: Direction.Left)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=True",
+                },
+                rejectedReasons);
+        }
+
+        [Test]
+        public void Movement_TopologyExclusive_RejectsTopologyCandidateWhenOrdinaryGroupAlreadySelected()
+        {
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreateMoveGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 20,
+                    priority: 10,
+                    new MoveAction(entityId: 20, source: new Vector2Int(2, 0), destination: new Vector2Int(1, 0), facing: Direction.Left)),
+                CreateRotateGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 10,
+                    priority: 5,
+                    source: new SurfaceCell(FaceId.Floor, 0, 1),
+                    destination: new SurfaceCell(FaceId.Front, 0, 0),
+                    rotationKind: CubeRotationKind.Forward,
+                    updatedTopology: new CubeTopologyState(FaceId.Front)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=10|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=False",
                 },
                 rejectedReasons);
         }
@@ -1116,6 +1188,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData.VisibilityChanges
                     .Select(change => (change.EntityId, change.ChangeKind))
                     .ToArray());
+            Assert.That(presentationData.TransitionVisibilityChanges, Is.Empty);
+        }
+
+        [Test]
+        public void TickPresentationDataBuilder_BuildsTransitionVisibilityPresentationRecordsForTopologyPassengers()
+        {
+            var initialTopology = new CubeTopologyState(FaceId.Floor);
+            var rotatedTopology = new CubeTopologyState(FaceId.Front);
+            var actorSourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var actorDestinationCell = new SurfaceCell(FaceId.Front, 0, 0);
+            var retainedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var shownCell = new SurfaceCell(FaceId.Ceiling, 2, 1);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1));
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, actorSourceCell, Direction.Up),
+                    CreateEntity(20, EntityType.Box, retainedCell, Direction.Left),
+                    CreateEntity(30, EntityType.Box, shownCell, Direction.Right),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                initialTopology).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(10, EntityType.Unit, actorDestinationCell, Direction.Up),
+                    CreateEntity(20, EntityType.Box, retainedCell, Direction.Left),
+                    CreateEntity(30, EntityType.Box, shownCell, Direction.Right),
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                rotatedTopology).CreateSnapshot();
+
+            var movementGroup = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.Move);
+            movementGroup.AssignGroupId(1);
+            movementGroup.Moves.Add(new MoveAction(10, actorSourceCell, actorDestinationCell, Direction.Up));
+            movementGroup.TopologyChanges.Add(new TopologyChangeAction(CubeRotationKind.Forward, rotatedTopology));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(movementGroup),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (
+                        EntityId: 20,
+                        Mode: TickTransitionVisibilityMode.RetainUntilTransitionComplete,
+                        Cell: retainedCell,
+                        Topology: initialTopology,
+                        Facing: Direction.Left),
+                    (
+                        EntityId: 30,
+                        Mode: TickTransitionVisibilityMode.ShowAtTransitionStart,
+                        Cell: shownCell,
+                        Topology: rotatedTopology,
+                        Facing: Direction.Right),
+                },
+                presentationData.TransitionVisibilityChanges
+                    .Select(change => (change.EntityId, change.Mode, change.Cell, change.Topology, change.Facing))
+                    .ToArray());
+            Assert.That(presentationData.VisibilityChanges, Is.Empty);
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

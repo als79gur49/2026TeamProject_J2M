@@ -94,6 +94,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHostConfiguration_CreateTimingProfile_DefaultsTopologyMotionDurationToPushAndAllowsOverride()
+        {
+            var configuration = new GameplaySceneHostConfiguration
+            {
+                PushMotionDurationSeconds = 0.25f,
+                TickIntervalSeconds = 0.2f,
+            };
+
+            var defaultProfile = configuration.CreateTimingProfile();
+
+            Assert.That(defaultProfile.PushMotionDurationSeconds, Is.EqualTo(0.25f));
+            Assert.That(defaultProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.25f));
+
+            configuration.TopologyMotionDurationSeconds = 0.45f;
+
+            var overriddenProfile = configuration.CreateTimingProfile();
+
+            Assert.That(overriddenProfile.PushMotionDurationSeconds, Is.EqualTo(0.25f));
+            Assert.That(overriddenProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
+        }
+
+        [Test]
         public void GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot");
@@ -943,6 +965,158 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayTickViewPresenter_PresentationPhase_TransitionsBetweenIdleEntityMotionAndTopologyTransition()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PresentationPhase_TransitionsBetweenIdleEntityMotionAndTopologyTransition");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var rotatedTopology = new CubeTopologyState(FaceId.Front);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    initialTopology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    },
+                    initialTopology);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+                Assert.That(presenter.IsPresentationActive, Is.False);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 1, 0)),
+                        },
+                        initialTopology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(
+                                    10,
+                                    TickEntityMotionKind.Move,
+                                    new SurfaceCell(FaceId.Floor, 0, 0),
+                                    new SurfaceCell(FaceId.Floor, 1, 0)),
+                            })));
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+                Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+                Assert.That(presenter.IsPresentationActive, Is.False);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 1, 0)),
+                        },
+                        rotatedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>())));
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
+                Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.True);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+                Assert.That(presenter.IsPresentationActive, Is.False);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_PresentationPhase_TreatsVisibilityTrackAsEntityMotion()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PresentationPhase_TreatsVisibilityTrackAsEntityMotion");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var topology = new CubeTopologyState(FaceId.Floor);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(
+                                    10,
+                                    TickVisibilityChangeKind.Remove,
+                                    new SurfaceCell(FaceId.Floor, 0, 0),
+                                    topology,
+                                    Direction.Up),
+                            })));
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+                Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.IsTopologyTransitionActive, Is.False);
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation");
@@ -995,7 +1169,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickEntityMotion>(),
                             new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
                             Array.Empty<TickVisibilityChange>())));
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
 
                 Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.GreaterThan(0.1f));
                 Assert.That(Quaternion.Angle(boardRoot.transform.localRotation, presenter.PresentedBoardRotation), Is.LessThan(0.001f));
@@ -1010,10 +1184,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.LessThan(0.001f));
                 Assert.That(Vector3.Distance(view.transform.position, destinationPosition), Is.GreaterThan(0.01f));
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
 
                 Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.LessThan(0.001f));
                 Assert.That(Vector3.Distance(view.transform.position, destinationPosition), Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_TopologyMotion_UsesDedicatedDuration()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_UsesDedicatedDuration");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                registry.ConfigureSearchRoot(boardRoot.EntityRoot);
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(boardRoot.EntityRoot));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    topologyMotionDurationSeconds: 0.4f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var rotatedTopology = new CubeTopologyState(FaceId.Front);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    initialTopology,
+                    1f,
+                    timingProfile,
+                    boardRoot);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    },
+                    initialTopology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                        },
+                        rotatedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>())));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
+                Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.GreaterThan(0.1f));
+
+                presenter.UpdatePresentation(
+                    timingProfile.TopologyMotionDurationSeconds - timingProfile.PushMotionDurationSeconds);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+                Assert.That(Quaternion.Angle(presenter.PresentedBoardRotation, Quaternion.identity), Is.LessThan(0.001f));
             }
             finally
             {

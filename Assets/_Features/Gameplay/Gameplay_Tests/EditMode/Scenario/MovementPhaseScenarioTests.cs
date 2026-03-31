@@ -1040,6 +1040,87 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_TopologyChangingTick_RejectsOrdinaryCandidateInSameTick()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                    new StubMovementLogic(new RawMovementIntent(20, 50, new Vector2Int(1, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=True",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "TopologyCommitted|G=1|I=1|Rotation=Forward|Bottom=Front|Front=Ceiling",
+                    "MoveCommitted|G=1|I=1|E=10|To=Front(0,0)|Facing=Up",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+        }
+
+        [Test]
+        public void Movement_OrdinarySelection_RejectsLaterTopologyChangingCandidate()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 1)),
+                    CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 2, 0), teamId: 2, facing: Direction.Left),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(20, 150, new Vector2Int(1, 0))),
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 20, Kind: ActionGroupKind.Move) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=10|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=False",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=20|To=(1,0)|Facing=Left",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(GetEntityCell(worldState, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+        }
+
+        [Test]
         public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationHasWallBlocker()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(

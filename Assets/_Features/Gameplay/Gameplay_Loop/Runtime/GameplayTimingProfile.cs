@@ -20,6 +20,31 @@ namespace Game.Feature.Gameplay.Loop
             float flipMotionDurationSeconds,
             float flipArcHeightInCells,
             int maxTicksPerFrame)
+            : this(
+                simulationTicksPerSecond,
+                initialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds,
+                boxSlideStepIntervalSeconds,
+                projectileStepIntervalSeconds,
+                pushMotionDurationSeconds,
+                pushMotionDurationSeconds,
+                flipMotionDurationSeconds,
+                flipArcHeightInCells,
+                maxTicksPerFrame)
+        {
+        }
+
+        public GameplayTimingProfile(
+            int simulationTicksPerSecond,
+            float initialMoveDelaySeconds,
+            float repeatedMoveIntervalSeconds,
+            float boxSlideStepIntervalSeconds,
+            float projectileStepIntervalSeconds,
+            float pushMotionDurationSeconds,
+            float topologyMotionDurationSeconds,
+            float flipMotionDurationSeconds,
+            float flipArcHeightInCells,
+            int maxTicksPerFrame)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -63,6 +88,13 @@ namespace Game.Feature.Gameplay.Loop
                     "Push motion duration must be greater than zero.");
             }
 
+            if (topologyMotionDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(topologyMotionDurationSeconds),
+                    "Topology motion duration must be greater than zero.");
+            }
+
             if (flipMotionDurationSeconds <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
@@ -91,6 +123,7 @@ namespace Game.Feature.Gameplay.Loop
             BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
             ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
+            TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
             FlipArcHeightInCells = flipArcHeightInCells;
             MaxTicksPerFrame = maxTicksPerFrame;
@@ -113,6 +146,8 @@ namespace Game.Feature.Gameplay.Loop
         public float ProjectileStepIntervalSeconds { get; }
 
         public float PushMotionDurationSeconds { get; }
+
+        public float TopologyMotionDurationSeconds { get; }
 
         public float FlipMotionDurationSeconds { get; }
 

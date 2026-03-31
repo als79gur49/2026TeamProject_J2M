@@ -89,21 +89,39 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
             }
 
+            if (IsPresentationLocked())
+            {
+                AccumulateLockedTime(deltaTime);
+                return 0;
+            }
+
             _accumulatedTime += deltaTime;
 
             var executedTickCount = 0;
             while (_accumulatedTime >= _simulationTickIntervalSeconds &&
                    executedTickCount < _maxTicksPerFrame)
             {
+                if (IsPresentationLocked())
+                {
+                    ClampAccumulatedTime();
+                    break;
+                }
+
                 _accumulatedTime -= _simulationTickIntervalSeconds;
-                RunSingleTick();
+                RunSingleTickUnlocked();
                 executedTickCount++;
+
+                if (IsPresentationLocked())
+                {
+                    ClampAccumulatedTime();
+                    break;
+                }
             }
 
             if (executedTickCount == _maxTicksPerFrame &&
                 _accumulatedTime >= _simulationTickIntervalSeconds)
             {
-                _accumulatedTime = Mathf.Min(_accumulatedTime, _simulationTickIntervalSeconds);
+                ClampAccumulatedTime();
             }
 
             return executedTickCount;
@@ -112,7 +130,16 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
+            if (IsPresentationLocked())
+            {
+                return null;
+            }
 
+            return RunSingleTickUnlocked();
+        }
+
+        private TickResult RunSingleTickUnlocked()
+        {
             var tickIndex = _runner.NextTickIndex;
             var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
             var playerCommand = BuildPlayerCommand(tickIndex, sampledDirection);
@@ -286,6 +313,22 @@ namespace Game.Feature.Gameplay.Host
             _hasBufferedPush = false;
             _sampledMoveInput = Vector2.zero;
             _inputRepeatCooldown?.Reset();
+        }
+
+        private void AccumulateLockedTime(float deltaTime)
+        {
+            _accumulatedTime += deltaTime;
+            ClampAccumulatedTime();
+        }
+
+        private void ClampAccumulatedTime()
+        {
+            _accumulatedTime = Mathf.Min(_accumulatedTime, _simulationTickIntervalSeconds);
+        }
+
+        private bool IsPresentationLocked()
+        {
+            return _presenter != null && _presenter.IsPresentationActive;
         }
 
         private PlayerTickCommand BuildPlayerCommand(int tickIndex, Direction sampledDirection)
