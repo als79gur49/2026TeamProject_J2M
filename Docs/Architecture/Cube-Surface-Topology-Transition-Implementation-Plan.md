@@ -401,9 +401,23 @@
 
 ### PR 3
 
+상태:
+
+- 완료 (2026-03-31)
+
 - 7단계 transition projection
 - 8단계 presenter transition rendering
 - 9단계 테스트 및 showcase 검증
+
+구현 메모:
+
+- `GameplayCubeProjector`에 `TryProjectTransitionEntityCell(...)`, `TryResolveTransitionEntityRotation(...)`를 추가해 topology-changing tick 동안 `Source Active Faces + Destination Active Faces` union만 presentation 전용으로 투영할 수 있게 했다.
+- transition projection은 destination topology local space를 기준으로 계산하고, ordinary frame에서 `sourceTopology == destinationTopology`이면 기존 `TryProjectEntityCell(...)` / `TryResolveEntityRotation(...)`과 동일한 결과를 반환하도록 고정했다.
+- `GameplayTickViewPresenter`는 `transition visibility state cache`를 추가해 `TransitionVisibilityChanges`를 실제 렌더링에 반영하고, processing entity set을 `committed + retained + transition visibility` union으로 확장했다.
+- topology-changing motion의 source/destination pose와 ordinary visibility retain pose도 transition projection 경로를 사용하도록 바꿔, 회전 시작 프레임의 local pose pop과 source-only retain 누락을 줄였다.
+- topology transition 종료 프레임에는 source-only retained transition state를 정리해 destination topology 기준 visible set만 남도록 cleanup을 고정했다.
+- `RuntimeBoardBoundsGuardTests`에 transition projection face-union/ordinary-equivalence, source-only retain cleanup, topology-changing motion start pose projection 계약을 추가했다.
+- `Game.Feature.Gameplay.Tests.csproj`는 Windows MSBuild로 빌드 통과를 확인했다. Unity batch `-runTests`는 이 환경에서 스크립트 리컴파일까지만 수행하고 result XML을 남기지 않아, 수동 showcase 검증은 별도 실행이 필요하다.
 
 ## 9. 완료 정의
 
