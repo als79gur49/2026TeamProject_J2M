@@ -36,7 +36,19 @@ namespace Game.Feature.Gameplay.Host
 
         public static GameplayCameraSettings CreateRuntimeDefault()
         {
-            return new GameplayCameraSettings();
+            return new GameplayCameraSettings
+            {
+                PitchDegrees = 18f,
+                YawDegrees = 0f,
+                DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                ManualDistance = 8f,
+                FramingPadding = 1.2f,
+                PerspectiveFieldOfView = 60f,
+                NearClipPlane = 0.03f,
+                FarClipPlane = 100f,
+                ClearFlags = CameraClearFlags.Skybox,
+                BackgroundColor = Color.black,
+            };
         }
 
         public static GameplayCameraSettings CreateShowcaseDefault()

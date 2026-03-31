@@ -21,6 +21,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private int playerEntityId = 10;
         [SerializeField] private int repeatedMoveIntervalTicks = 2;
         [SerializeField] private float tickIntervalSeconds = 0.2f;
+        [SerializeField] private float topologyMotionDurationSeconds = -1f;
+        [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
 
         private void Awake()
         {
@@ -68,6 +70,8 @@ namespace Game.Feature.Gameplay.Host
                 RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
                 SnapViewCameraToTarget = configureMainCamera,
                 TickIntervalSeconds = tickIntervalSeconds,
+                TopologyMotionDurationSeconds = topologyMotionDurationSeconds,
+                TopologyRotationVisualMapping = topologyRotationVisualMapping,
                 ViewCamera = configureMainCamera ? Camera.main : null,
             };
         }

@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private const float DefaultEntitySurfaceOffsetMultiplier = 0.08f;
         private const float ProjectileSurfaceOffsetMultiplier = 0.18f;
-        private const float ActiveFaceSeamGapMultiplier = 2f;
+        private const float ActiveFaceSeamGapMultiplier = 1f;
 
         private readonly BoardBounds _boardBounds;
         private readonly float _cellSize;

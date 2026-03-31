@@ -102,7 +102,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialTopology,
                 configuration.CellSize,
                 TimingProfile,
-                _boardRoot);
+                _boardRoot,
+                configuration.TopologyRotationVisualMapping);
             _boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,
                 configuration.CellSize,

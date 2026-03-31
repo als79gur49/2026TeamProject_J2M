@@ -8,6 +8,12 @@ using UnityEngine.InputSystem;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public enum TopologyRotationVisualMapping
+    {
+        ForwardUsesNegativeX = 0,
+        ForwardUsesPositiveX = 1,
+    }
+
     [Serializable]
     public sealed class GameplaySceneHostConfiguration
     {
@@ -26,6 +32,7 @@ namespace Game.Feature.Gameplay.Host
         public int PlayerEntityId = 1;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
+        public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
         public float FlipMotionDurationSeconds = -1f;
         public float FlipArcHeightInCells = GameplayTimingProfile.DefaultFlipArcHeightInCells;
         public float BoxSlideStepIntervalSeconds = -1f;

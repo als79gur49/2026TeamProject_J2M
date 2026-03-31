@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_Creates3DScaffoldAndRemovesLegacyLabels()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            var scene = CreateIsolatedTestScene();
 
             try
             {
@@ -58,14 +58,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                EditorSceneManager.CloseScene(scene, removeScene: true);
+                ResetIsolatedTestScene();
             }
         }
 
         [Test]
         public void GameplayPresentationCleanup_RemovesLegacyGridOriginContracts()
         {
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            var scene = CreateIsolatedTestScene();
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
 
             try
@@ -75,10 +75,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
                 SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "topologyMotionDurationSeconds", 0.45f);
+                SetBaseInstallerField(
+                    installer,
+                    "topologyRotationVisualMapping",
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
 
                 var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
                     "CreateConfiguration",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    binder: null,
+                    types: new[] { typeof(BoardBounds) },
+                    modifiers: null);
 
                 Assert.That(createConfiguration, Is.Not.Null);
 
@@ -91,6 +99,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
                 Assert.That(configuration.CameraSettings, Is.Not.Null);
                 AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
+                Assert.That(configuration.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
+                Assert.That(
+                    configuration.TopologyRotationVisualMapping,
+                    Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(
                         "GridOrigin",
@@ -105,7 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(actions);
-                EditorSceneManager.CloseScene(scene, removeScene: true);
+                ResetIsolatedTestScene();
             }
         }
 
@@ -119,6 +131,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installer = installerObject.AddComponent<SampleSceneInstaller>();
                 SetPrivateField(typeof(SampleSceneInstaller), installer, "actions", actions);
+                SetPrivateField(typeof(SampleSceneInstaller), installer, "topologyMotionDurationSeconds", 0.6f);
+                SetPrivateField(
+                    typeof(SampleSceneInstaller),
+                    installer,
+                    "topologyRotationVisualMapping",
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
 
                 var createConfiguration = typeof(SampleSceneInstaller).GetMethod(
                     "CreateConfiguration",
@@ -134,6 +152,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(configuration.CameraSettings, Is.Not.Null);
                 AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
+                Assert.That(configuration.TopologyMotionDurationSeconds, Is.EqualTo(0.6f));
+                Assert.That(
+                    configuration.TopologyRotationVisualMapping,
+                    Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
             }
             finally
             {
@@ -150,6 +172,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
+        }
+
+        private static Scene CreateIsolatedTestScene()
+        {
+            return EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+        }
+
+        private static void ResetIsolatedTestScene()
+        {
+            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
         }
 
         private static void SetPrivateField(Type type, object target, string fieldName, object value)

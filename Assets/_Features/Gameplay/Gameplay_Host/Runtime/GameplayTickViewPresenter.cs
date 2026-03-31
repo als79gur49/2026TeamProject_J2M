@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Host
         private Quaternion _presentedBoardRotation = Quaternion.identity;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
+        private TopologyRotationVisualMapping _topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
         private GameplayEntityViewBinder _viewBinder;
 
         public event Action<CubeTopologyState> TopologyCommitted;
@@ -68,7 +69,8 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState initialTopology,
             float cellSize,
             GameplayTimingProfile timingProfile,
-            GameplayBoardRoot boardRoot = null)
+            GameplayBoardRoot boardRoot = null,
+            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX)
         {
             if (viewBinder == null)
             {
@@ -79,6 +81,7 @@ namespace Game.Feature.Gameplay.Host
             _viewBinder = viewBinder;
             _projector = new GameplayCubeProjector(boardBounds, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _topologyRotationVisualMapping = topologyRotationVisualMapping;
             _committedTopology = initialTopology;
             _presentedBoardRotation = Quaternion.identity;
             _hasAnyCommittedFrame = false;
@@ -378,6 +381,7 @@ namespace Game.Feature.Gameplay.Host
                         startLocalPose,
                         endLocalPose,
                         ResolveMotionDurationSeconds(motion.MotionKind),
+                        IsTopologyTransitionPresentation(presentationData.TopologyMotion),
                         _timingProfile.FlipArcHeightInCells * _projector.CellSize));
 
                 if (!_committedLocalTargetPoses.ContainsKey(motion.EntityId))
@@ -631,6 +635,56 @@ namespace Game.Feature.Gameplay.Host
             var entityType = _entityTypesByEntityId.TryGetValue(entityId, out var knownEntityType)
                 ? knownEntityType
                 : EntityType.Unit;
+            if (!TryResolveTransitionStartRotation(
+                    sourceTopology,
+                    destinationTopology,
+                    out var transitionStartRotation))
+            {
+                return TryResolveLegacyTransitionLocalPose(
+                    cell,
+                    sourceTopology,
+                    destinationTopology,
+                    entityType,
+                    facing,
+                    out pose);
+            }
+
+            if (!_projector.TryProjectTransitionEntityCell(
+                    cell,
+                    destinationTopology,
+                    sourceTopology,
+                    entityType,
+                    out var projectedPose))
+            {
+                return false;
+            }
+
+            var localRotation = _projector.TryResolveTransitionEntityRotation(
+                cell,
+                destinationTopology,
+                sourceTopology,
+                facing,
+                out var resolvedRotation)
+                ? resolvedRotation
+                : projectedPose.LocalRotation;
+            var inverseTransitionStartRotation = Quaternion.Inverse(transitionStartRotation);
+
+            // Keep the first rendered world pose aligned with the pre-rotation board before the board root animates back to identity.
+            pose = new GameplayEntityPose(
+                inverseTransitionStartRotation * projectedPose.LocalPosition,
+                inverseTransitionStartRotation * localRotation);
+            return true;
+        }
+
+        private bool TryResolveLegacyTransitionLocalPose(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            EntityType entityType,
+            Direction facing,
+            out GameplayEntityPose pose)
+        {
+            pose = default;
             if (!_projector.TryProjectTransitionEntityCell(
                     cell,
                     sourceTopology,
@@ -695,6 +749,32 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return durationSeconds;
+        }
+
+        private bool TryResolveTransitionStartRotation(
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            out Quaternion transitionStartRotation)
+        {
+            transitionStartRotation = Quaternion.identity;
+            if (sourceTopology.Equals(destinationTopology))
+            {
+                return true;
+            }
+
+            if (destinationTopology.Equals(sourceTopology.Rotate(CubeRotationKind.Forward)))
+            {
+                transitionStartRotation = ResolveTopologyRotationOffset(CubeRotationKind.Forward);
+                return true;
+            }
+
+            if (destinationTopology.Equals(sourceTopology.Rotate(CubeRotationKind.Backward)))
+            {
+                transitionStartRotation = ResolveTopologyRotationOffset(CubeRotationKind.Backward);
+                return true;
+            }
+
+            return false;
         }
 
         private void BuildProcessingEntityIds()
@@ -768,12 +848,16 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private static Quaternion ResolveTopologyRotationOffset(CubeRotationKind rotationKind)
+        private Quaternion ResolveTopologyRotationOffset(CubeRotationKind rotationKind)
         {
+            var forwardDegrees = _topologyRotationVisualMapping == TopologyRotationVisualMapping.ForwardUsesPositiveX
+                ? 90f
+                : -90f;
+
             return rotationKind switch
             {
-                CubeRotationKind.Forward => Quaternion.Euler(90f, 0f, 0f),
-                CubeRotationKind.Backward => Quaternion.Euler(-90f, 0f, 0f),
+                CubeRotationKind.Forward => Quaternion.Euler(forwardDegrees, 0f, 0f),
+                CubeRotationKind.Backward => Quaternion.Euler(-forwardDegrees, 0f, 0f),
                 _ => Quaternion.identity,
             };
         }
@@ -1078,6 +1162,7 @@ namespace Game.Feature.Gameplay.Host
         private sealed class MotionClip
         {
             private readonly float _flipArcHeightWorld;
+            private readonly bool _interpolateRotation;
             private readonly TickEntityMotionKind _motionKind;
 
             private MotionClip(
@@ -1085,9 +1170,11 @@ namespace Game.Feature.Gameplay.Host
                 GameplayEntityPose startPose,
                 GameplayEntityPose endPose,
                 float durationSeconds,
+                bool interpolateRotation,
                 float flipArcHeightWorld)
             {
                 _motionKind = motionKind;
+                _interpolateRotation = interpolateRotation;
                 _flipArcHeightWorld = flipArcHeightWorld;
                 StartPose = startPose;
                 EndPose = endPose;
@@ -1114,6 +1201,7 @@ namespace Game.Feature.Gameplay.Host
                 GameplayEntityPose startPose,
                 GameplayEntityPose endPose,
                 float durationSeconds,
+                bool interpolateRotation,
                 float flipArcHeightWorld)
             {
                 return new MotionClip(
@@ -1121,6 +1209,7 @@ namespace Game.Feature.Gameplay.Host
                     startPose,
                     endPose,
                     Mathf.Max(durationSeconds, 0.0001f),
+                    interpolateRotation,
                     flipArcHeightWorld);
             }
 
@@ -1170,7 +1259,9 @@ namespace Game.Feature.Gameplay.Host
                 var easedT = EaseOutQuad(t);
                 return new GameplayEntityPose(
                     Vector3.LerpUnclamped(StartPose.Position, EndPose.Position, easedT),
-                    EndPose.Rotation);
+                    _interpolateRotation
+                        ? Quaternion.SlerpUnclamped(StartPose.Rotation, EndPose.Rotation, easedT)
+                        : EndPose.Rotation);
             }
 
             private GameplayEntityPose SampleFlip(float t)

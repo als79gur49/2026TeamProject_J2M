@@ -40,9 +40,10 @@ namespace Game.Feature.Gameplay.Host
 
         public void ApplyPresentationRotation(Quaternion localRotation, Vector3 pivotLocalPoint)
         {
+            var pivotAnchorLocalPosition = transform.localPosition + (transform.localRotation * presentationPivotLocalPoint);
             presentationPivotLocalPoint = pivotLocalPoint;
             transform.localRotation = localRotation;
-            transform.localPosition = pivotLocalPoint - (localRotation * pivotLocalPoint);
+            transform.localPosition = pivotAnchorLocalPosition - (localRotation * pivotLocalPoint);
             transform.localScale = Vector3.one;
 
             if (cameraTargetRoot != null)
