@@ -303,6 +303,37 @@
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/TickReplayDeterminismTests.cs`에 enemy FSM replay sequence 고정 테스트를 추가해 per-tick hash/trace/final dump 안정성을 검증
 - 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs`에 presenter 적용 유무가 이후 tick authoritative 결과를 바꾸지 않음을 검증하는 host-side isolation test를 추가
 
+### 7-7. 7단계: Showcase scene 적 배치
+
+2026-04-01 구현 완료.
+
+목표는 실제 showcase scene에서 적 FSM을 수동 검증 가능한 상태로 만드는 것이다.
+
+작업:
+
+- `CombinedGameplayShowcaseInstaller`에 실제 적 엔티티 2기 추가
+- 플레이어 시작 face에서 즉시 `Chase -> Attack -> Recover`가 드러나도록 초기 거리 조정
+- 면 전환 이후에도 같은 FSM을 다시 검증할 수 있게 후속 face에 적 배치
+- 기존 box/traversal lane을 완전히 막지 않도록 적 시작 셀을 전용 검증 셀로 분리
+
+대상 파일:
+
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`
+
+완료 조건:
+
+- scene 실행 직후 floor face에서 적 FSM 추적이 보인다.
+- player가 front face로 넘어간 뒤 동일 FSM을 한 번 더 검증할 수 있다.
+- 적 배치가 기존 퍼즐 오브젝트와 충돌하지 않는다.
+
+구현 메모:
+
+- floor enemy는 `Floor (2,4)`에서 시작해 player 시작점 `Floor (1,1)`을 sense range 안에서 추적하게 배치
+- front enemy는 `Front (2,2)`에서 시작해 surface transition 이후 같은 FSM을 재검증하게 배치
+- 두 적 모두 `EnemyAiMode.Patrol`로 시작해 authoritative 전이는 runtime tick에서만 일어나게 유지
+- installer test로 위치, team, 초기 mode, player와의 초기 거리 의도를 고정
+
 ## 8. 권장 타입 구조
 
 초기 target-state 기준 권장 타입 구조는 다음과 같다.
