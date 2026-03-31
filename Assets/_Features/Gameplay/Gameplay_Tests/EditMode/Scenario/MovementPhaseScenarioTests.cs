@@ -1777,7 +1777,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static (MovementPhaseResult Result, WorldSnapshot SnapshotAfterMovement) RunMovementPhaseOnly(
             WorldState worldState,
             TickInput input,
-            params IEntityLogic[] entityLogics)
+            params IMovementEntityLogic[] entityLogics)
         {
             var snapshot = CreateSnapshot(worldState);
             var rawMovementIntents = new List<RawMovementIntent>();
@@ -1987,7 +1987,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
         }
 
-        private sealed class StubMovementLogic : IEntityLogic, IEntityLogicSourceBinding
+        private sealed class StubMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawMovementIntent? _movementIntent;
 
@@ -1995,6 +1995,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 _movementIntent = movementIntent;
             }
+
+            public int ControlledEntityId => _movementIntent?.SourceId ?? 0;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,
@@ -2006,30 +2008,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     buffer.Add(_movementIntent.Value);
                 }
             }
-
-            public void CollectAttackIntents(
-                WorldSnapshot snapshot,
-                in TickInput input,
-                List<RawAttackIntent> buffer)
-            {
-            }
-
-            public bool ControlsEntity(int entityId, TickPhase phase)
-            {
-                return phase == TickPhase.Movement &&
-                    _movementIntent.HasValue &&
-                    _movementIntent.Value.SourceId == entityId;
-            }
         }
 
-        private sealed class ScriptedMovementLogic : IEntityLogic, IEntityLogicSourceBinding
+        private sealed class ScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
         {
+            private readonly int _controlledEntityId;
             private readonly IReadOnlyDictionary<int, RawMovementIntent> _movementIntentsByTick;
 
             public ScriptedMovementLogic(IReadOnlyDictionary<int, RawMovementIntent> movementIntentsByTick)
             {
                 _movementIntentsByTick = movementIntentsByTick;
+                _controlledEntityId = ResolveControlledEntityId(movementIntentsByTick);
             }
+
+            public int ControlledEntityId => _controlledEntityId;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,
@@ -2042,29 +2034,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 }
             }
 
-            public void CollectAttackIntents(
-                WorldSnapshot snapshot,
-                in TickInput input,
-                List<RawAttackIntent> buffer)
+            private static int ResolveControlledEntityId(IReadOnlyDictionary<int, RawMovementIntent> movementIntentsByTick)
             {
-            }
-
-            public bool ControlsEntity(int entityId, TickPhase phase)
-            {
-                if (phase != TickPhase.Movement)
+                foreach (var pair in movementIntentsByTick)
                 {
-                    return false;
+                    return pair.Value.SourceId;
                 }
 
-                foreach (var pair in _movementIntentsByTick)
-                {
-                    if (pair.Value.SourceId == entityId)
-                    {
-                        return true;
-                    }
-                }
-
-                return false;
+                return 0;
             }
         }
     }

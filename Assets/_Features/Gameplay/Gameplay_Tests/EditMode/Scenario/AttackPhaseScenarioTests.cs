@@ -98,7 +98,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
                 CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
             });
-            var entityLogics = new IEntityLogic[]
+            var entityLogics = new IAttackEntityLogic[]
             {
                 new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 30, 5)),
                 new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 20, 30, 5)),
@@ -777,7 +777,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1));
 
-            Assert.That(attackLogic.MovementCollectCallCount, Is.EqualTo(1));
+            Assert.That(attackLogic, Is.Not.InstanceOf<IMovementEntityLogic>());
             Assert.That(attackLogic.AttackCollectCallCount, Is.EqualTo(1));
             CollectionAssert.AreEqual(
                 new[] { TickPhase.Movement, TickPhase.Attack, TickPhase.Cleanup },
@@ -1043,7 +1043,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static AttackPhaseResult RunAttackPhaseOnly(
             WorldState worldState,
-            IReadOnlyList<IEntityLogic> entityLogics,
+            IReadOnlyList<IAttackEntityLogic> entityLogics,
             int tickIndex,
             TickInput input = default)
         {
@@ -1337,7 +1337,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return results;
         }
 
-        private sealed class StubCombatLogic : IEntityLogic, IEntityLogicSourceBinding
+        private sealed class StubCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
         {
             private readonly Func<WorldSnapshot, RawAttackIntent?> _attackIntentFactory;
             private readonly RawMovementIntent? _movementIntent;
@@ -1349,6 +1349,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 _movementIntent = movementIntent;
                 _attackIntentFactory = attackIntentFactory;
             }
+
+            public int ControlledEntityId => _movementIntent?.SourceId ?? 0;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,
@@ -1377,16 +1379,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     buffer.Add(attackIntent.Value);
                 }
             }
-
-            public bool ControlsEntity(int entityId, TickPhase phase)
-            {
-                return phase == TickPhase.Movement &&
-                    _movementIntent.HasValue &&
-                    _movementIntent.Value.SourceId == entityId;
-            }
         }
 
-        private sealed class TickScriptedCombatLogic : IEntityLogic
+        private sealed class TickScriptedCombatLogic : IAttackEntityLogic
         {
             private readonly IReadOnlyDictionary<int, RawAttackIntent> _attackIntentsByTick;
             private readonly int _sourceId;
@@ -1401,13 +1396,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             public void SetTickIndex(int tickIndex)
             {
                 _currentTickIndex = tickIndex;
-            }
-
-            public void CollectMovementIntents(
-                WorldSnapshot snapshot,
-                in TickInput input,
-                List<RawMovementIntent> buffer)
-            {
             }
 
             public void CollectAttackIntents(
@@ -1434,7 +1422,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        private sealed class PriorityTargetSelectionLogic : IEntityLogic
+        private sealed class PriorityTargetSelectionLogic : IAttackEntityLogic
         {
             private readonly int[] _candidateTargetIds;
             private readonly int _priority;
@@ -1447,17 +1435,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 _candidateTargetIds = candidateTargetIds ?? throw new ArgumentNullException(nameof(candidateTargetIds));
             }
 
-            public int MovementCollectCallCount { get; private set; }
-
             public int AttackCollectCallCount { get; private set; }
-
-            public void CollectMovementIntents(
-                WorldSnapshot snapshot,
-                in TickInput input,
-                List<RawMovementIntent> buffer)
-            {
-                MovementCollectCallCount++;
-            }
 
             public void CollectAttackIntents(
                 WorldSnapshot snapshot,

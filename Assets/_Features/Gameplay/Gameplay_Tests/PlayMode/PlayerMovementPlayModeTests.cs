@@ -737,7 +737,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return actions;
         }
 
-        private sealed class FireProjectileLogic : IEntityLogic, IEntityLogicSourceBinding
+        private sealed class FireProjectileLogic : IAttackEntityLogic, IEntityLogicSourceBinding
         {
             private readonly int _priority;
             private readonly int _sourceId;
@@ -748,12 +748,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 _priority = priority;
             }
 
-            public void CollectMovementIntents(
-                WorldSnapshot snapshot,
-                in TickInput input,
-                List<RawMovementIntent> buffer)
-            {
-            }
+            public int ControlledEntityId => _sourceId;
 
             public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
             {
@@ -761,11 +756,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     buffer.Add(RawAttackIntent.CreateFireProjectile(_sourceId, _priority));
                 }
-            }
-
-            public bool ControlsEntity(int entityId, TickPhase phase)
-            {
-                return phase == TickPhase.Attack && entityId == _sourceId;
             }
         }
     }

@@ -332,26 +332,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void IEntityLogic_ExposesPhaseSpecificRawIntentCollectionContract()
+        public void IEntityLogic_IsMarkerInterface()
         {
             var methods = typeof(IEntityLogic)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .ToArray();
+
+            Assert.That(methods, Is.Empty);
+        }
+
+        [Test]
+        public void PhaseSpecificEntityLogicInterfaces_ExposeRawIntentCollectionContracts()
+        {
+            var attackMethods = typeof(IAttackEntityLogic)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public)
+                .OrderBy(method => method.Name)
+                .ToArray();
+            var movementMethods = typeof(IMovementEntityLogic)
                 .GetMethods(BindingFlags.Instance | BindingFlags.Public)
                 .OrderBy(method => method.Name)
                 .ToArray();
 
-            Assert.That(methods.Select(method => method.Name), Is.EqualTo(new[]
+            Assert.That(attackMethods.Select(method => method.Name), Is.EqualTo(new[]
             {
                 "CollectAttackIntents",
+            }));
+            Assert.That(movementMethods.Select(method => method.Name), Is.EqualTo(new[]
+            {
                 "CollectMovementIntents",
             }));
 
-            var attackParameters = methods[0].GetParameters();
+            var attackParameters = attackMethods[0].GetParameters();
             Assert.That(attackParameters.Length, Is.EqualTo(3));
             Assert.That(attackParameters[0].ParameterType, Is.EqualTo(typeof(WorldSnapshot)));
             Assert.That(attackParameters[1].ParameterType, Is.EqualTo(typeof(TickInput).MakeByRefType()));
             Assert.That(attackParameters[2].ParameterType, Is.EqualTo(typeof(List<RawAttackIntent>)));
 
-            var movementParameters = methods[1].GetParameters();
+            var movementParameters = movementMethods[0].GetParameters();
             Assert.That(movementParameters.Length, Is.EqualTo(3));
             Assert.That(movementParameters[0].ParameterType, Is.EqualTo(typeof(WorldSnapshot)));
             Assert.That(movementParameters[1].ParameterType, Is.EqualTo(typeof(TickInput).MakeByRefType()));

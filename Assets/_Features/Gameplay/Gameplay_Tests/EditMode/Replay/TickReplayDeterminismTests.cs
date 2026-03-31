@@ -902,7 +902,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
         }
 
-        private sealed class ScriptedCombatLogic : IEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
+        private sealed class ScriptedCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawAttackIntent? _attackIntent;
             private readonly Dictionary<int, RawAttackIntent> _attackIntentsByTick;
@@ -921,6 +921,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 _attackIntent = attackIntent;
                 _attackIntentsByTick = attackIntentsByTick ?? new Dictionary<int, RawAttackIntent>();
             }
+
+            public int ControlledEntityId => _sourceId;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,
@@ -960,13 +962,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
             public void SetReplayTickIndex(int tickIndex)
             {
                 _currentTickIndex = tickIndex;
-            }
-
-            public bool ControlsEntity(int entityId, TickPhase phase)
-            {
-                return phase == TickPhase.Movement &&
-                    _movementIntentsByTick.Count > 0 &&
-                    _sourceId == entityId;
             }
         }
     }

@@ -1,12 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
-using Game.Feature.Gameplay.Attack;
-using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Tests;
@@ -87,21 +84,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_PushCommand_DoesNotProduceRawAttackIntent()
+        public void PlayerLogic_ImplementsMovementContractOnly()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-            });
             var logic = new PlayerLogic(entityId: 10);
-            var buffer = new List<RawAttackIntent>();
 
-            logic.CollectAttackIntents(
-                worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Push(Direction.Left)),
-                buffer);
-
-            Assert.That(buffer, Is.Empty);
+            Assert.That(logic, Is.InstanceOf<IMovementEntityLogic>());
+            Assert.That(logic, Is.Not.InstanceOf<IAttackEntityLogic>());
         }
 
         [Test]
@@ -169,15 +157,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_ControlsEntity_ForMovementPhaseOnly()
+        public void PlayerLogic_ExposesControlledEntityId()
         {
             var logic = new PlayerLogic(entityId: 10);
 
-            Assert.That(logic.ControlsEntity(10, TickPhase.Movement), Is.True);
-            Assert.That(logic.ControlsEntity(10, TickPhase.Attack), Is.False);
-            Assert.That(logic.ControlsEntity(10, TickPhase.Cleanup), Is.False);
-            Assert.That(logic.ControlsEntity(20, TickPhase.Movement), Is.False);
-            Assert.That(logic.ControlsEntity(20, TickPhase.Attack), Is.False);
+            Assert.That(logic.ControlledEntityId, Is.EqualTo(10));
         }
 
         [Test]

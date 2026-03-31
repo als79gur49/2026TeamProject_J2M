@@ -1404,7 +1404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private sealed class StubEntityLogic : IEntityLogic, IEntityLogicSourceBinding
+        private sealed class StubEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
         {
             private readonly RawAttackIntent? _attackIntent;
             private readonly RawMovementIntent? _movementIntent;
@@ -1414,6 +1414,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 _movementIntent = movementIntent;
                 _attackIntent = attackIntent;
             }
+
+            public int ControlledEntityId => _movementIntent?.SourceId ?? _attackIntent?.SourceId ?? 0;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,
@@ -1436,13 +1438,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buffer.Add(_attackIntent.Value);
                 }
             }
-
-            public bool ControlsEntity(int entityId, TickPhase phase)
-            {
-                return phase == TickPhase.Movement &&
-                    _movementIntent.HasValue &&
-                    _movementIntent.Value.SourceId == entityId;
-            }
         }
 
         private sealed class StubEntityLogicProvider : ISnapshotEntityLogicProvider
@@ -1454,23 +1449,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 _dynamicEntityLogics = dynamicEntityLogics;
             }
 
-            public IReadOnlyList<IEntityLogic> Build(
+            public EntityLogicSet Build(
                 WorldSnapshot snapshot,
                 IReadOnlyList<IEntityLogic> staticEntityLogics)
             {
-                var entityLogics = new List<IEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
+                var movementLogics = new List<IMovementEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
+                var attackLogics = new List<IAttackEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
 
                 for (var i = 0; i < staticEntityLogics.Count; i++)
                 {
-                    entityLogics.Add(staticEntityLogics[i]);
+                    AddEntityLogic(staticEntityLogics[i], movementLogics, attackLogics);
                 }
 
                 for (var i = 0; i < _dynamicEntityLogics.Count; i++)
                 {
-                    entityLogics.Add(_dynamicEntityLogics[i]);
+                    AddEntityLogic(_dynamicEntityLogics[i], movementLogics, attackLogics);
                 }
 
-                return entityLogics;
+                return new EntityLogicSet(movementLogics, attackLogics);
+            }
+
+            private static void AddEntityLogic(
+                IEntityLogic entityLogic,
+                List<IMovementEntityLogic> movementLogics,
+                List<IAttackEntityLogic> attackLogics)
+            {
+                if (entityLogic is IMovementEntityLogic movementLogic)
+                {
+                    movementLogics.Add(movementLogic);
+                }
+
+                if (entityLogic is IAttackEntityLogic attackLogic)
+                {
+                    attackLogics.Add(attackLogic);
+                }
             }
         }
 

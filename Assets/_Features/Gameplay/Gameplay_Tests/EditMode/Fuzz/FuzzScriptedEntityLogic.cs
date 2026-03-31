@@ -4,14 +4,13 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Tests.Replay;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Fuzz
 {
-    internal sealed class FuzzScriptedEntityLogic : IEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
+    internal sealed class FuzzScriptedEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding
     {
         private readonly FuzzEntityScript _script;
         private int _currentTickIndex;
@@ -20,6 +19,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         {
             _script = script ?? throw new ArgumentNullException(nameof(script));
         }
+
+        public int ControlledEntityId => _script.EntityId;
 
         public void CollectMovementIntents(
             WorldSnapshot snapshot,
@@ -86,13 +87,6 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         public void SetReplayTickIndex(int tickIndex)
         {
             _currentTickIndex = tickIndex;
-        }
-
-        public bool ControlsEntity(int entityId, TickPhase phase)
-        {
-            return phase == TickPhase.Movement &&
-                _script.MovementCommands.Count > 0 &&
-                _script.EntityId == entityId;
         }
 
         private bool TryGetMovementCommand(int tickIndex, out FuzzMovementCommand command)
