@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -121,49 +120,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        public void SampleSceneInstaller_CreateConfiguration_UsesSampleCameraSettingsPreset()
-        {
-            var installerObject = new GameObject("SampleSceneInstaller");
-            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
-
-            try
-            {
-                var installer = installerObject.AddComponent<SampleSceneInstaller>();
-                SetPrivateField(typeof(SampleSceneInstaller), installer, "actions", actions);
-                SetPrivateField(typeof(SampleSceneInstaller), installer, "topologyMotionDurationSeconds", 0.6f);
-                SetPrivateField(
-                    typeof(SampleSceneInstaller),
-                    installer,
-                    "topologyRotationVisualMapping",
-                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
-
-                var createConfiguration = typeof(SampleSceneInstaller).GetMethod(
-                    "CreateConfiguration",
-                    BindingFlags.Instance | BindingFlags.NonPublic,
-                    binder: null,
-                    types: Type.EmptyTypes,
-                    modifiers: null);
-
-                Assert.That(createConfiguration, Is.Not.Null);
-
-                var configuration = (GameplaySceneHostConfiguration)createConfiguration.Invoke(installer, null);
-                var expectedCameraSettings = GameplayCameraSettings.CreateSampleDefault();
-
-                Assert.That(configuration.CameraSettings, Is.Not.Null);
-                AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
-                Assert.That(configuration.TopologyMotionDurationSeconds, Is.EqualTo(0.6f));
-                Assert.That(
-                    configuration.TopologyRotationVisualMapping,
-                    Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(actions);
-                UnityEngine.Object.DestroyImmediate(installerObject);
-            }
-        }
-
         private static void SetBaseInstallerField(object target, string fieldName, object value)
         {
             var field = typeof(GameplayShowcaseSceneInstallerBase).GetField(
@@ -182,13 +138,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void ResetIsolatedTestScene()
         {
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        }
-
-        private static void SetPrivateField(Type type, object target, string fieldName, object value)
-        {
-            var field = type.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            field.SetValue(target, value);
         }
 
         private static void AssertCameraSettings(GameplayCameraRig rig, GameplayCameraSettings expected)

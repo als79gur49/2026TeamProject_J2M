@@ -68,11 +68,5 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
-        public static GameplayCameraSettings CreateSampleDefault()
-        {
-            var settings = CreateShowcaseDefault();
-            settings.BackgroundColor = new Color(0.92f, 0.94f, 0.98f);
-            return settings;
-        }
     }
 }
