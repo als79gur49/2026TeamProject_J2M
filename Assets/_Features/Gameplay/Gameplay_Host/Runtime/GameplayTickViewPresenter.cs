@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly RotationTrack _boardRotationTrack = new();
         private readonly List<int> _completedMotionTrackIds = new();
+        private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
         private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
@@ -24,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
         private readonly Dictionary<int, GameplayEntityPose> _retainedLocalTargetPoses = new();
+        private readonly Dictionary<int, TransitionVisibilityState> _transitionVisibilityStates = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
@@ -83,6 +85,7 @@ namespace Game.Feature.Gameplay.Host
             _committedLocalTargetPoses.Clear();
             _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
+            _transitionVisibilityStates.Clear();
             _localMotionTracks.Clear();
             _visibilityTracks.Clear();
             _viewsByEntityId.Clear();
@@ -108,6 +111,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshTopologyTrack(result.PresentationData);
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
+            RefreshTransitionVisibilityState(result.PresentationData);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -122,6 +126,7 @@ namespace Game.Feature.Gameplay.Host
             _visibilityTracks.Clear();
             _entityTypesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
+            _transitionVisibilityStates.Clear();
             _boardRotationTrack.Clear();
             _committedTopology = topology;
             _presentedBoardRotation = Quaternion.identity;
@@ -148,6 +153,7 @@ namespace Game.Feature.Gameplay.Host
                 ? _boardRotationTrack.SampleAndAdvance(deltaTime, Quaternion.identity)
                 : Quaternion.identity;
             ApplyPresentedBoardRotation(presentedBoardRotation);
+            CleanupCompletedTopologyTransitionState();
 
             _completedMotionTrackIds.Clear();
             _completedVisibilityTrackIds.Clear();
@@ -176,7 +182,8 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
-                var isVisible = _committedLocalTargetPoses.ContainsKey(entityId);
+                var isVisible = _committedLocalTargetPoses.ContainsKey(entityId) ||
+                                _transitionVisibilityStates.ContainsKey(entityId);
                 if (_visibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {
                     isVisible = visibilityTrack.SampleAndAdvance(deltaTime, isVisible);
@@ -336,11 +343,12 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.EntityMotions.Count; i++)
             {
                 var motion = presentationData.EntityMotions[i];
-                var endLocalPose = ResolveMotionEndPose(motion);
+                var endLocalPose = ResolveMotionEndPose(motion, presentationData.TopologyMotion);
                 var startLocalPose = ResolveMotionStartPose(
                     motion,
                     previousCommittedLocalTargetPoses,
                     previousCommittedTopology,
+                    presentationData.TopologyMotion,
                     endLocalPose);
 
                 if (_localMotionTracks.TryGetValue(motion.EntityId, out var existingTrack) &&
@@ -412,7 +420,11 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (!TryResolveVisibilityLocalPose(change, previousCommittedLocalTargetPoses, out var retainedLocalPose))
+                if (!TryResolveVisibilityLocalPose(
+                        change,
+                        previousCommittedLocalTargetPoses,
+                        presentationData.TopologyMotion,
+                        out var retainedLocalPose))
                 {
                     continue;
                 }
@@ -422,16 +434,66 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void RefreshTransitionVisibilityState(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            _transitionVisibilityStates.Clear();
+
+            if (!IsTopologyTransitionPresentation(presentationData.TopologyMotion))
+            {
+                return;
+            }
+
+            var topologyMotion = presentationData.TopologyMotion.Value;
+            for (var i = 0; i < presentationData.TransitionVisibilityChanges.Count; i++)
+            {
+                var change = presentationData.TransitionVisibilityChanges[i];
+                if (change.Mode == TickTransitionVisibilityMode.None ||
+                    !TryResolveTransitionLocalPose(
+                        change.EntityId,
+                        change.Cell,
+                        change.Topology,
+                        topologyMotion.DestinationTopology,
+                        change.Facing,
+                        out var localPose))
+                {
+                    continue;
+                }
+
+                _transitionVisibilityStates[change.EntityId] = new TransitionVisibilityState(change.Mode, localPose);
+            }
+        }
+
         private GameplayEntityPose ResolveMotionStartPose(
             TickEntityMotion motion,
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
             CubeTopologyState previousCommittedTopology,
+            TickTopologyMotion? topologyMotion,
             GameplayEntityPose fallbackPose)
         {
             if (_localMotionTracks.TryGetValue(motion.EntityId, out var track) &&
                 track.HasClips)
             {
                 return track.TailEndPose;
+            }
+
+            var sourceTopology = motion.SourceTopology ?? previousCommittedTopology;
+            var destinationTopology = motion.DestinationTopology ?? _committedTopology;
+            var sourceFacing = motion.SourceFacing ?? motion.DestinationFacing ?? Direction.Up;
+            if (IsTopologyTransitionPresentation(topologyMotion) &&
+                TryResolveTransitionLocalPose(
+                    motion.EntityId,
+                    motion.SourceCell,
+                    sourceTopology,
+                    destinationTopology,
+                    sourceFacing,
+                    out var transitionStartPose))
+            {
+                return transitionStartPose;
             }
 
             if (previousCommittedLocalTargetPoses.TryGetValue(motion.EntityId, out var previousCommittedPose))
@@ -444,14 +506,14 @@ namespace Game.Feature.Gameplay.Host
                 return retainedPose;
             }
 
-            var sourceTopology = motion.SourceTopology ?? previousCommittedTopology;
-            var sourceFacing = motion.SourceFacing ?? motion.DestinationFacing ?? Direction.Up;
             return TryResolveLocalPose(motion.EntityId, motion.SourceCell, sourceTopology, sourceFacing, out var sourcePose)
                 ? sourcePose
                 : fallbackPose;
         }
 
-        private GameplayEntityPose ResolveMotionEndPose(TickEntityMotion motion)
+        private GameplayEntityPose ResolveMotionEndPose(
+            TickEntityMotion motion,
+            TickTopologyMotion? topologyMotion)
         {
             if (_committedLocalTargetPoses.TryGetValue(motion.EntityId, out var committedPose))
             {
@@ -465,6 +527,19 @@ namespace Game.Feature.Gameplay.Host
 
             var destinationTopology = motion.DestinationTopology ?? _committedTopology;
             var destinationFacing = motion.DestinationFacing ?? motion.SourceFacing ?? Direction.Up;
+            var sourceTopology = motion.SourceTopology ?? destinationTopology;
+            if (IsTopologyTransitionPresentation(topologyMotion) &&
+                TryResolveTransitionLocalPose(
+                    motion.EntityId,
+                    motion.DestinationCell,
+                    sourceTopology,
+                    destinationTopology,
+                    destinationFacing,
+                    out var transitionEndPose))
+            {
+                return transitionEndPose;
+            }
+
             return TryResolveLocalPose(motion.EntityId, motion.DestinationCell, destinationTopology, destinationFacing, out var destinationPose)
                 ? destinationPose
                 : default;
@@ -473,6 +548,7 @@ namespace Game.Feature.Gameplay.Host
         private bool TryResolveVisibilityLocalPose(
             TickVisibilityChange change,
             IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            TickTopologyMotion? topologyMotion,
             out GameplayEntityPose localPose)
         {
             if (_localMotionTracks.TryGetValue(change.EntityId, out var motionTrack) &&
@@ -483,6 +559,18 @@ namespace Game.Feature.Gameplay.Host
             }
 
             if (_retainedLocalTargetPoses.TryGetValue(change.EntityId, out localPose))
+            {
+                return true;
+            }
+
+            if (IsTopologyTransitionPresentation(topologyMotion) &&
+                TryResolveTransitionLocalPose(
+                    change.EntityId,
+                    change.Cell,
+                    change.Topology,
+                    topologyMotion.Value.DestinationTopology,
+                    change.Facing,
+                    out localPose))
             {
                 return true;
             }
@@ -499,6 +587,12 @@ namespace Game.Feature.Gameplay.Host
         {
             if (_committedLocalTargetPoses.TryGetValue(entityId, out localPose))
             {
+                return true;
+            }
+
+            if (_transitionVisibilityStates.TryGetValue(entityId, out var transitionVisibilityState))
+            {
+                localPose = transitionVisibilityState.LocalPose;
                 return true;
             }
 
@@ -522,6 +616,43 @@ namespace Game.Feature.Gameplay.Host
             }
 
             pose = CreateEntityPose(cell, topology, projectedPose, facing);
+            return true;
+        }
+
+        private bool TryResolveTransitionLocalPose(
+            int entityId,
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            Direction facing,
+            out GameplayEntityPose pose)
+        {
+            pose = default;
+            var entityType = _entityTypesByEntityId.TryGetValue(entityId, out var knownEntityType)
+                ? knownEntityType
+                : EntityType.Unit;
+            if (!_projector.TryProjectTransitionEntityCell(
+                    cell,
+                    sourceTopology,
+                    destinationTopology,
+                    entityType,
+                    out var projectedPose))
+            {
+                return false;
+            }
+
+            var localRotation = _projector.TryResolveTransitionEntityRotation(
+                cell,
+                sourceTopology,
+                destinationTopology,
+                facing,
+                out var resolvedRotation)
+                ? resolvedRotation
+                : projectedPose.LocalRotation;
+
+            pose = new GameplayEntityPose(
+                projectedPose.LocalPosition,
+                localRotation);
             return true;
         }
 
@@ -581,6 +712,11 @@ namespace Game.Feature.Gameplay.Host
                 AddProcessingEntityId(pair.Key);
             }
 
+            foreach (var pair in _transitionVisibilityStates)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
             _processingEntityIdBuffer.Sort();
         }
 
@@ -604,6 +740,34 @@ namespace Game.Feature.Gameplay.Host
             _boardRoot?.ApplyPresentationRotation(boardRotation, CubeCenter);
         }
 
+        private void CleanupCompletedTopologyTransitionState()
+        {
+            if (_boardRotationTrack.HasClips ||
+                _transitionVisibilityStates.Count == 0)
+            {
+                return;
+            }
+
+            _completedTransitionVisibilityStateIds.Clear();
+            foreach (var pair in _transitionVisibilityStates)
+            {
+                _completedTransitionVisibilityStateIds.Add(pair.Key);
+                if (pair.Value.Mode != TickTransitionVisibilityMode.RetainUntilTransitionComplete ||
+                    _committedLocalTargetPoses.ContainsKey(pair.Key) ||
+                    _retainedLocalTargetPoses.ContainsKey(pair.Key))
+                {
+                    continue;
+                }
+
+                _entityTypesByEntityId.Remove(pair.Key);
+            }
+
+            for (var i = 0; i < _completedTransitionVisibilityStateIds.Count; i++)
+            {
+                _transitionVisibilityStates.Remove(_completedTransitionVisibilityStateIds[i]);
+            }
+        }
+
         private static Quaternion ResolveTopologyRotationOffset(CubeRotationKind rotationKind)
         {
             return rotationKind switch
@@ -623,6 +787,12 @@ namespace Game.Feature.Gameplay.Host
                 TickVisibilityChangeKind.Spawn => 1,
                 _ => 0,
             };
+        }
+
+        private static bool IsTopologyTransitionPresentation(TickTopologyMotion? topologyMotion)
+        {
+            return topologyMotion.HasValue &&
+                   topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
         private static bool ShouldPresent(EntityState entity, CubeTopologyState topology)
@@ -686,6 +856,21 @@ namespace Game.Feature.Gameplay.Host
             public Vector3 Position { get; }
 
             public Quaternion Rotation { get; }
+        }
+
+        private readonly struct TransitionVisibilityState
+        {
+            public TransitionVisibilityState(
+                TickTransitionVisibilityMode mode,
+                GameplayEntityPose localPose)
+            {
+                Mode = mode;
+                LocalPose = localPose;
+            }
+
+            public TickTransitionVisibilityMode Mode { get; }
+
+            public GameplayEntityPose LocalPose { get; }
         }
 
         private sealed class RotationTrack

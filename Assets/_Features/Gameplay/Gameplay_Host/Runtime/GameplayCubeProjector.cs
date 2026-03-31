@@ -72,6 +72,38 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryProjectTransitionEntityCell(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            out ProjectedCellPose projectedPose)
+        {
+            return TryProjectTransitionEntityCell(
+                cell,
+                sourceTopology,
+                destinationTopology,
+                EntityType.Unit,
+                out projectedPose);
+        }
+
+        public bool TryProjectTransitionEntityCell(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            EntityType entityType,
+            out ProjectedCellPose projectedPose)
+        {
+            if (!_boardBounds.Contains(cell.PlanarPosition) ||
+                !TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out var slot))
+            {
+                projectedPose = default;
+                return false;
+            }
+
+            projectedPose = ProjectCell(slot, cell, -ResolveEntitySurfaceOffset(entityType));
+            return true;
+        }
+
         public bool TryProjectSurfaceCell(
             SurfaceCell cell,
             CubeTopologyState topology,
@@ -96,6 +128,24 @@ namespace Game.Feature.Gameplay.Host
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
                 !TryResolveEntitySlot(cell.face, topology, out var slot))
+            {
+                rotation = default;
+                return false;
+            }
+
+            rotation = ResolveEntityRotation(ResolveFrame(slot), facing);
+            return true;
+        }
+
+        public bool TryResolveTransitionEntityRotation(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            Direction facing,
+            out Quaternion rotation)
+        {
+            if (!_boardBounds.Contains(cell.PlanarPosition) ||
+                !TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out var slot))
             {
                 rotation = default;
                 return false;
@@ -156,6 +206,22 @@ namespace Game.Feature.Gameplay.Host
 
             slot = default;
             return false;
+        }
+
+        private bool TryResolveTransitionSurfaceSlot(
+            FaceId face,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            out CubeFaceSlot slot)
+        {
+            if (!sourceTopology.IsFaceActive(face) &&
+                !destinationTopology.IsFaceActive(face))
+            {
+                slot = default;
+                return false;
+            }
+
+            return TryResolveSurfaceSlot(face, destinationTopology, out slot);
         }
 
         private ProjectedCellPose ProjectCell(CubeFaceSlot slot, SurfaceCell cell, float surfaceOffset)
