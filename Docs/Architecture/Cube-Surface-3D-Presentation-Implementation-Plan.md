@@ -281,7 +281,8 @@ GameplaySceneHost
 - `GameplayBoardRoot.ApplyPresentationRotation(...)`를 추가해 cube center를 pivot으로 회전할 때도 `CameraTargetRoot`의 world position이 고정되도록 정리했다.
 - `GameplaySceneHost`는 presenter에 `GameplayBoardRoot`를 직접 연결하고, camera target 이벤트 구독 대신 board root의 cube center target을 그대로 사용하도록 바꿨다.
 - 신규 `GameplayCameraRig`를 추가했고, host가 perspective camera를 rig에 연결해 cube center를 계속 바라보도록 구성했다.
-- 기본 camera yaw를 `180`, pitch를 `18`로 조정해 world `+Z`에 놓인 front wall 중심성을 유지하면서도 floor가 함께 보이는 전방 상부 구도를 만들었다.
+- 기본 camera yaw를 `0`, pitch를 `18`로 조정해 world `+Z`에 놓인 front wall이 화면을 과도하게 가리지 않도록 world `-Z` 쪽에서 floor와 함께 보는 전방 상부 구도를 만들었다.
+- `GameplayCameraRig`는 `AutoFit`과 `Manual` distance 모드를 함께 지원하도록 분리했고, showcase scaffold는 기본적으로 manual distance preset을 써서 FOV 조정이 곧바로 camera position 변경으로 이어지지 않게 했다.
 - `GameplayCubeProjector`는 active bottom/front seam에 `1 cell` gap을 두고 face를 안쪽으로 분리하며, `GameplayEntityVisualProfile`은 cube 내부 mount를 유지한 채 small reveal만 남겨 seam edge box가 다음 면에서도 읽히도록 보정했다.
 - viewport regression test를 추가해 기본 camera pose에서 floor/front 모두 `+X`가 screen right로 투영되는지 고정했다.
 - showcase/sample installer의 기본 camera 설정을 orthographic에서 perspective로 바꿨다.

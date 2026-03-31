@@ -690,4 +690,4 @@ topology motion은 "보드가 굴러간다"로 표현한다.
 
 - 로직은 현재 4면 deterministic tick 구조를 유지한다.
 - view는 `SurfaceCell -> Board Local Pose -> World Pose`의 3D cube 계약으로 재정의한다.
-- 기본 화면은 활성 2면만 노출하고, bottom/front seam은 약 1칸 gap으로 벌리며, box/wall은 cube 내부에 mount하되 small reveal로 edge readability를 유지하고, `FrontFace`는 world `+Z`에 놓이며, 카메라는 world `+Z` 쪽에서 front wall과 floor를 함께 보는 전방 상부 시점으로 고정한다.
+- 기본 화면은 활성 2면만 노출하고, bottom/front seam은 약 1칸 gap으로 벌리며, box/wall은 cube 내부에 mount하되 small reveal로 edge readability를 유지하고, `FrontFace`는 world `+Z`에 놓이며, 카메라는 world `-Z` 쪽에서 front wall과 floor를 함께 보는 전방 상부 시점으로 고정한다.
