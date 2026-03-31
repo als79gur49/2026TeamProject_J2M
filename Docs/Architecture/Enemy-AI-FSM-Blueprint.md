@@ -137,6 +137,28 @@ Animator -> FSM
 - hit stop 연출
 - 보간 좌표 계산
 - blend tree 파라미터 계산
+- topology change 트리거
+
+### 6-1. 적은 면 회전을 트리거하지 않는다
+
+적 이동은 `Move` intent를 생산할 수 있지만, 그 결과로 `CubeTopologyState`를 바꾸면 안 된다.
+
+이 제약은 밸런스 조정이 아니라 구조 규칙이다.
+
+- 면 회전은 `Cube-Surface-Gameplay-Blueprint.md`에서 정의한 플레이어 전용 진행 기믹이다.
+- topology change는 active face 집합을 바꾸는 global state mutation이다.
+- 적이 이를 직접 유발하면 플레이어 입력 없이 월드 규칙이 바뀌어 퍼즐 해석과 전투 해석이 동시에 흔들린다.
+- 적 추적이 topology change까지 포함하면 "한 칸 추적"이 아니라 "월드 전환 유발"로 의미가 커져 FSM 설명 가능성이 급격히 떨어진다.
+- off-screen 적이나 비활성 면 경계의 적이 회전을 만들면 플레이어가 원인과 결과를 읽기 어렵다.
+
+따라서 적의 이동 규칙은 현재 active topology 안에서만 성립해야 한다.
+
+구현 계약:
+
+- 적 movement query는 player traversal query와 분리한다.
+- 적은 active face 내부 ordinary move만 시도한다.
+- 경계 이동이 topology change를 요구하면 그 step은 실패 또는 정지로 해석한다.
+- `EnemyMovementPolicy`는 `rotationKind != None`인 결과를 허용하지 않는다.
 
 ## 7. 상태 레이어 분리
 
@@ -334,6 +356,7 @@ FSM 상태와 애니메이션 상태는 완전히 다른 레이어다.
 - `GameObject.activeSelf`
 - transform 보간 좌표
 - particle 재생 여부
+- 적 자신의 이동을 위해 topology change가 가능한지 여부
 
 예시 전이표:
 
@@ -416,7 +439,7 @@ public sealed class EnemyLogic :
 - `EnemyLogic`: authoritative 상태 조회, mode 분기, helper 호출, intent enqueue
 - `EnemyAiConfig`: 감지 범위, 공격 범위, priority, recover tick 같은 rule data
 - `EnemyTargetSelector`: 결정론적 타겟 선택
-- `EnemyMovementPolicy`: `Patrol`, `Chase` 이동 규칙
+- `EnemyMovementPolicy`: `Patrol`, `Chase` 이동 규칙. topology change를 발생시키는 step은 생성하지 않음
 - `EnemyCombatPolicy`: 공격 가능 판정과 공격 intent 생성
 
 이 보정은 범용 FSM 프레임워크 도입이 아니라, 4단계 상태 전이 추가 전에 책임을 얇게 나누는 최소 구조 정리다.

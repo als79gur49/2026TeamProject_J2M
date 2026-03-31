@@ -41,6 +41,8 @@
 - 1차 구현은 `EntityState` 소규모 확장 또는 이에 준하는 authoritative record 확장으로 시작한다.
 - Blackboard 분리는 1차 목표가 아니라 2차 확장 목표로 둔다.
 - 초기 범용화보다 첫 번째 수직 슬라이스를 결정론적으로 완성하는 것을 우선한다.
+- 적 movement intent는 topology change를 발생시키지 않는다.
+- 면 회전은 플레이어 전용 진행 기믹으로 유지하고, 적은 현재 active topology 내부 이동만 사용한다.
 
 ## 4. 1차 목표
 
@@ -229,7 +231,7 @@
 - `EnemyAiConfig`를 먼저 도입해 감지 범위, 공격 범위, priority, recover tick을 상수 대신 rule data로 이동
 - `EnemyLogic`은 authoritative 상태 조회, mode 분기, helper 조합만 담당하는 coordinator로 유지
 - 결정론적 타겟 선택은 `EnemyTargetSelector`, 이동 규칙은 `EnemyMovementPolicy`, 공격 intent 생성은 `EnemyCombatPolicy`로 분리
-- 적 이동 경로는 `WorldSnapshot.TryResolvePlayerStep(...)`에 직접 묶지 않고 의미 중립 alias인 `TryResolveUnitStep(...)`를 사용
+- 적 이동 경로는 player traversal query에 직접 묶지 않고, enemy movement 전용 step 규칙으로 분리해야 한다.
 
 구현 메모:
 
@@ -241,7 +243,54 @@
 - trace, replay dump, determinism hash에 `AiTimer`를 반영
 - unit/replay 테스트로 전이, recover countdown, hash 반영을 검증
 
-### 7-5. 5단계: View 연결
+### 7-5. 후속 수정: 적군 면 회전 금지
+
+2026-04-01 기준 후속 수정 필요.
+
+목표는 적 movement가 플레이어 전용 면 회전 기믹을 우회 호출하지 못하게 경계를 분리하는 것이다.
+
+현재 문제:
+
+- `EnemyMovementPolicy`는 이동 가능 여부를 판단할 때 `WorldSnapshot.TryResolveUnitStep(...)`를 사용한다.
+- 현재 `TryResolveUnitStep(...)`는 사실상 `TryResolvePlayerStep(...)` 별칭이라, 적도 바닥면 경계에서 topology-changing move를 계산할 수 있다.
+- 이는 `Cube-Surface-Gameplay-Blueprint.md`의 "플레이어만 큐브 회전을 트리거할 수 있다" 규칙과 충돌한다.
+
+왜 막아야 하는가:
+
+- 면 회전은 지역 이동이 아니라 active face 집합을 바꾸는 global mutation이다.
+- 적 추적 한 번이 월드 전환으로 승격되면 FSM의 의미가 과도하게 커지고 플레이어 예측 가능성이 떨어진다.
+- off-screen 적이 topology를 바꾸면 전투 원인 파악이 어려워지고 퍼즐 진행 규칙도 흔들린다.
+- 적 AI는 active topology 내부 combat loop에 집중하고, topology progression은 플레이어 입력에만 묶는 편이 설계 경계가 명확하다.
+
+작업:
+
+- `TryResolveUnitStep(...)`를 player traversal alias로 두지 말고, non-rotating unit traversal 규칙으로 분리
+- 또는 `EnemyMovementPolicy`에서 `rotationKind != None`이면 이동 후보를 폐기하도록 명시
+- 적 순찰과 추적이 면 경계에서 정지 또는 다른 대체 행동으로 수렴하는지 확인
+- 적 logic 테스트와 scenario 테스트에 "경계에서 면 회전 불가" 케이스 추가
+
+대상 파일:
+
+- `Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldSnapshot.cs`
+- `Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/Queries/SurfaceTraversalQueries.cs`
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyMovementPolicy.cs`
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs`
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs`
+
+완료 조건:
+
+- 적은 어떤 이동 규칙으로도 topology-changing movement group을 만들지 않는다.
+- 플레이어는 기존처럼 면 회전을 계속 사용한다.
+- 같은 배치에서 적이 경계 근처에 있어도 topology hash/event trace가 적 이동 때문에 바뀌지 않는다.
+
+구현 메모:
+
+- 전역 규칙은 이미 `Cube-Surface-Gameplay-Blueprint.md`에 있으므로, 여기서는 enemy-side enforcement를 구현 범위로 적는다.
+- 가장 안전한 수정은 player-only traversal query와 unit-only traversal query를 분리하는 것이다.
+- 임시 방어선으로는 `EnemyMovementPolicy`가 `rotationKind`를 검사해 topology-changing step을 reject할 수 있다.
+- replay/scenario test에는 "player만 topology commit 가능"이라는 관찰 가능 결과를 남겨야 한다.
+
+### 7-6. 6단계: View 연결
 
 2026-04-01 구현 완료.
 
@@ -273,7 +322,7 @@
 - `DefaultGameplayEntityViewFactory`가 AI-controlled unit view에 driver를 자동 부착
 - host edit mode 테스트로 enemy attack/hit/death signal 전달과 기본 factory 부착 경로를 고정
 
-### 7-6. 6단계: 테스트 고정
+### 7-7. 7단계: 테스트 고정
 
 2026-04-01 구현 완료.
 
@@ -302,8 +351,10 @@
 - 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs`에 multi-tick `Patrol -> Chase -> Attack -> Recover` 시나리오와 적 사망 cleanup 시나리오를 추가
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Replay/TickReplayDeterminismTests.cs`에 enemy FSM replay sequence 고정 테스트를 추가해 per-tick hash/trace/final dump 안정성을 검증
 - 신규 `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs`에 presenter 적용 유무가 이후 tick authoritative 결과를 바꾸지 않음을 검증하는 host-side isolation test를 추가
+- 신규 또는 보강된 enemy movement test로 "경계에서 topology-changing step이 생성되지 않음"을 검증
+- scenario/replay test로 enemy 이동이 topology commit을 유발하지 않음을 검증
 
-### 7-7. 7단계: Showcase scene 적 배치
+### 7-8. 8단계: Showcase scene 적 배치
 
 2026-04-01 구현 완료.
 
