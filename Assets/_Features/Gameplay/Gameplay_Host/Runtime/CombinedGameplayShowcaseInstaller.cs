@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public sealed class CombinedGameplayShowcaseInstaller : GameplayShowcaseSceneInstallerBase
+    public class CombinedGameplayShowcaseInstaller : GameplayShowcaseSceneInstallerBase
     {
         private const int TraversalColumn = 1;
         private const int LeftBoxLaneColumn = 3;
