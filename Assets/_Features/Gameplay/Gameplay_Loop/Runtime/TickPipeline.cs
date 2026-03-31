@@ -89,11 +89,11 @@ namespace Game.Feature.Gameplay.Loop
             var drainedDelayedAttackEffects = _delayedAttackEffectQueue.Drain(input.TickIndex);
 
             var preMovementSnapshot = SnapshotBuilder.Create(_worldState);
-            var entityLogicsForTick = BuildEntityLogicsForTick(preMovementSnapshot);
+            var entityLogicsForTick = _entityLogicProvider.Build(preMovementSnapshot, _staticEntityLogics);
             var movementPhaseResult = RunMovementPhase(
                 preMovementSnapshot,
                 in input,
-                entityLogicsForTick,
+                entityLogicsForTick.MovementLogics,
                 transientBuffer,
                 writeContext,
                 completedPhases,
@@ -104,7 +104,7 @@ namespace Game.Feature.Gameplay.Loop
             var attackPhaseResult = RunAttackPhase(
                 postMovementSnapshot,
                 in input,
-                entityLogicsForTick,
+                entityLogicsForTick.AttackLogics,
                 transientBuffer,
                 drainedDelayedAttackEffects,
                 input.TickIndex,
@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.Loop
         private MovementPhaseResult RunMovementPhase(
             WorldSnapshot snapshot,
             in TickInput input,
-            IReadOnlyList<IEntityLogic> entityLogics,
+            IReadOnlyList<IMovementEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
             IMovementCommitContext writeContext,
             List<TickPhase> completedPhases,
@@ -210,7 +210,7 @@ namespace Game.Feature.Gameplay.Loop
         private AttackPhaseResult RunAttackPhase(
             WorldSnapshot snapshot,
             in TickInput input,
-            IReadOnlyList<IEntityLogic> entityLogics,
+            IReadOnlyList<IAttackEntityLogic> entityLogics,
             PhaseTransientBuffer transientBuffer,
             List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
             int tickIndex,
@@ -395,9 +395,5 @@ namespace Game.Feature.Gameplay.Loop
             return new SpawnAction(_idAllocator.AllocateSpawnId(), entity);
         }
 
-        private List<IEntityLogic> BuildEntityLogicsForTick(WorldSnapshot snapshot)
-        {
-            return new List<IEntityLogic>(_entityLogicProvider.Build(snapshot, _staticEntityLogics));
-        }
     }
 }

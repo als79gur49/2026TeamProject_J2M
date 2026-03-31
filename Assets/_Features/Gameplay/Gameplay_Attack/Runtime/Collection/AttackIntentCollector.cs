@@ -11,7 +11,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
         public void Collect(
             WorldSnapshot snapshot,
             in TickInput input,
-            IReadOnlyList<IEntityLogic> entityLogics,
+            IReadOnlyList<IAttackEntityLogic> entityLogics,
             List<RawAttackIntent> buffer)
         {
             if (snapshot == null)

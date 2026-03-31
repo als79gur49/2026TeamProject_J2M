@@ -1,16 +1,14 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    public sealed class PlayerLogic : IEntityLogic, IEntityLogicSourceBinding
+    public sealed class PlayerLogic : IMovementEntityLogic, IEntityLogicSourceBinding
     {
         private const int DefaultCommandPriority = 100;
 
@@ -25,6 +23,8 @@ namespace Game.Feature.Gameplay.Entities
 
             _entityId = entityId;
         }
+
+        public int ControlledEntityId => _entityId;
 
         public void CollectMovementIntents(
             WorldSnapshot snapshot,
@@ -87,29 +87,6 @@ namespace Game.Feature.Gameplay.Entities
                     entity.position + delta,
                     MovementCommandKind.Move,
                     localSequence: 0));
-        }
-
-        public void CollectAttackIntents(
-            WorldSnapshot snapshot,
-            in TickInput input,
-            List<RawAttackIntent> buffer)
-        {
-            // Player push/flip input is normalized into movement input in this stage.
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-        }
-
-        public bool ControlsEntity(int entityId, TickPhase phase)
-        {
-            return entityId == _entityId &&
-                   phase == TickPhase.Movement;
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

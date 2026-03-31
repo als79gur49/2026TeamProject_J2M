@@ -1,15 +1,13 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal sealed class ProjectileLogic : IEntityLogic, IEntityLogicSourceBinding
+    internal sealed class ProjectileLogic : IMovementEntityLogic, IEntityLogicSourceBinding
     {
         private const int DefaultMovementPriority = 0;
 
@@ -24,6 +22,8 @@ namespace Game.Feature.Gameplay.Entities
 
             _sourceId = sourceId;
         }
+
+        public int ControlledEntityId => _sourceId;
 
         public void CollectMovementIntents(
             WorldSnapshot snapshot,
@@ -68,24 +68,6 @@ namespace Game.Feature.Gameplay.Entities
                     source.position + delta.Value));
         }
 
-        public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-        }
-
-        public bool ControlsEntity(int entityId, TickPhase phase)
-        {
-            return phase == TickPhase.Movement && _sourceId == entityId;
-        }
-
         private static Vector2Int? ResolveDelta(Direction direction)
         {
             switch (direction)
@@ -121,7 +103,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class SlidingBoxLogic : IEntityLogic, IEntityLogicSourceBinding
+    internal sealed class SlidingBoxLogic : IMovementEntityLogic, IEntityLogicSourceBinding
     {
         private const int DefaultMovementPriority = 0;
 
@@ -136,6 +118,8 @@ namespace Game.Feature.Gameplay.Entities
 
             _sourceId = sourceId;
         }
+
+        public int ControlledEntityId => _sourceId;
 
         public void CollectMovementIntents(
             WorldSnapshot snapshot,
@@ -181,24 +165,6 @@ namespace Game.Feature.Gameplay.Entities
                     source.position + delta,
                     Movement.MovementCommandKind.Move,
                     localSequence: 0));
-        }
-
-        public void CollectAttackIntents(WorldSnapshot snapshot, in TickInput input, List<RawAttackIntent> buffer)
-        {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            if (buffer == null)
-            {
-                throw new ArgumentNullException(nameof(buffer));
-            }
-        }
-
-        public bool ControlsEntity(int entityId, TickPhase phase)
-        {
-            return phase == TickPhase.Movement && _sourceId == entityId;
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

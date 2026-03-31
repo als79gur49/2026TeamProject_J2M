@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.Model.Phases;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -31,7 +30,7 @@ namespace Game.Feature.Gameplay.Entities
             _entityLogicFactories = factories.AsReadOnly();
         }
 
-        public IReadOnlyList<IEntityLogic> Build(
+        public EntityLogicSet Build(
             WorldSnapshot snapshot,
             IReadOnlyList<IEntityLogic> staticEntityLogics)
         {
@@ -52,7 +51,7 @@ namespace Game.Feature.Gameplay.Entities
 
             for (var i = 0; i < staticEntityLogics.Count; i++)
             {
-                entityLogics.Add(staticEntityLogics[i]);
+                AddStaticEntityLogic(staticEntityLogics[i], entityLogics);
             }
 
             for (var entityIndex = 0; entityIndex < orderedEntities.Count; entityIndex++)
@@ -73,7 +72,7 @@ namespace Game.Feature.Gameplay.Entities
                         throw new InvalidOperationException("Entity logic factories must not return null.");
                     }
 
-                    if (HasPhaseOwnershipConflict(entity.entityId, candidate, entityLogics))
+                    if (HasPhaseOwnershipConflict(candidate, entityLogics))
                     {
                         continue;
                     }
@@ -82,11 +81,50 @@ namespace Game.Feature.Gameplay.Entities
                 }
             }
 
-            return entityLogics;
+            return BuildEntityLogicSet(entityLogics);
+        }
+
+        private static void AddStaticEntityLogic(
+            IEntityLogic candidate,
+            List<IEntityLogic> entityLogics)
+        {
+            if (candidate == null)
+            {
+                throw new InvalidOperationException("Static entity logic collections cannot contain null entries.");
+            }
+
+            if (HasPhaseOwnershipConflict(candidate, entityLogics))
+            {
+                throw new InvalidOperationException("Static entity logic configuration contains duplicate phase ownership.");
+            }
+
+            entityLogics.Add(candidate);
+        }
+
+        private static EntityLogicSet BuildEntityLogicSet(IReadOnlyList<IEntityLogic> entityLogics)
+        {
+            var movementLogics = new List<IMovementEntityLogic>(entityLogics.Count);
+            var attackLogics = new List<IAttackEntityLogic>(entityLogics.Count);
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                if (entityLogics[i] is IMovementEntityLogic movementLogic)
+                {
+                    movementLogics.Add(movementLogic);
+                }
+
+                if (entityLogics[i] is IAttackEntityLogic attackLogic)
+                {
+                    attackLogics.Add(attackLogic);
+                }
+            }
+
+            return new EntityLogicSet(
+                movementLogics.AsReadOnly(),
+                attackLogics.AsReadOnly());
         }
 
         private static bool HasPhaseOwnershipConflict(
-            int entityId,
             IEntityLogic candidate,
             IReadOnlyList<IEntityLogic> existingEntityLogics)
         {
@@ -95,25 +133,26 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            return HasPhaseOwnershipConflict(entityId, TickPhase.Movement, candidateBinding, existingEntityLogics)
-                || HasPhaseOwnershipConflict(entityId, TickPhase.Attack, candidateBinding, existingEntityLogics);
+            return HasPhaseOwnershipConflict<IMovementEntityLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflict<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
         }
 
-        private static bool HasPhaseOwnershipConflict(
-            int entityId,
-            TickPhase phase,
+        private static bool HasPhaseOwnershipConflict<TPhaseLogic>(
+            IEntityLogic candidate,
             IEntityLogicSourceBinding candidateBinding,
             IReadOnlyList<IEntityLogic> existingEntityLogics)
+            where TPhaseLogic : class, IEntityLogic
         {
-            if (!candidateBinding.ControlsEntity(entityId, phase))
+            if (candidate is not TPhaseLogic)
             {
                 return false;
             }
 
             for (var i = 0; i < existingEntityLogics.Count; i++)
             {
-                if (existingEntityLogics[i] is IEntityLogicSourceBinding existingBinding &&
-                    existingBinding.ControlsEntity(entityId, phase))
+                if (existingEntityLogics[i] is TPhaseLogic &&
+                    existingEntityLogics[i] is IEntityLogicSourceBinding existingBinding &&
+                    existingBinding.ControlledEntityId == candidateBinding.ControlledEntityId)
                 {
                     return true;
                 }

@@ -11,7 +11,7 @@ namespace Game.Feature.Gameplay.Movement.Collection
         public void Collect(
             WorldSnapshot snapshot,
             in TickInput input,
-            IReadOnlyList<IEntityLogic> entityLogics,
+            IReadOnlyList<IMovementEntityLogic> entityLogics,
             List<RawMovementIntent> buffer)
         {
             if (snapshot == null)
