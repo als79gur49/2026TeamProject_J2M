@@ -91,7 +91,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append((int)entity.boardPresence).Append('|')
                     .Append(entity.markedForDeath ? 1 : 0).Append('|')
                     .Append(entity.spawnTick).Append('|')
-                    .Append((int)entity.boxCapabilities).Append('\n');
+                    .Append((int)entity.boxCapabilities).Append('|')
+                    .Append((int)entity.aiMode).Append('\n');
             }
         }
 

@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.Entities;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -27,5 +28,6 @@ namespace Game.Feature.Gameplay.BoardState
         public bool markedForDeath;
         public int spawnTick;
         public BoxCapabilities boxCapabilities;
+        public EnemyAiMode aiMode;
     }
 }
