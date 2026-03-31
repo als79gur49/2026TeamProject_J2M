@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -114,6 +115,29 @@ namespace Game.Feature.Gameplay.Host
                 type = EntityType.Unit,
                 state = EntityPhaseState.Idle,
                 facing = facing,
+            };
+        }
+
+        protected static EntityState CreateEnemy(
+            int entityId,
+            SurfaceCell position,
+            EnemyAiMode aiMode = EnemyAiMode.Patrol,
+            Direction facing = Direction.Left,
+            int hp = 2,
+            int aiStateTimer = 0)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = hp,
+                maxHp = hp,
+                teamId = 2,
+                type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+                aiMode = aiMode,
+                aiStateTimer = aiStateTimer,
             };
         }
 

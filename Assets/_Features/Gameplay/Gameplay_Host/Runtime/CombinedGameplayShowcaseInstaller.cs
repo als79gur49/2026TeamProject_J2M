@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -10,6 +11,8 @@ namespace Game.Feature.Gameplay.Host
         private const int LeftBoxLaneColumn = 3;
         private const int RightBoxLaneColumn = 10;
         private const int SurfaceSlideColumn = 14;
+        private const int FloorEnemyEntityId = 50;
+        private const int FrontEnemyEntityId = 51;
 
         protected override BoardBounds CreateBoardBounds()
         {
@@ -33,6 +36,16 @@ namespace Game.Feature.Gameplay.Host
             }
 
             entities.Add(CreatePlayer(PlayerEntityId, new SurfaceCell(FaceId.Floor, 1, 1), Direction.Right));
+            entities.Add(CreateEnemy(
+                FloorEnemyEntityId,
+                new SurfaceCell(FaceId.Floor, 2, 4),
+                EnemyAiMode.Patrol,
+                Direction.Down));
+            entities.Add(CreateEnemy(
+                FrontEnemyEntityId,
+                new SurfaceCell(FaceId.Front, 2, 2),
+                EnemyAiMode.Patrol,
+                Direction.Down));
 
             entities.Add(CreateBox(30, new SurfaceCell(FaceId.Floor, LeftBoxLaneColumn, 1), BoxCapabilities.Push));
             entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 7, 1)));
@@ -85,12 +98,13 @@ namespace Game.Feature.Gameplay.Host
         protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()
         {
             return new GameplayShowcaseOverlayContent(
-                "Box Slide Test Scene",
-                "",
+                "Combined Gameplay Showcase",
+                "Boxes + Enemy FSM",
                 "Move: WASD   Push: E   Flip: Q",
                 new[]
                 {
-                    "",
+                    "Floor patrol enemy starts near the player for immediate Chase/Attack/Recover checks.",
+                    "Front-face enemy validates the same FSM after a surface transition.",
                 });
         }
     }
