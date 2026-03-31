@@ -191,8 +191,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new IEntityLogic[]
                 {
                     new PlayerLogic(10),
-                    new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 40, 30, 10)),
-                    new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 50, 10, 5)),
+                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 40, 30, 10)),
+                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 50, 10, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
@@ -363,7 +363,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(attackIntentFactory: _ => new RawAttackIntent(10, 5, 20)),
+                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => new RawAttackIntent(10, 5, 20)),
                 });
 
             var result = pipeline.RunTick(new TickInput(9));
@@ -401,7 +401,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
+                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
                 });
             var defaultTimingProfile = GameplayTimingProfile.CreateDefault();
 
@@ -456,8 +456,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
-                    new StubCombatLogic(attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(20, 10)),
+                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
+                    new StubCombatLogic(controlledEntityId: 20, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(20, 10)),
                 });
 
             var result = pipeline.RunTick(new TickInput(6));
@@ -1032,8 +1032,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 30, 5)),
-                    new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 20, 30, 5)),
+                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 30, 5)),
+                    new StubCombatLogic(controlledEntityId: 20, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 20, 30, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(5));
@@ -1340,17 +1340,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private sealed class StubCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
         {
             private readonly Func<WorldSnapshot, RawAttackIntent?> _attackIntentFactory;
+            private readonly int _controlledEntityId;
             private readonly RawMovementIntent? _movementIntent;
 
             public StubCombatLogic(
+                int controlledEntityId = 0,
                 RawMovementIntent? movementIntent = null,
                 Func<WorldSnapshot, RawAttackIntent?> attackIntentFactory = null)
             {
+                _controlledEntityId = controlledEntityId;
                 _movementIntent = movementIntent;
                 _attackIntentFactory = attackIntentFactory;
             }
 
-            public int ControlledEntityId => _movementIntent?.SourceId ?? 0;
+            public int ControlledEntityId => _movementIntent?.SourceId ?? _controlledEntityId;
 
             public void CollectMovementIntents(
                 WorldSnapshot snapshot,

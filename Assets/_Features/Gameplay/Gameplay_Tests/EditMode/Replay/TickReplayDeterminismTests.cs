@@ -476,8 +476,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new[] { new TickInput(1) });
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(chaseResult.DeterminismHash));
-            Assert.That(chaseResult.Trace.Text, Does.Contain("AiMode=Chase"));
-            Assert.That(chaseReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Chase"));
+            Assert.That(chaseResult.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase|FromTimer=0|To=Patrol|ToTimer=0|Reason=NoTarget"));
+            Assert.That(chaseReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Patrol"));
         }
 
         [Test]
