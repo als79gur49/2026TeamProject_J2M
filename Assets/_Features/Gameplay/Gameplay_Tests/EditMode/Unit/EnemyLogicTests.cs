@@ -160,6 +160,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultEntityLogicProvider_PatrolEnemy_SensesOpponent_TransitionsToChaseAndMovesInSameTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol"));
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_AttackEnemy_IsMaterializedDuringTick()
         {
             var worldState = CreateWorldState(new[]
@@ -183,6 +200,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));
         }
 
+        [Test]
+        public void DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_TransitionsToRecoverAfterAttack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+            Assert.That(result.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase"));
+            Assert.That(result.Trace.Text, Does.Contain("EnemyAiTransition|Stage=AfterAttack|E=40|From=Attack"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_RecoverEnemy_CountsDownThenReturnsToChase()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Recover, aiStateTimer: 1, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var firstResult = pipeline.RunTick(new TickInput(1));
+            var firstTickEnemy = GetEntity(worldState, 40);
+
+            Assert.That(firstResult.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(firstResult.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(firstTickEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(firstTickEnemy.aiStateTimer, Is.EqualTo(0));
+
+            var secondResult = pipeline.RunTick(new TickInput(2));
+            var secondTickEnemy = GetEntity(worldState, 40);
+
+            Assert.That(secondTickEnemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(secondTickEnemy.aiStateTimer, Is.EqualTo(0));
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(secondResult.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Recover|FromTimer=0|To=Chase"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_ChaseEnemy_LosesTarget_RevertsToPatrolAndPatrolMoves()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            pipeline.RunTick(new TickInput(1));
+
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -200,13 +287,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entity.hp;
         }
 
+        private static EntityState GetEntity(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
+            return entity;
+        }
+
         private static EntityState CreateUnit(
             int entityId,
             int teamId,
             Vector2Int position,
             EnemyAiMode aiMode,
             Direction facing = Direction.Right,
-            int hp = 3)
+            int hp = 3,
+            int aiStateTimer = 0)
         {
             return new EntityState
             {
@@ -223,6 +317,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 markedForDeath = false,
                 spawnTick = 0,
                 aiMode = aiMode,
+                aiStateTimer = aiStateTimer,
             };
         }
     }

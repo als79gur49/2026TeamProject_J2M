@@ -441,13 +441,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase, aiStateTimer: 3),
             });
 
             var snapshot = worldState.CreateSnapshot();
 
             Assert.That(snapshot.TryGetEntity(40, out var entity), Is.True);
             Assert.That(entity.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(entity.aiStateTimer, Is.EqualTo(3));
         }
 
         [Test]
@@ -477,6 +478,27 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(chaseResult.DeterminismHash));
             Assert.That(chaseResult.Trace.Text, Does.Contain("AiMode=Chase"));
             Assert.That(chaseReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Chase"));
+        }
+
+        [Test]
+        public void DeterminismHash_EnemyAiStateTimer_IsIncludedInCanonicalState()
+        {
+            var zeroTimerPipeline = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Recover, aiStateTimer: 0),
+                }));
+            var timedPipeline = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Recover, aiStateTimer: 2),
+                }));
+
+            var zeroTimerResult = zeroTimerPipeline.RunTick(new TickInput(1));
+            var timedResult = timedPipeline.RunTick(new TickInput(1));
+
+            Assert.That(zeroTimerResult.DeterminismHash, Is.Not.EqualTo(timedResult.DeterminismHash));
+            Assert.That(timedResult.Trace.Text, Does.Contain("AiTimer=1"));
         }
 
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()
@@ -831,12 +853,12 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp, EnemyAiMode aiMode = EnemyAiMode.None)
+        private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp, EnemyAiMode aiMode = EnemyAiMode.None, int aiStateTimer = 0)
         {
-            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode);
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer);
         }
 
-        private static EntityState CreateUnit(int entityId, int teamId, SurfaceCell position, int hp, EnemyAiMode aiMode = EnemyAiMode.None)
+        private static EntityState CreateUnit(int entityId, int teamId, SurfaceCell position, int hp, EnemyAiMode aiMode = EnemyAiMode.None, int aiStateTimer = 0)
         {
             return new EntityState
             {
@@ -852,6 +874,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 markedForDeath = false,
                 spawnTick = 0,
                 aiMode = aiMode,
+                aiStateTimer = aiStateTimer,
             };
         }
 
