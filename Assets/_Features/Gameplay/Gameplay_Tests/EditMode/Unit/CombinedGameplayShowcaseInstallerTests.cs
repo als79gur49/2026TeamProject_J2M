@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using NUnit.Framework;
 using UnityEngine;
@@ -95,6 +96,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void CombinedGameplayShowcaseInstaller_PlacesTwoPatrolEnemiesForFsmValidation()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
+                var entities = new List<EntityState>();
+
+                InvokePopulateInitialEntities(installer, entities, boardBounds);
+
+                Assert.That(
+                    TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 2, 4), out var floorEnemy),
+                    Is.True,
+                    "Floor face should include an immediately reachable FSM test enemy.");
+                Assert.That(floorEnemy.teamId, Is.EqualTo(2));
+                Assert.That(floorEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+
+                Assert.That(
+                    TryGetUnitAt(entities, new SurfaceCell(FaceId.Front, 2, 2), out var frontEnemy),
+                    Is.True,
+                    "Front face should include a second FSM test enemy after a surface transition.");
+                Assert.That(frontEnemy.teamId, Is.EqualTo(2));
+                Assert.That(frontEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+
+                Assert.That(
+                    GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorEnemy.position),
+                    Is.EqualTo(4),
+                    "The floor enemy should start inside sense range but outside attack range so Chase is visible first.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
         public void GameplayBoxCapabilityLabelViewFactory_AddsCapabilityTextOnlyToBoxes()
         {
             var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactoryTests");
@@ -174,6 +213,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return false;
+        }
+
+        private static bool TryGetUnitAt(IReadOnlyList<EntityState> entities, SurfaceCell cell, out EntityState unit)
+        {
+            for (var i = 0; i < entities.Count; i++)
+            {
+                var entity = entities[i];
+                if (entity.type == EntityType.Unit &&
+                    entity.position.Equals(cell))
+                {
+                    unit = entity;
+                    return true;
+                }
+            }
+
+            unit = default;
+            return false;
+        }
+
+        private static int? GetPlanarDistance(SurfaceCell source, SurfaceCell target)
+        {
+            if (source.face != target.face)
+            {
+                return null;
+            }
+
+            var delta = target - source;
+            return Mathf.Abs(delta.x) + Mathf.Abs(delta.y);
         }
 
         private static T InvokeNonPublic<T>(object target, string methodName)
