@@ -150,6 +150,8 @@ namespace Game.Feature.Gameplay.Loop
                 : DefaultPlayerPushContactThresholdSeconds;
             PlayerMoveCooldownTicks = SecondsToTicks(PlayerMoveCooldownSeconds, simulationTicksPerSecond, allowZero: true);
             PlayerPushContactThresholdTicks = SecondsToTicks(PlayerPushContactThresholdSeconds, simulationTicksPerSecond);
+            PlayerPushInteractionLockTicks = SecondsToTicks(pushMotionDurationSeconds, simulationTicksPerSecond);
+            PlayerFlipInteractionLockTicks = SecondsToTicks(flipMotionDurationSeconds, simulationTicksPerSecond);
         }
 
         public int SimulationTicksPerSecond { get; }
@@ -189,6 +191,10 @@ namespace Game.Feature.Gameplay.Loop
         public int PlayerMoveCooldownTicks { get; }
 
         public int PlayerPushContactThresholdTicks { get; }
+
+        public int PlayerPushInteractionLockTicks { get; }
+
+        public int PlayerFlipInteractionLockTicks { get; }
 
         public static GameplayTimingProfile CreateDefault()
         {

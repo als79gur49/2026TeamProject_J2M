@@ -139,6 +139,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerLogic_InteractionLock_BlocksMoveIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    interactionLockTicks = 1,
+                });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        public void PlayerLogic_InteractionLock_BlocksFlipIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    interactionLockTicks = 1,
+                });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
+                buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
         public void PlayerLogic_NoMoveCommand_ProducesNoIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -324,6 +374,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(secondWorld.CreateSnapshot().TryGetPlayerControlState(10, out var updatedState), Is.True);
             Assert.That(updatedState.pushContactTicks, Is.EqualTo(1));
             Assert.That(updatedState.pushTargetEntityId, Is.EqualTo(30));
+        }
+
+        [Test]
+        public void PlayerControlStateLogic_InteractionLock_DecrementsAndResetsContact()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    interactionLockTicks = 2,
+                    pushContactTicks = 3,
+                    pushTargetEntityId = 20,
+                    pushDirection = Direction.Right,
+                });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.interactionLockTicks, Is.EqualTo(1));
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(controlState.pushTargetEntityId, Is.Zero);
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

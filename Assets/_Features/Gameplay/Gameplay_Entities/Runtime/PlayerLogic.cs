@@ -65,6 +65,12 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var hasControlState = snapshot.TryGetPlayerControlState(_entityId, out var controlState);
+            if (hasControlState &&
+                controlState.interactionLockTicks > 0)
+            {
+                return;
+            }
+
             if (!TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
             {
                 return;

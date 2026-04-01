@@ -146,6 +146,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.PlayerMoveCooldownTicks, Is.EqualTo(24));
             Assert.That(profile.PlayerPushContactThresholdSeconds, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds));
             Assert.That(profile.PlayerPushContactThresholdTicks, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks));
+            Assert.That(profile.PlayerPushInteractionLockTicks, Is.EqualTo(12));
+            Assert.That(profile.PlayerFlipInteractionLockTicks, Is.EqualTo(12));
             Assert.That(profile.PushMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.TopologyMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.FlipMotionDurationSeconds, Is.EqualTo(0.2f));
@@ -178,6 +180,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(oneTwentyTpsProfile.PlayerMoveCooldownTicks, Is.EqualTo(48));
             Assert.That(sixtyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(2));
             Assert.That(oneTwentyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(4));
+            Assert.That(sixtyTpsProfile.PlayerPushInteractionLockTicks, Is.EqualTo(12));
+            Assert.That(oneTwentyTpsProfile.PlayerPushInteractionLockTicks, Is.EqualTo(24));
+            Assert.That(sixtyTpsProfile.PlayerFlipInteractionLockTicks, Is.EqualTo(12));
+            Assert.That(oneTwentyTpsProfile.PlayerFlipInteractionLockTicks, Is.EqualTo(24));
         }
 
         [Test]

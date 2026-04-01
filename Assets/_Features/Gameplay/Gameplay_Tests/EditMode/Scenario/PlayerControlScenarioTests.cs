@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.moveCooldownTicks, Is.EqualTo(3));
+            Assert.That(controlState.interactionLockTicks, Is.Zero);
         }
 
         [Test]
@@ -89,7 +90,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.moveCooldownTicks, Is.EqualTo(24));
+            Assert.That(controlState.moveCooldownTicks, Is.Zero);
+            Assert.That(controlState.interactionLockTicks, Is.EqualTo(12));
         }
 
         [Test]
@@ -172,6 +174,71 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(result.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Flip));
             Assert.That(result.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+        }
+
+        [Test]
+        public void PlayerControl_PushInteractionLock_BlocksPlayerButWorldStateStillAdvances()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10, pushContactThresholdTicks: 1),
+                });
+
+            var pushTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var lockedTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(pushTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            Assert.That(lockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(box.stateTimer, Is.EqualTo(10));
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.interactionLockTicks, Is.EqualTo(11));
+        }
+
+        [Test]
+        public void PlayerControl_FlipInteractionLock_BlocksFollowUpMovementUntilExpiry()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var flipTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var lockedTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            for (var tick = 3; tick <= 12; tick++)
+            {
+                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Up)));
+            }
+
+            var unlockTick = pipeline.RunTick(new TickInput(13, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(flipTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            Assert.That(lockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(unlockTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.interactionLockTicks, Is.EqualTo(0));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

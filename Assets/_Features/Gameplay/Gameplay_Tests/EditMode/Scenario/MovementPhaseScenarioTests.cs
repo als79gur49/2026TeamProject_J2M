@@ -222,7 +222,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .EntityMotions
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
-            Assert.That(result.Trace.Text, Does.Contain("Kind=BoxSlide"));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
         }
 
         [Test]

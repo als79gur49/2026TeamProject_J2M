@@ -59,7 +59,13 @@ namespace Game.Feature.Gameplay.PlayerControl
                 nextState.moveCooldownTicks--;
             }
 
-            if (input.PlayerCommand.FlipPressed ||
+            if (nextState.interactionLockTicks > 0)
+            {
+                nextState.interactionLockTicks--;
+            }
+
+            if (nextState.interactionLockTicks > 0 ||
+                input.PlayerCommand.FlipPressed ||
                 input.PlayerCommand.MoveDirection == Direction.None ||
                 !PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, out var contact))
             {
@@ -79,7 +85,7 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             writeContext.SetPlayerControlState(_entityId, nextState);
             updates.Add(
-                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|PushTicks={nextState.pushContactTicks}|Target={nextState.pushTargetEntityId}|Direction={nextState.pushDirection}");
+                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|PushTicks={nextState.pushContactTicks}|Target={nextState.pushTargetEntityId}|Direction={nextState.pushDirection}|Lock={nextState.interactionLockTicks}");
         }
     }
 }
