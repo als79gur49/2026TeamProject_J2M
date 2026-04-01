@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 2, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
             },
-            playerPushContactThresholdTicks: 1);
+            playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -224,7 +224,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                     CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
                 },
-                playerPushContactThresholdTicks: 1);
+                playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -361,7 +361,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
             },
-            playerPushContactThresholdTicks: 1);
+            playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -391,8 +391,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 },
                 actions: null,
                 staticEntityLogics: null,
-                initialMoveDelayTicks: 2,
-                playerPushContactThresholdTicks: 1);
+                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -426,7 +426,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 },
                 actions: null,
                 staticEntityLogics: null,
-                initialMoveDelayTicks: 2,
+                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 directionChangeConsumesDelay: true);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
@@ -573,10 +573,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             EntityState[] initialEntities,
             InputActionAsset actions = null,
             IEntityLogic[] staticEntityLogics = null,
-            int initialMoveDelayTicks = 0,
-            int repeatedMoveIntervalTicks = 2,
+            float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
+            float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
             bool directionChangeConsumesDelay = false,
-            int playerPushContactThresholdTicks = GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks)
+            float playerPushContactThresholdSeconds = GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -593,19 +593,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     FlipArcHeightInCells = 0.65f,
                     FlipMotionDurationSeconds = 0.2f,
                     InitialBoardBounds = new BoardBounds(new Vector2Int(-8, -8), new Vector2Int(8, 8)),
-                    InitialMoveDelaySeconds = -1f,
-                    InitialMoveDelayTicks = initialMoveDelayTicks,
+                    InitialMoveDelaySeconds = initialMoveDelaySeconds,
                     InitialEntities = initialEntities,
                     MaxTicksPerFrame = 8,
                     MoveDeadzone = 0.5f,
                     PlayerEntityId = 10,
-                    PlayerPushContactThresholdTicks = playerPushContactThresholdTicks,
+                    PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds,
                     PushMotionDurationSeconds = 0.2f,
-                    RepeatedMoveIntervalSeconds = -1f,
-                    RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
+                    RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                     SimulationTicksPerSecond = 60,
                     StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
-                    TickIntervalSeconds = 0.2f,
                 });
 
             return host;

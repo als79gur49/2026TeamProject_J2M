@@ -81,7 +81,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerEntityId = 10,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         SimulationTicksPerSecond = 10,
-                        TickIntervalSeconds = 0.1f,
                         ProjectileStepIntervalSeconds = 0.3f,
                     });
 
@@ -104,7 +103,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var configuration = new GameplaySceneHostConfiguration
             {
                 PushMotionDurationSeconds = 0.25f,
-                TickIntervalSeconds = 0.2f,
             };
 
             var defaultProfile = configuration.CreateTimingProfile();
@@ -128,6 +126,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 configuration.TopologyRotationVisualMapping,
                 Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
+        }
+
+        [Test]
+        public void GameplayTimingProfile_CreateDefault_PreservesDefaultTimeMeaningAtSixtyTps()
+        {
+            var profile = GameplayTimingProfile.CreateDefault();
+
+            Assert.That(profile.SimulationTicksPerSecond, Is.EqualTo(60));
+            Assert.That(profile.InitialMoveDelaySeconds, Is.EqualTo(0f));
+            Assert.That(profile.InitialMoveDelayTicks, Is.EqualTo(0));
+            Assert.That(profile.RepeatedMoveIntervalSeconds, Is.EqualTo(0.4f));
+            Assert.That(profile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
+            Assert.That(profile.BoxSlideStepIntervalSeconds, Is.EqualTo(0.2f));
+            Assert.That(profile.BoxSlideStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(profile.ProjectileStepIntervalSeconds, Is.EqualTo(0.2f));
+            Assert.That(profile.ProjectileStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(profile.PlayerMoveCooldownSeconds, Is.EqualTo(0.4f));
+            Assert.That(profile.PlayerMoveCooldownTicks, Is.EqualTo(24));
+            Assert.That(profile.PlayerPushContactThresholdSeconds, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds));
+            Assert.That(profile.PlayerPushContactThresholdTicks, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks));
+            Assert.That(profile.PushMotionDurationSeconds, Is.EqualTo(0.2f));
+            Assert.That(profile.TopologyMotionDurationSeconds, Is.EqualTo(0.2f));
+            Assert.That(profile.FlipMotionDurationSeconds, Is.EqualTo(0.2f));
+        }
+
+        [Test]
+        public void GameplaySceneHostConfiguration_CreateTimingProfile_ChangingSimulationTicksPerSecondPreservesTimeMeaning()
+        {
+            var sixtyTpsProfile = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 60,
+            }.CreateTimingProfile();
+            var oneTwentyTpsProfile = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 120,
+            }.CreateTimingProfile();
+
+            Assert.That(sixtyTpsProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.RepeatedMoveIntervalSeconds));
+            Assert.That(sixtyTpsProfile.BoxSlideStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.BoxSlideStepIntervalSeconds));
+            Assert.That(sixtyTpsProfile.ProjectileStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.ProjectileStepIntervalSeconds));
+            Assert.That(sixtyTpsProfile.PlayerMoveCooldownSeconds, Is.EqualTo(oneTwentyTpsProfile.PlayerMoveCooldownSeconds));
+            Assert.That(sixtyTpsProfile.PlayerPushContactThresholdSeconds, Is.EqualTo(oneTwentyTpsProfile.PlayerPushContactThresholdSeconds));
+            Assert.That(sixtyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
+            Assert.That(oneTwentyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(48));
+            Assert.That(sixtyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(oneTwentyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(24));
+            Assert.That(sixtyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(12));
+            Assert.That(oneTwentyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(24));
+            Assert.That(sixtyTpsProfile.PlayerMoveCooldownTicks, Is.EqualTo(24));
+            Assert.That(oneTwentyTpsProfile.PlayerMoveCooldownTicks, Is.EqualTo(48));
+            Assert.That(sixtyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(2));
+            Assert.That(oneTwentyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(4));
         }
 
         [Test]
@@ -165,7 +215,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                     });
 
                 Assert.That(host.BoardRoot, Is.Not.Null);
@@ -1831,7 +1880,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                     });
 
                 var initialTarget = host.ViewCameraTarget.position;
@@ -1902,7 +1950,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerEntityId = 10,
                         SnapViewCameraToTarget = true,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                         ViewCamera = viewCamera,
                     });
 
@@ -1970,7 +2017,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerEntityId = 10,
                         SnapViewCameraToTarget = true,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                         ViewCamera = viewCamera,
                     });
 
@@ -2019,7 +2065,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
@@ -2072,9 +2117,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
-                        PlayerPushContactThresholdTicks = 1,
+                        PlayerPushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
@@ -2131,9 +2175,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
-                        PlayerPushContactThresholdTicks = 1,
+                        PlayerPushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
@@ -2192,7 +2235,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        TickIntervalSeconds = 0.2f,
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.left);

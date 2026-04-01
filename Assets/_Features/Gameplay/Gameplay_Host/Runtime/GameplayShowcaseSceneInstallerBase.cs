@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Loop;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -17,11 +18,14 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private bool configureMainCamera = true;
         [SerializeField] private float cellSize = 1.15f;
         [SerializeField] private bool directionChangeConsumesDelay;
-        [SerializeField] private int initialMoveDelayTicks;
+        [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private float moveDeadzone = 0.5f;
         [SerializeField] private int playerEntityId = 10;
-        [SerializeField] private int repeatedMoveIntervalTicks = 2;
-        [SerializeField] private float tickIntervalSeconds = 0.2f;
+        [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
+        [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
+        [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
+        [SerializeField] private float pushMotionDurationSeconds = GameplayTimingProfile.DefaultPushMotionDurationSeconds;
+        [SerializeField] private float flipMotionDurationSeconds = GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
         [SerializeField] private float topologyMotionDurationSeconds = -1f;
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
 
@@ -223,17 +227,20 @@ namespace Game.Feature.Gameplay.Host
                 AutoCreateViews = autoCreateViews,
                 CameraSettings = cameraSettings,
                 CellSize = cellSize,
+                BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds,
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
+                FlipMotionDurationSeconds = flipMotionDurationSeconds,
                 InitialBoardBounds = boardBounds,
-                InitialMoveDelayTicks = initialMoveDelayTicks,
+                InitialMoveDelaySeconds = initialMoveDelaySeconds,
                 InitialEntities = entities.ToArray(),
                 InitialTerrain = CreateTerrainData(boardBounds),
                 InitialTopology = InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
-                RepeatedMoveIntervalTicks = repeatedMoveIntervalTicks,
+                ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
+                PushMotionDurationSeconds = pushMotionDurationSeconds,
+                RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                 SnapViewCameraToTarget = configureMainCamera,
-                TickIntervalSeconds = tickIntervalSeconds,
                 TopologyMotionDurationSeconds = topologyMotionDurationSeconds,
                 TopologyRotationVisualMapping = topologyRotationVisualMapping,
                 ViewCamera = configureMainCamera ? Camera.main : null,

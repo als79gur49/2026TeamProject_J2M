@@ -6,10 +6,18 @@ namespace Game.Feature.Gameplay.Loop
     public sealed class GameplayTimingProfile
     {
         public const int DefaultSimulationTicksPerSecond = 60;
-        public const float DefaultLegacyTickIntervalSeconds = 0.2f;
+        public const float DefaultInitialMoveDelaySeconds = 0f;
+        public const float DefaultRepeatedMoveIntervalSeconds = 0.4f;
+        public const float DefaultBoxSlideStepIntervalSeconds = 0.2f;
+        public const float DefaultProjectileStepIntervalSeconds = 0.2f;
+        public const float DefaultPushMotionDurationSeconds = 0.2f;
+        public const float DefaultTopologyMotionDurationSeconds = DefaultPushMotionDurationSeconds;
+        public const float DefaultFlipMotionDurationSeconds = 0.2f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
         public const int DefaultPlayerPushContactThresholdTicks = 2;
+        public const float DefaultPlayerPushContactThresholdSeconds =
+            DefaultPlayerPushContactThresholdTicks / (float)DefaultSimulationTicksPerSecond;
 
         public GameplayTimingProfile(
             int simulationTicksPerSecond,
@@ -139,7 +147,7 @@ namespace Game.Feature.Gameplay.Loop
                 : repeatedMoveIntervalSeconds;
             PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds >= 0f
                 ? playerPushContactThresholdSeconds
-                : DefaultPlayerPushContactThresholdTicks / (float)simulationTicksPerSecond;
+                : DefaultPlayerPushContactThresholdSeconds;
             PlayerMoveCooldownTicks = SecondsToTicks(PlayerMoveCooldownSeconds, simulationTicksPerSecond, allowZero: true);
             PlayerPushContactThresholdTicks = SecondsToTicks(PlayerPushContactThresholdSeconds, simulationTicksPerSecond);
         }
@@ -184,54 +192,17 @@ namespace Game.Feature.Gameplay.Loop
 
         public static GameplayTimingProfile CreateDefault()
         {
-            return CreateFromLegacy(
-                DefaultSimulationTicksPerSecond,
-                initialMoveDelayTicks: 0,
-                repeatedMoveIntervalTicks: 2,
-                legacyTickIntervalSeconds: DefaultLegacyTickIntervalSeconds,
-                flipArcHeightInCells: DefaultFlipArcHeightInCells,
-                maxTicksPerFrame: DefaultMaxTicksPerFrame);
-        }
-
-        public static GameplayTimingProfile CreateFromLegacy(
-            int simulationTicksPerSecond,
-            int initialMoveDelayTicks,
-            int repeatedMoveIntervalTicks,
-            float legacyTickIntervalSeconds,
-            float flipArcHeightInCells,
-            int maxTicksPerFrame)
-        {
-            if (initialMoveDelayTicks < 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(initialMoveDelayTicks),
-                    "Initial move delay ticks must be zero or greater.");
-            }
-
-            if (repeatedMoveIntervalTicks <= 0)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(repeatedMoveIntervalTicks),
-                    "Repeated move interval ticks must be greater than zero.");
-            }
-
-            if (legacyTickIntervalSeconds <= 0f)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(legacyTickIntervalSeconds),
-                    "Legacy tick interval must be greater than zero.");
-            }
-
             return new GameplayTimingProfile(
-                simulationTicksPerSecond,
-                initialMoveDelayTicks * legacyTickIntervalSeconds,
-                repeatedMoveIntervalTicks * legacyTickIntervalSeconds,
-                legacyTickIntervalSeconds,
-                legacyTickIntervalSeconds,
-                legacyTickIntervalSeconds,
-                legacyTickIntervalSeconds,
-                flipArcHeightInCells,
-                maxTicksPerFrame);
+                DefaultSimulationTicksPerSecond,
+                DefaultInitialMoveDelaySeconds,
+                DefaultRepeatedMoveIntervalSeconds,
+                DefaultBoxSlideStepIntervalSeconds,
+                DefaultProjectileStepIntervalSeconds,
+                DefaultPushMotionDurationSeconds,
+                DefaultTopologyMotionDurationSeconds,
+                DefaultFlipMotionDurationSeconds,
+                DefaultFlipArcHeightInCells,
+                DefaultMaxTicksPerFrame);
         }
 
         public static int SecondsToTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

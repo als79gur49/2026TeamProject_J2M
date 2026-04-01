@@ -23,7 +23,6 @@ namespace Game.Feature.Gameplay.Host
         public bool DirectionChangeConsumesDelay;
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
-        public int InitialMoveDelayTicks = 0;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
         public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;
         public CubeTopologyState InitialTopology = new(FaceId.Floor);
@@ -31,9 +30,7 @@ namespace Game.Feature.Gameplay.Host
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
         public float PlayerMoveCooldownSeconds = -1f;
-        public int PlayerMoveCooldownTicks = -1;
         public float PlayerPushContactThresholdSeconds = -1f;
-        public int PlayerPushContactThresholdTicks = GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
@@ -42,11 +39,9 @@ namespace Game.Feature.Gameplay.Host
         public float BoxSlideStepIntervalSeconds = -1f;
         public float ProjectileStepIntervalSeconds = -1f;
         public float RepeatedMoveIntervalSeconds = -1f;
-        public int RepeatedMoveIntervalTicks = 2;
         public int SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         public GameplayCameraSettings CameraSettings = GameplayCameraSettings.CreateRuntimeDefault();
         public bool SnapViewCameraToTarget;
-        public float TickIntervalSeconds = 0.2f;
         public InputActionAsset Actions;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public Camera ViewCamera;
@@ -54,16 +49,15 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayTimingProfile CreateTimingProfile()
         {
-            var legacyTickIntervalSeconds = ResolveLegacyTickIntervalSeconds();
-            var initialMoveDelaySeconds = ResolveInitialMoveDelaySeconds(legacyTickIntervalSeconds);
-            var repeatedMoveIntervalSeconds = ResolveRepeatedMoveIntervalSeconds(legacyTickIntervalSeconds);
-            var boxSlideStepIntervalSeconds = ResolveBoxSlideStepIntervalSeconds(legacyTickIntervalSeconds);
-            var projectileStepIntervalSeconds = ResolveProjectileStepIntervalSeconds(legacyTickIntervalSeconds);
-            var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds(legacyTickIntervalSeconds);
+            var initialMoveDelaySeconds = ResolveInitialMoveDelaySeconds();
+            var repeatedMoveIntervalSeconds = ResolveRepeatedMoveIntervalSeconds();
+            var boxSlideStepIntervalSeconds = ResolveBoxSlideStepIntervalSeconds();
+            var projectileStepIntervalSeconds = ResolveProjectileStepIntervalSeconds();
+            var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds();
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
-            var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds(legacyTickIntervalSeconds);
-            var playerMoveCooldownSeconds = ResolvePlayerMoveCooldownSeconds(legacyTickIntervalSeconds);
-            var playerPushContactThresholdSeconds = ResolvePlayerPushContactThresholdSeconds(legacyTickIntervalSeconds);
+            var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
+            var playerMoveCooldownSeconds = ResolvePlayerMoveCooldownSeconds(repeatedMoveIntervalSeconds);
+            var playerPushContactThresholdSeconds = ResolvePlayerPushContactThresholdSeconds();
 
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
@@ -84,39 +78,39 @@ namespace Game.Feature.Gameplay.Host
                 playerPushContactThresholdSeconds);
         }
 
-        private float ResolveInitialMoveDelaySeconds(float legacyTickIntervalSeconds)
+        private float ResolveInitialMoveDelaySeconds()
         {
             return InitialMoveDelaySeconds >= 0f
                 ? InitialMoveDelaySeconds
-                : Mathf.Max(0, InitialMoveDelayTicks) * legacyTickIntervalSeconds;
+                : GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         }
 
-        private float ResolveRepeatedMoveIntervalSeconds(float legacyTickIntervalSeconds)
+        private float ResolveRepeatedMoveIntervalSeconds()
         {
             return RepeatedMoveIntervalSeconds > 0f
                 ? RepeatedMoveIntervalSeconds
-                : Mathf.Max(1, RepeatedMoveIntervalTicks) * legacyTickIntervalSeconds;
+                : GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         }
 
-        private float ResolveBoxSlideStepIntervalSeconds(float legacyTickIntervalSeconds)
+        private float ResolveBoxSlideStepIntervalSeconds()
         {
             return BoxSlideStepIntervalSeconds > 0f
                 ? BoxSlideStepIntervalSeconds
-                : legacyTickIntervalSeconds;
+                : GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         }
 
-        private float ResolveProjectileStepIntervalSeconds(float legacyTickIntervalSeconds)
+        private float ResolveProjectileStepIntervalSeconds()
         {
             return ProjectileStepIntervalSeconds > 0f
                 ? ProjectileStepIntervalSeconds
-                : legacyTickIntervalSeconds;
+                : GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
         }
 
-        private float ResolvePushMotionDurationSeconds(float legacyTickIntervalSeconds)
+        private float ResolvePushMotionDurationSeconds()
         {
             return PushMotionDurationSeconds > 0f
                 ? PushMotionDurationSeconds
-                : legacyTickIntervalSeconds;
+                : GameplayTimingProfile.DefaultPushMotionDurationSeconds;
         }
 
         private float ResolveTopologyMotionDurationSeconds(float pushMotionDurationSeconds)
@@ -126,48 +120,25 @@ namespace Game.Feature.Gameplay.Host
                 : pushMotionDurationSeconds;
         }
 
-        private float ResolveFlipMotionDurationSeconds(float legacyTickIntervalSeconds)
+        private float ResolveFlipMotionDurationSeconds()
         {
             return FlipMotionDurationSeconds > 0f
                 ? FlipMotionDurationSeconds
-                : legacyTickIntervalSeconds;
+                : GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
         }
 
-        private float ResolvePlayerMoveCooldownSeconds(float legacyTickIntervalSeconds)
+        private float ResolvePlayerMoveCooldownSeconds(float repeatedMoveIntervalSeconds)
         {
-            if (PlayerMoveCooldownSeconds >= 0f)
-            {
-                return PlayerMoveCooldownSeconds;
-            }
-
-            if (PlayerMoveCooldownTicks >= 0)
-            {
-                return PlayerMoveCooldownTicks / (float)Mathf.Max(1, SimulationTicksPerSecond);
-            }
-
-            return ResolveRepeatedMoveIntervalSeconds(legacyTickIntervalSeconds);
+            return PlayerMoveCooldownSeconds >= 0f
+                ? PlayerMoveCooldownSeconds
+                : repeatedMoveIntervalSeconds;
         }
 
-        private float ResolvePlayerPushContactThresholdSeconds(float legacyTickIntervalSeconds)
+        private float ResolvePlayerPushContactThresholdSeconds()
         {
-            if (PlayerPushContactThresholdSeconds >= 0f)
-            {
-                return PlayerPushContactThresholdSeconds;
-            }
-
-            if (PlayerPushContactThresholdTicks > 0)
-            {
-                return PlayerPushContactThresholdTicks / (float)Mathf.Max(1, SimulationTicksPerSecond);
-            }
-
-            return GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks / (float)Mathf.Max(1, SimulationTicksPerSecond);
-        }
-
-        private float ResolveLegacyTickIntervalSeconds()
-        {
-            return TickIntervalSeconds > 0f
-                ? TickIntervalSeconds
-                : GameplayTimingProfile.DefaultLegacyTickIntervalSeconds;
+            return PlayerPushContactThresholdSeconds >= 0f
+                ? PlayerPushContactThresholdSeconds
+                : GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds;
         }
     }
 }
