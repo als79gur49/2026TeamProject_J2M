@@ -196,6 +196,14 @@
 - low-level query coverage 정리
   - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSurfaceQueryTests.cs`
     - helper 대신 `BoardBounds.Unbounded`를 직접 갖는 low-level snapshot 구성으로 의도 분리
+- low-level dead helper cleanup
+  - `Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldSnapshot.cs`
+    - 미사용 `TryGetNextSurfaceBoxSlideCell(...)` wrapper 제거
+  - `Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldQueryService.cs`
+    - dead helper `GetBoardEdgeDistance(...)` 제거
+    - dead helper `IsOnPositiveRay(...)` 제거
+    - dead helper `Offset(...)` 제거
+    - `TryGetNextSurfaceBoxSlideCell(...)` visibility를 internal에서 private으로 축소
 - 문서
   - `Docs/Architecture/Deterministic-Tick-Simulation-Implementation-Plan.md`
 
