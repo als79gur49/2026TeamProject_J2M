@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -160,15 +161,48 @@ namespace Game.Feature.Gameplay.Loop
         public Direction Facing { get; }
     }
 
+    public readonly struct TickPlayerActionPresentationSignal
+    {
+        public TickPlayerActionPresentationSignal(
+            int entityId,
+            PlayerActionKind activeActionKind,
+            int activeActionSequence,
+            bool startedThisTick,
+            bool completedThisTick,
+            bool canceledThisTick)
+        {
+            EntityId = entityId;
+            ActiveActionKind = activeActionKind;
+            ActiveActionSequence = activeActionSequence;
+            StartedThisTick = startedThisTick;
+            CompletedThisTick = completedThisTick;
+            CanceledThisTick = canceledThisTick;
+        }
+
+        public int EntityId { get; }
+
+        public PlayerActionKind ActiveActionKind { get; }
+
+        public int ActiveActionSequence { get; }
+
+        public bool StartedThisTick { get; }
+
+        public bool CompletedThisTick { get; }
+
+        public bool CanceledThisTick { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
             Array.Empty<TickEntityMotion>(),
             topologyMotion: null,
             Array.Empty<TickVisibilityChange>(),
-            Array.Empty<TickTransitionVisibilityChange>());
+            Array.Empty<TickTransitionVisibilityChange>(),
+            Array.Empty<TickPlayerActionPresentationSignal>());
 
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
+        private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
         private readonly TickTopologyMotion? _topologyMotion;
         private readonly ReadOnlyCollection<TickTransitionVisibilityChange> _transitionVisibilityChanges;
         private readonly ReadOnlyCollection<TickVisibilityChange> _visibilityChanges;
@@ -199,6 +233,21 @@ namespace Game.Feature.Gameplay.Loop
             TickTopologyMotion? topologyMotion,
             IEnumerable<TickVisibilityChange> visibilityChanges,
             IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                Array.Empty<TickPlayerActionPresentationSignal>())
+        {
+        }
+
+        public TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals)
         {
             if (entityMotions == null)
             {
@@ -215,11 +264,18 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(transitionVisibilityChanges));
             }
 
+            if (playerActionSignals == null)
+            {
+                throw new ArgumentNullException(nameof(playerActionSignals));
+            }
+
             _entityMotions = new ReadOnlyCollection<TickEntityMotion>(new List<TickEntityMotion>(entityMotions));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
             _transitionVisibilityChanges = new ReadOnlyCollection<TickTransitionVisibilityChange>(
                 new List<TickTransitionVisibilityChange>(transitionVisibilityChanges));
+            _playerActionSignals = new ReadOnlyCollection<TickPlayerActionPresentationSignal>(
+                new List<TickPlayerActionPresentationSignal>(playerActionSignals));
         }
 
         public IReadOnlyList<TickEntityMotion> EntityMotions => _entityMotions;
@@ -229,5 +285,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickVisibilityChange> VisibilityChanges => _visibilityChanges;
 
         public IReadOnlyList<TickTransitionVisibilityChange> TransitionVisibilityChanges => _transitionVisibilityChanges;
+
+        public IReadOnlyList<TickPlayerActionPresentationSignal> PlayerActionSignals => _playerActionSignals;
     }
 }

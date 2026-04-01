@@ -14,14 +14,43 @@ namespace Game.Feature.Gameplay.Entities
         private const int DefaultCommandPriority = 100;
 
         private readonly int _entityId;
+        private readonly int _flipRecoveryTicks;
+        private readonly int _flipWindupTicks;
         private readonly int _pushContactThresholdTicks;
+        private readonly int _pushRecoveryTicks;
+        private readonly int _pushWindupTicks;
 
         public PlayerLogic(int entityId)
-            : this(entityId, GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks)
+            : this(
+                entityId,
+                GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 0,
+                flipWindupTicks: 1,
+                flipRecoveryTicks: 0)
         {
         }
 
-        public PlayerLogic(int entityId, int pushContactThresholdTicks)
+        public PlayerLogic(
+            int entityId,
+            int pushContactThresholdTicks)
+            : this(
+                entityId,
+                pushContactThresholdTicks,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 0,
+                flipWindupTicks: 1,
+                flipRecoveryTicks: 0)
+        {
+        }
+
+        internal PlayerLogic(
+            int entityId,
+            int pushContactThresholdTicks,
+            int pushWindupTicks,
+            int pushRecoveryTicks,
+            int flipWindupTicks,
+            int flipRecoveryTicks)
         {
             if (entityId <= 0)
             {
@@ -33,11 +62,45 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentOutOfRangeException(nameof(pushContactThresholdTicks), "Push contact threshold must be greater than zero.");
             }
 
+            if (pushWindupTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pushWindupTicks), "Push wind-up ticks must be greater than zero.");
+            }
+
+            if (pushRecoveryTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pushRecoveryTicks), "Push recovery ticks must be zero or greater.");
+            }
+
+            if (flipWindupTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(flipWindupTicks), "Flip wind-up ticks must be greater than zero.");
+            }
+
+            if (flipRecoveryTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(flipRecoveryTicks), "Flip recovery ticks must be zero or greater.");
+            }
+
             _entityId = entityId;
             _pushContactThresholdTicks = pushContactThresholdTicks;
+            _pushWindupTicks = pushWindupTicks;
+            _pushRecoveryTicks = pushRecoveryTicks;
+            _flipWindupTicks = flipWindupTicks;
+            _flipRecoveryTicks = flipRecoveryTicks;
         }
 
         public int ControlledEntityId => _entityId;
+
+        internal int PushContactThresholdTicks => _pushContactThresholdTicks;
+
+        internal int PushWindupTicks => _pushWindupTicks;
+
+        internal int PushRecoveryTicks => _pushRecoveryTicks;
+
+        internal int FlipWindupTicks => _flipWindupTicks;
+
+        internal int FlipRecoveryTicks => _flipRecoveryTicks;
 
         public void CollectMovementIntents(
             WorldSnapshot snapshot,
@@ -66,8 +129,21 @@ namespace Game.Feature.Gameplay.Entities
 
             var hasControlState = snapshot.TryGetPlayerControlState(_entityId, out var controlState);
             if (hasControlState &&
-                controlState.interactionLockTicks > 0)
+                controlState.activeAction.IsActive)
             {
+                if (input.TickIndex != controlState.activeAction.executeTick ||
+                    !TryResolveDelta(controlState.activeAction.direction, out var actionDelta))
+                {
+                    return;
+                }
+
+                buffer.Add(
+                    new RawMovementIntent(
+                        entity.entityId,
+                        DefaultCommandPriority,
+                        entity.position.PlanarPosition + actionDelta,
+                        ResolveCommandKind(controlState.activeAction.kind),
+                        localSequence: controlState.activeAction.sequence));
                 return;
             }
 
@@ -78,13 +154,6 @@ namespace Game.Feature.Gameplay.Entities
 
             if (input.PlayerCommand.FlipPressed)
             {
-                buffer.Add(
-                    new RawMovementIntent(
-                        entity.entityId,
-                        DefaultCommandPriority,
-                        entity.position + delta,
-                        MovementCommandKind.Flip,
-                        localSequence: 0));
                 return;
             }
 
@@ -101,17 +170,6 @@ namespace Game.Feature.Gameplay.Entities
 
             if (hasMatchingPushContact)
             {
-                if (controlState.pushContactTicks >= _pushContactThresholdTicks)
-                {
-                    buffer.Add(
-                        new RawMovementIntent(
-                            entity.entityId,
-                            DefaultCommandPriority,
-                            entity.position + delta,
-                            MovementCommandKind.Push,
-                            localSequence: 0));
-                }
-
                 return;
             }
 
@@ -122,6 +180,16 @@ namespace Game.Feature.Gameplay.Entities
                     entity.position + delta,
                     MovementCommandKind.Move,
                     localSequence: 0));
+        }
+
+        private static MovementCommandKind ResolveCommandKind(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => MovementCommandKind.Push,
+                PlayerActionKind.Flip => MovementCommandKind.Flip,
+                _ => MovementCommandKind.Move,
+            };
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

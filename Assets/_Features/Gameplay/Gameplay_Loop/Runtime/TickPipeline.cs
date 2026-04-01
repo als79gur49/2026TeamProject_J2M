@@ -152,6 +152,7 @@ namespace Game.Feature.Gameplay.Loop
                 postMovementSnapshot,
                 postAttackSnapshot,
                 finalAuthoritativeSnapshot,
+                preMovementStateResult,
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult);
@@ -236,13 +237,14 @@ namespace Game.Feature.Gameplay.Loop
             IPlayerControlCommitContext writeContext)
         {
             var updates = new List<string>();
+            var actionTransitions = new List<PlayerActionTransition>();
 
             for (var i = 0; i < entityLogics.Count; i++)
             {
-                entityLogics[i].CommitPreMovementState(snapshot, in input, writeContext, updates);
+                entityLogics[i].CommitPreMovementState(snapshot, in input, writeContext, updates, actionTransitions);
             }
 
-            return new PreMovementStatePhaseResult(updates);
+            return new PreMovementStatePhaseResult(updates, actionTransitions);
         }
 
         private MovementPhaseResult RunMovementPhase(
@@ -517,10 +519,20 @@ namespace Game.Feature.Gameplay.Loop
     internal sealed class PreMovementStatePhaseResult
     {
         public PreMovementStatePhaseResult(List<string> updates)
+            : this(updates, new List<PlayerActionTransition>())
+        {
+        }
+
+        public PreMovementStatePhaseResult(
+            List<string> updates,
+            List<PlayerActionTransition> playerActionTransitions)
         {
             Updates = updates ?? throw new ArgumentNullException(nameof(updates));
+            PlayerActionTransitions = playerActionTransitions ?? throw new ArgumentNullException(nameof(playerActionTransitions));
         }
 
         public List<string> Updates { get; }
+
+        public List<PlayerActionTransition> PlayerActionTransitions { get; }
     }
 }

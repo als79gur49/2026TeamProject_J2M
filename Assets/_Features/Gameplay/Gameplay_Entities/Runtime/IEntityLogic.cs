@@ -2,6 +2,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using System.Collections.Generic;
 
 namespace Game.Feature.Gameplay.Entities
@@ -24,7 +25,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in TickInput input,
             IPlayerControlCommitContext writeContext,
-            List<string> updates);
+            List<string> updates,
+            List<PlayerActionTransition> actionTransitions);
     }
 
     public interface IAttackEntityLogic : IEntityLogic

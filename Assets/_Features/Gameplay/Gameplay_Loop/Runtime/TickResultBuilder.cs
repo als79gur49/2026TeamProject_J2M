@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -147,11 +148,33 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult)
+            : this(
+                preMovementSnapshot,
+                postMovementSnapshot,
+                postAttackSnapshot,
+                finalAuthoritativeSnapshot,
+                new PreMovementStatePhaseResult(new List<string>(), new List<PlayerActionTransition>()),
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult)
+        {
+        }
+
+        public TickPresentationBuildContext(
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot,
+            WorldSnapshot postAttackSnapshot,
+            WorldSnapshot finalAuthoritativeSnapshot,
+            PreMovementStatePhaseResult preMovementStatePhaseResult,
+            MovementPhaseResult movementPhaseResult,
+            AttackPhaseResult attackPhaseResult,
+            CleanupPhaseResult cleanupPhaseResult)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
             PostAttackSnapshot = postAttackSnapshot ?? throw new ArgumentNullException(nameof(postAttackSnapshot));
             FinalAuthoritativeSnapshot = finalAuthoritativeSnapshot ?? throw new ArgumentNullException(nameof(finalAuthoritativeSnapshot));
+            PreMovementStatePhaseResult = preMovementStatePhaseResult ?? throw new ArgumentNullException(nameof(preMovementStatePhaseResult));
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
@@ -165,6 +188,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public WorldSnapshot FinalAuthoritativeSnapshot { get; }
 
+        public PreMovementStatePhaseResult PreMovementStatePhaseResult { get; }
+
         public MovementPhaseResult MovementPhaseResult { get; }
 
         public AttackPhaseResult AttackPhaseResult { get; }
@@ -177,17 +202,20 @@ namespace Game.Feature.Gameplay.Loop
         public TickPresentationData Build(in TickPresentationBuildContext context)
         {
             var entityMotions = new List<TickEntityMotion>();
+            var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
 
             BuildMovementPresentation(context, entityMotions, visibilityChanges);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges);
+            BuildPlayerPresentation(context, playerActionSignals);
 
             var topologyMotion = BuildTopologyMotion(context);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
+                   playerActionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
                    !topologyMotion.HasValue
@@ -196,7 +224,8 @@ namespace Game.Feature.Gameplay.Loop
                     entityMotions,
                     topologyMotion,
                     visibilityChanges,
-                    transitionVisibilityChanges);
+                    transitionVisibilityChanges,
+                    playerActionSignals);
         }
 
         private static void BuildMovementPresentation(
@@ -260,10 +289,78 @@ namespace Game.Feature.Gameplay.Loop
                 visibilityChanges.Add(
                     new TickVisibilityChange(
                         entityId,
-                        TickVisibilityChangeKind.Remove,
-                        removedEntity.position,
-                        context.PostAttackSnapshot.Topology,
-                        removedEntity.facing));
+                    TickVisibilityChangeKind.Remove,
+                    removedEntity.position,
+                    context.PostAttackSnapshot.Topology,
+                    removedEntity.facing));
+            }
+        }
+
+        private static void BuildPlayerPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerActionPresentationSignal> playerActionSignals)
+        {
+            var candidateEntityIds = new List<int>();
+            var seenEntityIds = new HashSet<int>();
+            var transitionsByEntityId = new Dictionary<int, PlayerActionTransition>();
+            var playerControlEntries = new List<PlayerControlSnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumeratePlayerControlStatesOrdered(playerControlEntries);
+
+            for (var i = 0; i < playerControlEntries.Count; i++)
+            {
+                var entry = playerControlEntries[i];
+                if (!entry.State.activeAction.IsActive ||
+                    !seenEntityIds.Add(entry.EntityId))
+                {
+                    continue;
+                }
+
+                candidateEntityIds.Add(entry.EntityId);
+            }
+
+            var actionTransitions = context.PreMovementStatePhaseResult.PlayerActionTransitions;
+            for (var i = 0; i < actionTransitions.Count; i++)
+            {
+                var transition = actionTransitions[i];
+                transitionsByEntityId[transition.EntityId] = transition;
+                if (seenEntityIds.Add(transition.EntityId))
+                {
+                    candidateEntityIds.Add(transition.EntityId);
+                }
+            }
+
+            for (var i = 0; i < candidateEntityIds.Count; i++)
+            {
+                var entityId = candidateEntityIds[i];
+                var activeActionKind = PlayerActionKind.None;
+                var activeActionSequence = 0;
+                var startedThisTick = false;
+                var completedThisTick = false;
+                var canceledThisTick = false;
+
+                if (transitionsByEntityId.TryGetValue(entityId, out var transition))
+                {
+                    activeActionKind = transition.CurrentKind;
+                    activeActionSequence = transition.CurrentSequence;
+                    startedThisTick = transition.StartedThisTick;
+                    completedThisTick = transition.CompletedThisTick;
+                    canceledThisTick = transition.CanceledThisTick;
+                }
+
+                if (context.FinalAuthoritativeSnapshot.TryGetPlayerControlState(entityId, out var controlState))
+                {
+                    activeActionKind = controlState.activeAction.kind;
+                    activeActionSequence = controlState.activeAction.sequence;
+                }
+
+                playerActionSignals.Add(
+                    new TickPlayerActionPresentationSignal(
+                        entityId,
+                        activeActionKind,
+                        activeActionSequence,
+                        startedThisTick,
+                        completedThisTick,
+                        canceledThisTick));
             }
         }
 

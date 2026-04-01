@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSnapshotSections(builder, "S0", s0Snapshot);
             AppendSection(builder, "EnemyAi.BeforeMovementTransitions", enemyAiPhaseResult.BeforeMovementTransitions, FormatString);
             AppendSection(builder, "PreMovement.PlayerControlUpdates", preMovementStatePhaseResult.Updates, FormatString);
+            AppendSection(builder, "PreMovement.PlayerActionTransitions", preMovementStatePhaseResult.PlayerActionTransitions, FormatPlayerActionTransition);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
             AppendSection(builder, "Movement.Candidates", movementPhaseResult.ExpandedCandidates, FormatActionGroup);
@@ -116,7 +117,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var entry = entries[i];
                 lines.Add(
-                    $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|PushTicks={entry.State.pushContactTicks}|Target={entry.State.pushTargetEntityId}|Direction={entry.State.pushDirection}|Lock={entry.State.interactionLockTicks}");
+                    $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|PushTicks={entry.State.pushContactTicks}|Target={entry.State.pushTargetEntityId}|Direction={entry.State.pushDirection}|Lock={entry.State.interactionLockTicks}|Action={entry.State.activeAction.kind}|ActionSeq={entry.State.activeAction.sequence}|ActionDirection={entry.State.activeAction.direction}|ActionTarget={entry.State.activeAction.targetEntityId}|Start={entry.State.activeAction.startTick}|Execute={entry.State.activeAction.executeTick}|Recovery={entry.State.activeAction.recoveryEndTick}|Attempted={(entry.State.activeAction.executionAttempted ? 1 : 0)}");
             }
 
             return lines;
@@ -177,6 +178,11 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatString(string value)
         {
             return value;
+        }
+
+        private static string FormatPlayerActionTransition(PlayerActionTransition transition)
+        {
+            return $"E={transition.EntityId}|Prev={transition.PreviousKind}|Curr={transition.CurrentKind}|PrevSeq={transition.PreviousSequence}|CurrSeq={transition.CurrentSequence}|Started={transition.StartedThisTick}|Completed={transition.CompletedThisTick}|Canceled={transition.CanceledThisTick}";
         }
 
         private static string FormatBoardBounds(BoardBounds boardBounds)

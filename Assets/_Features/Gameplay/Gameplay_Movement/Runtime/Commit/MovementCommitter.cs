@@ -14,9 +14,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
     internal sealed class MovementCommitter
     {
         private const int ProjectileImpactDamageAmount = 1;
-        private readonly int _playerFlipInteractionLockTicks;
         private readonly int _playerMoveCooldownTicks;
-        private readonly int _playerPushInteractionLockTicks;
 
         public MovementCommitter()
             : this(GameplayTimingProfile.CreateDefault())
@@ -27,8 +25,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
         {
             var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _playerMoveCooldownTicks = resolvedTimingProfile.PlayerMoveCooldownTicks;
-            _playerPushInteractionLockTicks = resolvedTimingProfile.PlayerPushInteractionLockTicks;
-            _playerFlipInteractionLockTicks = resolvedTimingProfile.PlayerFlipInteractionLockTicks;
         }
 
         public void Commit(
@@ -160,16 +156,8 @@ namespace Game.Feature.Gameplay.Movement.Commit
             PlayerControlState updatedState;
             switch (intent.CommandKind)
             {
-                case MovementCommandKind.Flip:
-                    updatedState = PlayerControlQueries.ConsumeInteractionLock(controlState, _playerFlipInteractionLockTicks);
-                    break;
-
                 case MovementCommandKind.Move:
                     updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks);
-                    break;
-
-                case MovementCommandKind.Push:
-                    updatedState = PlayerControlQueries.ConsumeInteractionLock(controlState, _playerPushInteractionLockTicks);
                     break;
 
                 default:

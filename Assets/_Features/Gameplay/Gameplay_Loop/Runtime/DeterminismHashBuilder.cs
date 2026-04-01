@@ -202,7 +202,16 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.moveCooldownTicks).Append('|')
                     .Append(entry.State.pushContactTicks).Append('|')
                     .Append(entry.State.pushTargetEntityId).Append('|')
-                    .Append((int)entry.State.pushDirection).Append('\n');
+                    .Append((int)entry.State.pushDirection).Append('|')
+                    .Append(entry.State.actionSequenceCounter).Append('|')
+                    .Append((int)entry.State.activeAction.kind).Append('|')
+                    .Append(entry.State.activeAction.sequence).Append('|')
+                    .Append((int)entry.State.activeAction.direction).Append('|')
+                    .Append(entry.State.activeAction.targetEntityId).Append('|')
+                    .Append(entry.State.activeAction.startTick).Append('|')
+                    .Append(entry.State.activeAction.executeTick).Append('|')
+                    .Append(entry.State.activeAction.recoveryEndTick).Append('|')
+                    .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('\n');
             }
         }
 

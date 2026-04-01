@@ -132,11 +132,18 @@ namespace Game.Feature.Gameplay.Entities
                     attackLogics.Add(attackLogic);
                 }
 
-                if (entityLogics[i] is PlayerLogic &&
+                if (entityLogics[i] is PlayerLogic playerLogic &&
                     entityLogics[i] is IEntityLogicSourceBinding binding &&
                     playerControlLogicSourceIds.Add(binding.ControlledEntityId))
                 {
-                    preMovementStateLogics.Add(new PlayerControlStateLogic(binding.ControlledEntityId));
+                    preMovementStateLogics.Add(
+                        new PlayerControlStateLogic(
+                            binding.ControlledEntityId,
+                            playerLogic.PushContactThresholdTicks,
+                            playerLogic.PushWindupTicks,
+                            playerLogic.PushRecoveryTicks,
+                            playerLogic.FlipWindupTicks,
+                            playerLogic.FlipRecoveryTicks));
                 }
             }
 
