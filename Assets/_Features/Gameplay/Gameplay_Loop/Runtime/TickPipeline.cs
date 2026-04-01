@@ -20,6 +20,7 @@ using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
 using Game.Feature.Gameplay.Movement.Sorting;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -36,7 +37,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackInputNormalizer _attackInputNormalizer = new();
         private readonly AttackExpander _attackExpander;
         private readonly AttackResolver _attackResolver = new();
-        private readonly MovementCommitter _movementCommitter = new();
+        private readonly MovementCommitter _movementCommitter;
         private readonly AttackCommitter _attackCommitter = new();
         private readonly CleanupProcessor _cleanupProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
@@ -75,6 +76,7 @@ namespace Game.Feature.Gameplay.Loop
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
             var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _movementExpander = new MovementExpander(resolvedTimingProfile);
+            _movementCommitter = new MovementCommitter(resolvedTimingProfile);
             _attackExpander = new AttackExpander(resolvedTimingProfile);
         }
 
@@ -91,6 +93,12 @@ namespace Game.Feature.Gameplay.Loop
             var initialSnapshot = SnapshotBuilder.Create(_worldState);
             var entityLogicsForTick = _entityLogicProvider.Build(initialSnapshot, _staticEntityLogics);
             var aiPhaseResult = RunEnemyAiPhase(entityLogicsForTick.AiStateLogics, initialSnapshot, in input, writeContext);
+            var snapshotAfterEnemyAi = SnapshotBuilder.Create(_worldState);
+            var preMovementStateResult = RunPreMovementStatePhase(
+                entityLogicsForTick.PreMovementStateLogics,
+                snapshotAfterEnemyAi,
+                in input,
+                writeContext);
             var preMovementSnapshot = SnapshotBuilder.Create(_worldState);
             var movementPhaseResult = RunMovementPhase(
                 preMovementSnapshot,
@@ -160,6 +168,7 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 preMovementSnapshot,
                 aiPhaseResult,
+                preMovementStateResult,
                 movementPhaseResult,
                 postMovementSnapshot,
                 attackPhaseResult,
@@ -218,6 +227,22 @@ namespace Game.Feature.Gameplay.Loop
             {
                 entityLogics[i].CommitAiTransitions(snapshot, in input, stage, writeContext, transitions);
             }
+        }
+
+        private static PreMovementStatePhaseResult RunPreMovementStatePhase(
+            IReadOnlyList<IPreMovementStateLogic> entityLogics,
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IPlayerControlCommitContext writeContext)
+        {
+            var updates = new List<string>();
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                entityLogics[i].CommitPreMovementState(snapshot, in input, writeContext, updates);
+            }
+
+            return new PreMovementStatePhaseResult(updates);
         }
 
         private MovementPhaseResult RunMovementPhase(
@@ -487,5 +512,15 @@ namespace Game.Feature.Gameplay.Loop
         public List<string> BeforeAttackTransitions { get; }
 
         public List<string> AfterAttackTransitions { get; }
+    }
+
+    internal sealed class PreMovementStatePhaseResult
+    {
+        public PreMovementStatePhaseResult(List<string> updates)
+        {
+            Updates = updates ?? throw new ArgumentNullException(nameof(updates));
+        }
+
+        public List<string> Updates { get; }
     }
 }

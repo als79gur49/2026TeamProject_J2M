@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -55,6 +56,11 @@ namespace Game.Feature.Gameplay.BoardState
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
         {
             _port.SetBoardPresence(entityId, boardPresence);
+        }
+
+        public void SetPlayerControlState(int entityId, PlayerControlState state)
+        {
+            _port.SetPlayerControlState(entityId, state);
         }
 
         public void SetTopology(CubeTopologyState topology)

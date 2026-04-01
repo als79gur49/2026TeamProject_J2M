@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -7,7 +8,16 @@ namespace Game.Feature.Gameplay.BoardState
         void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
     }
 
-    internal interface IMovementCommitContext
+    public interface IPlayerControlCommitContext
+    {
+        void SetPlayerControlState(int entityId, PlayerControlState state);
+    }
+
+    internal interface IPreMovementStateCommitContext : IPlayerControlCommitContext
+    {
+    }
+
+    internal interface IMovementCommitContext : IPlayerControlCommitContext
     {
         void MoveEntity(int entityId, SurfaceCell destination);
 
@@ -40,7 +50,7 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
     }
 
-    internal interface IWorldWriteContext : IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyAiCommitContext
+    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyAiCommitContext
     {
     }
 }

@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.BoardState
 {
@@ -14,6 +15,7 @@ namespace Game.Feature.Gameplay.BoardState
         void MarkDestroy(int entityId);
         void SetFacing(int entityId, Direction facing);
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
+        void SetPlayerControlState(int entityId, PlayerControlState state);
         void SetTopology(CubeTopologyState topology);
     }
 }

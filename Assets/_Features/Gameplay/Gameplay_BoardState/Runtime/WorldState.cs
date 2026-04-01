@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
@@ -10,6 +11,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EntityState> _entitiesById = new();
         private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
         private readonly BoardBounds _boardBounds;
+        private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
         private readonly Dictionary<SurfaceCell, int> _unitOccupancy = new();
@@ -60,6 +62,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EntityState>(_entitiesById),
                 new Dictionary<SurfaceCell, int>(_unitOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
+                new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 _topology,
                 _boardBounds,
                 _terrainData);
@@ -108,6 +111,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
+            _playerControlStatesByEntityId.Remove(entityId);
         }
 
         private void ApplyDamage(int entityId, int amount)
@@ -194,6 +198,16 @@ namespace Game.Feature.Gameplay.BoardState
         private void SetTopology(CubeTopologyState topology)
         {
             _topology = topology;
+        }
+
+        private void SetPlayerControlState(int entityId, PlayerControlState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _playerControlStatesByEntityId[entityId] = state;
         }
 
         private void ClearOccupancyForEntity(EntityState entity)
@@ -377,6 +391,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
         {
             SetBoardPresence(entityId, boardPresence);
+        }
+
+        void IWorldStateMutationPort.SetPlayerControlState(int entityId, PlayerControlState state)
+        {
+            SetPlayerControlState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetTopology(CubeTopologyState topology)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
@@ -10,6 +11,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private readonly BoardBounds _boardBounds;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
+        private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
@@ -19,6 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EntityState> entitiesById,
             Dictionary<SurfaceCell, int> unitOccupancy,
             Dictionary<SurfaceCell, int> projectileOccupancy,
+            Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -26,6 +29,7 @@ namespace Game.Feature.Gameplay.BoardState
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
             _unitOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(unitOccupancy ?? throw new ArgumentNullException(nameof(unitOccupancy)));
             _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
+            _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
             _topology = topology;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
@@ -38,6 +42,11 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEntity(int entityId, out EntityState entity)
         {
             return _entitiesById.TryGetValue(entityId, out entity);
+        }
+
+        public bool TryGetPlayerControlState(int entityId, out PlayerControlState state)
+        {
+            return _playerControlStatesByEntityId.TryGetValue(entityId, out state);
         }
 
         // Cell queries always resolve against committed authoritative occupancy, not render-time motion tracks.
@@ -271,6 +280,23 @@ namespace Game.Feature.Gameplay.BoardState
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
             SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _unitOccupancy, _topology, buffer);
+        }
+
+        internal void EnumeratePlayerControlStatesOrdered(List<PlayerControlSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _playerControlStatesByEntityId)
+            {
+                buffer.Add(new PlayerControlSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
         internal void EnumerateProjectileOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)

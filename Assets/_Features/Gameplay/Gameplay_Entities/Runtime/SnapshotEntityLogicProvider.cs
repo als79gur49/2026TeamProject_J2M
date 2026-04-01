@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -103,12 +104,19 @@ namespace Game.Feature.Gameplay.Entities
 
         private static EntityLogicSet BuildEntityLogicSet(IReadOnlyList<IEntityLogic> entityLogics)
         {
+            var preMovementStateLogics = new List<IPreMovementStateLogic>(entityLogics.Count);
             var aiStateLogics = new List<IEnemyAiStateLogic>(entityLogics.Count);
             var movementLogics = new List<IMovementEntityLogic>(entityLogics.Count);
             var attackLogics = new List<IAttackEntityLogic>(entityLogics.Count);
+            var playerControlLogicSourceIds = new HashSet<int>();
 
             for (var i = 0; i < entityLogics.Count; i++)
             {
+                if (entityLogics[i] is IPreMovementStateLogic preMovementStateLogic)
+                {
+                    preMovementStateLogics.Add(preMovementStateLogic);
+                }
+
                 if (entityLogics[i] is IEnemyAiStateLogic aiStateLogic)
                 {
                     aiStateLogics.Add(aiStateLogic);
@@ -123,9 +131,17 @@ namespace Game.Feature.Gameplay.Entities
                 {
                     attackLogics.Add(attackLogic);
                 }
+
+                if (entityLogics[i] is PlayerLogic &&
+                    entityLogics[i] is IEntityLogicSourceBinding binding &&
+                    playerControlLogicSourceIds.Add(binding.ControlledEntityId))
+                {
+                    preMovementStateLogics.Add(new PlayerControlStateLogic(binding.ControlledEntityId));
+                }
             }
 
             return new EntityLogicSet(
+                preMovementStateLogics.AsReadOnly(),
                 aiStateLogics.AsReadOnly(),
                 movementLogics.AsReadOnly(),
                 attackLogics.AsReadOnly());
@@ -141,6 +157,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return HasPhaseOwnershipConflict<IMovementEntityLogic>(candidate, candidateBinding, existingEntityLogics)
+                || HasPhaseOwnershipConflict<IPreMovementStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflict<IEnemyAiStateLogic>(candidate, candidateBinding, existingEntityLogics)
                 || HasPhaseOwnershipConflict<IAttackEntityLogic>(candidate, candidateBinding, existingEntityLogics);
         }

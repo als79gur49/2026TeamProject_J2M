@@ -18,6 +18,15 @@ namespace Game.Feature.Gameplay.Entities
             List<RawMovementIntent> buffer);
     }
 
+    public interface IPreMovementStateLogic : IEntityLogic
+    {
+        void CommitPreMovementState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IPlayerControlCommitContext writeContext,
+            List<string> updates);
+    }
+
     public interface IAttackEntityLogic : IEntityLogic
     {
         void CollectAttackIntents(
@@ -57,14 +66,18 @@ namespace Game.Feature.Gameplay.Entities
     public sealed class EntityLogicSet
     {
         public EntityLogicSet(
+            IReadOnlyList<IPreMovementStateLogic> preMovementStateLogics,
             IReadOnlyList<IEnemyAiStateLogic> aiStateLogics,
             IReadOnlyList<IMovementEntityLogic> movementLogics,
             IReadOnlyList<IAttackEntityLogic> attackLogics)
         {
+            PreMovementStateLogics = preMovementStateLogics ?? throw new System.ArgumentNullException(nameof(preMovementStateLogics));
             AiStateLogics = aiStateLogics ?? throw new System.ArgumentNullException(nameof(aiStateLogics));
             MovementLogics = movementLogics ?? throw new System.ArgumentNullException(nameof(movementLogics));
             AttackLogics = attackLogics ?? throw new System.ArgumentNullException(nameof(attackLogics));
         }
+
+        public IReadOnlyList<IPreMovementStateLogic> PreMovementStateLogics { get; }
 
         public IReadOnlyList<IEnemyAiStateLogic> AiStateLogics { get; }
 
