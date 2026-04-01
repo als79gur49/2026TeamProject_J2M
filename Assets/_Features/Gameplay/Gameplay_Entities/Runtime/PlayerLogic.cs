@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
@@ -13,15 +14,27 @@ namespace Game.Feature.Gameplay.Entities
         private const int DefaultCommandPriority = 100;
 
         private readonly int _entityId;
+        private readonly int _pushContactThresholdTicks;
 
         public PlayerLogic(int entityId)
+            : this(entityId, GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks)
+        {
+        }
+
+        public PlayerLogic(int entityId, int pushContactThresholdTicks)
         {
             if (entityId <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(entityId), "Player logic requires a positive entity ID.");
             }
 
+            if (pushContactThresholdTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(pushContactThresholdTicks), "Push contact threshold must be greater than zero.");
+            }
+
             _entityId = entityId;
+            _pushContactThresholdTicks = pushContactThresholdTicks;
         }
 
         public int ControlledEntityId => _entityId;
@@ -51,6 +64,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            var hasControlState = snapshot.TryGetPlayerControlState(_entityId, out var controlState);
             if (!TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
             {
                 return;
@@ -68,7 +82,28 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (input.PlayerCommand.PushPressed)
+            if (input.PlayerCommand.LegacyPushRequested)
+            {
+                buffer.Add(
+                    new RawMovementIntent(
+                        entity.entityId,
+                        DefaultCommandPriority,
+                        entity.position + delta,
+                        MovementCommandKind.Push,
+                        localSequence: 0));
+                return;
+            }
+
+            if (hasControlState &&
+                controlState.moveCooldownTicks > 0)
+            {
+                return;
+            }
+
+            if (hasControlState &&
+                controlState.pushContactTicks >= _pushContactThresholdTicks &&
+                controlState.pushTargetEntityId > 0 &&
+                controlState.pushDirection == input.PlayerCommand.MoveDirection)
             {
                 buffer.Add(
                     new RawMovementIntent(

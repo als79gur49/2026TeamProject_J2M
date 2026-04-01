@@ -30,6 +30,10 @@ namespace Game.Feature.Gameplay.Host
         public int MaxTicksPerFrame = GameplayTimingProfile.DefaultMaxTicksPerFrame;
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
+        public float PlayerMoveCooldownSeconds = -1f;
+        public int PlayerMoveCooldownTicks = -1;
+        public float PlayerPushContactThresholdSeconds = -1f;
+        public int PlayerPushContactThresholdTicks = GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
@@ -58,6 +62,8 @@ namespace Game.Feature.Gameplay.Host
             var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds(legacyTickIntervalSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds(legacyTickIntervalSeconds);
+            var playerMoveCooldownSeconds = ResolvePlayerMoveCooldownSeconds(legacyTickIntervalSeconds);
+            var playerPushContactThresholdSeconds = ResolvePlayerPushContactThresholdSeconds(legacyTickIntervalSeconds);
 
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
@@ -73,7 +79,9 @@ namespace Game.Feature.Gameplay.Host
                     : GameplayTimingProfile.DefaultFlipArcHeightInCells,
                 MaxTicksPerFrame > 0
                     ? MaxTicksPerFrame
-                    : GameplayTimingProfile.DefaultMaxTicksPerFrame);
+                    : GameplayTimingProfile.DefaultMaxTicksPerFrame,
+                playerMoveCooldownSeconds,
+                playerPushContactThresholdSeconds);
         }
 
         private float ResolveInitialMoveDelaySeconds(float legacyTickIntervalSeconds)
@@ -123,6 +131,36 @@ namespace Game.Feature.Gameplay.Host
             return FlipMotionDurationSeconds > 0f
                 ? FlipMotionDurationSeconds
                 : legacyTickIntervalSeconds;
+        }
+
+        private float ResolvePlayerMoveCooldownSeconds(float legacyTickIntervalSeconds)
+        {
+            if (PlayerMoveCooldownSeconds >= 0f)
+            {
+                return PlayerMoveCooldownSeconds;
+            }
+
+            if (PlayerMoveCooldownTicks >= 0)
+            {
+                return PlayerMoveCooldownTicks / (float)Mathf.Max(1, SimulationTicksPerSecond);
+            }
+
+            return ResolveRepeatedMoveIntervalSeconds(legacyTickIntervalSeconds);
+        }
+
+        private float ResolvePlayerPushContactThresholdSeconds(float legacyTickIntervalSeconds)
+        {
+            if (PlayerPushContactThresholdSeconds >= 0f)
+            {
+                return PlayerPushContactThresholdSeconds;
+            }
+
+            if (PlayerPushContactThresholdTicks > 0)
+            {
+                return PlayerPushContactThresholdTicks / (float)Mathf.Max(1, SimulationTicksPerSecond);
+            }
+
+            return GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks / (float)Mathf.Max(1, SimulationTicksPerSecond);
         }
 
         private float ResolveLegacyTickIntervalSeconds()

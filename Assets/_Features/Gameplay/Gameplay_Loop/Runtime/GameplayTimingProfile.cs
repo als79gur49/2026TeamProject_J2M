@@ -9,6 +9,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultLegacyTickIntervalSeconds = 0.2f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
+        public const int DefaultPlayerPushContactThresholdTicks = 2;
 
         public GameplayTimingProfile(
             int simulationTicksPerSecond,
@@ -44,7 +45,9 @@ namespace Game.Feature.Gameplay.Loop
             float topologyMotionDurationSeconds,
             float flipMotionDurationSeconds,
             float flipArcHeightInCells,
-            int maxTicksPerFrame)
+            int maxTicksPerFrame,
+            float playerMoveCooldownSeconds = -1f,
+            float playerPushContactThresholdSeconds = -1f)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -131,6 +134,14 @@ namespace Game.Feature.Gameplay.Loop
             RepeatedMoveIntervalTicks = SecondsToTicks(repeatedMoveIntervalSeconds, simulationTicksPerSecond);
             BoxSlideStepIntervalTicks = SecondsToTicks(boxSlideStepIntervalSeconds, simulationTicksPerSecond);
             ProjectileStepIntervalTicks = SecondsToTicks(projectileStepIntervalSeconds, simulationTicksPerSecond);
+            PlayerMoveCooldownSeconds = playerMoveCooldownSeconds >= 0f
+                ? playerMoveCooldownSeconds
+                : repeatedMoveIntervalSeconds;
+            PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds >= 0f
+                ? playerPushContactThresholdSeconds
+                : DefaultPlayerPushContactThresholdTicks / (float)simulationTicksPerSecond;
+            PlayerMoveCooldownTicks = SecondsToTicks(PlayerMoveCooldownSeconds, simulationTicksPerSecond, allowZero: true);
+            PlayerPushContactThresholdTicks = SecondsToTicks(PlayerPushContactThresholdSeconds, simulationTicksPerSecond);
         }
 
         public int SimulationTicksPerSecond { get; }
@@ -162,6 +173,14 @@ namespace Game.Feature.Gameplay.Loop
         public int BoxSlideStepIntervalTicks { get; }
 
         public int ProjectileStepIntervalTicks { get; }
+
+        public float PlayerMoveCooldownSeconds { get; }
+
+        public float PlayerPushContactThresholdSeconds { get; }
+
+        public int PlayerMoveCooldownTicks { get; }
+
+        public int PlayerPushContactThresholdTicks { get; }
 
         public static GameplayTimingProfile CreateDefault()
         {

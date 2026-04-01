@@ -7,12 +7,19 @@ namespace Game.Feature.Gameplay.Loop
     {
         public PlayerTickCommand(
             Direction moveDirection,
-            bool pushPressed = false,
             bool flipPressed = false)
+            : this(moveDirection, flipPressed, legacyPushRequested: false)
         {
-            if (moveDirection == Direction.None && (pushPressed || flipPressed))
+        }
+
+        private PlayerTickCommand(
+            Direction moveDirection,
+            bool flipPressed,
+            bool legacyPushRequested)
+        {
+            if (moveDirection == Direction.None && flipPressed)
             {
-                throw new ArgumentException("Push and Flip commands require a non-none move direction.", nameof(moveDirection));
+                throw new ArgumentException("Flip commands require a non-none move direction.", nameof(moveDirection));
             }
 
             if (moveDirection != Direction.None &&
@@ -25,15 +32,15 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             MoveDirection = moveDirection;
-            PushPressed = pushPressed;
             FlipPressed = flipPressed;
+            LegacyPushRequested = legacyPushRequested;
         }
 
         public Direction MoveDirection { get; }
 
-        public bool PushPressed { get; }
-
         public bool FlipPressed { get; }
+
+        internal bool LegacyPushRequested { get; }
 
         public static PlayerTickCommand None => default;
 
@@ -42,9 +49,10 @@ namespace Game.Feature.Gameplay.Loop
             return new PlayerTickCommand(direction);
         }
 
+        [Obsolete("Push button input is no longer authoritative. Use Move(direction) and player control hold-to-push semantics.")]
         public static PlayerTickCommand Push(Direction direction)
         {
-            return new PlayerTickCommand(direction, pushPressed: true);
+            return new PlayerTickCommand(direction, flipPressed: false, legacyPushRequested: true);
         }
 
         public static PlayerTickCommand Flip(Direction direction)
@@ -54,10 +62,18 @@ namespace Game.Feature.Gameplay.Loop
 
         public static PlayerTickCommand Create(
             Direction moveDirection,
-            bool pushPressed = false,
             bool flipPressed = false)
         {
-            return new PlayerTickCommand(moveDirection, pushPressed, flipPressed);
+            return new PlayerTickCommand(moveDirection, flipPressed);
+        }
+
+        [Obsolete("Push button input is no longer authoritative. Use Create(moveDirection, flipPressed) instead.")]
+        public static PlayerTickCommand Create(
+            Direction moveDirection,
+            bool pushPressed,
+            bool flipPressed)
+        {
+            return new PlayerTickCommand(moveDirection, flipPressed, pushPressed);
         }
     }
 }

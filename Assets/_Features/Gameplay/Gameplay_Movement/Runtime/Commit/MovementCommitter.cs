@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Commit
@@ -13,6 +14,17 @@ namespace Game.Feature.Gameplay.Movement.Commit
     internal sealed class MovementCommitter
     {
         private const int ProjectileImpactDamageAmount = 1;
+        private readonly int _playerMoveCooldownTicks;
+
+        public MovementCommitter()
+            : this(GameplayTimingProfile.CreateDefault())
+        {
+        }
+
+        public MovementCommitter(GameplayTimingProfile timingProfile)
+        {
+            _playerMoveCooldownTicks = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile))).PlayerMoveCooldownTicks;
+        }
 
         public void Commit(
             WorldSnapshot snapshot,
@@ -118,7 +130,45 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     commitEvents.Add(
                         $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|Condition={destroy.Condition}");
                 }
+
+                ApplyPlayerControlCommit(snapshot, sortedIntents, group, writeContext);
             }
+        }
+
+        private void ApplyPlayerControlCommit(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ActionGroup group,
+            IMovementCommitContext writeContext)
+        {
+            if (!snapshot.TryGetPlayerControlState(group.SourceId, out var controlState))
+            {
+                return;
+            }
+
+            var intent = FindIntent(sortedIntents, group.IntentId);
+            if (intent == null)
+            {
+                return;
+            }
+
+            PlayerControlState updatedState;
+            switch (intent.CommandKind)
+            {
+                case MovementCommandKind.Flip:
+                    updatedState = PlayerControlQueries.ResetContact(controlState);
+                    break;
+
+                case MovementCommandKind.Move:
+                case MovementCommandKind.Push:
+                    updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks);
+                    break;
+
+                default:
+                    return;
+            }
+
+            writeContext.SetPlayerControlState(group.SourceId, updatedState);
         }
 
         private static ImpactReservation CreateProjectileImpactReservation(

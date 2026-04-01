@@ -15,17 +15,14 @@ namespace Game.Feature.Gameplay.Host
         private bool _hasBufferedFlip;
         private bool _isInitialized;
         private TickInputBuffer _inputBuffer;
-        private InputRepeatCooldown _inputRepeatCooldown;
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
         private InputAction _moveAction;
         private float _moveDeadzone;
         private GameplayTickViewPresenter _presenter;
-        private InputAction _pushAction;
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
-        private bool _hasBufferedPush;
 
         public void Initialize(
             TickInputBuffer inputBuffer,
@@ -70,11 +67,7 @@ namespace Game.Feature.Gameplay.Host
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
             _hasBufferedFlip = false;
-            _hasBufferedPush = false;
             _sampledMoveInput = Vector2.zero;
-            _inputRepeatCooldown = new InputRepeatCooldown(
-                timingProfile,
-                directionChangeConsumesDelay);
             _isInitialized = true;
 
             BindActions();
@@ -159,17 +152,11 @@ namespace Game.Feature.Gameplay.Host
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
             _sampledMoveInput = rawMoveInput;
-
-            if (rawMoveInput == Vector2.zero)
-            {
-                _inputRepeatCooldown?.Reset();
-            }
         }
 
+        [Obsolete("Push button input is no longer authoritative. Hold a move direction against a pushable box instead.")]
         public void BufferPush()
         {
-            EnsureInitialized();
-            _hasBufferedPush = true;
         }
 
         public void BufferFlip()
@@ -218,12 +205,6 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Move action on the provided InputActionAsset.");
             }
 
-            _pushAction = _actions.FindAction("Player/Push", throwIfNotFound: false);
-            if (_pushAction == null)
-            {
-                throw new InvalidOperationException("GameplayInputHost requires a Player/Push action on the provided InputActionAsset.");
-            }
-
             _flipAction = _actions.FindAction("Player/Flip", throwIfNotFound: false);
             if (_flipAction == null)
             {
@@ -232,8 +213,6 @@ namespace Game.Feature.Gameplay.Host
 
             _moveAction.performed += OnMovePerformed;
             _moveAction.canceled += OnMoveCanceled;
-            _pushAction.started += OnPushStarted;
-            _pushAction.performed += OnPushPerformed;
             _flipAction.started += OnFlipStarted;
             _flipAction.performed += OnFlipPerformed;
 
@@ -252,22 +231,11 @@ namespace Game.Feature.Gameplay.Host
         private void OnMoveCanceled(InputAction.CallbackContext context)
         {
             _sampledMoveInput = Vector2.zero;
-            _inputRepeatCooldown?.Reset();
         }
 
         private void OnMovePerformed(InputAction.CallbackContext context)
         {
             _sampledMoveInput = context.ReadValue<Vector2>();
-        }
-
-        private void OnPushPerformed(InputAction.CallbackContext context)
-        {
-            BufferPush();
-        }
-
-        private void OnPushStarted(InputAction.CallbackContext context)
-        {
-            BufferPush();
         }
 
         private void OnFlipPerformed(InputAction.CallbackContext context)
@@ -289,13 +257,6 @@ namespace Game.Feature.Gameplay.Host
                 _moveAction = null;
             }
 
-            if (_pushAction != null)
-            {
-                _pushAction.started -= OnPushStarted;
-                _pushAction.performed -= OnPushPerformed;
-                _pushAction = null;
-            }
-
             if (_flipAction != null)
             {
                 _flipAction.started -= OnFlipStarted;
@@ -310,9 +271,7 @@ namespace Game.Feature.Gameplay.Host
 
             _areActionsBound = false;
             _hasBufferedFlip = false;
-            _hasBufferedPush = false;
             _sampledMoveInput = Vector2.zero;
-            _inputRepeatCooldown?.Reset();
         }
 
         private void AccumulateLockedTime(float deltaTime)
@@ -333,11 +292,7 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand BuildPlayerCommand(int tickIndex, Direction sampledDirection)
         {
-            var pushPressed = _hasBufferedPush || (_pushAction != null && _pushAction.IsPressed());
             var flipPressed = _hasBufferedFlip || (_flipAction != null && _flipAction.IsPressed());
-            var plainMoveAllowed = _inputRepeatCooldown.EvaluatePlainMove(tickIndex, sampledDirection);
-
-            _hasBufferedPush = false;
             _hasBufferedFlip = false;
 
             if (sampledDirection == Direction.None)
@@ -345,17 +300,11 @@ namespace Game.Feature.Gameplay.Host
                 return PlayerTickCommand.None;
             }
 
-            if (pushPressed || flipPressed)
+            if (flipPressed)
             {
-                return PlayerTickCommand.Create(sampledDirection, pushPressed, flipPressed);
+                return PlayerTickCommand.Create(sampledDirection, flipPressed: true);
             }
 
-            if (!plainMoveAllowed)
-            {
-                return PlayerTickCommand.None;
-            }
-
-            _inputRepeatCooldown.CommitPlainMove(tickIndex, sampledDirection);
             return PlayerTickCommand.Move(sampledDirection);
         }
     }

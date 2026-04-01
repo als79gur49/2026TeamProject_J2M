@@ -77,7 +77,7 @@ namespace Game.Feature.Gameplay.Host
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
             InputBuffer = new TickInputBuffer();
-            var staticEntityLogics = BuildStaticEntityLogics(configuration);
+            var staticEntityLogics = BuildStaticEntityLogics(configuration, TimingProfile);
             TickRunner = GameplayCompositionRoot.CreateTickRunner(
                 WorldState,
                 staticEntityLogics,
@@ -211,11 +211,15 @@ namespace Game.Feature.Gameplay.Host
             _boardSurfaceRenderer?.RefreshTopology(topology);
         }
 
-        private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(GameplaySceneHostConfiguration configuration)
+        private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(
+            GameplaySceneHostConfiguration configuration,
+            GameplayTimingProfile timingProfile)
         {
             var entityLogics = new List<IEntityLogic>
             {
-                new PlayerLogic(configuration.PlayerEntityId),
+                new PlayerLogic(
+                    configuration.PlayerEntityId,
+                    (timingProfile ?? GameplayTimingProfile.CreateDefault()).PlayerPushContactThresholdTicks),
             };
 
             if (configuration.StaticEntityLogics == null)
