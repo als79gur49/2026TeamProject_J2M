@@ -154,11 +154,6 @@ namespace Game.Feature.Gameplay.Host
             _sampledMoveInput = rawMoveInput;
         }
 
-        [Obsolete("Push button input is no longer authoritative. Hold a move direction against a pushable box instead.")]
-        public void BufferPush()
-        {
-        }
-
         public void BufferFlip()
         {
             EnsureInitialized();

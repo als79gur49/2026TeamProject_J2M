@@ -82,36 +82,30 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (input.PlayerCommand.LegacyPushRequested)
-            {
-                buffer.Add(
-                    new RawMovementIntent(
-                        entity.entityId,
-                        DefaultCommandPriority,
-                        entity.position + delta,
-                        MovementCommandKind.Push,
-                        localSequence: 0));
-                return;
-            }
-
             if (hasControlState &&
                 controlState.moveCooldownTicks > 0)
             {
                 return;
             }
 
-            if (hasControlState &&
-                controlState.pushContactTicks >= _pushContactThresholdTicks &&
+            var hasMatchingPushContact =
+                hasControlState &&
                 controlState.pushTargetEntityId > 0 &&
-                controlState.pushDirection == input.PlayerCommand.MoveDirection)
+                controlState.pushDirection == input.PlayerCommand.MoveDirection;
+
+            if (hasMatchingPushContact)
             {
-                buffer.Add(
-                    new RawMovementIntent(
-                        entity.entityId,
-                        DefaultCommandPriority,
-                        entity.position + delta,
-                        MovementCommandKind.Push,
-                        localSequence: 0));
+                if (controlState.pushContactTicks >= _pushContactThresholdTicks)
+                {
+                    buffer.Add(
+                        new RawMovementIntent(
+                            entity.entityId,
+                            DefaultCommandPriority,
+                            entity.position + delta,
+                            MovementCommandKind.Push,
+                            localSequence: 0));
+                }
+
                 return;
             }
 
