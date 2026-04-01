@@ -100,7 +100,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_MoveIntoPushBox_FailsWithoutExplicitPush()
+        public void Movement_MoveIntoPushBox_StartsHoldContactWithoutMoveOrRejection()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -116,15 +116,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
+            Assert.That(result.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(1, 0)));
         }
@@ -172,10 +168,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -242,10 +238,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var secondTick = pipeline.RunTick(new TickInput(13));
             var laterIdleTicks = RunTicks(pipeline, startTickIndex: 14, endTickIndex: 24);
@@ -307,11 +303,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 },
                 timingProfile);
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 6);
             var slideTick = pipeline.RunTick(new TickInput(7));
 
@@ -350,11 +346,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 },
                 timingProfile);
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var slideTick = pipeline.RunTick(new TickInput(13));
 
@@ -390,10 +386,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
             CollectionAssert.AreEqual(
@@ -430,10 +426,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
             CollectionAssert.AreEqual(
@@ -471,10 +467,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
 
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
@@ -498,10 +494,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -521,7 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushBox_FailsWhenEntityStopperIsAdjacent()
+        public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenEntityStopperIsAdjacent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -533,10 +529,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -544,7 +540,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=SlideStopperAdjacent|Target=20|StopperKind=Entity|Stopper=30|StopperType=Box|Cell=(2,0)",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -553,7 +549,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputPushBox_FailsWhenTerrainStopperIsAdjacent()
+        public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenTerrainStopperIsAdjacent()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -567,10 +563,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -578,7 +574,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=SlideStopperAdjacent|Target=20|StopperKind=Terrain|Cell=(2,0)",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
@@ -663,10 +659,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
@@ -702,10 +698,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var finalSnapshot = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
@@ -760,7 +756,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
             Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
@@ -768,7 +764,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=PushTargetNotPushBox|Cell=(1,0)|Target=20|Capabilities=None",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -964,10 +960,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(
                 new TickInput(
                     1,
-                    PlayerTickCommand.Create(
-                        Direction.Right,
-                        pushPressed: true,
-                        flipPressed: true)));
+                    PlayerTickCommand.Flip(Direction.Right)));
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
@@ -1261,10 +1254,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Up)));
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var secondTick = pipeline.RunTick(new TickInput(13));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -1306,10 +1299,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Down)));
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var secondTick = pipeline.RunTick(new TickInput(13));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -1349,10 +1342,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
@@ -1389,10 +1382,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
-            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var secondTick = pipeline.RunTick(new TickInput(13));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -1772,6 +1765,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 flipMotionDurationSeconds,
                 flipArcHeightInCells,
                 maxTicksPerFrame);
+        }
+
+        private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)
+        {
+            return new PlayerLogic(entityId, pushContactThresholdTicks: 1);
         }
 
         private static (MovementPhaseResult Result, WorldSnapshot SnapshotAfterMovement) RunMovementPhaseOnly(

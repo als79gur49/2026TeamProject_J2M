@@ -151,13 +151,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(
                 new TickInput(
                     1,
-                    PlayerTickCommand.Push(Direction.Right)));
+                    PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
@@ -190,12 +190,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                     new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 40, 30, 10)),
                     new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 50, 10, 5)),
                 });
 
-            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
@@ -1304,6 +1304,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 flipMotionDurationSeconds,
                 flipArcHeightInCells,
                 maxTicksPerFrame);
+        }
+
+        private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)
+        {
+            return new PlayerLogic(entityId, pushContactThresholdTicks: 1);
         }
 
         private static List<TickResult> RunTicks(

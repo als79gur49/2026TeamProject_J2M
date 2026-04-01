@@ -744,13 +744,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                     new ScriptedCombatLogic(sourceId: 40, attackIntent: new RawAttackIntent(40, 10, 30)),
                     new ScriptedCombatLogic(sourceId: 50, attackIntent: new RawAttackIntent(50, 5, 10)),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 });
         }
 
@@ -767,11 +767,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 });
         }
 
@@ -790,11 +790,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 });
         }
 
@@ -813,11 +813,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 });
         }
 
@@ -1062,6 +1062,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
             GameplayTerrainData terrainData)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+        }
+
+        private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)
+        {
+            return new PlayerLogic(entityId, pushContactThresholdTicks: 1);
         }
 
         private sealed class ScriptedCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding

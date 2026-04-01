@@ -2072,12 +2072,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerPushContactThresholdTicks = 1,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         TickIntervalSeconds = 0.2f,
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
-                host.InputHost.BufferPush();
                 host.InputHost.RunSingleTick();
                 host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
 
@@ -2131,12 +2131,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerPushContactThresholdTicks = 1,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         TickIntervalSeconds = 0.2f,
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
-                host.InputHost.BufferPush();
                 host.InputHost.RunSingleTick();
                 host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
 
