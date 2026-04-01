@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private float moveDeadzone = 0.5f;
         [SerializeField] private int playerEntityId = 10;
+        [SerializeField] private float playerMoveCooldownSeconds = -1f;
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
@@ -237,6 +238,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTopology = InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
+                PlayerMoveCooldownSeconds = playerMoveCooldownSeconds,
                 ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
                 PushMotionDurationSeconds = pushMotionDurationSeconds,
                 RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,

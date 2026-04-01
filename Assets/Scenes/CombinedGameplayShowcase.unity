@@ -418,11 +418,15 @@ MonoBehaviour:
   configureMainCamera: 1
   cellSize: 1.15
   directionChangeConsumesDelay: 0
-  initialMoveDelayTicks: 0
+  initialMoveDelaySeconds: 0
   moveDeadzone: 0.5
   playerEntityId: 10
-  repeatedMoveIntervalTicks: 2
-  tickIntervalSeconds: 0.2
+  playerMoveCooldownSeconds: 0.2
+  repeatedMoveIntervalSeconds: 0.6
+  boxSlideStepIntervalSeconds: 0.2
+  projectileStepIntervalSeconds: 0.2
+  pushMotionDurationSeconds: 0.2
+  flipMotionDurationSeconds: 0.2
   topologyMotionDurationSeconds: 3
   topologyRotationVisualMapping: 0
 --- !u!4 &1179627482

@@ -74,6 +74,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
                 SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "playerMoveCooldownSeconds", 0.35f);
                 SetBaseInstallerField(installer, "topologyMotionDurationSeconds", 0.45f);
                 SetBaseInstallerField(
                     installer,
@@ -98,6 +99,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
                 Assert.That(configuration.CameraSettings, Is.Not.Null);
                 AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
+                Assert.That(configuration.PlayerMoveCooldownSeconds, Is.EqualTo(0.35f));
                 Assert.That(configuration.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
                 Assert.That(
                     configuration.TopologyRotationVisualMapping,
