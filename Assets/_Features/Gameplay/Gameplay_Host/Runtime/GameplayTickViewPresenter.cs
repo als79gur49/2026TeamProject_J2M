@@ -51,6 +51,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsPresentationActive => CurrentPresentationPhase != GameplayPresentationPhase.Idle;
 
+        public bool HasBlockingPresentation => _boardRotationTrack.HasClips;
+
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
 
         public Quaternion PresentedBoardRotation => _presentedBoardRotation;
@@ -746,6 +748,7 @@ namespace Game.Feature.Gameplay.Host
             return motionKind switch
             {
                 TickEntityMotionKind.Flip => _timingProfile.FlipMotionDurationSeconds,
+                TickEntityMotionKind.BoxSlide => _timingProfile.BoxSlideStepIntervalSeconds,
                 TickEntityMotionKind.ProjectileMove => _timingProfile.ProjectileStepIntervalSeconds,
                 _ => _timingProfile.PushMotionDurationSeconds,
             };
@@ -1341,6 +1344,7 @@ namespace Game.Feature.Gameplay.Host
                 return _motionKind switch
                 {
                     TickEntityMotionKind.Flip => SampleFlip(t),
+                    TickEntityMotionKind.BoxSlide => SampleLinearConstant(t),
                     _ => SampleLinear(t),
                 };
             }
@@ -1352,6 +1356,16 @@ namespace Game.Feature.Gameplay.Host
                     Vector3.LerpUnclamped(StartPose.Position, EndPose.Position, easedT),
                     _interpolateRotation
                         ? Quaternion.SlerpUnclamped(StartPose.Rotation, EndPose.Rotation, easedT)
+                        : EndPose.Rotation);
+            }
+
+            private GameplayEntityPose SampleLinearConstant(float t)
+            {
+                var clampedT = Mathf.Clamp01(t);
+                return new GameplayEntityPose(
+                    Vector3.LerpUnclamped(StartPose.Position, EndPose.Position, clampedT),
+                    _interpolateRotation
+                        ? Quaternion.SlerpUnclamped(StartPose.Rotation, EndPose.Rotation, clampedT)
                         : EndPose.Rotation);
             }
 

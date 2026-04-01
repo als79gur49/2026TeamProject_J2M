@@ -1104,6 +1104,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void TickPresentationDataBuilder_BuildsBoxSlideMotionForSlidingPushBox()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+            var sourceEntity = CreateEntity(30, EntityType.Box, sourceCell, Direction.Right);
+            sourceEntity.boxCapabilities = BoxCapabilities.Push;
+
+            var destinationEntity = CreateEntity(30, EntityType.Box, destinationCell, Direction.Right);
+            destinationEntity.boxCapabilities = BoxCapabilities.Push;
+            destinationEntity.state = EntityPhaseState.Sliding;
+            destinationEntity.stateTimer = 11;
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    sourceEntity,
+                }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    destinationEntity,
+                }).CreateSnapshot();
+            var actionGroup = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.Push);
+            actionGroup.AssignGroupId(1);
+            actionGroup.Moves.Add(new MoveAction(30, sourceCell, destinationCell, Direction.Right));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResult(actionGroup),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 30, Kind: TickEntityMotionKind.BoxSlide, Source: sourceCell, Destination: destinationCell),
+                },
+                presentationData.EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+        }
+
+        [Test]
         public void TickPresentationDataBuilder_BuildsTopologyAndVisibilityPresentationRecords()
         {
             var initialTopology = new CubeTopologyState(FaceId.Floor);

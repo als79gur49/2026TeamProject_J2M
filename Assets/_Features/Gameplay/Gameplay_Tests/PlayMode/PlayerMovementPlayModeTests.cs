@@ -70,80 +70,89 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
-        public IEnumerator GameplayInputHost_PushBufferedDuringPresentationLock_IsConsumedAfterUnlockWithoutBurst()
+        public IEnumerator GameplayInputHost_MovePresentation_DoesNotBlockSubsequentTicks()
         {
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 2, 0), capabilities: BoxCapabilities.Push),
-                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
-            },
-            playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
-            host.InputHost.RunSingleTick();
+            var firstTick = host.InputHost.RunSingleTick();
 
+            Assert.That(firstTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
             Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
-            Assert.That(
-                host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 4f),
-                Is.EqualTo(0));
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
-
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            Assert.That(host.Presenter.IsPresentationActive, Is.False);
-
-            Assert.That(host.InputHost.AdvanceTime(0f), Is.EqualTo(1));
+            var secondTick = host.InputHost.RunSingleTick();
+            Assert.That(secondTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
             var snapshot = host.WorldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
-            Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }
 
         [UnityTest]
-        public IEnumerator GameplayInputHost_FlipBufferedDuringPresentationLock_IsConsumedAfterUnlock()
+        public IEnumerator GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks()
         {
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -2, 0), capabilities: BoxCapabilities.Flip),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+            },
+            playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+
+            var firstTick = host.InputHost.RunSingleTick();
+            Assert.That(firstTick, Is.Not.Null);
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+            Assert.That(host.Presenter.IsPresentationActive, Is.True);
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
+
+            var secondTick = host.InputHost.RunSingleTick();
+            Assert.That(secondTick, Is.Not.Null);
+            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
+
+            var snapshot = host.WorldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks()
+        {
+            var host = CreateHost(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.left);
-            host.InputHost.RunSingleTick();
+            host.InputHost.BufferFlip();
+            var firstTick = host.InputHost.RunSingleTick();
 
+            Assert.That(firstTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
             Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
-            host.InputHost.BufferFlip();
-            Assert.That(
-                host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds * 4f),
-                Is.EqualTo(0));
-            Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
-
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            Assert.That(host.Presenter.IsPresentationActive, Is.False);
-
-            Assert.That(host.InputHost.AdvanceTime(0f), Is.EqualTo(1));
+            host.InputHost.SetRawMoveInput(Vector2.zero);
+            var secondTick = host.InputHost.RunSingleTick();
+            Assert.That(secondTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
-            host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
             var snapshot = host.WorldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            AssertViewMatchesProjectedState(host, entityId: 30);
 
             yield return DestroyHost(host);
         }

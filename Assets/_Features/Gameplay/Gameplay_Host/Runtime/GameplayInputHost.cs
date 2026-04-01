@@ -282,7 +282,7 @@ namespace Game.Feature.Gameplay.Host
 
         private bool IsPresentationLocked()
         {
-            return _presenter != null && _presenter.IsPresentationActive;
+            return _presenter != null && _presenter.IsTopologyTransitionActive;
         }
 
         private PlayerTickCommand BuildPlayerCommand(int tickIndex, Direction sampledDirection)

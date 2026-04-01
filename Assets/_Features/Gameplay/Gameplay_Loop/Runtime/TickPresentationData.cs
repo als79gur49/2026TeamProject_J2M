@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Loop
         Push = 2,
         Flip = 3,
         ProjectileMove = 4,
+        BoxSlide = 5,
     }
 
     public enum TickVisibilityChangeKind

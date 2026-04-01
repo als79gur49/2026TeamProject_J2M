@@ -216,13 +216,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (EntityId: 30, Kind: TickEntityMotionKind.Push, Source: new SurfaceCell(FaceId.Floor, 1, 0), Destination: new SurfaceCell(FaceId.Floor, 2, 0)),
+                    (EntityId: 30, Kind: TickEntityMotionKind.BoxSlide, Source: new SurfaceCell(FaceId.Floor, 1, 0), Destination: new SurfaceCell(FaceId.Floor, 2, 0)),
                 },
                 result.PresentationData
                     .EntityMotions
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
-            Assert.That(result.Trace.Text, Does.Contain("Kind=Push"));
+            Assert.That(result.Trace.Text, Does.Contain("Kind=BoxSlide"));
         }
 
         [Test]

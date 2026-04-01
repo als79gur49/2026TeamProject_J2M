@@ -417,12 +417,34 @@ namespace Game.Feature.Gameplay.Loop
         {
             return group.GroupKind switch
             {
-                ActionGroupKind.Push => TickEntityMotionKind.Push,
+                ActionGroupKind.Push => ResolvePushMotionKind(group, preMovementSnapshot, postMovementSnapshot),
                 ActionGroupKind.Flip => TickEntityMotionKind.Flip,
                 ActionGroupKind.Move => ResolveMoveMotionKind(group, preMovementSnapshot, postMovementSnapshot),
                 ActionGroupKind.Item => ResolveMoveMotionKind(group, preMovementSnapshot, postMovementSnapshot),
                 _ => TickEntityMotionKind.None,
             };
+        }
+
+        private static TickEntityMotionKind ResolvePushMotionKind(
+            ActionGroup group,
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot)
+        {
+            for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+            {
+                var entityId = group.Moves[moveIndex].EntityId;
+                if (!TryResolveEntity(entityId, preMovementSnapshot, postMovementSnapshot, out var preEntity, out var postEntity))
+                {
+                    continue;
+                }
+
+                if (IsSlidingPushBox(preEntity) || IsSlidingPushBox(postEntity))
+                {
+                    return TickEntityMotionKind.BoxSlide;
+                }
+            }
+
+            return TickEntityMotionKind.Push;
         }
 
         private static TickEntityMotionKind ResolveMoveMotionKind(
@@ -487,6 +509,28 @@ namespace Game.Feature.Gameplay.Loop
 
             entityType = default;
             return false;
+        }
+
+        private static bool TryResolveEntity(
+            int entityId,
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot,
+            out EntityState? preEntity,
+            out EntityState? postEntity)
+        {
+            var hasPreEntity = preMovementSnapshot.TryGetEntity(entityId, out var resolvedPreEntity);
+            var hasPostEntity = postMovementSnapshot.TryGetEntity(entityId, out var resolvedPostEntity);
+            preEntity = hasPreEntity ? resolvedPreEntity : null;
+            postEntity = hasPostEntity ? resolvedPostEntity : null;
+            return hasPreEntity || hasPostEntity;
+        }
+
+        private static bool IsSlidingPushBox(EntityState? entity)
+        {
+            return entity.HasValue &&
+                   entity.Value.type == EntityType.Box &&
+                   entity.Value.state == EntityPhaseState.Sliding &&
+                   (entity.Value.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push;
         }
 
         private static CubeRotationKind ResolveRotationKind(

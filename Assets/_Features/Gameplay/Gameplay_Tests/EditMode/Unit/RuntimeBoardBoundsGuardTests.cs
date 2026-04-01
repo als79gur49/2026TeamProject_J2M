@@ -1196,6 +1196,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
                 Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(presenter.IsTopologyTransitionActive, Is.False);
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
@@ -1218,6 +1219,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
                 Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.True);
                 Assert.That(presenter.IsTopologyTransitionActive, Is.True);
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
@@ -1277,6 +1279,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
                 Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(presenter.IsTopologyTransitionActive, Is.False);
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
@@ -2626,6 +2629,85 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(view.transform.position.x, Is.LessThan(destinationPosition.x));
                 Assert.That(view.transform.position.y, Is.EqualTo(sourcePosition.y).Within(0.001f));
                 Assert.That(view.transform.position.z, Is.EqualTo(sourcePosition.z).Within(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_BoxSlideMotion_MidpointUsesLinearInterpolation()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_BoxSlideMotion_MidpointUsesLinearInterpolation");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    pushMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1));
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 1, 0), facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 2, 0), facing: Direction.Right),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(
+                                    20,
+                                    TickEntityMotionKind.BoxSlide,
+                                    new SurfaceCell(FaceId.Floor, 1, 0),
+                                    new SurfaceCell(FaceId.Floor, 2, 0)),
+                            })));
+                presenter.UpdatePresentation(timingProfile.BoxSlideStepIntervalSeconds * 0.5f);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var sourcePosition = GetProjectedEntityPosition(
+                    boardBounds,
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    EntityType.Box);
+                var destinationPosition = GetProjectedEntityPosition(
+                    boardBounds,
+                    topology,
+                    new SurfaceCell(FaceId.Floor, 2, 0),
+                    EntityType.Box);
+                var expectedMidpoint = (sourcePosition + destinationPosition) * 0.5f;
+
+                Assert.That(view.transform.position.x, Is.EqualTo(expectedMidpoint.x).Within(0.001f));
+                Assert.That(view.transform.position.y, Is.EqualTo(expectedMidpoint.y).Within(0.001f));
+                Assert.That(view.transform.position.z, Is.EqualTo(expectedMidpoint.z).Within(0.001f));
+                Assert.That(presenter.IsPresentationActive, Is.True);
+                Assert.That(presenter.HasBlockingPresentation, Is.False);
             }
             finally
             {
