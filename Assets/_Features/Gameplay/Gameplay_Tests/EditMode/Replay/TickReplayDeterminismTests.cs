@@ -130,7 +130,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondRun.Select(frame => frame.PlayerControlDump).ToArray());
             Assert.That(firstRun[0].Trace, Does.Contain("Final.PlayerControl"));
             Assert.That(firstRun[0].PlayerControlDump, Does.Contain("E=10|Cooldown=0|PushTicks=1|Target=30|Direction=Right|Lock=0"));
-            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("E=10|Cooldown=0|PushTicks=0|Target=0|Direction=None|Lock=12"));
+            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("E=10|Cooldown=0|PushTicks=0|Target=0|Direction=None|Lock=0"));
+            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=2|Execute=3|Recovery=3|Attempted=0"));
         }
 
         [Test]

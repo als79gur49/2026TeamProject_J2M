@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
@@ -70,28 +71,35 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var secondTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
+            var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(firstTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(firstTick.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(secondTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(secondTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(thirdTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(thirdTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (SourceId: 10, IntentId: 1, Command: MovementCommandKind.Push),
                 },
-                secondTick.MovementPhaseResult.SortedIntents.Select(intent => (intent.SourceId, intent.IntentId, intent.CommandKind)).ToArray());
+                thirdTick.MovementPhaseResult.SortedIntents.Select(intent => (intent.SourceId, intent.IntentId, intent.CommandKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
                     "StateChanged|G=1|I=1|E=20|State=Sliding|Timer=12",
                     "MoveCommitted|G=1|I=1|E=20|To=(2,0)|Facing=Right",
                 },
-                secondTick.MovementPhaseResult.CommitEvents);
+                thirdTick.MovementPhaseResult.CommitEvents);
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.moveCooldownTicks, Is.Zero);
-            Assert.That(controlState.interactionLockTicks, Is.EqualTo(12));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.executionAttempted, Is.True);
         }
 
         [Test]
@@ -114,11 +122,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var releaseTick = pipeline.RunTick(new TickInput(2));
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var fourthTick = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Right)));
+            var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(firstTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(releaseTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(fourthTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            Assert.That(fourthTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(fifthTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
         }
 
         [Test]
@@ -142,6 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var directionChangeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Left)));
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var fourthTick = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Right)));
+            var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(firstTick.MovementPhaseResult.SortedIntents, Is.Empty);
             CollectionAssert.AreEqual(
@@ -151,11 +162,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 },
                 directionChangeTick.MovementPhaseResult.RejectedReasons);
             Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(fourthTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            Assert.That(fourthTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(fifthTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
         }
 
         [Test]
-        public void PlayerControl_FlipRetainsPriorityOverPush()
+        public void PlayerControl_FlipStartsActionAndRetainsPriorityOverPush()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -171,13 +183,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var result = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Flip(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(result.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Flip));
-            Assert.That(result.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            Assert.That(result.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(result.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
         }
 
         [Test]
-        public void PlayerControl_PushInteractionLock_BlocksPlayerButWorldStateStillAdvances()
+        public void PlayerControl_PushAction_ExecutesAfterWindupInsteadOfThresholdTick()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -192,23 +208,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10, pushContactThresholdTicks: 1),
                 });
 
-            var pushTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
-            var lockedTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(pushTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
-            Assert.That(lockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(startTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(executeTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
             Assert.That(box.stateTimer, Is.EqualTo(10));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.interactionLockTicks, Is.EqualTo(11));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.executionAttempted, Is.True);
         }
 
         [Test]
-        public void PlayerControl_FlipInteractionLock_BlocksFollowUpMovementUntilExpiry()
+        public void PlayerControl_FlipAction_ExecutesAfterWindupInsteadOfSameTick()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -222,23 +243,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new PlayerLogic(10),
                 });
 
-            var flipTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
-            var lockedTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
-            for (var tick = 3; tick <= 12; tick++)
-            {
-                pipeline.RunTick(new TickInput(tick, PlayerTickCommand.Move(Direction.Up)));
-            }
-
-            var unlockTick = pipeline.RunTick(new TickInput(13, PlayerTickCommand.Move(Direction.Up)));
+            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(flipTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
-            Assert.That(lockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(unlockTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            Assert.That(startTick.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(executeTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
-            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.interactionLockTicks, Is.EqualTo(0));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(controlState.activeAction.executionAttempted, Is.True);
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)

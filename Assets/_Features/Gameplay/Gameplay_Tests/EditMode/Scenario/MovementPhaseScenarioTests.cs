@@ -753,7 +753,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -783,7 +783,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
@@ -846,7 +846,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
@@ -880,7 +880,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
@@ -920,7 +920,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
@@ -954,7 +954,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(
@@ -984,7 +984,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Up)));
@@ -1427,7 +1427,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                     new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(1, 0), MovementCommandKind.Flip)),
                 });
 
@@ -1767,9 +1767,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxTicksPerFrame);
         }
 
-        private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)
+        private static IMovementEntityLogic CreateImmediatePushPlayerLogic(int entityId)
         {
-            return new PlayerLogic(entityId, pushContactThresholdTicks: 1);
+            return new ImmediatePlayerInteractionLogic(entityId, MovementCommandKind.Push);
+        }
+
+        private static IMovementEntityLogic CreateImmediateFlipPlayerLogic(int entityId)
+        {
+            return new ImmediatePlayerInteractionLogic(entityId, MovementCommandKind.Flip);
         }
 
         private static (MovementPhaseResult Result, WorldSnapshot SnapshotAfterMovement) RunMovementPhaseOnly(
@@ -2040,6 +2045,80 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 }
 
                 return 0;
+            }
+        }
+
+        private sealed class ImmediatePlayerInteractionLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly MovementCommandKind _commandKind;
+            private readonly int _entityId;
+
+            public ImmediatePlayerInteractionLogic(int entityId, MovementCommandKind commandKind)
+            {
+                _entityId = entityId;
+                _commandKind = commandKind;
+            }
+
+            public int ControlledEntityId => _entityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (snapshot == null)
+                {
+                    throw new ArgumentNullException(nameof(snapshot));
+                }
+
+                if (buffer == null)
+                {
+                    throw new ArgumentNullException(nameof(buffer));
+                }
+
+                if (!snapshot.TryGetEntity(_entityId, out var entity) ||
+                    entity.hp <= 0 ||
+                    entity.markedForDeath ||
+                    input.PlayerCommand.MoveDirection == Direction.None ||
+                    (_commandKind == MovementCommandKind.Flip && !input.PlayerCommand.FlipPressed) ||
+                    !TryResolveDelta(input.PlayerCommand.MoveDirection, out var delta))
+                {
+                    return;
+                }
+
+                buffer.Add(
+                    new RawMovementIntent(
+                        _entityId,
+                        priority: 100,
+                        entity.position.PlanarPosition + delta,
+                        _commandKind,
+                        localSequence: 0));
+            }
+
+            private static bool TryResolveDelta(Direction direction, out Vector2Int delta)
+            {
+                switch (direction)
+                {
+                    case Direction.Up:
+                        delta = Vector2Int.up;
+                        return true;
+
+                    case Direction.Right:
+                        delta = Vector2Int.right;
+                        return true;
+
+                    case Direction.Down:
+                        delta = Vector2Int.down;
+                        return true;
+
+                    case Direction.Left:
+                        delta = Vector2Int.left;
+                        return true;
+
+                    default:
+                        delta = Vector2Int.zero;
+                        return false;
+                }
             }
         }
     }

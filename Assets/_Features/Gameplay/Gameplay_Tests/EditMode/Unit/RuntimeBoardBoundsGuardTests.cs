@@ -13,6 +13,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
@@ -382,6 +383,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
                 Assert.That(playerView.GetComponent<EnemyAnimatorDriver>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_PlayerUnit_AddsPlayerAnimatorDriverOnlyToPlayer()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_PlayerUnit_AddsPlayerAnimatorDriverOnlyToPlayer");
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
+                var playerView = factory.CreateView(CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)));
+                var enemyView = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), aiMode: EnemyAiMode.Patrol));
+
+                Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
+                Assert.That(enemyView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
             }
             finally
             {
@@ -1415,6 +1436,183 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
                 Assert.That(view.gameObject.activeSelf, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_PlayerMoveMotion_ResolvesWalkThenIdleAfterTrackCompletes()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerMoveMotion_ResolvesWalkThenIdleAfterTrackCompletes");
+
+            try
+            {
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(registry.transform, attachPlayerAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(new[] { CreateSurfaceUnit(10, sourceCell, facing: Direction.Right) }, topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        new[]
+                        {
+                            new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                        },
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    TickPresentationData.Empty));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_PlayerActionSignals_ResolvePushAndFlip()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerActionSignals_ResolvePushAndFlip");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(registry.transform, attachPlayerAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(new[] { CreateSurfaceUnit(10, sourceCell, facing: Direction.Right) }, topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.Push, 1, startedThisTick: true, completedThisTick: false, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.Push, 1, startedThisTick: false, completedThisTick: false, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.None, 0, startedThisTick: false, completedThisTick: true, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.Flip, 2, startedThisTick: true, completedThisTick: false, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(2));
             }
             finally
             {
@@ -3465,12 +3663,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private sealed class TestViewFactory : IGameplayEntityViewFactory
         {
             private readonly bool _attachEnemyAnimatorDriver;
+            private readonly bool _attachPlayerAnimatorDriver;
             private readonly Transform _parent;
 
-            public TestViewFactory(Transform parent, bool attachEnemyAnimatorDriver = false)
+            public TestViewFactory(
+                Transform parent,
+                bool attachEnemyAnimatorDriver = false,
+                bool attachPlayerAnimatorDriver = false)
             {
                 _parent = parent;
                 _attachEnemyAnimatorDriver = attachEnemyAnimatorDriver;
+                _attachPlayerAnimatorDriver = attachPlayerAnimatorDriver;
             }
 
             public GameplayEntityView CreateView(in EntityState entity)
@@ -3484,6 +3687,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entity.aiMode != EnemyAiMode.None)
                 {
                     viewObject.AddComponent<EnemyAnimatorDriver>();
+                }
+
+                if (_attachPlayerAnimatorDriver &&
+                    entity.aiMode == EnemyAiMode.None &&
+                    entity.type == EntityType.Unit)
+                {
+                    viewObject.AddComponent<PlayerAnimatorDriver>();
                 }
 
                 return view;

@@ -109,14 +109,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
 
-            var firstTick = host.InputHost.RunSingleTick();
-            Assert.That(firstTick, Is.Not.Null);
+            var startTick = host.InputHost.RunSingleTick();
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+            Assert.That(host.Presenter.IsPresentationActive, Is.False);
+
+            var executeTick = host.InputHost.RunSingleTick();
+            Assert.That(executeTick, Is.Not.Null);
             Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
             Assert.That(host.Presenter.IsPresentationActive, Is.True);
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
-
-            var secondTick = host.InputHost.RunSingleTick();
-            Assert.That(secondTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
 
             var snapshot = host.WorldState.CreateSnapshot();
@@ -138,16 +140,19 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
-            var firstTick = host.InputHost.RunSingleTick();
+            var startTick = host.InputHost.RunSingleTick();
 
-            Assert.That(firstTick, Is.Not.Null);
+            Assert.That(startTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
-            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
 
             host.InputHost.SetRawMoveInput(Vector2.zero);
-            var secondTick = host.InputHost.RunSingleTick();
-            Assert.That(secondTick, Is.Not.Null);
+            var executeTick = host.InputHost.RunSingleTick();
+
+            Assert.That(executeTick, Is.Not.Null);
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+            Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
 
             var snapshot = host.WorldState.CreateSnapshot();
@@ -237,6 +242,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
+            host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
 
             AssertViewMatchesProjectedState(host, entityId: 10);
@@ -278,6 +284,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.SetRawMoveInput(Vector2.left);
             host.InputHost.BufferFlip();
 
+            host.InputHost.RunSingleTick();
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(host.TimingProfile.FlipMotionDurationSeconds);
 
