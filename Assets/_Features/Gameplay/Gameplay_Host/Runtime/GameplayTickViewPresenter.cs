@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -27,6 +28,9 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
+        private readonly Dictionary<int, PlayerAnimatorDriver> _playerAnimatorDriversByEntityId = new();
+        private readonly PlayerViewPresentationMapper _playerViewPresentationMapper = new();
+        private readonly Dictionary<int, PlayerViewPresentationState> _playerViewPresentationStates = new();
         private readonly Dictionary<int, GameplayEntityPose> _retainedLocalTargetPoses = new();
         private readonly Dictionary<int, TransitionVisibilityState> _transitionVisibilityStates = new();
         private readonly HashSet<int> _visibleEntityIds = new();
@@ -93,6 +97,8 @@ namespace Game.Feature.Gameplay.Host
             _committedLocalTargetPoses.Clear();
             _enemyAnimatorDriversByEntityId.Clear();
             _entityTypesByEntityId.Clear();
+            _playerAnimatorDriversByEntityId.Clear();
+            _playerViewPresentationStates.Clear();
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
             _localMotionTracks.Clear();
@@ -122,6 +128,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
             RefreshTransitionVisibilityState(result.PresentationData);
             ApplyEnemyPresentation(result);
+            ApplyPlayerPresentation(result);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -136,6 +143,8 @@ namespace Game.Feature.Gameplay.Host
             _visibilityTracks.Clear();
             _enemyAnimatorDriversByEntityId.Clear();
             _entityTypesByEntityId.Clear();
+            _playerAnimatorDriversByEntityId.Clear();
+            _playerViewPresentationStates.Clear();
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
             _boardRotationTrack.Clear();
@@ -143,6 +152,7 @@ namespace Game.Feature.Gameplay.Host
             _presentedBoardRotation = Quaternion.identity;
             StoreCommittedFrame(entities, topology);
             ApplyInitialEnemyPresentation(entities);
+            ApplyInitialPlayerPresentation();
             ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
             UpdatePresentation(0f);
         }
@@ -212,6 +222,13 @@ namespace Game.Feature.Gameplay.Host
                     enemyAnimatorDriver.SyncRuntimeState(isVisible, hasActiveMotion);
                 }
 
+                if (TryGetPlayerAnimatorDriver(entityId, out var playerAnimatorDriver))
+                {
+                    playerAnimatorDriver.SyncRuntimeState(
+                        isVisible,
+                        ResolvePlayerAnimationState(entityId, HasActivePlayerWalkMotion(entityId)));
+                }
+
                 if (!isVisible)
                 {
                     continue;
@@ -245,6 +262,7 @@ namespace Game.Feature.Gameplay.Host
 
             _viewBinder.HideViewsExcept(_visibleEntityIds);
             SyncHiddenEnemyDrivers();
+            SyncHiddenPlayerDrivers();
         }
 
         private void LateUpdate()
@@ -288,6 +306,7 @@ namespace Game.Feature.Gameplay.Host
 
                 _viewsByEntityId[entity.entityId] = view;
                 CacheEnemyAnimatorDriver(entity.entityId, view);
+                CachePlayerAnimatorDriver(entity.entityId, view);
                 _committedLocalTargetPoses[entity.entityId] = CreateEntityPose(
                     entity.position,
                     topology,
@@ -855,6 +874,32 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void ApplyPlayerPresentation(TickResult result)
+        {
+            _playerViewPresentationMapper.Build(result, _viewsByEntityId, _playerViewPresentationStates);
+
+            foreach (var pair in _playerViewPresentationStates)
+            {
+                if (TryGetPlayerAnimatorDriver(pair.Key, out var driver))
+                {
+                    driver.Apply(pair.Value);
+                }
+            }
+        }
+
+        private void ApplyInitialPlayerPresentation()
+        {
+            foreach (var pair in _playerAnimatorDriversByEntityId)
+            {
+                var state = PlayerViewPresentationMapper.CreateInitial(pair.Key);
+                _playerViewPresentationStates[pair.Key] = state;
+                pair.Value.Apply(state);
+                pair.Value.SyncRuntimeState(
+                    _committedLocalTargetPoses.ContainsKey(pair.Key),
+                    PlayerViewAnimationState.Idle);
+            }
+        }
+
         private void CacheEnemyAnimatorDriver(int entityId, GameplayEntityView view)
         {
             if (view != null &&
@@ -868,6 +913,20 @@ namespace Game.Feature.Gameplay.Host
             _enemyAnimatorDriversByEntityId.Remove(entityId);
         }
 
+        private void CachePlayerAnimatorDriver(int entityId, GameplayEntityView view)
+        {
+            if (view != null &&
+                view.TryGetComponent<PlayerAnimatorDriver>(out var driver) &&
+                driver != null)
+            {
+                _playerAnimatorDriversByEntityId[entityId] = driver;
+                return;
+            }
+
+            _playerAnimatorDriversByEntityId.Remove(entityId);
+            _playerViewPresentationStates.Remove(entityId);
+        }
+
         private void SyncHiddenEnemyDrivers()
         {
             foreach (var pair in _enemyAnimatorDriversByEntityId)
@@ -878,6 +937,19 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 pair.Value.SyncRuntimeState(isVisible: false, isMoving: false);
+            }
+        }
+
+        private void SyncHiddenPlayerDrivers()
+        {
+            foreach (var pair in _playerAnimatorDriversByEntityId)
+            {
+                if (_visibleEntityIds.Contains(pair.Key))
+                {
+                    continue;
+                }
+
+                pair.Value.SyncRuntimeState(isVisible: false, ResolvePlayerAnimationState(pair.Key, hasActiveWalkMotion: false));
             }
         }
 
@@ -900,6 +972,54 @@ namespace Game.Feature.Gameplay.Host
 
             driver = null;
             return false;
+        }
+
+        private bool TryGetPlayerAnimatorDriver(int entityId, out PlayerAnimatorDriver driver)
+        {
+            if (_playerAnimatorDriversByEntityId.TryGetValue(entityId, out driver) &&
+                driver != null)
+            {
+                return true;
+            }
+
+            if (_viewsByEntityId.TryGetValue(entityId, out var view) &&
+                view != null &&
+                view.TryGetComponent<PlayerAnimatorDriver>(out driver) &&
+                driver != null)
+            {
+                _playerAnimatorDriversByEntityId[entityId] = driver;
+                return true;
+            }
+
+            driver = null;
+            return false;
+        }
+
+        private bool HasActivePlayerWalkMotion(int entityId)
+        {
+            return _localMotionTracks.TryGetValue(entityId, out var motionTrack) &&
+                   motionTrack.HasClips &&
+                   motionTrack.TailMotionKind == TickEntityMotionKind.Move;
+        }
+
+        private PlayerViewAnimationState ResolvePlayerAnimationState(int entityId, bool hasActiveWalkMotion)
+        {
+            if (_playerViewPresentationStates.TryGetValue(entityId, out var state))
+            {
+                if (state.ActiveActionKind == PlayerActionKind.Flip)
+                {
+                    return PlayerViewAnimationState.Flip;
+                }
+
+                if (state.ActiveActionKind == PlayerActionKind.Push)
+                {
+                    return PlayerViewAnimationState.Push;
+                }
+            }
+
+            return hasActiveWalkMotion
+                ? PlayerViewAnimationState.Walk
+                : PlayerViewAnimationState.Idle;
         }
 
         private void ApplyPresentedBoardRotation(Quaternion boardRotation, bool forceApply = false)

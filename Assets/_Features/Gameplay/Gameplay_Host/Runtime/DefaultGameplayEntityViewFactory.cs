@@ -47,8 +47,12 @@ namespace Game.Feature.Gameplay.Host
             var view = viewObject.AddComponent<GameplayEntityView>();
             view.Initialize(entity.entityId);
 
-            if (entity.type == EntityType.Unit &&
-                entity.aiMode != EnemyAiMode.None)
+            if (entity.entityId == _playerEntityId)
+            {
+                viewObject.AddComponent<PlayerAnimatorDriver>();
+            }
+            else if (entity.type == EntityType.Unit &&
+                     entity.aiMode != EnemyAiMode.None)
             {
                 viewObject.AddComponent<EnemyAnimatorDriver>();
             }
