@@ -231,6 +231,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 7,
                 snapshot,
                 new EnemyAiPhaseResult(new List<string>(), new List<string>(), new List<string>()),
+                new PreMovementStatePhaseResult(new List<string>()),
                 MovementPhaseResult.Empty,
                 snapshot,
                 attackPhaseResult,

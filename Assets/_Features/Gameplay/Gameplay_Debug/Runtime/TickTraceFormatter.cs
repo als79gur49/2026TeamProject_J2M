@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Debug
@@ -19,6 +20,7 @@ namespace Game.Feature.Gameplay.Debug
             int tickIndex,
             WorldSnapshot s0Snapshot,
             EnemyAiPhaseResult enemyAiPhaseResult,
+            PreMovementStatePhaseResult preMovementStatePhaseResult,
             MovementPhaseResult movementPhaseResult,
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
@@ -32,6 +34,7 @@ namespace Game.Feature.Gameplay.Debug
 
             AppendSnapshotSections(builder, "S0", s0Snapshot);
             AppendSection(builder, "EnemyAi.BeforeMovementTransitions", enemyAiPhaseResult.BeforeMovementTransitions, FormatString);
+            AppendSection(builder, "PreMovement.PlayerControlUpdates", preMovementStatePhaseResult.Updates, FormatString);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
             AppendSection(builder, "Movement.Candidates", movementPhaseResult.ExpandedCandidates, FormatActionGroup);
@@ -72,6 +75,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.BoardBounds", new[] { FormatBoardBounds(snapshot.BoardBounds) }, FormatString);
             AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
+            AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
 
@@ -100,6 +104,22 @@ namespace Game.Feature.Gameplay.Debug
             AddOccupancyLines(occupancyLines, "Projectile", projectileEntries);
 
             return occupancyLines;
+        }
+
+        private static List<string> GetPlayerControlEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<PlayerControlSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumeratePlayerControlStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|PushTicks={entry.State.pushContactTicks}|Target={entry.State.pushTargetEntityId}|Direction={entry.State.pushDirection}");
+            }
+
+            return lines;
         }
 
         private static List<string> GetTerrainEntries(WorldSnapshot snapshot)

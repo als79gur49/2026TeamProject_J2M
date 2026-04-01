@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Debug
             int tickIndex,
             WorldSnapshot s0Snapshot,
             EnemyAiPhaseResult enemyAiPhaseResult,
+            PreMovementStatePhaseResult preMovementStatePhaseResult,
             MovementPhaseResult movementPhaseResult,
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
@@ -28,6 +29,11 @@ namespace Game.Feature.Gameplay.Debug
             if (movementPhaseResult == null)
             {
                 throw new ArgumentNullException(nameof(movementPhaseResult));
+            }
+
+            if (preMovementStatePhaseResult == null)
+            {
+                throw new ArgumentNullException(nameof(preMovementStatePhaseResult));
             }
 
             if (enemyAiPhaseResult == null)
@@ -70,6 +76,7 @@ namespace Game.Feature.Gameplay.Debug
                     tickIndex,
                     s0Snapshot,
                     enemyAiPhaseResult,
+                    preMovementStatePhaseResult,
                     movementPhaseResult,
                     s1Snapshot,
                     attackPhaseResult,

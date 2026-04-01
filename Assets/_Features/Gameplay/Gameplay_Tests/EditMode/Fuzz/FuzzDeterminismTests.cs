@@ -66,6 +66,9 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                     comparison.FirstRunFrames.Select(frame => frame.FinalEntitiesDump).ToArray(),
                     comparison.SecondRunFrames.Select(frame => frame.FinalEntitiesDump).ToArray());
                 CollectionAssert.AreEqual(
+                    comparison.FirstRunFrames.Select(frame => frame.PlayerControlDump).ToArray(),
+                    comparison.SecondRunFrames.Select(frame => frame.PlayerControlDump).ToArray());
+                CollectionAssert.AreEqual(
                     comparison.FirstRunFrames.Select(frame => frame.OccupancyDump).ToArray(),
                     comparison.SecondRunFrames.Select(frame => frame.OccupancyDump).ToArray());
                 CollectionAssert.AreEqual(
@@ -86,13 +89,13 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                 "Seed=90901\nInitialEntities\n  E=10|Pos=(0,0)\n",
                 new[]
                 {
-                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "Unit|Cell=(0,0)|E=10", "<empty>", "Event-A-1"),
-                    new TickReplayFrame(2, "BBBBBBBBBBBBBBBB", "Trace-A-2", "E=10|Pos=(1,0)", "Unit|Cell=(1,0)|E=10", "10", "Event-A-2"),
+                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "E=10|Cooldown=0|PushTicks=1", "Unit|Cell=(0,0)|E=10", "<empty>", "Event-A-1"),
+                    new TickReplayFrame(2, "BBBBBBBBBBBBBBBB", "Trace-A-2", "E=10|Pos=(1,0)", "E=10|Cooldown=2|PushTicks=0", "Unit|Cell=(1,0)|E=10", "10", "Event-A-2"),
                 },
                 new[]
                 {
-                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "Unit|Cell=(0,0)|E=10", "<empty>", "Event-A-1"),
-                    new TickReplayFrame(2, "CCCCCCCCCCCCCCCC", "Trace-B-2", "E=10|Pos=(2,0)", "Unit|Cell=(2,0)|E=10", "<empty>", "Event-B-2"),
+                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "E=10|Cooldown=0|PushTicks=1", "Unit|Cell=(0,0)|E=10", "<empty>", "Event-A-1"),
+                    new TickReplayFrame(2, "CCCCCCCCCCCCCCCC", "Trace-B-2", "E=10|Pos=(2,0)", "E=10|Cooldown=0|PushTicks=0", "Unit|Cell=(2,0)|E=10", "<empty>", "Event-B-2"),
                 },
                 firstDivergentFrameIndex: 1,
                 firstDivergentTick: 2,
@@ -114,6 +117,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
             AssertArtifactFileExists(artifactDirectoryPath, "second_run_event_log.txt");
             AssertArtifactFileExists(artifactDirectoryPath, "first_run_final_entities.txt");
             AssertArtifactFileExists(artifactDirectoryPath, "second_run_final_entities.txt");
+            AssertArtifactFileExists(artifactDirectoryPath, "first_run_player_control.txt");
+            AssertArtifactFileExists(artifactDirectoryPath, "second_run_player_control.txt");
             AssertArtifactFileExists(artifactDirectoryPath, "first_run_occupancy.txt");
             AssertArtifactFileExists(artifactDirectoryPath, "second_run_occupancy.txt");
             AssertArtifactFileExists(artifactDirectoryPath, "first_run_marked_for_death.txt");
@@ -133,6 +138,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
             StringAssert.Contains("Event-B-2", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_event_log.txt")));
             StringAssert.Contains("E=10|Pos=(1,0)", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_final_entities.txt")));
             StringAssert.Contains("E=10|Pos=(2,0)", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_final_entities.txt")));
+            StringAssert.Contains("E=10|Cooldown=2|PushTicks=0", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_player_control.txt")));
+            StringAssert.Contains("E=10|Cooldown=0|PushTicks=0", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_player_control.txt")));
             StringAssert.Contains("Unit|Cell=(1,0)|E=10", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_occupancy.txt")));
             StringAssert.Contains("Unit|Cell=(2,0)|E=10", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_occupancy.txt")));
             StringAssert.Contains("10", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_marked_for_death.txt")));

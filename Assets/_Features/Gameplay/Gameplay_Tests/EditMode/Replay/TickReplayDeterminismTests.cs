@@ -80,8 +80,57 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
                 secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
             CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.PlayerControlDump).ToArray(),
+                secondReplay.Select(frame => frame.PlayerControlDump).ToArray());
+            CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
+        }
+
+        [Test]
+        public void Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump()
+        {
+            var harness = new TickReplayHarness();
+            var firstRun = harness.Run(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                }),
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                });
+            var secondRun = harness.Run(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                }),
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                });
+
+            CollectionAssert.AreEqual(
+                firstRun.Select(frame => frame.DeterminismHash).ToArray(),
+                secondRun.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstRun.Select(frame => frame.PlayerControlDump).ToArray(),
+                secondRun.Select(frame => frame.PlayerControlDump).ToArray());
+            Assert.That(firstRun[0].Trace, Does.Contain("Final.PlayerControl"));
+            Assert.That(firstRun[0].PlayerControlDump, Does.Contain("E=10|Cooldown=0|PushTicks=1|Target=30|Direction=Right"));
+            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("E=10|Cooldown=24|PushTicks=0|Target=0|Direction=None"));
         }
 
         [Test]

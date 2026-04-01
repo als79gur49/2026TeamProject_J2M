@@ -46,6 +46,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_event_log.txt"), BuildEventLogDump(artifact, firstRun: false));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_final_entities.txt"), BuildFinalEntitiesDump(artifact, firstRun: true));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_final_entities.txt"), BuildFinalEntitiesDump(artifact, firstRun: false));
+            File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_player_control.txt"), BuildPlayerControlDump(artifact, firstRun: true));
+            File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_player_control.txt"), BuildPlayerControlDump(artifact, firstRun: false));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_occupancy.txt"), BuildOccupancyDump(artifact, firstRun: true));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_occupancy.txt"), BuildOccupancyDump(artifact, firstRun: false));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_marked_for_death.txt"), BuildMarkedForDeathDump(artifact, firstRun: true));
@@ -177,6 +179,20 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
 
             return artifact.TryGetSecondRunDivergentFrame(out var secondFrame)
                 ? EnsureTextDump(secondFrame.OccupancyDump)
+                : "<missing>\n";
+        }
+
+        private static string BuildPlayerControlDump(ReplayDivergenceArtifact artifact, bool firstRun)
+        {
+            if (firstRun)
+            {
+                return artifact.TryGetFirstRunDivergentFrame(out var frame)
+                    ? EnsureTextDump(frame.PlayerControlDump)
+                    : "<missing>\n";
+            }
+
+            return artifact.TryGetSecondRunDivergentFrame(out var secondFrame)
+                ? EnsureTextDump(secondFrame.PlayerControlDump)
                 : "<missing>\n";
         }
 

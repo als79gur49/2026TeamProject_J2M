@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Loop
@@ -46,6 +47,9 @@ namespace Game.Feature.Gameplay.Loop
 
             builder.Append("Entities").Append('\n');
             AppendEntityLines(builder, tickResultData.FinalEntities);
+
+            builder.Append("PlayerControl").Append('\n');
+            AppendPlayerControlLines(builder, GetOrderedPlayerControlStates(finalSnapshot));
 
             builder.Append("UnitOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedUnitOccupancy(finalSnapshot));
@@ -102,6 +106,13 @@ namespace Game.Feature.Gameplay.Loop
             var occupancyEntries = new List<SnapshotOccupancyEntry>();
             finalSnapshot.EnumerateUnitOccupancyOrdered(occupancyEntries);
             return occupancyEntries;
+        }
+
+        private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
+        {
+            var playerControlEntries = new List<PlayerControlSnapshotEntry>();
+            finalSnapshot.EnumeratePlayerControlStatesOrdered(playerControlEntries);
+            return playerControlEntries;
         }
 
         private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
@@ -169,6 +180,28 @@ namespace Game.Feature.Gameplay.Loop
                 builder
                     .Append(terrainEntries[i].x).Append('|')
                     .Append(terrainEntries[i].y).Append('\n');
+            }
+        }
+
+        private static void AppendPlayerControlLines(
+            StringBuilder builder,
+            IReadOnlyList<PlayerControlSnapshotEntry> playerControlEntries)
+        {
+            if (playerControlEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < playerControlEntries.Count; i++)
+            {
+                var entry = playerControlEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(entry.State.moveCooldownTicks).Append('|')
+                    .Append(entry.State.pushContactTicks).Append('|')
+                    .Append(entry.State.pushTargetEntityId).Append('|')
+                    .Append((int)entry.State.pushDirection).Append('\n');
             }
         }
 

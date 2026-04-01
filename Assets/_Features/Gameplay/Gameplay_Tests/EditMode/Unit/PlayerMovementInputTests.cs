@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
@@ -61,18 +62,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_PushCommand_ProducesSingleRawMovementIntent()
+        public void PlayerLogic_ArmedPushState_ProducesSingleRawPushIntent()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    pushContactTicks = GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                    pushTargetEntityId = 30,
+                    pushDirection = Direction.Right,
+                });
             var logic = new PlayerLogic(entityId: 10);
             var buffer = new List<RawMovementIntent>();
 
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
                 buffer);
 
             CollectionAssert.AreEqual(
@@ -93,12 +103,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_FlipInput_TakesPriorityOverPushForMovementIntent()
+        public void PlayerLogic_FlipInput_TakesPriorityOverPushIntent()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    pushContactTicks = GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                    pushTargetEntityId = 30,
+                    pushDirection = Direction.Right,
+                });
             var logic = new PlayerLogic(entityId: 10);
             var movementBuffer = new List<RawMovementIntent>();
 
@@ -108,7 +127,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     1,
                     PlayerTickCommand.Create(
                         Direction.Right,
-                        pushPressed: true,
                         flipPressed: true)),
                 movementBuffer);
 
@@ -165,6 +183,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerLogic_MoveCooldown_BlocksIntentUntilStateExpires()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    moveCooldownTicks = 2,
+                });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
         public void InputQuantizer_Vector2ToGridDirection_PicksDominantAxis()
         {
             var direction = GridMoveInputQuantizer.Quantize(new Vector2(0.8f, 0.2f), deadzone: 0.5f);
@@ -189,129 +232,98 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void InputRepeatCooldown_InitialTap_IssuesImmediateMove()
+        public void PlayerControlStateLogic_HoldAgainstSameBox_AccumulatesContactTicks()
         {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 0,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: false);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
 
-            var canIssueMove = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates);
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates);
 
-            Assert.That(canIssueMove, Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.EqualTo(2));
+            Assert.That(controlState.pushTargetEntityId, Is.EqualTo(20));
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.Right));
         }
 
         [Test]
-        public void InputRepeatCooldown_HoldSameDirection_RespectsRepeatInterval()
+        public void PlayerControlStateLogic_InputRelease_ResetsContact()
         {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 0,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: false);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
 
-            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            cooldown.CommitPlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
-            var thirdTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates);
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2),
+                worldState.CreateWriteContext(),
+                updates);
 
-            Assert.That(firstTick, Is.True);
-            Assert.That(secondTick, Is.False);
-            Assert.That(thirdTick, Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(controlState.pushTargetEntityId, Is.Zero);
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
         }
 
         [Test]
-        public void InputRepeatCooldown_DirectionChange_IssuesImmediateMove()
+        public void PlayerControlStateLogic_TargetChange_ResetsAccumulation()
         {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 0,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: false);
+            var firstWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
 
-            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            cooldown.CommitPlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Up);
+            logic.CommitPreMovementState(
+                firstWorld.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                firstWorld.CreateWriteContext(),
+                updates);
 
-            Assert.That(firstTick, Is.True);
-            Assert.That(secondTick, Is.True);
-        }
+            var secondWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            secondWorld.CreateWriteContext().SetPlayerControlState(
+                10,
+                firstWorld.CreateSnapshot().TryGetPlayerControlState(10, out var priorState)
+                    ? priorState
+                    : default);
 
-        [Test]
-        public void InputRepeatCooldown_InitialDelay_WaitsConfiguredTicks()
-        {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 2,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: false);
+            logic.CommitPreMovementState(
+                secondWorld.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                secondWorld.CreateWriteContext(),
+                updates);
 
-            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
-            var thirdTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
-
-            Assert.That(firstTick, Is.False);
-            Assert.That(secondTick, Is.False);
-            Assert.That(thirdTick, Is.True);
-        }
-
-        [Test]
-        public void InputRepeatCooldown_NoneInput_ResetsHoldState()
-        {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 0,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: false);
-
-            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            cooldown.CommitPlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            var resetTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.None);
-            var resumedTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
-
-            Assert.That(firstTick, Is.True);
-            Assert.That(resetTick, Is.False);
-            Assert.That(resumedTick, Is.True);
-        }
-
-        [Test]
-        public void InputRepeatCooldown_DirectionChange_WithDelay_RespectsInitialDelay()
-        {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 2,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: true);
-
-            var firstTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            var secondTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
-            var thirdTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
-            cooldown.CommitPlainMove(currentTick: 3, quantizedDirection: Direction.Right);
-            var directionChangeTick = cooldown.EvaluatePlainMove(currentTick: 4, quantizedDirection: Direction.Up);
-            var delayedDirectionTick = cooldown.EvaluatePlainMove(currentTick: 5, quantizedDirection: Direction.Up);
-            var issuedDirectionTick = cooldown.EvaluatePlainMove(currentTick: 6, quantizedDirection: Direction.Up);
-
-            Assert.That(firstTick, Is.False);
-            Assert.That(secondTick, Is.False);
-            Assert.That(thirdTick, Is.True);
-            Assert.That(directionChangeTick, Is.False);
-            Assert.That(delayedDirectionTick, Is.False);
-            Assert.That(issuedDirectionTick, Is.True);
-        }
-
-        [Test]
-        public void InputRepeatCooldown_UncommittedInteractionTick_DoesNotConsumeCadence()
-        {
-            var cooldown = new InputRepeatCooldown(
-                initialMoveDelayTicks: 0,
-                repeatedMoveIntervalTicks: 2,
-                directionChangeConsumesDelay: false);
-
-            var interactionTick = cooldown.EvaluatePlainMove(currentTick: 1, quantizedDirection: Direction.Right);
-            var deferredPlainMoveTick = cooldown.EvaluatePlainMove(currentTick: 2, quantizedDirection: Direction.Right);
-            cooldown.CommitPlainMove(currentTick: 2, quantizedDirection: Direction.Right);
-            var lockedTick = cooldown.EvaluatePlainMove(currentTick: 3, quantizedDirection: Direction.Right);
-            var nextCadenceTick = cooldown.EvaluatePlainMove(currentTick: 4, quantizedDirection: Direction.Right);
-
-            Assert.That(interactionTick, Is.True);
-            Assert.That(deferredPlainMoveTick, Is.True);
-            Assert.That(lockedTick, Is.False);
-            Assert.That(nextCadenceTick, Is.True);
+            Assert.That(secondWorld.CreateSnapshot().TryGetPlayerControlState(10, out var updatedState), Is.True);
+            Assert.That(updatedState.pushContactTicks, Is.EqualTo(1));
+            Assert.That(updatedState.pushTargetEntityId, Is.EqualTo(30));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
@@ -345,6 +357,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 state = hp > 0 ? EntityPhaseState.Idle : EntityPhaseState.Dead,
                 facing = Direction.Right,
                 markedForDeath = markedForDeath,
+            };
+        }
+
+        private static EntityState CreateBox(
+            int entityId,
+            Vector2Int position,
+            BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+            Direction facing = Direction.Right)
+        {
+            return CreateBox(entityId, SurfaceCell.FromPlanar(position), capabilities, facing);
+        }
+
+        private static EntityState CreateBox(
+            int entityId,
+            SurfaceCell position,
+            BoxCapabilities capabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+            Direction facing = Direction.Right)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = facing,
+                boxCapabilities = capabilities,
             };
         }
     }

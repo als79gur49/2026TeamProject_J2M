@@ -1453,29 +1453,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 WorldSnapshot snapshot,
                 IReadOnlyList<IEntityLogic> staticEntityLogics)
             {
+                var preMovementStateLogics = new List<IPreMovementStateLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
                 var aiStateLogics = new List<IEnemyAiStateLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
                 var movementLogics = new List<IMovementEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
                 var attackLogics = new List<IAttackEntityLogic>(staticEntityLogics.Count + _dynamicEntityLogics.Count);
 
                 for (var i = 0; i < staticEntityLogics.Count; i++)
                 {
-                    AddEntityLogic(staticEntityLogics[i], aiStateLogics, movementLogics, attackLogics);
+                    AddEntityLogic(staticEntityLogics[i], preMovementStateLogics, aiStateLogics, movementLogics, attackLogics);
                 }
 
                 for (var i = 0; i < _dynamicEntityLogics.Count; i++)
                 {
-                    AddEntityLogic(_dynamicEntityLogics[i], aiStateLogics, movementLogics, attackLogics);
+                    AddEntityLogic(_dynamicEntityLogics[i], preMovementStateLogics, aiStateLogics, movementLogics, attackLogics);
                 }
 
-                return new EntityLogicSet(aiStateLogics, movementLogics, attackLogics);
+                return new EntityLogicSet(preMovementStateLogics, aiStateLogics, movementLogics, attackLogics);
             }
 
             private static void AddEntityLogic(
                 IEntityLogic entityLogic,
+                List<IPreMovementStateLogic> preMovementStateLogics,
                 List<IEnemyAiStateLogic> aiStateLogics,
                 List<IMovementEntityLogic> movementLogics,
                 List<IAttackEntityLogic> attackLogics)
             {
+                if (entityLogic is IPreMovementStateLogic preMovementStateLogic)
+                {
+                    preMovementStateLogics.Add(preMovementStateLogic);
+                }
+
                 if (entityLogic is IEnemyAiStateLogic aiStateLogic)
                 {
                     aiStateLogics.Add(aiStateLogic);

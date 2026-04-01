@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Tests.Replay
 {
@@ -38,6 +39,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         result.DeterminismHash,
                         result.Trace.Text,
                         BuildFinalEntitiesDump(result.FinalEntities),
+                        BuildPlayerControlDump(result.Trace.Text),
                         BuildOccupancyDump(result.Trace.Text),
                         BuildMarkedForDeathDump(result.FinalEntities),
                         BuildEventLogDump(result.EventLog)));
@@ -99,6 +101,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private static string BuildOccupancyDump(string trace)
         {
             return ExtractSection(trace, "Final.Occupancy");
+        }
+
+        private static string BuildPlayerControlDump(string trace)
+        {
+            return ExtractSection(trace, "Final.PlayerControl");
         }
 
         private static string BuildMarkedForDeathDump(IReadOnlyList<EntityState> finalEntities)
@@ -205,6 +212,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             string determinismHash,
             string trace,
             string finalEntitiesDump,
+            string playerControlDump,
             string occupancyDump,
             string markedForDeathDump,
             string eventLogDump)
@@ -213,6 +221,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             DeterminismHash = determinismHash;
             Trace = trace;
             FinalEntitiesDump = finalEntitiesDump;
+            PlayerControlDump = playerControlDump;
             OccupancyDump = occupancyDump;
             MarkedForDeathDump = markedForDeathDump;
             EventLogDump = eventLogDump;
@@ -225,6 +234,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public string Trace { get; }
 
         public string FinalEntitiesDump { get; }
+
+        public string PlayerControlDump { get; }
 
         public string OccupancyDump { get; }
 
