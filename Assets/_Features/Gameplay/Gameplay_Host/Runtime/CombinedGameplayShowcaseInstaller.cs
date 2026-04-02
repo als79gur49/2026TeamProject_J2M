@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Host
         private const int FloorEnemyEntityId = 50;
         private const int FrontEnemyEntityId = 51;
 
+        [SerializeField] private GameplayEntityView playerViewPrefab;
+
         protected override BoardBounds CreateBoardBounds()
         {
             return new BoardBounds(
@@ -36,11 +38,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             entities.Add(CreatePlayer(PlayerEntityId, new SurfaceCell(FaceId.Floor, 1, 1), Direction.Right));
-            entities.Add(CreateEnemy(
-                FloorEnemyEntityId,
-                new SurfaceCell(FaceId.Floor, 2, 4),
-                EnemyAiMode.Patrol,
-                Direction.Down));
+            //entities.Add(CreateEnemy(
+            //    FloorEnemyEntityId,
+            //    new SurfaceCell(FaceId.Floor, 2, 4),
+            //    EnemyAiMode.Patrol,
+            //    Direction.Down));
             entities.Add(CreateEnemy(
                 FrontEnemyEntityId,
                 new SurfaceCell(FaceId.Front, 2, 2),
@@ -78,7 +80,13 @@ namespace Game.Feature.Gameplay.Host
                 return null;
             }
 
-            return new GameplayBoxCapabilityLabelViewFactory(boardRoot.EntityRoot, CellSize, PlayerEntityId);
+            return playerViewPrefab != null
+                ? new CombinedGameplayShowcasePlayerPrefabViewFactory(
+                    boardRoot.EntityRoot,
+                    PlayerEntityId,
+                    playerViewPrefab,
+                    CellSize)
+                : new GameplayBoxCapabilityLabelViewFactory(boardRoot.EntityRoot, CellSize, PlayerEntityId);
         }
 
         private static bool ShouldSkipPerimeterWall(SurfaceCell cell, BoardBounds boardBounds)

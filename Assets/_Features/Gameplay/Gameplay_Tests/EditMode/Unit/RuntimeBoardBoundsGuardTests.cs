@@ -108,13 +108,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var defaultProfile = configuration.CreateTimingProfile();
 
+            Assert.That(defaultProfile.MoveMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(defaultProfile.PushMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(defaultProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.25f));
 
+            configuration.MoveMotionDurationSeconds = 0.1f;
             configuration.TopologyMotionDurationSeconds = 0.45f;
 
             var overriddenProfile = configuration.CreateTimingProfile();
 
+            Assert.That(overriddenProfile.MoveMotionDurationSeconds, Is.EqualTo(0.1f));
             Assert.That(overriddenProfile.PushMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(overriddenProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
         }
@@ -147,8 +150,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.PlayerMoveCooldownTicks, Is.EqualTo(24));
             Assert.That(profile.PlayerPushContactThresholdSeconds, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds));
             Assert.That(profile.PlayerPushContactThresholdTicks, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks));
-            Assert.That(profile.PlayerPushInteractionLockTicks, Is.EqualTo(12));
-            Assert.That(profile.PlayerFlipInteractionLockTicks, Is.EqualTo(12));
+            Assert.That(profile.MoveMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.PushMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.TopologyMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.FlipMotionDurationSeconds, Is.EqualTo(0.2f));
@@ -181,10 +183,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(oneTwentyTpsProfile.PlayerMoveCooldownTicks, Is.EqualTo(48));
             Assert.That(sixtyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(2));
             Assert.That(oneTwentyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(4));
-            Assert.That(sixtyTpsProfile.PlayerPushInteractionLockTicks, Is.EqualTo(12));
-            Assert.That(oneTwentyTpsProfile.PlayerPushInteractionLockTicks, Is.EqualTo(24));
-            Assert.That(sixtyTpsProfile.PlayerFlipInteractionLockTicks, Is.EqualTo(12));
-            Assert.That(oneTwentyTpsProfile.PlayerFlipInteractionLockTicks, Is.EqualTo(24));
         }
 
         [Test]
@@ -1226,7 +1224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(presenter.IsTopologyTransitionActive, Is.False);
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
                 Assert.That(presenter.IsPresentationActive, Is.False);
@@ -1309,7 +1307,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presenter.HasBlockingPresentation, Is.False);
                 Assert.That(presenter.IsTopologyTransitionActive, Is.False);
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
 
                 Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
             }
@@ -1450,7 +1448,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.3f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
                 var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
                 var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
                 var binder = new GameplayEntityViewBinder(
@@ -1489,7 +1497,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
 
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
                 presenter.Present(CreateTickResult(
                     new[]
                     {
@@ -1639,6 +1647,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
                     projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -2270,13 +2279,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 0)),
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        MoveMotionDurationSeconds = 0.1f,
                         PlayerEntityId = 10,
+                        PushMotionDurationSeconds = 0.3f,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
                 host.InputHost.SetRawMoveInput(Vector2.right);
                 host.InputHost.RunSingleTick();
-                host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds * 0.5f);
+                host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds * 0.5f);
 
                 var snapshot = host.WorldState.CreateSnapshot();
 
@@ -2492,6 +2503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
                     projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
                     pushMotionDurationSeconds: 0.2f,
                     flipMotionDurationSeconds: 0.2f,
                     flipArcHeightInCells: 0.65f,
@@ -2527,7 +2539,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     new SurfaceCell(FaceId.Floor, 0, 0),
                                     new SurfaceCell(FaceId.Floor, 1, 0)),
                             })));
-                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds * 0.5f);
 
                 Assert.That(registry.TryGetView(10, out var view), Is.True);
                 var sourcePosition = GetProjectedEntityPosition(

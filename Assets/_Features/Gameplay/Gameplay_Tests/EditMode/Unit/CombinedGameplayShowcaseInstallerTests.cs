@@ -185,6 +185,79 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_UsesPrefabOnlyForPlayerAndKeepsBoxLabels()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory");
+            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_BoardRoot");
+            var playerPrefabObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerPrefab");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+
+                var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
+                playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
+                new GameObject("PrefabMarker").transform.SetParent(playerPrefabObject.transform, worldPositionStays: false);
+
+                var prefabField = typeof(CombinedGameplayShowcaseInstaller).GetField(
+                    "playerViewPrefab",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(prefabField, Is.Not.Null);
+                prefabField.SetValue(installer, playerPrefabView);
+
+                var factoryMethod = installer.GetType().GetMethod(
+                    "CreateViewFactory",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(factoryMethod, Is.Not.Null);
+                var factory = (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new object[] { boardRoot });
+                Assert.That(factory, Is.Not.Null);
+
+                var playerView = factory.CreateView(
+                    new EntityState
+                    {
+                        entityId = 10,
+                        position = new SurfaceCell(FaceId.Floor, 1, 1),
+                        hp = 3,
+                        maxHp = 3,
+                        teamId = 1,
+                        type = EntityType.Unit,
+                        state = EntityPhaseState.Idle,
+                        facing = Direction.Right,
+                    });
+
+                Assert.That(playerView, Is.Not.SameAs(playerPrefabView));
+                Assert.That(playerView.transform.parent, Is.EqualTo(boardRoot.EntityRoot));
+                Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
+                Assert.That(playerView.transform.Find("PrefabMarker"), Is.Not.Null);
+                Assert.That(playerView.transform.Find("CapabilityLabel"), Is.Null);
+
+                var boxView = factory.CreateView(
+                    new EntityState
+                    {
+                        entityId = 30,
+                        position = new SurfaceCell(FaceId.Floor, 3, 1),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 0,
+                        type = EntityType.Box,
+                        state = EntityPhaseState.Idle,
+                        facing = Direction.Right,
+                        boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
+                    });
+
+                Assert.That(boxView.transform.Find("CapabilityLabel"), Is.Not.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(playerPrefabObject);
+                Object.DestroyImmediate(boardRootObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)
         {
             for (var i = 0; i < entities.Count; i++)

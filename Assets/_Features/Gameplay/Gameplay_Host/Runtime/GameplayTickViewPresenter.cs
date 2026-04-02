@@ -766,7 +766,9 @@ namespace Game.Feature.Gameplay.Host
         {
             return motionKind switch
             {
+                TickEntityMotionKind.Move => _timingProfile.MoveMotionDurationSeconds,
                 TickEntityMotionKind.Flip => _timingProfile.FlipMotionDurationSeconds,
+                TickEntityMotionKind.Push => _timingProfile.PushMotionDurationSeconds,
                 TickEntityMotionKind.BoxSlide => _timingProfile.BoxSlideStepIntervalSeconds,
                 TickEntityMotionKind.ProjectileMove => _timingProfile.ProjectileStepIntervalSeconds,
                 _ => _timingProfile.PushMotionDurationSeconds,

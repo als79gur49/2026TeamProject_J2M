@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultRepeatedMoveIntervalSeconds = 0.4f;
         public const float DefaultBoxSlideStepIntervalSeconds = 0.2f;
         public const float DefaultProjectileStepIntervalSeconds = 0.2f;
+        public const float DefaultMoveMotionDurationSeconds = 0.2f;
         public const float DefaultPushMotionDurationSeconds = 0.2f;
         public const float DefaultTopologyMotionDurationSeconds = DefaultPushMotionDurationSeconds;
         public const float DefaultFlipMotionDurationSeconds = 0.2f;
@@ -37,6 +38,7 @@ namespace Game.Feature.Gameplay.Loop
                 projectileStepIntervalSeconds,
                 pushMotionDurationSeconds,
                 pushMotionDurationSeconds,
+                pushMotionDurationSeconds,
                 flipMotionDurationSeconds,
                 flipArcHeightInCells,
                 maxTicksPerFrame)
@@ -49,6 +51,63 @@ namespace Game.Feature.Gameplay.Loop
             float repeatedMoveIntervalSeconds,
             float boxSlideStepIntervalSeconds,
             float projectileStepIntervalSeconds,
+            float moveMotionDurationSeconds,
+            float pushMotionDurationSeconds,
+            float flipMotionDurationSeconds,
+            float flipArcHeightInCells,
+            int maxTicksPerFrame)
+            : this(
+                simulationTicksPerSecond,
+                initialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds,
+                boxSlideStepIntervalSeconds,
+                projectileStepIntervalSeconds,
+                moveMotionDurationSeconds,
+                pushMotionDurationSeconds,
+                pushMotionDurationSeconds,
+                flipMotionDurationSeconds,
+                flipArcHeightInCells,
+                maxTicksPerFrame)
+        {
+        }
+
+        public GameplayTimingProfile(
+            int simulationTicksPerSecond,
+            float initialMoveDelaySeconds,
+            float repeatedMoveIntervalSeconds,
+            float boxSlideStepIntervalSeconds,
+            float projectileStepIntervalSeconds,
+            float pushMotionDurationSeconds,
+            float topologyMotionDurationSeconds,
+            float flipMotionDurationSeconds,
+            float flipArcHeightInCells,
+            int maxTicksPerFrame,
+            float playerMoveCooldownSeconds = -1f,
+            float playerPushContactThresholdSeconds = -1f)
+            : this(
+                simulationTicksPerSecond,
+                initialMoveDelaySeconds,
+                repeatedMoveIntervalSeconds,
+                boxSlideStepIntervalSeconds,
+                projectileStepIntervalSeconds,
+                pushMotionDurationSeconds,
+                pushMotionDurationSeconds,
+                topologyMotionDurationSeconds,
+                flipMotionDurationSeconds,
+                flipArcHeightInCells,
+                maxTicksPerFrame,
+                playerMoveCooldownSeconds,
+                playerPushContactThresholdSeconds)
+        {
+        }
+
+        public GameplayTimingProfile(
+            int simulationTicksPerSecond,
+            float initialMoveDelaySeconds,
+            float repeatedMoveIntervalSeconds,
+            float boxSlideStepIntervalSeconds,
+            float projectileStepIntervalSeconds,
+            float moveMotionDurationSeconds,
             float pushMotionDurationSeconds,
             float topologyMotionDurationSeconds,
             float flipMotionDurationSeconds,
@@ -92,6 +151,13 @@ namespace Game.Feature.Gameplay.Loop
                     "Projectile step interval must be greater than zero.");
             }
 
+            if (moveMotionDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(moveMotionDurationSeconds),
+                    "Move motion duration must be greater than zero.");
+            }
+
             if (pushMotionDurationSeconds <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
@@ -133,6 +199,7 @@ namespace Game.Feature.Gameplay.Loop
             RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
             ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
+            MoveMotionDurationSeconds = moveMotionDurationSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
             TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
@@ -150,8 +217,6 @@ namespace Game.Feature.Gameplay.Loop
                 : DefaultPlayerPushContactThresholdSeconds;
             PlayerMoveCooldownTicks = SecondsToTicks(PlayerMoveCooldownSeconds, simulationTicksPerSecond, allowZero: true);
             PlayerPushContactThresholdTicks = SecondsToTicks(PlayerPushContactThresholdSeconds, simulationTicksPerSecond);
-            PlayerPushInteractionLockTicks = SecondsToTicks(pushMotionDurationSeconds, simulationTicksPerSecond);
-            PlayerFlipInteractionLockTicks = SecondsToTicks(flipMotionDurationSeconds, simulationTicksPerSecond);
         }
 
         public int SimulationTicksPerSecond { get; }
@@ -165,6 +230,8 @@ namespace Game.Feature.Gameplay.Loop
         public float BoxSlideStepIntervalSeconds { get; }
 
         public float ProjectileStepIntervalSeconds { get; }
+
+        public float MoveMotionDurationSeconds { get; }
 
         public float PushMotionDurationSeconds { get; }
 
@@ -192,10 +259,6 @@ namespace Game.Feature.Gameplay.Loop
 
         public int PlayerPushContactThresholdTicks { get; }
 
-        public int PlayerPushInteractionLockTicks { get; }
-
-        public int PlayerFlipInteractionLockTicks { get; }
-
         public static GameplayTimingProfile CreateDefault()
         {
             return new GameplayTimingProfile(
@@ -204,6 +267,7 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultRepeatedMoveIntervalSeconds,
                 DefaultBoxSlideStepIntervalSeconds,
                 DefaultProjectileStepIntervalSeconds,
+                DefaultMoveMotionDurationSeconds,
                 DefaultPushMotionDurationSeconds,
                 DefaultTopologyMotionDurationSeconds,
                 DefaultFlipMotionDurationSeconds,

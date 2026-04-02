@@ -31,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
         public int PlayerEntityId = 1;
         public float PlayerMoveCooldownSeconds = -1f;
         public float PlayerPushContactThresholdSeconds = -1f;
+        public float MoveMotionDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
@@ -54,6 +55,7 @@ namespace Game.Feature.Gameplay.Host
             var boxSlideStepIntervalSeconds = ResolveBoxSlideStepIntervalSeconds();
             var projectileStepIntervalSeconds = ResolveProjectileStepIntervalSeconds();
             var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds();
+            var moveMotionDurationSeconds = ResolveMoveMotionDurationSeconds(pushMotionDurationSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
             var playerMoveCooldownSeconds = ResolvePlayerMoveCooldownSeconds(repeatedMoveIntervalSeconds);
@@ -65,6 +67,7 @@ namespace Game.Feature.Gameplay.Host
                 repeatedMoveIntervalSeconds,
                 boxSlideStepIntervalSeconds,
                 projectileStepIntervalSeconds,
+                moveMotionDurationSeconds,
                 pushMotionDurationSeconds,
                 topologyMotionDurationSeconds,
                 flipMotionDurationSeconds,
@@ -111,6 +114,13 @@ namespace Game.Feature.Gameplay.Host
             return PushMotionDurationSeconds > 0f
                 ? PushMotionDurationSeconds
                 : GameplayTimingProfile.DefaultPushMotionDurationSeconds;
+        }
+
+        private float ResolveMoveMotionDurationSeconds(float pushMotionDurationSeconds)
+        {
+            return MoveMotionDurationSeconds > 0f
+                ? MoveMotionDurationSeconds
+                : pushMotionDurationSeconds;
         }
 
         private float ResolveTopologyMotionDurationSeconds(float pushMotionDurationSeconds)

@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
+        [SerializeField] private float moveMotionDurationSeconds = -1f;
         [SerializeField] private float pushMotionDurationSeconds = GameplayTimingProfile.DefaultPushMotionDurationSeconds;
         [SerializeField] private float flipMotionDurationSeconds = GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
         [SerializeField] private float topologyMotionDurationSeconds = -1f;
@@ -240,6 +241,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = playerEntityId,
                 PlayerMoveCooldownSeconds = playerMoveCooldownSeconds,
                 ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
+                MoveMotionDurationSeconds = moveMotionDurationSeconds,
                 PushMotionDurationSeconds = pushMotionDurationSeconds,
                 RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                 SnapViewCameraToTarget = configureMainCamera,

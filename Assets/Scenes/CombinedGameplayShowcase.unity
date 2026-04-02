@@ -421,14 +421,16 @@ MonoBehaviour:
   initialMoveDelaySeconds: 0
   moveDeadzone: 0.5
   playerEntityId: 10
-  playerMoveCooldownSeconds: 0.2
+  playerMoveCooldownSeconds: 0.5
   repeatedMoveIntervalSeconds: 0.6
   boxSlideStepIntervalSeconds: 0.2
   projectileStepIntervalSeconds: 0.2
-  pushMotionDurationSeconds: 0.2
-  flipMotionDurationSeconds: 0.2
-  topologyMotionDurationSeconds: 3
+  moveMotionDurationSeconds: 0.2
+  pushMotionDurationSeconds: 1
+  flipMotionDurationSeconds: 1
+  topologyMotionDurationSeconds: 2
   topologyRotationVisualMapping: 0
+  playerViewPrefab: {fileID: 5823939067857017187, guid: 6696aac23f8317d4d94786b02b62bb6c, type: 3}
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0

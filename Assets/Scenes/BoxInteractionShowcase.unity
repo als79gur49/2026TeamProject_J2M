@@ -533,6 +533,7 @@ GameObject:
   m_Component:
   - component: {fileID: 612939157}
   - component: {fileID: 612939156}
+  - component: {fileID: 612939158}
   m_Layer: 0
   m_Name: Directional Light
   m_TagString: Untagged
@@ -620,6 +621,35 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 50, y: -30, z: 0}
+--- !u!114 &612939158
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 612939155}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
+  m_UsePipelineSettings: 1
+  m_AdditionalLightsShadowResolutionTier: 2
+  m_CustomShadowLayers: 0
+  m_LightCookieSize: {x: 1, y: 1}
+  m_LightCookieOffset: {x: 0, y: 0}
+  m_SoftShadowQuality: 0
+  m_RenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_ShadowRenderingLayersMask:
+    serializedVersion: 0
+    m_Bits: 1
+  m_Version: 4
+  m_LightLayerMask: 1
+  m_ShadowLayerMask: 1
+  m_RenderingLayers: 1
+  m_ShadowRenderingLayers: 1
 --- !u!1 &994514813
 GameObject:
   m_ObjectHideFlags: 0
@@ -967,11 +997,17 @@ MonoBehaviour:
   configureMainCamera: 1
   cellSize: 1.15
   directionChangeConsumesDelay: 0
-  initialMoveDelayTicks: 0
+  initialMoveDelaySeconds: 0
   moveDeadzone: 0.5
   playerEntityId: 10
-  repeatedMoveIntervalTicks: 2
-  tickIntervalSeconds: 0.2
+  playerMoveCooldownSeconds: -1
+  repeatedMoveIntervalSeconds: 0.5
+  boxSlideStepIntervalSeconds: 0.1
+  projectileStepIntervalSeconds: 0.2
+  pushMotionDurationSeconds: 0.3
+  flipMotionDurationSeconds: 0.2
+  topologyMotionDurationSeconds: -1
+  topologyRotationVisualMapping: 0
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0
