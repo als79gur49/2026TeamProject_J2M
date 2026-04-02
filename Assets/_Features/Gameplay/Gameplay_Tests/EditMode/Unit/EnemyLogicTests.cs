@@ -30,9 +30,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void EnemyLogic_InvalidConfig_ThrowsArgumentException()
         {
-            var exception = Assert.Throws<ArgumentException>(() => new EnemyLogic(entityId: 40, default));
+            var exception = Assert.Throws<ArgumentException>(() => new EnemyLogic(entityId: 40, default(EnemyAiRuntimeDefinition)));
 
-            Assert.That(exception.ParamName, Is.EqualTo("config"));
+            Assert.That(exception.ParamName, Is.EqualTo("aiDefinition"));
         }
 
         [Test]
@@ -252,6 +252,96 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase|FromTimer=0|To=Dead|ToTimer=0|Reason=Dead",
                 },
                 transitions);
+        }
+
+        [Test]
+        public void NearestOpponentDetectionStrategy_SenseRangeSetting_ChangesSelectionOutcome()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var strategy = NearestOpponentDetectionStrategy.Instance;
+
+            var shortRangeDetected = strategy.TryFindTarget(
+                snapshot,
+                source,
+                new DetectionSettings(senseRange: 2, requireSameFace: true, canTargetMarkedForDeath: false),
+                out _);
+            var longRangeDetected = strategy.TryFindTarget(
+                snapshot,
+                source,
+                new DetectionSettings(senseRange: 3, requireSameFace: true, canTargetMarkedForDeath: false),
+                out var detectedTarget);
+
+            Assert.That(shortRangeDetected, Is.False);
+            Assert.That(longRangeDetected, Is.True);
+            Assert.That(detectedTarget.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        public void ForwardPatrolStrategy_BlockedMovementResponseSetting_ChangesMovementOutcome()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var strategy = ForwardPatrolStrategy.Instance;
+
+            var stopped = strategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                out _);
+            var steppedBackward = strategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                new PatrolSettings(PatrolBlockedMovementResponse.TryStepBackward),
+                out var backwardIntent);
+
+            Assert.That(stopped, Is.False);
+            Assert.That(steppedBackward, Is.True);
+            Assert.That(backwardIntent.Destination, Is.EqualTo(new Vector2Int(-1, 0)));
+        }
+
+        [Test]
+        public void EnemyEntityLogicFactory_ProfileDrivenAssembly_UsesInjectedProfileSettings()
+        {
+            var profile = EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                new DetectionSettings(senseRange: 2, requireSameFace: true, canTargetMarkedForDeath: false),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee());
+            var factory = new EnemyEntityLogicFactory(profile);
+            var entity = CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right);
+            var logic = (EnemyLogic)factory.Create(entity);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                entity,
+            });
+            var transitions = new List<string>();
+
+            ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                EnemyAiTransitionStage.BeforeMovement,
+                worldState.CreateWriteContext(),
+                transitions);
+
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(transitions, Has.Count.EqualTo(0));
         }
 
         [Test]
