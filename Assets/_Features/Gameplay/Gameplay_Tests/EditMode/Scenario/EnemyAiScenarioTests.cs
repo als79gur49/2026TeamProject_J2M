@@ -135,6 +135,72 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(thirdTick.Trace.Text, Does.Not.Contain("TopologyCommitted"));
         }
 
+        [Test]
+        public void EnemyAi_NonAttackingProfile_OnlyPatrolsAndChases()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new EnemyLogic(40, EnemyAiProfile.CreateRuntimeNonAttacking()),
+                });
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var enemy = GetEntity(worldState, 40);
+            var player = GetEntity(worldState, 10);
+
+            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+        }
+
+        [Test]
+        public void EnemyAi_ChargingProfile_StartsChargeUsingObstacleLane_AndStopsAtAdjacentUnit()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new EnemyLogic(40, EnemyAiProfile.CreateRuntimeCharging()),
+                });
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var fourthTick = pipeline.RunTick(new TickInput(4));
+            var enemy = GetEntity(worldState, 40);
+            var player = GetEntity(worldState, 10);
+
+            Assert.That(GetEntityAfterTick(firstTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+            Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(GetEntityAfterTick(thirdTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+            Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(player.hp, Is.EqualTo(3));
+            Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
+            Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -151,6 +217,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
             return entity;
+        }
+
+        private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
+        {
+            return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
         }
 
         private static EntityState CreateUnit(
@@ -203,6 +274,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 markedForDeath = false,
                 spawnTick = 0,
                 aiMode = aiMode,
+                aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateBox(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = SurfaceCell.FromPlanar(position),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                boxCapabilities = BoxCapabilities.None,
+                aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };
         }
