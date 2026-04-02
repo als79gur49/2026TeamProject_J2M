@@ -44,9 +44,9 @@ namespace Game.Feature.Gameplay.PlayerControl
                 throw new ArgumentOutOfRangeException(nameof(pushContactThresholdTicks), "Push contact threshold must be greater than zero.");
             }
 
-            if (pushWindupTicks <= 0)
+            if (pushWindupTicks < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(pushWindupTicks), "Push wind-up ticks must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(pushWindupTicks), "Push wind-up ticks must be zero or greater.");
             }
 
             if (pushRecoveryTicks < 0)
@@ -54,9 +54,9 @@ namespace Game.Feature.Gameplay.PlayerControl
                 throw new ArgumentOutOfRangeException(nameof(pushRecoveryTicks), "Push recovery ticks must be zero or greater.");
             }
 
-            if (flipWindupTicks <= 0)
+            if (flipWindupTicks < 0)
             {
-                throw new ArgumentOutOfRangeException(nameof(flipWindupTicks), "Flip wind-up ticks must be greater than zero.");
+                throw new ArgumentOutOfRangeException(nameof(flipWindupTicks), "Flip wind-up ticks must be zero or greater.");
             }
 
             if (flipRecoveryTicks < 0)

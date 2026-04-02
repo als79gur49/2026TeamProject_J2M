@@ -89,6 +89,11 @@ namespace Game.Feature.Gameplay.Host
                 : new GameplayBoxCapabilityLabelViewFactory(boardRoot.EntityRoot, CellSize, PlayerEntityId);
         }
 
+        protected override GameplayEntityView ResolvePlayerViewPrefab()
+        {
+            return playerViewPrefab;
+        }
+
         private static bool ShouldSkipPerimeterWall(SurfaceCell cell, BoardBounds boardBounds)
         {
             return IsSharedEdgeOpeningColumn(cell.x) &&

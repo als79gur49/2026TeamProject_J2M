@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Host
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
+        public GameplayEntityView PlayerViewPrefab;
         public Camera ViewCamera;
         public IGameplayEntityViewFactory ViewFactory;
 

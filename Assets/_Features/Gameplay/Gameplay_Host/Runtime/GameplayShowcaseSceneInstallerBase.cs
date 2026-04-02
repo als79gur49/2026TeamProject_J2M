@@ -88,7 +88,16 @@ namespace Game.Feature.Gameplay.Host
                 return null;
             }
 
-            return new DefaultGameplayEntityViewFactory(boardRoot.EntityRoot, cellSize, playerEntityId);
+            return new DefaultGameplayEntityViewFactory(
+                boardRoot.EntityRoot,
+                cellSize,
+                playerEntityId,
+                ResolvePlayerViewPrefab());
+        }
+
+        protected virtual GameplayEntityView ResolvePlayerViewPrefab()
+        {
+            return null;
         }
 
         protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
@@ -240,6 +249,7 @@ namespace Game.Feature.Gameplay.Host
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
                 PlayerMoveCooldownSeconds = playerMoveCooldownSeconds,
+                PlayerViewPrefab = ResolvePlayerViewPrefab(),
                 ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
                 MoveMotionDurationSeconds = moveMotionDurationSeconds,
                 PushMotionDurationSeconds = pushMotionDurationSeconds,

@@ -5,10 +5,11 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public sealed class DefaultGameplayEntityViewFactory : IGameplayEntityViewFactory
+    public sealed class DefaultGameplayEntityViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource
     {
         private readonly float _cellSize;
         private readonly Material _boxMaterial;
+        private readonly GameplayEntityView _playerViewPrefab;
         private readonly Material _playerMaterial;
         private readonly Material _projectileMaterial;
         private readonly Transform _parent;
@@ -16,11 +17,16 @@ namespace Game.Feature.Gameplay.Host
         private readonly Material _unitMaterial;
         private readonly Material _wallMaterial;
 
-        public DefaultGameplayEntityViewFactory(Transform parent, float cellSize, int playerEntityId)
+        public DefaultGameplayEntityViewFactory(
+            Transform parent,
+            float cellSize,
+            int playerEntityId,
+            GameplayEntityView playerViewPrefab = null)
         {
             _parent = parent;
             _cellSize = cellSize;
             _playerEntityId = playerEntityId;
+            _playerViewPrefab = playerViewPrefab;
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
 
             if (shader == null)
@@ -38,6 +44,20 @@ namespace Game.Feature.Gameplay.Host
 
         public GameplayEntityView CreateView(in EntityState entity)
         {
+            if (entity.entityId == _playerEntityId &&
+                _playerViewPrefab != null)
+            {
+                PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(_playerViewPrefab, nameof(DefaultGameplayEntityViewFactory));
+                var instance = UnityEngine.Object.Instantiate(_playerViewPrefab, _parent);
+                instance.name = $"EntityView_{entity.entityId}";
+                instance.transform.localPosition = Vector3.zero;
+                instance.transform.localRotation = Quaternion.identity;
+                instance.transform.localScale = Vector3.one;
+                instance.Initialize(entity.entityId);
+                PlayerViewPrefabRequirements.ValidatePlayerViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
+                return instance;
+            }
+
             var viewObject = new GameObject($"EntityView_{entity.entityId}");
             viewObject.transform.SetParent(_parent, worldPositionStays: false);
             viewObject.transform.localPosition = Vector3.zero;
@@ -50,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
             if (entity.entityId == _playerEntityId)
             {
                 viewObject.AddComponent<PlayerAnimatorDriver>();
+                viewObject.AddComponent<PlayerActionTimingAuthoring>();
             }
             else if (entity.type == EntityType.Unit &&
                      entity.aiMode != EnemyAiMode.None)
@@ -88,6 +109,8 @@ namespace Game.Feature.Gameplay.Host
 
             return view;
         }
+
+        public GameplayEntityView PlayerViewPrefab => _playerViewPrefab;
 
         private static Material CreateMaterial(Shader shader, Color color)
         {

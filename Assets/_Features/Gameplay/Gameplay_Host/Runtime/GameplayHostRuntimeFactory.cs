@@ -46,6 +46,12 @@ namespace Game.Feature.Gameplay.Host
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var timingProfile = configuration.CreateTimingProfile();
+            var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
+            var playerTimingAuthoring = PlayerViewPrefabRequirements.GetTimingAuthoring(
+                playerViewPrefab,
+                nameof(GameplaySceneHostConfiguration.PlayerViewPrefab));
+            var playerActionTiming = playerTimingAuthoring.CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond);
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, timingProfile);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
@@ -60,7 +66,7 @@ namespace Game.Feature.Gameplay.Host
             var inputBuffer = new TickInputBuffer();
             var tickRunner = GameplayCompositionRoot.CreateTickRunner(
                 worldState,
-                BuildStaticEntityLogics(configuration, timingProfile),
+                BuildStaticEntityLogics(configuration, timingProfile, playerActionTiming),
                 inputBuffer,
                 timingProfile,
                 startTickIndex: 1);
@@ -71,7 +77,11 @@ namespace Game.Feature.Gameplay.Host
 
             var viewFactory = configuration.ViewFactory ??
                 (configuration.AutoCreateViews
-                    ? new DefaultGameplayEntityViewFactory(boardRoot.EntityRoot, configuration.CellSize, configuration.PlayerEntityId)
+                    ? new DefaultGameplayEntityViewFactory(
+                        boardRoot.EntityRoot,
+                        configuration.CellSize,
+                        configuration.PlayerEntityId,
+                        playerViewPrefab)
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
 
@@ -127,13 +137,19 @@ namespace Game.Feature.Gameplay.Host
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(
             GameplaySceneHostConfiguration configuration,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            PlayerActionTimingAuthoritativeSnapshot playerActionTiming)
         {
+            var resolvedTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var entityLogics = new List<IEntityLogic>
             {
                 new PlayerLogic(
                     configuration.PlayerEntityId,
-                    (timingProfile ?? GameplayTimingProfile.CreateDefault()).PlayerPushContactThresholdTicks),
+                    resolvedTimingProfile.PlayerPushContactThresholdTicks,
+                    playerActionTiming.PushWindupTicks,
+                    playerActionTiming.PushRecoveryTicks,
+                    playerActionTiming.FlipWindupTicks,
+                    playerActionTiming.FlipRecoveryTicks),
             };
 
             if (configuration.StaticEntityLogics == null)
@@ -223,6 +239,39 @@ namespace Game.Feature.Gameplay.Host
         private static Camera ResolveViewCamera(GameplaySceneHostConfiguration configuration)
         {
             return configuration.ViewCamera ?? (configuration.SnapViewCameraToTarget ? Camera.main : null);
+        }
+
+        private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)
+        {
+            if (configuration.PlayerViewPrefab != null &&
+                configuration.ViewFactory is IPlayerViewPrefabSource configuredPrefabSource &&
+                configuredPrefabSource.PlayerViewPrefab != null &&
+                configuredPrefabSource.PlayerViewPrefab != configuration.PlayerViewPrefab)
+            {
+                throw new InvalidOperationException(
+                    "GameplaySceneHostConfiguration.PlayerViewPrefab must match the player prefab exposed by the configured view factory.");
+            }
+
+            if (configuration.PlayerViewPrefab != null)
+            {
+                PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(
+                    configuration.PlayerViewPrefab,
+                    nameof(GameplaySceneHostConfiguration.PlayerViewPrefab));
+                return configuration.PlayerViewPrefab;
+            }
+
+            if (configuration.ViewFactory is IPlayerViewPrefabSource prefabSource &&
+                prefabSource.PlayerViewPrefab != null)
+            {
+                PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(
+                    prefabSource.PlayerViewPrefab,
+                    $"{configuration.ViewFactory.GetType().Name}.{nameof(IPlayerViewPrefabSource.PlayerViewPrefab)}");
+                return prefabSource.PlayerViewPrefab;
+            }
+
+            throw new InvalidOperationException(
+                "GameplaySceneHost requires a player prefab root with PlayerActionTimingAuthoring and PlayerAnimatorDriver. " +
+                "Set GameplaySceneHostConfiguration.PlayerViewPrefab or provide a view factory that exposes a player prefab via IPlayerViewPrefabSource.");
         }
     }
 }

@@ -221,6 +221,7 @@ GameObject:
   - component: {fileID: 8002113175247343230}
   - component: {fileID: 7753676487796264323}
   - component: {fileID: 5823939067857017187}
+  - component: {fileID: 3345667788990011223}
   - component: {fileID: 8843883875010402886}
   m_Layer: 0
   m_Name: Entity_View_PlayerAnimationTest
@@ -295,6 +296,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 10
   modelRoot: {fileID: 4319990900103009031}
+--- !u!114 &3345667788990011223
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1527559081314479672}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 862dd910f7114661a6f9b0cf732ec497, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.PlayerActionTimingAuthoring
+  pushExecuteDelaySeconds: 0.016666668
+  pushInputLockDurationSeconds: 0.016666668
+  pushPresentationDurationSeconds: 0.2
+  flipExecuteDelaySeconds: 0.016666668
+  flipInputLockDurationSeconds: 0.016666668
+  flipPresentationDurationSeconds: 0.2
 --- !u!114 &8843883875010402886
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -313,7 +332,10 @@ MonoBehaviour:
   walkStateName: Walk
   pushStateName: Push
   flipStateName: Flip
+  pushExecuteTriggerName: PushExecute
+  flipExecuteTriggerName: FlipExecute
   crossFadeDurationSeconds: 0.08
+  actionTimingAuthoring: {fileID: 3345667788990011223}
 --- !u!1 &1555250594893369712
 GameObject:
   m_ObjectHideFlags: 0

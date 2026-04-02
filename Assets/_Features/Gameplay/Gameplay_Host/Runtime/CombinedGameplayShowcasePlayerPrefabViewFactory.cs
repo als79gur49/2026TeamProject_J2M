@@ -4,7 +4,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public sealed class CombinedGameplayShowcasePlayerPrefabViewFactory : IGameplayEntityViewFactory
+    public sealed class CombinedGameplayShowcasePlayerPrefabViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource
     {
         private readonly IGameplayEntityViewFactory _fallbackFactory;
         private readonly Transform _parent;
@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
             _playerViewPrefab = playerViewPrefab != null
                 ? playerViewPrefab
                 : throw new ArgumentNullException(nameof(playerViewPrefab));
+            PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(_playerViewPrefab, nameof(CombinedGameplayShowcasePlayerPrefabViewFactory));
             _fallbackFactory = new GameplayBoxCapabilityLabelViewFactory(parent, cellSize, playerEntityId);
         }
 
@@ -38,14 +39,11 @@ namespace Game.Feature.Gameplay.Host
             instance.transform.localRotation = Quaternion.identity;
             instance.transform.localScale = Vector3.one;
             instance.Initialize(entity.entityId);
-
-            if (!instance.TryGetComponent<PlayerAnimatorDriver>(out _))
-            {
-                throw new InvalidOperationException(
-                    "Player prefab view must include PlayerAnimatorDriver on the root.");
-            }
+            PlayerViewPrefabRequirements.ValidatePlayerViewInstance(instance, nameof(CombinedGameplayShowcasePlayerPrefabViewFactory));
 
             return instance;
         }
+
+        public GameplayEntityView PlayerViewPrefab => _playerViewPrefab;
     }
 }
