@@ -8,5 +8,6 @@ namespace Game.Feature.Gameplay.Entities
         Attack = 3,
         Recover = 4,
         Dead = 5,
+        Charge = 6,
     }
 }

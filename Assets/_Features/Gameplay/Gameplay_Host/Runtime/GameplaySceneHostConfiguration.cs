@@ -15,12 +15,21 @@ namespace Game.Feature.Gameplay.Host
     }
 
     [Serializable]
+    public struct EnemyAiProfileOverride
+    {
+        public int EntityId;
+        public EnemyAiProfile Profile;
+    }
+
+    [Serializable]
     public sealed class GameplaySceneHostConfiguration
     {
         public bool AutoAdvanceTicks = true;
         public bool AutoCreateViews = true;
         public float CellSize = 1f;
         public bool DirectionChangeConsumesDelay;
+        public EnemyAiProfile DefaultEnemyAiProfile;
+        public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();

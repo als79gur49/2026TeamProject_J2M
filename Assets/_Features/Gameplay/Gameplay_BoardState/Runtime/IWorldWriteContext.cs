@@ -6,6 +6,8 @@ namespace Game.Feature.Gameplay.BoardState
     public interface IEnemyAiCommitContext
     {
         void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
+
+        void SetFacing(int entityId, Direction facing);
     }
 
     public interface IPlayerControlCommitContext

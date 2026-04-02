@@ -47,6 +47,31 @@ namespace Game.Feature.Gameplay.Entities
             in AttackDecisionSettings settings);
     }
 
+    public sealed class NoAttackDecisionStrategy : IAttackDecisionStrategy
+    {
+        public static readonly NoAttackDecisionStrategy Instance = new();
+
+        public bool TryBuildAttackIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            in EnemyAiCommonSettings commonSettings,
+            in AttackDecisionSettings settings,
+            out RawAttackIntent intent)
+        {
+            intent = default;
+            return false;
+        }
+
+        public bool IsTargetInRange(
+            in EntityState source,
+            in EntityState target,
+            in AttackDecisionSettings settings)
+        {
+            return false;
+        }
+    }
+
     public sealed class MeleeAttackDecisionStrategy : IAttackDecisionStrategy
     {
         public static readonly MeleeAttackDecisionStrategy Instance = new();

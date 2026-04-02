@@ -33,6 +33,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
         }
 
+        public void SetFacing(int entityId, Direction facing)
+        {
+            _port.SetFacing(entityId, facing);
+        }
+
         public void MarkDestroy(int entityId)
         {
             _port.MarkDestroy(entityId);
@@ -46,11 +51,6 @@ namespace Game.Feature.Gameplay.BoardState
         public void RemoveEntity(int entityId)
         {
             _port.RemoveEntity(entityId);
-        }
-
-        public void SetFacing(int entityId, Direction facing)
-        {
-            _port.SetFacing(entityId, facing);
         }
 
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)

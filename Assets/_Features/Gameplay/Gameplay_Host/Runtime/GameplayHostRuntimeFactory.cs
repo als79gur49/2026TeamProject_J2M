@@ -64,7 +64,11 @@ namespace Game.Feature.Gameplay.Host
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
 
             var inputBuffer = new TickInputBuffer();
-            var tickRunner = GameplayCompositionRoot.CreateTickRunner(
+            var bootstrapper = new GameplayBootstrapper(
+                GameplayEntityLogicProviderFactory.CreateDefault(
+                    configuration.DefaultEnemyAiProfile,
+                    BuildEnemyAiProfileOverrides(configuration)));
+            var tickRunner = bootstrapper.CreateTickRunner(
                 worldState,
                 BuildStaticEntityLogics(configuration, timingProfile, playerActionTiming),
                 inputBuffer,
@@ -133,6 +137,40 @@ namespace Game.Feature.Gameplay.Host
                 viewCamera,
                 viewCameraRig,
                 presentedInitialEntities);
+        }
+
+        private static IReadOnlyDictionary<int, EnemyAiProfile> BuildEnemyAiProfileOverrides(
+            GameplaySceneHostConfiguration configuration)
+        {
+            if (configuration?.EnemyAiProfileOverrides == null ||
+                configuration.EnemyAiProfileOverrides.Length == 0)
+            {
+                return null;
+            }
+
+            var profilesByEntityId = new Dictionary<int, EnemyAiProfile>();
+            for (var i = 0; i < configuration.EnemyAiProfileOverrides.Length; i++)
+            {
+                var overrideEntry = configuration.EnemyAiProfileOverrides[i];
+                if (overrideEntry.EntityId <= 0)
+                {
+                    throw new ArgumentException("Enemy AI profile overrides require a positive entity ID.", nameof(configuration));
+                }
+
+                if (overrideEntry.Profile == null)
+                {
+                    throw new ArgumentException("Enemy AI profile overrides require a non-null profile.", nameof(configuration));
+                }
+
+                if (profilesByEntityId.ContainsKey(overrideEntry.EntityId))
+                {
+                    throw new ArgumentException("Enemy AI profile overrides cannot contain duplicate entity IDs.", nameof(configuration));
+                }
+
+                profilesByEntityId.Add(overrideEntry.EntityId, overrideEntry.Profile);
+            }
+
+            return profilesByEntityId;
         }
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(

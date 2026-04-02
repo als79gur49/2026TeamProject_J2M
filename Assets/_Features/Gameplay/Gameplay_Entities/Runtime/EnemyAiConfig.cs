@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.Entities
     public enum EnemyAiStateResolverKind
     {
         Default = 0,
+        Charge = 1,
     }
 
     public enum PatrolStrategyKind
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.Entities
     public enum AttackDecisionStrategyKind
     {
         Melee = 0,
+        None = 1,
     }
 
     [Serializable]
@@ -210,6 +212,9 @@ namespace Game.Feature.Gameplay.Entities
                 case AttackDecisionStrategyKind.Melee:
                     return MeleeAttackDecisionStrategy.Instance;
 
+                case AttackDecisionStrategyKind.None:
+                    return NoAttackDecisionStrategy.Instance;
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown attack decision strategy kind.");
             }
@@ -221,6 +226,9 @@ namespace Game.Feature.Gameplay.Entities
             {
                 case EnemyAiStateResolverKind.Default:
                     return DefaultEnemyAiStateResolver.Instance;
+
+                case EnemyAiStateResolverKind.Charge:
+                    return ChargingEnemyAiStateResolver.Instance;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown enemy AI state resolver kind.");
@@ -314,6 +322,29 @@ namespace Game.Feature.Gameplay.Entities
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee());
+        }
+
+        public static EnemyAiProfile CreateRuntimeNonAttacking()
+        {
+            return CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+        }
+
+        public static EnemyAiProfile CreateRuntimeCharging()
+        {
+            return CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                stateResolverKind: EnemyAiStateResolverKind.Charge,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
         }
 
         public static EnemyAiProfile CreateRuntimeInstance(

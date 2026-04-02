@@ -352,4 +352,141 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
     }
+
+    internal static class EnemyChargeStrategyShared
+    {
+        public static bool TryResolveChargeStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            out Direction direction,
+            out int reachableSteps)
+        {
+            reachableSteps = 0;
+
+            if (!TryResolveChargeDirection(source, target, out direction, out var delta))
+            {
+                return false;
+            }
+
+            if (!EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, delta))
+            {
+                return false;
+            }
+
+            return TryCountReachableChargeSteps(snapshot, source, delta, out reachableSteps) &&
+                   reachableSteps > 0;
+        }
+
+        public static bool CanAdvanceChargeStep(
+            WorldSnapshot snapshot,
+            in EntityState source)
+        {
+            var delta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
+            return delta.HasValue && EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, delta.Value);
+        }
+
+        private static bool TryResolveChargeDirection(
+            in EntityState source,
+            in EntityState target,
+            out Direction direction,
+            out Vector2Int delta)
+        {
+            direction = Direction.None;
+            delta = Vector2Int.zero;
+
+            if (source.position.face != target.position.face)
+            {
+                return false;
+            }
+
+            var planarDelta = target.position - source.position;
+            if (planarDelta.x != 0 && planarDelta.y != 0)
+            {
+                return false;
+            }
+
+            if (planarDelta.x == 0 && planarDelta.y == 0)
+            {
+                return false;
+            }
+
+            if (planarDelta.x != 0)
+            {
+                direction = planarDelta.x > 0 ? Direction.Right : Direction.Left;
+                delta = new Vector2Int(Math.Sign(planarDelta.x), 0);
+                return true;
+            }
+
+            direction = planarDelta.y > 0 ? Direction.Up : Direction.Down;
+            delta = new Vector2Int(0, Math.Sign(planarDelta.y));
+            return true;
+        }
+
+        private static bool TryCountReachableChargeSteps(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int delta,
+            out int reachableSteps)
+        {
+            reachableSteps = 0;
+
+            if (!snapshot.Topology.IsFaceActive(source.position.face))
+            {
+                return false;
+            }
+
+            var current = source.position;
+            while (TryResolveChargeScanStep(snapshot, current, delta, out var nextCell))
+            {
+                if (IsChargeStoppingObstacle(snapshot, source.entityId, nextCell))
+                {
+                    return reachableSteps > 0;
+                }
+
+                reachableSteps++;
+                current = nextCell;
+            }
+
+            return reachableSteps > 0;
+        }
+
+        private static bool TryResolveChargeScanStep(
+            WorldSnapshot snapshot,
+            SurfaceCell current,
+            Vector2Int delta,
+            out SurfaceCell nextCell)
+        {
+            var hasResolvedStep = snapshot.TryResolveUnitStep(
+                current,
+                delta,
+                out nextCell,
+                out var rotationKind,
+                out _);
+            if (!hasResolvedStep)
+            {
+                nextCell = current + delta;
+            }
+
+            return rotationKind == CubeRotationKind.None;
+        }
+
+        private static bool IsChargeStoppingObstacle(
+            WorldSnapshot snapshot,
+            int sourceEntityId,
+            SurfaceCell cell)
+        {
+            if (!snapshot.IsInsideBoard(cell) || snapshot.IsTerrainBlockedForUnit(cell))
+            {
+                return true;
+            }
+
+            if (!snapshot.TryGetUnitAt(cell, out var occupant) || occupant.entityId == sourceEntityId)
+            {
+                return false;
+            }
+
+            return occupant.type != EntityType.Unit;
+        }
+    }
 }
