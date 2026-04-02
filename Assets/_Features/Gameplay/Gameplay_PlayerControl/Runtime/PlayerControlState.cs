@@ -27,7 +27,6 @@ namespace Game.Feature.Gameplay.PlayerControl
 
     public struct PlayerControlState
     {
-        public int interactionLockTicks;
         public int moveCooldownTicks;
         public int pushContactTicks;
         public int pushTargetEntityId;
@@ -123,7 +122,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             int recoveryTicks)
         {
             var updatedState = ResetContact(state);
-            updatedState.interactionLockTicks = 0;
             updatedState.actionSequenceCounter = Mathf.Max(1, updatedState.actionSequenceCounter + 1);
             updatedState.activeAction = new PlayerActionRuntimeState
             {
@@ -150,7 +148,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             var updatedState = ResetContact(state);
-            updatedState.interactionLockTicks = 0;
 
             if (tickIndex > updatedState.activeAction.recoveryEndTick)
             {
@@ -172,18 +169,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             int moveCooldownTicks)
         {
             var updatedState = ResetContact(state);
-            updatedState.interactionLockTicks = 0;
             updatedState.moveCooldownTicks = Mathf.Max(0, moveCooldownTicks);
-            return updatedState;
-        }
-
-        public static PlayerControlState ConsumeInteractionLock(
-            in PlayerControlState state,
-            int interactionLockTicks)
-        {
-            var updatedState = ResetContact(state);
-            updatedState.moveCooldownTicks = 0;
-            updatedState.interactionLockTicks = Mathf.Max(0, interactionLockTicks);
             return updatedState;
         }
 

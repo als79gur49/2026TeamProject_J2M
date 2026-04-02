@@ -50,7 +50,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.moveCooldownTicks, Is.EqualTo(3));
-            Assert.That(controlState.interactionLockTicks, Is.Zero);
         }
 
         [Test]

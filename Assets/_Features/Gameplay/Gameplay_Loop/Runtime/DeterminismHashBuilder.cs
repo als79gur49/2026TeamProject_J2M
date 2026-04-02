@@ -198,7 +198,6 @@ namespace Game.Feature.Gameplay.Loop
                 var entry = playerControlEntries[i];
                 builder
                     .Append(entry.EntityId).Append('|')
-                    .Append(entry.State.interactionLockTicks).Append('|')
                     .Append(entry.State.moveCooldownTicks).Append('|')
                     .Append(entry.State.pushContactTicks).Append('|')
                     .Append(entry.State.pushTargetEntityId).Append('|')

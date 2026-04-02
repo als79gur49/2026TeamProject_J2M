@@ -216,6 +216,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerLogic_ActiveAction_BlocksOrdinaryMoveIntentDuringRecovery()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    actionSequenceCounter = 1,
+                    activeAction = new PlayerActionRuntimeState
+                    {
+                        kind = PlayerActionKind.Push,
+                        sequence = 1,
+                        direction = Direction.Right,
+                        targetEntityId = 30,
+                        startTick = 1,
+                        executeTick = 2,
+                        recoveryEndTick = 5,
+                        executionAttempted = true,
+                    },
+                });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(4, PlayerTickCommand.Move(Direction.Up)),
+                buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
         public void PlayerLogic_NoMoveCommand_ProducesNoIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -466,6 +502,190 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CompletedThisTick), Is.True);
         }
 
+        [Test]
+        public void PlayerControlStateLogic_ActivePushAction_IgnoresRecoveryInputsAndAllowsNextPushAfterCompletion()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    actionSequenceCounter = 1,
+                    activeAction = new PlayerActionRuntimeState
+                    {
+                        kind = PlayerActionKind.Push,
+                        sequence = 1,
+                        direction = Direction.Right,
+                        targetEntityId = 20,
+                        startTick = 1,
+                        executeTick = 2,
+                        recoveryEndTick = 5,
+                        executionAttempted = true,
+                    },
+                });
+            var logic = new PlayerControlStateLogic(
+                entityId: 10,
+                pushContactThresholdTicks: 1,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 3,
+                flipWindupTicks: 1,
+                flipRecoveryTicks: 3);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(3, PlayerTickCommand.Move(Direction.Up)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+            AssertRecoveryStillActive(worldState, expectedKind: PlayerActionKind.Push, expectedSequence: 1);
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(4, PlayerTickCommand.Flip(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+            AssertRecoveryStillActive(worldState, expectedKind: PlayerActionKind.Push, expectedSequence: 1);
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(5, PlayerTickCommand.Move(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+            AssertRecoveryStillActive(worldState, expectedKind: PlayerActionKind.Push, expectedSequence: 1);
+
+            updates.Clear();
+            transitions.Clear();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(6),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var clearedState), Is.True);
+            Assert.That(clearedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CompletedThisTick), Is.True);
+
+            updates.Clear();
+            transitions.Clear();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(7, PlayerTickCommand.Move(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var restartedState), Is.True);
+            Assert.That(restartedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(restartedState.activeAction.sequence, Is.EqualTo(2));
+            Assert.That(restartedState.activeAction.direction, Is.EqualTo(Direction.Left));
+            Assert.That(restartedState.activeAction.targetEntityId, Is.EqualTo(30));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.True);
+        }
+
+        [Test]
+        public void PlayerControlStateLogic_ActiveFlipAction_IgnoresRecoveryInputsAndAllowsNextFlipAfterCompletion()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    actionSequenceCounter = 1,
+                    activeAction = new PlayerActionRuntimeState
+                    {
+                        kind = PlayerActionKind.Flip,
+                        sequence = 1,
+                        direction = Direction.Right,
+                        targetEntityId = 20,
+                        startTick = 1,
+                        executeTick = 2,
+                        recoveryEndTick = 5,
+                        executionAttempted = true,
+                    },
+                });
+            var logic = new PlayerControlStateLogic(
+                entityId: 10,
+                pushContactThresholdTicks: 1,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 3,
+                flipWindupTicks: 1,
+                flipRecoveryTicks: 3);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(3, PlayerTickCommand.Move(Direction.Up)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+            AssertRecoveryStillActive(worldState, expectedKind: PlayerActionKind.Flip, expectedSequence: 1);
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(4, PlayerTickCommand.Flip(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+            AssertRecoveryStillActive(worldState, expectedKind: PlayerActionKind.Flip, expectedSequence: 1);
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(5, PlayerTickCommand.Move(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+            AssertRecoveryStillActive(worldState, expectedKind: PlayerActionKind.Flip, expectedSequence: 1);
+
+            updates.Clear();
+            transitions.Clear();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(6),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var clearedState), Is.True);
+            Assert.That(clearedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CompletedThisTick), Is.True);
+
+            updates.Clear();
+            transitions.Clear();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(7, PlayerTickCommand.Flip(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var restartedState), Is.True);
+            Assert.That(restartedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(restartedState.activeAction.sequence, Is.EqualTo(2));
+            Assert.That(restartedState.activeAction.direction, Is.EqualTo(Direction.Left));
+            Assert.That(restartedState.activeAction.targetEntityId, Is.EqualTo(30));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Flip), Is.True);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -475,16 +695,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int entityId,
             Vector2Int position,
             int hp = 3,
-            bool markedForDeath = false)
+            bool markedForDeath = false,
+            Direction facing = Direction.Right)
         {
-            return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, markedForDeath);
+            return CreateUnit(entityId, SurfaceCell.FromPlanar(position), hp, markedForDeath, facing);
         }
 
         private static EntityState CreateUnit(
             int entityId,
             SurfaceCell position,
             int hp = 3,
-            bool markedForDeath = false)
+            bool markedForDeath = false,
+            Direction facing = Direction.Right)
         {
             return new EntityState
             {
@@ -495,7 +717,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 teamId = 1,
                 type = EntityType.Unit,
                 state = hp > 0 ? EntityPhaseState.Idle : EntityPhaseState.Dead,
-                facing = Direction.Right,
+                facing = facing,
                 markedForDeath = markedForDeath,
             };
         }
@@ -527,6 +749,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = facing,
                 boxCapabilities = capabilities,
             };
+        }
+
+        private static void AssertRecoveryStillActive(
+            WorldState worldState,
+            PlayerActionKind expectedKind,
+            int expectedSequence)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(controlState.pushTargetEntityId, Is.Zero);
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(expectedKind));
+            Assert.That(controlState.activeAction.sequence, Is.EqualTo(expectedSequence));
+            Assert.That(controlState.activeAction.executionAttempted, Is.True);
         }
     }
 }
