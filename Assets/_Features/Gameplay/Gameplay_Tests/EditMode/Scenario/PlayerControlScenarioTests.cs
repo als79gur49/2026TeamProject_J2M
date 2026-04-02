@@ -77,8 +77,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(firstTick.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(secondTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(secondTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
             Assert.That(secondTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(thirdTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(thirdTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
             Assert.That(thirdTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             CollectionAssert.AreEqual(
                 new[]
@@ -213,9 +215,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(startTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(executeTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
@@ -248,15 +252,70 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(startTick.MovementPhaseResult.SelectedGroups, Is.Empty);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(executeTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(controlState.activeAction.executionAttempted, Is.True);
+        }
+
+        [Test]
+        public void PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes()
+        {
+            var timingProfile = CreateTimingProfile(
+                playerPushContactThresholdTicks: 1);
+            var actionTiming = CreateActionTiming(
+                playerPushExecuteDelayTicks: 2,
+                playerPushInputLockDurationTicks: 4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+                CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+                CreateWall(entityId: 91, position: new Vector2Int(-4, 0)),
+            }, timingProfile);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(
+                        10,
+                        timingProfile.PlayerPushContactThresholdTicks,
+                        actionTiming.PushWindupTicks,
+                        actionTiming.PushRecoveryTicks,
+                        actionTiming.FlipWindupTicks,
+                        actionTiming.FlipRecoveryTicks),
+                },
+                timingProfile);
+
+            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var lockedWindupTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Flip(Direction.Left)));
+            var executeTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Left)));
+            var lockedRecoveryTick = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Left)));
+            var lastLockedTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Flip(Direction.Left)));
+            var postLockTick = pipeline.RunTick(new TickInput(6, PlayerTickCommand.Move(Direction.Left)));
+
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+            Assert.That(lockedWindupTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(lockedWindupTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(lockedWindupTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+            Assert.That(executeTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
+            Assert.That(lockedRecoveryTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(lockedRecoveryTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(lastLockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(lastLockedTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(postLockTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
@@ -294,6 +353,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxTicksPerFrame: 8,
                 playerMoveCooldownSeconds: playerMoveCooldownTicks / (float)simulationTicksPerSecond,
                 playerPushContactThresholdSeconds: playerPushContactThresholdTicks / (float)simulationTicksPerSecond);
+        }
+
+        private static (int PushWindupTicks, int PushRecoveryTicks, int FlipWindupTicks, int FlipRecoveryTicks) CreateActionTiming(
+            int playerPushExecuteDelayTicks = 1,
+            int playerPushInputLockDurationTicks = 1,
+            int playerFlipExecuteDelayTicks = 1,
+            int playerFlipInputLockDurationTicks = 1)
+        {
+            if (playerPushInputLockDurationTicks < playerPushExecuteDelayTicks)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(playerPushInputLockDurationTicks));
+            }
+
+            if (playerFlipInputLockDurationTicks < playerFlipExecuteDelayTicks)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(playerFlipInputLockDurationTicks));
+            }
+
+            return (
+                playerPushExecuteDelayTicks,
+                playerPushInputLockDurationTicks - playerPushExecuteDelayTicks,
+                playerFlipExecuteDelayTicks,
+                playerFlipInputLockDurationTicks - playerFlipExecuteDelayTicks);
         }
 
         private static EntityState CreateUnit(int entityId, Vector2Int position, Direction facing = Direction.Right)

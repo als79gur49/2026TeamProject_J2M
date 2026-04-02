@@ -13,6 +13,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -58,6 +59,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
 
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -80,6 +83,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         SimulationTicksPerSecond = 10,
                         ProjectileStepIntervalSeconds = 0.3f,
@@ -186,6 +190,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot_ConvertsActionTimingToTicks()
+        {
+            var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot");
+
+            try
+            {
+                var authoring = authoringRoot.GetComponent<PlayerActionTimingAuthoring>();
+                Assert.That(authoring, Is.Not.Null);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 2f / 60f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 5f / 60f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipExecuteDelaySeconds", 0f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipInputLockDurationSeconds", 4f / 60f);
+
+                var snapshot = authoring.CreateAuthoritativeSnapshot(60);
+
+                Assert.That(snapshot.PushExecuteDelayTicks, Is.EqualTo(2));
+                Assert.That(snapshot.PushInputLockDurationTicks, Is.EqualTo(5));
+                Assert.That(snapshot.PushWindupTicks, Is.EqualTo(2));
+                Assert.That(snapshot.PushRecoveryTicks, Is.EqualTo(3));
+                Assert.That(snapshot.FlipExecuteDelayTicks, Is.Zero);
+                Assert.That(snapshot.FlipInputLockDurationTicks, Is.EqualTo(4));
+                Assert.That(snapshot.FlipWindupTicks, Is.Zero);
+                Assert.That(snapshot.FlipRecoveryTicks, Is.EqualTo(4));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(authoringRoot);
+            }
+        }
+
+        [Test]
+        public void PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot_InputLockShorterThanExecuteDelay_Throws()
+        {
+            var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerActionTimingAuthoring_InvalidInputLock");
+
+            try
+            {
+                var authoring = authoringRoot.GetComponent<PlayerActionTimingAuthoring>();
+                Assert.That(authoring, Is.Not.Null);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 0.1f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 0.05f);
+
+                Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateAuthoritativeSnapshot(60));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(authoringRoot);
+            }
+        }
+
+        [Test]
         public void GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot");
@@ -194,6 +249,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_CreatesBoardRootHierarchy_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
 
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -219,6 +276,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
@@ -255,6 +313,135 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_Throws()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_Throws");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                var exception = Assert.Throws<InvalidOperationException>(
+                    () => host.Initialize(
+                        new GameplaySceneHostConfiguration
+                        {
+                            AutoAdvanceTicks = false,
+                            AutoCreateViews = false,
+                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                            InitialEntities = new[]
+                            {
+                                new EntityState
+                                {
+                                    entityId = 10,
+                                    position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                    hp = 3,
+                                    maxHp = 3,
+                                    teamId = 1,
+                                    type = EntityType.Unit,
+                                    state = EntityPhaseState.Idle,
+                                    facing = Direction.Right,
+                                },
+                            },
+                            InitialTopology = new CubeTopologyState(FaceId.Floor),
+                            PlayerEntityId = 10,
+                            StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                        }));
+
+                Assert.That(exception.Message, Does.Contain(nameof(GameplaySceneHostConfiguration.PlayerViewPrefab)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_AutoCreateViewsFalse_UsesPlayerPrefabAuthoritativeTiming()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_AutoCreateViewsFalse_UsesPlayerPrefabAuthoritativeTiming");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_AutoCreateViewsFalse_PlayerPrefab");
+
+            try
+            {
+                var authoring = playerViewPrefab.GetComponent<PlayerActionTimingAuthoring>();
+                Assert.That(authoring, Is.Not.Null);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 2f / 60f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 4f / 60f);
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                            },
+                            new EntityState
+                            {
+                                entityId = 20,
+                                position = new SurfaceCell(FaceId.Floor, 1, 0),
+                                hp = 1,
+                                maxHp = 1,
+                                teamId = 0,
+                                type = EntityType.Box,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                                boxCapabilities = BoxCapabilities.Push,
+                            },
+                            new EntityState
+                            {
+                                entityId = 90,
+                                position = new SurfaceCell(FaceId.Floor, 3, 0),
+                                hp = 1,
+                                maxHp = 1,
+                                teamId = 0,
+                                type = EntityType.None,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.None,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        PlayerPushContactThresholdSeconds = 1f / 60f,
+                        PlayerViewPrefab = playerViewPrefab,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                    });
+
+                Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                var startTick = host.InputHost.RunSingleTick();
+                var windupTick = host.InputHost.RunSingleTick();
+                var executeTick = host.InputHost.RunSingleTick();
+                var recoveryTick = host.InputHost.RunSingleTick();
+
+                Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+                Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+                Assert.That(windupTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+                Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
+                Assert.That(executeTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+                Assert.That(recoveryTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void GameplayCompositionRoot_DeclaresOnlyBoundedWorldFactory()
         {
             var worldFactories = typeof(GameplayCompositionRoot)
@@ -273,6 +460,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldFactories);
         }
 
+    }
+
+    internal static class PlayerViewPrefabTestUtility
+    {
+        public static GameplayEntityView CreatePlayerViewPrefab(string name)
+        {
+            return CreatePlayerViewPrefabObject(name).GetComponent<GameplayEntityView>();
+        }
+
+        public static GameObject CreatePlayerViewPrefabObject(string name)
+        {
+            var prefabObject = new GameObject(name);
+            var view = prefabObject.AddComponent<GameplayEntityView>();
+            view.Initialize(10);
+            prefabObject.AddComponent<PlayerActionTimingAuthoring>();
+            prefabObject.AddComponent<PlayerAnimatorDriver>();
+            return prefabObject;
+        }
+
+        public static void SetSerializedField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
     }
 
     // Final presentation guardrail:
@@ -400,6 +612,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var enemyView = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), aiMode: EnemyAiMode.Patrol));
 
                 Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
+                Assert.That(playerView.GetComponent<PlayerActionTimingAuthoring>(), Is.Not.Null);
                 Assert.That(enemyView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
             }
             finally
@@ -1561,6 +1774,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ActionExecuteSignalCount, Is.Zero);
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -1575,12 +1789,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<TickTransitionVisibilityChange>(),
                         new[]
                         {
-                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.Push, 1, startedThisTick: false, completedThisTick: false, canceledThisTick: false),
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.Push, 1, startedThisTick: false, completedThisTick: false, canceledThisTick: false, executedThisTick: true),
                         })));
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -1601,6 +1816,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -1621,6 +1837,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(2));
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_UsesAuthoringPresentationDurationsAndKeepsExecuteSignalsSeparate()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_UsesAuthoringPresentationDurations");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerActionTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                var animator = rootObject.GetComponent<Animator>();
+                if (animator != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(animator);
+                }
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushPresentationDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipPresentationDurationSeconds", 0.5f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ActionExecuteSignalCount, Is.Zero);
+                Assert.That(driver.PushPresentationDurationSeconds, Is.EqualTo(0.25f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
+
+                driver.Apply(new PlayerViewPresentationState(10, 2, PlayerActionKind.Push, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
+
+                driver.Apply(new PlayerViewPresentationState(10, 3, PlayerActionKind.Flip, 2, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
+
+                Assert.That(driver.ActionStartSignalCount, Is.EqualTo(2));
+                Assert.That(driver.FlipPresentationDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
             }
             finally
             {
@@ -2082,6 +2348,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_CameraTarget_StaysOnCubeCenter_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2095,6 +2363,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
@@ -2151,6 +2420,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 viewCamera.orthographic = true;
 
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_UsesPerspectiveCameraRig_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2164,6 +2435,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         SnapViewCameraToTarget = true,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         ViewCamera = viewCamera,
@@ -2217,6 +2489,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 };
 
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_AppliesConfiguredCameraSettings_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2231,6 +2505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         SnapViewCameraToTarget = true,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         ViewCamera = viewCamera,
@@ -2267,6 +2542,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_MoveMotion_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2281,6 +2558,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         MoveMotionDurationSeconds = 0.1f,
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         PushMotionDurationSeconds = 0.3f,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -2321,6 +2599,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_PushMotion_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2335,6 +2615,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         PlayerPushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -2378,6 +2659,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_PushMotionProjectile_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2393,6 +2676,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         PlayerPushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -2438,6 +2722,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_FlipMotion_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
                 host.Initialize(
                     new GameplaySceneHostConfiguration
                     {
@@ -2452,6 +2738,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
+                        PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
@@ -3706,6 +3993,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entity.type == EntityType.Unit)
                 {
                     viewObject.AddComponent<PlayerAnimatorDriver>();
+                    viewObject.AddComponent<PlayerActionTimingAuthoring>();
                 }
 
                 return view;

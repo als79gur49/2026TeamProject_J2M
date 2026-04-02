@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
@@ -132,6 +133,50 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstRun[0].PlayerControlDump, Does.Contain("E=10|Cooldown=0|PushTicks=1|Target=30|Direction=Right"));
             Assert.That(firstRun[1].PlayerControlDump, Does.Contain("E=10|Cooldown=0|PushTicks=0|Target=0|Direction=None"));
             Assert.That(firstRun[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=2|Execute=3|Recovery=3|Attempted=0"));
+        }
+
+        [Test]
+        public void Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming()
+        {
+            var playerPrefabObject = new GameObject("Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming");
+
+            try
+            {
+                var authoring = playerPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
+                var harness = new TickReplayHarness();
+                SetSerializedField(authoring, "pushExecuteDelaySeconds", 2f / 60f);
+                SetSerializedField(authoring, "pushInputLockDurationSeconds", 4f / 60f);
+                var snapshot = authoring.CreateAuthoritativeSnapshot(60);
+                var frames = harness.Run(
+                    CreateWorldState(new[]
+                    {
+                        CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                        CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                    }),
+                    new IEntityLogic[]
+                    {
+                        new PlayerLogic(
+                            10,
+                            pushContactThresholdTicks: 1,
+                            pushWindupTicks: snapshot.PushWindupTicks,
+                            pushRecoveryTicks: snapshot.PushRecoveryTicks,
+                            flipWindupTicks: snapshot.FlipWindupTicks,
+                            flipRecoveryTicks: snapshot.FlipRecoveryTicks),
+                    },
+                    new[]
+                    {
+                        new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                        new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                    });
+
+                Assert.That(frames[0].Trace, Does.Contain("Final.PlayerControl"));
+                Assert.That(frames[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
+                Assert.That(frames[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(playerPrefabObject);
+            }
         }
 
         [Test]
@@ -1063,6 +1108,15 @@ namespace Game.Feature.Gameplay.Tests.Replay
             GameplayTerrainData terrainData)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+        }
+
+        private static void SetSerializedField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(
+                fieldName,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
 
         private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)

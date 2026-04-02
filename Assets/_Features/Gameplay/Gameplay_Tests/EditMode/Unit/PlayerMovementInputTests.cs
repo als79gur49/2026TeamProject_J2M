@@ -97,6 +97,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerLogic_PrefabDerivedTimingSnapshot_OnlyExecutesOnSnapshotExecuteTick()
+        {
+            var playerPrefabObject = new GameObject("PlayerLogic_PrefabDerivedTimingSnapshot");
+
+            try
+            {
+                var authoring = playerPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
+                var snapshot = authoring.CreateAuthoritativeSnapshot(60);
+                var worldState = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                });
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.SetPlayerControlState(
+                    10,
+                    new PlayerControlState
+                    {
+                        actionSequenceCounter = 2,
+                        activeAction = new PlayerActionRuntimeState
+                        {
+                            kind = PlayerActionKind.Push,
+                            sequence = 2,
+                            direction = Direction.Right,
+                            targetEntityId = 30,
+                            startTick = 1,
+                            executeTick = 1 + snapshot.PushWindupTicks,
+                            recoveryEndTick = 1 + snapshot.PushWindupTicks + snapshot.PushRecoveryTicks,
+                        },
+                    });
+                var logic = new PlayerLogic(
+                    entityId: 10,
+                    pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                    pushWindupTicks: snapshot.PushWindupTicks,
+                    pushRecoveryTicks: snapshot.PushRecoveryTicks,
+                    flipWindupTicks: snapshot.FlipWindupTicks,
+                    flipRecoveryTicks: snapshot.FlipRecoveryTicks);
+                var beforeExecuteBuffer = new List<RawMovementIntent>();
+                var executeBuffer = new List<RawMovementIntent>();
+
+                logic.CollectMovementIntents(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    beforeExecuteBuffer);
+                logic.CollectMovementIntents(
+                    worldState.CreateSnapshot(),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                    executeBuffer);
+
+                Assert.That(beforeExecuteBuffer, Is.Empty);
+                Assert.That(executeBuffer.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            }
+            finally
+            {
+                Object.DestroyImmediate(playerPrefabObject);
+            }
+        }
+
+        [Test]
         public void PlayerLogic_ImplementsMovementContractOnly()
         {
             var logic = new PlayerLogic(entityId: 10);
@@ -377,6 +435,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(20));
             Assert.That(controlState.activeAction.executeTick, Is.EqualTo(3));
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.True);
+        }
+
+        [Test]
+        public void PlayerControlQueries_StartAction_ZeroWindup_MarksExecutionAttemptedImmediately()
+        {
+            var startedState = PlayerControlQueries.StartAction(
+                default,
+                PlayerActionKind.Push,
+                Direction.Right,
+                targetEntityId: 20,
+                startTick: 5,
+                windupTicks: 0,
+                recoveryTicks: 2);
+
+            Assert.That(startedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(startedState.activeAction.executeTick, Is.EqualTo(5));
+            Assert.That(startedState.activeAction.recoveryEndTick, Is.EqualTo(7));
+            Assert.That(startedState.activeAction.executionAttempted, Is.True);
         }
 
         [Test]

@@ -596,6 +596,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
+            var playerViewPrefabObject = new GameObject("PlayModeGameplaySceneHost_PlayerViewPrefab");
+            playerViewPrefabObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
+            var playerViewPrefab = playerViewPrefabObject.AddComponent<GameplayEntityView>();
+            playerViewPrefab.Initialize(10);
+            playerViewPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
+            playerViewPrefabObject.AddComponent<PlayerAnimatorDriver>();
 
             host.Initialize(
                 new GameplaySceneHostConfiguration
@@ -615,6 +621,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     MoveDeadzone = 0.5f,
                     PlayerEntityId = 10,
                     PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds,
+                    PlayerViewPrefab = playerViewPrefab,
                     PushMotionDurationSeconds = 0.2f,
                     RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                     SimulationTicksPerSecond = 60,

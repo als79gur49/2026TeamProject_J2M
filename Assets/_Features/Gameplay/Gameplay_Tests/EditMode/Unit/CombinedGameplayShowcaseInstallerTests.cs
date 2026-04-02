@@ -199,6 +199,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardRoot.EnsureHierarchy();
 
                 var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
+                playerPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
                 playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
                 new GameObject("PrefabMarker").transform.SetParent(playerPrefabObject.transform, worldPositionStays: false);
 
@@ -231,6 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerView, Is.Not.SameAs(playerPrefabView));
                 Assert.That(playerView.transform.parent, Is.EqualTo(boardRoot.EntityRoot));
                 Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
+                Assert.That(playerView.GetComponent<PlayerActionTimingAuthoring>(), Is.Not.Null);
                 Assert.That(playerView.transform.Find("PrefabMarker"), Is.Not.Null);
                 Assert.That(playerView.transform.Find("CapabilityLabel"), Is.Null);
 
@@ -255,6 +257,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Object.DestroyImmediate(playerPrefabObject);
                 Object.DestroyImmediate(boardRootObject);
                 Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingTimingAuthoring_Throws()
+        {
+            var parentObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingTimingAuthoring_Throws");
+            var playerPrefabObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefab");
+
+            try
+            {
+                var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
+                playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
+
+                Assert.Throws<System.InvalidOperationException>(
+                    () => new CombinedGameplayShowcasePlayerPrefabViewFactory(
+                        parentObject.transform,
+                        playerEntityId: 10,
+                        playerViewPrefab: playerPrefabView,
+                        cellSize: 1f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(playerPrefabObject);
+                Object.DestroyImmediate(parentObject);
             }
         }
 
