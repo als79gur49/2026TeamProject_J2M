@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -142,6 +141,8 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            _animationSync.AdvancePlayerPresentation(deltaTime);
+
             var presentedBoardRotation = _boardRotationTrack.HasClips
                 ? _boardRotationTrack.SampleAndAdvance(deltaTime, Quaternion.identity)
                 : Quaternion.identity;
@@ -192,7 +193,7 @@ namespace Game.Feature.Gameplay.Host
                 _animationSync.SyncPlayerRuntimeState(
                     entityId,
                     isVisible,
-                    ResolvePlayerAnimationState(entityId, HasActivePlayerWalkMotion(entityId)),
+                    _animationSync.ResolvePlayerAnimationState(entityId, HasActivePlayerWalkMotion(entityId)),
                     _stateStore.ViewsByEntityId);
 
                 if (!isVisible)
@@ -229,7 +230,7 @@ namespace Game.Feature.Gameplay.Host
             _viewBinder.HideViewsExcept(_visibleEntityIds);
             _animationSync.SyncHiddenDrivers(
                 _visibleEntityIds,
-                entityId => ResolvePlayerAnimationState(entityId, hasActiveWalkMotion: false),
+                entityId => _animationSync.ResolvePlayerAnimationState(entityId, hasActiveWalkMotion: false),
                 _stateStore.ViewsByEntityId);
         }
 
@@ -545,6 +546,11 @@ namespace Game.Feature.Gameplay.Host
                 return GameplayPresentationPhase.EntityMotion;
             }
 
+            if (_animationSync.HasActivePlayerVisualHold)
+            {
+                return GameplayPresentationPhase.EntityMotion;
+            }
+
             return GameplayPresentationPhase.Idle;
         }
 
@@ -636,26 +642,6 @@ namespace Game.Feature.Gameplay.Host
             return TryResolveLocalPose(motion.EntityId, motion.SourceCell, sourceTopology, sourceFacing, out var sourcePose)
                 ? sourcePose
                 : fallbackPose;
-        }
-
-        private PlayerViewAnimationState ResolvePlayerAnimationState(int entityId, bool hasActiveWalkMotion)
-        {
-            if (_animationSync.PlayerPresentationStates.TryGetValue(entityId, out var state))
-            {
-                if (state.ActiveActionKind == PlayerActionKind.Flip)
-                {
-                    return PlayerViewAnimationState.Flip;
-                }
-
-                if (state.ActiveActionKind == PlayerActionKind.Push)
-                {
-                    return PlayerViewAnimationState.Push;
-                }
-            }
-
-            return hasActiveWalkMotion
-                ? PlayerViewAnimationState.Walk
-                : PlayerViewAnimationState.Idle;
         }
 
         private Quaternion ResolveTopologyRotationOffset(CubeRotationKind rotationKind)

@@ -155,7 +155,8 @@ namespace Game.Feature.Gameplay.Loop
                 preMovementStateResult,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult);
+                cleanupPhaseResult,
+                input.TickIndex);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,

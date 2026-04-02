@@ -2,25 +2,30 @@ using Game.Feature.Gameplay.PlayerControl;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Host
 {
     public sealed class PlayerAnimatorDriver : MonoBehaviour
     {
+        private const string OptionalStateParameterName = "PlayerPresentationState";
+
         [SerializeField] private Animator animator;
-        [SerializeField] private string stateParameterName = "PlayerPresentationState";
         [SerializeField] private string idleStateName = "Idle";
         [SerializeField] private string walkStateName = "Walk";
         [SerializeField] private string pushStateName = "Push";
         [SerializeField] private string flipStateName = "Flip";
-        [SerializeField] private string pushExecuteTriggerName = "PushExecute";
-        [SerializeField] private string flipExecuteTriggerName = "FlipExecute";
-        [SerializeField] private float crossFadeDurationSeconds = 0.08f;
+        [FormerlySerializedAs("crossFadeDurationSeconds")]
+        [SerializeField] private float stateTransitionCrossFadeDurationSeconds = 0.08f;
         [SerializeField] private PlayerActionTimingAuthoring actionTimingAuthoring;
 
         private bool _pendingRestart;
         private PlayerActionKind _pendingExecuteActionKind;
         private readonly Dictionary<string, float> _clipLengthCache = new();
+        private RuntimeAnimatorController _cachedClipLengthController;
+        private Animator _validatedOptionalStateParameterAnimator;
+        private RuntimeAnimatorController _validatedOptionalStateParameterController;
+        private bool _optionalStateParameterSupported;
         private bool _presentationTimingResolved;
         private PlayerActionTimingPresentationSnapshot _presentationTiming;
 
@@ -73,6 +78,16 @@ namespace Game.Feature.Gameplay.Host
             ApplyResolvedState(resolvedState, restart, executeActionKind);
         }
 
+        public float GetPresentationDurationSeconds(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => ResolvePresentationTiming().PushPresentationDurationSeconds,
+                PlayerActionKind.Flip => ResolvePresentationTiming().FlipPresentationDurationSeconds,
+                _ => 0f,
+            };
+        }
+
         private void ApplyResolvedState(
             PlayerViewAnimationState resolvedState,
             bool restart,
@@ -80,10 +95,7 @@ namespace Game.Feature.Gameplay.Host
         {
             var targetAnimator = ResolveAnimator();
             ApplyAnimatorSpeed(targetAnimator, resolvedState);
-            if (targetAnimator != null)
-            {
-                SetIntegerParameter(targetAnimator, stateParameterName, (int)resolvedState);
-            }
+            SyncOptionalStateParameter(targetAnimator, resolvedState);
 
             if (resolvedState == CurrentState &&
                 !restart)
@@ -93,7 +105,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             CurrentState = resolvedState;
-            CrossFadeState(targetAnimator, ResolveStateName(resolvedState), crossFadeDurationSeconds);
+            TransitionToResolvedState(targetAnimator, resolvedState);
             ApplyExecuteSignal(targetAnimator, executeActionKind, resolvedState);
         }
 
@@ -141,6 +153,14 @@ namespace Game.Feature.Gameplay.Host
             return _presentationTiming;
         }
 
+        private void TransitionToResolvedState(Animator targetAnimator, PlayerViewAnimationState resolvedState)
+        {
+            CrossFadeState(
+                targetAnimator,
+                ResolveStateName(resolvedState),
+                stateTransitionCrossFadeDurationSeconds);
+        }
+
         private static void CrossFadeState(Animator targetAnimator, string stateName, float durationSeconds)
         {
             if (targetAnimator == null || string.IsNullOrWhiteSpace(stateName))
@@ -151,14 +171,51 @@ namespace Game.Feature.Gameplay.Host
             targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), Mathf.Max(0f, durationSeconds));
         }
 
-        private static void SetIntegerParameter(Animator targetAnimator, string parameterName, int value)
+        private void SyncOptionalStateParameter(Animator targetAnimator, PlayerViewAnimationState resolvedState)
         {
-            if (targetAnimator == null || string.IsNullOrWhiteSpace(parameterName))
+            if (!SupportsOptionalStateParameter(targetAnimator))
             {
                 return;
             }
 
-            targetAnimator.SetInteger(Animator.StringToHash(parameterName), value);
+            targetAnimator.SetInteger(Animator.StringToHash(OptionalStateParameterName), (int)resolvedState);
+        }
+
+        private bool SupportsOptionalStateParameter(Animator targetAnimator)
+        {
+            if (targetAnimator == null)
+            {
+                return false;
+            }
+
+            var controller = targetAnimator.runtimeAnimatorController;
+
+            if (_validatedOptionalStateParameterAnimator == targetAnimator)
+            {
+                if (_validatedOptionalStateParameterController == controller)
+                {
+                    return _optionalStateParameterSupported;
+                }
+            }
+
+            _validatedOptionalStateParameterAnimator = targetAnimator;
+            _validatedOptionalStateParameterController = controller;
+            _optionalStateParameterSupported = false;
+
+            var parameterHash = Animator.StringToHash(OptionalStateParameterName);
+            var parameters = targetAnimator.parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                var parameter = parameters[i];
+                if (parameter.nameHash == parameterHash &&
+                    parameter.type == AnimatorControllerParameterType.Int)
+                {
+                    _optionalStateParameterSupported = true;
+                    break;
+                }
+            }
+
+            return _optionalStateParameterSupported;
         }
 
         private void ApplyAnimatorSpeed(Animator targetAnimator, PlayerViewAnimationState resolvedState)
@@ -194,12 +251,19 @@ namespace Game.Feature.Gameplay.Host
                 return 1f;
             }
 
+            var controller = targetAnimator?.runtimeAnimatorController;
+            if (_cachedClipLengthController != controller)
+            {
+                _clipLengthCache.Clear();
+                _cachedClipLengthController = controller;
+            }
+
             if (_clipLengthCache.TryGetValue(stateName, out var cachedLength))
             {
                 return cachedLength;
             }
 
-            var clips = targetAnimator?.runtimeAnimatorController?.animationClips;
+            var clips = controller?.animationClips;
             if (clips != null)
             {
                 for (var i = 0; i < clips.Length; i++)
@@ -229,38 +293,19 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var executeTriggerName = ResolveExecuteTriggerName(executeActionKind);
-            if (!string.IsNullOrWhiteSpace(executeTriggerName))
-            {
-                SetTriggerParameter(targetAnimator, executeTriggerName);
-                return;
-            }
-
-            if (resolvedState == PlayerViewAnimationState.Push ||
-                resolvedState == PlayerViewAnimationState.Flip)
-            {
-                CrossFadeState(targetAnimator, ResolveStateName(resolvedState), 0f);
-            }
-        }
-
-        private string ResolveExecuteTriggerName(PlayerActionKind actionKind)
-        {
-            return actionKind switch
-            {
-                PlayerActionKind.Push => pushExecuteTriggerName,
-                PlayerActionKind.Flip => flipExecuteTriggerName,
-                _ => null,
-            };
-        }
-
-        private static void SetTriggerParameter(Animator targetAnimator, string parameterName)
-        {
-            if (targetAnimator == null || string.IsNullOrWhiteSpace(parameterName))
+            if (executeActionKind != PlayerActionKind.Push &&
+                executeActionKind != PlayerActionKind.Flip)
             {
                 return;
             }
 
-            targetAnimator.SetTrigger(Animator.StringToHash(parameterName));
+            if (resolvedState != PlayerViewAnimationState.Push &&
+                resolvedState != PlayerViewAnimationState.Flip)
+            {
+                return;
+            }
+
+            CrossFadeState(targetAnimator, ResolveStateName(resolvedState), 0f);
         }
     }
 }

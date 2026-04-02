@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -347,6 +348,52 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator GameplayInputHost_FlipVisualHold_YieldsImmediatelyToNewWalkPresentation()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Flip),
+                },
+                repeatedMoveIntervalSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                moveMotionDurationSeconds: 1f,
+                flipPresentationDurationSeconds: 0.5f);
+
+            host.InputHost.SetRawMoveInput(Vector2.left);
+            host.InputHost.BufferFlip();
+
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            host.Presenter.UpdatePresentation(0f);
+
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+            Assert.That(host.ViewRegistry.TryGetView(10, out var playerView), Is.True);
+            var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+
+            var followupMoveTick = host.InputHost.RunSingleTick();
+            Assert.That(followupMoveTick, Is.Not.Null);
+            host.Presenter.UpdatePresentation(0f);
+
+            var snapshot = host.WorldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+
+            host.Presenter.UpdatePresentation(0.5f);
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         public IEnumerator GameplayInputHost_NoSampledDirection_DropsBufferedPushAndFlip()
         {
             var host = CreateHost(new[]
@@ -592,7 +639,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
             bool directionChangeConsumesDelay = false,
-            float playerPushContactThresholdSeconds = GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds)
+            float playerPushContactThresholdSeconds = GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds,
+            float moveMotionDurationSeconds = 0.2f,
+            float pushPresentationDurationSeconds = -1f,
+            float flipPresentationDurationSeconds = -1f)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -600,8 +650,18 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             playerViewPrefabObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
             var playerViewPrefab = playerViewPrefabObject.AddComponent<GameplayEntityView>();
             playerViewPrefab.Initialize(10);
-            playerViewPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
+            var playerTimingAuthoring = playerViewPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
             playerViewPrefabObject.AddComponent<PlayerAnimatorDriver>();
+
+            if (pushPresentationDurationSeconds > 0f)
+            {
+                SetSerializedField(playerTimingAuthoring, "pushPresentationDurationSeconds", pushPresentationDurationSeconds);
+            }
+
+            if (flipPresentationDurationSeconds > 0f)
+            {
+                SetSerializedField(playerTimingAuthoring, "flipPresentationDurationSeconds", flipPresentationDurationSeconds);
+            }
 
             host.Initialize(
                 new GameplaySceneHostConfiguration
@@ -619,6 +679,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     InitialEntities = initialEntities,
                     MaxTicksPerFrame = 8,
                     MoveDeadzone = 0.5f,
+                    MoveMotionDurationSeconds = moveMotionDurationSeconds,
                     PlayerEntityId = 10,
                     PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds,
                     PlayerViewPrefab = playerViewPrefab,
@@ -705,6 +766,13 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
 
             yield return null;
+        }
+
+        private static void SetSerializedField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
 
         // TODO(CubeSurface3D): Retire this helper once playmode tests stop using

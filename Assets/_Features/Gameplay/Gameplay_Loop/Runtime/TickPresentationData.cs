@@ -169,12 +169,14 @@ namespace Game.Feature.Gameplay.Loop
             int activeActionSequence,
             bool startedThisTick,
             bool completedThisTick,
-            bool canceledThisTick)
+            bool canceledThisTick,
+            bool executedThisTick = false)
         {
             EntityId = entityId;
             ActiveActionKind = activeActionKind;
             ActiveActionSequence = activeActionSequence;
             StartedThisTick = startedThisTick;
+            ExecutedThisTick = executedThisTick;
             CompletedThisTick = completedThisTick;
             CanceledThisTick = canceledThisTick;
         }
@@ -186,6 +188,8 @@ namespace Game.Feature.Gameplay.Loop
         public int ActiveActionSequence { get; }
 
         public bool StartedThisTick { get; }
+
+        public bool ExecutedThisTick { get; }
 
         public bool CompletedThisTick { get; }
 

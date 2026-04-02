@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
             PlayerActionKind activeActionKind,
             int activeActionSequence,
             bool startedThisTick,
+            bool executedThisTick,
             bool completedThisTick,
             bool canceledThisTick)
         {
@@ -29,6 +30,7 @@ namespace Game.Feature.Gameplay.Host
             ActiveActionKind = activeActionKind;
             ActiveActionSequence = activeActionSequence;
             StartedThisTick = startedThisTick;
+            ExecutedThisTick = executedThisTick;
             CompletedThisTick = completedThisTick;
             CanceledThisTick = canceledThisTick;
         }
@@ -42,6 +44,8 @@ namespace Game.Feature.Gameplay.Host
         public int ActiveActionSequence { get; }
 
         public bool StartedThisTick { get; }
+
+        public bool ExecutedThisTick { get; }
 
         public bool CompletedThisTick { get; }
 
@@ -112,6 +116,7 @@ namespace Game.Feature.Gameplay.Host
                     signal.ActiveActionKind,
                     signal.ActiveActionSequence,
                     signal.StartedThisTick,
+                    signal.ExecutedThisTick,
                     signal.CompletedThisTick,
                     signal.CanceledThisTick);
             }
@@ -125,6 +130,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerActionKind.None,
                 activeActionSequence: 0,
                 startedThisTick: false,
+                executedThisTick: false,
                 completedThisTick: false,
                 canceledThisTick: false);
         }

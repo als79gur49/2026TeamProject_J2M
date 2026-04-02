@@ -121,6 +121,16 @@ namespace Game.Feature.Gameplay.PlayerControl
             int windupTicks,
             int recoveryTicks)
         {
+            if (windupTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(windupTicks), "Action wind-up ticks must be zero or greater.");
+            }
+
+            if (recoveryTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(recoveryTicks), "Action recovery ticks must be zero or greater.");
+            }
+
             var updatedState = ResetContact(state);
             updatedState.actionSequenceCounter = Mathf.Max(1, updatedState.actionSequenceCounter + 1);
             updatedState.activeAction = new PlayerActionRuntimeState
@@ -132,7 +142,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 startTick = startTick,
                 executeTick = startTick + windupTicks,
                 recoveryEndTick = startTick + windupTicks + recoveryTicks,
-                executionAttempted = false,
+                executionAttempted = windupTicks == 0,
             };
 
             return updatedState;

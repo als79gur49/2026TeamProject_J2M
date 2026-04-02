@@ -1729,9 +1729,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_Present_PlayerActionSignals_ResolvePushAndFlip()
+        public void GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerActionSignals_ResolvePushAndFlip");
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires");
 
             try
             {
@@ -1753,7 +1753,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(10, out var playerView), Is.True);
                 var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                var authoring = playerView.GetComponent<PlayerActionTimingAuthoring>();
                 Assert.That(driver, Is.Not.Null);
+                Assert.That(authoring, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushPresentationDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipPresentationDurationSeconds", 0.5f);
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -1814,9 +1819,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         })));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
                 Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(0.49f);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+
+                presenter.UpdatePresentation(0.01f);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -1838,6 +1849,137 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(2));
                 Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.None, 0, startedThisTick: false, completedThisTick: true, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+
+                presenter.UpdatePresentation(0.5f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_PlayerActionHold_YieldsImmediatelyToNewWalkPresentation()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerActionHold_YieldsImmediatelyToNewWalkPresentation");
+
+            try
+            {
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 1f,
+                    pushMotionDurationSeconds: 0.3f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(registry.transform, attachPlayerAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(new[] { CreateSurfaceUnit(10, sourceCell, facing: Direction.Right) }, topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                var authoring = playerView.GetComponent<PlayerActionTimingAuthoring>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(authoring, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipPresentationDurationSeconds", 0.5f);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.Flip, 1, startedThisTick: true, completedThisTick: false, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        new[]
+                        {
+                            new TickPlayerActionPresentationSignal(10, PlayerActionKind.None, 0, startedThisTick: false, completedThisTick: true, canceledThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        new[]
+                        {
+                            new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                        },
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+
+                presenter.UpdatePresentation(0.5f);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+
+                presenter.UpdatePresentation(0.5f);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
             }
             finally
             {
@@ -1880,6 +2022,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
                 Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
 
                 driver.Apply(new PlayerViewPresentationState(10, 3, PlayerActionKind.Flip, 2, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
@@ -1892,6 +2036,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields()
+        {
+            var serializedFieldNames = typeof(PlayerAnimatorDriver)
+                .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(field => field.IsPublic || field.GetCustomAttribute<SerializeField>() != null)
+                .Select(field => field.Name)
+                .ToArray();
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "animator",
+                    "idleStateName",
+                    "walkStateName",
+                    "pushStateName",
+                    "flipStateName",
+                    "stateTransitionCrossFadeDurationSeconds",
+                    "actionTimingAuthoring",
+                },
+                serializedFieldNames);
+            Assert.That(serializedFieldNames, Does.Not.Contain("stateParameterName"));
+            Assert.That(serializedFieldNames, Does.Not.Contain("pushExecuteTriggerName"));
+            Assert.That(serializedFieldNames, Does.Not.Contain("flipExecuteTriggerName"));
+            Assert.That(serializedFieldNames, Does.Not.Contain("crossFadeDurationSeconds"));
         }
 
         [Test]

@@ -147,7 +147,8 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot finalAuthoritativeSnapshot,
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
-            CleanupPhaseResult cleanupPhaseResult)
+            CleanupPhaseResult cleanupPhaseResult,
+            int currentTickIndex = 0)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -156,7 +157,8 @@ namespace Game.Feature.Gameplay.Loop
                 new PreMovementStatePhaseResult(new List<string>(), new List<PlayerActionTransition>()),
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult)
+                cleanupPhaseResult,
+                currentTickIndex)
         {
         }
 
@@ -168,7 +170,8 @@ namespace Game.Feature.Gameplay.Loop
             PreMovementStatePhaseResult preMovementStatePhaseResult,
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
-            CleanupPhaseResult cleanupPhaseResult)
+            CleanupPhaseResult cleanupPhaseResult,
+            int currentTickIndex = 0)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -178,6 +181,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
+            CurrentTickIndex = currentTickIndex;
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -195,6 +199,8 @@ namespace Game.Feature.Gameplay.Loop
         public AttackPhaseResult AttackPhaseResult { get; }
 
         public CleanupPhaseResult CleanupPhaseResult { get; }
+
+        public int CurrentTickIndex { get; }
     }
 
     internal sealed class TickPresentationDataBuilder
@@ -335,6 +341,7 @@ namespace Game.Feature.Gameplay.Loop
                 var activeActionKind = PlayerActionKind.None;
                 var activeActionSequence = 0;
                 var startedThisTick = false;
+                var executedThisTick = false;
                 var completedThisTick = false;
                 var canceledThisTick = false;
 
@@ -351,6 +358,8 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     activeActionKind = controlState.activeAction.kind;
                     activeActionSequence = controlState.activeAction.sequence;
+                    executedThisTick = controlState.activeAction.IsActive &&
+                                       controlState.activeAction.executeTick == context.CurrentTickIndex;
                 }
 
                 playerActionSignals.Add(
@@ -360,7 +369,8 @@ namespace Game.Feature.Gameplay.Loop
                         activeActionSequence,
                         startedThisTick,
                         completedThisTick,
-                        canceledThisTick));
+                        canceledThisTick,
+                        executedThisTick));
             }
         }
 
