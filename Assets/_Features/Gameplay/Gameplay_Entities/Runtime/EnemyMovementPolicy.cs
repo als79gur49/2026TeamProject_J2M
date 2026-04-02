@@ -5,39 +5,95 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal static class EnemyMovementPolicy
+    public enum PatrolBlockedMovementResponse
     {
-        public static bool TryBuildPatrolMove(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyAiConfig config,
-            out RawMovementIntent intent)
+        Stop = 0,
+        TryStepBackward = 1,
+    }
+
+    public enum ChaseAxisPriorityMode
+    {
+        GreatestDistanceThenFacingTieBreak = 0,
+        HorizontalFirst = 1,
+        VerticalFirst = 2,
+    }
+
+    [Serializable]
+    public struct PatrolSettings
+    {
+        [SerializeField] private PatrolBlockedMovementResponse blockedMovementResponse;
+
+        public PatrolSettings(PatrolBlockedMovementResponse blockedMovementResponse)
         {
-            if (snapshot == null)
-            {
-                throw new ArgumentNullException(nameof(snapshot));
-            }
-
-            intent = default;
-
-            var delta = ResolveDelta(source.facing);
-            if (!delta.HasValue || !CanOccupyStep(snapshot, source, delta.Value))
-            {
-                return false;
-            }
-
-            intent = new RawMovementIntent(
-                source.entityId,
-                config.MovementPriority,
-                source.position.PlanarPosition + delta.Value);
-            return true;
+            this.blockedMovementResponse = blockedMovementResponse;
         }
 
-        public static bool TryBuildChaseMove(
+        public PatrolBlockedMovementResponse BlockedMovementResponse => blockedMovementResponse;
+
+        public bool StopWhenForwardBlocked => blockedMovementResponse == PatrolBlockedMovementResponse.Stop;
+
+        public static PatrolSettings CreateDefault()
+        {
+            return new PatrolSettings(PatrolBlockedMovementResponse.Stop);
+        }
+    }
+
+    [Serializable]
+    public struct ChaseSettings
+    {
+        [SerializeField] private ChaseAxisPriorityMode axisPriority;
+        [SerializeField] private bool trySecondaryAxisWhenBlocked;
+
+        public ChaseSettings(
+            ChaseAxisPriorityMode axisPriority,
+            bool trySecondaryAxisWhenBlocked)
+        {
+            this.axisPriority = axisPriority;
+            this.trySecondaryAxisWhenBlocked = trySecondaryAxisWhenBlocked;
+        }
+
+        public ChaseAxisPriorityMode AxisPriority => axisPriority;
+
+        public bool TrySecondaryAxisWhenBlocked => trySecondaryAxisWhenBlocked;
+
+        public static ChaseSettings CreateDefault()
+        {
+            return new ChaseSettings(
+                ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak,
+                trySecondaryAxisWhenBlocked: true);
+        }
+    }
+
+    public interface IPatrolStrategy
+    {
+        bool TryBuildMovementIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            in PatrolSettings settings,
+            out RawMovementIntent intent);
+    }
+
+    public interface IChaseStrategy
+    {
+        bool TryBuildMovementIntent(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
-            in EnemyAiConfig config,
+            in EnemyAiCommonSettings commonSettings,
+            in ChaseSettings settings,
+            out RawMovementIntent intent);
+    }
+
+    public sealed class ForwardPatrolStrategy : IPatrolStrategy
+    {
+        public static readonly ForwardPatrolStrategy Instance = new();
+
+        public bool TryBuildMovementIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            in PatrolSettings settings,
             out RawMovementIntent intent)
         {
             if (snapshot == null)
@@ -47,22 +103,68 @@ namespace Game.Feature.Gameplay.Entities
 
             intent = default;
 
-            if (!TryChooseChaseStep(snapshot, source, target, out var delta))
+            var forwardDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
+            if (!forwardDelta.HasValue)
             {
                 return false;
             }
 
-            intent = new RawMovementIntent(
-                source.entityId,
-                config.MovementPriority,
-                source.position.PlanarPosition + delta);
-            return true;
+            if (EnemyMovementStrategyShared.TryBuildMoveIntent(snapshot, source, commonSettings, forwardDelta.Value, out intent))
+            {
+                return true;
+            }
+
+            if (settings.StopWhenForwardBlocked)
+            {
+                return false;
+            }
+
+            return EnemyMovementStrategyShared.TryBuildMoveIntent(
+                snapshot,
+                source,
+                commonSettings,
+                -forwardDelta.Value,
+                out intent);
+        }
+    }
+
+    public sealed class AxisPriorityChaseStrategy : IChaseStrategy
+    {
+        public static readonly AxisPriorityChaseStrategy Instance = new();
+
+        public bool TryBuildMovementIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            in EnemyAiCommonSettings commonSettings,
+            in ChaseSettings settings,
+            out RawMovementIntent intent)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            intent = default;
+
+            if (!TryChooseChaseStep(snapshot, source, target, settings, out var delta))
+            {
+                return false;
+            }
+
+            return EnemyMovementStrategyShared.TryBuildMoveIntent(
+                snapshot,
+                source,
+                commonSettings,
+                delta,
+                out intent);
         }
 
         private static bool TryChooseChaseStep(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
+            in ChaseSettings settings,
             out Vector2Int delta)
         {
             delta = Vector2Int.zero;
@@ -85,12 +187,22 @@ namespace Game.Feature.Gameplay.Entities
                 ? (Vector2Int?)null
                 : new Vector2Int(0, Math.Sign(planarDelta.y));
 
-            var tryHorizontalFirst = ShouldTryHorizontalFirst(planarDelta, source.facing);
+            var tryHorizontalFirst = ShouldTryHorizontalFirst(planarDelta, source.facing, settings.AxisPriority);
 
-            return TrySelectChaseStep(snapshot, source, horizontalStep, verticalStep, tryHorizontalFirst, out delta);
+            if (TrySelectCandidate(snapshot, source, horizontalStep, verticalStep, tryHorizontalFirst, out delta))
+            {
+                return true;
+            }
+
+            if (!settings.TrySecondaryAxisWhenBlocked)
+            {
+                return false;
+            }
+
+            return TrySelectCandidate(snapshot, source, horizontalStep, verticalStep, !tryHorizontalFirst, out delta);
         }
 
-        private static bool TrySelectChaseStep(
+        private static bool TrySelectCandidate(
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int? horizontalStep,
@@ -102,15 +214,66 @@ namespace Game.Feature.Gameplay.Entities
 
             if (tryHorizontalFirst)
             {
-                return TryCommitChaseStep(snapshot, source, horizontalStep, out delta) ||
-                       TryCommitChaseStep(snapshot, source, verticalStep, out delta);
+                return EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, horizontalStep, out delta);
             }
 
-            return TryCommitChaseStep(snapshot, source, verticalStep, out delta) ||
-                   TryCommitChaseStep(snapshot, source, horizontalStep, out delta);
+            return EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, verticalStep, out delta);
         }
 
-        private static bool TryCommitChaseStep(
+        private static bool ShouldTryHorizontalFirst(
+            Vector2Int planarDelta,
+            Direction facing,
+            ChaseAxisPriorityMode axisPriority)
+        {
+            switch (axisPriority)
+            {
+                case ChaseAxisPriorityMode.HorizontalFirst:
+                    return true;
+
+                case ChaseAxisPriorityMode.VerticalFirst:
+                    return false;
+
+                case ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak:
+                default:
+                    var absX = Math.Abs(planarDelta.x);
+                    var absY = Math.Abs(planarDelta.y);
+
+                    if (absX != absY)
+                    {
+                        return absX > absY;
+                    }
+
+                    return facing == Direction.Left ||
+                           facing == Direction.Right ||
+                           planarDelta.x != 0;
+            }
+        }
+    }
+
+    internal static class EnemyMovementStrategyShared
+    {
+        public static bool TryBuildMoveIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            Vector2Int delta,
+            out RawMovementIntent intent)
+        {
+            intent = default;
+
+            if (!CanOccupyStep(snapshot, source, delta))
+            {
+                return false;
+            }
+
+            intent = new RawMovementIntent(
+                source.entityId,
+                commonSettings.MovementPriority,
+                source.position.PlanarPosition + delta);
+            return true;
+        }
+
+        public static bool CanOccupyStep(
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int? candidate,
@@ -127,7 +290,7 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
-        private static bool CanOccupyStep(
+        public static bool CanOccupyStep(
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int delta)
@@ -168,22 +331,7 @@ namespace Game.Feature.Gameplay.Entities
                 out _);
         }
 
-        private static bool ShouldTryHorizontalFirst(Vector2Int planarDelta, Direction facing)
-        {
-            var absX = Math.Abs(planarDelta.x);
-            var absY = Math.Abs(planarDelta.y);
-
-            if (absX != absY)
-            {
-                return absX > absY;
-            }
-
-            return facing == Direction.Left ||
-                   facing == Direction.Right ||
-                   planarDelta.x != 0;
-        }
-
-        private static Vector2Int? ResolveDelta(Direction direction)
+        public static Vector2Int? ResolveDelta(Direction direction)
         {
             switch (direction)
             {

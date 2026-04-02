@@ -1,7 +1,351 @@
 using System;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    public enum EnemyAiStateResolverKind
+    {
+        Default = 0,
+    }
+
+    public enum PatrolStrategyKind
+    {
+        Forward = 0,
+    }
+
+    public enum DetectionStrategyKind
+    {
+        NearestOpponent = 0,
+    }
+
+    public enum ChaseStrategyKind
+    {
+        AxisPriority = 0,
+    }
+
+    public enum AttackDecisionStrategyKind
+    {
+        Melee = 0,
+    }
+
+    [Serializable]
+    public struct EnemyAiCommonSettings
+    {
+        [SerializeField] private int movementPriority;
+        [SerializeField] private int attackPriority;
+        [SerializeField] private int recoverTicks;
+
+        public EnemyAiCommonSettings(
+            int movementPriority,
+            int attackPriority,
+            int recoverTicks)
+        {
+            this.movementPriority = movementPriority;
+            this.attackPriority = attackPriority;
+            this.recoverTicks = recoverTicks;
+        }
+
+        public int MovementPriority => movementPriority;
+
+        public int AttackPriority => attackPriority;
+
+        public int RecoverTicks => recoverTicks;
+
+        public void Validate(string paramName)
+        {
+            if (recoverTicks < 0)
+            {
+                throw new ArgumentException("Enemy AI common settings require a non-negative recover tick count.", paramName);
+            }
+        }
+
+        public static EnemyAiCommonSettings CreateDefaultMelee()
+        {
+            return new EnemyAiCommonSettings(
+                movementPriority: 50,
+                attackPriority: 50,
+                recoverTicks: 1);
+        }
+    }
+
+    public readonly struct EnemyAiRuntimeDefinition
+    {
+        public EnemyAiRuntimeDefinition(
+            EnemyAiCommonSettings commonSettings,
+            PatrolSettings patrolSettings,
+            DetectionSettings detectionSettings,
+            ChaseSettings chaseSettings,
+            AttackDecisionSettings attackDecisionSettings,
+            IPatrolStrategy patrolStrategy,
+            IDetectionStrategy detectionStrategy,
+            IChaseStrategy chaseStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            IEnemyAiStateResolver stateResolver)
+        {
+            CommonSettings = commonSettings;
+            PatrolSettings = patrolSettings;
+            DetectionSettings = detectionSettings;
+            ChaseSettings = chaseSettings;
+            AttackDecisionSettings = attackDecisionSettings;
+            PatrolStrategy = patrolStrategy;
+            DetectionStrategy = detectionStrategy;
+            ChaseStrategy = chaseStrategy;
+            AttackDecisionStrategy = attackDecisionStrategy;
+            StateResolver = stateResolver;
+
+            Validate(nameof(EnemyAiRuntimeDefinition));
+        }
+
+        public EnemyAiCommonSettings CommonSettings { get; }
+
+        public PatrolSettings PatrolSettings { get; }
+
+        public DetectionSettings DetectionSettings { get; }
+
+        public ChaseSettings ChaseSettings { get; }
+
+        public AttackDecisionSettings AttackDecisionSettings { get; }
+
+        public IPatrolStrategy PatrolStrategy { get; }
+
+        public IDetectionStrategy DetectionStrategy { get; }
+
+        public IChaseStrategy ChaseStrategy { get; }
+
+        public IAttackDecisionStrategy AttackDecisionStrategy { get; }
+
+        public IEnemyAiStateResolver StateResolver { get; }
+
+        public void Validate(string paramName)
+        {
+            CommonSettings.Validate(paramName);
+            DetectionSettings.Validate(paramName);
+            AttackDecisionSettings.Validate(paramName);
+
+            if (PatrolStrategy == null ||
+                DetectionStrategy == null ||
+                ChaseStrategy == null ||
+                AttackDecisionStrategy == null ||
+                StateResolver == null)
+            {
+                throw new ArgumentException("Enemy AI runtime definitions require non-null strategies and state resolvers.", paramName);
+            }
+        }
+
+        public static EnemyAiRuntimeDefinition CreateDefaultMelee()
+        {
+            return new EnemyAiRuntimeDefinition(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                ForwardPatrolStrategy.Instance,
+                NearestOpponentDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                MeleeAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
+        }
+
+        internal static EnemyAiRuntimeDefinition CreateFromProfile(EnemyAiProfile profile)
+        {
+            if (profile == null)
+            {
+                throw new ArgumentNullException(nameof(profile));
+            }
+
+            return new EnemyAiRuntimeDefinition(
+                profile.CommonSettings,
+                profile.PatrolSettings,
+                profile.DetectionSettings,
+                profile.ChaseSettings,
+                profile.AttackDecisionSettings,
+                ResolvePatrolStrategy(profile.PatrolStrategyKind),
+                ResolveDetectionStrategy(profile.DetectionStrategyKind),
+                ResolveChaseStrategy(profile.ChaseStrategyKind),
+                ResolveAttackDecisionStrategy(profile.AttackDecisionStrategyKind),
+                ResolveStateResolver(profile.StateResolverKind));
+        }
+
+        private static IPatrolStrategy ResolvePatrolStrategy(PatrolStrategyKind kind)
+        {
+            switch (kind)
+            {
+                case PatrolStrategyKind.Forward:
+                    return ForwardPatrolStrategy.Instance;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown patrol strategy kind.");
+            }
+        }
+
+        private static IDetectionStrategy ResolveDetectionStrategy(DetectionStrategyKind kind)
+        {
+            switch (kind)
+            {
+                case DetectionStrategyKind.NearestOpponent:
+                    return NearestOpponentDetectionStrategy.Instance;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown detection strategy kind.");
+            }
+        }
+
+        private static IChaseStrategy ResolveChaseStrategy(ChaseStrategyKind kind)
+        {
+            switch (kind)
+            {
+                case ChaseStrategyKind.AxisPriority:
+                    return AxisPriorityChaseStrategy.Instance;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown chase strategy kind.");
+            }
+        }
+
+        private static IAttackDecisionStrategy ResolveAttackDecisionStrategy(AttackDecisionStrategyKind kind)
+        {
+            switch (kind)
+            {
+                case AttackDecisionStrategyKind.Melee:
+                    return MeleeAttackDecisionStrategy.Instance;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown attack decision strategy kind.");
+            }
+        }
+
+        private static IEnemyAiStateResolver ResolveStateResolver(EnemyAiStateResolverKind kind)
+        {
+            switch (kind)
+            {
+                case EnemyAiStateResolverKind.Default:
+                    return DefaultEnemyAiStateResolver.Instance;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown enemy AI state resolver kind.");
+            }
+        }
+    }
+
+    [CreateAssetMenu(menuName = "Gameplay/AI/Enemy AI Profile", fileName = "EnemyAiProfile")]
+    public sealed class EnemyAiProfile : ScriptableObject
+    {
+        [SerializeField] private EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default;
+        [SerializeField] private PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward;
+        [SerializeField] private DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent;
+        [SerializeField] private ChaseStrategyKind chaseStrategyKind = ChaseStrategyKind.AxisPriority;
+        [SerializeField] private AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
+        [SerializeField] private EnemyAiCommonSettings commonSettings = new(50, 50, 1);
+        [SerializeField] private PatrolSettings patrolSettings = new(PatrolBlockedMovementResponse.Stop);
+        [SerializeField] private DetectionSettings detectionSettings = new(8, true, false);
+        [SerializeField] private ChaseSettings chaseSettings = new(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak, true);
+        [SerializeField] private AttackDecisionSettings attackDecisionSettings = new(1);
+
+        public EnemyAiStateResolverKind StateResolverKind => stateResolverKind;
+
+        public PatrolStrategyKind PatrolStrategyKind => patrolStrategyKind;
+
+        public DetectionStrategyKind DetectionStrategyKind => detectionStrategyKind;
+
+        public ChaseStrategyKind ChaseStrategyKind => chaseStrategyKind;
+
+        public AttackDecisionStrategyKind AttackDecisionStrategyKind => attackDecisionStrategyKind;
+
+        public EnemyAiCommonSettings CommonSettings => commonSettings;
+
+        public PatrolSettings PatrolSettings => patrolSettings;
+
+        public DetectionSettings DetectionSettings => detectionSettings;
+
+        public ChaseSettings ChaseSettings => chaseSettings;
+
+        public AttackDecisionSettings AttackDecisionSettings => attackDecisionSettings;
+
+        public void ResetToDefaultMelee()
+        {
+            ApplyConfiguration(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAiStateResolverKind.Default,
+                PatrolStrategyKind.Forward,
+                DetectionStrategyKind.NearestOpponent,
+                ChaseStrategyKind.AxisPriority,
+                AttackDecisionStrategyKind.Melee);
+        }
+
+        public void ApplyConfiguration(
+            EnemyAiCommonSettings commonSettings,
+            PatrolSettings patrolSettings,
+            DetectionSettings detectionSettings,
+            ChaseSettings chaseSettings,
+            AttackDecisionSettings attackDecisionSettings,
+            EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
+            PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
+            DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
+            ChaseStrategyKind chaseStrategyKind = ChaseStrategyKind.AxisPriority,
+            AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee)
+        {
+            this.commonSettings = commonSettings;
+            this.patrolSettings = patrolSettings;
+            this.detectionSettings = detectionSettings;
+            this.chaseSettings = chaseSettings;
+            this.attackDecisionSettings = attackDecisionSettings;
+            this.stateResolverKind = stateResolverKind;
+            this.patrolStrategyKind = patrolStrategyKind;
+            this.detectionStrategyKind = detectionStrategyKind;
+            this.chaseStrategyKind = chaseStrategyKind;
+            this.attackDecisionStrategyKind = attackDecisionStrategyKind;
+        }
+
+        public EnemyAiRuntimeDefinition CreateRuntimeDefinition()
+        {
+            return EnemyAiRuntimeDefinition.CreateFromProfile(this);
+        }
+
+        public static EnemyAiProfile CreateRuntimeDefault()
+        {
+            return CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee());
+        }
+
+        public static EnemyAiProfile CreateRuntimeInstance(
+            EnemyAiCommonSettings commonSettings,
+            PatrolSettings patrolSettings,
+            DetectionSettings detectionSettings,
+            ChaseSettings chaseSettings,
+            AttackDecisionSettings attackDecisionSettings,
+            EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
+            PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
+            DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
+            ChaseStrategyKind chaseStrategyKind = ChaseStrategyKind.AxisPriority,
+            AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee)
+        {
+            var profile = CreateInstance<EnemyAiProfile>();
+            profile.hideFlags = HideFlags.HideAndDontSave;
+            profile.ApplyConfiguration(
+                commonSettings,
+                patrolSettings,
+                detectionSettings,
+                chaseSettings,
+                attackDecisionSettings,
+                stateResolverKind,
+                patrolStrategyKind,
+                detectionStrategyKind,
+                chaseStrategyKind,
+                attackDecisionStrategyKind);
+            return profile;
+        }
+    }
+
+    [Obsolete("Use EnemyAiProfile or EnemyAiRuntimeDefinition instead.")]
     public readonly struct EnemyAiConfig
     {
         public EnemyAiConfig(
@@ -42,6 +386,21 @@ namespace Game.Feature.Gameplay.Entities
         public int AttackPriority { get; }
 
         public int RecoverTicks { get; }
+
+        public EnemyAiRuntimeDefinition ToRuntimeDefinition()
+        {
+            return new EnemyAiRuntimeDefinition(
+                new EnemyAiCommonSettings(MovementPriority, AttackPriority, RecoverTicks),
+                PatrolSettings.CreateDefault(),
+                new DetectionSettings(SenseRange, requireSameFace: true, canTargetMarkedForDeath: false),
+                ChaseSettings.CreateDefault(),
+                new AttackDecisionSettings(AttackRange),
+                ForwardPatrolStrategy.Instance,
+                NearestOpponentDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                MeleeAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
+        }
 
         public static EnemyAiConfig CreateDefaultMelee()
         {

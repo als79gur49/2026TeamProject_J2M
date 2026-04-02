@@ -7,40 +7,69 @@ using Game.Feature.Gameplay.Movement.Collection;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    public interface IEnemyAiStateResolver
+    {
+        EnemyAiTransitionDecision Resolve(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyAiTransitionStage stage,
+            IDetectionStrategy detectionStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in EnemyAiCommonSettings commonSettings,
+            in DetectionSettings detectionSettings,
+            in AttackDecisionSettings attackDecisionSettings);
+    }
+
     public sealed class EnemyLogic : IEnemyAiStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
     {
         private readonly int _entityId;
-        private readonly EnemyAiConfig _config;
+        private readonly EnemyAiCommonSettings _commonSettings;
+        private readonly PatrolSettings _patrolSettings;
+        private readonly DetectionSettings _detectionSettings;
+        private readonly ChaseSettings _chaseSettings;
+        private readonly AttackDecisionSettings _attackDecisionSettings;
+        private readonly IPatrolStrategy _patrolStrategy;
+        private readonly IDetectionStrategy _detectionStrategy;
+        private readonly IChaseStrategy _chaseStrategy;
+        private readonly IAttackDecisionStrategy _attackDecisionStrategy;
+        private readonly IEnemyAiStateResolver _stateResolver;
 
         public EnemyLogic(int entityId)
-            : this(entityId, EnemyAiConfig.CreateDefaultMelee())
+            : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
         {
         }
 
+        public EnemyLogic(int entityId, EnemyAiProfile profile)
+            : this(entityId, (profile ?? throw new ArgumentNullException(nameof(profile))).CreateRuntimeDefinition())
+        {
+        }
+
+        [Obsolete("Use EnemyAiProfile or EnemyAiRuntimeDefinition instead.")]
         public EnemyLogic(int entityId, EnemyAiConfig config)
+            : this(entityId, config.ToRuntimeDefinition())
+        {
+        }
+
+        public EnemyLogic(int entityId, in EnemyAiRuntimeDefinition aiDefinition)
         {
             if (entityId <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(entityId), "Enemy logic requires a positive entity ID.");
             }
 
-            if (config.SenseRange <= 0)
-            {
-                throw new ArgumentException("Enemy logic requires a config with a positive sense range.", nameof(config));
-            }
-
-            if (config.AttackRange <= 0)
-            {
-                throw new ArgumentException("Enemy logic requires a config with a positive attack range.", nameof(config));
-            }
-
-            if (config.RecoverTicks < 0)
-            {
-                throw new ArgumentException("Enemy logic requires a config with a non-negative recover tick count.", nameof(config));
-            }
+            aiDefinition.Validate(nameof(aiDefinition));
 
             _entityId = entityId;
-            _config = config;
+            _commonSettings = aiDefinition.CommonSettings;
+            _patrolSettings = aiDefinition.PatrolSettings;
+            _detectionSettings = aiDefinition.DetectionSettings;
+            _chaseSettings = aiDefinition.ChaseSettings;
+            _attackDecisionSettings = aiDefinition.AttackDecisionSettings;
+            _patrolStrategy = aiDefinition.PatrolStrategy;
+            _detectionStrategy = aiDefinition.DetectionStrategy;
+            _chaseStrategy = aiDefinition.ChaseStrategy;
+            _attackDecisionStrategy = aiDefinition.AttackDecisionStrategy;
+            _stateResolver = aiDefinition.StateResolver;
         }
 
         public int ControlledEntityId => _entityId;
@@ -72,7 +101,16 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            var decision = EnemyAiStateResolver.Resolve(snapshot, source, _config, stage);
+            var decision = _stateResolver.Resolve(
+                snapshot,
+                source,
+                stage,
+                _detectionStrategy,
+                _attackDecisionStrategy,
+                _commonSettings,
+                _detectionSettings,
+                _attackDecisionSettings);
+
             if (decision.Mode == source.aiMode && decision.Timer == source.aiStateTimer)
             {
                 return;
@@ -106,7 +144,12 @@ namespace Game.Feature.Gameplay.Entities
             switch (source.aiMode)
             {
                 case EnemyAiMode.Patrol:
-                    if (EnemyMovementPolicy.TryBuildPatrolMove(snapshot, source, _config, out var patrolIntent))
+                    if (_patrolStrategy.TryBuildMovementIntent(
+                            snapshot,
+                            source,
+                            _commonSettings,
+                            _patrolSettings,
+                            out var patrolIntent))
                     {
                         buffer.Add(patrolIntent);
                     }
@@ -114,12 +157,18 @@ namespace Game.Feature.Gameplay.Entities
                     return;
 
                 case EnemyAiMode.Chase:
-                    if (!EnemyTargetSelector.TryFindNearestOpponent(snapshot, source, _config.SenseRange, out var chaseTarget))
+                    if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
                     {
                         return;
                     }
 
-                    if (EnemyMovementPolicy.TryBuildChaseMove(snapshot, source, chaseTarget, _config, out var chaseIntent))
+                    if (_chaseStrategy.TryBuildMovementIntent(
+                            snapshot,
+                            source,
+                            chaseTarget,
+                            _commonSettings,
+                            _chaseSettings,
+                            out var chaseIntent))
                     {
                         buffer.Add(chaseIntent);
                     }
@@ -148,8 +197,14 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!TryGetControllableEnemy(snapshot, out var source) ||
                 source.aiMode != EnemyAiMode.Attack ||
-                !EnemyTargetSelector.TryFindNearestOpponent(snapshot, source, _config.SenseRange, out var target) ||
-                !EnemyCombatPolicy.TryBuildAttackIntent(snapshot, source, target, _config, out var attackIntent))
+                !_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
+                !_attackDecisionStrategy.TryBuildAttackIntent(
+                    snapshot,
+                    source,
+                    target,
+                    _commonSettings,
+                    _attackDecisionSettings,
+                    out var attackIntent))
             {
                 return;
             }
@@ -185,17 +240,33 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal static class EnemyAiStateResolver
+    public sealed class DefaultEnemyAiStateResolver : IEnemyAiStateResolver
     {
-        public static EnemyAiTransitionDecision Resolve(
+        public static readonly DefaultEnemyAiStateResolver Instance = new();
+
+        public EnemyAiTransitionDecision Resolve(
             WorldSnapshot snapshot,
             in EntityState source,
-            in EnemyAiConfig config,
-            EnemyAiTransitionStage stage)
+            EnemyAiTransitionStage stage,
+            IDetectionStrategy detectionStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in EnemyAiCommonSettings commonSettings,
+            in DetectionSettings detectionSettings,
+            in AttackDecisionSettings attackDecisionSettings)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (detectionStrategy == null)
+            {
+                throw new ArgumentNullException(nameof(detectionStrategy));
+            }
+
+            if (attackDecisionStrategy == null)
+            {
+                throw new ArgumentNullException(nameof(attackDecisionStrategy));
             }
 
             if (source.hp <= 0 || source.markedForDeath)
@@ -206,13 +277,13 @@ namespace Game.Feature.Gameplay.Entities
             switch (stage)
             {
                 case EnemyAiTransitionStage.BeforeMovement:
-                    return ResolveBeforeMovement(snapshot, source, config);
+                    return ResolveBeforeMovement(snapshot, source, detectionStrategy, attackDecisionStrategy, commonSettings, detectionSettings, attackDecisionSettings);
 
                 case EnemyAiTransitionStage.BeforeAttack:
-                    return ResolveBeforeAttack(snapshot, source, config);
+                    return ResolveBeforeAttack(snapshot, source, detectionStrategy, attackDecisionStrategy, commonSettings, detectionSettings, attackDecisionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
-                    return ResolveAfterAttack(source, config);
+                    return ResolveAfterAttack(source, commonSettings);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage.");
@@ -222,7 +293,11 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveBeforeMovement(
             WorldSnapshot snapshot,
             in EntityState source,
-            in EnemyAiConfig config)
+            IDetectionStrategy detectionStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in EnemyAiCommonSettings commonSettings,
+            in DetectionSettings detectionSettings,
+            in AttackDecisionSettings attackDecisionSettings)
         {
             switch (source.aiMode)
             {
@@ -233,7 +308,14 @@ namespace Game.Feature.Gameplay.Entities
                 case EnemyAiMode.Patrol:
                 case EnemyAiMode.Chase:
                 case EnemyAiMode.Attack:
-                    return TryResolveCombatReadiness(snapshot, source, config, EnemyAiMode.Patrol);
+                    return TryResolveCombatReadiness(
+                        snapshot,
+                        source,
+                        detectionStrategy,
+                        attackDecisionStrategy,
+                        detectionSettings,
+                        attackDecisionSettings,
+                        EnemyAiMode.Patrol);
 
                 case EnemyAiMode.Recover:
                     if (source.aiStateTimer > 0)
@@ -244,7 +326,7 @@ namespace Game.Feature.Gameplay.Entities
                             "RecoverTick");
                     }
 
-                    if (EnemyTargetSelector.TryFindNearestOpponent(snapshot, source, config.SenseRange, out _))
+                    if (detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out _))
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "RecoverComplete");
                     }
@@ -259,13 +341,24 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveBeforeAttack(
             WorldSnapshot snapshot,
             in EntityState source,
-            in EnemyAiConfig config)
+            IDetectionStrategy detectionStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in EnemyAiCommonSettings commonSettings,
+            in DetectionSettings detectionSettings,
+            in AttackDecisionSettings attackDecisionSettings)
         {
             switch (source.aiMode)
             {
                 case EnemyAiMode.Chase:
                 case EnemyAiMode.Attack:
-                    return TryResolveCombatReadiness(snapshot, source, config, EnemyAiMode.Patrol);
+                    return TryResolveCombatReadiness(
+                        snapshot,
+                        source,
+                        detectionStrategy,
+                        attackDecisionStrategy,
+                        detectionSettings,
+                        attackDecisionSettings,
+                        EnemyAiMode.Patrol);
 
                 default:
                     return Keep(source, "NoBeforeAttackTransition");
@@ -274,7 +367,7 @@ namespace Game.Feature.Gameplay.Entities
 
         private static EnemyAiTransitionDecision ResolveAfterAttack(
             in EntityState source,
-            in EnemyAiConfig config)
+            in EnemyAiCommonSettings commonSettings)
         {
             if (source.aiMode != EnemyAiMode.Attack)
             {
@@ -283,22 +376,25 @@ namespace Game.Feature.Gameplay.Entities
 
             return new EnemyAiTransitionDecision(
                 EnemyAiMode.Recover,
-                config.RecoverTicks,
+                commonSettings.RecoverTicks,
                 "AttackCommitted");
         }
 
         private static EnemyAiTransitionDecision TryResolveCombatReadiness(
             WorldSnapshot snapshot,
             in EntityState source,
-            in EnemyAiConfig config,
+            IDetectionStrategy detectionStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in DetectionSettings detectionSettings,
+            in AttackDecisionSettings attackDecisionSettings,
             EnemyAiMode patrolFallback)
         {
-            if (!EnemyTargetSelector.TryFindNearestOpponent(snapshot, source, config.SenseRange, out var target))
+            if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
             {
                 return new EnemyAiTransitionDecision(patrolFallback, 0, "NoTarget");
             }
 
-            if (EnemyCombatPolicy.IsTargetInAttackRange(source, target, config))
+            if (attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange");
             }
@@ -312,7 +408,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal readonly struct EnemyAiTransitionDecision
+    public readonly struct EnemyAiTransitionDecision
     {
         public EnemyAiTransitionDecision(EnemyAiMode mode, int timer, string reason)
         {

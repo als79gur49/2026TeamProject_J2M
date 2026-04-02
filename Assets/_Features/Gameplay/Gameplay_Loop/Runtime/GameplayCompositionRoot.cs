@@ -9,7 +9,12 @@ namespace Game.Feature.Gameplay.Loop
     {
         public static GameplayBootstrapper CreateDefaultBootstrapper()
         {
-            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault());
+            return CreateDefaultBootstrapper(null);
+        }
+
+        public static GameplayBootstrapper CreateDefaultBootstrapper(EnemyAiProfile enemyAiProfile)
+        {
+            return new GameplayBootstrapper(GameplayEntityLogicProviderFactory.CreateDefault(enemyAiProfile));
         }
 
         public static WorldState CreateWorldState(
@@ -51,6 +56,13 @@ namespace Game.Feature.Gameplay.Loop
         public static TickPipeline CreateTickPipeline(WorldState worldState)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(worldState);
+        }
+
+        public static TickPipeline CreateTickPipeline(
+            WorldState worldState,
+            EnemyAiProfile enemyAiProfile)
+        {
+            return CreateDefaultBootstrapper(enemyAiProfile).CreateTickPipeline(worldState);
         }
 
         public static TickPipeline CreateTickPipeline(

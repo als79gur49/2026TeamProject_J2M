@@ -1,16 +1,62 @@
 using System;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
-    internal static class EnemyCombatPolicy
+    [Serializable]
+    public struct AttackDecisionSettings
     {
-        public static bool TryBuildAttackIntent(
+        [SerializeField] private int attackRange;
+
+        public AttackDecisionSettings(int attackRange)
+        {
+            this.attackRange = attackRange;
+        }
+
+        public int AttackRange => attackRange;
+
+        public void Validate(string paramName)
+        {
+            if (attackRange <= 0)
+            {
+                throw new ArgumentException("Enemy attack decision settings require a positive attack range.", paramName);
+            }
+        }
+
+        public static AttackDecisionSettings CreateDefaultMelee()
+        {
+            return new AttackDecisionSettings(attackRange: 1);
+        }
+    }
+
+    public interface IAttackDecisionStrategy
+    {
+        bool TryBuildAttackIntent(
             WorldSnapshot snapshot,
             in EntityState source,
             in EntityState target,
-            in EnemyAiConfig config,
+            in EnemyAiCommonSettings commonSettings,
+            in AttackDecisionSettings settings,
+            out RawAttackIntent intent);
+
+        bool IsTargetInRange(
+            in EntityState source,
+            in EntityState target,
+            in AttackDecisionSettings settings);
+    }
+
+    public sealed class MeleeAttackDecisionStrategy : IAttackDecisionStrategy
+    {
+        public static readonly MeleeAttackDecisionStrategy Instance = new();
+
+        public bool TryBuildAttackIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            in EnemyAiCommonSettings commonSettings,
+            in AttackDecisionSettings settings,
             out RawAttackIntent intent)
         {
             if (snapshot == null)
@@ -20,26 +66,27 @@ namespace Game.Feature.Gameplay.Entities
 
             intent = default;
 
-            var distance = GetPlanarDistance(source.position, target.position);
-            if (!distance.HasValue || distance.Value > config.AttackRange)
+            if (!IsTargetInRange(source, target, settings))
             {
                 return false;
             }
 
             intent = new RawAttackIntent(
                 source.entityId,
-                config.AttackPriority,
+                commonSettings.AttackPriority,
                 target.entityId);
             return true;
         }
 
-        public static bool IsTargetInAttackRange(
+        public bool IsTargetInRange(
             in EntityState source,
             in EntityState target,
-            in EnemyAiConfig config)
+            in AttackDecisionSettings settings)
         {
+            settings.Validate(nameof(settings));
+
             var distance = GetPlanarDistance(source.position, target.position);
-            return distance.HasValue && distance.Value <= config.AttackRange;
+            return distance.HasValue && distance.Value <= settings.AttackRange;
         }
 
         private static int? GetPlanarDistance(SurfaceCell source, SurfaceCell target)
