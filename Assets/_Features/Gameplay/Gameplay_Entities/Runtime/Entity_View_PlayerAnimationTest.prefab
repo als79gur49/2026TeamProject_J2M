@@ -309,11 +309,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.PlayerActionTimingAuthoring
   pushExecuteDelaySeconds: 0.016666668
-  pushInputLockDurationSeconds: 0.016666668
-  pushPresentationDurationSeconds: 0.2
-  flipExecuteDelaySeconds: 0.016666668
-  flipInputLockDurationSeconds: 0.016666668
-  flipPresentationDurationSeconds: 0.2
+  pushInputLockDurationSeconds: 0.31666666
+  pushPresentationDurationSeconds: 0.6
+  flipExecuteDelaySeconds: 1.116667
+  flipInputLockDurationSeconds: 2.016667
+  flipPresentationDurationSeconds: 4.2
 --- !u!114 &8843883875010402886
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -327,14 +327,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.PlayerAnimatorDriver
   animator: {fileID: 8002113175247343230}
-  stateParameterName: PlayerPresentationState
   idleStateName: Idle
   walkStateName: Walk
   pushStateName: Push
   flipStateName: Flip
-  pushExecuteTriggerName: PushExecute
-  flipExecuteTriggerName: FlipExecute
-  crossFadeDurationSeconds: 0.08
+  stateTransitionCrossFadeDurationSeconds: 0.1
   actionTimingAuthoring: {fileID: 3345667788990011223}
 --- !u!1 &1555250594893369712
 GameObject:
