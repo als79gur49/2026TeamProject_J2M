@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -109,7 +110,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
             RefreshTransitionVisibilityState(result.PresentationData);
-            _animationSync.ApplyTickPresentation(result, _stateStore.ViewsByEntityId);
+            _animationSync.ApplyTickPresentation(result, _stateStore.ViewsByEntityId, ResolvePlayerMotionDurationSeconds);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -202,11 +203,13 @@ namespace Game.Feature.Gameplay.Host
 
                 var hasActiveMotion = _localMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
                                       activeMotionTrack.HasClips;
+                var resolvedPlayerAnimationState = _animationSync.ResolvePlayerAnimationState(entityId, HasActivePlayerWalkMotion(entityId));
                 _animationSync.SyncEnemyRuntimeState(entityId, isVisible, hasActiveMotion, _stateStore.ViewsByEntityId);
                 _animationSync.SyncPlayerRuntimeState(
                     entityId,
                     isVisible,
-                    _animationSync.ResolvePlayerAnimationState(entityId, HasActivePlayerWalkMotion(entityId)),
+                    resolvedPlayerAnimationState,
+                    ResolvePlayerAnimationStateMotionDurationSeconds(entityId, resolvedPlayerAnimationState),
                     _stateStore.ViewsByEntityId);
 
                 if (!isVisible)
@@ -244,6 +247,7 @@ namespace Game.Feature.Gameplay.Host
             _animationSync.SyncHiddenDrivers(
                 _visibleEntityIds,
                 entityId => _animationSync.ResolvePlayerAnimationState(entityId, hasActiveWalkMotion: false),
+                ResolvePlayerAnimationStateMotionDurationSeconds,
                 _stateStore.ViewsByEntityId);
         }
 
@@ -676,6 +680,30 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return ResolveGlobalMotionDurationSeconds(motionKind);
+        }
+
+        private float ResolvePlayerAnimationStateMotionDurationSeconds(
+            int entityId,
+            PlayerViewAnimationState animationState)
+        {
+            return animationState switch
+            {
+                PlayerViewAnimationState.Push => ResolveMotionDurationSeconds(entityId, TickEntityMotionKind.Push),
+                PlayerViewAnimationState.Flip => ResolveMotionDurationSeconds(entityId, TickEntityMotionKind.Flip),
+                _ => 0f,
+            };
+        }
+
+        private float ResolvePlayerMotionDurationSeconds(
+            int entityId,
+            PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => ResolveMotionDurationSeconds(entityId, TickEntityMotionKind.Push),
+                PlayerActionKind.Flip => ResolveMotionDurationSeconds(entityId, TickEntityMotionKind.Flip),
+                _ => 0f,
+            };
         }
 
         private float ResolveGlobalMotionDurationSeconds(TickEntityMotionKind motionKind)

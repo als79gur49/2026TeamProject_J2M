@@ -40,9 +40,9 @@ namespace Game.Feature.Gameplay.Host
 
         public int ActionExecuteSignalCount { get; private set; }
 
-        public float PushPresentationDurationSeconds => ResolveAnimationTiming().PushAnimatorDurationSeconds;
+        public float PushPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Push);
 
-        public float FlipPresentationDurationSeconds => ResolveAnimationTiming().FlipAnimatorDurationSeconds;
+        public float FlipPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Flip);
 
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
@@ -68,7 +68,10 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void SyncRuntimeState(bool isVisible, PlayerViewAnimationState resolvedState)
+        public void SyncRuntimeState(
+            bool isVisible,
+            PlayerViewAnimationState resolvedState,
+            float resolvedMotionDurationSeconds = 0f)
         {
             IsVisible = isVisible;
 
@@ -76,26 +79,35 @@ namespace Game.Feature.Gameplay.Host
             _pendingRestart = false;
             var executeActionKind = _pendingExecuteActionKind;
             _pendingExecuteActionKind = PlayerActionKind.None;
-            ApplyResolvedState(resolvedState, restart, executeActionKind);
+            ApplyResolvedState(resolvedState, restart, executeActionKind, resolvedMotionDurationSeconds);
         }
 
-        public float GetPresentationDurationSeconds(PlayerActionKind actionKind)
+        public float GetPresentationDurationSeconds(
+            PlayerActionKind actionKind,
+            float resolvedMotionDurationSeconds = 0f)
         {
-            return actionKind switch
+            var stateName = actionKind switch
             {
-                PlayerActionKind.Push => ResolveAnimationTiming().PushAnimatorDurationSeconds,
-                PlayerActionKind.Flip => ResolveAnimationTiming().FlipAnimatorDurationSeconds,
-                _ => 0f,
+                PlayerActionKind.Push => pushStateName,
+                PlayerActionKind.Flip => flipStateName,
+                _ => string.Empty,
             };
+
+            return ResolvePresentationDurationSeconds(
+                actionKind,
+                resolvedMotionDurationSeconds,
+                ResolveAnimator(),
+                stateName);
         }
 
         private void ApplyResolvedState(
             PlayerViewAnimationState resolvedState,
             bool restart,
-            PlayerActionKind executeActionKind)
+            PlayerActionKind executeActionKind,
+            float resolvedMotionDurationSeconds)
         {
             var targetAnimator = ResolveAnimator();
-            ApplyAnimatorSpeed(targetAnimator, resolvedState);
+            ApplyAnimatorSpeed(targetAnimator, resolvedState, resolvedMotionDurationSeconds);
             SyncOptionalStateParameter(targetAnimator, resolvedState);
 
             if (resolvedState == CurrentState &&
@@ -219,9 +231,12 @@ namespace Game.Feature.Gameplay.Host
             return _optionalStateParameterSupported;
         }
 
-        private void ApplyAnimatorSpeed(Animator targetAnimator, PlayerViewAnimationState resolvedState)
+        private void ApplyAnimatorSpeed(
+            Animator targetAnimator,
+            PlayerViewAnimationState resolvedState,
+            float resolvedMotionDurationSeconds)
         {
-            var targetSpeed = ResolveAnimatorSpeed(targetAnimator, resolvedState);
+            var targetSpeed = ResolveAnimatorSpeed(targetAnimator, resolvedState, resolvedMotionDurationSeconds);
             CurrentAnimatorSpeed = targetSpeed;
 
             if (targetAnimator != null)
@@ -230,7 +245,10 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private float ResolveAnimatorSpeed(Animator targetAnimator, PlayerViewAnimationState resolvedState)
+        private float ResolveAnimatorSpeed(
+            Animator targetAnimator,
+            PlayerViewAnimationState resolvedState,
+            float resolvedMotionDurationSeconds)
         {
             if (resolvedState != PlayerViewAnimationState.Push &&
                 resolvedState != PlayerViewAnimationState.Flip)
@@ -238,11 +256,37 @@ namespace Game.Feature.Gameplay.Host
                 return 1f;
             }
 
-            var presentationDurationSeconds = resolvedState == PlayerViewAnimationState.Push
-                ? ResolveAnimationTiming().PushAnimatorDurationSeconds
-                : ResolveAnimationTiming().FlipAnimatorDurationSeconds;
-            var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(targetAnimator, ResolveStateName(resolvedState));
+            var actionKind = resolvedState == PlayerViewAnimationState.Push
+                ? PlayerActionKind.Push
+                : PlayerActionKind.Flip;
+            var stateName = ResolveStateName(resolvedState);
+            var presentationDurationSeconds = ResolvePresentationDurationSeconds(
+                actionKind,
+                resolvedMotionDurationSeconds,
+                targetAnimator,
+                stateName);
+            var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(targetAnimator, stateName);
             return Mathf.Max(0.01f, referenceClipLengthSeconds / presentationDurationSeconds);
+        }
+
+        private float ResolvePresentationDurationSeconds(
+            PlayerActionKind actionKind,
+            float resolvedMotionDurationSeconds,
+            Animator targetAnimator,
+            string stateName)
+        {
+            var animationTiming = ResolveAnimationTiming();
+            if (animationTiming.TryGetAnimatorDurationOverride(actionKind, out var animatorDurationSeconds))
+            {
+                return animatorDurationSeconds;
+            }
+
+            if (resolvedMotionDurationSeconds > 0f)
+            {
+                return resolvedMotionDurationSeconds;
+            }
+
+            return ResolveReferenceClipLengthSeconds(targetAnimator, stateName);
         }
 
         private float ResolveReferenceClipLengthSeconds(Animator targetAnimator, string stateName)

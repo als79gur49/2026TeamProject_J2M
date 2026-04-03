@@ -1,5 +1,5 @@
 using System;
-using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
 using UnityEngine.Serialization;
@@ -19,13 +19,28 @@ namespace Game.Feature.Gameplay.Host
         public float PushAnimatorDurationSeconds { get; }
 
         public float FlipAnimatorDurationSeconds { get; }
+
+        public bool TryGetAnimatorDurationOverride(
+            PlayerActionKind actionKind,
+            out float durationSeconds)
+        {
+            durationSeconds = actionKind switch
+            {
+                PlayerActionKind.Push => PushAnimatorDurationSeconds,
+                PlayerActionKind.Flip => FlipAnimatorDurationSeconds,
+                _ => PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel,
+            };
+
+            return PlayerAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
     }
 
     [MovedFrom(false, "Game.Feature.Gameplay.Host", "Game.Feature.Gameplay.Host", "PlayerActionTimingAuthoring")]
     [DisallowMultipleComponent]
     public sealed class PlayerAnimationTimingAuthoring : MonoBehaviour
     {
-        public const float DefaultAnimatorDurationSeconds = GameplayTimingProfile.DefaultPushMotionDurationSeconds;
+        public const float UseResolvedMotionDurationSentinel = -1f;
+        public const float DefaultAnimatorDurationSeconds = UseResolvedMotionDurationSentinel;
 
         [FormerlySerializedAs("pushPresentationDurationSeconds")]
         [SerializeField] private float pushAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
@@ -50,13 +65,23 @@ namespace Game.Feature.Gameplay.Host
                 flipAnimatorDurationSeconds);
         }
 
+        public static bool IsAnimatorDurationOverride(float animatorDurationSeconds)
+        {
+            return animatorDurationSeconds > 0f;
+        }
+
         private static void ValidateAnimatorDuration(float animatorDurationSeconds, string parameterName)
         {
+            if (animatorDurationSeconds == UseResolvedMotionDurationSentinel)
+            {
+                return;
+            }
+
             if (animatorDurationSeconds <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
                     parameterName,
-                    "Animator duration must be greater than zero.");
+                    "Animator duration must be greater than zero, or -1 to use the resolved motion duration fallback.");
             }
         }
     }

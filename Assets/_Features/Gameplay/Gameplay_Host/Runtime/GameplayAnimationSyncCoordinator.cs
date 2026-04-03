@@ -57,7 +57,8 @@ namespace Game.Feature.Gameplay.Host
 
         public void ApplyTickPresentation(
             TickResult result,
-            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId,
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
         {
             _enemyViewPresentationMapper.Build(result, viewsByEntityId, _enemyViewPresentationStates);
             foreach (var pair in _enemyViewPresentationStates)
@@ -73,7 +74,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
-                    UpdatePlayerVisualHold(pair.Key, pair.Value, driver);
+                    UpdatePlayerVisualHold(pair.Key, pair.Value, driver, resolvePlayerMotionDurationSeconds);
                     driver.Apply(pair.Value);
                 }
             }
@@ -140,6 +141,7 @@ namespace Game.Feature.Gameplay.Host
         public void SyncHiddenDrivers(
             HashSet<int> visibleEntityIds,
             Func<int, PlayerViewAnimationState> resolveHiddenPlayerAnimationState,
+            Func<int, PlayerViewAnimationState, float> resolveHiddenPlayerMotionDurationSeconds,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
             foreach (var pair in _enemyAnimatorDriversByEntityId)
@@ -161,9 +163,11 @@ namespace Game.Feature.Gameplay.Host
 
                 if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
+                    var resolvedState = resolveHiddenPlayerAnimationState(pair.Key);
                     driver.SyncRuntimeState(
                         isVisible: false,
-                        resolveHiddenPlayerAnimationState(pair.Key));
+                        resolvedState,
+                        resolveHiddenPlayerMotionDurationSeconds(pair.Key, resolvedState));
                 }
             }
         }
@@ -172,11 +176,12 @@ namespace Game.Feature.Gameplay.Host
             int entityId,
             bool isVisible,
             PlayerViewAnimationState resolvedState,
+            float resolvedMotionDurationSeconds,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
             if (TryGetPlayerAnimatorDriver(entityId, viewsByEntityId, out var driver))
             {
-                driver.SyncRuntimeState(isVisible, resolvedState);
+                driver.SyncRuntimeState(isVisible, resolvedState, resolvedMotionDurationSeconds);
             }
         }
 
@@ -236,7 +241,8 @@ namespace Game.Feature.Gameplay.Host
         private void UpdatePlayerVisualHold(
             int entityId,
             in PlayerViewPresentationState state,
-            PlayerAnimatorDriver driver)
+            PlayerAnimatorDriver driver,
+            Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
         {
             if (state.CanceledThisTick)
             {
@@ -250,7 +256,11 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var presentationDurationSeconds = driver.GetPresentationDurationSeconds(state.ActiveActionKind);
+            var presentationDurationSeconds = driver.GetPresentationDurationSeconds(
+                state.ActiveActionKind,
+                resolvePlayerMotionDurationSeconds != null
+                    ? resolvePlayerMotionDurationSeconds(entityId, state.ActiveActionKind)
+                    : 0f);
             if (presentationDurationSeconds <= 0f)
             {
                 _playerVisualHoldStates.Remove(entityId);
