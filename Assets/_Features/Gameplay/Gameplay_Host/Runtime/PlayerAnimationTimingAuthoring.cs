@@ -97,6 +97,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             GetAnimationTimingAuthoring(playerViewPrefab, ownerDescription);
+            EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
         }
 
         public static void ValidatePlayerViewInstance(GameplayEntityView playerViewInstance, string ownerDescription)
