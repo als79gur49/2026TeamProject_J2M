@@ -444,7 +444,7 @@ namespace Game.Feature.Gameplay.Host
                         motion.MotionKind,
                         startLocalPose,
                         endLocalPose,
-                        ResolveMotionDurationSeconds(motion.MotionKind),
+                        ResolveMotionDurationSeconds(motion.EntityId, motion.MotionKind),
                         IsTopologyTransitionPresentation(presentationData.TopologyMotion),
                         _timingProfile.FlipArcHeightInCells * _projector.CellSize));
 
@@ -668,7 +668,17 @@ namespace Game.Feature.Gameplay.Host
                 : default;
         }
 
-        private float ResolveMotionDurationSeconds(TickEntityMotionKind motionKind)
+        private float ResolveMotionDurationSeconds(int entityId, TickEntityMotionKind motionKind)
+        {
+            if (TryResolveEntityMotionOverrideDurationSeconds(entityId, motionKind, out var durationSeconds))
+            {
+                return durationSeconds;
+            }
+
+            return ResolveGlobalMotionDurationSeconds(motionKind);
+        }
+
+        private float ResolveGlobalMotionDurationSeconds(TickEntityMotionKind motionKind)
         {
             return motionKind switch
             {
@@ -679,6 +689,24 @@ namespace Game.Feature.Gameplay.Host
                 TickEntityMotionKind.ProjectileMove => _timingProfile.ProjectileStepIntervalSeconds,
                 _ => _timingProfile.PushMotionDurationSeconds,
             };
+        }
+
+        private bool TryResolveEntityMotionOverrideDurationSeconds(
+            int entityId,
+            TickEntityMotionKind motionKind,
+            out float durationSeconds)
+        {
+            durationSeconds = 0f;
+
+            if (!_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) ||
+                view == null)
+            {
+                return false;
+            }
+
+            var authoring = EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(view);
+            return authoring != null &&
+                   authoring.TryGetMotionDurationOverride(motionKind, out durationSeconds);
         }
 
         private GameplayEntityPose ResolveMotionStartPose(

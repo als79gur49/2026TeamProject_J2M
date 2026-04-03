@@ -30,13 +30,14 @@
 - `PlayerAnimatorDriver`는 `PlayerAnimationTimingAuthoring`를 읽어 animator duration을 해석한다.
 - `EnemyAiProfile`는 적군 authoritative logic 전용 구조로 이미 잘 분리되어 있다.
 - `EnemyAnimatorDriver`는 적군 presentation-only 구조로 비교적 얇다.
-- `GameplayTickPresentationCoordinator`는 entity별이 아니라 motion kind별 전역 duration만 해석한다.
+- `GameplayTickPresentationCoordinator`는 entity별 `EntityMotionPresentationAuthoring` override와 global timing fallback을 함께 해석한다.
 
 즉:
 
-- player authoritative timing과 animator timing 분리는 3단계까지 완료됐고
+- player authoritative timing과 animator timing 분리는 완료됐고
 - enemy는 상대적으로 분리되어 있으며
-- 공용 actor presentation override 계층은 아직 없다
+- 공용 actor motion presentation override 계층과 entity-aware resolution은 들어갔고
+- animator duration fallback 정규화는 아직 남아 있다
 
 ## 3. 구현 원칙
 
@@ -235,6 +236,14 @@ entity motion presentation override
 
 - player와 enemy 모두 entity별 move / push / flip motion duration override를 사용할 수 있다.
 - override가 없으면 기존 전역값과 동일하게 동작한다.
+
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `GameplayTickPresentationCoordinator`는 `ResolveMotionDurationSeconds(int entityId, TickEntityMotionKind motionKind)` 경로로 변경했다.
+- coordinator는 `GameplayEntityView` root의 optional `EntityMotionPresentationAuthoring`를 entityId 기준으로 조회해 motion duration override를 우선 해석한다.
+- `EntityMotionPresentationAuthoring`가 없거나 해당 motion kind override가 없으면 기존 `GameplayTimingProfile` 전역 duration fallback을 그대로 사용한다.
+- `GameplayTickPresentationCoordinatorTests`를 추가해 player prefab override, enemy/custom view override, no-authoring global fallback 경로를 고정했다.
 
 ### 6-6. 6단계: animator duration fallback 정규화
 
