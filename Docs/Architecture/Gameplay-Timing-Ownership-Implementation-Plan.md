@@ -308,6 +308,15 @@ entity motion presentation override
 - 모든 씬과 prefab이 새 계층 구조를 따른다.
 - serialization break 없이 asset이 로드된다.
 
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `CombinedGameplayShowcase.unity`, `BoxInteractionShowcase.unity`, `CubeSurfaceTraversalShowcase.unity`의 installer serialization을 `playerControlTiming` 기준으로 migration했다.
+- `CombinedGameplayShowcase.unity`는 기존 `playerMoveCooldownSeconds = 0.5` 값을 `PlayerControlTimingSettings.MoveCooldownSeconds`로 이전하고, legacy fallback field는 `-1` sentinel로 정리했다.
+- `BoxInteractionShowcase.unity`와 `CubeSurfaceTraversalShowcase.unity`는 `MoveCooldownSeconds = -1`로 repeated move fallback 의도를 자산에 명시하도록 정리했다.
+- `CubeSurfaceTraversalShowcase.unity`는 더 이상 `initialMoveDelayTicks`, `repeatedMoveIntervalTicks`, `tickIntervalSeconds` 같은 구형 tick-era serialized field를 사용하지 않는다.
+- `GameplayShowcaseAssetMigrationTests`를 추가해 showcase scene / player test prefab이 새 timing ownership 자산 구조를 계속 유지하는지 guard한다.
+
 ## 7. 테스트 계획
 
 다음 테스트는 필수다.
