@@ -200,6 +200,15 @@
 - actor-specific root motion override를 공용 authoring으로 표현 가능하다.
 - player와 enemy에 같은 구조를 재사용할 수 있다.
 
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `EntityMotionPresentationAuthoring`와 `EntityMotionPresentationSnapshot`를 추가했다.
+- `moveMotionDurationSeconds`, `pushMotionDurationSeconds`, `flipMotionDurationSeconds`는 `-1f` sentinel로 global timing fallback을 표현하도록 고정했다.
+- `PlayerViewPrefabRequirements`는 player prefab root에 이 컴포넌트가 부착된 경우 함께 validation하도록 갱신했다.
+- `Entity_View_PlayerAnimationTest.prefab`와 test utility를 공용 motion presentation authoring 기준으로 migration했다.
+- primitive auto-created view는 계속 미부착 상태를 허용하며, entity-aware resolution 연결은 5단계에서 진행한다.
+
 ### 6-5. 5단계: presentation coordinator를 entity-aware로 변경
 
 목표는 motion duration resolution이 entity별 override를 해석할 수 있도록 만드는 것이다.
