@@ -176,7 +176,10 @@ namespace Game.Feature.Gameplay.Host
         {
             return new Bounds(
                 GetCubeCenter(),
-                new Vector3(_halfWidth * 2f, _halfHeight * 2f, _halfDepth * 2f));
+                new Vector3(
+                    _halfWidth * 2f,
+                    (_halfHeight + _faceSeamHalfGap) * 2f,
+                    (_halfDepth + _faceSeamHalfGap) * 2f));
         }
 
         public Vector3 GetCubeCenter()
@@ -255,32 +258,28 @@ namespace Game.Feature.Gameplay.Host
 
         private FaceFrame ResolveFrame(CubeFaceSlot slot)
         {
+            var referenceFaceDistance = _halfHeight + _faceSeamHalfGap;
+            var referenceFrame = new FaceFrame(
+                Vector3.down,
+                Vector3.right,
+                Vector3.forward,
+                Vector3.down * referenceFaceDistance,
+                Quaternion.LookRotation(Vector3.down, Vector3.forward));
+            var slotRotation = ResolveSlotRotation(slot);
+
+            // Every physical slot is the same exploded cube face rotated around the cube's X axis.
+            // The seam gap is applied only along the slot normal so the face centers stay on a rigid cube.
+            return referenceFrame.Rotate(slotRotation);
+        }
+
+        private static Quaternion ResolveSlotRotation(CubeFaceSlot slot)
+        {
             return slot switch
             {
-                CubeFaceSlot.Bottom => new FaceFrame(
-                    Vector3.down,
-                    Vector3.right,
-                    Vector3.forward,
-                    (Vector3.down * _halfHeight) + (Vector3.back * _faceSeamHalfGap),
-                    Quaternion.LookRotation(Vector3.down, Vector3.forward)),
-                CubeFaceSlot.Front => new FaceFrame(
-                    Vector3.forward,
-                    Vector3.right,
-                    Vector3.up,
-                    (Vector3.forward * _halfDepth) + (Vector3.up * _faceSeamHalfGap),
-                    Quaternion.LookRotation(Vector3.forward, Vector3.up)),
-                CubeFaceSlot.Top => new FaceFrame(
-                    Vector3.up,
-                    Vector3.right,
-                    Vector3.back,
-                    (Vector3.up * _halfHeight) + (Vector3.back * _faceSeamHalfGap),
-                    Quaternion.LookRotation(Vector3.up, Vector3.back)),
-                CubeFaceSlot.Back => new FaceFrame(
-                    Vector3.back,
-                    Vector3.right,
-                    Vector3.up,
-                    (Vector3.back * _halfDepth) + (Vector3.up * _faceSeamHalfGap),
-                    Quaternion.LookRotation(Vector3.back, Vector3.up)),
+                CubeFaceSlot.Bottom => Quaternion.identity,
+                CubeFaceSlot.Front => Quaternion.Euler(-90f, 0f, 0f),
+                CubeFaceSlot.Top => Quaternion.Euler(180f, 0f, 0f),
+                CubeFaceSlot.Back => Quaternion.Euler(90f, 0f, 0f),
                 _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, null),
             };
         }
@@ -343,6 +342,16 @@ namespace Game.Feature.Gameplay.Host
             public Vector3 PlaneCenterOffset { get; }
 
             public Quaternion Rotation { get; }
+
+            public FaceFrame Rotate(Quaternion rotation)
+            {
+                return new FaceFrame(
+                    rotation * Normal,
+                    rotation * PositionRightAxis,
+                    rotation * PositionUpAxis,
+                    rotation * PlaneCenterOffset,
+                    rotation * Rotation);
+            }
         }
     }
 }

@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.Host
 
         private readonly List<Material> _ownedMaterials = new();
         private readonly List<SurfaceTileView> _steadyTilePool = new();
+        private readonly List<SurfaceTransitionTileState> _transitionTileStates = new();
         private readonly List<SurfaceTileView> _transitionTilePool = new();
 
         private BoardBounds _boardBounds;
@@ -28,10 +29,11 @@ namespace Game.Feature.Gameplay.Host
         private Material _decorativeBackFaceMaterial;
         private Material _decorativeTopFaceMaterial;
         private bool _isInitialized;
+        private bool _areSteadyTilesVisible = true;
         private CubeTopologyState _steadyTopology;
         private GameplayCubeProjector _projector;
 
-        public int ActiveTileCount => SteadyTileCount + TransitionTileCount;
+        public int ActiveTileCount => (_areSteadyTilesVisible ? SteadyTileCount : 0) + TransitionTileCount;
 
         public bool IsTopologyTransitionActive => TransitionTileCount > 0;
 
@@ -96,7 +98,7 @@ namespace Game.Feature.Gameplay.Host
             EnsureTransitionTilePoolRoot();
             EnsureMaterials();
             EnsureTilePool(_steadyTilePool, VisibleTilePoolRoot, GetRequiredTileCount());
-            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTileCount());
+            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTransitionTileCount());
             _isInitialized = true;
             RefreshTopology(topology);
         }
@@ -115,50 +117,70 @@ namespace Game.Feature.Gameplay.Host
         {
             EnsureInitialized();
 
-            RefreshSteadyTopology(destinationTopology);
             ClearTopologyTransition();
-            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTileCount());
+            if (!_steadyTopology.Equals(sourceTopology))
+            {
+                RefreshSteadyTopology(sourceTopology);
+            }
+
+            SetSteadyTilesActive(isActive: false);
+            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTransitionTileCount());
 
             var tileScale = ResolveTileScale();
             var tileIndex = 0;
 
-            tileIndex = PopulateRetainedFaceTilesIfNeeded(
-                sourceTopology.BottomFace,
+            tileIndex = PopulateTransitionFaceTilesIfNeeded(
+                FaceId.Floor,
                 sourceTopology,
-                SurfaceTileRole.ActiveBottom,
+                destinationTopology,
                 tileScale,
                 tileIndex,
                 transitionStartRotation);
-            tileIndex = PopulateRetainedFaceTilesIfNeeded(
-                sourceTopology.FrontFace,
+            tileIndex = PopulateTransitionFaceTilesIfNeeded(
+                FaceId.Front,
                 sourceTopology,
-                SurfaceTileRole.ActiveFront,
+                destinationTopology,
                 tileScale,
                 tileIndex,
                 transitionStartRotation);
-
-            if (renderDecorativeFaces)
-            {
-                tileIndex = PopulateRetainedFaceTilesIfNeeded(
-                    FaceIdUtility.GetNext(sourceTopology.FrontFace),
-                    sourceTopology,
-                    SurfaceTileRole.DecorativeTop,
-                    tileScale,
-                    tileIndex,
-                    transitionStartRotation);
-                tileIndex = PopulateRetainedFaceTilesIfNeeded(
-                    FaceIdUtility.GetPrevious(sourceTopology.BottomFace),
-                    sourceTopology,
-                    SurfaceTileRole.DecorativeBack,
-                    tileScale,
-                    tileIndex,
-                    transitionStartRotation);
-            }
+            tileIndex = PopulateTransitionFaceTilesIfNeeded(
+                FaceId.Ceiling,
+                sourceTopology,
+                destinationTopology,
+                tileScale,
+                tileIndex,
+                transitionStartRotation);
+            tileIndex = PopulateTransitionFaceTilesIfNeeded(
+                FaceId.Back,
+                sourceTopology,
+                destinationTopology,
+                tileScale,
+                tileIndex,
+                transitionStartRotation);
 
             TransitionTileCount = tileIndex;
             for (var i = tileIndex; i < _transitionTilePool.Count; i++)
             {
                 _transitionTilePool[i].SetActive(false);
+            }
+        }
+
+        public void UpdateTopologyTransition(float progress)
+        {
+            EnsureInitialized();
+
+            if (TransitionTileCount <= 0)
+            {
+                return;
+            }
+
+            _ = Mathf.Clamp01(progress);
+
+            var tileScale = ResolveTileScale();
+            for (var i = 0; i < TransitionTileCount; i++)
+            {
+                var tileState = _transitionTileStates[i];
+                ApplyTilePose(_transitionTilePool[i], tileState.TileRole, tileState.Cell, tileState.LocalPose, tileScale);
             }
         }
 
@@ -172,6 +194,8 @@ namespace Game.Feature.Gameplay.Host
         public void ClearTopologyTransition()
         {
             TransitionTileCount = 0;
+            _transitionTileStates.Clear();
+            SetSteadyTilesActive(isActive: true);
             for (var i = 0; i < _transitionTilePool.Count; i++)
             {
                 _transitionTilePool[i].SetActive(false);
@@ -218,6 +242,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             SteadyTileCount = tileIndex;
+            _areSteadyTilesVisible = true;
             for (var i = tileIndex; i < _steadyTilePool.Count; i++)
             {
                 _steadyTilePool[i].SetActive(false);
@@ -380,37 +405,48 @@ namespace Game.Feature.Gameplay.Host
             return tileIndex;
         }
 
-        private int PopulateRetainedFaceTilesIfNeeded(
+        private int PopulateTransitionFaceTilesIfNeeded(
             FaceId face,
             CubeTopologyState sourceTopology,
-            SurfaceTileRole tileRole,
+            CubeTopologyState destinationTopology,
             Vector3 tileScale,
             int tileIndex,
             Quaternion transitionStartRotation)
         {
-            if (!IsFaceVisibleInTopology(face, sourceTopology) ||
-                IsFaceVisibleInTopology(face, SteadyTopology))
+            if (!IsFaceVisibleInTopology(face, sourceTopology) &&
+                !IsFaceVisibleInTopology(face, destinationTopology))
             {
                 return tileIndex;
             }
+
+            var tileRole = ResolveTransitionTileRole(face, sourceTopology, destinationTopology);
 
             for (var y = _boardBounds.MinInclusive.y; y <= _boardBounds.MaxInclusive.y; y++)
             {
                 for (var x = _boardBounds.MinInclusive.x; x <= _boardBounds.MaxInclusive.x; x++)
                 {
                     var cell = new SurfaceCell(face, x, y);
-                    if (!TryResolveRetainedTransitionTilePose(
+                    if (!TryResolveTransitionTileLocalPose(
                             cell,
                             sourceTopology,
                             transitionStartRotation,
-                            out var projectedPose))
+                            out var localPose))
                     {
                         throw new InvalidOperationException(
-                            $"Failed to project retained board surface cell '{cell}' for topology '{sourceTopology}'.");
+                            $"Failed to project board surface transition cell '{cell}' from '{sourceTopology}' to '{destinationTopology}'.");
                     }
 
                     var tileView = _transitionTilePool[tileIndex++];
-                    ApplyTilePose(tileView, tileRole, cell, projectedPose, tileScale);
+                    if (_transitionTileStates.Count < tileIndex)
+                    {
+                        _transitionTileStates.Add(new SurfaceTransitionTileState(cell, tileRole, localPose));
+                    }
+                    else
+                    {
+                        _transitionTileStates[tileIndex - 1] = new SurfaceTransitionTileState(cell, tileRole, localPose);
+                    }
+
+                    ApplyTilePose(tileView, tileRole, cell, localPose, tileScale);
                 }
             }
 
@@ -424,9 +460,24 @@ namespace Game.Feature.Gameplay.Host
             ProjectedCellPose projectedPose,
             Vector3 tileScale)
         {
+            ApplyTilePose(
+                tileView,
+                tileRole,
+                cell,
+                ResolveTileLocalPose(projectedPose, tileScale),
+                tileScale);
+        }
+
+        private void ApplyTilePose(
+            SurfaceTileView tileView,
+            SurfaceTileRole tileRole,
+            SurfaceCell cell,
+            GameplayEntityPose localPose,
+            Vector3 tileScale)
+        {
             tileView.GameObject.name = $"{tileRole}_{cell.face}_{cell.x}_{cell.y}";
-            tileView.Transform.localPosition = projectedPose.LocalPosition - (projectedPose.Normal * (tileScale.z * 0.5f));
-            tileView.Transform.localRotation = projectedPose.LocalRotation;
+            tileView.Transform.localPosition = localPose.Position;
+            tileView.Transform.localRotation = localPose.Rotation;
             tileView.Transform.localScale = tileScale;
             tileView.Renderer.sharedMaterial = ResolveMaterial(tileRole);
             tileView.SetActive(true);
@@ -438,6 +489,13 @@ namespace Game.Feature.Gameplay.Host
             var height = _boardBounds.MaxInclusive.y - _boardBounds.MinInclusive.y + 1;
             var visibleFaceCount = renderDecorativeFaces ? 4 : 2;
             return width * height * visibleFaceCount;
+        }
+
+        private int GetRequiredTransitionTileCount()
+        {
+            var width = _boardBounds.MaxInclusive.x - _boardBounds.MinInclusive.x + 1;
+            var height = _boardBounds.MaxInclusive.y - _boardBounds.MinInclusive.y + 1;
+            return width * height * 4;
         }
 
         private Vector3 ResolveTileScale()
@@ -476,26 +534,93 @@ namespace Game.Feature.Gameplay.Host
                    face == FaceIdUtility.GetPrevious(topology.BottomFace);
         }
 
-        private bool TryResolveRetainedTransitionTilePose(
+        private SurfaceTileRole ResolveTransitionTileRole(
+            FaceId face,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology)
+        {
+            if (TryResolveTileRole(face, sourceTopology, out var sourceTileRole))
+            {
+                return sourceTileRole;
+            }
+
+            if (TryResolveTileRole(face, destinationTopology, out var destinationTileRole))
+            {
+                return destinationTileRole;
+            }
+
+            throw new InvalidOperationException($"Face '{face}' is not visible in either transition topology.");
+        }
+
+        private bool TryResolveTileRole(FaceId face, CubeTopologyState topology, out SurfaceTileRole tileRole)
+        {
+            if (face == topology.BottomFace)
+            {
+                tileRole = SurfaceTileRole.ActiveBottom;
+                return true;
+            }
+
+            if (face == topology.FrontFace)
+            {
+                tileRole = SurfaceTileRole.ActiveFront;
+                return true;
+            }
+
+            if (renderDecorativeFaces && face == FaceIdUtility.GetNext(topology.FrontFace))
+            {
+                tileRole = SurfaceTileRole.DecorativeTop;
+                return true;
+            }
+
+            if (renderDecorativeFaces && face == FaceIdUtility.GetPrevious(topology.BottomFace))
+            {
+                tileRole = SurfaceTileRole.DecorativeBack;
+                return true;
+            }
+
+            tileRole = default;
+            return false;
+        }
+
+        private void SetSteadyTilesActive(bool isActive)
+        {
+            _areSteadyTilesVisible = isActive;
+            for (var i = 0; i < SteadyTileCount && i < _steadyTilePool.Count; i++)
+            {
+                _steadyTilePool[i].SetActive(isActive);
+            }
+        }
+
+        private GameplayEntityPose ResolveTileLocalPose(ProjectedCellPose projectedPose, Vector3 tileScale)
+        {
+            return new GameplayEntityPose(
+                projectedPose.LocalPosition - (projectedPose.Normal * (tileScale.z * 0.5f)),
+                projectedPose.LocalRotation);
+        }
+
+        private bool TryResolveTransitionTileLocalPose(
             SurfaceCell cell,
             CubeTopologyState sourceTopology,
             Quaternion transitionStartRotation,
-            out ProjectedCellPose projectedPose)
+            out GameplayEntityPose localPose)
         {
             if (!_projector.TryProjectSurfaceCell(
                     cell,
                     sourceTopology,
                     out var sourceProjectedPose))
             {
-                projectedPose = default;
+                localPose = default;
                 return false;
             }
 
+            var tileScale = ResolveTileScale();
             var inverseTransitionStartRotation = Quaternion.Inverse(transitionStartRotation);
-            projectedPose = new ProjectedCellPose(
-                inverseTransitionStartRotation * sourceProjectedPose.LocalPosition,
-                inverseTransitionStartRotation * sourceProjectedPose.LocalRotation,
-                inverseTransitionStartRotation * sourceProjectedPose.Normal);
+            localPose = ResolveTileLocalPose(
+                new ProjectedCellPose(
+                    inverseTransitionStartRotation * sourceProjectedPose.LocalPosition,
+                    inverseTransitionStartRotation * sourceProjectedPose.LocalRotation,
+                    inverseTransitionStartRotation * sourceProjectedPose.Normal),
+                tileScale);
             return true;
         }
 
@@ -505,6 +630,25 @@ namespace Game.Feature.Gameplay.Host
             ActiveFront = 1,
             DecorativeTop = 2,
             DecorativeBack = 3,
+        }
+
+        private readonly struct SurfaceTransitionTileState
+        {
+            public SurfaceTransitionTileState(
+                SurfaceCell cell,
+                SurfaceTileRole tileRole,
+                GameplayEntityPose localPose)
+            {
+                Cell = cell;
+                TileRole = tileRole;
+                LocalPose = localPose;
+            }
+
+            public SurfaceCell Cell { get; }
+
+            public SurfaceTileRole TileRole { get; }
+
+            public GameplayEntityPose LocalPose { get; }
         }
 
         private sealed class SurfaceTileView

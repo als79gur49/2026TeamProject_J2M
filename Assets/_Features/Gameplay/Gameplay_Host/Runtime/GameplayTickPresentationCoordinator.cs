@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayBoardSurfaceRenderer _boardSurfaceRenderer;
         private bool _isBoardSurfaceTransitionActive;
         private bool _isInitialized;
+        private Quaternion _boardSurfaceTransitionStartRotation = Quaternion.identity;
         private Quaternion _presentedBoardRotation = Quaternion.identity;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
@@ -77,6 +78,7 @@ namespace Game.Feature.Gameplay.Host
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _topologyRotationVisualMapping = topologyRotationVisualMapping;
             _presentedBoardRotation = Quaternion.identity;
+            _boardSurfaceTransitionStartRotation = Quaternion.identity;
             _isBoardSurfaceTransitionActive = false;
 
             _boardRotationTrack.Clear();
@@ -125,6 +127,7 @@ namespace Game.Feature.Gameplay.Host
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
             _presentedBoardRotation = Quaternion.identity;
+            _boardSurfaceTransitionStartRotation = Quaternion.identity;
             _isBoardSurfaceTransitionActive = false;
 
             StoreCommittedFrame(entities, topology);
@@ -155,6 +158,7 @@ namespace Game.Feature.Gameplay.Host
                 ? _boardRotationTrack.SampleAndAdvance(deltaTime, Quaternion.identity)
                 : Quaternion.identity;
             ApplyPresentedBoardRotation(presentedBoardRotation);
+            UpdateBoardSurfaceTransition(presentedBoardRotation);
             CleanupCompletedBoardSurfaceTransitionState();
             CleanupCompletedTopologyTransitionState();
 
@@ -308,6 +312,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _boardSurfaceRenderer.CompleteTopologyTransition(_stateStore.CommittedTopology);
+            _boardSurfaceTransitionStartRotation = Quaternion.identity;
             _isBoardSurfaceTransitionActive = false;
         }
 
@@ -525,16 +530,42 @@ namespace Game.Feature.Gameplay.Host
             if (!IsTopologyTransitionPresentation(presentationData.TopologyMotion))
             {
                 _boardSurfaceRenderer.CompleteTopologyTransition(_stateStore.CommittedTopology);
+                _boardSurfaceTransitionStartRotation = Quaternion.identity;
                 _isBoardSurfaceTransitionActive = false;
                 return;
             }
 
             var topologyMotion = presentationData.TopologyMotion.Value;
+            _boardSurfaceTransitionStartRotation = _presentedBoardRotation;
             _boardSurfaceRenderer.BeginTopologyTransition(
                 topologyMotion.SourceTopology,
                 topologyMotion.DestinationTopology,
-                ResolveTopologyRotationOffset(topologyMotion.RotationKind));
+                _boardSurfaceTransitionStartRotation);
             _isBoardSurfaceTransitionActive = true;
+        }
+
+        private void UpdateBoardSurfaceTransition(Quaternion presentedBoardRotation)
+        {
+            if (!_isBoardSurfaceTransitionActive ||
+                _boardSurfaceRenderer == null)
+            {
+                return;
+            }
+
+            _boardSurfaceRenderer.UpdateTopologyTransition(
+                ResolveBoardSurfaceTransitionProgress(presentedBoardRotation));
+        }
+
+        private float ResolveBoardSurfaceTransitionProgress(Quaternion presentedBoardRotation)
+        {
+            var totalAngle = Quaternion.Angle(_boardSurfaceTransitionStartRotation, Quaternion.identity);
+            if (totalAngle <= 0.001f)
+            {
+                return 1f;
+            }
+
+            var remainingAngle = Quaternion.Angle(presentedBoardRotation, Quaternion.identity);
+            return Mathf.Clamp01(1f - (remainingAngle / totalAngle));
         }
 
         private void RefreshVisibilityTracks(
