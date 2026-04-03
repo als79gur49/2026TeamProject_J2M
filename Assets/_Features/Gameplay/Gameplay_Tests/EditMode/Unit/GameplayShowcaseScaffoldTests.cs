@@ -1,7 +1,9 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -74,7 +76,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
                 SetBaseInstallerField(installer, "actions", actions);
-                SetBaseInstallerField(installer, "playerMoveCooldownSeconds", 0.35f);
+                SetBaseInstallerField(
+                    installer,
+                    "playerControlTiming",
+                    new PlayerControlTimingSettings
+                    {
+                        MoveCooldownSeconds = 0.35f,
+                    });
                 SetBaseInstallerField(installer, "topologyMotionDurationSeconds", 0.45f);
                 SetBaseInstallerField(
                     installer,
@@ -190,6 +198,67 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "Move: WASD",
                     new[] { "Highlight" });
             }
+        }
+    }
+
+    public sealed class GameplayShowcaseAssetMigrationTests
+    {
+        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
+        private const string BoxInteractionScenePath = "Assets/Scenes/BoxInteractionShowcase.unity";
+        private const string TraversalScenePath = "Assets/Scenes/CubeSurfaceTraversalShowcase.unity";
+        private const string PlayerAnimationTestPrefabPath =
+            "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Entity_View_PlayerAnimationTest.prefab";
+
+        [Test]
+        public void CombinedGameplayShowcaseScene_SerializesPlayerControlTimingInsteadOfLegacyCooldownField()
+        {
+            var sceneText = ReadNormalizedText(CombinedScenePath);
+
+            StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: 0.5", sceneText);
+            StringAssert.Contains("playerMoveCooldownSeconds: -1", sceneText);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds: 0.5", sceneText);
+        }
+
+        [Test]
+        public void BoxInteractionShowcaseScene_SerializesPlayerControlTimingDefaults()
+        {
+            var sceneText = ReadNormalizedText(BoxInteractionScenePath);
+
+            StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: -1", sceneText);
+            StringAssert.Contains("playerMoveCooldownSeconds: -1", sceneText);
+        }
+
+        [Test]
+        public void CubeSurfaceTraversalShowcaseScene_DropsLegacyTickSerializedFields()
+        {
+            var sceneText = ReadNormalizedText(TraversalScenePath);
+
+            StringAssert.DoesNotContain("initialMoveDelayTicks", sceneText);
+            StringAssert.DoesNotContain("repeatedMoveIntervalTicks", sceneText);
+            StringAssert.DoesNotContain("tickIntervalSeconds", sceneText);
+            StringAssert.Contains("initialMoveDelaySeconds: 0", sceneText);
+            StringAssert.Contains("repeatedMoveIntervalSeconds: 0.4", sceneText);
+            StringAssert.Contains("playerControlTiming:", sceneText);
+        }
+
+        [Test]
+        public void PlayerAnimationTestPrefab_UsesPresentationOnlyTimingAuthoringComponents()
+        {
+            var prefabText = ReadNormalizedText(PlayerAnimationTestPrefabPath);
+
+            StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
+            StringAssert.Contains("PlayerAnimationTimingAuthoring", prefabText);
+            StringAssert.DoesNotContain("PlayerActionTimingAuthoring", prefabText);
+            StringAssert.DoesNotContain("pushPresentationDurationSeconds", prefabText);
+            StringAssert.DoesNotContain("flipPresentationDurationSeconds", prefabText);
+        }
+
+        private static string ReadNormalizedText(string assetPath)
+        {
+            var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? string.Empty;
+            var normalizedAssetPath = assetPath.Replace('/', Path.DirectorySeparatorChar);
+            var fullPath = Path.Combine(projectRoot, normalizedAssetPath);
+            return File.ReadAllText(fullPath).Replace("\r\n", "\n");
         }
     }
 }
