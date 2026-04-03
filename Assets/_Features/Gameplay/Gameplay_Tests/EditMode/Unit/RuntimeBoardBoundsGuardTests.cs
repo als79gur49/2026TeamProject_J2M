@@ -434,15 +434,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_Throws()
+        public void GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming()
         {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_Throws");
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming");
 
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
 
-                var exception = Assert.Throws<InvalidOperationException>(
+                Assert.DoesNotThrow(
                     () => host.Initialize(
                         new GameplaySceneHostConfiguration
                         {
@@ -468,7 +468,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         }));
 
-                Assert.That(exception.Message, Does.Contain(nameof(GameplaySceneHostConfiguration.PlayerViewPrefab)));
+                Assert.That(host.TimingProfile.PlayerMoveCooldownSeconds, Is.EqualTo(GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds));
+                Assert.That(host.TimingProfile.PlayerPushContactThresholdSeconds, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds));
+                Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
             }
             finally
             {
