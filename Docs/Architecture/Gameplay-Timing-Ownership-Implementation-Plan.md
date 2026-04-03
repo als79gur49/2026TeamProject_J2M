@@ -265,6 +265,13 @@ entity motion presentation override
 - `push / flip` animator duration의 canonical source가 명확해진다.
 - 의도된 override가 아닌 값 드리프트를 제거한다.
 
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `PlayerAnimationTimingAuthoring`는 `-1f` sentinel로 resolved motion fallback 의도를 표현하도록 갱신했다.
+- `GameplayAnimationSyncCoordinator`와 `GameplayTickPresentationCoordinator`는 player action hold duration을 `animator override -> resolved motion duration -> clip natural length` 순서로 해석한다.
+- `PlayerAnimatorDriver`는 explicit animator override가 없을 때 push / flip animator speed를 resolved motion duration에 맞춰 계산한다.
+
 ### 6-7. 7단계: enemy future extension hook 정리
 
 목표는 지금 당장 enemy animation authoring을 대규모 도입하지 않더라도, 이후 확장 지점을 문서와 코드에서 열어두는 것이다.
@@ -283,6 +290,12 @@ entity motion presentation override
 완료 조건:
 
 - 적별 animation 확장이 필요해져도 `EnemyAiProfile`을 오염시키지 않는다.
+
+진행 상태:
+
+- 2026-04-04 1차 guard 완료
+- `EnemyAnimatorDriver`는 계속 presentation-only 경계를 유지한다.
+- `GameplayTimingOwnershipTests`의 contract test로 `EnemyAiProfile` serialized surface에 presentation field가 섞이지 않도록 고정했다.
 
 ### 6-8. 8단계: 씬 / 프리팹 / 테스트 migration
 
@@ -344,6 +357,13 @@ entity motion presentation override
 - 기존 showcase scene 로드 가능 여부
 - player prefab validation 통과 여부
 - primitive player view 자동 생성 경로에서 새 기본값이 정상 적용되는지 검증
+
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `GameplayTimingOwnershipTests`를 추가해 player prefab 없는 bootstrap, primitive player view 자동 생성 fallback, player animator override precedence, `EnemyAiProfile` contract를 검증한다.
+- `RuntimeBoardBoundsGuardTests`는 기존 no-player-prefab 실패 가드를 success-path ownership 검증으로 전환했다.
+- 기존 `GameplayTickPresentationCoordinatorTests`, `TickReplayDeterminismTests`, `GameplayShowcaseAssetMigrationTests`와 합쳐 ownership / fallback / determinism / asset migration 경로를 계속 guard한다.
 
 ## 8. 구현 순서 권장안
 
