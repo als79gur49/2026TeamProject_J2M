@@ -9,8 +9,8 @@ namespace Game.Feature.Gameplay.Host
     {
         private const int TraversalColumn = 1;
         private const int LeftBoxLaneColumn = 3;
-        private const int RightBoxLaneColumn = 10;
-        private const int SurfaceSlideColumn = 14;
+        private const int RightBoxLaneColumn = 7;
+        private const int SurfaceSlideColumn = 9;
         private const int FloorChargingEnemyEntityId = 50;
         private const int FrontScoutEnemyEntityId = 51;
 
@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return new BoardBounds(
                 minInclusive: new Vector2Int(0, 0),
-                maxInclusive: new Vector2Int(15, 6));
+                maxInclusive: new Vector2Int(10, 6));
         }
 
         protected override void PopulateInitialEntities(List<EntityState> entities, BoardBounds boardBounds)
@@ -54,20 +54,20 @@ namespace Game.Feature.Gameplay.Host
                 Direction.Down));
 
             entities.Add(CreateBox(30, new SurfaceCell(FaceId.Floor, LeftBoxLaneColumn, 1), BoxCapabilities.Push));
-            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 7, 1)));
+            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 5, 1)));
 
             entities.Add(CreateBox(31, new SurfaceCell(FaceId.Floor, LeftBoxLaneColumn, 3), BoxCapabilities.Item));
-            entities.Add(CreateBox(36, new SurfaceCell(FaceId.Floor, 6, 3), BoxCapabilities.Push | BoxCapabilities.Destroy));
-            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 7, 3)));
+            entities.Add(CreateBox(36, new SurfaceCell(FaceId.Floor, 5, 3), BoxCapabilities.Push | BoxCapabilities.Destroy));
+            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 6, 3)));
 
             entities.Add(CreateBox(32, new SurfaceCell(FaceId.Floor, LeftBoxLaneColumn, 5), BoxCapabilities.Flip, Direction.Left));
 
             entities.Add(CreateBox(33, new SurfaceCell(FaceId.Floor, RightBoxLaneColumn, 1), BoxCapabilities.Push | BoxCapabilities.Flip));
-            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 14, 1)));
+            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 9, 1)));
 
             entities.Add(CreateBox(34, new SurfaceCell(FaceId.Floor, RightBoxLaneColumn, 3), BoxCapabilities.Flip | BoxCapabilities.Item, Direction.Left));
-            entities.Add(CreateBox(37, new SurfaceCell(FaceId.Floor, 13, 3), BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy));
-            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 14, 3)));
+            entities.Add(CreateBox(37, new SurfaceCell(FaceId.Floor, 8, 3), BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Destroy));
+            entities.Add(CreateWall(nextEntityId++, new SurfaceCell(FaceId.Floor, 9, 3)));
             entities.Add(CreateBox(35, new SurfaceCell(FaceId.Floor, RightBoxLaneColumn, 5), BoxCapabilities.Push | BoxCapabilities.Flip | BoxCapabilities.Item));
 
             entities.Add(CreateBox(40, new SurfaceCell(FaceId.Floor, SurfaceSlideColumn, boardBounds.MaxInclusive.y), BoxCapabilities.Push, Direction.Up));

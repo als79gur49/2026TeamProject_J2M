@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 InvokePopulateInitialEntities(installer, entities, boardBounds);
 
-                var sharedEdgeOpeningColumns = new[] { 1, 3, 10, 14 };
+                var sharedEdgeOpeningColumns = new[] { 1, 3, 7, 9 };
                 foreach (var face in new[] { FaceId.Floor, FaceId.Front, FaceId.Ceiling, FaceId.Back })
                 {
                     for (var i = 0; i < sharedEdgeOpeningColumns.Length; i++)
@@ -49,7 +49,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.True,
                     "Columns outside the designated shared-edge cutouts should stay walled.");
                 Assert.That(
-                    HasWallAt(entities, new SurfaceCell(FaceId.Floor, 11, boardBounds.MinInclusive.y)),
+                    HasWallAt(entities, new SurfaceCell(FaceId.Floor, 10, boardBounds.MinInclusive.y)),
                     Is.True,
                     "Only the configured box lanes and traversal lanes should open shared edges.");
             }
@@ -73,7 +73,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 InvokePopulateInitialEntities(installer, entities, boardBounds);
 
                 Assert.That(
-                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Floor, 14, boardBounds.MaxInclusive.y)),
+                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Floor, 9, boardBounds.MaxInclusive.y)),
                     Is.True,
                     "Floor should retain the dedicated top-edge push box.");
                 Assert.That(
@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.True,
                     "Front should start with a pushable box near a shared edge opening.");
                 Assert.That(
-                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Ceiling, 10, 1)),
+                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Ceiling, 7, 1)),
                     Is.True,
                     "Ceiling should start with a pushable box near a shared edge opening.");
                 Assert.That(
@@ -154,6 +154,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(TryGetProfileOverride(configuration, 51, out var frontScoutProfile), Is.True);
                 Assert.That(frontScoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
                 Assert.That(frontScoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            }
+            finally
+            {
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_DoesNotPlaceMultipleEntitiesOnTheSameCell()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
+                var entities = new List<EntityState>();
+
+                InvokePopulateInitialEntities(installer, entities, boardBounds);
+
+                var occupiedCells = new HashSet<SurfaceCell>();
+                for (var i = 0; i < entities.Count; i++)
+                {
+                    Assert.That(
+                        occupiedCells.Add(entities[i].position),
+                        Is.True,
+                        $"Duplicate entity placement detected at {entities[i].position}.");
+                }
             }
             finally
             {
