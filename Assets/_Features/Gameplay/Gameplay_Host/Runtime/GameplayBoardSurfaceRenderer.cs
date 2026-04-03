@@ -9,14 +9,17 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayBoardSurfaceRenderer : MonoBehaviour
     {
         private const string VisibleTilePoolObjectName = "VisibleTilePool";
+        private const string TransitionTilePoolObjectName = "TransitionTilePool";
         private const float TileCoverageMultiplier = 0.98f;
         private const float TileThicknessMultiplier = 0.08f;
 
         [SerializeField] private bool renderDecorativeFaces = false;
         [SerializeField] private Transform visibleTilePoolRoot;
+        [SerializeField] private Transform transitionTilePoolRoot;
 
         private readonly List<Material> _ownedMaterials = new();
-        private readonly List<SurfaceTileView> _tilePool = new();
+        private readonly List<SurfaceTileView> _steadyTilePool = new();
+        private readonly List<SurfaceTileView> _transitionTilePool = new();
 
         private BoardBounds _boardBounds;
         private float _cellSize;
@@ -25,15 +28,27 @@ namespace Game.Feature.Gameplay.Host
         private Material _decorativeBackFaceMaterial;
         private Material _decorativeTopFaceMaterial;
         private bool _isInitialized;
+        private CubeTopologyState _steadyTopology;
         private GameplayCubeProjector _projector;
 
-        public int ActiveTileCount { get; private set; }
+        public int ActiveTileCount => SteadyTileCount + TransitionTileCount;
+
+        public bool IsTopologyTransitionActive => TransitionTileCount > 0;
+
+        public int SteadyTileCount { get; private set; }
+
+        public CubeTopologyState SteadyTopology => _steadyTopology;
+
+        public int TransitionTileCount { get; private set; }
 
         public Transform VisibleTilePoolRoot => visibleTilePoolRoot != null ? visibleTilePoolRoot : EnsureVisibleTilePoolRoot();
+
+        public Transform TransitionTilePoolRoot => transitionTilePoolRoot != null ? transitionTilePoolRoot : EnsureTransitionTilePoolRoot();
 
         private void Awake()
         {
             EnsureVisibleTilePoolRoot();
+            EnsureTransitionTilePoolRoot();
         }
 
         private void OnDestroy()
@@ -78,8 +93,10 @@ namespace Game.Feature.Gameplay.Host
             _cellSize = cellSize;
             _projector = new GameplayCubeProjector(boardBounds, cellSize);
             EnsureVisibleTilePoolRoot();
+            EnsureTransitionTilePoolRoot();
             EnsureMaterials();
-            EnsureTilePool(GetRequiredTileCount());
+            EnsureTilePool(_steadyTilePool, VisibleTilePoolRoot, GetRequiredTileCount());
+            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTileCount());
             _isInitialized = true;
             RefreshTopology(topology);
         }
@@ -87,12 +104,100 @@ namespace Game.Feature.Gameplay.Host
         public void RefreshTopology(CubeTopologyState topology)
         {
             EnsureInitialized();
+            RefreshSteadyTopology(topology);
+            ClearTopologyTransition();
+        }
+
+        public void BeginTopologyTransition(
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            Quaternion transitionStartRotation)
+        {
+            EnsureInitialized();
+
+            RefreshSteadyTopology(destinationTopology);
+            ClearTopologyTransition();
+            EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTileCount());
 
             var tileScale = ResolveTileScale();
             var tileIndex = 0;
 
-            tileIndex = PopulateFaceTiles(topology.BottomFace, topology, SurfaceTileRole.ActiveBottom, tileScale, tileIndex);
-            tileIndex = PopulateFaceTiles(topology.FrontFace, topology, SurfaceTileRole.ActiveFront, tileScale, tileIndex);
+            tileIndex = PopulateRetainedFaceTilesIfNeeded(
+                sourceTopology.BottomFace,
+                sourceTopology,
+                SurfaceTileRole.ActiveBottom,
+                tileScale,
+                tileIndex,
+                transitionStartRotation);
+            tileIndex = PopulateRetainedFaceTilesIfNeeded(
+                sourceTopology.FrontFace,
+                sourceTopology,
+                SurfaceTileRole.ActiveFront,
+                tileScale,
+                tileIndex,
+                transitionStartRotation);
+
+            if (renderDecorativeFaces)
+            {
+                tileIndex = PopulateRetainedFaceTilesIfNeeded(
+                    FaceIdUtility.GetNext(sourceTopology.FrontFace),
+                    sourceTopology,
+                    SurfaceTileRole.DecorativeTop,
+                    tileScale,
+                    tileIndex,
+                    transitionStartRotation);
+                tileIndex = PopulateRetainedFaceTilesIfNeeded(
+                    FaceIdUtility.GetPrevious(sourceTopology.BottomFace),
+                    sourceTopology,
+                    SurfaceTileRole.DecorativeBack,
+                    tileScale,
+                    tileIndex,
+                    transitionStartRotation);
+            }
+
+            TransitionTileCount = tileIndex;
+            for (var i = tileIndex; i < _transitionTilePool.Count; i++)
+            {
+                _transitionTilePool[i].SetActive(false);
+            }
+        }
+
+        public void CompleteTopologyTransition(CubeTopologyState topology)
+        {
+            EnsureInitialized();
+            RefreshSteadyTopology(topology);
+            ClearTopologyTransition();
+        }
+
+        public void ClearTopologyTransition()
+        {
+            TransitionTileCount = 0;
+            for (var i = 0; i < _transitionTilePool.Count; i++)
+            {
+                _transitionTilePool[i].SetActive(false);
+            }
+        }
+
+        private void RefreshSteadyTopology(CubeTopologyState topology)
+        {
+            _steadyTopology = topology;
+            var tileScale = ResolveTileScale();
+            var tileIndex = 0;
+
+            tileIndex = PopulateFaceTiles(
+                topology.BottomFace,
+                topology,
+                SurfaceTileRole.ActiveBottom,
+                tileScale,
+                tileIndex,
+                _steadyTilePool);
+            tileIndex = PopulateFaceTiles(
+                topology.FrontFace,
+                topology,
+                SurfaceTileRole.ActiveFront,
+                tileScale,
+                tileIndex,
+                _steadyTilePool);
 
             if (renderDecorativeFaces)
             {
@@ -101,19 +206,21 @@ namespace Game.Feature.Gameplay.Host
                     topology,
                     SurfaceTileRole.DecorativeTop,
                     tileScale,
-                    tileIndex);
+                    tileIndex,
+                    _steadyTilePool);
                 tileIndex = PopulateFaceTiles(
                     FaceIdUtility.GetPrevious(topology.BottomFace),
                     topology,
                     SurfaceTileRole.DecorativeBack,
                     tileScale,
-                    tileIndex);
+                    tileIndex,
+                    _steadyTilePool);
             }
 
-            ActiveTileCount = tileIndex;
-            for (var i = tileIndex; i < _tilePool.Count; i++)
+            SteadyTileCount = tileIndex;
+            for (var i = tileIndex; i < _steadyTilePool.Count; i++)
             {
-                _tilePool[i].SetActive(false);
+                _steadyTilePool[i].SetActive(false);
             }
         }
 
@@ -141,6 +248,32 @@ namespace Game.Feature.Gameplay.Host
             visibleTilePoolRoot.localRotation = Quaternion.identity;
             visibleTilePoolRoot.localScale = Vector3.one;
             return visibleTilePoolRoot;
+        }
+
+        private Transform EnsureTransitionTilePoolRoot()
+        {
+            if (transitionTilePoolRoot == null)
+            {
+                var existingChild = transform.Find(TransitionTilePoolObjectName);
+                if (existingChild == null)
+                {
+                    var tilePoolObject = new GameObject(TransitionTilePoolObjectName);
+                    existingChild = tilePoolObject.transform;
+                    existingChild.SetParent(transform, worldPositionStays: false);
+                }
+                else if (existingChild.parent != transform)
+                {
+                    existingChild.SetParent(transform, worldPositionStays: false);
+                }
+
+                transitionTilePoolRoot = existingChild;
+            }
+
+            transitionTilePoolRoot.name = TransitionTilePoolObjectName;
+            transitionTilePoolRoot.localPosition = Vector3.zero;
+            transitionTilePoolRoot.localRotation = Quaternion.identity;
+            transitionTilePoolRoot.localScale = Vector3.one;
+            return transitionTilePoolRoot;
         }
 
         private void EnsureInitialized()
@@ -186,19 +319,19 @@ namespace Game.Feature.Gameplay.Host
             return material;
         }
 
-        private void EnsureTilePool(int requiredTileCount)
+        private void EnsureTilePool(List<SurfaceTileView> tilePool, Transform tilePoolRoot, int requiredTileCount)
         {
-            while (_tilePool.Count < requiredTileCount)
+            while (tilePool.Count < requiredTileCount)
             {
-                _tilePool.Add(CreateTileView(_tilePool.Count));
+                tilePool.Add(CreateTileView(tilePool.Count, tilePoolRoot));
             }
         }
 
-        private SurfaceTileView CreateTileView(int index)
+        private SurfaceTileView CreateTileView(int index, Transform parent)
         {
             var tileObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
             tileObject.name = $"SurfaceTile_{index}";
-            tileObject.transform.SetParent(VisibleTilePoolRoot, worldPositionStays: false);
+            tileObject.transform.SetParent(parent, worldPositionStays: false);
             tileObject.transform.localPosition = Vector3.zero;
             tileObject.transform.localRotation = Quaternion.identity;
             tileObject.transform.localScale = Vector3.one;
@@ -225,7 +358,8 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState topology,
             SurfaceTileRole tileRole,
             Vector3 tileScale,
-            int tileIndex)
+            int tileIndex,
+            List<SurfaceTileView> tilePool)
         {
             for (var y = _boardBounds.MinInclusive.y; y <= _boardBounds.MaxInclusive.y; y++)
             {
@@ -238,17 +372,64 @@ namespace Game.Feature.Gameplay.Host
                             $"Failed to project visible board surface cell '{cell}' for topology '{topology}'.");
                     }
 
-                    var tileView = _tilePool[tileIndex++];
-                    tileView.GameObject.name = $"{tileRole}_{cell.face}_{cell.x}_{cell.y}";
-                    tileView.Transform.localPosition = projectedPose.LocalPosition - (projectedPose.Normal * (tileScale.z * 0.5f));
-                    tileView.Transform.localRotation = projectedPose.LocalRotation;
-                    tileView.Transform.localScale = tileScale;
-                    tileView.Renderer.sharedMaterial = ResolveMaterial(tileRole);
-                    tileView.SetActive(true);
+                    var tileView = tilePool[tileIndex++];
+                    ApplyTilePose(tileView, tileRole, cell, projectedPose, tileScale);
                 }
             }
 
             return tileIndex;
+        }
+
+        private int PopulateRetainedFaceTilesIfNeeded(
+            FaceId face,
+            CubeTopologyState sourceTopology,
+            SurfaceTileRole tileRole,
+            Vector3 tileScale,
+            int tileIndex,
+            Quaternion transitionStartRotation)
+        {
+            if (!IsFaceVisibleInTopology(face, sourceTopology) ||
+                IsFaceVisibleInTopology(face, SteadyTopology))
+            {
+                return tileIndex;
+            }
+
+            for (var y = _boardBounds.MinInclusive.y; y <= _boardBounds.MaxInclusive.y; y++)
+            {
+                for (var x = _boardBounds.MinInclusive.x; x <= _boardBounds.MaxInclusive.x; x++)
+                {
+                    var cell = new SurfaceCell(face, x, y);
+                    if (!TryResolveRetainedTransitionTilePose(
+                            cell,
+                            sourceTopology,
+                            transitionStartRotation,
+                            out var projectedPose))
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to project retained board surface cell '{cell}' for topology '{sourceTopology}'.");
+                    }
+
+                    var tileView = _transitionTilePool[tileIndex++];
+                    ApplyTilePose(tileView, tileRole, cell, projectedPose, tileScale);
+                }
+            }
+
+            return tileIndex;
+        }
+
+        private void ApplyTilePose(
+            SurfaceTileView tileView,
+            SurfaceTileRole tileRole,
+            SurfaceCell cell,
+            ProjectedCellPose projectedPose,
+            Vector3 tileScale)
+        {
+            tileView.GameObject.name = $"{tileRole}_{cell.face}_{cell.x}_{cell.y}";
+            tileView.Transform.localPosition = projectedPose.LocalPosition - (projectedPose.Normal * (tileScale.z * 0.5f));
+            tileView.Transform.localRotation = projectedPose.LocalRotation;
+            tileView.Transform.localScale = tileScale;
+            tileView.Renderer.sharedMaterial = ResolveMaterial(tileRole);
+            tileView.SetActive(true);
         }
 
         private int GetRequiredTileCount()
@@ -276,6 +457,46 @@ namespace Game.Feature.Gameplay.Host
                 SurfaceTileRole.DecorativeTop => _decorativeTopFaceMaterial,
                 _ => _decorativeBackFaceMaterial,
             };
+        }
+
+        private bool IsFaceVisibleInTopology(FaceId face, CubeTopologyState topology)
+        {
+            if (face == topology.BottomFace ||
+                face == topology.FrontFace)
+            {
+                return true;
+            }
+
+            if (!renderDecorativeFaces)
+            {
+                return false;
+            }
+
+            return face == FaceIdUtility.GetNext(topology.FrontFace) ||
+                   face == FaceIdUtility.GetPrevious(topology.BottomFace);
+        }
+
+        private bool TryResolveRetainedTransitionTilePose(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            Quaternion transitionStartRotation,
+            out ProjectedCellPose projectedPose)
+        {
+            if (!_projector.TryProjectSurfaceCell(
+                    cell,
+                    sourceTopology,
+                    out var sourceProjectedPose))
+            {
+                projectedPose = default;
+                return false;
+            }
+
+            var inverseTransitionStartRotation = Quaternion.Inverse(transitionStartRotation);
+            projectedPose = new ProjectedCellPose(
+                inverseTransitionStartRotation * sourceProjectedPose.LocalPosition,
+                inverseTransitionStartRotation * sourceProjectedPose.LocalRotation,
+                inverseTransitionStartRotation * sourceProjectedPose.Normal);
+            return true;
         }
 
         private enum SurfaceTileRole

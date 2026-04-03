@@ -96,6 +96,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.CellSize,
                 timingProfile,
                 boardRoot,
+                boardSurfaceRenderer,
                 configuration.TopologyRotationVisualMapping);
 
             boardSurfaceRenderer.Initialize(

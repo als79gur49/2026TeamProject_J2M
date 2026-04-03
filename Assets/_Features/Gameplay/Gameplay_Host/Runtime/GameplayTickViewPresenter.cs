@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Host
             float cellSize,
             GameplayTimingProfile timingProfile,
             GameplayBoardRoot boardRoot = null,
+            GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX)
         {
             _presentationCoordinator.Initialize(
@@ -54,6 +55,7 @@ namespace Game.Feature.Gameplay.Host
                 cellSize,
                 timingProfile,
                 boardRoot,
+                boardSurfaceRenderer,
                 topologyRotationVisualMapping);
         }
 

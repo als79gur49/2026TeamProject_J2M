@@ -1153,6 +1153,116 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayBoardSurfaceRenderer_TopologyTransition_RetainsSourceOnlyFacesUntilCompletion()
+        {
+            var rootObject = new GameObject("GameplayBoardSurfaceRenderer_TopologyTransition_RetainsSourceOnlyFacesUntilCompletion");
+
+            try
+            {
+                var renderer = rootObject.AddComponent<GameplayBoardSurfaceRenderer>();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+
+                renderer.Initialize(boardBounds, 1f, sourceTopology);
+                renderer.BeginTopologyTransition(
+                    sourceTopology,
+                    destinationTopology,
+                    ResolveTopologyTransitionStartRotation(
+                        sourceTopology,
+                        destinationTopology,
+                        TopologyRotationVisualMapping.ForwardUsesNegativeX));
+
+                Assert.That(renderer.SteadyTileCount, Is.EqualTo(8));
+                Assert.That(renderer.TransitionTileCount, Is.EqualTo(4));
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Front_0_0"), Is.Not.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_0_0"), Is.Not.Null);
+                Assert.That(renderer.TransitionTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Not.Null);
+                Assert.That(renderer.TransitionTilePoolRoot.Find("ActiveFront_Front_0_0"), Is.Null);
+
+                AssertSurfaceTileMatchesProjection(
+                    renderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_0_0").gameObject,
+                    boardBounds,
+                    destinationTopology,
+                    new SurfaceCell(FaceId.Ceiling, 0, 0));
+                AssertSurfaceTileMatchesRetainedTransitionProjection(
+                    renderer.TransitionTilePoolRoot.Find("ActiveBottom_Floor_0_0").gameObject,
+                    boardBounds,
+                    sourceTopology,
+                    destinationTopology,
+                    new SurfaceCell(FaceId.Floor, 0, 0));
+
+                renderer.CompleteTopologyTransition(destinationTopology);
+
+                Assert.That(renderer.TransitionTileCount, Is.Zero);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveBottom_Front_0_0"), Is.Not.Null);
+                Assert.That(renderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_0_0"), Is.Not.Null);
+                Assert.That(renderer.TransitionTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Not.Null);
+                Assert.That(renderer.TransitionTilePoolRoot.Find("ActiveBottom_Floor_0_0").gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchProjectedSurfacePoses()
+        {
+            var rootObject = new GameObject("GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchProjectedSurfacePoses");
+
+            try
+            {
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                var renderer = boardRoot.EnsureBoardSurfaceRenderer();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1));
+                var sourceTopology = new CubeTopologyState(FaceId.Floor);
+                var destinationTopology = new CubeTopologyState(FaceId.Front);
+                const float cellSize = 1.75f;
+                var retainedCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var shownCell = new SurfaceCell(FaceId.Ceiling, 1, 1);
+                var transitionStartRotation = ResolveTopologyTransitionStartRotation(
+                    sourceTopology,
+                    destinationTopology,
+                    TopologyRotationVisualMapping.ForwardUsesNegativeX);
+
+                renderer.Initialize(boardBounds, cellSize, sourceTopology);
+                var originalRetainedTile = renderer.VisibleTilePoolRoot.Find("ActiveBottom_Floor_0_0").gameObject;
+                var originalRetainedWorldPosition = originalRetainedTile.transform.position;
+                var originalRetainedWorldRotation = originalRetainedTile.transform.rotation;
+
+                renderer.BeginTopologyTransition(
+                    sourceTopology,
+                    destinationTopology,
+                    transitionStartRotation);
+                boardRoot.ApplyPresentationRotation(transitionStartRotation, Vector3.zero);
+
+                var retainedTile = renderer.TransitionTilePoolRoot.Find("ActiveBottom_Floor_0_0").gameObject;
+                var shownTile = renderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_1_1").gameObject;
+
+                Assert.That(Vector3.Distance(retainedTile.transform.position, originalRetainedWorldPosition), Is.LessThan(0.001f));
+                Assert.That(Quaternion.Angle(retainedTile.transform.rotation, originalRetainedWorldRotation), Is.LessThan(0.001f));
+
+                var expectedShownLocalPose = GetProjectedSurfaceTileLocalPose(
+                    boardBounds,
+                    destinationTopology,
+                    shownCell,
+                    cellSize);
+                var expectedShownWorldPosition = boardRoot.transform.TransformPoint(expectedShownLocalPose.Position);
+                var expectedShownWorldRotation = boardRoot.transform.rotation * expectedShownLocalPose.Rotation;
+
+                Assert.That(Vector3.Distance(shownTile.transform.position, expectedShownWorldPosition), Is.LessThan(0.001f));
+                Assert.That(Quaternion.Angle(shownTile.transform.rotation, expectedShownWorldRotation), Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D");
@@ -2549,8 +2659,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(initialTarget, Is.EqualTo(expectedCenter));
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
-                Assert.That(FindSurfaceTile(host.BoardSurfaceRenderer, "ActiveBottom_Front_0_0"), Is.Not.Null);
-                Assert.That(FindSurfaceTile(host.BoardSurfaceRenderer, "ActiveFront_Ceiling_0_0"), Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.VisibleTilePoolRoot.Find("ActiveBottom_Front_0_0"), Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_0_0"), Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.TransitionTilePoolRoot.Find("ActiveBottom_Floor_0_0"), Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.IsTopologyTransitionActive, Is.True);
                 Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.GreaterThan(0.1f));
                 Assert.That(
                     Vector3.Distance(
@@ -2565,6 +2677,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(host.ViewCameraTarget.position, Is.EqualTo(expectedCenter));
                 Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(host.BoardSurfaceRenderer.VisibleTilePoolRoot.Find("ActiveBottom_Front_0_0"), Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.VisibleTilePoolRoot.Find("ActiveFront_Ceiling_0_0"), Is.Not.Null);
+                Assert.That(host.BoardSurfaceRenderer.TransitionTileCount, Is.Zero);
                 Assert.That(
                     GetViewPosition(host, 10),
                     Is.EqualTo(GetProjectedEntityPosition(
@@ -4052,13 +4167,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return Quaternion.identity;
         }
 
-        private static GameObject FindSurfaceTile(GameplayBoardSurfaceRenderer renderer, string tileName)
+        private static GameObject TryFindSurfaceTile(GameplayBoardSurfaceRenderer renderer, string tileName)
         {
             Assert.That(renderer, Is.Not.Null);
-            Assert.That(renderer.VisibleTilePoolRoot, Is.Not.Null);
-            var tile = renderer.VisibleTilePoolRoot.Find(tileName);
+            var tile = renderer.VisibleTilePoolRoot != null ? renderer.VisibleTilePoolRoot.Find(tileName) : null;
+            if (tile == null && renderer.TransitionTilePoolRoot != null)
+            {
+                tile = renderer.TransitionTilePoolRoot.Find(tileName);
+            }
+
+            return tile != null ? tile.gameObject : null;
+        }
+
+        private static GameObject FindSurfaceTile(GameplayBoardSurfaceRenderer renderer, string tileName)
+        {
+            var tile = TryFindSurfaceTile(renderer, tileName);
             Assert.That(tile, Is.Not.Null, $"Expected board surface tile '{tileName}' to exist.");
-            return tile.gameObject;
+            return tile;
         }
 
         private static void AssertSurfaceTileMatchesProjection(
@@ -4081,6 +4206,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(tileTransform.localScale.x, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
             Assert.That(tileTransform.localScale.y, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
             Assert.That(tileTransform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
+        }
+
+        private static void AssertSurfaceTileMatchesRetainedTransitionProjection(
+            GameObject tile,
+            BoardBounds boardBounds,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            SurfaceCell cell,
+            float cellSize = 1f,
+            TopologyRotationVisualMapping mapping = TopologyRotationVisualMapping.ForwardUsesNegativeX)
+        {
+            Assert.That(tile, Is.Not.Null);
+
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
+            Assert.That(projector.TryProjectSurfaceCell(cell, sourceTopology, out var projectedPose), Is.True);
+
+            var inverseTransitionStartRotation = Quaternion.Inverse(
+                ResolveTopologyTransitionStartRotation(sourceTopology, destinationTopology, mapping));
+            var tileTransform = tile.transform;
+            var expectedNormal = inverseTransitionStartRotation * projectedPose.Normal;
+            var expectedCenter = inverseTransitionStartRotation * projectedPose.LocalPosition;
+            var expectedPosition = expectedCenter - (expectedNormal * (tileTransform.localScale.z * 0.5f));
+            var expectedRotation = inverseTransitionStartRotation * projectedPose.LocalRotation;
+
+            Assert.That(tileTransform.localPosition, Is.EqualTo(expectedPosition));
+            Assert.That(Quaternion.Angle(tileTransform.localRotation, expectedRotation), Is.LessThan(0.001f));
+            Assert.That(tileTransform.localScale.x, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
+            Assert.That(tileTransform.localScale.y, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
+            Assert.That(tileTransform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
+        }
+
+        private static GameplayEntityPose GetProjectedSurfaceTileLocalPose(
+            BoardBounds boardBounds,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            float cellSize = 1f)
+        {
+            var projector = new GameplayCubeProjector(boardBounds, cellSize);
+            Assert.That(projector.TryProjectSurfaceCell(cell, topology, out var projectedPose), Is.True);
+            var tileThickness = cellSize * 0.08f;
+            return new GameplayEntityPose(
+                projectedPose.LocalPosition - (projectedPose.Normal * (tileThickness * 0.5f)),
+                projectedPose.LocalRotation);
         }
 
         private static Vector3 GetViewPosition(GameplaySceneHost host, int entityId)

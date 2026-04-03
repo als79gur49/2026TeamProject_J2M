@@ -19,6 +19,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
 
         private GameplayBoardRoot _boardRoot;
+        private GameplayBoardSurfaceRenderer _boardSurfaceRenderer;
+        private bool _isBoardSurfaceTransitionActive;
         private bool _isInitialized;
         private Quaternion _presentedBoardRotation = Quaternion.identity;
         private GameplayCubeProjector _projector;
@@ -60,6 +62,7 @@ namespace Game.Feature.Gameplay.Host
             float cellSize,
             GameplayTimingProfile timingProfile,
             GameplayBoardRoot boardRoot = null,
+            GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX)
         {
             if (viewBinder == null)
@@ -68,11 +71,13 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _boardRoot = boardRoot;
+            _boardSurfaceRenderer = boardSurfaceRenderer != null ? boardSurfaceRenderer : boardRoot?.BoardSurfaceRenderer;
             _viewBinder = viewBinder;
             _projector = new GameplayCubeProjector(boardBounds, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _topologyRotationVisualMapping = topologyRotationVisualMapping;
             _presentedBoardRotation = Quaternion.identity;
+            _isBoardSurfaceTransitionActive = false;
 
             _boardRotationTrack.Clear();
             _localMotionTracks.Clear();
@@ -98,6 +103,7 @@ namespace Game.Feature.Gameplay.Host
 
             StoreCommittedFrame(result.FinalEntities, result.FinalTopology);
             RefreshTopologyTrack(result.PresentationData);
+            RefreshBoardSurfaceTransition(result.PresentationData);
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
             RefreshTransitionVisibilityState(result.PresentationData);
@@ -119,8 +125,10 @@ namespace Game.Feature.Gameplay.Host
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
             _presentedBoardRotation = Quaternion.identity;
+            _isBoardSurfaceTransitionActive = false;
 
             StoreCommittedFrame(entities, topology);
+            _boardSurfaceRenderer?.CompleteTopologyTransition(topology);
             _animationSync.ApplyInitialEnemyPresentation(entities, _stateStore.CommittedLocalTargetPoses, _stateStore.ViewsByEntityId);
             _animationSync.ApplyInitialPlayerPresentation(_stateStore.CommittedLocalTargetPoses);
             ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
@@ -147,6 +155,7 @@ namespace Game.Feature.Gameplay.Host
                 ? _boardRotationTrack.SampleAndAdvance(deltaTime, Quaternion.identity)
                 : Quaternion.identity;
             ApplyPresentedBoardRotation(presentedBoardRotation);
+            CleanupCompletedBoardSurfaceTransitionState();
             CleanupCompletedTopologyTransitionState();
 
             _completedMotionTrackIds.Clear();
@@ -287,6 +296,19 @@ namespace Game.Feature.Gameplay.Host
             {
                 _stateStore.TransitionVisibilityStates.Remove(_completedTransitionVisibilityStateIds[i]);
             }
+        }
+
+        private void CleanupCompletedBoardSurfaceTransitionState()
+        {
+            if (!_isBoardSurfaceTransitionActive ||
+                _boardSurfaceRenderer == null ||
+                _boardRotationTrack.HasClips)
+            {
+                return;
+            }
+
+            _boardSurfaceRenderer.CompleteTopologyTransition(_stateStore.CommittedTopology);
+            _isBoardSurfaceTransitionActive = false;
         }
 
         private void EnsureInitialized()
@@ -486,6 +508,33 @@ namespace Game.Feature.Gameplay.Host
 
                 _stateStore.TransitionVisibilityStates[change.EntityId] = new TransitionVisibilityState(change.Mode, localPose);
             }
+        }
+
+        private void RefreshBoardSurfaceTransition(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            if (_boardSurfaceRenderer == null)
+            {
+                return;
+            }
+
+            if (!IsTopologyTransitionPresentation(presentationData.TopologyMotion))
+            {
+                _boardSurfaceRenderer.CompleteTopologyTransition(_stateStore.CommittedTopology);
+                _isBoardSurfaceTransitionActive = false;
+                return;
+            }
+
+            var topologyMotion = presentationData.TopologyMotion.Value;
+            _boardSurfaceRenderer.BeginTopologyTransition(
+                topologyMotion.SourceTopology,
+                topologyMotion.DestinationTopology,
+                ResolveTopologyRotationOffset(topologyMotion.RotationKind));
+            _isBoardSurfaceTransitionActive = true;
         }
 
         private void RefreshVisibilityTracks(

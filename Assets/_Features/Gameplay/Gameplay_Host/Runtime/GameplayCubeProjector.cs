@@ -120,6 +120,23 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryProjectTransitionSurfaceCell(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            out ProjectedCellPose projectedPose)
+        {
+            if (!_boardBounds.Contains(cell.PlanarPosition) ||
+                !TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out var slot))
+            {
+                projectedPose = default;
+                return false;
+            }
+
+            projectedPose = ProjectCell(slot, cell, 0f);
+            return true;
+        }
+
         public bool TryResolveEntityRotation(
             SurfaceCell cell,
             CubeTopologyState topology,

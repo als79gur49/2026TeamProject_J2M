@@ -30,26 +30,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void Initialize(GameplaySceneHostConfiguration configuration)
         {
-            if (_runtime?.Presenter != null)
-            {
-                _runtime.Presenter.TopologyCommitted -= HandlePresentedTopologyCommitted;
-            }
-
             _runtime = GameplayHostRuntimeFactory.Create(this, configuration);
-            _runtime.Presenter.TopologyCommitted += HandlePresentedTopologyCommitted;
-        }
-
-        private void OnDestroy()
-        {
-            if (_runtime?.Presenter != null)
-            {
-                _runtime.Presenter.TopologyCommitted -= HandlePresentedTopologyCommitted;
-            }
-        }
-
-        private void HandlePresentedTopologyCommitted(CubeTopologyState topology)
-        {
-            BoardSurfaceRenderer?.RefreshTopology(topology);
         }
     }
 }
