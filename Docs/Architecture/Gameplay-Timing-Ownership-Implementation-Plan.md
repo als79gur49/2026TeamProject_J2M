@@ -26,15 +26,15 @@
 
 - `GameplayTimingProfile`가 공통 cadence와 player 일부 authoritative timing을 함께 가진다.
 - `GameplaySceneHostConfiguration`가 global timing과 player logic timing 일부를 함께 가진다.
-- `PlayerActionTimingAuthoring`가 player authoritative timing과 player presentation timing을 함께 가진다.
-- `PlayerAnimatorDriver`는 `PlayerActionTimingAuthoring`를 읽어 animator duration을 해석한다.
+- `PlayerAnimationTimingAuthoring`가 player animator presentation timing만 가진다.
+- `PlayerAnimatorDriver`는 `PlayerAnimationTimingAuthoring`를 읽어 animator duration을 해석한다.
 - `EnemyAiProfile`는 적군 authoritative logic 전용 구조로 이미 잘 분리되어 있다.
 - `EnemyAnimatorDriver`는 적군 presentation-only 구조로 비교적 얇다.
 - `GameplayTickPresentationCoordinator`는 entity별이 아니라 motion kind별 전역 duration만 해석한다.
 
 즉:
 
-- player는 logic과 presentation이 섞여 있고
+- player authoritative timing과 animator timing 분리는 3단계까지 완료됐고
 - enemy는 상대적으로 분리되어 있으며
 - 공용 actor presentation override 계층은 아직 없다
 
@@ -130,21 +130,20 @@
 - `GameplayShowcaseSceneInstallerBase`는 새 settings를 채우고, 기존 `playerMoveCooldownSeconds`는 migration fallback으로만 유지한다.
 - `GameplayHostRuntimeFactory`는 더 이상 player prefab의 `CreateAuthoritativeSnapshot` 경로를 사용하지 않는다.
 - `GameplayTimingProfile`의 player 전용 필드는 아직 남아 있지만, 현재는 `PlayerControlTiming`에서 유도된 compatibility bridge로만 사용된다.
-- `PlayerActionTimingAuthoring`의 logic 필드 제거는 3단계에서 계속 진행한다.
+- `PlayerAnimationTimingAuthoring` 정리는 3단계에서 완료했다.
 
 ### 6-3. 3단계: player animation authoring 분리 및 재명명
 
 목표는 player animation tuning을 authoritative logic과 분리하는 것이다.
 
-신규 또는 변경 후보 파일:
+신규 또는 변경 파일:
 
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionTimingAuthoring.cs`
-- 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs`
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs`
 
-권장 방향:
+적용 방향:
 
-- 기존 `PlayerActionTimingAuthoring`를 단계적으로 분리
-- logic fields 제거
+- 기존 `PlayerActionTimingAuthoring`를 `PlayerAnimationTimingAuthoring`로 개명
+- prefab logic fields 제거
 - animation-only authoring으로 축소
 
 남길 값:
@@ -166,6 +165,15 @@
 
 - player prefab에는 presentation-only timing만 남는다.
 - `PlayerAnimatorDriver`는 animation authoring만 읽는다.
+
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `PlayerActionTimingAuthoring`를 `PlayerAnimationTimingAuthoring`로 개명했다.
+- player prefab timing authoring에는 `pushAnimatorDurationSeconds`, `flipAnimatorDurationSeconds`만 남겼다.
+- `PlayerAnimatorDriver`, `PlayerViewPrefabRequirements`, `DefaultGameplayEntityViewFactory`, `GameplayHostRuntimeFactory`를 새 타입 기준으로 갱신했다.
+- `Entity_View_PlayerAnimationTest.prefab`와 관련 테스트 유틸/테스트를 새 component와 field 이름으로 migration했다.
+- authoritative timing 검증은 더 이상 prefab authoring이 아니라 `PlayerControlTimingSettings`를 기준으로 유지한다.
 
 ### 6-4. 4단계: 공용 actor motion presentation override 도입
 
@@ -316,7 +324,7 @@ entity motion presentation override
 
 1. 문서 추가 (`Gameplay-Timing-Ownership-Reference.md`)
 2. `PlayerControlTimingSettings` 도입 및 `GameplayHostRuntimeFactory` player logic timing source 교체 완료
-3. `PlayerActionTimingAuthoring` 분리 또는 개명
+3. `PlayerActionTimingAuthoring` 분리 또는 개명 완료 (`PlayerAnimationTimingAuthoring`)
 4. `EntityMotionPresentationAuthoring` 추가
 5. `GameplayTickPresentationCoordinator` entity-aware resolution 변경
 6. 씬 / 프리팹 migration

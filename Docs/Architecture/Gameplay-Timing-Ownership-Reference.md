@@ -104,7 +104,7 @@ logic execute 시점을 바꾸면 안 된다.
 
 ### 3-3. Player Authoritative Logic Layer
 
-현재 `PlayerActionTimingAuthoring`에는 logic과 animator가 섞여 있다.
+착수 시점의 `PlayerActionTimingAuthoring`에는 logic과 animator가 섞여 있었다.
 아래 네 값은 prefab에서 분리되어야 한다.
 
 | 현재 필드 | 현재 타입 | 범주 | 목표 canonical owner | 목표 이름 |
@@ -144,7 +144,7 @@ logic execute 시점을 바꾸면 안 된다.
 
 ### 3-5. Actor Animation Presentation Layer
 
-현재 `PlayerActionTimingAuthoring`의 presentation duration은 animator 계층으로 분리해야 한다.
+기존 `PlayerActionTimingAuthoring`의 presentation duration은 3단계에서 `PlayerAnimationTimingAuthoring`로 분리했다.
 
 | 현재 필드 | 현재 타입 | 범주 | 목표 canonical owner | 목표 이름 |
 | --- | --- | --- | --- | --- |
@@ -198,7 +198,7 @@ logic execute 시점을 바꾸면 안 된다.
 
 - `pushPresentationDurationSeconds` -> `pushAnimatorDurationSeconds`
 - `flipPresentationDurationSeconds` -> `flipAnimatorDurationSeconds`
-- `PlayerActionTimingAuthoring`는 장기적으로 animation-only 역할만 남기거나 `PlayerAnimationTimingAuthoring`로 분리한다.
+- 3단계 완료로 `PlayerActionTimingAuthoring`는 `PlayerAnimationTimingAuthoring`로 개명되고 animation-only 역할만 남겼다.
 - `ResolveMotionDurationSeconds(TickEntityMotionKind motionKind)`는 장기적으로 `ResolveMotionDurationSeconds(int entityId, TickEntityMotionKind motionKind)`로 바뀐다.
 
 ### 5-2. fallback 규칙
@@ -235,7 +235,7 @@ scene / host configuration explicit settings
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs` | player per-field float를 `PlayerControlTimingSettings` binding으로 치환 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs` | scene bootstrap이 새 player control settings를 채우도록 수정 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs` | player prefab authoring에서 authoritative snapshot 생성하는 경로 제거 |
-| `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionTimingAuthoring.cs` | logic 필드 제거, animation-only authoring으로 축소 또는 분리 |
+| `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs` | logic 필드 제거 후 animation-only authoring 유지 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs` | animation authoring only read로 정리, motion fallback 사용 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs` | entity-aware motion duration resolution 도입 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs` | 새 authoring 구성요소 연결 시 factory bootstrap 반영 |

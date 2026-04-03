@@ -29,7 +29,7 @@
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs`
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerActionTimingAuthoring.cs`
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs`
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`
@@ -39,7 +39,7 @@
 정리하면:
 
 - `GameplayTimingProfile`는 현재 공통 cadence와 일부 player logic timing을 함께 가진다.
-- `PlayerActionTimingAuthoring`는 현재 player authoritative logic timing과 player animation timing을 함께 가진다.
+- 착수 시점의 `PlayerActionTimingAuthoring`는 player authoritative logic timing과 player animation timing을 함께 가졌다.
 - `EnemyAiProfile`는 적군 로직 전용 profile이며 view timing을 가지지 않는다.
 - `EnemyAnimatorDriver`는 적군 presentation만 담당하고 별도 duration authoring을 가지지 않는다.
 
@@ -49,7 +49,7 @@
 
 ### 3-1. player logic timing과 player view timing이 prefab authoring에 섞여 있다
 
-현재 `PlayerActionTimingAuthoring`는 다음을 동시에 가진다.
+착수 시점의 `PlayerActionTimingAuthoring`는 다음을 동시에 가졌다.
 
 - `pushExecuteDelaySeconds`
 - `pushInputLockDurationSeconds`
@@ -351,7 +351,7 @@ AI와 animation을 분리해 조합 가능하게 유지한다.
 현재 구조에서 가장 먼저 정리해야 하는 대상은 player 쪽이다.
 
 - `GameplayTimingProfile`에서 player authoritative logic timing 제거
-- `PlayerActionTimingAuthoring`에서 logic timing 제거
+- `PlayerAnimationTimingAuthoring`에 logic timing을 다시 넣지 않음
 - player authoritative timing은 host / config 쪽으로 이동
 - player presentation duration은 animation-only 의미로 재명명
 - actor motion override는 player / enemy 공용 계층으로 추가
