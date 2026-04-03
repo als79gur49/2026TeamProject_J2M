@@ -595,6 +595,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabObject = new GameObject(name);
             var view = prefabObject.AddComponent<GameplayEntityView>();
             view.Initialize(10);
+            prefabObject.AddComponent<EntityMotionPresentationAuthoring>();
             prefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
             prefabObject.AddComponent<PlayerAnimatorDriver>();
             return prefabObject;
