@@ -235,29 +235,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot_ConvertsActionTimingToTicks()
+        public void PlayerAnimationTimingAuthoring_CreateSnapshot_UsesAnimatorDurations()
         {
-            var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot");
+            var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimationTimingAuthoring_CreateSnapshot");
 
             try
             {
-                var authoring = authoringRoot.GetComponent<PlayerActionTimingAuthoring>();
+                var authoring = authoringRoot.GetComponent<PlayerAnimationTimingAuthoring>();
                 Assert.That(authoring, Is.Not.Null);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 2f / 60f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 5f / 60f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipExecuteDelaySeconds", 0f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipInputLockDurationSeconds", 4f / 60f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
 
-                var snapshot = authoring.CreateAuthoritativeSnapshot(60);
+                var snapshot = authoring.CreateSnapshot();
 
-                Assert.That(snapshot.PushExecuteDelayTicks, Is.EqualTo(2));
-                Assert.That(snapshot.PushInputLockDurationTicks, Is.EqualTo(5));
-                Assert.That(snapshot.PushWindupTicks, Is.EqualTo(2));
-                Assert.That(snapshot.PushRecoveryTicks, Is.EqualTo(3));
-                Assert.That(snapshot.FlipExecuteDelayTicks, Is.Zero);
-                Assert.That(snapshot.FlipInputLockDurationTicks, Is.EqualTo(4));
-                Assert.That(snapshot.FlipWindupTicks, Is.Zero);
-                Assert.That(snapshot.FlipRecoveryTicks, Is.EqualTo(4));
+                Assert.That(snapshot.PushAnimatorDurationSeconds, Is.EqualTo(0.25f));
+                Assert.That(snapshot.FlipAnimatorDurationSeconds, Is.EqualTo(0.5f));
             }
             finally
             {
@@ -266,18 +258,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot_InputLockShorterThanExecuteDelay_Throws()
+        public void PlayerAnimationTimingAuthoring_CreateSnapshot_NonPositiveAnimatorDuration_Throws()
         {
-            var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerActionTimingAuthoring_InvalidInputLock");
+            var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimationTimingAuthoring_InvalidDuration");
 
             try
             {
-                var authoring = authoringRoot.GetComponent<PlayerActionTimingAuthoring>();
+                var authoring = authoringRoot.GetComponent<PlayerAnimationTimingAuthoring>();
                 Assert.That(authoring, Is.Not.Null);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 0.1f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 0.05f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0f);
 
-                Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateAuthoritativeSnapshot(60));
+                Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
             }
             finally
             {
@@ -286,19 +277,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTimingInsteadOfPlayerPrefabAuthoring()
+        public void GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly()
         {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTimingInsteadOfPlayerPrefabAuthoring");
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly");
 
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_PlayerPrefab");
                 playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
-                var authoring = playerViewPrefab.GetComponent<PlayerActionTimingAuthoring>();
-                Assert.That(authoring, Is.Not.Null);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 0f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 1f / 60f);
+                Assert.That(playerViewPrefab.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
 
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -489,18 +477,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplaySceneHost_AutoCreateViewsFalse_UsesPlayerPrefabAuthoritativeTiming()
+        public void GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming()
         {
-            var hostObject = new GameObject("GameplaySceneHost_AutoCreateViewsFalse_UsesPlayerPrefabAuthoritativeTiming");
+            var hostObject = new GameObject("GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming");
             var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_AutoCreateViewsFalse_PlayerPrefab");
 
             try
             {
-                var authoring = playerViewPrefab.GetComponent<PlayerActionTimingAuthoring>();
-                Assert.That(authoring, Is.Not.Null);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 2f / 60f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 4f / 60f);
-
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -548,6 +531,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerPushContactThresholdSeconds = 1f / 60f,
+                        PlayerControlTiming = new PlayerControlTimingSettings
+                        {
+                            PushExecuteDelaySeconds = 2f / 60f,
+                            PushInputLockDurationSeconds = 4f / 60f,
+                        },
                         PlayerViewPrefab = playerViewPrefab,
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
@@ -607,7 +595,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabObject = new GameObject(name);
             var view = prefabObject.AddComponent<GameplayEntityView>();
             view.Initialize(10);
-            prefabObject.AddComponent<PlayerActionTimingAuthoring>();
+            prefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
             prefabObject.AddComponent<PlayerAnimatorDriver>();
             return prefabObject;
         }
@@ -745,7 +733,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var enemyView = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), aiMode: EnemyAiMode.Patrol));
 
                 Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
-                Assert.That(playerView.GetComponent<PlayerActionTimingAuthoring>(), Is.Not.Null);
+                Assert.That(playerView.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
                 Assert.That(enemyView.GetComponent<PlayerAnimatorDriver>(), Is.Null);
             }
             finally
@@ -2109,12 +2097,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(10, out var playerView), Is.True);
                 var driver = playerView.GetComponent<PlayerAnimatorDriver>();
-                var authoring = playerView.GetComponent<PlayerActionTimingAuthoring>();
+                var authoring = playerView.GetComponent<PlayerAnimationTimingAuthoring>();
                 Assert.That(driver, Is.Not.Null);
                 Assert.That(authoring, Is.Not.Null);
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushPresentationDurationSeconds", 0.5f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipPresentationDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -2272,11 +2260,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(registry.TryGetView(10, out var playerView), Is.True);
                 var driver = playerView.GetComponent<PlayerAnimatorDriver>();
-                var authoring = playerView.GetComponent<PlayerActionTimingAuthoring>();
+                var authoring = playerView.GetComponent<PlayerAnimationTimingAuthoring>();
                 Assert.That(driver, Is.Not.Null);
                 Assert.That(authoring, Is.Not.Null);
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipPresentationDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -2350,7 +2338,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var authoring = rootObject.GetComponent<PlayerActionTimingAuthoring>();
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
                 var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
 
                 Assert.That(authoring, Is.Not.Null);
@@ -2362,8 +2350,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     UnityEngine.Object.DestroyImmediate(animator);
                 }
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushPresentationDurationSeconds", 0.25f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipPresentationDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
 
                 driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
@@ -2412,7 +2400,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "pushStateName",
                     "flipStateName",
                     "stateTransitionCrossFadeDurationSeconds",
-                    "actionTimingAuthoring",
+                    "animationTimingAuthoring",
                 },
                 serializedFieldNames);
             Assert.That(serializedFieldNames, Does.Not.Contain("stateParameterName"));
@@ -4600,7 +4588,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entity.type == EntityType.Unit)
                 {
                     viewObject.AddComponent<PlayerAnimatorDriver>();
-                    viewObject.AddComponent<PlayerActionTimingAuthoring>();
+                    viewObject.AddComponent<PlayerAnimationTimingAuthoring>();
                 }
 
                 return view;

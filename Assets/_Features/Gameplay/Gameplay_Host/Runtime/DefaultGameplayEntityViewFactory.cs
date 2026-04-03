@@ -70,7 +70,7 @@ namespace Game.Feature.Gameplay.Host
             if (entity.entityId == _playerEntityId)
             {
                 viewObject.AddComponent<PlayerAnimatorDriver>();
-                viewObject.AddComponent<PlayerActionTimingAuthoring>();
+                viewObject.AddComponent<PlayerAnimationTimingAuthoring>();
             }
             else if (entity.type == EntityType.Unit &&
                      entity.aiMode != EnemyAiMode.None)

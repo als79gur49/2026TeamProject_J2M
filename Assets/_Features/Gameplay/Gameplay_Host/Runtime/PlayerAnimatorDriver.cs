@@ -17,7 +17,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string flipStateName = "Flip";
         [FormerlySerializedAs("crossFadeDurationSeconds")]
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = 0.08f;
-        [SerializeField] private PlayerActionTimingAuthoring actionTimingAuthoring;
+        [FormerlySerializedAs("actionTimingAuthoring")]
+        [SerializeField] private PlayerAnimationTimingAuthoring animationTimingAuthoring;
 
         private bool _pendingRestart;
         private PlayerActionKind _pendingExecuteActionKind;
@@ -26,8 +27,8 @@ namespace Game.Feature.Gameplay.Host
         private Animator _validatedOptionalStateParameterAnimator;
         private RuntimeAnimatorController _validatedOptionalStateParameterController;
         private bool _optionalStateParameterSupported;
-        private bool _presentationTimingResolved;
-        private PlayerActionTimingPresentationSnapshot _presentationTiming;
+        private bool _animationTimingResolved;
+        private PlayerAnimationTimingSnapshot _animationTiming;
 
         public PlayerViewPresentationState LastPresentationState { get; private set; }
 
@@ -39,16 +40,16 @@ namespace Game.Feature.Gameplay.Host
 
         public int ActionExecuteSignalCount { get; private set; }
 
-        public float PushPresentationDurationSeconds => ResolvePresentationTiming().PushPresentationDurationSeconds;
+        public float PushPresentationDurationSeconds => ResolveAnimationTiming().PushAnimatorDurationSeconds;
 
-        public float FlipPresentationDurationSeconds => ResolvePresentationTiming().FlipPresentationDurationSeconds;
+        public float FlipPresentationDurationSeconds => ResolveAnimationTiming().FlipAnimatorDurationSeconds;
 
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
-            actionTimingAuthoring = GetComponent<PlayerActionTimingAuthoring>();
+            animationTimingAuthoring = GetComponent<PlayerAnimationTimingAuthoring>();
         }
 
         public void Apply(in PlayerViewPresentationState state)
@@ -82,8 +83,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return actionKind switch
             {
-                PlayerActionKind.Push => ResolvePresentationTiming().PushPresentationDurationSeconds,
-                PlayerActionKind.Flip => ResolvePresentationTiming().FlipPresentationDurationSeconds,
+                PlayerActionKind.Push => ResolveAnimationTiming().PushAnimatorDurationSeconds,
+                PlayerActionKind.Flip => ResolveAnimationTiming().FlipAnimatorDurationSeconds,
                 _ => 0f,
             };
         }
@@ -130,27 +131,27 @@ namespace Game.Feature.Gameplay.Host
             return animator;
         }
 
-        private PlayerActionTimingPresentationSnapshot ResolvePresentationTiming()
+        private PlayerAnimationTimingSnapshot ResolveAnimationTiming()
         {
-            if (_presentationTimingResolved)
+            if (_animationTimingResolved)
             {
-                return _presentationTiming;
+                return _animationTiming;
             }
 
-            if (actionTimingAuthoring == null)
+            if (animationTimingAuthoring == null)
             {
-                actionTimingAuthoring = GetComponent<PlayerActionTimingAuthoring>();
+                animationTimingAuthoring = GetComponent<PlayerAnimationTimingAuthoring>();
             }
 
-            if (actionTimingAuthoring == null)
+            if (animationTimingAuthoring == null)
             {
                 throw new InvalidOperationException(
-                    $"{nameof(PlayerAnimatorDriver)} requires {nameof(PlayerActionTimingAuthoring)} on the same root.");
+                    $"{nameof(PlayerAnimatorDriver)} requires {nameof(PlayerAnimationTimingAuthoring)} on the same root.");
             }
 
-            _presentationTiming = actionTimingAuthoring.CreatePresentationSnapshot();
-            _presentationTimingResolved = true;
-            return _presentationTiming;
+            _animationTiming = animationTimingAuthoring.CreateSnapshot();
+            _animationTimingResolved = true;
+            return _animationTiming;
         }
 
         private void TransitionToResolvedState(Animator targetAnimator, PlayerViewAnimationState resolvedState)
@@ -238,8 +239,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var presentationDurationSeconds = resolvedState == PlayerViewAnimationState.Push
-                ? ResolvePresentationTiming().PushPresentationDurationSeconds
-                : ResolvePresentationTiming().FlipPresentationDurationSeconds;
+                ? ResolveAnimationTiming().PushAnimatorDurationSeconds
+                : ResolveAnimationTiming().FlipAnimatorDurationSeconds;
             var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(targetAnimator, ResolveStateName(resolvedState));
             return Mathf.Max(0.01f, referenceClipLengthSeconds / presentationDurationSeconds);
         }

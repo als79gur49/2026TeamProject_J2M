@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -138,45 +139,37 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         public void Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming()
         {
-            var playerPrefabObject = new GameObject("Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming");
-
-            try
+            var snapshot = new PlayerControlTimingSettings
             {
-                var authoring = playerPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
-                var harness = new TickReplayHarness();
-                SetSerializedField(authoring, "pushExecuteDelaySeconds", 2f / 60f);
-                SetSerializedField(authoring, "pushInputLockDurationSeconds", 4f / 60f);
-                var snapshot = authoring.CreateAuthoritativeSnapshot(60);
-                var frames = harness.Run(
-                    CreateWorldState(new[]
-                    {
-                        CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                        CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
-                    }),
-                    new IEntityLogic[]
-                    {
-                        new PlayerLogic(
-                            10,
-                            pushContactThresholdTicks: 1,
-                            pushWindupTicks: snapshot.PushWindupTicks,
-                            pushRecoveryTicks: snapshot.PushRecoveryTicks,
-                            flipWindupTicks: snapshot.FlipWindupTicks,
-                            flipRecoveryTicks: snapshot.FlipRecoveryTicks),
-                    },
-                    new[]
-                    {
-                        new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                        new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
-                    });
+                PushExecuteDelaySeconds = 2f / 60f,
+                PushInputLockDurationSeconds = 4f / 60f,
+            }.CreateAuthoritativeSnapshot(60, GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds);
+            var harness = new TickReplayHarness();
+            var frames = harness.Run(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                }),
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(
+                        10,
+                        pushContactThresholdTicks: 1,
+                        pushWindupTicks: snapshot.PushWindupTicks,
+                        pushRecoveryTicks: snapshot.PushRecoveryTicks,
+                        flipWindupTicks: snapshot.FlipWindupTicks,
+                        flipRecoveryTicks: snapshot.FlipRecoveryTicks),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                });
 
-                Assert.That(frames[0].Trace, Does.Contain("Final.PlayerControl"));
-                Assert.That(frames[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
-                Assert.That(frames[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
-            }
-            finally
-            {
-                Object.DestroyImmediate(playerPrefabObject);
-            }
+            Assert.That(frames[0].Trace, Does.Contain("Final.PlayerControl"));
+            Assert.That(frames[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
+            Assert.That(frames[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
         }
 
         [Test]

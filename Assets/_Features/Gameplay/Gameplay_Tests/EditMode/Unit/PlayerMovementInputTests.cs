@@ -97,61 +97,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerLogic_PrefabDerivedTimingSnapshot_OnlyExecutesOnSnapshotExecuteTick()
+        public void PlayerLogic_ConfiguredTimingSnapshot_OnlyExecutesOnSnapshotExecuteTick()
         {
-            var playerPrefabObject = new GameObject("PlayerLogic_PrefabDerivedTimingSnapshot");
-
-            try
+            var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                60,
+                GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds);
+            var worldState = CreateWorldState(new[]
             {
-                var authoring = playerPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
-                var snapshot = authoring.CreateAuthoritativeSnapshot(60);
-                var worldState = CreateWorldState(new[]
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(
+                10,
+                new PlayerControlState
                 {
-                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                });
-                var writeContext = worldState.CreateWriteContext();
-                writeContext.SetPlayerControlState(
-                    10,
-                    new PlayerControlState
+                    actionSequenceCounter = 2,
+                    activeAction = new PlayerActionRuntimeState
                     {
-                        actionSequenceCounter = 2,
-                        activeAction = new PlayerActionRuntimeState
-                        {
-                            kind = PlayerActionKind.Push,
-                            sequence = 2,
-                            direction = Direction.Right,
-                            targetEntityId = 30,
-                            startTick = 1,
-                            executeTick = 1 + snapshot.PushWindupTicks,
-                            recoveryEndTick = 1 + snapshot.PushWindupTicks + snapshot.PushRecoveryTicks,
-                        },
-                    });
-                var logic = new PlayerLogic(
-                    entityId: 10,
-                    pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
-                    pushWindupTicks: snapshot.PushWindupTicks,
-                    pushRecoveryTicks: snapshot.PushRecoveryTicks,
-                    flipWindupTicks: snapshot.FlipWindupTicks,
-                    flipRecoveryTicks: snapshot.FlipRecoveryTicks);
-                var beforeExecuteBuffer = new List<RawMovementIntent>();
-                var executeBuffer = new List<RawMovementIntent>();
+                        kind = PlayerActionKind.Push,
+                        sequence = 2,
+                        direction = Direction.Right,
+                        targetEntityId = 30,
+                        startTick = 1,
+                        executeTick = 1 + snapshot.PushWindupTicks,
+                        recoveryEndTick = 1 + snapshot.PushWindupTicks + snapshot.PushRecoveryTicks,
+                    },
+                });
+            var logic = new PlayerLogic(
+                entityId: 10,
+                pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                pushWindupTicks: snapshot.PushWindupTicks,
+                pushRecoveryTicks: snapshot.PushRecoveryTicks,
+                flipWindupTicks: snapshot.FlipWindupTicks,
+                flipRecoveryTicks: snapshot.FlipRecoveryTicks);
+            var beforeExecuteBuffer = new List<RawMovementIntent>();
+            var executeBuffer = new List<RawMovementIntent>();
 
-                logic.CollectMovementIntents(
-                    worldState.CreateSnapshot(),
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                    beforeExecuteBuffer);
-                logic.CollectMovementIntents(
-                    worldState.CreateSnapshot(),
-                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
-                    executeBuffer);
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                beforeExecuteBuffer);
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                executeBuffer);
 
-                Assert.That(beforeExecuteBuffer, Is.Empty);
-                Assert.That(executeBuffer.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
-            }
-            finally
-            {
-                Object.DestroyImmediate(playerPrefabObject);
-            }
+            Assert.That(beforeExecuteBuffer, Is.Empty);
+            Assert.That(executeBuffer.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
         }
 
         [Test]

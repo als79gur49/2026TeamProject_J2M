@@ -655,17 +655,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             playerViewPrefabObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
             var playerViewPrefab = playerViewPrefabObject.AddComponent<GameplayEntityView>();
             playerViewPrefab.Initialize(10);
-            var playerTimingAuthoring = playerViewPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
+            var playerTimingAuthoring = playerViewPrefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
             playerViewPrefabObject.AddComponent<PlayerAnimatorDriver>();
 
             if (pushPresentationDurationSeconds > 0f)
             {
-                SetSerializedField(playerTimingAuthoring, "pushPresentationDurationSeconds", pushPresentationDurationSeconds);
+                SetSerializedField(playerTimingAuthoring, "pushAnimatorDurationSeconds", pushPresentationDurationSeconds);
             }
 
             if (flipPresentationDurationSeconds > 0f)
             {
-                SetSerializedField(playerTimingAuthoring, "flipPresentationDurationSeconds", flipPresentationDurationSeconds);
+                SetSerializedField(playerTimingAuthoring, "flipAnimatorDurationSeconds", flipPresentationDurationSeconds);
             }
 
             host.Initialize(

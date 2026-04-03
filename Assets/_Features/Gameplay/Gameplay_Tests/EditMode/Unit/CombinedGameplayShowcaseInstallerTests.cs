@@ -255,7 +255,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardRoot.EnsureHierarchy();
 
                 var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
-                playerPrefabObject.AddComponent<PlayerActionTimingAuthoring>();
+                playerPrefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
                 playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
                 new GameObject("PrefabMarker").transform.SetParent(playerPrefabObject.transform, worldPositionStays: false);
 
@@ -288,7 +288,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerView, Is.Not.SameAs(playerPrefabView));
                 Assert.That(playerView.transform.parent, Is.EqualTo(boardRoot.EntityRoot));
                 Assert.That(playerView.GetComponent<PlayerAnimatorDriver>(), Is.Not.Null);
-                Assert.That(playerView.GetComponent<PlayerActionTimingAuthoring>(), Is.Not.Null);
+                Assert.That(playerView.GetComponent<PlayerAnimationTimingAuthoring>(), Is.Not.Null);
                 Assert.That(playerView.transform.Find("PrefabMarker"), Is.Not.Null);
                 Assert.That(playerView.transform.Find("CapabilityLabel"), Is.Null);
 
@@ -317,9 +317,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingTimingAuthoring_Throws()
+        public void CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_Throws()
         {
-            var parentObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingTimingAuthoring_Throws");
+            var parentObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_Throws");
             var playerPrefabObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefab");
 
             try

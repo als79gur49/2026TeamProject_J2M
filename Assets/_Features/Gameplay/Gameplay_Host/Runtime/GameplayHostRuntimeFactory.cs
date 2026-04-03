@@ -304,7 +304,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             throw new InvalidOperationException(
-                "GameplaySceneHost requires a player prefab root with PlayerActionTimingAuthoring and PlayerAnimatorDriver. " +
+                "GameplaySceneHost requires a player prefab root with PlayerAnimationTimingAuthoring and PlayerAnimatorDriver. " +
                 "Set GameplaySceneHostConfiguration.PlayerViewPrefab or provide a view factory that exposes a player prefab via IPlayerViewPrefabSource.");
         }
     }
