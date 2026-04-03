@@ -607,13 +607,17 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         {
             var host = CreateHost(new[]
             {
-                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
                 CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 1, 0)),
             });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
+            var snapshot = host.WorldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
             AssertViewMatchesProjectedState(host, entityId: 10);
 
             host.InputHost.RunSingleTick();
@@ -697,7 +701,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return CreateUnit(entityId, SurfaceCell.FromPlanar(position));
         }
 
-        private static EntityState CreateUnit(int entityId, SurfaceCell position)
+        private static EntityState CreateUnit(int entityId, SurfaceCell position, Direction facing = Direction.Right)
         {
             return new EntityState
             {
@@ -708,7 +712,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 teamId = 1,
                 type = EntityType.Unit,
                 state = EntityPhaseState.Idle,
-                facing = Direction.Right,
+                facing = facing,
             };
         }
 

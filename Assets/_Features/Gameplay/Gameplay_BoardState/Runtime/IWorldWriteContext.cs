@@ -15,8 +15,9 @@ namespace Game.Feature.Gameplay.BoardState
         void SetPlayerControlState(int entityId, PlayerControlState state);
     }
 
-    internal interface IPreMovementStateCommitContext : IPlayerControlCommitContext
+    public interface IPreMovementStateCommitContext : IPlayerControlCommitContext
     {
+        void SetFacing(int entityId, Direction facing);
     }
 
     internal interface IMovementCommitContext : IPlayerControlCommitContext

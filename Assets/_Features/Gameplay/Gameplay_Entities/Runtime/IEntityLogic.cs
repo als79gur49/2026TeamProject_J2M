@@ -24,7 +24,7 @@ namespace Game.Feature.Gameplay.Entities
         void CommitPreMovementState(
             WorldSnapshot snapshot,
             in TickInput input,
-            IPlayerControlCommitContext writeContext,
+            IPreMovementStateCommitContext writeContext,
             List<string> updates,
             List<PlayerActionTransition> actionTransitions);
     }

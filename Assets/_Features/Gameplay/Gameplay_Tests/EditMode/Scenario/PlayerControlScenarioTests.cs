@@ -151,6 +151,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var directionChangeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Left)));
+            var snapshotAfterDirectionChange = CreateSnapshot(worldState);
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var fourthTick = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Right)));
             var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
@@ -162,9 +163,42 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(-1,0)",
                 },
                 directionChangeTick.MovementPhaseResult.RejectedReasons);
+            Assert.That(snapshotAfterDirectionChange.TryGetEntity(10, out var playerAfterDirectionChange), Is.True);
+            Assert.That(playerAfterDirectionChange.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(playerAfterDirectionChange.facing, Is.EqualTo(Direction.Left));
             Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(fourthTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(fifthTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+        }
+
+        [Test]
+        public void PlayerControl_BlockedMove_UpdatesFacingWithoutMoving()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(player.facing, Is.EqualTo(Direction.Right));
         }
 
         [Test]

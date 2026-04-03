@@ -235,7 +235,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<IPreMovementStateLogic> entityLogics,
             WorldSnapshot snapshot,
             in TickInput input,
-            IPlayerControlCommitContext writeContext)
+            IPreMovementStateCommitContext writeContext)
         {
             var updates = new List<string>();
             var actionTransitions = new List<PlayerActionTransition>();

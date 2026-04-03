@@ -77,7 +77,7 @@ namespace Game.Feature.Gameplay.PlayerControl
         public void CommitPreMovementState(
             WorldSnapshot snapshot,
             in TickInput input,
-            IPlayerControlCommitContext writeContext,
+            IPreMovementStateCommitContext writeContext,
             List<string> updates,
             List<PlayerActionTransition> actionTransitions)
         {
@@ -118,6 +118,12 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             var previousAction = nextState.activeAction;
+
+            if (!previousAction.IsActive &&
+                input.PlayerCommand.MoveDirection != Direction.None)
+            {
+                writeContext.SetFacing(_entityId, input.PlayerCommand.MoveDirection);
+            }
 
             if (previousAction.IsActive)
             {
