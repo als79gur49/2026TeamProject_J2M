@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -21,7 +22,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private float moveDeadzone = 0.5f;
         [SerializeField] private int playerEntityId = 10;
-        [SerializeField] private float playerMoveCooldownSeconds = -1f;
+        [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
+        [SerializeField, HideInInspector] private float playerMoveCooldownSeconds = -1f;
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
@@ -264,7 +266,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTopology = InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = playerEntityId,
-                PlayerMoveCooldownSeconds = playerMoveCooldownSeconds,
+                PlayerControlTiming = CreatePlayerControlTimingSettings(),
                 PlayerViewPrefab = ResolvePlayerViewPrefab(),
                 ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
                 MoveMotionDurationSeconds = moveMotionDurationSeconds,
@@ -276,6 +278,19 @@ namespace Game.Feature.Gameplay.Host
                 ViewCamera = configureMainCamera ? Camera.main : null,
                 ViewFactory = viewFactory,
             };
+        }
+
+        private PlayerControlTimingSettings CreatePlayerControlTimingSettings()
+        {
+            var resolvedSettings = playerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+
+            if (resolvedSettings.MoveCooldownSeconds < 0f &&
+                playerMoveCooldownSeconds >= 0f)
+            {
+                resolvedSettings.MoveCooldownSeconds = playerMoveCooldownSeconds;
+            }
+
+            return resolvedSettings;
         }
 
         private IGameplayEntityViewFactory ResolveViewFactory()

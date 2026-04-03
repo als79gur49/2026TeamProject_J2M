@@ -99,7 +99,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
                 Assert.That(configuration.CameraSettings, Is.Not.Null);
                 AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
-                Assert.That(configuration.PlayerMoveCooldownSeconds, Is.EqualTo(0.35f));
+                Assert.That(configuration.PlayerControlTiming, Is.Not.Null);
+                Assert.That(configuration.PlayerControlTiming.MoveCooldownSeconds, Is.EqualTo(0.35f));
                 Assert.That(configuration.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
                 Assert.That(
                     configuration.TopologyRotationVisualMapping,

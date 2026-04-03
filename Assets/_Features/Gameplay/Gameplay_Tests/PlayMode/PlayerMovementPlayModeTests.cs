@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -685,7 +686,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     MoveDeadzone = 0.5f,
                     MoveMotionDurationSeconds = moveMotionDurationSeconds,
                     PlayerEntityId = 10,
-                    PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds,
+                    PlayerControlTiming = new PlayerControlTimingSettings
+                    {
+                        PushContactThresholdSeconds = playerPushContactThresholdSeconds,
+                    },
                     PlayerViewPrefab = playerViewPrefab,
                     PushMotionDurationSeconds = 0.2f,
                     RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,

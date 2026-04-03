@@ -190,6 +190,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_DefaultsMoveCooldownToRepeatedMoveIntervalAndConvertsTicks()
+        {
+            var configuration = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 120,
+                RepeatedMoveIntervalSeconds = 0.35f,
+                PlayerControlTiming = new PlayerControlTimingSettings
+                {
+                    PushContactThresholdSeconds = 1f / 60f,
+                    PushExecuteDelaySeconds = 2f / 60f,
+                    PushInputLockDurationSeconds = 5f / 60f,
+                    FlipExecuteDelaySeconds = 0f,
+                    FlipInputLockDurationSeconds = 4f / 60f,
+                },
+            };
+
+            var snapshot = configuration.CreatePlayerControlTimingSnapshot();
+
+            Assert.That(snapshot.MoveCooldownSeconds, Is.EqualTo(0.35f));
+            Assert.That(snapshot.MoveCooldownTicks, Is.EqualTo(42));
+            Assert.That(snapshot.PushContactThresholdSeconds, Is.EqualTo(1f / 60f));
+            Assert.That(snapshot.PushContactThresholdTicks, Is.EqualTo(2));
+            Assert.That(snapshot.PushExecuteDelayTicks, Is.EqualTo(4));
+            Assert.That(snapshot.PushInputLockDurationTicks, Is.EqualTo(10));
+            Assert.That(snapshot.PushWindupTicks, Is.EqualTo(4));
+            Assert.That(snapshot.PushRecoveryTicks, Is.EqualTo(6));
+            Assert.That(snapshot.FlipExecuteDelayTicks, Is.Zero);
+            Assert.That(snapshot.FlipInputLockDurationTicks, Is.EqualTo(8));
+            Assert.That(snapshot.FlipWindupTicks, Is.Zero);
+            Assert.That(snapshot.FlipRecoveryTicks, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void PlayerControlTimingSettings_CreateAuthoritativeSnapshot_InputLockShorterThanExecuteDelay_Throws()
+        {
+            var settings = new PlayerControlTimingSettings
+            {
+                PushExecuteDelaySeconds = 0.1f,
+                PushInputLockDurationSeconds = 0.05f,
+            };
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => settings.CreateAuthoritativeSnapshot(60, 0.4f));
+        }
+
+        [Test]
         public void PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot_ConvertsActionTimingToTicks()
         {
             var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerActionTimingAuthoring_CreateAuthoritativeSnapshot");
@@ -237,6 +282,94 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(authoringRoot);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTimingInsteadOfPlayerPrefabAuthoring()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTimingInsteadOfPlayerPrefabAuthoring");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_PlayerPrefab");
+                playerViewPrefab.transform.SetParent(hostObject.transform, worldPositionStays: false);
+                var authoring = playerViewPrefab.GetComponent<PlayerActionTimingAuthoring>();
+                Assert.That(authoring, Is.Not.Null);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushExecuteDelaySeconds", 0f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushInputLockDurationSeconds", 1f / 60f);
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        CellSize = 1f,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                            },
+                            new EntityState
+                            {
+                                entityId = 20,
+                                position = new SurfaceCell(FaceId.Floor, 1, 0),
+                                hp = 1,
+                                maxHp = 1,
+                                teamId = 0,
+                                type = EntityType.Box,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Right,
+                                boxCapabilities = BoxCapabilities.Push,
+                            },
+                            new EntityState
+                            {
+                                entityId = 90,
+                                position = new SurfaceCell(FaceId.Floor, 3, 0),
+                                hp = 1,
+                                maxHp = 1,
+                                teamId = 0,
+                                type = EntityType.None,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.None,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        PlayerControlTiming = new PlayerControlTimingSettings
+                        {
+                            PushContactThresholdSeconds = 1f / 60f,
+                            PushExecuteDelaySeconds = 2f / 60f,
+                            PushInputLockDurationSeconds = 4f / 60f,
+                        },
+                        PlayerViewPrefab = playerViewPrefab,
+                        StaticEntityLogics = Array.Empty<IEntityLogic>(),
+                    });
+
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                var startTick = host.InputHost.RunSingleTick();
+                var windupTick = host.InputHost.RunSingleTick();
+                var executeTick = host.InputHost.RunSingleTick();
+
+                Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+                Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+                Assert.That(windupTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
+                Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
+                Assert.That(executeTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
             }
         }
 

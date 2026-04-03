@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -38,6 +39,7 @@ namespace Game.Feature.Gameplay.Host
         public int MaxTicksPerFrame = GameplayTimingProfile.DefaultMaxTicksPerFrame;
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
+        public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
         public float PlayerMoveCooldownSeconds = -1f;
         public float PlayerPushContactThresholdSeconds = -1f;
         public float MoveMotionDurationSeconds = -1f;
@@ -68,8 +70,7 @@ namespace Game.Feature.Gameplay.Host
             var moveMotionDurationSeconds = ResolveMoveMotionDurationSeconds(pushMotionDurationSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
-            var playerMoveCooldownSeconds = ResolvePlayerMoveCooldownSeconds(repeatedMoveIntervalSeconds);
-            var playerPushContactThresholdSeconds = ResolvePlayerPushContactThresholdSeconds();
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(repeatedMoveIntervalSeconds);
 
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
@@ -87,8 +88,13 @@ namespace Game.Feature.Gameplay.Host
                 MaxTicksPerFrame > 0
                     ? MaxTicksPerFrame
                     : GameplayTimingProfile.DefaultMaxTicksPerFrame,
-                playerMoveCooldownSeconds,
-                playerPushContactThresholdSeconds);
+                playerControlTiming.MoveCooldownSeconds,
+                playerControlTiming.PushContactThresholdSeconds);
+        }
+
+        public PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot()
+        {
+            return CreatePlayerControlTimingSnapshot(ResolveRepeatedMoveIntervalSeconds());
         }
 
         private float ResolveInitialMoveDelaySeconds()
@@ -147,18 +153,32 @@ namespace Game.Feature.Gameplay.Host
                 : GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
         }
 
-        private float ResolvePlayerMoveCooldownSeconds(float repeatedMoveIntervalSeconds)
+        private PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot(
+            float repeatedMoveIntervalSeconds)
         {
-            return PlayerMoveCooldownSeconds >= 0f
-                ? PlayerMoveCooldownSeconds
-                : repeatedMoveIntervalSeconds;
+            return ResolvePlayerControlTimingSettings().CreateAuthoritativeSnapshot(
+                SimulationTicksPerSecond,
+                repeatedMoveIntervalSeconds);
         }
 
-        private float ResolvePlayerPushContactThresholdSeconds()
+        private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
         {
-            return PlayerPushContactThresholdSeconds >= 0f
-                ? PlayerPushContactThresholdSeconds
-                : GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds;
+            var resolvedSettings = PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+
+            // Legacy fallback while scene assets and tests migrate to PlayerControlTiming.
+            if (resolvedSettings.MoveCooldownSeconds < 0f &&
+                PlayerMoveCooldownSeconds >= 0f)
+            {
+                resolvedSettings.MoveCooldownSeconds = PlayerMoveCooldownSeconds;
+            }
+
+            if (resolvedSettings.PushContactThresholdSeconds < 0f &&
+                PlayerPushContactThresholdSeconds >= 0f)
+            {
+                resolvedSettings.PushContactThresholdSeconds = PlayerPushContactThresholdSeconds;
+            }
+
+            return resolvedSettings;
         }
     }
 }

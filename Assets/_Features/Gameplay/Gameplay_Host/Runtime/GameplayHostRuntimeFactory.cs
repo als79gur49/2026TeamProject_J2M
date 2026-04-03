@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 
@@ -46,12 +47,8 @@ namespace Game.Feature.Gameplay.Host
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var timingProfile = configuration.CreateTimingProfile();
+            var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
-            var playerTimingAuthoring = PlayerViewPrefabRequirements.GetTimingAuthoring(
-                playerViewPrefab,
-                nameof(GameplaySceneHostConfiguration.PlayerViewPrefab));
-            var playerActionTiming = playerTimingAuthoring.CreateAuthoritativeSnapshot(
-                timingProfile.SimulationTicksPerSecond);
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, timingProfile);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
@@ -70,7 +67,7 @@ namespace Game.Feature.Gameplay.Host
                     BuildEnemyAiProfileOverrides(configuration)));
             var tickRunner = bootstrapper.CreateTickRunner(
                 worldState,
-                BuildStaticEntityLogics(configuration, timingProfile, playerActionTiming),
+                BuildStaticEntityLogics(configuration, playerControlTiming),
                 inputBuffer,
                 timingProfile,
                 startTickIndex: 1);
@@ -176,19 +173,17 @@ namespace Game.Feature.Gameplay.Host
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(
             GameplaySceneHostConfiguration configuration,
-            GameplayTimingProfile timingProfile,
-            PlayerActionTimingAuthoritativeSnapshot playerActionTiming)
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
         {
-            var resolvedTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             var entityLogics = new List<IEntityLogic>
             {
                 new PlayerLogic(
                     configuration.PlayerEntityId,
-                    resolvedTimingProfile.PlayerPushContactThresholdTicks,
-                    playerActionTiming.PushWindupTicks,
-                    playerActionTiming.PushRecoveryTicks,
-                    playerActionTiming.FlipWindupTicks,
-                    playerActionTiming.FlipRecoveryTicks),
+                    playerControlTiming.PushContactThresholdTicks,
+                    playerControlTiming.PushWindupTicks,
+                    playerControlTiming.PushRecoveryTicks,
+                    playerControlTiming.FlipWindupTicks,
+                    playerControlTiming.FlipRecoveryTicks),
             };
 
             if (configuration.StaticEntityLogics == null)
