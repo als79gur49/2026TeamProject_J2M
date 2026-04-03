@@ -95,6 +95,18 @@ namespace Game.Feature.Gameplay.Host
                 ResolvePlayerViewPrefab());
         }
 
+        protected virtual EnemyAiProfile ResolveDefaultEnemyAiProfile()
+        {
+            return null;
+        }
+
+        protected virtual EnemyAiProfileOverride[] CreateEnemyAiProfileOverrides(
+            IReadOnlyList<EntityState> entities,
+            BoardBounds boardBounds)
+        {
+            return Array.Empty<EnemyAiProfileOverride>();
+        }
+
         protected virtual GameplayEntityView ResolvePlayerViewPrefab()
         {
             return null;
@@ -230,6 +242,8 @@ namespace Game.Feature.Gameplay.Host
         {
             var entities = new List<EntityState>();
             PopulateInitialEntities(entities, boardBounds);
+            var initialEntities = entities.ToArray();
+            var enemyAiProfileOverrides = CreateEnemyAiProfileOverrides(initialEntities, boardBounds);
 
             return new GameplaySceneHostConfiguration
             {
@@ -239,11 +253,13 @@ namespace Game.Feature.Gameplay.Host
                 CameraSettings = cameraSettings,
                 CellSize = cellSize,
                 BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds,
+                DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
+                EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>(),
                 FlipMotionDurationSeconds = flipMotionDurationSeconds,
                 InitialBoardBounds = boardBounds,
                 InitialMoveDelaySeconds = initialMoveDelaySeconds,
-                InitialEntities = entities.ToArray(),
+                InitialEntities = initialEntities,
                 InitialTerrain = CreateTerrainData(boardBounds),
                 InitialTopology = InitialTopology,
                 MoveDeadzone = moveDeadzone,

@@ -11,10 +11,13 @@ namespace Game.Feature.Gameplay.Host
         private const int LeftBoxLaneColumn = 3;
         private const int RightBoxLaneColumn = 10;
         private const int SurfaceSlideColumn = 14;
-        private const int FloorEnemyEntityId = 50;
-        private const int FrontEnemyEntityId = 51;
+        private const int FloorChargingEnemyEntityId = 50;
+        private const int FrontScoutEnemyEntityId = 51;
 
         [SerializeField] private GameplayEntityView playerViewPrefab;
+
+        private EnemyAiProfile floorChargingEnemyProfile;
+        private EnemyAiProfile frontScoutEnemyProfile;
 
         protected override BoardBounds CreateBoardBounds()
         {
@@ -38,13 +41,14 @@ namespace Game.Feature.Gameplay.Host
             }
 
             entities.Add(CreatePlayer(PlayerEntityId, new SurfaceCell(FaceId.Floor, 1, 1), Direction.Right));
-            //entities.Add(CreateEnemy(
-            //    FloorEnemyEntityId,
-            //    new SurfaceCell(FaceId.Floor, 2, 4),
-            //    EnemyAiMode.Patrol,
-            //    Direction.Down));
             entities.Add(CreateEnemy(
-                FrontEnemyEntityId,
+                FloorChargingEnemyEntityId,
+                new SurfaceCell(FaceId.Floor, 1, 5),
+                EnemyAiMode.Patrol,
+                Direction.Down,
+                hp: 3));
+            entities.Add(CreateEnemy(
+                FrontScoutEnemyEntityId,
                 new SurfaceCell(FaceId.Front, 2, 2),
                 EnemyAiMode.Patrol,
                 Direction.Down));
@@ -94,6 +98,28 @@ namespace Game.Feature.Gameplay.Host
             return playerViewPrefab;
         }
 
+        protected override EnemyAiProfileOverride[] CreateEnemyAiProfileOverrides(
+            IReadOnlyList<EntityState> entities,
+            BoardBounds boardBounds)
+        {
+            floorChargingEnemyProfile ??= EnemyAiProfile.CreateRuntimeCharging();
+            frontScoutEnemyProfile ??= EnemyAiProfile.CreateRuntimeNonAttacking();
+
+            return new[]
+            {
+                new EnemyAiProfileOverride
+                {
+                    EntityId = FloorChargingEnemyEntityId,
+                    Profile = floorChargingEnemyProfile,
+                },
+                new EnemyAiProfileOverride
+                {
+                    EntityId = FrontScoutEnemyEntityId,
+                    Profile = frontScoutEnemyProfile,
+                },
+            };
+        }
+
         private static bool ShouldSkipPerimeterWall(SurfaceCell cell, BoardBounds boardBounds)
         {
             return IsSharedEdgeOpeningColumn(cell.x) &&
@@ -112,13 +138,38 @@ namespace Game.Feature.Gameplay.Host
         {
             return new GameplayShowcaseOverlayContent(
                 "Combined Gameplay Showcase",
-                "Boxes + Enemy FSM",
+                "Boxes + Enemy Variants",
                 "Move: WASD   Push: E   Flip: Q",
                 new[]
                 {
-                    "Floor patrol enemy starts near the player for immediate Chase/Attack/Recover checks.",
-                    "Front-face enemy validates the same FSM after a surface transition.",
+                    "Floor charger starts in the traversal lane to demo Patrol -> Chase -> Charge immediately.",
+                    "Front-face scout uses the non-attacking profile so surface-transition chase behavior stays visible.",
                 });
+        }
+
+        private void OnDestroy()
+        {
+            DestroyRuntimeProfile(ref floorChargingEnemyProfile);
+            DestroyRuntimeProfile(ref frontScoutEnemyProfile);
+        }
+
+        private static void DestroyRuntimeProfile(ref EnemyAiProfile profile)
+        {
+            if (profile == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(profile);
+            }
+            else
+            {
+                DestroyImmediate(profile);
+            }
+
+            profile = null;
         }
     }
 }

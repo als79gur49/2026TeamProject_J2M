@@ -96,7 +96,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseInstaller_PlacesTwoPatrolEnemiesForFsmValidation()
+        public void CombinedGameplayShowcaseInstaller_PlacesTwoVariantEnemiesForAiShowcase()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
 
@@ -109,23 +109,51 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 InvokePopulateInitialEntities(installer, entities, boardBounds);
 
                 Assert.That(
-                    TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 2, 4), out var floorEnemy),
+                    TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 1, 5), out var floorEnemy),
                     Is.True,
-                    "Floor face should include an immediately reachable FSM test enemy.");
+                    "Floor face should include an immediately reachable charge enemy.");
                 Assert.That(floorEnemy.teamId, Is.EqualTo(2));
                 Assert.That(floorEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
 
                 Assert.That(
                     TryGetUnitAt(entities, new SurfaceCell(FaceId.Front, 2, 2), out var frontEnemy),
                     Is.True,
-                    "Front face should include a second FSM test enemy after a surface transition.");
+                    "Front face should include a non-attacking scout after a surface transition.");
                 Assert.That(frontEnemy.teamId, Is.EqualTo(2));
                 Assert.That(frontEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
 
                 Assert.That(
                     GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorEnemy.position),
                     Is.EqualTo(4),
-                    "The floor enemy should start inside sense range but outside attack range so Chase is visible first.");
+                    "The floor enemy should start inside sense range but outside attack range so Chase appears before Charge.");
+            }
+            finally
+            {
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_CreatesEnemyProfileOverridesForChargeAndScoutVariants()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
+                var configuration = InvokeBaseCreateConfiguration(installer, boardBounds);
+
+                Assert.That(configuration.EnemyAiProfileOverrides, Is.Not.Null);
+                Assert.That(configuration.EnemyAiProfileOverrides.Length, Is.EqualTo(2));
+
+                Assert.That(TryGetProfileOverride(configuration, 50, out var floorChargingProfile), Is.True);
+                Assert.That(floorChargingProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+                Assert.That(floorChargingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+
+                Assert.That(TryGetProfileOverride(configuration, 51, out var frontScoutProfile), Is.True);
+                Assert.That(frontScoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+                Assert.That(frontScoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             }
             finally
             {
@@ -358,6 +386,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var method = installer.GetType().GetMethod("PopulateInitialEntities", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null);
             method.Invoke(installer, new object[] { entities, boardBounds });
+        }
+
+        private static GameplaySceneHostConfiguration InvokeBaseCreateConfiguration(
+            CombinedGameplayShowcaseInstaller installer,
+            BoardBounds boardBounds)
+        {
+            var method = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                "CreateConfiguration",
+                BindingFlags.Instance | BindingFlags.NonPublic,
+                binder: null,
+                types: new[] { typeof(BoardBounds) },
+                modifiers: null);
+            Assert.That(method, Is.Not.Null);
+            return (GameplaySceneHostConfiguration)method.Invoke(installer, new object[] { boardBounds });
+        }
+
+        private static bool TryGetProfileOverride(
+            GameplaySceneHostConfiguration configuration,
+            int entityId,
+            out EnemyAiProfile profile)
+        {
+            for (var i = 0; i < configuration.EnemyAiProfileOverrides.Length; i++)
+            {
+                var entry = configuration.EnemyAiProfileOverrides[i];
+                if (entry.EntityId != entityId)
+                {
+                    continue;
+                }
+
+                profile = entry.Profile;
+                return profile != null;
+            }
+
+            profile = null;
+            return false;
         }
     }
 }
