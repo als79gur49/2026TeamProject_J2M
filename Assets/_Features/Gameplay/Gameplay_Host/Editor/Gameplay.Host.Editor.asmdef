@@ -1,0 +1,11 @@
+{
+  "name": "Game.Feature.Gameplay.Host.Editor",
+  "rootNamespace": "Game.Feature.Gameplay.Host.EditorTools",
+  "references": [
+    "Game.Feature.Gameplay.Host",
+    "Unity.InputSystem"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}
