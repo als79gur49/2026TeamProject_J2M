@@ -373,11 +373,25 @@ MonoBehaviour:
   configureMainCamera: 1
   cellSize: 1.15
   directionChangeConsumesDelay: 0
-  initialMoveDelayTicks: 0
+  initialMoveDelaySeconds: 0
   moveDeadzone: 0.5
   playerEntityId: 10
-  repeatedMoveIntervalTicks: 2
-  tickIntervalSeconds: 0.2
+  playerControlTiming:
+    MoveCooldownSeconds: -1
+    PushContactThresholdSeconds: -1
+    PushExecuteDelaySeconds: 0.016666668
+    PushInputLockDurationSeconds: 0.016666668
+    FlipExecuteDelaySeconds: 0.016666668
+    FlipInputLockDurationSeconds: 0.016666668
+  playerMoveCooldownSeconds: -1
+  repeatedMoveIntervalSeconds: 0.4
+  boxSlideStepIntervalSeconds: 0.2
+  projectileStepIntervalSeconds: 0.2
+  moveMotionDurationSeconds: -1
+  pushMotionDurationSeconds: 0.2
+  flipMotionDurationSeconds: 0.2
+  topologyMotionDurationSeconds: -1
+  topologyRotationVisualMapping: 0
 --- !u!4 &576196519
 Transform:
   m_ObjectHideFlags: 0

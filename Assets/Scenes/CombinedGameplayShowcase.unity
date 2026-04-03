@@ -529,7 +529,14 @@ MonoBehaviour:
   initialMoveDelaySeconds: 0
   moveDeadzone: 0.5
   playerEntityId: 10
-  playerMoveCooldownSeconds: 0.5
+  playerControlTiming:
+    MoveCooldownSeconds: 0.5
+    PushContactThresholdSeconds: -1
+    PushExecuteDelaySeconds: 0.016666668
+    PushInputLockDurationSeconds: 0.016666668
+    FlipExecuteDelaySeconds: 0.016666668
+    FlipInputLockDurationSeconds: 0.016666668
+  playerMoveCooldownSeconds: -1
   repeatedMoveIntervalSeconds: 0.6
   boxSlideStepIntervalSeconds: 0.2
   projectileStepIntervalSeconds: 0.2

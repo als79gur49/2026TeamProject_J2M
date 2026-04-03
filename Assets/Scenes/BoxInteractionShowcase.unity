@@ -1000,6 +1000,13 @@ MonoBehaviour:
   initialMoveDelaySeconds: 0
   moveDeadzone: 0.5
   playerEntityId: 10
+  playerControlTiming:
+    MoveCooldownSeconds: -1
+    PushContactThresholdSeconds: -1
+    PushExecuteDelaySeconds: 0.016666668
+    PushInputLockDurationSeconds: 0.016666668
+    FlipExecuteDelaySeconds: 0.016666668
+    FlipInputLockDurationSeconds: 0.016666668
   playerMoveCooldownSeconds: -1
   repeatedMoveIntervalSeconds: 0.5
   boxSlideStepIntervalSeconds: 0.1
