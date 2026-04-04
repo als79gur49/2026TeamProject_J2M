@@ -86,19 +86,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void StageRuntimeBuilder_GroupKindMismatchRejects()
+        {
+            var stage = ScriptableObject.CreateInstance<StageDefinition>();
+
+            try
+            {
+                stage.name = "GroupKindMismatch";
+                SetPrivateField(stage, "board", CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()));
+                SetPrivateField(stage, "playerSpawns", new[]
+                {
+                    CreateSpawn(10, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 1), hp: 1),
+                });
+
+                var exception = Assert.Throws<InvalidOperationException>(() => StageRuntimeBuilder.Build(stage));
+                StringAssert.Contains("playerSpawns[0] must use Kind Player", exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
         public void StageRuntimeBuilder_CombinedShowcaseStageBuild_PreservesLegacyMeaning()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
+            Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
+            Assert.That(stage.BoxSpawns.Length, Is.EqualTo(12));
+            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(2));
+            Assert.That(stage.WallSpawns.Length, Is.EqualTo(5));
 
             var buildResult = StageRuntimeBuilder.Build(stage);
 
             Assert.That(buildResult.BoardBounds.MinInclusive, Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(10, 6)));
+            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(13, 9)));
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
-            Assert.That(buildResult.InitialEntities.Length, Is.EqualTo(116));
+            Assert.That(buildResult.InitialEntities.Length, Is.EqualTo(164));
             AssertEntityIdsAreSorted(buildResult.InitialEntities);
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
@@ -114,8 +141,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontWall.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 9, 3)));
 
             Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, 6)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, 6)), Is.True);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, 9)), Is.False);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, 9)), Is.True);
 
             Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 9, 6)), Is.True);
             Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 3, 1)), Is.True);
@@ -149,7 +176,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
             stage.name = stageName;
             SetPrivateField(stage, "board", board);
-            SetPrivateField(stage, "spawns", spawns ?? Array.Empty<StageSpawnDefinition>());
+            SetPrivateField(stage, "playerSpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Player));
+            SetPrivateField(stage, "boxSpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Box));
+            SetPrivateField(stage, "enemySpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Enemy));
+            SetPrivateField(stage, "wallSpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Wall));
+            SetPrivateField(stage, "legacySpawns", Array.Empty<StageSpawnDefinition>());
             return stage;
         }
 
@@ -202,6 +233,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}'.");
             field.SetValue(target, value);
+        }
+
+        private static StageSpawnDefinition[] FilterSpawnsByKind(
+            StageSpawnDefinition[] spawns,
+            StageSpawnKind kind)
+        {
+            if (spawns == null || spawns.Length == 0)
+            {
+                return Array.Empty<StageSpawnDefinition>();
+            }
+
+            var filtered = new System.Collections.Generic.List<StageSpawnDefinition>();
+            for (var i = 0; i < spawns.Length; i++)
+            {
+                if (spawns[i].Kind == kind)
+                {
+                    filtered.Add(spawns[i]);
+                }
+            }
+
+            return filtered.ToArray();
         }
 
         private static void AssertBuildThrows(StageDefinition stage, string expectedMessage)

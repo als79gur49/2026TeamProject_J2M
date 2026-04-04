@@ -61,9 +61,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var entities = buildResult.InitialEntities;
 
             Assert.That(
-                HasPushableBoxAt(entities, new SurfaceCell(FaceId.Floor, 9, boardBounds.MaxInclusive.y)),
+                HasPushableBoxAt(entities, new SurfaceCell(FaceId.Floor, 9, 6)),
                 Is.True,
-                "Floor should retain the dedicated top-edge push box.");
+                "Floor should retain the elevated push box in the expanded layout.");
             Assert.That(
                 HasPushableBoxAt(entities, new SurfaceCell(FaceId.Front, 3, 1)),
                 Is.True,
