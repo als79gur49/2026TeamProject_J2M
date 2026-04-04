@@ -409,6 +409,16 @@ public readonly struct TickEnemyActionPresentationSignal
 
 - 적 wind-up / execute / recover presentation이 최소 1개 showcase 또는 test prefab에서 검증 가능하다.
 
+진행 상태:
+
+- 2026-04-05 구현 완료
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyAi_WindupMelee.asset`를 추가해 기본 melee resolver에 `attackTimingSettings.windupTicks = 2`를 주는 showcase 전용 wind-up profile을 만들었다.
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52` floor striker를 `(Floor, 2, 2)`에 추가해 기존 charger lane을 막지 않으면서 시작 구역 근처에서 wind-up -> execute -> recover presentation을 볼 수 있게 했다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs` overlay highlight를 갱신해 floor striker가 2-tick wind-up demo라는 점과 charger lane 보존 의도를 scene 설명에 반영했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageRuntimeBuilderTests.cs`를 갱신해 third enemy variant, wind-up profile override, overlay 문구 contract를 고정했다.
+- `Assets/Scenes/CombinedGameplayShowcase.unity`는 기존 stage-backed installer 경로를 그대로 사용하므로 scene serialization 변경은 필요하지 않았다.
+- 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공 기준으로 확인했다. 현재 환경에는 Unity batchmode 실행에 사용할 `Unity.exe`가 없어 EditMode showcase tests의 직접 실행까지는 진행하지 못했다.
+
 ### 6-10. Deferred: recovery cadence를 `EnemyActionRuntimeState`로 이동 검토
 
 이 단계는 이번 작업의 즉시 범위가 아니다.
