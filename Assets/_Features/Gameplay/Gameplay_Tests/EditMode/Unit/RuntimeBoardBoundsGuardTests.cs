@@ -1955,6 +1955,173 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayTickViewPresenter_Present_MapsEnemyWindupExecuteAndRecoverySignalsToAnimatorDriver()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_MapsEnemyWindupExecuteAndRecoverySignalsToAnimatorDriver");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var enemyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(40, out var view), Is.True);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            new TickEnemyActionPresentationSignal(
+                                40,
+                                EnemyActionKind.Melee,
+                                activeActionSequence: 1,
+                                startedThisTick: true,
+                                canceledThisTick: false,
+                                executedThisTick: false,
+                                startedRecoveryThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Attack));
+                Assert.That(driver.CurrentActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.AttackSignalCount, Is.EqualTo(0));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(0));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Recover, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            new TickEnemyActionPresentationSignal(
+                                40,
+                                EnemyActionKind.Melee,
+                                activeActionSequence: 1,
+                                startedThisTick: false,
+                                canceledThisTick: false,
+                                executedThisTick: true,
+                                startedRecoveryThisTick: true),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(driver.CurrentActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_ZeroWindupEnemyExecuteSignal_DoesNotTriggerWindup()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_ZeroWindupEnemyExecuteSignal_DoesNotTriggerWindup");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var enemyCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(40, out var view), Is.True);
+                var driver = view.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Recover, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            new TickEnemyActionPresentationSignal(
+                                40,
+                                EnemyActionKind.Melee,
+                                activeActionSequence: 1,
+                                startedThisTick: true,
+                                canceledThisTick: false,
+                                executedThisTick: true,
+                                startedRecoveryThisTick: true),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(driver.CurrentActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(0));
+                Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastPresentationState.StartedWindupThisTick, Is.False);
+                Assert.That(driver.LastPresentationState.ExecutedThisTick, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_Present_RemovedEnemy_MapsDeathSignalToAnimatorDriver()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_RemovedEnemy_MapsDeathSignalToAnimatorDriver");
