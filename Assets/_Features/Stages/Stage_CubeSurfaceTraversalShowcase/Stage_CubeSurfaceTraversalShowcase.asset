@@ -24,7 +24,7 @@ MonoBehaviour:
     SharedEdgeOpeningColumns:
     - 2
     GeneratedPerimeterWallEntityIdStart: 100
-  spawns:
+  playerSpawns:
   - EntityId: 10
     Kind: 0
     Cell:
@@ -37,6 +37,9 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+  boxSpawns: []
+  enemySpawns: []
+  wallSpawns:
   - EntityId: 156
     Kind: 3
     Cell:
@@ -73,3 +76,4 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+  legacySpawns: []

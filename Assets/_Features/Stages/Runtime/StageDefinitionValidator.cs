@@ -23,7 +23,7 @@ namespace Game.Feature.Stages
             var boardBounds = CreateBoardBounds(stageName, board);
             var perimeterFaces = NormalizePerimeterFaces(board.PerimeterFaces);
             var openingColumns = NormalizeOpeningColumns(board.SharedEdgeOpeningColumns);
-            var spawns = stage.Spawns ?? Array.Empty<StageSpawnDefinition>();
+            var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
 
             if (board.GeneratedPerimeterWallEntityIdStart <= 0)
             {
@@ -37,12 +37,12 @@ namespace Game.Feature.Stages
                 openingColumns,
                 board.GeneratedPerimeterWallEntityIdStart);
 
-            var playerEntityId = ValidateEntities(stageName, spawns, boardBounds, generatedWalls);
+            var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds, generatedWalls);
 
             return new ValidatedStageData(
                 boardBounds,
                 new CubeTopologyState(board.InitialBottomFace),
-                spawns,
+                ExtractSpawns(spawnEntries),
                 generatedWalls,
                 playerEntityId);
         }
@@ -83,7 +83,7 @@ namespace Game.Feature.Stages
 
         private static int ValidateEntities(
             string stageName,
-            IReadOnlyList<StageSpawnDefinition> spawns,
+            IReadOnlyList<ExplicitSpawnEntry> spawnEntries,
             BoardBounds boardBounds,
             IReadOnlyList<GeneratedWallDefinition> generatedWalls)
         {
@@ -110,10 +110,17 @@ namespace Game.Feature.Stages
             var playerCount = 0;
             var playerEntityId = 0;
 
-            for (var i = 0; i < spawns.Count; i++)
+            for (var i = 0; i < spawnEntries.Count; i++)
             {
-                var spawn = spawns[i];
-                var spawnLabel = FormatSpawnLabel(spawn, i);
+                var spawnEntry = spawnEntries[i];
+                var spawn = spawnEntry.Spawn;
+                var spawnLabel = FormatSpawnLabel(spawnEntry);
+
+                if (spawn.Kind != spawnEntry.ExpectedKind)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' {spawnEntry.GroupName}[{spawnEntry.GroupIndex}] must use Kind {spawnEntry.ExpectedKind}, but found {spawn.Kind}.");
+                }
 
                 if (spawn.EntityId <= 0)
                 {
@@ -172,6 +179,50 @@ namespace Game.Feature.Stages
             }
 
             return playerEntityId;
+        }
+
+        private static ExplicitSpawnEntry[] NormalizeExplicitSpawns(
+            IReadOnlyList<StageDefinition.StageSpawnGroup> spawnGroups)
+        {
+            var entries = new List<ExplicitSpawnEntry>();
+
+            for (var groupIndex = 0; groupIndex < spawnGroups.Count; groupIndex++)
+            {
+                var spawnGroup = spawnGroups[groupIndex];
+                var groupSpawns = spawnGroup.Spawns ?? Array.Empty<StageSpawnDefinition>();
+
+                for (var spawnIndex = 0; spawnIndex < groupSpawns.Length; spawnIndex++)
+                {
+                    entries.Add(new ExplicitSpawnEntry(
+                        spawnGroup.GroupName,
+                        spawnGroup.ExpectedKind,
+                        spawnIndex,
+                        groupSpawns[spawnIndex]));
+                }
+            }
+
+            if (entries.Count == 0)
+            {
+                return Array.Empty<ExplicitSpawnEntry>();
+            }
+
+            return entries.ToArray();
+        }
+
+        private static StageSpawnDefinition[] ExtractSpawns(IReadOnlyList<ExplicitSpawnEntry> spawnEntries)
+        {
+            if (spawnEntries.Count == 0)
+            {
+                return Array.Empty<StageSpawnDefinition>();
+            }
+
+            var spawns = new StageSpawnDefinition[spawnEntries.Count];
+            for (var i = 0; i < spawnEntries.Count; i++)
+            {
+                spawns[i] = spawnEntries[i].Spawn;
+            }
+
+            return spawns;
         }
 
         private static FaceId[] NormalizePerimeterFaces(FaceId[] perimeterFaces)
@@ -250,9 +301,10 @@ namespace Game.Feature.Stages
                    (cell.y == boardBounds.MinInclusive.y || cell.y == boardBounds.MaxInclusive.y);
         }
 
-        private static string FormatSpawnLabel(StageSpawnDefinition spawn, int index)
+        private static string FormatSpawnLabel(ExplicitSpawnEntry spawnEntry)
         {
-            return $"spawn[{index}] ({spawn.Kind}, EntityId={spawn.EntityId}, Cell={spawn.Cell})";
+            var spawn = spawnEntry.Spawn;
+            return $"{spawnEntry.GroupName}[{spawnEntry.GroupIndex}] ({spawn.Kind}, EntityId={spawn.EntityId}, Cell={spawn.Cell})";
         }
 
         private static string GetStageName(StageDefinition stage)
@@ -271,6 +323,29 @@ namespace Game.Feature.Stages
             public int EntityId { get; }
 
             public SurfaceCell Cell { get; }
+        }
+
+        internal readonly struct ExplicitSpawnEntry
+        {
+            public ExplicitSpawnEntry(
+                string groupName,
+                StageSpawnKind expectedKind,
+                int groupIndex,
+                StageSpawnDefinition spawn)
+            {
+                GroupName = groupName ?? string.Empty;
+                ExpectedKind = expectedKind;
+                GroupIndex = groupIndex;
+                Spawn = spawn;
+            }
+
+            public string GroupName { get; }
+
+            public StageSpawnKind ExpectedKind { get; }
+
+            public int GroupIndex { get; }
+
+            public StageSpawnDefinition Spawn { get; }
         }
 
         internal sealed class ValidatedStageData
