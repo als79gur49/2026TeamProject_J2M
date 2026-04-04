@@ -189,6 +189,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyLogic_ExecuteTickActionState_DoesNotRequireAttackModeToProduceRawAttackIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40);
+            var buffer = new List<RawAttackIntent>();
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 1,
+                    executionAttempted = false,
+                });
+
+            logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                buffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
+        }
+
+        [Test]
         public void EnemyLogic_AttackMode_WithoutActiveActionState_DoesNotProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -540,6 +573,84 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultEntityLogicProvider_AttackEnemy_WithZeroWindup_ExecutesOnStartTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Up),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0));
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+            Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+            Assert.That(actionState.executeTick, Is.EqualTo(1));
+            Assert.That(actionState.executionAttempted, Is.True);
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_NonAttackingProfile_DoesNotArmActionStateOrAttack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeNonAttacking());
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_ChargingProfile_DoesNotArmActionStateOrAttack()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeCharging());
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var fourthTick = pipeline.RunTick(new TickInput(4));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(3));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_WindupEnemy_LosesLockedTarget_CancelsActionAndFallsBackToPatrol()
         {
             var worldState = CreateWorldState(new[]
@@ -732,6 +843,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 spawnTick = 0,
                 aiMode = aiMode,
                 aiStateTimer = aiStateTimer,
+            };
+        }
+
+        private static EntityState CreateBox(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = SurfaceCell.FromPlanar(position),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                boxCapabilities = BoxCapabilities.None,
+                aiMode = EnemyAiMode.None,
+                aiStateTimer = 0,
             };
         }
 

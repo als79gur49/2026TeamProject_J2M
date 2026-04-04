@@ -221,7 +221,6 @@ namespace Game.Feature.Gameplay.Entities
 
             RawAttackIntent attackIntent;
             if (!TryGetControllableEnemy(snapshot, out var source) ||
-                source.aiMode != EnemyAiMode.Attack ||
                 !snapshot.TryGetEnemyActionState(_entityId, out var actionState) ||
                 !EnemyActionQueries.CanExecute(actionState, input.TickIndex) ||
                 !EnemyActionStateTargeting.TryResolveLockedTarget(

@@ -252,6 +252,10 @@ public interface IEnemyActionStateLogic : IEntityLogic
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs`에 no-active-action no-op, wind-up start tick no attack, execute tick only attack, locked target loss cancel 회귀 케이스를 추가했다.
 - `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/AttackInputNormalizationTests.cs`는 새 `EnemyActionPhaseResult` trace signature에 맞게 갱신했다.
 - 검증은 Unity `6000.3.11f1` batchmode script compilation 성공 로그 기준으로 확인했다. CLI `-runTests`는 현재 환경에서 결과 XML을 남기지 않아 새 테스트 실행 결과는 후속 확인이 필요하다.
+- 2026-04-05 follow-up
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyLogic.cs`의 `CollectAttackIntents`에서 잔여 `EnemyAiMode.Attack` gate를 제거해 attack intent authority가 `EnemyActionRuntimeState.CanExecute`와 locked target validation에만 걸리도록 정리했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs`에 action-state-only execute gating, zero-windup immediate execute, non-attacking profile no-op, charging profile no-op 회귀 테스트를 추가해 4단계 완료 조건을 직접 고정했다.
+- Windows `dotnet build Game.Feature.Gameplay.Tests.csproj -c Debug`로 수정된 test assembly 빌드 통과를 다시 확인했다. Unity `6000.3.11f1` batchmode `-runTests`는 이 환경에서 이번에도 스크립트 리컴파일 후 종료되어 실제 EditMode 실행 결과 XML은 남기지 못했다.
 
 ### 6-5. 5단계: 적군 presentation signal 추가
 
