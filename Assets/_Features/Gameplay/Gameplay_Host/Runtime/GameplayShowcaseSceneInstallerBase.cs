@@ -13,6 +13,37 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public abstract class GameplayShowcaseSceneInstallerBase : MonoBehaviour
     {
+        protected readonly struct InitialGameplayState
+        {
+            public InitialGameplayState(
+                BoardBounds boardBounds,
+                CubeTopologyState initialTopology,
+                EntityState[] initialEntities,
+                GameplayTerrainData initialTerrain,
+                int playerEntityId,
+                EnemyAiProfileOverride[] enemyAiProfileOverrides)
+            {
+                BoardBounds = boardBounds;
+                InitialTopology = initialTopology;
+                InitialEntities = initialEntities ?? Array.Empty<EntityState>();
+                InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
+                PlayerEntityId = playerEntityId;
+                EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
+            }
+
+            public BoardBounds BoardBounds { get; }
+
+            public CubeTopologyState InitialTopology { get; }
+
+            public EntityState[] InitialEntities { get; }
+
+            public GameplayTerrainData InitialTerrain { get; }
+
+            public int PlayerEntityId { get; }
+
+            public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
+        }
+
         [SerializeField] private InputActionAsset actions;
         [SerializeField] private bool autoAdvanceTicks = true;
         [SerializeField] private bool autoCreateViews = true;
@@ -48,7 +79,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException($"{GetType().Name} requires an InputActionAsset reference.");
             }
 
-            var boardBounds = CreateBoardBounds();
+            var initialState = BuildInitialGameplayState();
             var cameraSettings = CreateCameraSettings();
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 gameObject,
@@ -57,16 +88,24 @@ namespace Game.Feature.Gameplay.Host
 
             if (configureMainCamera)
             {
-                ConfigureCamera(boardBounds);
+                ConfigureCamera(initialState);
             }
 
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
-            host.Initialize(CreateConfiguration(boardBounds, cameraSettings));
+            host.Initialize(CreateConfiguration(initialState, cameraSettings));
         }
 
-        protected abstract BoardBounds CreateBoardBounds();
+        protected virtual BoardBounds CreateBoardBounds()
+        {
+            throw new NotSupportedException(
+                $"{GetType().Name} must override either {nameof(BuildInitialGameplayState)} or {nameof(CreateBoardBounds)}.");
+        }
 
-        protected abstract void PopulateInitialEntities(List<EntityState> entities, BoardBounds boardBounds);
+        protected virtual void PopulateInitialEntities(List<EntityState> entities, BoardBounds boardBounds)
+        {
+            throw new NotSupportedException(
+                $"{GetType().Name} must override either {nameof(BuildInitialGameplayState)} or {nameof(PopulateInitialEntities)}.");
+        }
 
         public GameplayShowcaseOverlayContent GetShowcaseOverlayContent()
         {
@@ -114,6 +153,11 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
+        protected virtual InitialGameplayState BuildInitialGameplayState()
+        {
+            return CreateLegacyInitialGameplayState(CreateBoardBounds());
+        }
+
         protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
 
         public GameplayCameraSettings GetCameraSettings()
@@ -123,13 +167,24 @@ namespace Game.Feature.Gameplay.Host
 
         public void ConfigureBootstrapCamera(Camera camera)
         {
-            ConfigureSceneCamera(camera, CreateBoardBounds(), CreateCameraSettings());
+            var initialState = BuildInitialGameplayState();
+            ConfigureSceneCamera(camera, initialState.BoardBounds, CreateCameraSettings(), initialState.InitialTopology);
         }
 
         protected virtual void ConfigureCamera(BoardBounds boardBounds)
         {
             var camera = Camera.main;
-            ConfigureSceneCamera(camera, boardBounds, CreateCameraSettings());
+            ConfigureSceneCamera(camera, boardBounds, CreateCameraSettings(), InitialTopology);
+        }
+
+        private void ConfigureCamera(InitialGameplayState initialState)
+        {
+            var camera = Camera.main;
+            ConfigureSceneCamera(
+                camera,
+                initialState.BoardBounds,
+                CreateCameraSettings(),
+                initialState.InitialTopology);
         }
 
         protected static EntityState CreatePlayer(int entityId, SurfaceCell position, Direction facing = Direction.Up)
@@ -227,26 +282,28 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplaySceneHostConfiguration CreateConfiguration(BoardBounds boardBounds)
         {
-            return CreateConfiguration(boardBounds, CreateCameraSettings());
+            return CreateConfiguration(CreateLegacyInitialGameplayState(boardBounds), CreateCameraSettings());
         }
 
         private GameplaySceneHostConfiguration CreateConfiguration(
             BoardBounds boardBounds,
             GameplayCameraSettings cameraSettings)
         {
-            return CreateConfiguration(boardBounds, cameraSettings, ResolveViewFactory());
+            return CreateConfiguration(CreateLegacyInitialGameplayState(boardBounds), cameraSettings, ResolveViewFactory());
         }
 
         private GameplaySceneHostConfiguration CreateConfiguration(
-            BoardBounds boardBounds,
+            InitialGameplayState initialState,
+            GameplayCameraSettings cameraSettings)
+        {
+            return CreateConfiguration(initialState, cameraSettings, ResolveViewFactory());
+        }
+
+        private GameplaySceneHostConfiguration CreateConfiguration(
+            InitialGameplayState initialState,
             GameplayCameraSettings cameraSettings,
             IGameplayEntityViewFactory viewFactory)
         {
-            var entities = new List<EntityState>();
-            PopulateInitialEntities(entities, boardBounds);
-            var initialEntities = entities.ToArray();
-            var enemyAiProfileOverrides = CreateEnemyAiProfileOverrides(initialEntities, boardBounds);
-
             return new GameplaySceneHostConfiguration
             {
                 Actions = actions,
@@ -257,15 +314,15 @@ namespace Game.Feature.Gameplay.Host
                 BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds,
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
-                EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>(),
+                EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
                 FlipMotionDurationSeconds = flipMotionDurationSeconds,
-                InitialBoardBounds = boardBounds,
+                InitialBoardBounds = initialState.BoardBounds,
                 InitialMoveDelaySeconds = initialMoveDelaySeconds,
-                InitialEntities = initialEntities,
-                InitialTerrain = CreateTerrainData(boardBounds),
-                InitialTopology = InitialTopology,
+                InitialEntities = initialState.InitialEntities,
+                InitialTerrain = initialState.InitialTerrain,
+                InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
-                PlayerEntityId = playerEntityId,
+                PlayerEntityId = initialState.PlayerEntityId,
                 PlayerControlTiming = CreatePlayerControlTimingSettings(),
                 PlayerViewPrefab = ResolvePlayerViewPrefab(),
                 ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
@@ -299,10 +356,26 @@ namespace Game.Feature.Gameplay.Host
             return CreateViewFactory(boardRoot);
         }
 
+        private InitialGameplayState CreateLegacyInitialGameplayState(BoardBounds boardBounds)
+        {
+            var entities = new List<EntityState>();
+            PopulateInitialEntities(entities, boardBounds);
+            var initialEntities = entities.ToArray();
+
+            return new InitialGameplayState(
+                boardBounds,
+                InitialTopology,
+                initialEntities,
+                CreateTerrainData(boardBounds),
+                playerEntityId,
+                CreateEnemyAiProfileOverrides(initialEntities, boardBounds));
+        }
+
         private void ConfigureSceneCamera(
             Camera camera,
             BoardBounds boardBounds,
-            GameplayCameraSettings cameraSettings)
+            GameplayCameraSettings cameraSettings,
+            CubeTopologyState topology)
         {
             if (camera == null)
             {
@@ -314,7 +387,7 @@ namespace Game.Feature.Gameplay.Host
                 camera,
                 cameraSettings,
                 Vector3.zero,
-                projector.GetVisibleCubeBounds(InitialTopology));
+                projector.GetVisibleCubeBounds(topology));
         }
 
         private static void AddWallIfNeeded(

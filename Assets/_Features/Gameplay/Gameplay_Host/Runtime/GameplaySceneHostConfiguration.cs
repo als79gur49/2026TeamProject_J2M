@@ -16,13 +16,6 @@ namespace Game.Feature.Gameplay.Host
     }
 
     [Serializable]
-    public struct EnemyAiProfileOverride
-    {
-        public int EntityId;
-        public EnemyAiProfile Profile;
-    }
-
-    [Serializable]
     public sealed class GameplaySceneHostConfiguration
     {
         public bool AutoAdvanceTicks = true;
