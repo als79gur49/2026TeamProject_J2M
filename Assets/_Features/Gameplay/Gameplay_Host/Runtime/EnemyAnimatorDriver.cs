@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class EnemyAnimatorDriver : MonoBehaviour
     {
         [SerializeField] private Animator animator;
+        [SerializeField] private EnemyAnimationTimingAuthoring animationTimingAuthoring;
         [SerializeField] private string aiModeParameterName = "EnemyAiMode";
         [SerializeField] private string activeActionKindParameterName = "EnemyActionKind";
         [SerializeField] private string movingParameterName = "IsMoving";
@@ -35,9 +36,14 @@ namespace Game.Feature.Gameplay.Host
 
         public int DeathSignalCount { get; private set; }
 
+        private bool _animationTimingResolved;
+        private bool _hasAnimationTimingAuthoring;
+        private EnemyAnimationTimingSnapshot _animationTiming;
+
         private void Reset()
         {
             animator = GetComponentInChildren<Animator>();
+            animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
         }
 
         public void Apply(in EnemyViewPresentationState state)
@@ -98,6 +104,39 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public bool TryGetAttackWindupAnimatorDurationOverride(out float durationSeconds)
+        {
+            if (!TryResolveAnimationTiming(out var animationTiming))
+            {
+                durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
+                return false;
+            }
+
+            return animationTiming.TryGetAttackWindupAnimatorDurationOverride(out durationSeconds);
+        }
+
+        public bool TryGetRecoverAnimatorDurationOverride(out float durationSeconds)
+        {
+            if (!TryResolveAnimationTiming(out var animationTiming))
+            {
+                durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
+                return false;
+            }
+
+            return animationTiming.TryGetRecoverAnimatorDurationOverride(out durationSeconds);
+        }
+
+        public bool TryGetStateTransitionCrossFadeDurationOverride(out float durationSeconds)
+        {
+            if (!TryResolveAnimationTiming(out var animationTiming))
+            {
+                durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
+                return false;
+            }
+
+            return animationTiming.TryGetStateTransitionCrossFadeDurationOverride(out durationSeconds);
+        }
+
         private Animator ResolveAnimator()
         {
             if (animator == null)
@@ -106,6 +145,35 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return animator;
+        }
+
+        private bool TryResolveAnimationTiming(out EnemyAnimationTimingSnapshot animationTiming)
+        {
+            if (_animationTimingResolved)
+            {
+                animationTiming = _animationTiming;
+                return _hasAnimationTimingAuthoring;
+            }
+
+            if (animationTimingAuthoring == null)
+            {
+                animationTimingAuthoring = GetComponent<EnemyAnimationTimingAuthoring>();
+            }
+
+            if (animationTimingAuthoring == null)
+            {
+                _animationTimingResolved = true;
+                _hasAnimationTimingAuthoring = false;
+                _animationTiming = default;
+                animationTiming = default;
+                return false;
+            }
+
+            _animationTiming = animationTimingAuthoring.CreateSnapshot();
+            _animationTimingResolved = true;
+            _hasAnimationTimingAuthoring = true;
+            animationTiming = _animationTiming;
+            return true;
         }
 
         private static void SetBoolParameter(Animator targetAnimator, string parameterName, bool value)

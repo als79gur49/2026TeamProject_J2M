@@ -354,6 +354,39 @@ public readonly struct TickEnemyActionPresentationSignal
 
 - 적 animation tuning이 필요해져도 `EnemyAiProfile`을 오염시키지 않는다.
 
+권장 실제 구현 분할:
+
+- 1차 PR: 타입 표면과 optional hook 고정
+- 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimationTimingAuthoring.cs`와 snapshot / validation 표면을 추가한다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs`에는 optional reference와 timing 조회 API만 추가한다.
+- 이 단계에서는 `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyLogic.cs`, `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`, `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs`의 authoritative logic은 수정하지 않는다.
+- 완료 조건은 authoring이 없어도 기존 동작이 완전히 유지되고, authoring이 있어도 아직 presentation 결과를 바꾸지 않는 것이다.
+
+진행 상태:
+
+- 2026-04-05 1차 PR 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimationTimingAuthoring.cs`를 추가해 `attackWindupAnimatorDurationSeconds`, `recoverAnimatorDurationSeconds`, `stateTransitionCrossFadeDurationSeconds`의 optional snapshot / validation 표면과 sentinel 기반 override contract를 고정했다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs`는 optional `EnemyAnimationTimingAuthoring` reference를 해석하는 조회 API만 추가했고, wind-up / execute / recovery signal 처리 자체는 그대로 유지했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayTimingOwnershipTests.cs`에 authoring snapshot / validation, driver optional timing query, 기본 view factory의 no-auto-attach contract 회귀 테스트를 추가해 이 단계의 ownership 경계를 고정했다.
+- 이 단계에서는 `EnemyLogic`, `EnemyAiConfig`, `TickPipeline`의 authoritative logic은 수정하지 않았다.
+- 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공, Unity `6000.3.11f1` batchmode script compilation 성공, `GameplayTimingOwnershipTests` EditMode 실행(`8 passed, 0 failed`) 기준으로 확인했다.
+
+- 2차 PR: driver가 authoring 값을 실제 presentation에 소비
+- `EnemyAnimatorDriver`가 wind-up / recovery animator duration override와 crossfade 값을 실제 animator 적용 경로에서 해석하도록 확장한다.
+- 필요 시 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs`를 최소 범위로 조정하되, enemy 전용 visual hold state machine까지 한 번에 도입하지는 않는다.
+- 완료 조건은 override가 있으면 그것을 사용하고, 없으면 기존 fallback을 유지하며, logic 결과와 timing authority는 변하지 않는 것이다.
+
+- 3차 PR: prefab / showcase 연결과 실사용 검증
+- 실제 enemy prefab 또는 showcase용 test prefab에 `EnemyAnimationTimingAuthoring`를 연결한다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`는 기본적으로 auto-attach를 강제하지 않고, optional hook로 유지하는 방향을 우선 검토한다.
+- showcase와 presenter integration test를 통해 wind-up / recover 연출 tuning이 눈으로 확인 가능한지 검증한다.
+- 완료 조건은 최소 1개 실제 enemy presentation 경로에서 authoring 값이 적용되는 것을 확인하는 것이다.
+
+별도 트랙:
+
+- `Recover + aiStateTimer`를 `EnemyActionRuntimeState`로 옮기는 recovery cadence migration은 이 구현 묶음에 포함하지 않는다.
+- 해당 작업은 AI transition, movement / attack gating, snapshot / hash / trace / test contract를 함께 바꾸는 별도 리팩터 PR로 분리한다.
+
 ### 6-8. 8단계: 테스트 보강
 
 목표는 새 구조의 ownership과 timing contract를 테스트로 고정하는 것이다.

@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
@@ -128,6 +129,136 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides()
+        {
+            var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.35f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.6f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.12f);
+
+                var snapshot = authoring.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
+                Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+                Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
+                Assert.That(recoverDurationSeconds, Is.EqualTo(0.6f));
+                Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
+                Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.12f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimationTimingAuthoring_CreateSnapshot_InvalidOverride_Throws()
+        {
+            var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_InvalidOverride_Throws");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0f);
+                var invalidWindupException = Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
+                Assert.That(invalidWindupException.ParamName, Is.EqualTo("attackWindupAnimatorDurationSeconds"));
+
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    authoring,
+                    "attackWindupAnimatorDurationSeconds",
+                    EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", -2f);
+                var invalidCrossFadeException = Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
+                Assert.That(invalidCrossFadeException.ParamName, Is.EqualTo("stateTransitionCrossFadeDurationSeconds"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.4f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.08f);
+
+                Assert.That(driver.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
+                Assert.That(windupDurationSeconds, Is.EqualTo(0.4f));
+                Assert.That(driver.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
+                Assert.That(recoverDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(driver.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
+                Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.08f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Attack,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: true,
+                    startedRecoveryThisTick: true,
+                    tookDamage: true,
+                    didDie: false));
+
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(0));
+                Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(driver.CurrentActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional");
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(parentObject.transform, 1f, playerEntityId: 10);
+                var enemyView = factory.CreateView(CreateEnemyEntity());
+
+                Assert.That(enemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(enemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
         public void EnemyAiProfile_SerializedFields_RemainLogicOnlyContract()
         {
             var serializedFieldNames = typeof(EnemyAiProfile)
@@ -169,6 +300,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = EnemyAiMode.None,
+            };
+        }
+
+        private static EntityState CreateEnemyEntity()
+        {
+            return new EntityState
+            {
+                entityId = 40,
+                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                hp = 3,
+                maxHp = 3,
+                teamId = 2,
+                type = EntityType.Unit,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Left,
+                boardPresence = EntityBoardPresence.Occupying,
+                aiMode = EnemyAiMode.Patrol,
+                aiStateTimer = 0,
             };
         }
     }
