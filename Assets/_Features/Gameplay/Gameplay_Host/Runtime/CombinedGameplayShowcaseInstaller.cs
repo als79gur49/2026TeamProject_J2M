@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Host
                 {
                     "Floor charger starts in the traversal lane to demo Patrol -> Chase -> Charge immediately.",
                     "Front-face scout uses the non-attacking profile so surface-transition chase behavior stays visible.",
+                    "Floor striker near spawn uses a 2-tick wind-up melee profile so wind-up, execute, and recover beats can be inspected without blocking the charger lane.",
                 });
         }
     }

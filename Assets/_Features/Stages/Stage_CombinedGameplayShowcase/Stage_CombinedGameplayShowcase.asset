@@ -202,6 +202,18 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+  - EntityId: 52
+    Kind: 1
+    Cell:
+      face: 0
+      x: 2
+      y: 2
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
   wallSpawns:
   - EntityId: 196
     Kind: 3
