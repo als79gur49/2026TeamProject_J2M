@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.BoardState
         void ApplyDamage(int entityId, int amount);
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
         void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
+        void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
         void MarkDestroy(int entityId);
         void SetFacing(int entityId, Direction facing);
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);

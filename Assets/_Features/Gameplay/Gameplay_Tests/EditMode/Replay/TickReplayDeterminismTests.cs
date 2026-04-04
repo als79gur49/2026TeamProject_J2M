@@ -85,6 +85,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.PlayerControlDump).ToArray(),
                 secondReplay.Select(frame => frame.PlayerControlDump).ToArray());
             CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyActionDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyActionDump).ToArray());
+            CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
         }
@@ -541,6 +544,38 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void Snapshot_EnemyActionState_PreservesStoredRuntimeState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
+            });
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 3,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Left,
+                    startTick = 7,
+                    executeTick = 9,
+                    executionAttempted = false,
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEnemyActionState(40, out var actionState), Is.True);
+            Assert.That(actionState.kind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(actionState.sequence, Is.EqualTo(3));
+            Assert.That(actionState.lockedTargetEntityId, Is.EqualTo(10));
+            Assert.That(actionState.direction, Is.EqualTo(Direction.Left));
+            Assert.That(actionState.startTick, Is.EqualTo(7));
+            Assert.That(actionState.executeTick, Is.EqualTo(9));
+            Assert.That(actionState.executionAttempted, Is.False);
+        }
+
+        [Test]
         public void DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState()
         {
             var idlePipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -588,6 +623,46 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             Assert.That(zeroTimerResult.DeterminismHash, Is.Not.EqualTo(timedResult.DeterminismHash));
             Assert.That(timedResult.Trace.Text, Does.Contain("AiTimer=1"));
+        }
+
+        [Test]
+        public void DeterminismHash_EnemyActionState_IsIncludedInCanonicalState()
+        {
+            var idleWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
+            });
+            var actionWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
+            });
+            var replayWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Attack),
+            });
+            var enemyActionState = new EnemyActionRuntimeState
+            {
+                kind = EnemyActionKind.Melee,
+                sequence = 2,
+                lockedTargetEntityId = 10,
+                direction = Direction.Left,
+                startTick = 4,
+                executeTick = 5,
+            };
+            actionWorldState.CreateWriteContext().SetEnemyActionState(40, enemyActionState);
+            replayWorldState.CreateWriteContext().SetEnemyActionState(40, enemyActionState);
+
+            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var actionResult = GameplayCompositionRoot.CreateTickPipeline(actionWorldState).RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                replayWorldState,
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(actionResult.DeterminismHash));
+            Assert.That(actionResult.Trace.Text, Does.Contain("Final.EnemyActions"));
+            Assert.That(actionResult.Trace.Text, Does.Contain("E=40|Kind=Melee|Seq=2|Target=10|Direction=Left|Start=4|Execute=5|Attempted=0"));
+            Assert.That(replay[0].EnemyActionDump, Does.Contain("E=40|Kind=Melee|Seq=2|Target=10|Direction=Left|Start=4|Execute=5|Attempted=0"));
         }
 
         [Test]

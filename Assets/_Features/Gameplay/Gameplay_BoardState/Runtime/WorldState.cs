@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EntityState> _entitiesById = new();
         private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
         private readonly BoardBounds _boardBounds;
+        private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
@@ -62,6 +63,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EntityState>(_entitiesById),
                 new Dictionary<SurfaceCell, int>(_unitOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
+                new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 _topology,
                 _boardBounds,
@@ -111,6 +113,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
+            _enemyActionStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
         }
 
@@ -208,6 +211,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _playerControlStatesByEntityId[entityId] = state;
+        }
+
+        private void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _enemyActionStatesByEntityId[entityId] = state;
         }
 
         private void ClearOccupancyForEntity(EntityState entity)
@@ -376,6 +389,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer)
         {
             ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
+        }
+
+        void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
+        {
+            SetEnemyActionState(entityId, state);
         }
 
         void IWorldStateMutationPort.MarkDestroy(int entityId)

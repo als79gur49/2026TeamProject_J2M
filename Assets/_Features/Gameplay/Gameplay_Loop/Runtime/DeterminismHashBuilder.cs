@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
@@ -50,6 +51,9 @@ namespace Game.Feature.Gameplay.Loop
 
             builder.Append("PlayerControl").Append('\n');
             AppendPlayerControlLines(builder, GetOrderedPlayerControlStates(finalSnapshot));
+
+            builder.Append("EnemyActions").Append('\n');
+            AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
             builder.Append("UnitOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedUnitOccupancy(finalSnapshot));
@@ -113,6 +117,13 @@ namespace Game.Feature.Gameplay.Loop
             var playerControlEntries = new List<PlayerControlSnapshotEntry>();
             finalSnapshot.EnumeratePlayerControlStatesOrdered(playerControlEntries);
             return playerControlEntries;
+        }
+
+        private static List<EnemyActionSnapshotEntry> GetOrderedEnemyActionStates(WorldSnapshot finalSnapshot)
+        {
+            var enemyActionEntries = new List<EnemyActionSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyActionStatesOrdered(enemyActionEntries);
+            return enemyActionEntries;
         }
 
         private static List<SnapshotOccupancyEntry> GetOrderedProjectileOccupancy(WorldSnapshot finalSnapshot)
@@ -211,6 +222,31 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.activeAction.executeTick).Append('|')
                     .Append(entry.State.activeAction.recoveryEndTick).Append('|')
                     .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyActionLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyActionSnapshotEntry> enemyActionEntries)
+        {
+            if (enemyActionEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < enemyActionEntries.Count; i++)
+            {
+                var entry = enemyActionEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append((int)entry.State.kind).Append('|')
+                    .Append(entry.State.sequence).Append('|')
+                    .Append(entry.State.lockedTargetEntityId).Append('|')
+                    .Append((int)entry.State.direction).Append('|')
+                    .Append(entry.State.startTick).Append('|')
+                    .Append(entry.State.executeTick).Append('|')
+                    .Append(entry.State.executionAttempted ? 1 : 0).Append('\n');
             }
         }
 

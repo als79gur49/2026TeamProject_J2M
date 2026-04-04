@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
@@ -77,6 +78,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
 
@@ -118,6 +120,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|PushTicks={entry.State.pushContactTicks}|Target={entry.State.pushTargetEntityId}|Direction={entry.State.pushDirection}|Action={entry.State.activeAction.kind}|ActionSeq={entry.State.activeAction.sequence}|ActionDirection={entry.State.activeAction.direction}|ActionTarget={entry.State.activeAction.targetEntityId}|Start={entry.State.activeAction.startTick}|Execute={entry.State.activeAction.executeTick}|Recovery={entry.State.activeAction.recoveryEndTick}|Attempted={(entry.State.activeAction.executionAttempted ? 1 : 0)}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemyActionEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyActionSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemyActionStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Kind={entry.State.kind}|Seq={entry.State.sequence}|Target={entry.State.lockedTargetEntityId}|Direction={entry.State.direction}|Start={entry.State.startTick}|Execute={entry.State.executeTick}|Attempted={(entry.State.executionAttempted ? 1 : 0)}");
             }
 
             return lines;

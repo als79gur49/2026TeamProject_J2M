@@ -33,6 +33,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
         }
 
+        public void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
+        {
+            _port.SetEnemyActionState(entityId, state);
+        }
+
         public void SetFacing(int entityId, Direction facing)
         {
             _port.SetFacing(entityId, facing);
