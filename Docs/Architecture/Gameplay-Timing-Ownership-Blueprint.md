@@ -188,7 +188,7 @@ Animator clip 재생 속도, crossfade, state hold, state name mapping 같은 �
 대표 타입:
 
 - 신규 `PlayerAnimationTimingAuthoring`
-- 필요 시 신규 `EnemyAnimationAuthoring`
+- 필요 시 신규 `EnemyAnimationTimingAuthoring`
 - `PlayerAnimatorDriver`
 - `EnemyAnimatorDriver`
 
@@ -218,7 +218,7 @@ Animator clip 재생 속도, crossfade, state hold, state name mapping 같은 �
 | global move / push / flip motion duration | Global Shared Timing | `GameplayTimingProfile` | 공통 기본값 |
 | actor-specific move / push / flip motion duration | Actor Motion Presentation | `EntityMotionPresentationAuthoring` | player / enemy 공용 |
 | player push / flip animator duration | Actor Animation Presentation | `PlayerAnimationTimingAuthoring` | 필요 시만 override |
-| enemy attack / hit / death animation tuning | Actor Animation Presentation | `EnemyAnimationAuthoring` | 미래 확장 |
+| enemy attack / hit / death animation tuning | Actor Animation Presentation | `EnemyAnimationTimingAuthoring` | 미래 확장 |
 
 ## 7. Fallback 규칙
 
@@ -305,7 +305,7 @@ if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
 ### 10-2. 새 enemy archetype 추가 시
 
 - AI 규칙 차이는 `EnemyAiProfile` 또는 그 하위 설정에서 확장한다.
-- 보기만 다르면 `EntityMotionPresentationAuthoring` 또는 `EnemyAnimationAuthoring`으로 처리한다.
+- 보기만 다르면 `EntityMotionPresentationAuthoring` 또는 `EnemyAnimationTimingAuthoring`으로 처리한다.
 - gameplay cadence 차이와 animation cadence 차이를 같은 필드에 넣지 않는다.
 
 ### 10-3. 적별 이동 시간이 달라질 때
@@ -323,7 +323,7 @@ if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
 ### 10-4. 적별 공격 연출 시간이 달라질 때
 
 - 판정 시점, 피해 시점, recover tick이 다르면 `EnemyAiProfile`
-- 애니메이션 hold, crossfade, clip speed만 다르면 `EnemyAnimationAuthoring`
+- 애니메이션 hold, crossfade, clip speed만 다르면 `EnemyAnimationTimingAuthoring`
 
 ## 11. 미래의 적군 애니메이션 확장에 대한 기준
 
@@ -341,7 +341,7 @@ if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
 ```text
 EnemyAiProfile
   + EntityMotionPresentationAuthoring
-  + EnemyAnimationAuthoring
+  + EnemyAnimationTimingAuthoring
 ```
 
 AI와 animation을 분리해 조합 가능하게 유지한다.

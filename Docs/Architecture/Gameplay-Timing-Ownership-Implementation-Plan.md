@@ -58,7 +58,7 @@
 - 신규 `PlayerControlTimingSettings`
 - 신규 `EntityMotionPresentationAuthoring`
 - 신규 또는 개명된 `PlayerAnimationTimingAuthoring`
-- 필요 시 future hook로 `EnemyAnimationAuthoring`
+- 필요 시 future hook로 `EnemyAnimationTimingAuthoring`
 - `GameplaySceneHostConfiguration`의 책임 재배치
 - `GameplayHostRuntimeFactory`의 player timing bootstrap 정리
 - `GameplayTickPresentationCoordinator`의 entity-aware motion duration resolution
@@ -252,7 +252,7 @@ entity motion presentation override
 수정 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs`
-- 필요 시 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimationAuthoring.cs`
+- 필요 시 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimationTimingAuthoring.cs`
 
 규칙:
 
@@ -284,7 +284,7 @@ entity motion presentation override
 
 가능한 future 타입:
 
-- `EnemyAnimationAuthoring`
+- `EnemyAnimationTimingAuthoring`
 - `EnemyPresentationProfile`
 
 완료 조건:
@@ -407,7 +407,7 @@ entity motion presentation override
 - `EnemyAiProfile`
 - `EntityMotionPresentationAuthoring`
 - `PlayerAnimationTimingAuthoring`
-- `EnemyAnimationAuthoring`
+- `EnemyAnimationTimingAuthoring`
 
 4. 다른 계층에는 override 또는 fallback으로만 연결
 

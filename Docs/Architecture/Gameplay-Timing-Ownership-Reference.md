@@ -170,8 +170,8 @@ logic execute 시점을 바꾸면 안 된다.
 | 값 의미 | 목표 canonical owner | 금지 위치 |
 | --- | --- | --- |
 | `recoverTicks`, detection range, attack cadence 같은 AI 규칙 | `EnemyAiProfile` | `EnemyAnimatorDriver` |
-| attack / hit / death trigger, state name, clip tuning | `EnemyAnimatorDriver` 또는 미래 `EnemyAnimationAuthoring` | `EnemyAiProfile` |
-| enemy별 animation duration override | 미래 `EnemyAnimationAuthoring` | `EnemyAiProfile` |
+| attack / hit / death trigger, state name, clip tuning | `EnemyAnimatorDriver` 또는 미래 `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
+| enemy별 animation duration override | 미래 `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
 
 `EnemyAiProfile`에는 presentation duration 필드를 추가하지 않는다.
 
@@ -188,7 +188,7 @@ logic execute 시점을 바꾸면 안 된다.
 | `EntityMotionPresentationAuthoring` | actor-specific move / push / flip motion override | execute delay, cooldown, AI cadence |
 | `PlayerAnimationTimingAuthoring` | player push / flip animator duration override | execute delay, input lock, contact threshold |
 | `PlayerAnimatorDriver` | animation state 적용, optional parameter sync, speed 계산 | authoritative player timing source |
-| `EnemyAnimationAuthoring` | 미래 enemy animation tuning 확장 포인트 | AI decision cadence |
+| `EnemyAnimationTimingAuthoring` | 미래 enemy animation tuning 확장 포인트 | AI decision cadence |
 
 ## 5. Fallback과 이름 변경 고정
 
