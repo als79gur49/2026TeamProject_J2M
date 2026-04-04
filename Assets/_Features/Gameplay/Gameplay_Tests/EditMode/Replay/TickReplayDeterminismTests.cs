@@ -92,6 +92,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Test]
         public void Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump()
         {
+            var playerLogic = CreateThresholdPushPlayerLogic(entityId: 10, pushContactThresholdTicks: 2);
             var harness = new TickReplayHarness();
             var firstRun = harness.Run(
                 CreateWorldState(new[]
@@ -101,7 +102,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    playerLogic,
                 },
                 new[]
                 {
@@ -116,7 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateThresholdPushPlayerLogic(entityId: 10, pushContactThresholdTicks: 2),
                 },
                 new[]
                 {
@@ -892,7 +893,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreateImmediateFlipPlayerLogic(10),
                 },
                 new[]
                 {
@@ -1114,7 +1115,37 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)
         {
-            return new PlayerLogic(entityId, pushContactThresholdTicks: 1);
+            return CreateThresholdPushPlayerLogic(
+                entityId,
+                pushContactThresholdTicks: 1,
+                pushWindupTicks: 0,
+                pushRecoveryTicks: 0);
+        }
+
+        private static PlayerLogic CreateImmediateFlipPlayerLogic(int entityId)
+        {
+            return CreateThresholdPushPlayerLogic(
+                entityId,
+                pushContactThresholdTicks: 1,
+                flipWindupTicks: 0,
+                flipRecoveryTicks: 0);
+        }
+
+        private static PlayerLogic CreateThresholdPushPlayerLogic(
+            int entityId,
+            int pushContactThresholdTicks,
+            int pushWindupTicks = 1,
+            int pushRecoveryTicks = 0,
+            int flipWindupTicks = 1,
+            int flipRecoveryTicks = 0)
+        {
+            return new PlayerLogic(
+                entityId,
+                pushContactThresholdTicks,
+                pushWindupTicks,
+                pushRecoveryTicks,
+                flipWindupTicks,
+                flipRecoveryTicks);
         }
 
         private sealed class ScriptedCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding

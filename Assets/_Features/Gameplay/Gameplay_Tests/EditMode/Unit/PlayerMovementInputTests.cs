@@ -420,13 +420,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.Zero);
-            Assert.That(controlState.pushTargetEntityId, Is.Zero);
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
-            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
-            Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(20));
-            Assert.That(controlState.activeAction.executeTick, Is.EqualTo(3));
-            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.EqualTo(2));
+            Assert.That(controlState.pushTargetEntityId, Is.EqualTo(20));
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.Right));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.False);
         }
 
         [Test]

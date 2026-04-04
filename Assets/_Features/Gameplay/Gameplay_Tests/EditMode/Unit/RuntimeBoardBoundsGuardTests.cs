@@ -166,10 +166,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var sixtyTpsProfile = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 60,
+                PlayerControlTiming = new PlayerControlTimingSettings
+                {
+                    PushContactThresholdSeconds = 1f / 30f,
+                },
             }.CreateTimingProfile();
             var oneTwentyTpsProfile = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 120,
+                PlayerControlTiming = new PlayerControlTimingSettings
+                {
+                    PushContactThresholdSeconds = 1f / 30f,
+                },
             }.CreateTimingProfile();
 
             Assert.That(sixtyTpsProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.RepeatedMoveIntervalSeconds));
@@ -3150,7 +3158,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerViewPrefab = playerViewPrefab,
-                        PlayerPushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
@@ -3211,7 +3219,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerViewPrefab = playerViewPrefab,
-                        PlayerPushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                        PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
@@ -3273,6 +3281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
                         PlayerViewPrefab = playerViewPrefab,
+                        PlayerControlTiming = CreateImmediatePlayerControlTimingSettings(),
                         StaticEntityLogics = Array.Empty<IEntityLogic>(),
                     });
 
@@ -4508,6 +4517,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return new GameplayEntityPose(
                 projectedPose.LocalPosition - (projectedPose.Normal * (tileThickness * 0.5f)),
                 projectedPose.LocalRotation);
+        }
+
+        private static PlayerControlTimingSettings CreateImmediatePlayerControlTimingSettings()
+        {
+            return new PlayerControlTimingSettings
+            {
+                PushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                PushExecuteDelaySeconds = 0f,
+                PushInputLockDurationSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                FlipExecuteDelaySeconds = 0f,
+                FlipInputLockDurationSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+            };
         }
 
         private static Vector3 GetViewPosition(GameplaySceneHost host, int entityId)

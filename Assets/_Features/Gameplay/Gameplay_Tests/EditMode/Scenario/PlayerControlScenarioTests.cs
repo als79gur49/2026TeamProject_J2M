@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreatePushThresholdPlayerLogic(10),
                 });
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -116,7 +116,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreatePushThresholdPlayerLogic(10),
                 });
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -146,7 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(10),
+                    CreatePushThresholdPlayerLogic(10),
                 });
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -259,7 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
-            Assert.That(box.stateTimer, Is.EqualTo(10));
+            Assert.That(box.stateTimer, Is.EqualTo(11));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(controlState.activeAction.executionAttempted, Is.True);
@@ -347,9 +347,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(lockedRecoveryTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
             Assert.That(lastLockedTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(lastLockedTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
-            Assert.That(postLockTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(postLockTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Move));
+            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().CompletedThisTick, Is.True);
+            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(postLockTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
         }
 
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
@@ -387,6 +388,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxTicksPerFrame: 8,
                 playerMoveCooldownSeconds: playerMoveCooldownTicks / (float)simulationTicksPerSecond,
                 playerPushContactThresholdSeconds: playerPushContactThresholdTicks / (float)simulationTicksPerSecond);
+        }
+
+        private static PlayerLogic CreatePushThresholdPlayerLogic(int entityId)
+        {
+            return new PlayerLogic(
+                entityId,
+                pushContactThresholdTicks: 2,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 0,
+                flipWindupTicks: 1,
+                flipRecoveryTicks: 0);
         }
 
         private static (int PushWindupTicks, int PushRecoveryTicks, int FlipWindupTicks, int FlipRecoveryTicks) CreateActionTiming(
