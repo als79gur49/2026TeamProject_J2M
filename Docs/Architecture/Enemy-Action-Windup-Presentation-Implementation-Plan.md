@@ -215,6 +215,15 @@ public interface IEnemyActionStateLogic : IEntityLogic
 - `EnemyAiMode.Attack`과 `EnemyActionRuntimeState`가 분리된 책임으로 동작한다.
 - wind-up 중에는 attack intent가 생성되지 않는다.
 
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/IEntityLogic.cs`에 `EnemyActionStage`, `IEnemyActionStateLogic`, `EntityLogicSet.EnemyActionStateLogics`를 추가해 적 action timing phase를 pipeline 소유권에 올렸다.
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyActionStateLogic.cs`와 `EnemyActionStateEntityLogicFactory`를 추가해 `Attack` 진입 시 action state 시작, locked target 유지, cancel fallback, after-attack executionAttempted mark를 별도 로직으로 분리했다.
+- `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs`에 `BeforeAttackCollection` / `AfterAttack` enemy action hook를 추가했고, `Assets/_Features/Gameplay/Gameplay_Debug/Runtime/TickTraceBuilder.cs`, `Assets/_Features/Gameplay/Gameplay_Debug/Runtime/TickTraceFormatter.cs`에 enemy action transition trace dump를 연결했다.
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyLogic.cs`의 AI resolver는 active action의 locked target이 유효할 때만 `Attack`을 유지하고, target 상실 시 `Chase` 또는 `Patrol`로 fallback 하도록 조정했다.
+- 검증은 Unity `6000.3.11f1` batchmode script compilation 성공 로그 기준으로 확인했다. 현재 환경에서는 `-runTests`가 result XML 없이 종료되어 edit mode 테스트 실행 결과는 별도 후속 확인이 필요하다.
+
 ### 6-4. 4단계: `EnemyLogic` attack intent를 execute tick 기반으로 변경
 
 목표는 적 공격이 `EnemyAiMode.Attack`이 아니라 exact execute tick에 의해 발생하도록 만드는 것이다.
@@ -234,6 +243,15 @@ public interface IEnemyActionStateLogic : IEntityLogic
 
 - `windupTicks > 0`인 적은 telegraph 후에만 공격한다.
 - `windupTicks == 0`이면 기존 즉시 execute와 동일하다.
+
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyActionState.cs`의 `StartAction`은 zero-windup 시작 시에도 `executionAttempted`를 미리 세우지 않도록 조정했고, `CanExecute` helper를 추가해 execute tick gating 조건을 공용화했다.
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyLogic.cs`의 `CollectAttackIntents`는 이제 `EnemyActionRuntimeState`의 `executeTick`, `executionAttempted`, `lockedTargetEntityId`를 읽어 exact execute tick에서만 intent를 생성한다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs`에 no-active-action no-op, wind-up start tick no attack, execute tick only attack, locked target loss cancel 회귀 케이스를 추가했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/AttackInputNormalizationTests.cs`는 새 `EnemyActionPhaseResult` trace signature에 맞게 갱신했다.
+- 검증은 Unity `6000.3.11f1` batchmode script compilation 성공 로그 기준으로 확인했다. CLI `-runTests`는 현재 환경에서 결과 XML을 남기지 않아 새 테스트 실행 결과는 후속 확인이 필요하다.
 
 ### 6-5. 5단계: 적군 presentation signal 추가
 
