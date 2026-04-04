@@ -1,0 +1,7 @@
+{
+  "name": "Game.Feature.Stages",
+  "rootNamespace": "Game.Feature.Stages",
+  "references": [
+    "Game.Feature.Gameplay"
+  ]
+}
