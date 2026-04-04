@@ -156,7 +156,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void EnemyLogic_AttackMode_AdjacentOpponent_ProducesRawAttackIntent()
+        public void EnemyLogic_ExecuteTick_ProducesRawAttackIntentForLockedTarget()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40);
+            var buffer = new List<RawAttackIntent>();
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 1,
+                    executionAttempted = false,
+                });
+
+            logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                buffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
+        }
+
+        [Test]
+        public void EnemyLogic_AttackMode_WithoutActiveActionState_DoesNotProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -168,12 +201,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                buffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
+            Assert.That(buffer, Is.Empty);
         }
 
         [Test]
@@ -455,6 +483,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultEntityLogicProvider_AttackEnemy_WithWindup_StartTick_ArmsActionWithoutAttack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Up),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 2));
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(3));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+            Assert.That(actionState.IsActive, Is.True);
+            Assert.That(actionState.executeTick, Is.EqualTo(3));
+            Assert.That(actionState.executionAttempted, Is.False);
+            Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+            Assert.That(result.Trace.Text, Does.Contain("EnemyAction.BeforeAttackCollectionTransitions"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_AttackEnemy_WithWindup_ExecutesOnlyOnExecuteTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 1));
+
+            var windupResult = pipeline.RunTick(new TickInput(1));
+            var executeResult = pipeline.RunTick(new TickInput(2));
+            var enemy = GetEntity(worldState, 40);
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            Assert.That(windupResult.AttackPhaseResult.SortedInputs, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                executeResult.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+            Assert.That(actionState.IsActive, Is.True);
+            Assert.That(actionState.executionAttempted, Is.True);
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_WindupEnemy_LosesLockedTarget_CancelsActionAndFallsBackToPatrol()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 2));
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().ApplyDamage(10, 3);
+
+            var result = pipeline.RunTick(new TickInput(2));
+            var enemy = GetEntity(worldState, 40);
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(actionState.IsActive, Is.False);
+            Assert.That(result.Trace.Text, Does.Contain("LockedTargetLost"));
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_TransitionsToRecoverAfterAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -548,10 +656,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entity.hp;
         }
 
+        private static EnemyActionRuntimeState GetEnemyActionState(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(entityId, out var actionState), Is.True);
+            return actionState;
+        }
+
         private static EntityState GetEntity(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
             return entity;
+        }
+
+        private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks));
         }
 
         private static EntityState CreateUnit(

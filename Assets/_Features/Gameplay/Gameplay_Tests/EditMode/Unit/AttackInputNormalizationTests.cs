@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Attack.Expansion;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Tests;
@@ -231,6 +232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 7,
                 snapshot,
                 new EnemyAiPhaseResult(new List<string>(), new List<string>(), new List<string>()),
+                new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()),
                 new PreMovementStatePhaseResult(new List<string>()),
                 MovementPhaseResult.Empty,
                 snapshot,
