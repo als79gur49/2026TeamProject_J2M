@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
@@ -10,6 +12,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string aiModeParameterName = "EnemyAiMode";
         [SerializeField] private string activeActionKindParameterName = "EnemyActionKind";
         [SerializeField] private string movingParameterName = "IsMoving";
+        [SerializeField] private string windupStateName = "Windup";
+        [SerializeField] private string recoveryStateName = "Recover";
         [SerializeField] private string windupTriggerName = "Windup";
         [SerializeField] private string attackTriggerName = "Attack";
         [SerializeField] private string recoveryTriggerName = "Recover";
@@ -36,9 +40,19 @@ namespace Game.Feature.Gameplay.Host
 
         public int DeathSignalCount { get; private set; }
 
+        public float CurrentAnimatorSpeed { get; private set; } = 1f;
+
+        public float CurrentPresentationDurationSeconds { get; private set; }
+
+        public float LastCrossFadeDurationSeconds { get; private set; }
+
+        public string LastCrossFadedStateName { get; private set; } = string.Empty;
+
         private bool _animationTimingResolved;
         private bool _hasAnimationTimingAuthoring;
         private EnemyAnimationTimingSnapshot _animationTiming;
+        private readonly Dictionary<string, float> _clipLengthCache = new();
+        private RuntimeAnimatorController _cachedClipLengthController;
 
         private void Reset()
         {
@@ -61,9 +75,12 @@ namespace Game.Feature.Gameplay.Host
                 SetBoolParameter(targetAnimator, movingParameterName, state.IsMoving);
             }
 
+            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(state));
+
             if (state.StartedWindupThisTick)
             {
                 WindupSignalCount++;
+                ApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup);
                 SetTrigger(targetAnimator, windupTriggerName);
             }
 
@@ -76,6 +93,7 @@ namespace Game.Feature.Gameplay.Host
             if (state.StartedRecoveryThisTick)
             {
                 RecoverySignalCount++;
+                ApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Recovery);
                 SetTrigger(targetAnimator, recoveryTriggerName);
             }
 
@@ -102,6 +120,8 @@ namespace Game.Feature.Gameplay.Host
             {
                 SetBoolParameter(targetAnimator, movingParameterName, isMoving);
             }
+
+            ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(LastPresentationState));
         }
 
         public bool TryGetAttackWindupAnimatorDurationOverride(out float durationSeconds)
@@ -176,6 +196,148 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        private void ApplyAnimatorTiming(Animator targetAnimator, EnemyPresentationPhase phase)
+        {
+            var targetSpeed = ResolveAnimatorSpeed(targetAnimator, phase, out var presentationDurationSeconds);
+            CurrentAnimatorSpeed = targetSpeed;
+            CurrentPresentationDurationSeconds = presentationDurationSeconds;
+
+            if (targetAnimator != null)
+            {
+                targetAnimator.speed = targetSpeed;
+            }
+        }
+
+        private void ApplyPresentationCrossFade(Animator targetAnimator, EnemyPresentationPhase phase)
+        {
+            if (!TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds))
+            {
+                return;
+            }
+
+            var stateName = ResolveStateName(phase);
+            if (targetAnimator == null || string.IsNullOrWhiteSpace(stateName))
+            {
+                return;
+            }
+
+            LastCrossFadeDurationSeconds = Mathf.Max(0f, crossFadeDurationSeconds);
+            LastCrossFadedStateName = stateName;
+            targetAnimator.CrossFadeInFixedTime(
+                Animator.StringToHash(stateName),
+                LastCrossFadeDurationSeconds);
+        }
+
+        private float ResolveAnimatorSpeed(
+            Animator targetAnimator,
+            EnemyPresentationPhase phase,
+            out float presentationDurationSeconds)
+        {
+            if (phase == EnemyPresentationPhase.None)
+            {
+                presentationDurationSeconds = 0f;
+                return 1f;
+            }
+
+            var stateName = ResolveStateName(phase);
+            var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(targetAnimator, stateName);
+            if (!TryResolveAnimatorDurationOverride(phase, out var overrideDurationSeconds))
+            {
+                presentationDurationSeconds = referenceClipLengthSeconds;
+                return 1f;
+            }
+
+            presentationDurationSeconds = overrideDurationSeconds;
+            return Mathf.Max(0.01f, referenceClipLengthSeconds / overrideDurationSeconds);
+        }
+
+        private bool TryResolveAnimatorDurationOverride(
+            EnemyPresentationPhase phase,
+            out float durationSeconds)
+        {
+            switch (phase)
+            {
+                case EnemyPresentationPhase.Windup:
+                    return TryGetAttackWindupAnimatorDurationOverride(out durationSeconds);
+
+                case EnemyPresentationPhase.Recovery:
+                    return TryGetRecoverAnimatorDurationOverride(out durationSeconds);
+
+                default:
+                    durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
+                    return false;
+            }
+        }
+
+        private string ResolveStateName(EnemyPresentationPhase phase)
+        {
+            switch (phase)
+            {
+                case EnemyPresentationPhase.Windup:
+                    return windupStateName;
+
+                case EnemyPresentationPhase.Recovery:
+                    return recoveryStateName;
+
+                default:
+                    return string.Empty;
+            }
+        }
+
+        private float ResolveReferenceClipLengthSeconds(Animator targetAnimator, string stateName)
+        {
+            if (string.IsNullOrWhiteSpace(stateName))
+            {
+                return 1f;
+            }
+
+            var controller = targetAnimator?.runtimeAnimatorController;
+            if (_cachedClipLengthController != controller)
+            {
+                _clipLengthCache.Clear();
+                _cachedClipLengthController = controller;
+            }
+
+            if (_clipLengthCache.TryGetValue(stateName, out var cachedLength))
+            {
+                return cachedLength;
+            }
+
+            var clips = controller?.animationClips;
+            if (clips != null)
+            {
+                for (var i = 0; i < clips.Length; i++)
+                {
+                    var clip = clips[i];
+                    if (clip != null &&
+                        string.Equals(clip.name, stateName, StringComparison.Ordinal))
+                    {
+                        var resolvedLength = Mathf.Max(clip.length, 0.01f);
+                        _clipLengthCache[stateName] = resolvedLength;
+                        return resolvedLength;
+                    }
+                }
+            }
+
+            _clipLengthCache[stateName] = 1f;
+            return 1f;
+        }
+
+        private static EnemyPresentationPhase ResolvePresentationPhase(in EnemyViewPresentationState state)
+        {
+            switch (state.AiMode)
+            {
+                case EnemyAiMode.Attack:
+                    return EnemyPresentationPhase.Windup;
+
+                case EnemyAiMode.Recover:
+                    return EnemyPresentationPhase.Recovery;
+
+                default:
+                    return EnemyPresentationPhase.None;
+            }
+        }
+
         private static void SetBoolParameter(Animator targetAnimator, string parameterName, bool value)
         {
             if (targetAnimator == null || string.IsNullOrWhiteSpace(parameterName))
@@ -204,6 +366,13 @@ namespace Game.Feature.Gameplay.Host
             }
 
             targetAnimator.SetTrigger(Animator.StringToHash(parameterName));
+        }
+
+        private enum EnemyPresentationPhase
+        {
+            None = 0,
+            Windup = 1,
+            Recovery = 2,
         }
     }
 }
