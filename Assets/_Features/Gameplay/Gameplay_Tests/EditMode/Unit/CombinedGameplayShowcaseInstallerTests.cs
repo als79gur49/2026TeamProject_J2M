@@ -3,189 +3,136 @@ using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class CombinedGameplayShowcaseInstallerTests
     {
+        private const string CombinedStageAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+
         [Test]
-        public void CombinedGameplayShowcaseInstaller_PopulatesSharedEdgeOpeningsAcrossAllFourFaces()
+        public void CombinedGameplayStage_PopulatesSharedEdgeOpeningsAcrossAllFourFaces()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
+            var buildResult = BuildCombinedStage();
+            var boardBounds = buildResult.BoardBounds;
+            var entities = buildResult.InitialEntities;
+            var sharedEdgeOpeningColumns = new[] { 1, 3, 7, 9 };
 
-            try
+            foreach (var face in new[] { FaceId.Floor, FaceId.Front, FaceId.Ceiling, FaceId.Back })
             {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
-                var entities = new List<EntityState>();
-
-                InvokePopulateInitialEntities(installer, entities, boardBounds);
-
-                var sharedEdgeOpeningColumns = new[] { 1, 3, 7, 9 };
-                foreach (var face in new[] { FaceId.Floor, FaceId.Front, FaceId.Ceiling, FaceId.Back })
+                for (var i = 0; i < sharedEdgeOpeningColumns.Length; i++)
                 {
-                    for (var i = 0; i < sharedEdgeOpeningColumns.Length; i++)
-                    {
-                        var column = sharedEdgeOpeningColumns[i];
-                        Assert.That(
-                            HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MinInclusive.y)),
-                            Is.False,
-                            $"{face} bottom shared-edge opening at x={column} should remain open.");
-                        Assert.That(
-                            HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MaxInclusive.y)),
-                            Is.False,
-                            $"{face} top shared-edge opening at x={column} should remain open.");
-                    }
-                }
-
-                Assert.That(
-                    HasWallAt(entities, new SurfaceCell(FaceId.Floor, 2, boardBounds.MaxInclusive.y)),
-                    Is.True,
-                    "Columns between the traversal lane and left box lane should stay walled.");
-                Assert.That(
-                    HasWallAt(entities, new SurfaceCell(FaceId.Floor, 4, boardBounds.MaxInclusive.y)),
-                    Is.True,
-                    "Columns outside the designated shared-edge cutouts should stay walled.");
-                Assert.That(
-                    HasWallAt(entities, new SurfaceCell(FaceId.Floor, 10, boardBounds.MinInclusive.y)),
-                    Is.True,
-                    "Only the configured box lanes and traversal lanes should open shared edges.");
-            }
-            finally
-            {
-                Object.DestroyImmediate(installerObject);
-            }
-        }
-
-        [Test]
-        public void CombinedGameplayShowcaseInstaller_PlacesPushableBoxesOnEveryRotatingFace()
-        {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
-
-            try
-            {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
-                var entities = new List<EntityState>();
-
-                InvokePopulateInitialEntities(installer, entities, boardBounds);
-
-                Assert.That(
-                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Floor, 9, boardBounds.MaxInclusive.y)),
-                    Is.True,
-                    "Floor should retain the dedicated top-edge push box.");
-                Assert.That(
-                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Front, 3, 1)),
-                    Is.True,
-                    "Front should start with a pushable box near a shared edge opening.");
-                Assert.That(
-                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Ceiling, 7, 1)),
-                    Is.True,
-                    "Ceiling should start with a pushable box near a shared edge opening.");
-                Assert.That(
-                    HasPushableBoxAt(entities, new SurfaceCell(FaceId.Back, 3, 5)),
-                    Is.True,
-                    "Back should start with a pushable box near a shared edge opening.");
-            }
-            finally
-            {
-                Object.DestroyImmediate(installerObject);
-            }
-        }
-
-        [Test]
-        public void CombinedGameplayShowcaseInstaller_PlacesTwoVariantEnemiesForAiShowcase()
-        {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
-
-            try
-            {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
-                var entities = new List<EntityState>();
-
-                InvokePopulateInitialEntities(installer, entities, boardBounds);
-
-                Assert.That(
-                    TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 1, 5), out var floorEnemy),
-                    Is.True,
-                    "Floor face should include an immediately reachable charge enemy.");
-                Assert.That(floorEnemy.teamId, Is.EqualTo(2));
-                Assert.That(floorEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-
-                Assert.That(
-                    TryGetUnitAt(entities, new SurfaceCell(FaceId.Front, 2, 2), out var frontEnemy),
-                    Is.True,
-                    "Front face should include a non-attacking scout after a surface transition.");
-                Assert.That(frontEnemy.teamId, Is.EqualTo(2));
-                Assert.That(frontEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-
-                Assert.That(
-                    GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorEnemy.position),
-                    Is.EqualTo(4),
-                    "The floor enemy should start inside sense range but outside attack range so Chase appears before Charge.");
-            }
-            finally
-            {
-                Object.DestroyImmediate(installerObject);
-            }
-        }
-
-        [Test]
-        public void CombinedGameplayShowcaseInstaller_CreatesEnemyProfileOverridesForChargeAndScoutVariants()
-        {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
-
-            try
-            {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
-                var configuration = InvokeBaseCreateConfiguration(installer, boardBounds);
-
-                Assert.That(configuration.EnemyAiProfileOverrides, Is.Not.Null);
-                Assert.That(configuration.EnemyAiProfileOverrides.Length, Is.EqualTo(2));
-
-                Assert.That(TryGetProfileOverride(configuration, 50, out var floorChargingProfile), Is.True);
-                Assert.That(floorChargingProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
-                Assert.That(floorChargingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-
-                Assert.That(TryGetProfileOverride(configuration, 51, out var frontScoutProfile), Is.True);
-                Assert.That(frontScoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-                Assert.That(frontScoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-            }
-            finally
-            {
-                Object.DestroyImmediate(installerObject);
-            }
-        }
-
-        [Test]
-        public void CombinedGameplayShowcaseInstaller_DoesNotPlaceMultipleEntitiesOnTheSameCell()
-        {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstallerTests");
-
-            try
-            {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                var boardBounds = InvokeNonPublic<BoardBounds>(installer, "CreateBoardBounds");
-                var entities = new List<EntityState>();
-
-                InvokePopulateInitialEntities(installer, entities, boardBounds);
-
-                var occupiedCells = new HashSet<SurfaceCell>();
-                for (var i = 0; i < entities.Count; i++)
-                {
+                    var column = sharedEdgeOpeningColumns[i];
                     Assert.That(
-                        occupiedCells.Add(entities[i].position),
-                        Is.True,
-                        $"Duplicate entity placement detected at {entities[i].position}.");
+                        HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MinInclusive.y)),
+                        Is.False,
+                        $"{face} bottom shared-edge opening at x={column} should remain open.");
+                    Assert.That(
+                        HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MaxInclusive.y)),
+                        Is.False,
+                        $"{face} top shared-edge opening at x={column} should remain open.");
                 }
             }
-            finally
+
+            Assert.That(
+                HasWallAt(entities, new SurfaceCell(FaceId.Floor, 2, boardBounds.MaxInclusive.y)),
+                Is.True,
+                "Columns between the traversal lane and left box lane should stay walled.");
+            Assert.That(
+                HasWallAt(entities, new SurfaceCell(FaceId.Floor, 4, boardBounds.MaxInclusive.y)),
+                Is.True,
+                "Columns outside the designated shared-edge cutouts should stay walled.");
+            Assert.That(
+                HasWallAt(entities, new SurfaceCell(FaceId.Floor, 10, boardBounds.MinInclusive.y)),
+                Is.True,
+                "Only the configured box lanes and traversal lanes should open shared edges.");
+        }
+
+        [Test]
+        public void CombinedGameplayStage_PlacesPushableBoxesOnEveryRotatingFace()
+        {
+            var buildResult = BuildCombinedStage();
+            var boardBounds = buildResult.BoardBounds;
+            var entities = buildResult.InitialEntities;
+
+            Assert.That(
+                HasPushableBoxAt(entities, new SurfaceCell(FaceId.Floor, 9, boardBounds.MaxInclusive.y)),
+                Is.True,
+                "Floor should retain the dedicated top-edge push box.");
+            Assert.That(
+                HasPushableBoxAt(entities, new SurfaceCell(FaceId.Front, 3, 1)),
+                Is.True,
+                "Front should start with a pushable box near a shared edge opening.");
+            Assert.That(
+                HasPushableBoxAt(entities, new SurfaceCell(FaceId.Ceiling, 7, 1)),
+                Is.True,
+                "Ceiling should start with a pushable box near a shared edge opening.");
+            Assert.That(
+                HasPushableBoxAt(entities, new SurfaceCell(FaceId.Back, 3, 5)),
+                Is.True,
+                "Back should start with a pushable box near a shared edge opening.");
+        }
+
+        [Test]
+        public void CombinedGameplayStage_PlacesTwoVariantEnemiesForAiShowcase()
+        {
+            var buildResult = BuildCombinedStage();
+            var entities = buildResult.InitialEntities;
+
+            Assert.That(
+                TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 1, 5), out var floorEnemy),
+                Is.True,
+                "Floor face should include an immediately reachable charge enemy.");
+            Assert.That(floorEnemy.teamId, Is.EqualTo(2));
+            Assert.That(floorEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+
+            Assert.That(
+                TryGetUnitAt(entities, new SurfaceCell(FaceId.Front, 2, 2), out var frontEnemy),
+                Is.True,
+                "Front face should include a non-attacking scout after a surface transition.");
+            Assert.That(frontEnemy.teamId, Is.EqualTo(2));
+            Assert.That(frontEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+
+            Assert.That(
+                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorEnemy.position),
+                Is.EqualTo(4),
+                "The floor enemy should start inside sense range but outside attack range so Chase appears before Charge.");
+        }
+
+        [Test]
+        public void CombinedGameplayStage_BuildsEnemyProfileOverridesForChargeAndScoutVariants()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(2));
+
+            Assert.That(TryGetProfileOverride(buildResult, 50, out var floorChargingProfile), Is.True);
+            Assert.That(floorChargingProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+            Assert.That(floorChargingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+
+            Assert.That(TryGetProfileOverride(buildResult, 51, out var frontScoutProfile), Is.True);
+            Assert.That(frontScoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(frontScoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+        }
+
+        [Test]
+        public void CombinedGameplayStage_DoesNotPlaceMultipleEntitiesOnTheSameCell()
+        {
+            var buildResult = BuildCombinedStage();
+            var occupiedCells = new HashSet<SurfaceCell>();
+
+            for (var i = 0; i < buildResult.InitialEntities.Length; i++)
             {
-                Object.DestroyImmediate(installerObject);
+                Assert.That(
+                    occupiedCells.Add(buildResult.InitialEntities[i].position),
+                    Is.True,
+                    $"Duplicate entity placement detected at {buildResult.InitialEntities[i].position}.");
             }
         }
 
@@ -341,6 +288,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        private static StageRuntimeBuildResult BuildCombinedStage()
+        {
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
+            return StageRuntimeBuilder.Build(stage);
+        }
+
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)
         {
             for (var i = 0; i < entities.Count; i++)
@@ -399,45 +353,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return Mathf.Abs(delta.x) + Mathf.Abs(delta.y);
         }
 
-        private static T InvokeNonPublic<T>(object target, string methodName)
-        {
-            var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null, $"Expected method '{methodName}' to exist.");
-            return (T)method.Invoke(target, null);
-        }
-
-        private static void InvokePopulateInitialEntities(
-            CombinedGameplayShowcaseInstaller installer,
-            List<EntityState> entities,
-            BoardBounds boardBounds)
-        {
-            var method = installer.GetType().GetMethod("PopulateInitialEntities", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(method, Is.Not.Null);
-            method.Invoke(installer, new object[] { entities, boardBounds });
-        }
-
-        private static GameplaySceneHostConfiguration InvokeBaseCreateConfiguration(
-            CombinedGameplayShowcaseInstaller installer,
-            BoardBounds boardBounds)
-        {
-            var method = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
-                "CreateConfiguration",
-                BindingFlags.Instance | BindingFlags.NonPublic,
-                binder: null,
-                types: new[] { typeof(BoardBounds) },
-                modifiers: null);
-            Assert.That(method, Is.Not.Null);
-            return (GameplaySceneHostConfiguration)method.Invoke(installer, new object[] { boardBounds });
-        }
-
         private static bool TryGetProfileOverride(
-            GameplaySceneHostConfiguration configuration,
+            StageRuntimeBuildResult buildResult,
             int entityId,
             out EnemyAiProfile profile)
         {
-            for (var i = 0; i < configuration.EnemyAiProfileOverrides.Length; i++)
+            for (var i = 0; i < buildResult.EnemyAiProfileOverrides.Length; i++)
             {
-                var entry = configuration.EnemyAiProfileOverrides[i];
+                var entry = buildResult.EnemyAiProfileOverrides[i];
                 if (entry.EntityId != entityId)
                 {
                     continue;

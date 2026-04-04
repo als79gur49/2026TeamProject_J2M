@@ -4,6 +4,7 @@
   "references": [
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.Stages",
     "Unity.InputSystem"
   ],
   "includePlatforms": [
