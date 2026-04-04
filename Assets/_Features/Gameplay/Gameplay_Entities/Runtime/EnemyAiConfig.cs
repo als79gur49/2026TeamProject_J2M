@@ -70,6 +70,32 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public struct EnemyAttackTimingSettings
+    {
+        [SerializeField] private int windupTicks;
+
+        public EnemyAttackTimingSettings(int windupTicks)
+        {
+            this.windupTicks = windupTicks;
+        }
+
+        public int WindupTicks => windupTicks;
+
+        public void Validate(string paramName)
+        {
+            if (windupTicks < 0)
+            {
+                throw new ArgumentException("Enemy attack timing settings require a non-negative wind-up tick count.", paramName);
+            }
+        }
+
+        public static EnemyAttackTimingSettings CreateDefaultMelee()
+        {
+            return new EnemyAttackTimingSettings(windupTicks: 0);
+        }
+    }
+
     public readonly struct EnemyAiRuntimeDefinition
     {
         public EnemyAiRuntimeDefinition(
@@ -78,6 +104,7 @@ namespace Game.Feature.Gameplay.Entities
             DetectionSettings detectionSettings,
             ChaseSettings chaseSettings,
             AttackDecisionSettings attackDecisionSettings,
+            EnemyAttackTimingSettings attackTimingSettings,
             IPatrolStrategy patrolStrategy,
             IDetectionStrategy detectionStrategy,
             IChaseStrategy chaseStrategy,
@@ -89,6 +116,7 @@ namespace Game.Feature.Gameplay.Entities
             DetectionSettings = detectionSettings;
             ChaseSettings = chaseSettings;
             AttackDecisionSettings = attackDecisionSettings;
+            AttackTimingSettings = attackTimingSettings;
             PatrolStrategy = patrolStrategy;
             DetectionStrategy = detectionStrategy;
             ChaseStrategy = chaseStrategy;
@@ -108,6 +136,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public AttackDecisionSettings AttackDecisionSettings { get; }
 
+        public EnemyAttackTimingSettings AttackTimingSettings { get; }
+
         public IPatrolStrategy PatrolStrategy { get; }
 
         public IDetectionStrategy DetectionStrategy { get; }
@@ -123,6 +153,7 @@ namespace Game.Feature.Gameplay.Entities
             CommonSettings.Validate(paramName);
             DetectionSettings.Validate(paramName);
             AttackDecisionSettings.Validate(paramName);
+            AttackTimingSettings.Validate(paramName);
 
             if (PatrolStrategy == null ||
                 DetectionStrategy == null ||
@@ -142,6 +173,7 @@ namespace Game.Feature.Gameplay.Entities
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
                 ForwardPatrolStrategy.Instance,
                 NearestOpponentDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,
@@ -162,6 +194,7 @@ namespace Game.Feature.Gameplay.Entities
                 profile.DetectionSettings,
                 profile.ChaseSettings,
                 profile.AttackDecisionSettings,
+                profile.AttackTimingSettings,
                 ResolvePatrolStrategy(profile.PatrolStrategyKind),
                 ResolveDetectionStrategy(profile.DetectionStrategyKind),
                 ResolveChaseStrategy(profile.ChaseStrategyKind),
@@ -286,6 +319,7 @@ namespace Game.Feature.Gameplay.Entities
                 new DetectionSettings(SenseRange, requireSameFace: true, canTargetMarkedForDeath: false),
                 ChaseSettings.CreateDefault(),
                 new AttackDecisionSettings(AttackRange),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
                 ForwardPatrolStrategy.Instance,
                 NearestOpponentDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,

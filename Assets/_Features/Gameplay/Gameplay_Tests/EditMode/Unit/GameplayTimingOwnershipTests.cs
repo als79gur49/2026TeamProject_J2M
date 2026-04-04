@@ -142,6 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     "attackDecisionSettings",
                     "attackDecisionStrategyKind",
+                    "attackTimingSettings",
                     "chaseSettings",
                     "chaseStrategyKind",
                     "commonSettings",

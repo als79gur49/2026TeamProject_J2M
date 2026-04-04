@@ -345,6 +345,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindup()
+        {
+            var profile = EnemyAiProfile.CreateRuntimeDefault();
+
+            var definition = profile.CreateRuntimeDefinition();
+
+            Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
+        }
+
+        [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_PreservesConfiguredWindupTicks()
+        {
+            var profile = EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks: 3));
+
+            var definition = profile.CreateRuntimeDefinition();
+
+            Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void EnemyAiRuntimeDefinition_NegativeWindupTicks_ThrowsArgumentException()
+        {
+            var exception = Assert.Throws<ArgumentException>(
+                () => new EnemyAiRuntimeDefinition(
+                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    ChaseSettings.CreateDefault(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    new EnemyAttackTimingSettings(windupTicks: -1),
+                    ForwardPatrolStrategy.Instance,
+                    NearestOpponentDetectionStrategy.Instance,
+                    AxisPriorityChaseStrategy.Instance,
+                    MeleeAttackDecisionStrategy.Instance,
+                    DefaultEnemyAiStateResolver.Instance));
+
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyAiRuntimeDefinition"));
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_PatrolEnemy_IsMaterializedDuringTick()
         {
             var worldState = CreateWorldState(new[]

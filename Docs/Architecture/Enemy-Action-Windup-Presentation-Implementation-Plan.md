@@ -159,6 +159,15 @@ public struct EnemyAttackTimingSettings
 - `recoverTicks`는 계속 기존 authoritative source를 유지한다.
 - animation tuning field는 여기에 넣지 않는다.
 
+진행 상태:
+
+- 2026-04-04 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`에 `EnemyAttackTimingSettings`를 추가하고 `EnemyAiRuntimeDefinition`이 해당 값을 검증 및 보관하도록 연결했다.
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiProfile.cs` serialized surface에 `attackTimingSettings`를 추가해 profile이 logic-only wind-up tick을 runtime definition으로 전달하도록 반영했다.
+- 기존 구형 `EnemyAiConfig` 경로는 wind-up 기본값 `0`을 유지하도록 맞춰 default melee profile의 즉시 공격 동작이 깨지지 않게 했다.
+- `GameplayTimingOwnershipTests`, `EnemyLogicTests`에 serialized contract, default `0`, custom wind-up 전달, 음수 validation 회귀 테스트를 추가했다.
+- 검증은 Unity `6000.3.11f1` batchmode script compilation 성공 로그 기준으로 확인했다. CLI `-runTests`는 현재 환경에서 결과 XML을 남기지 않아 새 테스트 실행 결과는 후속 확인이 필요하다.
+
 ### 6-3. 3단계: enemy action timing phase 추가
 
 목표는 macro AI transition과 attack execute schedule 계산을 분리하는 것이다.

@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private DetectionSettings detectionSettings = new(8, true, false);
         [SerializeField] private ChaseSettings chaseSettings = new(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak, true);
         [SerializeField] private AttackDecisionSettings attackDecisionSettings = new(1);
+        [SerializeField] private EnemyAttackTimingSettings attackTimingSettings = new(0);
 
         public EnemyAiStateResolverKind StateResolverKind => stateResolverKind;
 
@@ -36,6 +37,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public AttackDecisionSettings AttackDecisionSettings => attackDecisionSettings;
 
+        public EnemyAttackTimingSettings AttackTimingSettings => attackTimingSettings;
+
         public void ResetToDefaultMelee()
         {
             ApplyConfiguration(
@@ -44,6 +47,7 @@ namespace Game.Feature.Gameplay.Entities
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
                 EnemyAiStateResolverKind.Default,
                 PatrolStrategyKind.Forward,
                 DetectionStrategyKind.NearestOpponent,
@@ -57,6 +61,7 @@ namespace Game.Feature.Gameplay.Entities
             DetectionSettings detectionSettings,
             ChaseSettings chaseSettings,
             AttackDecisionSettings attackDecisionSettings,
+            EnemyAttackTimingSettings attackTimingSettings = default,
             EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
             PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
             DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
@@ -68,6 +73,7 @@ namespace Game.Feature.Gameplay.Entities
             this.detectionSettings = detectionSettings;
             this.chaseSettings = chaseSettings;
             this.attackDecisionSettings = attackDecisionSettings;
+            this.attackTimingSettings = attackTimingSettings;
             this.stateResolverKind = stateResolverKind;
             this.patrolStrategyKind = patrolStrategyKind;
             this.detectionStrategyKind = detectionStrategyKind;
@@ -119,6 +125,7 @@ namespace Game.Feature.Gameplay.Entities
             DetectionSettings detectionSettings,
             ChaseSettings chaseSettings,
             AttackDecisionSettings attackDecisionSettings,
+            EnemyAttackTimingSettings attackTimingSettings = default,
             EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
             PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
             DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
@@ -133,6 +140,7 @@ namespace Game.Feature.Gameplay.Entities
                 detectionSettings,
                 chaseSettings,
                 attackDecisionSettings,
+                attackTimingSettings,
                 stateResolverKind,
                 patrolStrategyKind,
                 detectionStrategyKind,
