@@ -121,11 +121,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = StageRuntimeBuilder.Build(stage);
 
             Assert.That(buildResult.BoardBounds.MinInclusive, Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(13, 9)));
+            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(10, 6)));
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
-            Assert.That(buildResult.InitialEntities.Length, Is.EqualTo(164));
+            Assert.That(buildResult.InitialEntities.Length, Is.EqualTo(116));
             AssertEntityIdsAreSorted(buildResult.InitialEntities);
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
@@ -141,8 +141,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontWall.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 9, 3)));
 
             Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, 9)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, 9)), Is.True);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, 6)), Is.False);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, 6)), Is.True);
 
             Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 9, 6)), Is.True);
             Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 3, 1)), Is.True);
@@ -180,7 +180,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(stage, "boxSpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Box));
             SetPrivateField(stage, "enemySpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Enemy));
             SetPrivateField(stage, "wallSpawns", FilterSpawnsByKind(spawns, StageSpawnKind.Wall));
-            SetPrivateField(stage, "legacySpawns", Array.Empty<StageSpawnDefinition>());
             return stage;
         }
 

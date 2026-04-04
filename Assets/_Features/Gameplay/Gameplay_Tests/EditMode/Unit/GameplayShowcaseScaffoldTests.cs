@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
@@ -89,19 +91,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "topologyRotationVisualMapping",
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
 
-                var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
-                    "CreateConfiguration",
-                    BindingFlags.Instance | BindingFlags.NonPublic,
-                    binder: null,
-                    types: new[] { typeof(BoardBounds) },
-                    modifiers: null);
-
-                Assert.That(createConfiguration, Is.Not.Null);
-
-                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 4));
-                var configuration = (GameplaySceneHostConfiguration)createConfiguration.Invoke(
-                    installer,
-                    new object[] { boardBounds });
+                var boardBounds = TestGameplayShowcaseInstaller.DefaultBoardBounds;
+                var configuration = installer.BuildConfigurationForTests();
                 var expectedCameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
 
                 Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
@@ -181,13 +172,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class TestGameplayShowcaseInstaller : GameplayShowcaseSceneInstallerBase
         {
-            protected override BoardBounds CreateBoardBounds()
+            internal static readonly BoardBounds DefaultBoardBounds = new(new Vector2Int(0, 0), new Vector2Int(4, 4));
+
+            public GameplaySceneHostConfiguration BuildConfigurationForTests()
             {
-                return new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
+                    "CreateConfiguration",
+                    BindingFlags.Instance | BindingFlags.NonPublic,
+                    binder: null,
+                    types: new[] { typeof(InitialGameplayState), typeof(GameplayCameraSettings) },
+                    modifiers: null);
+
+                Assert.That(createConfiguration, Is.Not.Null);
+                return (GameplaySceneHostConfiguration)createConfiguration.Invoke(
+                    this,
+                    new object[] { BuildInitialGameplayState(), GetCameraSettings() });
             }
 
-            protected override void PopulateInitialEntities(List<EntityState> entities, BoardBounds boardBounds)
+            protected override InitialGameplayState BuildInitialGameplayState()
             {
+                return new InitialGameplayState(
+                    DefaultBoardBounds,
+                    new CubeTopologyState(FaceId.Floor),
+                    Array.Empty<EntityState>(),
+                    Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                    playerEntityId: 10,
+                    Array.Empty<EnemyAiProfileOverride>());
             }
 
             protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()
