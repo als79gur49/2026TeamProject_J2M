@@ -381,6 +381,14 @@ public readonly struct TickEnemyActionPresentationSignal
 
 - 구조적 회귀를 테스트가 막는다.
 
+진행 상태:
+
+- 2026-04-05 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs`에 wind-up telegraph 시작 tick no-op, exact execute tick attack+recover 진입, locked target 상실 시 cancel fallback과 cancel signal을 검증하는 multi-tick scenario 회귀 테스트를 추가했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs`에 enemy wind-up / execute / recovery signal을 실제 presenter가 소비한 이후에도 다음 tick determinism hash, final entity state, event log가 baseline과 동일한지 검증하는 isolation test를 추가했다.
+- 기존 `EnemyLogicTests`, `GameplayTimingOwnershipTests`, `TickReplayDeterminismTests`, `RuntimeBoardBoundsGuardTests`가 이미 고정하고 있던 zero-windup 즉시 execute, execute tick gating, recover no-op, logic-only serialized contract, hash / trace dump, host mapper / driver contract와 합쳐 6-8 완료 조건을 전부 테스트 레벨로 덮도록 정리했다.
+- 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공 기준으로 확인했다. 현재 환경의 `dotnet.exe test`는 logger를 붙여도 build만 수행하고 결과 TRX를 남기지 않아 새 edit mode 테스트의 직접 실행 결과는 후속 확인이 필요하다.
+
 ### 6-9. 9단계: showcase / prefab / scene 검토
 
 목표는 실제 presentation 경로가 눈으로 확인 가능한 최소 샘플을 만드는 것이다.
