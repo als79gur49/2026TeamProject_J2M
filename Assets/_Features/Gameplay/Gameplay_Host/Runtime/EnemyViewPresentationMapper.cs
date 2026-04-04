@@ -12,16 +12,22 @@ namespace Game.Feature.Gameplay.Host
             int entityId,
             int tickIndex,
             EnemyAiMode aiMode,
+            EnemyActionKind activeActionKind,
             bool isMoving,
-            bool didAttack,
+            bool startedWindupThisTick,
+            bool executedThisTick,
+            bool startedRecoveryThisTick,
             bool tookDamage,
             bool didDie)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
             AiMode = aiMode;
+            ActiveActionKind = activeActionKind;
             IsMoving = isMoving;
-            DidAttack = didAttack;
+            StartedWindupThisTick = startedWindupThisTick;
+            ExecutedThisTick = executedThisTick;
+            StartedRecoveryThisTick = startedRecoveryThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -32,9 +38,17 @@ namespace Game.Feature.Gameplay.Host
 
         public EnemyAiMode AiMode { get; }
 
+        public EnemyActionKind ActiveActionKind { get; }
+
         public bool IsMoving { get; }
 
-        public bool DidAttack { get; }
+        public bool StartedWindupThisTick { get; }
+
+        public bool ExecutedThisTick { get; }
+
+        public bool StartedRecoveryThisTick { get; }
+
+        public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
 
@@ -45,6 +59,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly HashSet<int> _attackingEntityIds = new();
         private readonly HashSet<int> _candidateEntityIds = new();
+        private readonly Dictionary<int, TickEnemyActionPresentationSignal> _enemyActionSignalsByEntityId = new();
         private readonly HashSet<int> _damagedEntityIds = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
@@ -74,6 +89,7 @@ namespace Game.Feature.Gameplay.Host
             _candidateEntityIds.Clear();
             _movingEntityIds.Clear();
             _attackingEntityIds.Clear();
+            _enemyActionSignalsByEntityId.Clear();
             _damagedEntityIds.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
@@ -81,6 +97,7 @@ namespace Game.Feature.Gameplay.Host
             CacheFinalEntities(result.FinalEntities);
             CollectMovementSignals(result.PresentationData);
             CollectAttackSignals(result.AttackPhaseResult);
+            CollectEnemyActionSignals(result.PresentationData);
             CollectRemovalSignals(result.CleanupPhaseResult);
 
             foreach (var entityId in _candidateEntityIds)
@@ -97,13 +114,28 @@ namespace Game.Feature.Gameplay.Host
                 var aiMode = hasFinalEntity
                     ? finalEntity.aiMode
                     : EnemyAiMode.Dead;
+                var activeActionKind = EnemyActionKind.None;
+                var startedWindupThisTick = false;
+                var executedThisTick = _attackingEntityIds.Contains(entityId);
+                var startedRecoveryThisTick = false;
+
+                if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
+                {
+                    activeActionKind = actionSignal.ActiveActionKind;
+                    startedWindupThisTick = actionSignal.StartedThisTick && !actionSignal.ExecutedThisTick;
+                    executedThisTick |= actionSignal.ExecutedThisTick;
+                    startedRecoveryThisTick = actionSignal.StartedRecoveryThisTick;
+                }
 
                 buffer[entityId] = new EnemyViewPresentationState(
                     entityId,
                     result.TickIndex,
                     aiMode,
+                    activeActionKind,
                     _movingEntityIds.Contains(entityId),
-                    _attackingEntityIds.Contains(entityId),
+                    startedWindupThisTick,
+                    executedThisTick,
+                    startedRecoveryThisTick,
                     _damagedEntityIds.Contains(entityId),
                     didDie);
             }
@@ -121,8 +153,11 @@ namespace Game.Feature.Gameplay.Host
                 entity.entityId,
                 tickIndex: -1,
                 entity.aiMode,
+                EnemyActionKind.None,
                 isMoving: false,
-                didAttack: false,
+                startedWindupThisTick: false,
+                executedThisTick: false,
+                startedRecoveryThisTick: false,
                 tookDamage: false,
                 didDie: entity.aiMode == EnemyAiMode.Dead || entity.markedForDeath);
             return true;
@@ -167,6 +202,17 @@ namespace Game.Feature.Gameplay.Host
                     _candidateEntityIds.Add(targetId);
                     _damagedEntityIds.Add(targetId);
                 }
+            }
+        }
+
+        private void CollectEnemyActionSignals(TickPresentationData presentationData)
+        {
+            var enemyActionSignals = presentationData.EnemyActionSignals;
+            for (var i = 0; i < enemyActionSignals.Count; i++)
+            {
+                var signal = enemyActionSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemyActionSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 

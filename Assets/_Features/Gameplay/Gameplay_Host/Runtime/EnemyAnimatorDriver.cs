@@ -7,8 +7,11 @@ namespace Game.Feature.Gameplay.Host
     {
         [SerializeField] private Animator animator;
         [SerializeField] private string aiModeParameterName = "EnemyAiMode";
+        [SerializeField] private string activeActionKindParameterName = "EnemyActionKind";
         [SerializeField] private string movingParameterName = "IsMoving";
+        [SerializeField] private string windupTriggerName = "Windup";
         [SerializeField] private string attackTriggerName = "Attack";
+        [SerializeField] private string recoveryTriggerName = "Recover";
         [SerializeField] private string hitTriggerName = "Hit";
         [SerializeField] private string deathTriggerName = "Death";
 
@@ -16,11 +19,17 @@ namespace Game.Feature.Gameplay.Host
 
         public EnemyAiMode CurrentAiMode { get; private set; }
 
+        public EnemyActionKind CurrentActiveActionKind { get; private set; }
+
         public bool IsMoving { get; private set; }
 
         public bool IsVisible { get; private set; }
 
+        public int WindupSignalCount { get; private set; }
+
         public int AttackSignalCount { get; private set; }
+
+        public int RecoverySignalCount { get; private set; }
 
         public int HitSignalCount { get; private set; }
 
@@ -35,19 +44,33 @@ namespace Game.Feature.Gameplay.Host
         {
             LastPresentationState = state;
             CurrentAiMode = state.AiMode;
+            CurrentActiveActionKind = state.ActiveActionKind;
             IsMoving = state.IsMoving;
 
             var targetAnimator = ResolveAnimator();
             if (targetAnimator != null)
             {
                 SetIntegerParameter(targetAnimator, aiModeParameterName, (int)state.AiMode);
+                SetIntegerParameter(targetAnimator, activeActionKindParameterName, (int)state.ActiveActionKind);
                 SetBoolParameter(targetAnimator, movingParameterName, state.IsMoving);
             }
 
-            if (state.DidAttack)
+            if (state.StartedWindupThisTick)
+            {
+                WindupSignalCount++;
+                SetTrigger(targetAnimator, windupTriggerName);
+            }
+
+            if (state.ExecutedThisTick)
             {
                 AttackSignalCount++;
                 SetTrigger(targetAnimator, attackTriggerName);
+            }
+
+            if (state.StartedRecoveryThisTick)
+            {
+                RecoverySignalCount++;
+                SetTrigger(targetAnimator, recoveryTriggerName);
             }
 
             if (state.TookDamage)
