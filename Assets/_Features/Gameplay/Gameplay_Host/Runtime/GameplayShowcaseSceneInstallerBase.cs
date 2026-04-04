@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -68,8 +67,6 @@ namespace Game.Feature.Gameplay.Host
 
         protected int PlayerEntityId => playerEntityId;
 
-        protected virtual CubeTopologyState InitialTopology => new(FaceId.Floor);
-
         protected float CellSize => cellSize;
 
         protected virtual void Awake()
@@ -95,26 +92,9 @@ namespace Game.Feature.Gameplay.Host
             host.Initialize(CreateConfiguration(initialState, cameraSettings));
         }
 
-        protected virtual BoardBounds CreateBoardBounds()
-        {
-            throw new NotSupportedException(
-                $"{GetType().Name} must override either {nameof(BuildInitialGameplayState)} or {nameof(CreateBoardBounds)}.");
-        }
-
-        protected virtual void PopulateInitialEntities(List<EntityState> entities, BoardBounds boardBounds)
-        {
-            throw new NotSupportedException(
-                $"{GetType().Name} must override either {nameof(BuildInitialGameplayState)} or {nameof(PopulateInitialEntities)}.");
-        }
-
         public GameplayShowcaseOverlayContent GetShowcaseOverlayContent()
         {
             return CreateShowcaseOverlayContent();
-        }
-
-        protected virtual GameplayTerrainData CreateTerrainData(BoardBounds boardBounds)
-        {
-            return GameplayTerrainData.Empty;
         }
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
@@ -141,22 +121,12 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
-        protected virtual EnemyAiProfileOverride[] CreateEnemyAiProfileOverrides(
-            IReadOnlyList<EntityState> entities,
-            BoardBounds boardBounds)
-        {
-            return Array.Empty<EnemyAiProfileOverride>();
-        }
-
         protected virtual GameplayEntityView ResolvePlayerViewPrefab()
         {
             return null;
         }
 
-        protected virtual InitialGameplayState BuildInitialGameplayState()
-        {
-            return CreateLegacyInitialGameplayState(CreateBoardBounds());
-        }
+        protected abstract InitialGameplayState BuildInitialGameplayState();
 
         protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
 
@@ -171,12 +141,6 @@ namespace Game.Feature.Gameplay.Host
             ConfigureSceneCamera(camera, initialState.BoardBounds, CreateCameraSettings(), initialState.InitialTopology);
         }
 
-        protected virtual void ConfigureCamera(BoardBounds boardBounds)
-        {
-            var camera = Camera.main;
-            ConfigureSceneCamera(camera, boardBounds, CreateCameraSettings(), InitialTopology);
-        }
-
         private void ConfigureCamera(InitialGameplayState initialState)
         {
             var camera = Camera.main;
@@ -186,112 +150,6 @@ namespace Game.Feature.Gameplay.Host
                 CreateCameraSettings(),
                 initialState.InitialTopology);
         }
-
-        protected static EntityState CreatePlayer(int entityId, SurfaceCell position, Direction facing = Direction.Up)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 3,
-                maxHp = 3,
-                teamId = 1,
-                type = EntityType.Unit,
-                state = EntityPhaseState.Idle,
-                facing = facing,
-            };
-        }
-
-        protected static EntityState CreateEnemy(
-            int entityId,
-            SurfaceCell position,
-            EnemyAiMode aiMode = EnemyAiMode.Patrol,
-            Direction facing = Direction.Left,
-            int hp = 2,
-            int aiStateTimer = 0)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = hp,
-                maxHp = hp,
-                teamId = 2,
-                type = EntityType.Unit,
-                state = EntityPhaseState.Idle,
-                facing = facing,
-                aiMode = aiMode,
-                aiStateTimer = aiStateTimer,
-            };
-        }
-
-        protected static EntityState CreateWall(int entityId, SurfaceCell position)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 0,
-                type = EntityType.None,
-                state = EntityPhaseState.Idle,
-                facing = Direction.None,
-            };
-        }
-
-        protected static EntityState CreateBox(
-            int entityId,
-            SurfaceCell position,
-            BoxCapabilities capabilities,
-            Direction facing = Direction.Right)
-        {
-            return new EntityState
-            {
-                entityId = entityId,
-                position = position,
-                hp = 1,
-                maxHp = 1,
-                teamId = 0,
-                type = EntityType.Box,
-                state = EntityPhaseState.Idle,
-                facing = facing,
-                boxCapabilities = capabilities,
-            };
-        }
-
-        protected static void AddFacePerimeterWalls(
-            List<EntityState> entities,
-            FaceId face,
-            BoardBounds boardBounds,
-            ref int nextEntityId,
-            Predicate<SurfaceCell> shouldSkip = null)
-        {
-            for (var x = boardBounds.MinInclusive.x; x <= boardBounds.MaxInclusive.x; x++)
-            {
-                AddWallIfNeeded(entities, face, x, boardBounds.MinInclusive.y, ref nextEntityId, shouldSkip);
-                AddWallIfNeeded(entities, face, x, boardBounds.MaxInclusive.y, ref nextEntityId, shouldSkip);
-            }
-
-            for (var y = boardBounds.MinInclusive.y + 1; y < boardBounds.MaxInclusive.y; y++)
-            {
-                AddWallIfNeeded(entities, face, boardBounds.MinInclusive.x, y, ref nextEntityId, shouldSkip);
-                AddWallIfNeeded(entities, face, boardBounds.MaxInclusive.x, y, ref nextEntityId, shouldSkip);
-            }
-        }
-
-        private GameplaySceneHostConfiguration CreateConfiguration(BoardBounds boardBounds)
-        {
-            return CreateConfiguration(CreateLegacyInitialGameplayState(boardBounds), CreateCameraSettings());
-        }
-
-        private GameplaySceneHostConfiguration CreateConfiguration(
-            BoardBounds boardBounds,
-            GameplayCameraSettings cameraSettings)
-        {
-            return CreateConfiguration(CreateLegacyInitialGameplayState(boardBounds), cameraSettings, ResolveViewFactory());
-        }
-
         private GameplaySceneHostConfiguration CreateConfiguration(
             InitialGameplayState initialState,
             GameplayCameraSettings cameraSettings)
@@ -356,21 +214,6 @@ namespace Game.Feature.Gameplay.Host
             return CreateViewFactory(boardRoot);
         }
 
-        private InitialGameplayState CreateLegacyInitialGameplayState(BoardBounds boardBounds)
-        {
-            var entities = new List<EntityState>();
-            PopulateInitialEntities(entities, boardBounds);
-            var initialEntities = entities.ToArray();
-
-            return new InitialGameplayState(
-                boardBounds,
-                InitialTopology,
-                initialEntities,
-                CreateTerrainData(boardBounds),
-                playerEntityId,
-                CreateEnemyAiProfileOverrides(initialEntities, boardBounds));
-        }
-
         private void ConfigureSceneCamera(
             Camera camera,
             BoardBounds boardBounds,
@@ -388,23 +231,6 @@ namespace Game.Feature.Gameplay.Host
                 cameraSettings,
                 Vector3.zero,
                 projector.GetVisibleCubeBounds(topology));
-        }
-
-        private static void AddWallIfNeeded(
-            List<EntityState> entities,
-            FaceId face,
-            int x,
-            int y,
-            ref int nextEntityId,
-            Predicate<SurfaceCell> shouldSkip)
-        {
-            var cell = new SurfaceCell(face, x, y);
-            if (shouldSkip != null && shouldSkip(cell))
-            {
-                return;
-            }
-
-            entities.Add(CreateWall(nextEntityId++, cell));
         }
     }
 }
