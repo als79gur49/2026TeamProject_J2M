@@ -12,6 +12,12 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         private const string TraversalScenePath = "Assets/Scenes/CubeSurfaceTraversalShowcase.unity";
         private const string BoxScenePath = "Assets/Scenes/BoxInteractionShowcase.unity";
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
+        private const string TraversalStageAssetPath =
+            "Assets/_Features/Stages/Stage_CubeSurfaceTraversalShowcase/Stage_CubeSurfaceTraversalShowcase.asset";
+        private const string BoxStageAssetPath =
+            "Assets/_Features/Stages/Stage_BoxInteractionShowcase/Stage_BoxInteractionShowcase.asset";
+        private const string CombinedStageAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
 
         [MenuItem("Tools/Gameplay/Build Showcase Scenes")]
         public static void BuildAllScenes()
@@ -27,26 +33,30 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         {
             BuildScene<CubeSurfaceTraversalShowcaseInstaller>(
                 TraversalScenePath,
-                "Cube Surface Traversal Showcase");
+                "Cube Surface Traversal Showcase",
+                TraversalStageAssetPath);
         }
 
         public static void BuildBoxInteractionScene()
         {
             BuildScene<BoxInteractionShowcaseInstaller>(
                 BoxScenePath,
-                "Box Interaction Showcase");
+                "Box Interaction Showcase",
+                BoxStageAssetPath);
         }
 
         public static void BuildCombinedGameplayScene()
         {
             BuildScene<CombinedGameplayShowcaseInstaller>(
                 CombinedScenePath,
-                "Box Slide Test Scene");
+                "Box Slide Test Scene",
+                CombinedStageAssetPath);
         }
 
         private static void BuildScene<TInstaller>(
             string scenePath,
-            string rootObjectName)
+            string rootObjectName,
+            string stageAssetPath)
             where TInstaller : GameplayShowcaseSceneInstallerBase
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
@@ -54,6 +64,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             var installerObject = new GameObject(rootObjectName);
             var installer = installerObject.AddComponent<TInstaller>();
             AssignActions(installer);
+            AssignStageDefinition(installer, stageAssetPath);
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 installerObject,
                 installer.GetShowcaseOverlayContent(),
@@ -73,6 +84,26 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
             var serializedObject = new SerializedObject(installer);
             serializedObject.FindProperty("actions").objectReferenceValue = actions;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignStageDefinition(Component installer, string stageAssetPath)
+        {
+            var stageAsset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(stageAssetPath);
+            if (stageAsset == null)
+            {
+                throw new InvalidOperationException($"Missing stage asset at '{stageAssetPath}'.");
+            }
+
+            var serializedObject = new SerializedObject(installer);
+            var stageDefinitionProperty = serializedObject.FindProperty("stageDefinition");
+            if (stageDefinitionProperty == null)
+            {
+                throw new InvalidOperationException(
+                    $"Installer '{installer.GetType().Name}' does not expose a serialized stageDefinition field.");
+            }
+
+            stageDefinitionProperty.objectReferenceValue = stageAsset;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
     }

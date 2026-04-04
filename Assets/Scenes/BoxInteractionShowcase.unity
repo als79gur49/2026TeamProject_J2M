@@ -1015,6 +1015,7 @@ MonoBehaviour:
   flipMotionDurationSeconds: 0.2
   topologyMotionDurationSeconds: -1
   topologyRotationVisualMapping: 0
+  stageDefinition: {fileID: 11400000, guid: 394a3b219e254dd68f3ea4cc8647f0c2, type: 2}
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0

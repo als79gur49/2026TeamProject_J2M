@@ -545,6 +545,7 @@ MonoBehaviour:
   flipMotionDurationSeconds: 1
   topologyMotionDurationSeconds: 2
   topologyRotationVisualMapping: 0
+  stageDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}
   playerViewPrefab: {fileID: 5823939067857017187, guid: 6696aac23f8317d4d94786b02b62bb6c, type: 3}
 --- !u!4 &1179627482
 Transform:
