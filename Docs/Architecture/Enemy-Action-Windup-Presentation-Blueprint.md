@@ -383,7 +383,7 @@ public struct EnemyAttackTimingSettings
 
 ### 7-3. `EnemyAnimationTimingAuthoring`
 
-향후 적별 clip speed, crossfade, animation-only hold가 필요하면 별도 `EnemyAnimationTimingAuthoring`를 추가한다.
+현재 구현은 optional `EnemyAnimationTimingAuthoring`를 통해 wind-up / recovery animator duration override와 state-transition crossfade를 `EnemyAnimatorDriver`가 소비한다. 적별 animation-only hold나 더 큰 presentation state machine이 필요해지면 같은 계층에서 확장한다.
 
 이 계층에 둘 수 있는 값:
 

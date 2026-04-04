@@ -371,10 +371,12 @@ public readonly struct TickEnemyActionPresentationSignal
 - 이 단계에서는 `EnemyLogic`, `EnemyAiConfig`, `TickPipeline`의 authoritative logic은 수정하지 않았다.
 - 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공, Unity `6000.3.11f1` batchmode script compilation 성공, `GameplayTimingOwnershipTests` EditMode 실행(`8 passed, 0 failed`) 기준으로 확인했다.
 
-- 2차 PR: driver가 authoring 값을 실제 presentation에 소비
-- `EnemyAnimatorDriver`가 wind-up / recovery animator duration override와 crossfade 값을 실제 animator 적용 경로에서 해석하도록 확장한다.
-- 필요 시 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs`를 최소 범위로 조정하되, enemy 전용 visual hold state machine까지 한 번에 도입하지는 않는다.
-- 완료 조건은 override가 있으면 그것을 사용하고, 없으면 기존 fallback을 유지하며, logic 결과와 timing authority는 변하지 않는 것이다.
+- 2026-04-05 2차 PR 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs`는 `EnemyAnimationTimingAuthoring`의 wind-up / recover animator duration override를 실제 animator speed 계산에 반영하도록 확장했고, `Attack` / `Recover` presentation phase에서만 해당 override를 소비하도록 정리했다.
+- 같은 driver는 `stateTransitionCrossFadeDurationSeconds` override가 있을 때 `Windup` / `Recover` state로 `CrossFadeInFixedTime`을 요청하도록 확장했고, override가 없을 때는 기존 trigger-only fallback과 speed `1x`를 유지한다.
+- 이번 범위에서는 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayAnimationSyncCoordinator.cs` 조정이나 enemy 전용 visual hold state machine 도입은 하지 않았다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayTimingOwnershipTests.cs`에 wind-up / recover override가 실제 animator speed와 crossfade request 경로에 반영되는지 검증하는 회귀 테스트를 추가했다.
+- 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공 기준으로 확인했다. `dotnet.exe test`는 이번 환경에서도 결과 로그를 남기지 않아 EditMode 테스트의 직접 실행 결과는 후속 Unity runner 확인이 필요하다.
 
 - 3차 PR: prefab / showcase 연결과 실사용 검증
 - 실제 enemy prefab 또는 showcase용 test prefab에 `EnemyAnimationTimingAuthoring`를 연결한다.
