@@ -322,6 +322,15 @@ public readonly struct TickEnemyActionPresentationSignal
 - 적 animator가 wind-up 시작, execute, recovery 시작을 구분해 표현 가능하다.
 - animator가 없어도 logic 결과는 동일하다.
 
+진행 상태:
+
+- 2026-04-05 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyViewPresentationMapper.cs`의 `EnemyViewPresentationState`에 `ActiveActionKind`, `StartedWindupThisTick`, `ExecutedThisTick`, `StartedRecoveryThisTick`를 추가했고, mapper가 `TickEnemyActionPresentationSignal`, movement, damage, death, final `aiMode`를 함께 merge하도록 반영했다.
+- zero-windup 기본 적의 기존 즉시 공격 표현을 유지하기 위해 `StartedThisTick && ExecutedThisTick` 케이스는 host에서 wind-up beat로 해석하지 않도록 정리했다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs`는 기존 `Attack/Hit/Death` trigger를 유지하면서 optional `EnemyActionKind` int parameter, `Windup`, `Recover` trigger 경로를 추가해 wind-up 시작과 recovery 시작 beat를 구분해서 받을 수 있게 확장했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs`에 enemy action signal만으로 wind-up / execute / recovery가 driver에 반영되는지, zero-windup 즉시 execute에서는 wind-up trigger가 발생하지 않는지 확인하는 presenter integration test를 추가했다.
+- 검증은 Windows `dotnet.exe build Game.Feature.Gameplay.Tests.csproj -c Debug` 성공 기준으로 확인했다. 현재 환경의 `dotnet test`와 `vstest.console.exe`는 Unity-style test assembly에 대한 discoverer / adapter를 찾지 못해 edit mode 테스트를 직접 실행하지는 못했다.
+
 ### 6-7. 7단계: optional `EnemyAnimationTimingAuthoring` hook 정리
 
 목표는 향후 적별 clip tuning 확장 포인트를 열어두되, 이번 작업의 logic 범위와 분리하는 것이다.
