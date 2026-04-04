@@ -189,6 +189,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
+                var animator = rootObject.AddComponent<Animator>();
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.4f);
@@ -213,6 +214,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     startedRecoveryThisTick: false,
                     tookDamage: false,
                     didDie: false));
+
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.4f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(animator.speed, Is.EqualTo(2.5f).Within(0.0001f));
+
                 driver.Apply(new EnemyViewPresentationState(
                     entityId: 40,
                     tickIndex: 2,
@@ -225,6 +233,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     tookDamage: true,
                     didDie: false));
 
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
+                Assert.That(animator.speed, Is.EqualTo(2f).Within(0.0001f));
                 Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
                 Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
                 Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
