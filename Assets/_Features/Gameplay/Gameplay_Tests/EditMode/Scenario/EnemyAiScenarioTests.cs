@@ -63,6 +63,104 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 1));
+
+            var windupTick = pipeline.RunTick(new TickInput(1));
+            var enemyAfterWindupTick = GetEntity(worldState, 40);
+            var actionStateAfterWindupTick = GetEnemyActionState(worldState, 40);
+            var windupSignal = windupTick.PresentationData.EnemyActionSignals.Single();
+
+            Assert.That(windupTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(windupTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(enemyAfterWindupTick.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+            Assert.That(actionStateAfterWindupTick.IsActive, Is.True);
+            Assert.That(actionStateAfterWindupTick.executeTick, Is.EqualTo(2));
+            Assert.That(actionStateAfterWindupTick.executionAttempted, Is.False);
+            Assert.That(windupSignal.EntityId, Is.EqualTo(40));
+            Assert.That(windupSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(windupSignal.StartedThisTick, Is.True);
+            Assert.That(windupSignal.CanceledThisTick, Is.False);
+            Assert.That(windupSignal.ExecutedThisTick, Is.False);
+            Assert.That(windupSignal.StartedRecoveryThisTick, Is.False);
+
+            var executeTick = pipeline.RunTick(new TickInput(2));
+            var enemyAfterExecuteTick = GetEntity(worldState, 40);
+            var playerAfterExecuteTick = GetEntity(worldState, 10);
+            var actionStateAfterExecuteTick = GetEnemyActionState(worldState, 40);
+            var executeSignal = executeTick.PresentationData.EnemyActionSignals.Single();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                executeTick.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(playerAfterExecuteTick.hp, Is.EqualTo(2));
+            Assert.That(enemyAfterExecuteTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemyAfterExecuteTick.aiStateTimer, Is.EqualTo(1));
+            Assert.That(actionStateAfterExecuteTick.IsActive, Is.True);
+            Assert.That(actionStateAfterExecuteTick.executionAttempted, Is.True);
+            Assert.That(executeSignal.EntityId, Is.EqualTo(40));
+            Assert.That(executeSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(executeSignal.StartedThisTick, Is.False);
+            Assert.That(executeSignal.CanceledThisTick, Is.False);
+            Assert.That(executeSignal.ExecutedThisTick, Is.True);
+            Assert.That(executeSignal.StartedRecoveryThisTick, Is.True);
+
+            var recoverTick = pipeline.RunTick(new TickInput(3));
+            var enemyAfterRecoverTick = GetEntity(worldState, 40);
+
+            Assert.That(recoverTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(recoverTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(enemyAfterRecoverTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemyAfterRecoverTick.aiStateTimer, Is.Zero);
+        }
+
+        [Test]
+        public void EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 2));
+
+            var windupTick = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().ApplyDamage(10, 3);
+
+            var cancelTick = pipeline.RunTick(new TickInput(2));
+            var enemyAfterCancelTick = GetEntity(worldState, 40);
+            var actionStateAfterCancelTick = GetEnemyActionState(worldState, 40);
+            var cancelSignal = cancelTick.PresentationData.EnemyActionSignals.Single();
+
+            Assert.That(windupTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(cancelTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(cancelTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(enemyAfterCancelTick.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(enemyAfterCancelTick.aiStateTimer, Is.Zero);
+            Assert.That(actionStateAfterCancelTick.IsActive, Is.False);
+            Assert.That(cancelTick.CleanupPhaseResult.RemovedEntityIds, Does.Contain(10));
+            Assert.That(cancelSignal.EntityId, Is.EqualTo(40));
+            Assert.That(cancelSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(cancelSignal.StartedThisTick, Is.False);
+            Assert.That(cancelSignal.CanceledThisTick, Is.True);
+            Assert.That(cancelSignal.ExecutedThisTick, Is.False);
+            Assert.That(cancelSignal.StartedRecoveryThisTick, Is.False);
+            Assert.That(cancelTick.Trace.Text, Does.Contain("LockedTargetLost"));
+        }
+
+        [Test]
         public void EnemyAi_FatalDamage_IsRemovedByCleanupAtTickEnd()
         {
             var worldState = CreateWorldState(new[]
@@ -222,6 +320,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
         {
             return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
+        }
+
+        private static EnemyActionRuntimeState GetEnemyActionState(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(entityId, out var actionState), Is.True);
+            return actionState;
+        }
+
+        private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks));
         }
 
         private static EntityState CreateUnit(

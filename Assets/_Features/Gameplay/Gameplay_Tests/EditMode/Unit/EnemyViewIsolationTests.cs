@@ -78,6 +78,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayTickViewPresenter_PresentingEnemyWindupSignals_DoesNotChangeLaterTickAuthoritativeResults()
+        {
+            var initialEntities = new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            };
+            var baselineWorld = CreateWorldState(initialEntities);
+            var presentedWorld = CreateWorldState(initialEntities);
+            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorld, CreateEnemyProfile(windupTicks: 1));
+            var presentedPipeline = GameplayCompositionRoot.CreateTickPipeline(presentedWorld, CreateEnemyProfile(windupTicks: 1));
+            var rootObject = new GameObject("EnemyViewIsolationTests_Presenter_Windup");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var initialSnapshot = presentedWorld.CreateSnapshot();
+
+                presenter.Initialize(
+                    binder,
+                    initialSnapshot.BoardBounds,
+                    initialSnapshot.Topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(initialEntities, initialSnapshot.Topology);
+
+                var baselineWindupTick = baselinePipeline.RunTick(new TickInput(1));
+                var presentedWindupTick = presentedPipeline.RunTick(new TickInput(1));
+
+                Assert.That(presentedWindupTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
+
+                presenter.Present(presentedWindupTick);
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presentedWindupTick.DeterminismHash, Is.EqualTo(baselineWindupTick.DeterminismHash));
+
+                var baselineExecuteTick = baselinePipeline.RunTick(new TickInput(2));
+                var presentedExecuteTick = presentedPipeline.RunTick(new TickInput(2));
+
+                Assert.That(presentedExecuteTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.True);
+                Assert.That(presentedExecuteTick.PresentationData.EnemyActionSignals.Single().StartedRecoveryThisTick, Is.True);
+
+                presenter.Present(presentedExecuteTick);
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presentedExecuteTick.DeterminismHash, Is.EqualTo(baselineExecuteTick.DeterminismHash));
+                CollectionAssert.AreEqual(
+                    SummarizeEntities(baselineExecuteTick.FinalEntities),
+                    SummarizeEntities(presentedExecuteTick.FinalEntities));
+                CollectionAssert.AreEqual(
+                    baselineExecuteTick.EventLog.ToArray(),
+                    presentedExecuteTick.EventLog.ToArray());
+
+                var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
+                Assert.That(presentedSnapshotAfter.TryGetEntity(40, out var presentedEnemy), Is.True);
+                Assert.That(presentedEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(presentedEnemy.aiStateTimer, Is.EqualTo(1));
+                Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
+
+                var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -115,6 +189,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 aiMode = aiMode,
                 aiStateTimer = 0,
             };
+        }
+
+        private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks));
         }
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory
