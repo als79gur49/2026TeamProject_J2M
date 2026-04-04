@@ -118,6 +118,13 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyAiTransitionStage.BeforeAttack,
                 writeContext,
                 aiPhaseResult.BeforeAttackTransitions);
+            var enemyActionPhaseResult = RunEnemyActionPhase(
+                entityLogicsForTick.EnemyActionStateLogics,
+                SnapshotBuilder.Create(_worldState),
+                in input,
+                EnemyActionStage.BeforeAttackCollection,
+                writeContext,
+                new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()));
             postMovementSnapshot = SnapshotBuilder.Create(_worldState);
             var attackPhaseResult = RunAttackPhase(
                 postMovementSnapshot,
@@ -131,6 +138,14 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace);
 
             var postAttackSnapshot = SnapshotBuilder.Create(_worldState);
+            CommitEnemyActionState(
+                postAttackSnapshot,
+                in input,
+                entityLogicsForTick.EnemyActionStateLogics,
+                EnemyActionStage.AfterAttack,
+                writeContext,
+                enemyActionPhaseResult.AfterAttackTransitions);
+            postAttackSnapshot = SnapshotBuilder.Create(_worldState);
             CommitEnemyAiTransitions(
                 postAttackSnapshot,
                 in input,
@@ -170,6 +185,7 @@ namespace Game.Feature.Gameplay.Loop
                 input.TickIndex,
                 preMovementSnapshot,
                 aiPhaseResult,
+                enemyActionPhaseResult,
                 preMovementStateResult,
                 movementPhaseResult,
                 postMovementSnapshot,
@@ -215,6 +231,26 @@ namespace Game.Feature.Gameplay.Loop
                 new List<string>());
         }
 
+        private static EnemyActionPhaseResult RunEnemyActionPhase(
+            IReadOnlyList<IEnemyActionStateLogic> entityLogics,
+            WorldSnapshot snapshot,
+            in TickInput input,
+            EnemyActionStage stage,
+            IEnemyActionCommitContext writeContext,
+            EnemyActionPhaseResult result)
+        {
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            var transitions = stage == EnemyActionStage.BeforeAttackCollection
+                ? result.BeforeAttackCollectionTransitions
+                : result.AfterAttackTransitions;
+            CommitEnemyActionState(snapshot, in input, entityLogics, stage, writeContext, transitions);
+            return result;
+        }
+
         private static void CommitEnemyAiTransitions(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -228,6 +264,22 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < entityLogics.Count; i++)
             {
                 entityLogics[i].CommitAiTransitions(snapshot, in input, stage, writeContext, transitions);
+            }
+        }
+
+        private static void CommitEnemyActionState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<IEnemyActionStateLogic> entityLogics,
+            EnemyActionStage stage,
+            IEnemyActionCommitContext writeContext,
+            List<EnemyActionTransition> transitions)
+        {
+            transitions.Clear();
+
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                entityLogics[i].CommitEnemyActionState(snapshot, in input, stage, writeContext, transitions);
             }
         }
 
@@ -515,6 +567,21 @@ namespace Game.Feature.Gameplay.Loop
         public List<string> BeforeAttackTransitions { get; }
 
         public List<string> AfterAttackTransitions { get; }
+    }
+
+    internal sealed class EnemyActionPhaseResult
+    {
+        public EnemyActionPhaseResult(
+            List<EnemyActionTransition> beforeAttackCollectionTransitions,
+            List<EnemyActionTransition> afterAttackTransitions)
+        {
+            BeforeAttackCollectionTransitions = beforeAttackCollectionTransitions ?? throw new ArgumentNullException(nameof(beforeAttackCollectionTransitions));
+            AfterAttackTransitions = afterAttackTransitions ?? throw new ArgumentNullException(nameof(afterAttackTransitions));
+        }
+
+        public List<EnemyActionTransition> BeforeAttackCollectionTransitions { get; }
+
+        public List<EnemyActionTransition> AfterAttackTransitions { get; }
     }
 
     internal sealed class PreMovementStatePhaseResult

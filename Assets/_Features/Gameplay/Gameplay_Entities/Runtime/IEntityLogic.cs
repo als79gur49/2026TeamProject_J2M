@@ -37,6 +37,22 @@ namespace Game.Feature.Gameplay.Entities
             List<RawAttackIntent> buffer);
     }
 
+    public enum EnemyActionStage
+    {
+        BeforeAttackCollection = 0,
+        AfterAttack = 1,
+    }
+
+    public interface IEnemyActionStateLogic : IEntityLogic
+    {
+        void CommitEnemyActionState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            EnemyActionStage stage,
+            IEnemyActionCommitContext writeContext,
+            List<EnemyActionTransition> transitions);
+    }
+
     public enum EnemyAiTransitionStage
     {
         BeforeMovement = 0,
@@ -72,9 +88,25 @@ namespace Game.Feature.Gameplay.Entities
             IReadOnlyList<IEnemyAiStateLogic> aiStateLogics,
             IReadOnlyList<IMovementEntityLogic> movementLogics,
             IReadOnlyList<IAttackEntityLogic> attackLogics)
+            : this(
+                preMovementStateLogics,
+                aiStateLogics,
+                System.Array.Empty<IEnemyActionStateLogic>(),
+                movementLogics,
+                attackLogics)
+        {
+        }
+
+        public EntityLogicSet(
+            IReadOnlyList<IPreMovementStateLogic> preMovementStateLogics,
+            IReadOnlyList<IEnemyAiStateLogic> aiStateLogics,
+            IReadOnlyList<IEnemyActionStateLogic> enemyActionStateLogics,
+            IReadOnlyList<IMovementEntityLogic> movementLogics,
+            IReadOnlyList<IAttackEntityLogic> attackLogics)
         {
             PreMovementStateLogics = preMovementStateLogics ?? throw new System.ArgumentNullException(nameof(preMovementStateLogics));
             AiStateLogics = aiStateLogics ?? throw new System.ArgumentNullException(nameof(aiStateLogics));
+            EnemyActionStateLogics = enemyActionStateLogics ?? throw new System.ArgumentNullException(nameof(enemyActionStateLogics));
             MovementLogics = movementLogics ?? throw new System.ArgumentNullException(nameof(movementLogics));
             AttackLogics = attackLogics ?? throw new System.ArgumentNullException(nameof(attackLogics));
         }
@@ -82,6 +114,8 @@ namespace Game.Feature.Gameplay.Entities
         public IReadOnlyList<IPreMovementStateLogic> PreMovementStateLogics { get; }
 
         public IReadOnlyList<IEnemyAiStateLogic> AiStateLogics { get; }
+
+        public IReadOnlyList<IEnemyActionStateLogic> EnemyActionStateLogics { get; }
 
         public IReadOnlyList<IMovementEntityLogic> MovementLogics { get; }
 

@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Debug
             int tickIndex,
             WorldSnapshot s0Snapshot,
             EnemyAiPhaseResult enemyAiPhaseResult,
+            EnemyActionPhaseResult enemyActionPhaseResult,
             PreMovementStatePhaseResult preMovementStatePhaseResult,
             MovementPhaseResult movementPhaseResult,
             WorldSnapshot s1Snapshot,
@@ -48,6 +49,7 @@ namespace Game.Feature.Gameplay.Debug
 
             AppendSnapshotSections(builder, "S1", s1Snapshot);
             AppendSection(builder, "EnemyAi.BeforeAttackTransitions", enemyAiPhaseResult.BeforeAttackTransitions, FormatString);
+            AppendSection(builder, "EnemyAction.BeforeAttackCollectionTransitions", enemyActionPhaseResult.BeforeAttackCollectionTransitions, FormatEnemyActionTransition);
             AppendSection(builder, "Attack.RawIntents", attackPhaseResult.RawIntents, FormatRawAttackIntent);
             AppendSection(builder, "Attack.DrainedImpacts", attackPhaseResult.DrainedImpactReservations, FormatImpactReservation);
             AppendSection(builder, "Attack.DrainedDelayedEffects", attackPhaseResult.DrainedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
@@ -56,6 +58,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Attack.SelectedGroups", attackPhaseResult.SelectedGroups, FormatActionGroup);
             AppendSection(builder, "Attack.CommitEvents", attackPhaseResult.CommitEvents, FormatString);
+            AppendSection(builder, "EnemyAction.AfterAttackTransitions", enemyActionPhaseResult.AfterAttackTransitions, FormatEnemyActionTransition);
             AppendSection(builder, "EnemyAi.AfterAttackTransitions", enemyAiPhaseResult.AfterAttackTransitions, FormatString);
 
             AppendSection(builder, "Cleanup.RemovedIds", cleanupPhaseResult.RemovedEntityIds, value => value.ToString());
@@ -201,6 +204,11 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatPlayerActionTransition(PlayerActionTransition transition)
         {
             return $"E={transition.EntityId}|Prev={transition.PreviousKind}|Curr={transition.CurrentKind}|PrevSeq={transition.PreviousSequence}|CurrSeq={transition.CurrentSequence}|Started={transition.StartedThisTick}|Completed={transition.CompletedThisTick}|Canceled={transition.CanceledThisTick}";
+        }
+
+        private static string FormatEnemyActionTransition(EnemyActionTransition transition)
+        {
+            return $"E={transition.EntityId}|Prev={transition.PreviousKind}|Curr={transition.CurrentKind}|PrevSeq={transition.PreviousSequence}|CurrSeq={transition.CurrentSequence}|Started={transition.StartedThisTick}|Canceled={transition.CanceledThisTick}";
         }
 
         private static string FormatBoardBounds(BoardBounds boardBounds)

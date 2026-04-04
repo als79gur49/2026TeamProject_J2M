@@ -98,7 +98,7 @@ namespace Game.Feature.Gameplay.Entities
                 direction = direction,
                 startTick = startTick,
                 executeTick = startTick + windupTicks,
-                executionAttempted = windupTicks == 0,
+                executionAttempted = false,
             };
         }
 
@@ -124,6 +124,13 @@ namespace Game.Feature.Gameplay.Entities
             var updatedState = state;
             updatedState.executionAttempted = true;
             return updatedState;
+        }
+
+        public static bool CanExecute(in EnemyActionRuntimeState state, int tickIndex)
+        {
+            return state.IsActive &&
+                   !state.executionAttempted &&
+                   state.executeTick == tickIndex;
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetFacing(int entityId, Direction facing);
     }
 
-    public interface IEnemyActionCommitContext
+    public interface IEnemyActionCommitContext : IEnemyAiCommitContext
     {
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
     }
@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
     }
 
-    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyAiCommitContext, IEnemyActionCommitContext
+    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyActionCommitContext
     {
     }
 }

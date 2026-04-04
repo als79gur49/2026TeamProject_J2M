@@ -18,10 +18,13 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiProfile enemyAiProfile,
             IReadOnlyDictionary<int, EnemyAiProfile> profilesByEntityId)
         {
+            var defaultProfile = enemyAiProfile ?? EnemyAiProfile.CreateRuntimeDefault();
+
             return new SnapshotEntityLogicProvider(
                 new IEntityLogicFactory[]
                 {
-                    new EnemyEntityLogicFactory(enemyAiProfile ?? EnemyAiProfile.CreateRuntimeDefault(), profilesByEntityId),
+                    new EnemyEntityLogicFactory(defaultProfile, profilesByEntityId),
+                    new EnemyActionStateEntityLogicFactory(defaultProfile, profilesByEntityId),
                     new SlidingBoxEntityLogicFactory(),
                     new ProjectileEntityLogicFactory(),
                 });

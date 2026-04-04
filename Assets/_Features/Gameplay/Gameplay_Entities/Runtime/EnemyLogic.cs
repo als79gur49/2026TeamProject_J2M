@@ -219,16 +219,26 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(buffer));
             }
 
+            RawAttackIntent attackIntent;
             if (!TryGetControllableEnemy(snapshot, out var source) ||
                 source.aiMode != EnemyAiMode.Attack ||
-                !_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
+                !snapshot.TryGetEnemyActionState(_entityId, out var actionState) ||
+                !EnemyActionQueries.CanExecute(actionState, input.TickIndex) ||
+                !EnemyActionStateTargeting.TryResolveLockedTarget(
+                    snapshot,
+                    source,
+                    actionState,
+                    _attackDecisionStrategy,
+                    _detectionSettings,
+                    _attackDecisionSettings,
+                    out var target) ||
                 !_attackDecisionStrategy.TryBuildAttackIntent(
                     snapshot,
                     source,
                     target,
                     _commonSettings,
                     _attackDecisionSettings,
-                    out var attackIntent))
+                    out attackIntent))
             {
                 return;
             }
@@ -307,7 +317,7 @@ namespace Game.Feature.Gameplay.Entities
                     return ResolveBeforeAttack(snapshot, source, detectionStrategy, attackDecisionStrategy, commonSettings, detectionSettings, attackDecisionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
-                    return ResolveAfterAttack(source, commonSettings);
+                    return ResolveAfterAttack(snapshot, source, commonSettings);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage.");
@@ -390,10 +400,18 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         private static EnemyAiTransitionDecision ResolveAfterAttack(
+            WorldSnapshot snapshot,
             in EntityState source,
             in EnemyAiCommonSettings commonSettings)
         {
             if (source.aiMode != EnemyAiMode.Attack)
+            {
+                return Keep(source, "NoAfterAttackTransition");
+            }
+
+            if (!snapshot.TryGetEnemyActionState(source.entityId, out var actionState) ||
+                !actionState.IsActive ||
+                !actionState.executionAttempted)
             {
                 return Keep(source, "NoAfterAttackTransition");
             }
@@ -413,6 +431,28 @@ namespace Game.Feature.Gameplay.Entities
             in AttackDecisionSettings attackDecisionSettings,
             EnemyAiMode patrolFallback)
         {
+            if (source.aiMode == EnemyAiMode.Attack &&
+                snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
+                actionState.IsActive)
+            {
+                if (EnemyActionStateTargeting.TryResolveLockedTarget(
+                        snapshot,
+                        source,
+                        actionState,
+                        attackDecisionStrategy,
+                        detectionSettings,
+                        attackDecisionSettings,
+                        out _))
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedTargetInRange", actionState.direction);
+                }
+
+                return new EnemyAiTransitionDecision(
+                    EnemyActionStateTargeting.ResolveFallbackAiMode(snapshot, source, detectionStrategy, detectionSettings),
+                    0,
+                    "LockedTargetLost");
+            }
+
             if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
             {
                 return new EnemyAiTransitionDecision(patrolFallback, 0, "NoTarget");
@@ -484,11 +524,29 @@ namespace Game.Feature.Gameplay.Entities
                     commonSettings,
                     detectionSettings,
                     attackDecisionSettings),
-                EnemyAiTransitionStage.AfterAttack => source.aiMode == EnemyAiMode.Attack
-                    ? new EnemyAiTransitionDecision(EnemyAiMode.Recover, commonSettings.RecoverTicks, "AttackCommitted")
-                    : new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoAfterAttackTransition"),
+                EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
             };
+        }
+
+        private static EnemyAiTransitionDecision ResolveAfterAttack(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings)
+        {
+            if (source.aiMode != EnemyAiMode.Attack)
+            {
+                return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoAfterAttackTransition");
+            }
+
+            if (!snapshot.TryGetEnemyActionState(source.entityId, out var actionState) ||
+                !actionState.IsActive ||
+                !actionState.executionAttempted)
+            {
+                return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoAfterAttackTransition");
+            }
+
+            return new EnemyAiTransitionDecision(EnemyAiMode.Recover, commonSettings.RecoverTicks, "AttackCommitted");
         }
 
         private static EnemyAiTransitionDecision ResolveBeforeMovement(
@@ -603,6 +661,28 @@ namespace Game.Feature.Gameplay.Entities
             in DetectionSettings detectionSettings,
             in AttackDecisionSettings attackDecisionSettings)
         {
+            if (source.aiMode == EnemyAiMode.Attack &&
+                snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
+                actionState.IsActive)
+            {
+                if (EnemyActionStateTargeting.TryResolveLockedTarget(
+                        snapshot,
+                        source,
+                        actionState,
+                        attackDecisionStrategy,
+                        detectionSettings,
+                        attackDecisionSettings,
+                        out _))
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedTargetInRange", actionState.direction);
+                }
+
+                return new EnemyAiTransitionDecision(
+                    EnemyActionStateTargeting.ResolveFallbackAiMode(snapshot, source, detectionStrategy, detectionSettings),
+                    0,
+                    "LockedTargetLost");
+            }
+
             if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
