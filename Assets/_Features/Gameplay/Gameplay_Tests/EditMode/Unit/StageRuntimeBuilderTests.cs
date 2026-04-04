@@ -115,7 +115,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
             Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
             Assert.That(stage.BoxSpawns.Length, Is.EqualTo(12));
-            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(2));
+            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(3));
             Assert.That(stage.WallSpawns.Length, Is.EqualTo(5));
 
             var buildResult = StageRuntimeBuilder.Build(stage);
@@ -125,7 +125,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
-            Assert.That(buildResult.InitialEntities.Length, Is.EqualTo(116));
+            Assert.That(buildResult.InitialEntities.Length, Is.EqualTo(117));
             AssertEntityIdsAreSorted(buildResult.InitialEntities);
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
@@ -159,13 +159,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(scoutEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(scoutEnemy.hp, Is.EqualTo(2));
 
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(2));
+            Assert.That(TryGetEntity(buildResult.InitialEntities, 52, out var windupEnemy), Is.True);
+            Assert.That(windupEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 2)));
+            Assert.That(windupEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(windupEnemy.hp, Is.EqualTo(3));
+
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(3));
             Assert.That(TryGetProfileOverride(buildResult, 50, out var chargingProfile), Is.True);
             Assert.That(chargingProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
             Assert.That(chargingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(TryGetProfileOverride(buildResult, 51, out var scoutProfile), Is.True);
             Assert.That(scoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(scoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(TryGetProfileOverride(buildResult, 52, out var windupProfile), Is.True);
+            Assert.That(windupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(windupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+            Assert.That(windupProfile.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
         }
 
         private static StageDefinition CreateStage(

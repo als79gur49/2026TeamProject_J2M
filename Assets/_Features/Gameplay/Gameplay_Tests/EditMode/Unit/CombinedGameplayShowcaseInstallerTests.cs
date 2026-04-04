@@ -79,7 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayStage_PlacesTwoVariantEnemiesForAiShowcase()
+        public void CombinedGameplayStage_PlacesThreeEnemyVariantsForAiShowcase()
         {
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
@@ -99,18 +99,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
 
             Assert.That(
+                TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 2, 2), out var floorWindupEnemy),
+                Is.True,
+                "Floor face should include a nearby wind-up enemy so attack telegraph presentation is visible in the showcase start area.");
+            Assert.That(floorWindupEnemy.teamId, Is.EqualTo(2));
+            Assert.That(floorWindupEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+
+            Assert.That(
                 GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorEnemy.position),
                 Is.EqualTo(4),
                 "The floor enemy should start inside sense range but outside attack range so Chase appears before Charge.");
+            Assert.That(
+                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorWindupEnemy.position),
+                Is.EqualTo(2),
+                "The wind-up enemy should start close enough to telegraph quickly without spawning directly in the charger lane.");
         }
 
         [Test]
-        public void CombinedGameplayStage_BuildsEnemyProfileOverridesForChargeAndScoutVariants()
+        public void CombinedGameplayStage_BuildsEnemyProfileOverridesForChargeScoutAndWindupVariants()
         {
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(2));
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(3));
 
             Assert.That(TryGetProfileOverride(buildResult, 50, out var floorChargingProfile), Is.True);
             Assert.That(floorChargingProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
@@ -119,6 +130,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetProfileOverride(buildResult, 51, out var frontScoutProfile), Is.True);
             Assert.That(frontScoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(frontScoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+
+            Assert.That(TryGetProfileOverride(buildResult, 52, out var floorWindupProfile), Is.True);
+            Assert.That(floorWindupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(floorWindupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+            Assert.That(floorWindupProfile.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
         }
 
         [Test]
@@ -285,6 +301,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 Object.DestroyImmediate(playerPrefabObject);
                 Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_OverlayMentionsWindupDemoLane()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_OverlayMentionsWindupDemoLane");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var overlay = installer.GetShowcaseOverlayContent();
+
+                Assert.That(overlay.Title, Is.EqualTo("Combined Gameplay Showcase"));
+                Assert.That(overlay.Highlights, Has.Some.Contains("2-tick wind-up melee profile"));
+                Assert.That(overlay.Highlights, Has.Some.Contains("charger lane"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(installerObject);
             }
         }
 
