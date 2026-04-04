@@ -667,7 +667,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
                 CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
-                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Flip),
             });
             worldState.CreateWriteContext().SetPlayerControlState(
                 10,
@@ -706,7 +706,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(4, PlayerTickCommand.Flip(Direction.Left)),
+                new TickInput(4, PlayerTickCommand.Flip(Direction.Up)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
@@ -739,7 +739,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(7, PlayerTickCommand.Flip(Direction.Left)),
+                new TickInput(7, PlayerTickCommand.Flip(Direction.Up)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
@@ -747,7 +747,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var restartedState), Is.True);
             Assert.That(restartedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(restartedState.activeAction.sequence, Is.EqualTo(2));
-            Assert.That(restartedState.activeAction.direction, Is.EqualTo(Direction.Left));
+            Assert.That(restartedState.activeAction.direction, Is.EqualTo(Direction.Up));
             Assert.That(restartedState.activeAction.targetEntityId, Is.EqualTo(30));
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Flip), Is.True);
         }

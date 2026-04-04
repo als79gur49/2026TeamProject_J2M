@@ -753,7 +753,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    CreateImmediateFlipPlayerLogic(10),
+                    CreateImmediatePushPlayerLogic(10),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -764,7 +764,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=PushTargetNotPushBox|Cell=(1,0)|Target=20|Capabilities=None",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));

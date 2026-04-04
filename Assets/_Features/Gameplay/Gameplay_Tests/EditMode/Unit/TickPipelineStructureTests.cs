@@ -271,7 +271,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var defaultBootstrapperFactory = typeof(GameplayCompositionRoot).GetMethod(
                 nameof(GameplayCompositionRoot.CreateDefaultBootstrapper),
-                BindingFlags.Static | BindingFlags.Public);
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: Type.EmptyTypes,
+                modifiers: null);
+            var defaultBootstrapperWithProfileFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateDefaultBootstrapper),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[] { typeof(EnemyAiProfile) },
+                modifiers: null);
             var worldOnlyFactory = typeof(GameplayCompositionRoot).GetMethod(
                 nameof(GameplayCompositionRoot.CreateTickPipeline),
                 BindingFlags.Static | BindingFlags.Public,
@@ -299,6 +308,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(defaultBootstrapperFactory, Is.Not.Null);
             Assert.That(defaultBootstrapperFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
+            Assert.That(defaultBootstrapperWithProfileFactory, Is.Not.Null);
+            Assert.That(defaultBootstrapperWithProfileFactory.ReturnType, Is.EqualTo(typeof(GameplayBootstrapper)));
             Assert.That(worldOnlyFactory, Is.Not.Null);
             Assert.That(worldOnlyFactory.ReturnType, Is.EqualTo(typeof(TickPipeline)));
             Assert.That(worldAndLogicFactory, Is.Not.Null);

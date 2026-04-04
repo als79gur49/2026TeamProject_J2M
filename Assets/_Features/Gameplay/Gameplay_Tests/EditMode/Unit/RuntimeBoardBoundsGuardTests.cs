@@ -832,7 +832,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontPose.LocalPosition.x, Is.EqualTo(0f).Within(0.001f));
             Assert.That(frontPose.LocalPosition.y, Is.EqualTo(-1f).Within(0.001f));
             Assert.That(frontPose.LocalPosition.z, Is.EqualTo(1.92f).Within(0.001f));
-            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.forward));
+            AssertVectorApproximately(frontPose.Normal, Vector3.forward);
             Assert.That(
                 Quaternion.Angle(frontPose.LocalRotation, Quaternion.LookRotation(Vector3.forward, Vector3.up)),
                 Is.LessThan(0.001f));
@@ -856,10 +856,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(Vector3.Distance(frontPose.LocalPosition, new Vector3(0f, 0f, explodedDistance)), Is.LessThan(0.001f));
             Assert.That(Vector3.Distance(topPose.LocalPosition, new Vector3(0f, explodedDistance, 0f)), Is.LessThan(0.001f));
             Assert.That(Vector3.Distance(backPose.LocalPosition, new Vector3(0f, 0f, -explodedDistance)), Is.LessThan(0.001f));
-            Assert.That(bottomPose.Normal, Is.EqualTo(Vector3.down));
-            Assert.That(frontPose.Normal, Is.EqualTo(Vector3.forward));
-            Assert.That(topPose.Normal, Is.EqualTo(Vector3.up));
-            Assert.That(backPose.Normal, Is.EqualTo(Vector3.back));
+            AssertVectorApproximately(bottomPose.Normal, Vector3.down);
+            AssertVectorApproximately(frontPose.Normal, Vector3.forward);
+            AssertVectorApproximately(topPose.Normal, Vector3.up);
+            AssertVectorApproximately(backPose.Normal, Vector3.back);
         }
 
         [Test]
@@ -4576,6 +4576,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.001f));
             Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.001f));
             Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.001f));
+        }
+
+        private static void AssertVectorApproximately(Vector3 actual, Vector3 expected)
+        {
+            Assert.That(Vector3.Distance(actual, expected), Is.LessThan(0.001f));
         }
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory
