@@ -148,4 +148,3 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-  legacySpawns: []

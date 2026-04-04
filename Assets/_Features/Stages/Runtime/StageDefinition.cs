@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Game.Feature.Stages
 {
@@ -41,7 +40,7 @@ namespace Game.Feature.Stages
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Definition", fileName = "StageDefinition")]
-    public sealed class StageDefinition : ScriptableObject, ISerializationCallbackReceiver
+    public sealed class StageDefinition : ScriptableObject
     {
         [SerializeField] private StageBoardDefinition board = new()
         {
@@ -63,10 +62,6 @@ namespace Game.Feature.Stages
         [Header("Wall Spawns")]
         [SerializeField] private StageSpawnDefinition[] wallSpawns = Array.Empty<StageSpawnDefinition>();
 
-        [HideInInspector]
-        [FormerlySerializedAs("spawns")]
-        [SerializeField] private StageSpawnDefinition[] legacySpawns = Array.Empty<StageSpawnDefinition>();
-
         public StageBoardDefinition Board => board;
 
         public StageSpawnDefinition[] PlayerSpawns => playerSpawns ?? Array.Empty<StageSpawnDefinition>();
@@ -79,19 +74,8 @@ namespace Game.Feature.Stages
 
         public StageSpawnDefinition[] Spawns => FlattenSpawnGroups();
 
-        void ISerializationCallbackReceiver.OnBeforeSerialize()
-        {
-            EnsureLegacySpawnsMigrated();
-        }
-
-        void ISerializationCallbackReceiver.OnAfterDeserialize()
-        {
-            EnsureLegacySpawnsMigrated();
-        }
-
         internal StageSpawnGroup[] GetSpawnGroups()
         {
-            EnsureLegacySpawnsMigrated();
             return new[]
             {
                 new StageSpawnGroup(nameof(playerSpawns), StageSpawnKind.Player, PlayerSpawns),
@@ -116,66 +100,6 @@ namespace Game.Feature.Stages
             }
 
             return flattened.ToArray();
-        }
-
-        private void EnsureLegacySpawnsMigrated()
-        {
-            playerSpawns ??= Array.Empty<StageSpawnDefinition>();
-            boxSpawns ??= Array.Empty<StageSpawnDefinition>();
-            enemySpawns ??= Array.Empty<StageSpawnDefinition>();
-            wallSpawns ??= Array.Empty<StageSpawnDefinition>();
-            legacySpawns ??= Array.Empty<StageSpawnDefinition>();
-
-            if (legacySpawns.Length == 0)
-            {
-                return;
-            }
-
-            if (playerSpawns.Length > 0 ||
-                boxSpawns.Length > 0 ||
-                enemySpawns.Length > 0 ||
-                wallSpawns.Length > 0)
-            {
-                legacySpawns = Array.Empty<StageSpawnDefinition>();
-                return;
-            }
-
-            var players = new List<StageSpawnDefinition>();
-            var boxes = new List<StageSpawnDefinition>();
-            var enemies = new List<StageSpawnDefinition>();
-            var walls = new List<StageSpawnDefinition>();
-
-            for (var i = 0; i < legacySpawns.Length; i++)
-            {
-                var spawn = legacySpawns[i];
-                switch (spawn.Kind)
-                {
-                    case StageSpawnKind.Player:
-                        players.Add(spawn);
-                        break;
-
-                    case StageSpawnKind.Box:
-                        boxes.Add(spawn);
-                        break;
-
-                    case StageSpawnKind.Enemy:
-                        enemies.Add(spawn);
-                        break;
-
-                    case StageSpawnKind.Wall:
-                        walls.Add(spawn);
-                        break;
-
-                    default:
-                        throw new ArgumentOutOfRangeException(nameof(spawn.Kind), spawn.Kind, "Unknown stage spawn kind.");
-                }
-            }
-
-            playerSpawns = players.ToArray();
-            boxSpawns = boxes.ToArray();
-            enemySpawns = enemies.ToArray();
-            wallSpawns = walls.ToArray();
-            legacySpawns = Array.Empty<StageSpawnDefinition>();
         }
 
         internal readonly struct StageSpawnGroup
