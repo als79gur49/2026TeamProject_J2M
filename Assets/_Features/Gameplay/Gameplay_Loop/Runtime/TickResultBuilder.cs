@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.PlayerControl;
@@ -208,6 +209,7 @@ namespace Game.Feature.Gameplay.Loop
         public TickPresentationData Build(in TickPresentationBuildContext context)
         {
             var entityMotions = new List<TickEntityMotion>();
+            var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
@@ -216,11 +218,13 @@ namespace Game.Feature.Gameplay.Loop
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
+            BuildEnemyPresentation(context, enemyActionSignals);
 
             var topologyMotion = BuildTopologyMotion(context);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
+                   enemyActionSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
@@ -231,7 +235,8 @@ namespace Game.Feature.Gameplay.Loop
                     topologyMotion,
                     visibilityChanges,
                     transitionVisibilityChanges,
-                    playerActionSignals);
+                    playerActionSignals,
+                    enemyActionSignals);
         }
 
         private static void BuildMovementPresentation(
@@ -372,6 +377,106 @@ namespace Game.Feature.Gameplay.Loop
                         canceledThisTick,
                         executedThisTick));
             }
+        }
+
+        private static void BuildEnemyPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEnemyActionPresentationSignal> enemyActionSignals)
+        {
+            var candidateEntityIds = new List<int>();
+            var seenEntityIds = new HashSet<int>();
+            var executedEntityIds = new HashSet<int>();
+            var preMovementEntries = new List<EnemyActionSnapshotEntry>();
+            var postMovementEntries = new List<EnemyActionSnapshotEntry>();
+            var finalEntries = new List<EnemyActionSnapshotEntry>();
+
+            context.PreMovementSnapshot.EnumerateEnemyActionStatesOrdered(preMovementEntries);
+            context.PostMovementSnapshot.EnumerateEnemyActionStatesOrdered(postMovementEntries);
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyActionStatesOrdered(finalEntries);
+
+            CollectEnemyActionCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyActionCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyActionCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
+
+            var selectedGroups = context.AttackPhaseResult.SelectedGroups;
+            for (var i = 0; i < selectedGroups.Count; i++)
+            {
+                var sourceId = selectedGroups[i].SourceId;
+                if (!IsEnemyUnit(context.PostMovementSnapshot, sourceId))
+                {
+                    continue;
+                }
+
+                executedEntityIds.Add(sourceId);
+                if (seenEntityIds.Add(sourceId))
+                {
+                    candidateEntityIds.Add(sourceId);
+                }
+            }
+
+            for (var i = 0; i < candidateEntityIds.Count; i++)
+            {
+                var entityId = candidateEntityIds[i];
+                context.PreMovementSnapshot.TryGetEnemyActionState(entityId, out var previousAction);
+                context.PostMovementSnapshot.TryGetEnemyActionState(entityId, out var currentAction);
+
+                var transition = new EnemyActionTransition(entityId, previousAction, currentAction);
+                var activeActionKind = EnemyActionKind.None;
+                var activeActionSequence = 0;
+
+                if (context.FinalAuthoritativeSnapshot.TryGetEnemyActionState(entityId, out var finalAction))
+                {
+                    activeActionKind = finalAction.kind;
+                    activeActionSequence = finalAction.sequence;
+                }
+
+                enemyActionSignals.Add(
+                    new TickEnemyActionPresentationSignal(
+                        entityId,
+                        activeActionKind,
+                        activeActionSequence,
+                        transition.StartedThisTick,
+                        transition.CanceledThisTick,
+                        executedEntityIds.Contains(entityId),
+                        DidStartEnemyRecovery(context.PostMovementSnapshot, context.PostAttackSnapshot, entityId)));
+            }
+        }
+
+        private static void CollectEnemyActionCandidateIds(
+            List<EnemyActionSnapshotEntry> entries,
+            HashSet<int> seenEntityIds,
+            List<int> candidateEntityIds)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (!entry.State.IsActive ||
+                    !seenEntityIds.Add(entry.EntityId))
+                {
+                    continue;
+                }
+
+                candidateEntityIds.Add(entry.EntityId);
+            }
+        }
+
+        private static bool DidStartEnemyRecovery(
+            WorldSnapshot postMovementSnapshot,
+            WorldSnapshot postAttackSnapshot,
+            int entityId)
+        {
+            return postMovementSnapshot.TryGetEntity(entityId, out var beforeAttackEntity) &&
+                   beforeAttackEntity.type == EntityType.Unit &&
+                   beforeAttackEntity.aiMode == EnemyAiMode.Attack &&
+                   postAttackSnapshot.TryGetEntity(entityId, out var afterAttackEntity) &&
+                   afterAttackEntity.aiMode == EnemyAiMode.Recover;
+        }
+
+        private static bool IsEnemyUnit(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetEntity(entityId, out var entity) &&
+                   entity.type == EntityType.Unit &&
+                   entity.aiMode != EnemyAiMode.None;
         }
 
         private static TickTopologyMotion? BuildTopologyMotion(in TickPresentationBuildContext context)

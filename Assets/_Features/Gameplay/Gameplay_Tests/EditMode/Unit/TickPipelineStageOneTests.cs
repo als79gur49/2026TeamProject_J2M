@@ -1308,6 +1308,177 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.VisibilityChanges, Is.Empty);
         }
 
+        [Test]
+        public void TickPresentationDataBuilder_BuildsEnemyActionSignalForOngoingWindup()
+        {
+            const int enemyId = 40;
+            const int targetId = 10;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var activeAction = CreateEnemyActionState(
+                EnemyActionKind.Melee,
+                sequence: 3,
+                lockedTargetEntityId: targetId,
+                direction: Direction.Right,
+                startTick: 4,
+                executeTick: 6);
+
+            var preMovementSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Attack, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, activeAction));
+            var postMovementSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Attack, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, activeAction));
+            var finalSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Attack, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, activeAction));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    finalSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty,
+                    currentTickIndex: 5));
+
+            var signal = presentationData.EnemyActionSignals.Single();
+            Assert.That(signal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(signal.ActiveActionSequence, Is.EqualTo(3));
+            Assert.That(signal.StartedThisTick, Is.False);
+            Assert.That(signal.CanceledThisTick, Is.False);
+            Assert.That(signal.ExecutedThisTick, Is.False);
+            Assert.That(signal.StartedRecoveryThisTick, Is.False);
+        }
+
+        [Test]
+        public void TickPresentationDataBuilder_BuildsEnemyActionSignalForStartExecuteAndRecovery()
+        {
+            const int enemyId = 40;
+            const int targetId = 10;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var startedAction = CreateEnemyActionState(
+                EnemyActionKind.Melee,
+                sequence: 1,
+                lockedTargetEntityId: targetId,
+                direction: Direction.Right,
+                startTick: 7,
+                executeTick: 7);
+            var executedAction = startedAction;
+            executedAction.executionAttempted = true;
+
+            var preMovementSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Chase, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                });
+            var postMovementSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Attack, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, startedAction));
+            var postAttackSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Recover, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, executedAction));
+            var attackGroup = new ActionGroup(intentId: 1, sourceId: enemyId, priority: 5, ActionGroupKind.Attack);
+            attackGroup.AssignGroupId(1);
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    postAttackSnapshot,
+                    CreateMovementPhaseResult(),
+                    CreateAttackPhaseResult(attackGroup),
+                    CleanupPhaseResult.Empty,
+                    currentTickIndex: 7));
+
+            var signal = presentationData.EnemyActionSignals.Single();
+            Assert.That(signal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee));
+            Assert.That(signal.ActiveActionSequence, Is.EqualTo(1));
+            Assert.That(signal.StartedThisTick, Is.True);
+            Assert.That(signal.CanceledThisTick, Is.False);
+            Assert.That(signal.ExecutedThisTick, Is.True);
+            Assert.That(signal.StartedRecoveryThisTick, Is.True);
+        }
+
+        [Test]
+        public void TickPresentationDataBuilder_BuildsEnemyActionCancelSignalWhenWindupClears()
+        {
+            const int enemyId = 40;
+            const int targetId = 10;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var activeAction = CreateEnemyActionState(
+                EnemyActionKind.Melee,
+                sequence: 2,
+                lockedTargetEntityId: targetId,
+                direction: Direction.Right,
+                startTick: 3,
+                executeTick: 5);
+            var clearedAction = EnemyActionQueries.Clear(activeAction);
+
+            var preMovementSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Attack, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, activeAction));
+            var postMovementSnapshot = CreateSnapshotWithEnemyActionStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Chase, Direction.Right),
+                    CreateEntity(targetId, EntityType.Unit, targetCell, Direction.Left),
+                },
+                new EnemyActionStateSeed(enemyId, clearedAction));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty,
+                    currentTickIndex: 4));
+
+            var signal = presentationData.EnemyActionSignals.Single();
+            Assert.That(signal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
+            Assert.That(signal.ActiveActionSequence, Is.EqualTo(2));
+            Assert.That(signal.StartedThisTick, Is.False);
+            Assert.That(signal.CanceledThisTick, Is.True);
+            Assert.That(signal.ExecutedThisTick, Is.False);
+            Assert.That(signal.StartedRecoveryThisTick, Is.False);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -1357,6 +1528,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(createWriteContextMethod, Is.Not.Null);
 
             return (IWorldWriteContext)createWriteContextMethod.Invoke(worldState, null);
+        }
+
+        private static WorldSnapshot CreateSnapshotWithEnemyActionStates(
+            IEnumerable<EntityState> initialEntities,
+            params EnemyActionStateSeed[] actionStates)
+        {
+            var worldState = CreateWorldState(initialEntities);
+            if (actionStates != null && actionStates.Length > 0)
+            {
+                var writeContext = CreateWriteContext(worldState);
+                for (var i = 0; i < actionStates.Length; i++)
+                {
+                    writeContext.SetEnemyActionState(actionStates[i].EntityId, actionStates[i].State);
+                }
+            }
+
+            return CreateSnapshot(worldState);
         }
 
         private static ActionGroup CreateActionGroup(int intentId, int sourceId, int priority, int groupId)
@@ -1429,6 +1617,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>());
         }
 
+        private static EnemyActionRuntimeState CreateEnemyActionState(
+            EnemyActionKind kind,
+            int sequence,
+            int lockedTargetEntityId,
+            Direction direction,
+            int startTick,
+            int executeTick,
+            bool executionAttempted = false)
+        {
+            return new EnemyActionRuntimeState
+            {
+                kind = kind,
+                sequence = sequence,
+                lockedTargetEntityId = lockedTargetEntityId,
+                direction = direction,
+                startTick = startTick,
+                executeTick = executeTick,
+                executionAttempted = executionAttempted,
+            };
+        }
+
+        private static EntityState CreateEnemyEntity(
+            int entityId,
+            SurfaceCell position,
+            EnemyAiMode aiMode,
+            Direction facing)
+        {
+            var entity = CreateEntity(entityId, EntityType.Unit, position, facing);
+            entity.aiMode = aiMode;
+            entity.teamId = 2;
+            return entity;
+        }
+
         private static EntityState CreateEntity(
             int entityId,
             EntityType entityType,
@@ -1450,6 +1671,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
             };
+        }
+
+        private readonly struct EnemyActionStateSeed
+        {
+            public EnemyActionStateSeed(int entityId, EnemyActionRuntimeState state)
+            {
+                EntityId = entityId;
+                State = state;
+            }
+
+            public int EntityId { get; }
+
+            public EnemyActionRuntimeState State { get; }
         }
 
         private sealed class StubEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding

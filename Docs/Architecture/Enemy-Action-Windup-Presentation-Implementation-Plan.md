@@ -293,6 +293,14 @@ public readonly struct TickEnemyActionPresentationSignal
 - 적군 presentation도 player처럼 명시적 signal을 가진다.
 - animator driver가 raw phase result 세부를 직접 알 필요가 없다.
 
+진행 상태:
+
+- 2026-04-05 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPresentationData.cs`에 `TickEnemyActionPresentationSignal`과 `EnemyActionSignals` 컬렉션을 추가해 적 action presentation signal 표면을 고정했다.
+- `Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickResultBuilder.cs`의 `TickPresentationDataBuilder`는 pre/post snapshot, attack selected group, final runtime state를 조합해 `StartedThisTick`, `CanceledThisTick`, `ExecutedThisTick`, `StartedRecoveryThisTick`를 계산하도록 반영했다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs`에 ongoing wind-up, start+execute+recover, wind-up cancel 회귀 테스트를 추가해 signal contract를 고정했다.
+- 검증은 `dotnet build Game.Feature.Gameplay.Tests.csproj -c Debug` 기준으로 확인했다.
+
 ### 6-6. 6단계: host mapper / driver 확장
 
 목표는 새 signal을 적군 presentation state에 통합하는 것이다.
