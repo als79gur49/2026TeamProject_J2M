@@ -1,12 +1,17 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -305,6 +310,153 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringOnlyToWindupDemoEnemy()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringOnlyToWindupDemoEnemy");
+            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringOnlyToWindupDemoEnemy_BoardRoot");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+
+                var factory = CreateViewFactory(installer, boardRoot);
+                var buildResult = BuildCombinedStage();
+
+                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, 2), out var windupEnemy), Is.True);
+                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 5), out var chargingEnemy), Is.True);
+
+                var windupView = factory.CreateView(windupEnemy);
+                var chargingView = factory.CreateView(chargingEnemy);
+
+                var authoring = windupView.GetComponent<EnemyAnimationTimingAuthoring>();
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(windupView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(windupView.GetComponent<Animator>(), Is.Not.Null);
+
+                var snapshot = authoring.CreateSnapshot();
+                Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
+                Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+                Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
+                Assert.That(recoverDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
+                Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.08f));
+
+                Assert.That(chargingView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(chargingView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
+                Assert.That(chargingView.GetComponent<Animator>(), Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(boardRootObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver");
+            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver_BoardRoot");
+            var presenterObject = new GameObject("CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver_Presenter");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+
+                var factory = CreateViewFactory(installer, boardRoot);
+                var buildResult = BuildCombinedStage();
+                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, 2), out var windupEnemy), Is.True);
+
+                var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = presenterObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, factory);
+                presenter.Initialize(
+                    binder,
+                    buildResult.BoardBounds,
+                    buildResult.InitialTopology,
+                    cellSize: 1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(new[] { windupEnemy }, buildResult.InitialTopology);
+
+                Assert.That(registry.TryGetView(windupEnemy.entityId, out var enemyView), Is.True);
+                var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    tickIndex: 1,
+                    new[] { WithAiMode(windupEnemy, EnemyAiMode.Attack) },
+                    buildResult.InitialTopology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            new TickEnemyActionPresentationSignal(
+                                windupEnemy.entityId,
+                                EnemyActionKind.Melee,
+                                activeActionSequence: 1,
+                                startedThisTick: true,
+                                canceledThisTick: false,
+                                executedThisTick: false,
+                                startedRecoveryThisTick: false),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Attack));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.35f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f / 0.35f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+
+                presenter.Present(CreateTickResult(
+                    tickIndex: 2,
+                    new[] { WithAiMode(windupEnemy, EnemyAiMode.Recover) },
+                    buildResult.InitialTopology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            new TickEnemyActionPresentationSignal(
+                                windupEnemy.entityId,
+                                EnemyActionKind.Melee,
+                                activeActionSequence: 1,
+                                startedThisTick: false,
+                                canceledThisTick: false,
+                                executedThisTick: true,
+                                startedRecoveryThisTick: true),
+                        })));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                Object.DestroyImmediate(presenterObject);
+                Object.DestroyImmediate(boardRootObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
+        [Test]
         public void CombinedGameplayShowcaseInstaller_OverlayMentionsWindupDemoLane()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_OverlayMentionsWindupDemoLane");
@@ -329,6 +481,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
             return StageRuntimeBuilder.Build(stage);
+        }
+
+        private static IGameplayEntityViewFactory CreateViewFactory(
+            CombinedGameplayShowcaseInstaller installer,
+            GameplayBoardRoot boardRoot)
+        {
+            var factoryMethod = installer.GetType().GetMethod(
+                "CreateViewFactory",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(factoryMethod, Is.Not.Null);
+            return (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new object[] { boardRoot });
         }
 
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)
@@ -408,6 +571,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             profile = null;
             return false;
+        }
+
+        private static TickResult CreateTickResult(
+            int tickIndex,
+            IReadOnlyList<EntityState> finalEntities,
+            CubeTopologyState topology,
+            TickPresentationData presentationData)
+        {
+            return new TickResult(
+                tickIndex,
+                new[] { TickPhase.Movement, TickPhase.Attack, TickPhase.Cleanup },
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                CleanupPhaseResult.Empty,
+                finalEntities,
+                Array.Empty<string>(),
+                topology,
+                presentationData,
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static EntityState WithAiMode(EntityState entity, EnemyAiMode aiMode)
+        {
+            entity.aiMode = aiMode;
+            return entity;
         }
     }
 }

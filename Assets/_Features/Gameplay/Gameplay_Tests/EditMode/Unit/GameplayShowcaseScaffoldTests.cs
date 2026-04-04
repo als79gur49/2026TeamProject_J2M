@@ -233,6 +233,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void CombinedGameplayShowcaseScene_SerializesWindupEnemyTimingAuthoringOverride()
+        {
+            var sceneText = ReadNormalizedText(CombinedScenePath);
+
+            StringAssert.Contains("enemyAnimationTimingOverrides:", sceneText);
+            StringAssert.Contains("- EntityId: 52", sceneText);
+            StringAssert.Contains("AttackWindupAnimatorDurationSeconds: 0.35", sceneText);
+            StringAssert.Contains("RecoverAnimatorDurationSeconds: 0.5", sceneText);
+            StringAssert.Contains("StateTransitionCrossFadeDurationSeconds: 0.08", sceneText);
+        }
+
+        [Test]
         public void BoxInteractionShowcaseScene_SerializesPlayerControlTimingDefaults()
         {
             var sceneText = ReadNormalizedText(BoxInteractionScenePath);
