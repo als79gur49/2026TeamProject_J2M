@@ -2622,6 +2622,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields()
+        {
+            var serializedFieldNames = typeof(EnemyAnimatorDriver)
+                .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Where(field => field.IsPublic || field.GetCustomAttribute<SerializeField>() != null)
+                .Select(field => field.Name)
+                .ToArray();
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "animator",
+                    "animationTimingAuthoring",
+                    "windupStateName",
+                    "recoveryStateName",
+                    "windupTriggerName",
+                    "attackTriggerName",
+                    "recoveryTriggerName",
+                    "hitTriggerName",
+                    "deathTriggerName",
+                },
+                serializedFieldNames);
+            Assert.That(serializedFieldNames, Does.Not.Contain("aiModeParameterName"));
+            Assert.That(serializedFieldNames, Does.Not.Contain("activeActionKindParameterName"));
+            Assert.That(serializedFieldNames, Does.Not.Contain("movingParameterName"));
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_InterpolatesBoardRootRotation");

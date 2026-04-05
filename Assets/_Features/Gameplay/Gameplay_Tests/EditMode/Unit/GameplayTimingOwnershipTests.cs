@@ -183,6 +183,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAnimationTimingAuthoring_PublicApi_IsLimitedToTimingSnapshotAndValidation()
+        {
+            var publicMethodNames = typeof(EnemyAnimationTimingAuthoring)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(method => method.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    "CreateSnapshot",
+                    "Validate",
+                    "get_AttackWindupAnimatorDurationSeconds",
+                    "get_RecoverAnimatorDurationSeconds",
+                    "get_StateTransitionCrossFadeDurationSeconds",
+                },
+                publicMethodNames);
+            Assert.That(publicMethodNames, Does.Not.Contain("ApplyOverrides"));
+            Assert.That(publicMethodNames, Does.Not.Contain("TryGetAttackWindupAnimatorDurationOverride"));
+            Assert.That(publicMethodNames, Does.Not.Contain("TryGetRecoverAnimatorDurationOverride"));
+            Assert.That(publicMethodNames, Does.Not.Contain("TryGetStateTransitionCrossFadeDurationOverride"));
+        }
+
+        [Test]
+        public void EnemyAnimatorDriver_PublicApi_DoesNotExposeTimingQueryOverrides()
+        {
+            var publicMethodNames = typeof(EnemyAnimatorDriver)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(method => method.Name)
+                .ToArray();
+
+            Assert.That(publicMethodNames, Does.Not.Contain("TryGetAttackWindupAnimatorDurationOverride"));
+            Assert.That(publicMethodNames, Does.Not.Contain("TryGetRecoverAnimatorDurationOverride"));
+            Assert.That(publicMethodNames, Does.Not.Contain("TryGetStateTransitionCrossFadeDurationOverride"));
+        }
+
+        [Test]
         public void EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly");
@@ -196,11 +234,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.5f);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.08f);
 
-                Assert.That(driver.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
+                var snapshot = authoring.CreateSnapshot();
+                Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.4f));
-                Assert.That(driver.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
+                Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
                 Assert.That(recoverDurationSeconds, Is.EqualTo(0.5f));
-                Assert.That(driver.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
+                Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
                 Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.08f));
 
                 driver.Apply(new EnemyViewPresentationState(
@@ -461,5 +500,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 aiStateTimer = 0,
             };
         }
+
     }
 }

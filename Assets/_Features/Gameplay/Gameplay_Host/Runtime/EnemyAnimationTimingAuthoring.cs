@@ -73,32 +73,6 @@ namespace Game.Feature.Gameplay.Host
                 stateTransitionCrossFadeDurationSeconds);
         }
 
-        public void ApplyOverrides(
-            float attackWindupAnimatorDurationSeconds,
-            float recoverAnimatorDurationSeconds,
-            float stateTransitionCrossFadeDurationSeconds)
-        {
-            this.attackWindupAnimatorDurationSeconds = attackWindupAnimatorDurationSeconds;
-            this.recoverAnimatorDurationSeconds = recoverAnimatorDurationSeconds;
-            this.stateTransitionCrossFadeDurationSeconds = stateTransitionCrossFadeDurationSeconds;
-            Validate();
-        }
-
-        public bool TryGetAttackWindupAnimatorDurationOverride(out float durationSeconds)
-        {
-            return CreateSnapshot().TryGetAttackWindupAnimatorDurationOverride(out durationSeconds);
-        }
-
-        public bool TryGetRecoverAnimatorDurationOverride(out float durationSeconds)
-        {
-            return CreateSnapshot().TryGetRecoverAnimatorDurationOverride(out durationSeconds);
-        }
-
-        public bool TryGetStateTransitionCrossFadeDurationOverride(out float durationSeconds)
-        {
-            return CreateSnapshot().TryGetStateTransitionCrossFadeDurationOverride(out durationSeconds);
-        }
-
         public static bool IsAnimatorDurationOverride(float animatorDurationSeconds)
         {
             return animatorDurationSeconds > 0f;
