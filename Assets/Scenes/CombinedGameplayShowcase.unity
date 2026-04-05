@@ -525,10 +525,9 @@ MonoBehaviour:
   autoCreateViews: 1
   configureMainCamera: 0
   cellSize: 1.15
+  moveDeadzone: 0.5
   directionChangeConsumesDelay: 0
   initialMoveDelaySeconds: 0
-  moveDeadzone: 0.5
-  playerEntityId: 10
   playerControlTiming:
     MoveCooldownSeconds: 0.5
     PushContactThresholdSeconds: -1

@@ -292,6 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var sceneText = ReadNormalizedText(CombinedScenePath);
 
             StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: 0.5", sceneText);
+            StringAssert.DoesNotContain("playerEntityId:", sceneText);
             StringAssert.Contains("playerMoveCooldownSeconds: -1", sceneText);
             StringAssert.DoesNotContain("playerMoveCooldownSeconds: 0.5", sceneText);
             StringAssert.Contains(
@@ -314,6 +315,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var sceneText = ReadNormalizedText(BoxInteractionScenePath);
 
             StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: -1", sceneText);
+            StringAssert.DoesNotContain("playerEntityId:", sceneText);
             StringAssert.Contains("playerMoveCooldownSeconds: -1", sceneText);
             StringAssert.Contains(
                 "stageDefinition: {fileID: 11400000, guid: 394a3b219e254dd68f3ea4cc8647f0c2, type: 2}",
@@ -328,6 +330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.DoesNotContain("initialMoveDelayTicks", sceneText);
             StringAssert.DoesNotContain("repeatedMoveIntervalTicks", sceneText);
             StringAssert.DoesNotContain("tickIntervalSeconds", sceneText);
+            StringAssert.DoesNotContain("playerEntityId:", sceneText);
             StringAssert.Contains("initialMoveDelaySeconds: 0", sceneText);
             StringAssert.Contains("repeatedMoveIntervalSeconds: 0.4", sceneText);
             StringAssert.Contains("playerControlTiming:", sceneText);
