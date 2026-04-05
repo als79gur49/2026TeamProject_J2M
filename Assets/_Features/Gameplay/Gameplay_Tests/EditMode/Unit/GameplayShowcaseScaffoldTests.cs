@@ -293,8 +293,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: 0.5", sceneText);
             StringAssert.DoesNotContain("playerEntityId:", sceneText);
-            StringAssert.Contains("playerMoveCooldownSeconds: -1", sceneText);
-            StringAssert.DoesNotContain("playerMoveCooldownSeconds: 0.5", sceneText);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", sceneText);
             StringAssert.Contains(
                 "stageDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}",
                 sceneText);
@@ -316,7 +315,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: -1", sceneText);
             StringAssert.DoesNotContain("playerEntityId:", sceneText);
-            StringAssert.Contains("playerMoveCooldownSeconds: -1", sceneText);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", sceneText);
             StringAssert.Contains(
                 "stageDefinition: {fileID: 11400000, guid: 394a3b219e254dd68f3ea4cc8647f0c2, type: 2}",
                 sceneText);
@@ -334,6 +333,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("initialMoveDelaySeconds: 0", sceneText);
             StringAssert.Contains("repeatedMoveIntervalSeconds: 0.4", sceneText);
             StringAssert.Contains("playerControlTiming:", sceneText);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", sceneText);
             StringAssert.Contains(
                 "stageDefinition: {fileID: 11400000, guid: a44d479002364aad91f8cd5b3b1e1242, type: 2}",
                 sceneText);

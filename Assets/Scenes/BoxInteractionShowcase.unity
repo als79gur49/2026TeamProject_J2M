@@ -1006,7 +1006,6 @@ MonoBehaviour:
     PushInputLockDurationSeconds: 0.016666668
     FlipExecuteDelaySeconds: 0.016666668
     FlipInputLockDurationSeconds: 0.016666668
-  playerMoveCooldownSeconds: -1
   repeatedMoveIntervalSeconds: 0.5
   boxSlideStepIntervalSeconds: 0.1
   projectileStepIntervalSeconds: 0.2
