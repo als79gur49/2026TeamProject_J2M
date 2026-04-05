@@ -384,7 +384,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new DetectionSettings(senseRange: 2, requireSameFace: true, canTargetMarkedForDeath: false),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee());
-            var factory = new EnemyEntityLogicFactory(profile);
+            var factory = new EnemyEntityLogicFactory(
+                profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             var entity = CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right);
             var logic = (EnemyLogic)factory.Create(entity);
             var worldState = CreateWorldState(new[]
@@ -410,25 +411,139 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profile = EnemyAiProfile.CreateRuntimeDefault();
 
-            var definition = profile.CreateRuntimeDefinition();
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
         }
 
         [Test]
-        public void EnemyAiProfile_CreateRuntimeDefinition_PreservesConfiguredWindupTicks()
+        public void EnemyAiProfile_CreateRuntimeDefinition_AtDefaultSimulationRate_PreservesLegacyTickSemantics()
         {
             var profile = EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: 1),
                 PatrolSettings.CreateDefault(),
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
                 new EnemyAttackTimingSettings(windupTicks: 3));
 
-            var definition = profile.CreateRuntimeDefinition();
+            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
+            Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(1));
             Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_ChangingSimulationTicksPerSecond_PreservesAuthoringTimeMeaning()
+        {
+            var profile = EnemyAiProfile.CreateRuntimeInstance(
+                new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: 2),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks: 2));
+
+            var sixtyTpsDefinition = profile.CreateRuntimeDefinition(60);
+            var thirtyTpsDefinition = profile.CreateRuntimeDefinition(30);
+
+            Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(2));
+            Assert.That(thirtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
+            Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+            Assert.That(thirtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
+            Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks / 60f, Is.EqualTo(thirtyTpsDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
+            Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks / 60f, Is.EqualTo(thirtyTpsDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
+        }
+
+        [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_ZeroSeconds_AllowsZeroWindupAndRecoverTicks()
+        {
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                profile.ApplyConfiguration(
+                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    ChaseSettings.CreateDefault(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f));
+
+                var definition = profile.CreateRuntimeDefinition(30);
+
+                Assert.That(definition.CommonSettings.RecoverTicks, Is.Zero);
+                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_NegativeSeconds_ThrowsArgumentException()
+        {
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                profile.ApplyConfiguration(
+                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: -0.1f),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    ChaseSettings.CreateDefault(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f));
+
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.ParamName, Is.EqualTo("EnemyAiCommonAuthoringSettings"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfile_OnAfterDeserialize_MigratesLegacyTickTimingToSecondsUsingDefaultSimulationRate()
+        {
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                SetSerializedField(profile, "serializedVersion", 0);
+                SetSerializedField(
+                    profile,
+                    "legacyCommonSettings",
+                    new EnemyAiCommonSettings(
+                        movementPriority: 50,
+                        attackPriority: 75,
+                        recoverTicks: 2));
+                SetSerializedField(
+                    profile,
+                    "legacyAttackTimingSettings",
+                    new EnemyAttackTimingSettings(windupTicks: 3));
+
+                ((ISerializationCallbackReceiver)profile).OnAfterDeserialize();
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+                Assert.That(profile.CommonSettings.RecoverSeconds, Is.EqualTo(2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+                Assert.That(profile.AttackTimingSettings.WindupSeconds, Is.EqualTo(3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+                Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(2));
+                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
         }
 
         [Test]
@@ -788,6 +903,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
                 new EnemyAttackTimingSettings(windupTicks));
+        }
+
+        private static void SetSerializedField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
         }
 
         private static EntityState CreateUnit(
