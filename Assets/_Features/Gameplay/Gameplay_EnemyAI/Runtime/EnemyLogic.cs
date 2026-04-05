@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -20,7 +21,7 @@ namespace Game.Feature.Gameplay.Entities
             in AttackDecisionSettings attackDecisionSettings);
     }
 
-    public sealed class EnemyLogic : IEnemyAiStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
+    public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
     {
         private readonly int _entityId;
         private readonly EnemyAiCommonSettings _commonSettings;
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly DetectionSettings _detectionSettings;
         private readonly ChaseSettings _chaseSettings;
         private readonly AttackDecisionSettings _attackDecisionSettings;
+        private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly IChaseStrategy _chaseStrategy;
@@ -68,6 +70,7 @@ namespace Game.Feature.Gameplay.Entities
             _detectionSettings = aiDefinition.DetectionSettings;
             _chaseSettings = aiDefinition.ChaseSettings;
             _attackDecisionSettings = aiDefinition.AttackDecisionSettings;
+            _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
@@ -133,6 +136,49 @@ namespace Game.Feature.Gameplay.Entities
                 $"EnemyAiTransition|Stage={stage}|E={source.entityId}|From={source.aiMode}|FromTimer={source.aiStateTimer}|To={decision.Mode}|ToTimer={decision.Timer}|Reason={decision.Reason}|Facing={(decision.Facing.HasValue ? decision.Facing.Value.ToString() : source.facing.ToString())}");
         }
 
+        void IPreMovementStateLogic.CommitPreMovementState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates,
+            List<PlayerActionTransition> actionTransitions)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (writeContext == null)
+            {
+                throw new ArgumentNullException(nameof(writeContext));
+            }
+
+            if (updates == null)
+            {
+                throw new ArgumentNullException(nameof(updates));
+            }
+
+            if (actionTransitions == null)
+            {
+                throw new ArgumentNullException(nameof(actionTransitions));
+            }
+
+            if (!TryGetControllableEnemy(snapshot, out var source))
+            {
+                return;
+            }
+
+            if (source.enemyLocomotionCooldownTicks <= 0)
+            {
+                return;
+            }
+
+            var nextCooldown = source.enemyLocomotionCooldownTicks - 1;
+            writeContext.SetEnemyLocomotionCooldown(_entityId, nextCooldown);
+            updates.Add(
+                $"EnemyLocomotionCooldownUpdated|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To={nextCooldown}");
+        }
+
         public void CollectMovementIntents(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -156,6 +202,11 @@ namespace Game.Feature.Gameplay.Entities
             switch (source.aiMode)
             {
                 case EnemyAiMode.Patrol:
+                    if (source.enemyLocomotionCooldownTicks > 0)
+                    {
+                        return;
+                    }
+
                     if (_patrolStrategy.TryBuildMovementIntent(
                             snapshot,
                             source,
@@ -163,12 +214,17 @@ namespace Game.Feature.Gameplay.Entities
                             _patrolSettings,
                             out var patrolIntent))
                     {
-                        buffer.Add(patrolIntent);
+                        buffer.Add(ApplyLocomotionCooldown(patrolIntent));
                     }
 
                     return;
 
                 case EnemyAiMode.Chase:
+                    if (source.enemyLocomotionCooldownTicks > 0)
+                    {
+                        return;
+                    }
+
                     if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
                     {
                         return;
@@ -182,12 +238,17 @@ namespace Game.Feature.Gameplay.Entities
                             _chaseSettings,
                             out var chaseIntent))
                     {
-                        buffer.Add(chaseIntent);
+                        buffer.Add(ApplyLocomotionCooldown(chaseIntent));
                     }
 
                     return;
 
                 case EnemyAiMode.Charge:
+                    if (source.enemyLocomotionCooldownTicks > 0)
+                    {
+                        return;
+                    }
+
                     var chargeDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
                     if (chargeDelta.HasValue &&
                         EnemyMovementStrategyShared.TryBuildMoveIntent(
@@ -197,7 +258,7 @@ namespace Game.Feature.Gameplay.Entities
                             chargeDelta.Value,
                             out var chargeIntent))
                     {
-                        buffer.Add(chargeIntent);
+                        buffer.Add(ApplyLocomotionCooldown(chargeIntent));
                     }
 
                     return;
@@ -273,6 +334,17 @@ namespace Game.Feature.Gameplay.Entities
                    snapshot.Topology.IsFaceActive(source.position.face) &&
                    source.aiMode != EnemyAiMode.None &&
                    source.aiMode != EnemyAiMode.Dead;
+        }
+
+        private RawMovementIntent ApplyLocomotionCooldown(RawMovementIntent intent)
+        {
+            return new RawMovementIntent(
+                intent.SourceId,
+                intent.Priority,
+                intent.Destination,
+                intent.CommandKind,
+                intent.LocalSequence,
+                _locomotionTimingSettings.MoveCooldownTicks);
         }
     }
 
@@ -578,6 +650,11 @@ namespace Game.Feature.Gameplay.Entities
                     return ResolveChase(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings);
 
                 case EnemyAiMode.Charge:
+                    if (source.enemyLocomotionCooldownTicks > 0)
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
+                    }
+
                     if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source))
                     {
                         return ResolvePostCharge(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings, "ChargeBlocked");
@@ -616,6 +693,11 @@ namespace Game.Feature.Gameplay.Entities
         {
             if (source.aiMode == EnemyAiMode.Charge)
             {
+                if (source.enemyLocomotionCooldownTicks > 0)
+                {
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
+                }
+
                 return source.aiStateTimer == 0
                     ? ResolvePostCharge(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings, "ChargeComplete")
                     : new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeInProgress");

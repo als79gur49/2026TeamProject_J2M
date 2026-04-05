@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
@@ -133,8 +134,34 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|Condition={destroy.Condition}");
                 }
 
+                ApplyEnemyLocomotionCommit(snapshot, sortedIntents, group, writeContext);
                 ApplyPlayerControlCommit(snapshot, sortedIntents, group, writeContext);
             }
+        }
+
+        private static void ApplyEnemyLocomotionCommit(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ActionGroup group,
+            IMovementCommitContext writeContext)
+        {
+            if (!snapshot.TryGetEntity(group.SourceId, out var source) ||
+                source.type != EntityType.Unit ||
+                (source.aiMode != EnemyAiMode.Patrol &&
+                 source.aiMode != EnemyAiMode.Chase &&
+                 source.aiMode != EnemyAiMode.Charge))
+            {
+                return;
+            }
+
+            var intent = FindIntent(sortedIntents, group.IntentId);
+            if (intent == null ||
+                intent.CommandKind != MovementCommandKind.Move)
+            {
+                return;
+            }
+
+            writeContext.SetEnemyLocomotionCooldown(group.SourceId, intent.MoveCooldownTicks);
         }
 
         private void ApplyPlayerControlCommit(

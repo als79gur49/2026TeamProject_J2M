@@ -407,13 +407,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindup()
+        public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindupAndMoveCooldown()
         {
             var profile = EnemyAiProfile.CreateRuntimeDefault();
 
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
+            Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
+        }
+
+        [Test]
+        public void EnemyAiProfile_RuntimeFactoryHelpers_UseDefaultZeroMoveCooldown()
+        {
+            var profiles = new[]
+            {
+                EnemyAiProfile.CreateRuntimeDefault(),
+                EnemyAiProfile.CreateRuntimeNonAttacking(),
+                EnemyAiProfile.CreateRuntimeCharging(),
+            };
+
+            try
+            {
+                foreach (var profile in profiles)
+                {
+                    Assert.That(profile.LocomotionTimingSettings.MoveCooldownSeconds, Is.Zero);
+                    Assert.That(
+                        profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond).LocomotionTimingSettings.MoveCooldownTicks,
+                        Is.Zero);
+                }
+            }
+            finally
+            {
+                foreach (var profile in profiles)
+                {
+                    UnityEngine.Object.DestroyImmediate(profile);
+                }
+            }
         }
 
         [Test]
@@ -428,12 +458,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks: 3));
+                new EnemyAttackTimingSettings(windupTicks: 3),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks: 4));
 
             var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
             Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(1));
             Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
+            Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(4));
         }
 
         [Test]
@@ -448,7 +480,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks: 2));
+                new EnemyAttackTimingSettings(windupTicks: 2),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks: 2));
 
             var sixtyTpsDefinition = profile.CreateRuntimeDefinition(60);
             var thirtyTpsDefinition = profile.CreateRuntimeDefinition(30);
@@ -457,12 +490,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(thirtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
             Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
             Assert.That(thirtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
+            Assert.That(sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
+            Assert.That(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
             Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks / 60f, Is.EqualTo(thirtyTpsDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
             Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks / 60f, Is.EqualTo(thirtyTpsDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
+            Assert.That(
+                sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks / 60f,
+                Is.EqualTo(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks / 30f).Within(0.0001f));
         }
 
         [Test]
-        public void EnemyAiProfile_CreateRuntimeDefinition_ZeroSeconds_AllowsZeroWindupAndRecoverTicks()
+        public void EnemyAiProfile_CreateRuntimeDefinition_ZeroSeconds_AllowsZeroWindupRecoverAndMoveCooldownTicks()
         {
             var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
 
@@ -474,12 +512,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     DetectionSettings.CreateDefaultMelee(),
                     ChaseSettings.CreateDefault(),
                     AttackDecisionSettings.CreateDefaultMelee(),
-                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f));
+                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+                    new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f));
 
                 var definition = profile.CreateRuntimeDefinition(30);
 
                 Assert.That(definition.CommonSettings.RecoverTicks, Is.Zero);
                 Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
+                Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
             }
             finally
             {
@@ -513,6 +553,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_NegativeMoveCooldownSeconds_ThrowsArgumentException()
+        {
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                profile.ApplyConfiguration(
+                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    ChaseSettings.CreateDefault(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+                    new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: -0.1f));
+
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.ParamName, Is.EqualTo("EnemyLocomotionTimingAuthoringSettings"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
         public void EnemyAiProfile_OnAfterDeserialize_MigratesLegacyTickTimingToSecondsUsingDefaultSimulationRate()
         {
             var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
@@ -537,8 +603,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(profile.CommonSettings.RecoverSeconds, Is.EqualTo(2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
                 Assert.That(profile.AttackTimingSettings.WindupSeconds, Is.EqualTo(3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+                Assert.That(profile.LocomotionTimingSettings.MoveCooldownSeconds, Is.Zero);
                 Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(2));
                 Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
+                Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
             }
             finally
             {
@@ -557,6 +625,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     ChaseSettings.CreateDefault(),
                     AttackDecisionSettings.CreateDefaultMelee(),
                     new EnemyAttackTimingSettings(windupTicks: -1),
+                    ForwardPatrolStrategy.Instance,
+                    NearestOpponentDetectionStrategy.Instance,
+                    AxisPriorityChaseStrategy.Instance,
+                    MeleeAttackDecisionStrategy.Instance,
+                    DefaultEnemyAiStateResolver.Instance));
+
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyAiRuntimeDefinition"));
+        }
+
+        [Test]
+        public void EnemyAiRuntimeDefinition_NegativeMoveCooldownTicks_ThrowsArgumentException()
+        {
+            var exception = Assert.Throws<ArgumentException>(
+                () => new EnemyAiRuntimeDefinition(
+                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    ChaseSettings.CreateDefault(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    EnemyAttackTimingSettings.CreateDefaultMelee(),
+                    new EnemyLocomotionTimingSettings(moveCooldownTicks: -1),
                     ForwardPatrolStrategy.Instance,
                     NearestOpponentDetectionStrategy.Instance,
                     AxisPriorityChaseStrategy.Instance,
@@ -587,6 +676,83 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     .Select(intent => (intent.SourceId, intent.Destination))
                     .ToArray());
             Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_PatrolEnemy_WithLocomotionCooldown_MovesLessFrequently()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2));
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var afterFirstTick = GetEntity(worldState, 40);
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var afterSecondTick = GetEntity(worldState, 40);
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var afterThirdTick = GetEntity(worldState, 40);
+
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(firstTick.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 }));
+            Assert.That(afterFirstTick.enemyLocomotionCooldownTicks, Is.EqualTo(2));
+            Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(afterSecondTick.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(afterSecondTick.enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            Assert.That(secondTick.Trace.Text, Does.Contain("EnemyLocomotionCooldownUpdated|E=40|From=2|To=1"));
+            Assert.That(thirdTick.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 }));
+            Assert.That(afterThirdTick.enemyLocomotionCooldownTicks, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_PatrolEnemy_BlockedAfterCooldownExpires_DoesNotRestartLocomotionCooldown()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right, enemyLocomotionCooldownTicks: 1),
+                CreateBox(entityId: 50, position: new Vector2Int(1, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2));
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.Zero);
+            Assert.That(result.Trace.Text, Does.Contain("EnemyLocomotionCooldownUpdated|E=40|From=1|To=0"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_ChargingEnemy_WithLocomotionCooldown_WaitsBetweenChargeSteps()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateChargingEnemyProfile(moveCooldownTicks: 2));
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var fourthTick = pipeline.RunTick(new TickInput(4));
+
+            Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityAfterTick(firstTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
+            Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+            Assert.That(GetEntityAfterTick(secondTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(GetEntityAfterTick(thirdTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
+            Assert.That(GetEntityAfterTick(fourthTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(GetEntityAfterTick(fourthTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            Assert.That(fourthTick.MovementPhaseResult.RawIntents, Is.Empty);
         }
 
         [Test]
@@ -844,6 +1010,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultEntityLogicProvider_RecoverEnemy_LocomotionCooldown_IsTrackedIndependently()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Recover, aiStateTimer: 1, facing: Direction.Right, enemyLocomotionCooldownTicks: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2));
+
+            var firstResult = pipeline.RunTick(new TickInput(1));
+            var firstTickEnemy = GetEntity(worldState, 40);
+            var secondResult = pipeline.RunTick(new TickInput(2));
+            var secondTickEnemy = GetEntity(worldState, 40);
+
+            Assert.That(firstTickEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(firstTickEnemy.aiStateTimer, Is.EqualTo(0));
+            Assert.That(firstTickEnemy.enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            Assert.That(firstResult.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(secondTickEnemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(secondTickEnemy.aiStateTimer, Is.EqualTo(0));
+            Assert.That(secondTickEnemy.enemyLocomotionCooldownTicks, Is.EqualTo(2));
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(secondResult.Trace.Text, Does.Contain("EnemyLocomotionCooldownUpdated|E=40|From=1|To=0"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_DoesNotRestartLocomotionCooldown()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right, enemyLocomotionCooldownTicks: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2));
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.Zero);
+            Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(result.Trace.Text, Does.Contain("EnemyLocomotionCooldownUpdated|E=40|From=1|To=0"));
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_ChaseEnemy_LosesTarget_RevertsToPatrolAndPatrolMoves()
         {
             var worldState = CreateWorldState(new[]
@@ -894,7 +1106,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entity;
         }
 
-        private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
+        private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
+        {
+            return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
+        }
+
+        private static EnemyAiProfile CreateEnemyProfile(int windupTicks, int moveCooldownTicks = 0)
         {
             return EnemyAiProfile.CreateRuntimeInstance(
                 EnemyAiCommonSettings.CreateDefaultMelee(),
@@ -902,7 +1119,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks));
+                new EnemyAttackTimingSettings(windupTicks),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks));
+        }
+
+        private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks),
+                stateResolverKind: EnemyAiStateResolverKind.Charge,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
         }
 
         private static void SetSerializedField(object target, string fieldName, object value)
@@ -919,7 +1151,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiMode aiMode,
             Direction facing = Direction.Right,
             int hp = 3,
-            int aiStateTimer = 0)
+            int aiStateTimer = 0,
+            int enemyLocomotionCooldownTicks = 0)
         {
             return new EntityState
             {
@@ -937,6 +1170,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 spawnTick = 0,
                 aiMode = aiMode,
                 aiStateTimer = aiStateTimer,
+                enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
         }
 
@@ -947,7 +1181,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiMode aiMode,
             Direction facing = Direction.Right,
             int hp = 3,
-            int aiStateTimer = 0)
+            int aiStateTimer = 0,
+            int enemyLocomotionCooldownTicks = 0)
         {
             return new EntityState
             {
@@ -965,6 +1200,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 spawnTick = 0,
                 aiMode = aiMode,
                 aiStateTimer = aiStateTimer,
+                enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
         }
 

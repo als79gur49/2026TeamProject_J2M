@@ -436,17 +436,20 @@ namespace Game.Feature.Gameplay.Loop
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
-                        rawIntent.LocalSequence),
+                        rawIntent.LocalSequence,
+                        rawIntent.MoveCooldownTicks),
                     Movement.MovementCommandKind.Flip => new FlipIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
-                        rawIntent.LocalSequence),
+                        rawIntent.LocalSequence,
+                        rawIntent.MoveCooldownTicks),
                     _ => new MoveIntent(
                         rawIntent.SourceId,
                         rawIntent.Priority,
                         rawIntent.Destination,
-                        rawIntent.LocalSequence),
+                        rawIntent.LocalSequence,
+                        rawIntent.MoveCooldownTicks),
                 };
                 moveIntent.AssignIntentId(_idAllocator.AllocateIntentId());
                 sortedIntents.Add(moveIntent);

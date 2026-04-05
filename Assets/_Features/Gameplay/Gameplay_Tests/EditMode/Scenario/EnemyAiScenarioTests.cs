@@ -299,6 +299,41 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
         }
 
+        [Test]
+        public void EnemyAi_ChargingProfile_WithLocomotionCooldown_WaitsForCommittedMoves()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new EnemyLogic(40, CreateChargingEnemyProfile(moveCooldownTicks: 2)),
+                });
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+            var fourthTick = pipeline.RunTick(new TickInput(4));
+
+            Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+            Assert.That(GetEntityAfterTick(secondTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(GetEntityAfterTick(thirdTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
+            Assert.That(GetEntityAfterTick(fourthTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(GetEntityAfterTick(fourthTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            Assert.That(fourthTick.MovementPhaseResult.RawIntents, Is.Empty);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -337,6 +372,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
                 new EnemyAttackTimingSettings(windupTicks));
+        }
+
+        private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks),
+                stateResolverKind: EnemyAiStateResolverKind.Charge,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
         }
 
         private static EntityState CreateUnit(

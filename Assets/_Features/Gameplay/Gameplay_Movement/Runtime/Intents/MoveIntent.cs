@@ -8,17 +8,22 @@ namespace Game.Feature.Gameplay.Movement.Intents
     public class MoveIntent : Intent
     {
         public MoveIntent(int sourceId, int priority)
-            : this(sourceId, priority, Vector2Int.zero, 0)
+            : this(sourceId, priority, Vector2Int.zero, 0, 0)
         {
         }
 
         public MoveIntent(int sourceId, int priority, Vector2Int destination)
-            : this(sourceId, priority, destination, 0)
+            : this(sourceId, priority, destination, 0, 0)
         {
         }
 
-        public MoveIntent(int sourceId, int priority, Vector2Int destination, int localSequence = 0)
-            : this(sourceId, priority, destination, MovementCommandKind.Move, localSequence)
+        public MoveIntent(
+            int sourceId,
+            int priority,
+            Vector2Int destination,
+            int localSequence = 0,
+            int moveCooldownTicks = 0)
+            : this(sourceId, priority, destination, MovementCommandKind.Move, localSequence, moveCooldownTicks)
         {
         }
 
@@ -27,12 +32,14 @@ namespace Game.Feature.Gameplay.Movement.Intents
             int priority,
             Vector2Int destination,
             MovementCommandKind commandKind,
-            int localSequence)
+            int localSequence,
+            int moveCooldownTicks)
             : base(sourceId, priority, TickPhase.Movement)
         {
             Destination = destination;
             CommandKind = commandKind;
             LocalSequence = localSequence;
+            MoveCooldownTicks = moveCooldownTicks;
         }
 
         public Vector2Int Destination { get; }
@@ -40,6 +47,8 @@ namespace Game.Feature.Gameplay.Movement.Intents
         public MovementCommandKind CommandKind { get; }
 
         public int LocalSequence { get; }
+
+        public int MoveCooldownTicks { get; }
 
         protected internal override int GetTypeSortKey()
         {
@@ -69,8 +78,9 @@ namespace Game.Feature.Gameplay.Movement.Intents
             int sourceId,
             int priority,
             Vector2Int destination,
-            int localSequence = 0)
-            : base(sourceId, priority, destination, MovementCommandKind.Push, localSequence)
+            int localSequence = 0,
+            int moveCooldownTicks = 0)
+            : base(sourceId, priority, destination, MovementCommandKind.Push, localSequence, moveCooldownTicks)
         {
         }
 
@@ -86,8 +96,9 @@ namespace Game.Feature.Gameplay.Movement.Intents
             int sourceId,
             int priority,
             Vector2Int destination,
-            int localSequence = 0)
-            : base(sourceId, priority, destination, MovementCommandKind.Flip, localSequence)
+            int localSequence = 0,
+            int moveCooldownTicks = 0)
+            : base(sourceId, priority, destination, MovementCommandKind.Flip, localSequence, moveCooldownTicks)
         {
         }
 
