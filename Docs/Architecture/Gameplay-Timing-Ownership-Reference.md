@@ -127,20 +127,19 @@ logic execute 시점을 바꾸면 안 된다.
 
 ### 3-4. Actor Motion Presentation Layer
 
-현재 actor-specific motion override 계층은 없다.
-따라서 아래 값은 모두 global default만 사용 중이다.
+현재 actor-specific motion override 계층은 `UnitLocomotionPresentationAuthoring`와
+`EntityMotionPresentationAuthoring`로 분리됐다.
 
 | 값 의미 | 현재 canonical owner | 목표 canonical owner | 비고 |
 | --- | --- | --- | --- |
-| player 개별 move motion duration | 없음 | `EntityMotionPresentationAuthoring` | 없으면 global fallback |
-| player 개별 push motion duration | 없음 | `EntityMotionPresentationAuthoring` | 없으면 global fallback |
-| player 개별 flip motion duration | 없음 | `EntityMotionPresentationAuthoring` | 없으면 global fallback |
-| enemy 개별 move motion duration | 없음 | `EntityMotionPresentationAuthoring` | 미래 enemy archetype 확장 포인트 |
-| enemy 개별 push motion duration | 없음 | `EntityMotionPresentationAuthoring` | player와 같은 규칙 사용 |
-| enemy 개별 flip motion duration | 없음 | `EntityMotionPresentationAuthoring` | player와 같은 규칙 사용 |
+| unit 개별 move motion duration | `UnitLocomotionPresentationAuthoring` | `UnitLocomotionPresentationAuthoring` | 없으면 `EntityMotionPresentationAuthoring`, 그다음 global fallback |
+| player / enemy 개별 push motion duration | `EntityMotionPresentationAuthoring` | `EntityMotionPresentationAuthoring` | 없으면 global fallback |
+| player / enemy 개별 flip motion duration | `EntityMotionPresentationAuthoring` | `EntityMotionPresentationAuthoring` | 없으면 global fallback |
+| box interaction motion duration | `EntityMotionPresentationAuthoring` | `EntityMotionPresentationAuthoring` | `UnitLocomotionPresentationAuthoring`는 box interaction을 소유하지 않음 |
+| unit 공통 fallback move motion duration | `EntityMotionPresentationAuthoring` | `EntityMotionPresentationAuthoring` | unit move-only authoring 미설정 시 사용 |
 
-새 타입 이름은 `EntityMotionPresentationAuthoring`으로 고정한다.
-기본값은 `-1f` sentinel을 사용해 global fallback을 표현한다.
+새 타입 이름은 `UnitLocomotionPresentationAuthoring`와 `EntityMotionPresentationAuthoring`으로 고정한다.
+둘 다 기본값은 `-1f` sentinel을 사용해 fallback을 표현한다.
 
 ### 3-5. Actor Animation Presentation Layer
 
@@ -169,11 +168,12 @@ logic execute 시점을 바꾸면 안 된다.
 
 | 값 의미 | 목표 canonical owner | 금지 위치 |
 | --- | --- | --- |
-| `recoverSeconds`/`windupSeconds` authoring, detection range, attack cadence 같은 AI 규칙 | `EnemyAiProfile` | `EnemyAnimatorDriver` |
+| `recoverSeconds`/`windupSeconds` authoring, detection range, locomotion cooldown cadence, attack cadence 같은 AI 규칙 | `EnemyAiProfile` | `EnemyAnimatorDriver`, prefab-local motion authoring |
 | attack / hit / death trigger, state name, clip tuning | `EnemyAnimatorDriver` 또는 미래 `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
-| enemy별 animation duration override | 미래 `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
+| enemy별 animation duration override | `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
 
 `EnemyAiProfile`에는 presentation duration 필드를 추가하지 않는다.
+적 locomotion cooldown의 runtime counter는 `EntityState.enemyLocomotionCooldownTicks`에 저장된다.
 
 ## 4. 목표 타입 이름과 책임 고정
 
@@ -184,11 +184,12 @@ logic execute 시점을 바꾸면 안 된다.
 | `GameplayTimingProfile` | global shared cadence, global motion defaults | player execute delay, player input lock, enemy animation tuning, actor-specific override |
 | `GameplaySceneHostConfiguration` | scene bootstrap input, 어떤 settings를 쓸지에 대한 explicit binding | player logic 의미를 다시 정의하는 per-field duplicated timing |
 | `PlayerControlTimingSettings` | player authoritative logic timing 전체 | player animator duration, prefab-local presentation tuning |
-| `EnemyAiProfile` | enemy authoritative AI timing / priority / recover 규칙 | animation duration, trigger 이름, clip tuning |
-| `EntityMotionPresentationAuthoring` | actor-specific move / push / flip motion override | execute delay, cooldown, AI cadence |
+| `EnemyAiProfile` | enemy authoritative AI timing / priority / recover / locomotion cadence | animation duration, trigger 이름, clip tuning |
+| `UnitLocomotionPresentationAuthoring` | unit move-only presentation override | execute delay, cooldown, box interaction cadence, AI cadence |
+| `EntityMotionPresentationAuthoring` | actor-specific fallback move / push / flip / box interaction motion override | execute delay, cooldown, AI cadence |
 | `PlayerAnimationTimingAuthoring` | player push / flip animator duration override | execute delay, input lock, contact threshold |
 | `PlayerAnimatorDriver` | animation state 적용, optional parameter sync, speed 계산 | authoritative player timing source |
-| `EnemyAnimationTimingAuthoring` | 미래 enemy animation tuning 확장 포인트 | AI decision cadence |
+| `EnemyAnimationTimingAuthoring` | enemy animation-only tuning 확장 포인트 | AI decision cadence, locomotion cooldown authority |
 
 ## 5. Fallback과 이름 변경 고정
 
@@ -204,6 +205,14 @@ logic execute 시점을 바꾸면 안 된다.
 ### 5-2. fallback 규칙
 
 motion duration:
+
+```text
+unit move-only override
+-> entity motion presentation override
+-> global shared timing default
+```
+
+push / flip / box interaction motion은 아래 순서를 따른다.
 
 ```text
 entity motion presentation override
@@ -237,8 +246,11 @@ scene / host configuration explicit settings
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs` | player prefab authoring에서 authoritative snapshot 생성하는 경로 제거 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs` | logic 필드 제거 후 animation-only authoring 유지 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs` | animation authoring only read로 정리, motion fallback 사용 |
+| `Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/UnitLocomotionPresentationAuthoring.cs` | unit move-only presentation override 경계 유지 |
+| `Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EntityMotionPresentationAuthoring.cs` | box interaction / push / flip / fallback move motion ownership 유지 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayTickPresentationCoordinator.cs` | entity-aware motion duration resolution 도입 |
 | `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs` | 새 authoring 구성요소 연결 시 factory bootstrap 반영 |
+| `Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiProfile.cs` | enemy locomotion cadence와 animation-only 금지 경계 유지 |
 | `Assets/Scenes/CombinedGameplayShowcase.unity` 외 showcase assets | player logic field migration, motion/animation override data migration |
 
 ## 7. 1단계 완료 기준

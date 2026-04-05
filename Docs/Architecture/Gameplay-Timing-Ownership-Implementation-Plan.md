@@ -30,7 +30,7 @@
 - `PlayerAnimatorDriver`는 `PlayerAnimationTimingAuthoring`를 읽어 animator duration을 해석한다.
 - `EnemyAiProfile`는 적군 authoritative logic 전용 구조로 이미 잘 분리되어 있다.
 - `EnemyAnimatorDriver`는 적군 presentation-only 구조로 비교적 얇다.
-- `GameplayTickPresentationCoordinator`는 entity별 `EntityMotionPresentationAuthoring` override와 global timing fallback을 함께 해석한다.
+- `GameplayTickPresentationCoordinator`는 unit move에서 `UnitLocomotionPresentationAuthoring -> EntityMotionPresentationAuthoring -> global timing` 순서를, 그 외 motion에서는 `EntityMotionPresentationAuthoring -> global timing` 순서를 해석한다.
 
 즉:
 
@@ -56,9 +56,10 @@
 
 - `GameplayTimingProfile` 정리
 - 신규 `PlayerControlTimingSettings`
+- 신규 `UnitLocomotionPresentationAuthoring`
 - 신규 `EntityMotionPresentationAuthoring`
 - 신규 또는 개명된 `PlayerAnimationTimingAuthoring`
-- 필요 시 future hook로 `EnemyAnimationTimingAuthoring`
+- guard된 `EnemyAnimationTimingAuthoring`
 - `GameplaySceneHostConfiguration`의 책임 재배치
 - `GameplayHostRuntimeFactory`의 player timing bootstrap 정리
 - `GameplayTickPresentationCoordinator`의 entity-aware motion duration resolution
@@ -176,37 +177,42 @@
 - `Entity_View_PlayerAnimationTest.prefab`와 관련 테스트 유틸/테스트를 새 component와 field 이름으로 migration했다.
 - authoritative timing 검증은 더 이상 prefab authoring이 아니라 `PlayerControlTimingSettings`를 기준으로 유지한다.
 
-### 6-4. 4단계: 공용 actor motion presentation override 도입
+### 6-4. 4단계: unit move 전용 authoring과 공용 motion override 계층 정리
 
-목표는 player / enemy 공용 root motion override 계층을 추가하는 것이다.
+목표는 unit move-only presentation surface와 공용 motion override 계층의 ownership을 분리하는 것이다.
 
 신규 후보 파일:
 
-- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EntityMotionPresentationAuthoring.cs`
+- `Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/UnitLocomotionPresentationAuthoring.cs`
+- `Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EntityMotionPresentationAuthoring.cs`
 
 권장 필드:
 
+- `moveMotionDurationSeconds = -1f` on `UnitLocomotionPresentationAuthoring`
 - `moveMotionDurationSeconds = -1f`
 - `pushMotionDurationSeconds = -1f`
 - `flipMotionDurationSeconds = -1f`
 
 작업:
 
-- `GameplayEntityView`에 부착 가능한 공용 presentation authoring 추가
-- player prefab과 미래 enemy prefab 모두 같은 규칙으로 사용
+- unit prefab에는 move-only presentation surface를 허용
+- box interaction과 공용 push / flip motion은 `EntityMotionPresentationAuthoring`에 유지
+- player prefab과 enemy prefab이 같은 fallback 규칙을 공유하도록 정리
 - 기본 primitive view에는 미부착 상태를 허용
 
 완료 조건:
 
-- actor-specific root motion override를 공용 authoring으로 표현 가능하다.
-- player와 enemy에 같은 구조를 재사용할 수 있다.
+- actor-specific root motion override를 move-only와 공용 motion 계층으로 표현 가능하다.
+- unit move authoring이 box interaction이나 authoritative locomotion cadence를 소유하지 않는다.
 
 진행 상태:
 
 - 2026-04-04 구현 완료
-- `EntityMotionPresentationAuthoring`와 `EntityMotionPresentationSnapshot`를 추가했다.
-- `moveMotionDurationSeconds`, `pushMotionDurationSeconds`, `flipMotionDurationSeconds`는 `-1f` sentinel로 global timing fallback을 표현하도록 고정했다.
+- `UnitLocomotionPresentationAuthoring`, `EntityMotionPresentationAuthoring`, 각 snapshot 타입을 추가했다.
+- `UnitLocomotionPresentationAuthoring`는 unit move-only override를, `EntityMotionPresentationAuthoring`는 fallback move / push / flip / box interaction motion을 담당한다.
+- 두 authoring의 serialized duration은 모두 `-1f` sentinel로 fallback 의도를 표현하도록 고정했다.
 - `PlayerViewPrefabRequirements`는 player prefab root에 이 컴포넌트가 부착된 경우 함께 validation하도록 갱신했다.
+- `EnemyViewPrefabRequirements`는 enemy prefab root에서 두 motion authoring을 모두 optional validation surface로 취급한다.
 - `Entity_View_PlayerAnimationTest.prefab`와 test utility를 공용 motion presentation authoring 기준으로 migration했다.
 - primitive auto-created view는 계속 미부착 상태를 허용하며, entity-aware resolution 연결은 5단계에서 진행한다.
 
@@ -228,6 +234,14 @@
 resolution 순서:
 
 ```text
+unit move-only override
+-> entity motion presentation override
+-> global timing profile
+```
+
+move 이외의 motion은 아래 순서를 따른다.
+
+```text
 entity motion presentation override
 -> global timing profile
 ```
@@ -241,9 +255,9 @@ entity motion presentation override
 
 - 2026-04-04 구현 완료
 - `GameplayTickPresentationCoordinator`는 `ResolveMotionDurationSeconds(int entityId, TickEntityMotionKind motionKind)` 경로로 변경했다.
-- coordinator는 `GameplayEntityView` root의 optional `EntityMotionPresentationAuthoring`를 entityId 기준으로 조회해 motion duration override를 우선 해석한다.
-- `EntityMotionPresentationAuthoring`가 없거나 해당 motion kind override가 없으면 기존 `GameplayTimingProfile` 전역 duration fallback을 그대로 사용한다.
-- `GameplayTickPresentationCoordinatorTests`를 추가해 player prefab override, enemy/custom view override, no-authoring global fallback 경로를 고정했다.
+- coordinator는 unit move에서 `UnitLocomotionPresentationAuthoring`를 먼저 조회하고, miss일 때 `EntityMotionPresentationAuthoring`를 fallback으로 해석한다.
+- push / flip / box interaction에서는 `EntityMotionPresentationAuthoring`만 조회하고, override가 없으면 기존 `GameplayTimingProfile` 전역 duration fallback을 그대로 사용한다.
+- `GameplayTickPresentationCoordinatorTests`를 추가해 player prefab override, enemy prefab move-only override/fallback, box interaction legacy override, no-authoring global fallback 경로를 고정했다.
 
 ### 6-6. 6단계: animator duration fallback 정규화
 
@@ -252,7 +266,7 @@ entity motion presentation override
 수정 대상 파일:
 
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs`
-- 필요 시 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimationTimingAuthoring.cs`
+- 필요 시 신규 `Assets/_Features/Gameplay/Gameplay_EnemyPresentation/Runtime/EnemyAnimationTimingAuthoring.cs`
 
 규칙:
 
@@ -280,7 +294,7 @@ entity motion presentation override
 
 - `EnemyAnimatorDriver`는 여전히 presentation-only로 유지
 - 필요 시 future optional authoring 포인트 정의
-- `EnemyAiProfile`에는 animation duration을 넣지 않는다는 규칙을 테스트와 문서에서 고정
+- `EnemyAiProfile`에는 animation duration을 넣지 않고, locomotion cooldown cadence는 계속 authoritative logic에 둔다는 규칙을 테스트와 문서에서 고정
 
 가능한 future 타입:
 
@@ -295,6 +309,7 @@ entity motion presentation override
 
 - 2026-04-04 1차 guard 완료
 - `EnemyAnimatorDriver`는 계속 presentation-only 경계를 유지한다.
+- `EnemyAnimationTimingAuthoring`는 animation-only authoring 경계를 유지하고, `EnemyAiProfile`은 locomotion cooldown cadence를 포함한 logic-only surface로 남는다.
 - `GameplayTimingOwnershipTests`의 contract test로 `EnemyAiProfile` serialized surface에 presentation field가 섞이지 않도록 고정했다.
 
 ### 6-8. 8단계: 씬 / 프리팹 / 테스트 migration
@@ -339,11 +354,15 @@ entity motion presentation override
 - player prefab이 없어도 authoritative default player logic timing 생성 가능 여부
 - player prefab에 logic timing component가 없어도 runtime bootstrap이 가능한지 검증
 - `EnemyAiProfile`에 presentation 필드가 추가되지 않았는지 reflection 또는 contract test로 검증
+- enemy locomotion cooldown authority가 `EnemyAiProfile -> runtime definition -> EntityState.enemyLocomotionCooldownTicks` 경로에 있는지 검증
+- prefab-local motion authoring이 later tick authoritative 결과를 바꾸지 못하는지 검증
 
 ### 7-2. fallback resolution 테스트
 
 - actor motion override 없음 -> global timing 사용
-- actor motion override 있음 -> override 사용
+- unit move-only override 있음 -> override 사용
+- unit move-only override 없음 + entity motion override 있음 -> entity motion fallback 사용
+- box interaction motion은 `EntityMotionPresentationAuthoring`만 사용
 - player animation override 없음 -> resolved motion duration 사용
 - player animation override 있음 -> animator override 사용
 
@@ -363,7 +382,7 @@ entity motion presentation override
 - 2026-04-04 구현 완료
 - `GameplayTimingOwnershipTests`를 추가해 player prefab 없는 bootstrap, primitive player view 자동 생성 fallback, player animator override precedence, `EnemyAiProfile` contract를 검증한다.
 - `RuntimeBoardBoundsGuardTests`는 기존 no-player-prefab 실패 가드를 success-path ownership 검증으로 전환했다.
-- 기존 `GameplayTickPresentationCoordinatorTests`, `TickReplayDeterminismTests`, `GameplayShowcaseAssetMigrationTests`와 합쳐 ownership / fallback / determinism / asset migration 경로를 계속 guard한다.
+- 기존 `GameplayTickPresentationCoordinatorTests`, `EnemyViewIsolationTests`, `TickReplayDeterminismTests`, `GameplayShowcaseAssetMigrationTests`와 합쳐 ownership / fallback / determinism / asset migration 경로를 계속 guard한다.
 
 ## 8. 구현 순서 권장안
 
@@ -373,7 +392,7 @@ entity motion presentation override
 2. `PlayerControlTimingSettings` 도입 및 `GameplayHostRuntimeFactory` player logic timing source 교체 완료
 3. `PlayerActionTimingAuthoring` 분리 또는 개명 완료 (`PlayerAnimationTimingAuthoring`)
 4. `EntityMotionPresentationAuthoring` 추가
-5. `GameplayTickPresentationCoordinator` entity-aware resolution 변경
+5. `UnitLocomotionPresentationAuthoring`와 `GameplayTickPresentationCoordinator` entity-aware resolution 변경
 6. 씬 / 프리팹 migration
 7. 테스트 보강
 
@@ -390,6 +409,7 @@ entity motion presentation override
 - 이 값은 global default인가 actor-specific override인가
 - prefab이 authoritative logic를 소유하고 있지 않은가
 - `EnemyAiProfile`에 animation tuning이 들어가 있지 않은가
+- `EnemyAiProfile`의 locomotion cadence를 prefab-local motion authoring으로 우회하고 있지 않은가
 - `GameplayTimingProfile`에 actor-specific field가 추가되지 않았는가
 - motion duration과 animator duration의 fallback 순서가 문서와 일치하는가
 - 새 액션 / 새 적 archetype이 기존 계층 규칙을 그대로 따르는가
@@ -405,6 +425,7 @@ entity motion presentation override
 - `GameplayTimingProfile`
 - `PlayerControlTimingSettings`
 - `EnemyAiProfile`
+- `UnitLocomotionPresentationAuthoring`
 - `EntityMotionPresentationAuthoring`
 - `PlayerAnimationTimingAuthoring`
 - `EnemyAnimationTimingAuthoring`
@@ -418,9 +439,9 @@ entity motion presentation override
 이 계획이 완료되었다고 판단하는 기준은 다음과 같다.
 
 - player authoritative timing이 prefab에서 완전히 제거된다.
-- player / enemy motion presentation override가 같은 구조를 사용한다.
+- player / enemy motion presentation override가 같은 fallback 규칙을 사용한다.
 - `GameplayTimingProfile`는 global shared timing만 가진다.
-- `EnemyAiProfile`는 logic-only profile로 유지된다.
+- `EnemyAiProfile`는 locomotion cadence를 포함한 logic-only profile로 유지된다.
 - animator duration과 motion duration의 관계가 코드와 문서에서 일치한다.
 - 새 enemy archetype과 새 player action을 추가할 때 어느 계층을 확장해야 하는지 명확하다.
 

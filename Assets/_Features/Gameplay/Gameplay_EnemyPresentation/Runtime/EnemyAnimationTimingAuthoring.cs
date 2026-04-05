@@ -40,6 +40,11 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    /// <summary>
+    /// Optional enemy animation-only tuning surface.
+    /// These overrides affect animator playback and cross-fades only; authoritative AI cadence such as
+    /// windup, recover, and locomotion cooldown stays in EnemyAiProfile and runtime state.
+    /// </summary>
     [DisallowMultipleComponent]
     public sealed class EnemyAnimationTimingAuthoring : MonoBehaviour
     {

@@ -152,6 +152,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority()
+        {
+            var initialEntities = new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            };
+            var baselineWorld = CreateWorldState(initialEntities);
+            var presentedWorld = CreateWorldState(initialEntities);
+            var baselineProfile = CreateChargingEnemyProfile(moveCooldownTicks: 2);
+            var presentedProfile = CreateChargingEnemyProfile(moveCooldownTicks: 2);
+            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorld, baselineProfile);
+            var presentedPipeline = GameplayCompositionRoot.CreateTickPipeline(presentedWorld, presentedProfile);
+            var rootObject = new GameObject("EnemyViewIsolationTests_Presenter_MotionAuthoring");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(
+                        registry.transform,
+                        attachEnemyAnimatorDriver: true,
+                        enemyMoveOverrideSeconds: 0.6f));
+                var initialSnapshot = presentedWorld.CreateSnapshot();
+
+                presenter.Initialize(
+                    binder,
+                    initialSnapshot.BoardBounds,
+                    initialSnapshot.Topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault());
+                presenter.PresentInitial(initialEntities, initialSnapshot.Topology);
+
+                var baselineFirstTick = baselinePipeline.RunTick(new TickInput(1));
+                var presentedFirstTick = presentedPipeline.RunTick(new TickInput(1));
+
+                presenter.Present(presentedFirstTick);
+                presenter.UpdatePresentation(0.2f);
+
+                var baselineSecondTick = baselinePipeline.RunTick(new TickInput(2));
+                var presentedSecondTick = presentedPipeline.RunTick(new TickInput(2));
+
+                presenter.Present(presentedSecondTick);
+                presenter.UpdatePresentation(0.2f);
+
+                CollectionAssert.AreEqual(
+                    SummarizeEntities(baselineSecondTick.FinalEntities),
+                    SummarizeEntities(presentedSecondTick.FinalEntities));
+                CollectionAssert.AreEqual(
+                    baselineSecondTick.EventLog.ToArray(),
+                    presentedSecondTick.EventLog.ToArray());
+
+                var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
+                Assert.That(presentedSnapshotAfter.TryGetEntity(40, out var presentedEnemy), Is.True);
+                Assert.That(presentedEnemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(presentedEnemy.enemyLocomotionCooldownTicks, Is.EqualTo(1));
+                Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
+                Assert.That(enemyView.GetComponent<UnitLocomotionPresentationAuthoring>(), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(baselineProfile);
+                UnityEngine.Object.DestroyImmediate(presentedProfile);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -202,15 +272,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyAttackTimingSettings(windupTicks));
         }
 
+        private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks),
+                stateResolverKind: EnemyAiStateResolverKind.Charge,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+        }
+
         private sealed class TestViewFactory : IGameplayEntityViewFactory
         {
             private readonly bool _attachEnemyAnimatorDriver;
+            private readonly float? _enemyMoveOverrideSeconds;
             private readonly Transform _parent;
 
-            public TestViewFactory(Transform parent, bool attachEnemyAnimatorDriver)
+            public TestViewFactory(
+                Transform parent,
+                bool attachEnemyAnimatorDriver,
+                float? enemyMoveOverrideSeconds = null)
             {
                 _parent = parent;
                 _attachEnemyAnimatorDriver = attachEnemyAnimatorDriver;
+                _enemyMoveOverrideSeconds = enemyMoveOverrideSeconds;
             }
 
             public GameplayEntityView CreateView(in EntityState entity)
@@ -225,6 +314,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     entity.aiMode != EnemyAiMode.None)
                 {
                     viewObject.AddComponent<EnemyAnimatorDriver>();
+
+                    if (_enemyMoveOverrideSeconds.HasValue)
+                    {
+                        var authoring = viewObject.AddComponent<UnitLocomotionPresentationAuthoring>();
+                        PlayerViewPrefabTestUtility.SetSerializedField(
+                            authoring,
+                            "moveMotionDurationSeconds",
+                            _enemyMoveOverrideSeconds.Value);
+                    }
                 }
 
                 return view;

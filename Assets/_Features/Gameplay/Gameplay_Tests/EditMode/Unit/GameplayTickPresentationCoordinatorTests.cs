@@ -300,6 +300,134 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayTickViewPresenter_EnemyPrefabUnitMoveOverride_PrefersUnitLocomotionAuthoring()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_EnemyPrefabUnitMoveOverride_PrefersUnitLocomotionAuthoring");
+            var enemyPrefab = CreateEnemyViewPrefab(
+                "EnemyPrefab_UnitMoveOverride",
+                unitMoveDurationSeconds: 0.4f,
+                entityMoveDurationSeconds: 0.8f);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                        {
+                            { 20, enemyPrefab },
+                        }));
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateEnemyUnit(20, sourceCell),
+                    },
+                    topology);
+
+                presenter.Present(CreateMotionTickResult(CreateEnemyUnit(20, destinationCell), topology, sourceCell, destinationCell, TickEntityMotionKind.Move));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var sourcePosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit);
+                var destinationPosition = GetProjectedEntityPosition(boardBounds, topology, destinationCell, EntityType.Unit);
+                var expectedPosition = ResolveEasedLinearPosition(
+                    sourcePosition,
+                    destinationPosition,
+                    elapsedSeconds: timingProfile.MoveMotionDurationSeconds,
+                    durationSeconds: 0.4f);
+
+                Assert.That(view.transform.localPosition.x, Is.LessThan(destinationPosition.x - 0.001f));
+                AssertPositionApproximately(view.transform.localPosition, expectedPosition);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_EnemyPrefabUnitMoveAuthoringWithoutOverride_FallsBackToEntityMotionAuthoring()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_EnemyPrefabUnitMoveAuthoringWithoutOverride_FallsBackToEntityMotionAuthoring");
+            var enemyPrefab = CreateEnemyViewPrefab(
+                "EnemyPrefab_UnitMoveFallback",
+                unitMoveDurationSeconds: UnitLocomotionPresentationAuthoring.UseGlobalTimingSentinel,
+                entityMoveDurationSeconds: 0.4f);
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                        {
+                            { 20, enemyPrefab },
+                        }));
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateEnemyUnit(20, sourceCell),
+                    },
+                    topology);
+
+                presenter.Present(CreateMotionTickResult(CreateEnemyUnit(20, destinationCell), topology, sourceCell, destinationCell, TickEntityMotionKind.Move));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
+
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                var sourcePosition = GetProjectedEntityPosition(boardBounds, topology, sourceCell, EntityType.Unit);
+                var destinationPosition = GetProjectedEntityPosition(boardBounds, topology, destinationCell, EntityType.Unit);
+                var expectedPosition = ResolveEasedLinearPosition(
+                    sourcePosition,
+                    destinationPosition,
+                    elapsedSeconds: timingProfile.MoveMotionDurationSeconds,
+                    durationSeconds: 0.4f);
+
+                Assert.That(view.transform.localPosition.x, Is.LessThan(destinationPosition.x - 0.001f));
+                AssertPositionApproximately(view.transform.localPosition, expectedPosition);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static GameplayTimingProfile CreateTimingProfile()
         {
             return new GameplayTimingProfile(
@@ -423,6 +551,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.x, Is.EqualTo(expected.x).Within(0.001f));
             Assert.That(actual.y, Is.EqualTo(expected.y).Within(0.001f));
             Assert.That(actual.z, Is.EqualTo(expected.z).Within(0.001f));
+        }
+
+        private static GameplayEntityView CreateEnemyViewPrefab(
+            string name,
+            float unitMoveDurationSeconds,
+            float entityMoveDurationSeconds)
+        {
+            var prefabObject = new GameObject(name);
+            var view = prefabObject.AddComponent<GameplayEntityView>();
+            view.Initialize(20);
+            prefabObject.AddComponent<EnemyAnimatorDriver>();
+            prefabObject.AddComponent<EnemyAnimationTimingAuthoring>();
+
+            var unitAuthoring = prefabObject.AddComponent<UnitLocomotionPresentationAuthoring>();
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                unitAuthoring,
+                "moveMotionDurationSeconds",
+                unitMoveDurationSeconds);
+
+            var entityAuthoring = prefabObject.AddComponent<EntityMotionPresentationAuthoring>();
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                entityAuthoring,
+                "moveMotionDurationSeconds",
+                entityMoveDurationSeconds);
+
+            return view;
         }
 
         private sealed class MotionOverrideViewFactory : IGameplayEntityViewFactory

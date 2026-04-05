@@ -4,6 +4,11 @@ using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    /// <summary>
+    /// Authoritative enemy AI profile.
+    /// Locomotion cooldown cadence belongs here and resolves into runtime definitions and world-state counters,
+    /// never prefab-local presentation authoring.
+    /// </summary>
     [CreateAssetMenu(menuName = "Gameplay/AI/Enemy AI Profile", fileName = "EnemyAiProfile")]
     public sealed class EnemyAiProfile : ScriptableObject, ISerializationCallbackReceiver
     {
@@ -50,6 +55,9 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings => attackTimingSettings;
 
+        /// <summary>
+        /// Authoritative locomotion cadence authoring that is converted into tick-based runtime settings.
+        /// </summary>
         public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => locomotionTimingSettings;
 
         public void ResetToDefaultMelee()

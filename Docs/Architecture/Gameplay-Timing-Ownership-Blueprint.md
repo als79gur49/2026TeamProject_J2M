@@ -32,6 +32,8 @@
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimationTimingAuthoring.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/PlayerAnimatorDriver.cs`
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyAnimatorDriver.cs`
+- `Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/UnitLocomotionPresentationAuthoring.cs`
+- `Assets/_Features/Gameplay/Gameplay_EntityView/Runtime/EntityMotionPresentationAuthoring.cs`
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyLogic.cs`
 - `Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs`
@@ -152,6 +154,7 @@
 - 공격 범위
 - 이동 / 공격 priority
 - recover tick
+- locomotion cooldown cadence와 그에 대응하는 runtime state update
 - 향후 enemy gameplay cadence가 실제로 달라질 경우 해당 authoritative 값
 
 중요:
@@ -165,19 +168,22 @@
 
 대표 타입:
 
+- `UnitLocomotionPresentationAuthoring`
 - 신규 `EntityMotionPresentationAuthoring`
 - 또는 동일 의미의 `EntityMotionPresentationProfile`
 
 소유해야 하는 값:
 
-- `moveMotionDurationSeconds`
+- `moveMotionDurationSeconds` for unit move-only prefab tuning
 - `pushMotionDurationSeconds`
 - `flipMotionDurationSeconds`
 - 필요 시 `topologyMotionDurationSeconds` 또는 actor-specific motion curve 정보
 
 규칙:
 
-- 값이 `-1` 또는 unset이면 global timing fallback을 사용한다.
+- `UnitLocomotionPresentationAuthoring`는 unit prefab의 move presentation override만 소유한다.
+- `EntityMotionPresentationAuthoring`는 box interaction과 공용 push / flip / fallback move override를 소유한다.
+- 값이 `-1` 또는 unset이면 문서화된 fallback 순서를 사용한다.
 - 이 계층은 gameplay authority를 가지지 않는다.
 - player와 enemy가 모두 같은 규칙으로 사용한다.
 
@@ -211,28 +217,38 @@ Animator clip 재생 속도, crossfade, state hold, state name mapping 같은 �
 | --- | --- | --- | --- |
 | simulation tick rate | Global Shared Timing | `GameplayTimingProfile` | 모든 시스템 공통 |
 | repeated move cadence | Global Shared Timing | `GameplayTimingProfile` | 기본 player cadence fallback로 사용 가능 |
+| box slide cadence | Global Shared Timing | `GameplayTimingProfile` | box interaction authoritative cadence |
 | player move cooldown | Player Authoritative Logic | `PlayerControlTimingSettings` | prefab 금지 |
 | player push contact threshold | Player Authoritative Logic | `PlayerControlTimingSettings` | prefab 금지 |
 | player push / flip execute delay | Player Authoritative Logic | `PlayerControlTimingSettings` | prefab 금지 |
 | enemy recover tick | Enemy Authoritative Logic | `EnemyAiProfile` | AI 전이 규칙 |
+| enemy locomotion cooldown cadence | Enemy Authoritative Logic | `EnemyAiProfile` | runtime state는 `EntityState.enemyLocomotionCooldownTicks` |
 | global move / push / flip motion duration | Global Shared Timing | `GameplayTimingProfile` | 공통 기본값 |
-| actor-specific move / push / flip motion duration | Actor Motion Presentation | `EntityMotionPresentationAuthoring` | player / enemy 공용 |
+| unit move-only motion duration | Actor Motion Presentation | `UnitLocomotionPresentationAuthoring` | unit prefab move override, entity motion/global로 fallback |
+| actor-specific push / flip / box interaction motion duration | Actor Motion Presentation | `EntityMotionPresentationAuthoring` | player / enemy / box 공용 |
 | player push / flip animator duration | Actor Animation Presentation | `PlayerAnimationTimingAuthoring` | 필요 시만 override |
-| enemy attack / hit / death animation tuning | Actor Animation Presentation | `EnemyAnimationTimingAuthoring` | 미래 확장 |
+| enemy attack / recover animation tuning | Actor Animation Presentation | `EnemyAnimationTimingAuthoring` | animation-only, AI cadence 금지 |
 
 ## 7. Fallback 규칙
 
 모든 timing resolution은 아래 순서를 따른다.
 
-### 7-1. motion duration fallback
+### 7-1. unit move motion fallback
 
 ```text
-entity presentation override
--> archetype presentation override
+unit move-only override
+-> entity motion override
 -> global shared timing default
 ```
 
-### 7-2. animator duration fallback
+### 7-2. non-move motion fallback
+
+```text
+entity motion override
+-> global shared timing default
+```
+
+### 7-3. animator duration fallback
 
 ```text
 actor animation override
@@ -240,7 +256,7 @@ actor animation override
 -> clip natural length 기반 speed 계산
 ```
 
-### 7-3. player logic timing fallback
+### 7-4. player logic timing fallback
 
 ```text
 scene / host configuration explicit value
@@ -251,6 +267,7 @@ scene / host configuration explicit value
 
 - player logic timing은 prefab에서 fallback하지 않는다.
 - enemy logic timing은 animator에서 fallback하지 않는다.
+- unit move-only authoring은 box interaction cadence나 push / flip authority를 소유하지 않는다.
 
 ## 8. 금지 규칙
 
@@ -258,6 +275,7 @@ scene / host configuration explicit value
 
 - player prefab이 authoritative execute delay를 소유하는 구조
 - enemy animator tuning이 `EnemyAiProfile`에 섞이는 구조
+- prefab-local unit move authoring이 enemy locomotion cooldown이나 box interaction cadence를 바꾸는 구조
 - actor-specific motion duration을 `GameplayTimingProfile`에 개별 필드로 계속 추가하는 구조
 - `HeavyEnemyMoveDurationSeconds`, `ScoutEnemyMoveDurationSeconds` 같은 전역 특수 필드를 host config에 누적하는 구조
 - animator 현재 state를 읽고 gameplay 판정을 바꾸는 구조
@@ -299,13 +317,13 @@ if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
 예: `Dash`
 
 - gameplay authority가 필요하면 `PlayerControlTimingSettings`에 `DashExecuteDelaySeconds`, `DashInputLockDurationSeconds`를 추가한다.
-- root motion override가 필요하면 `EntityMotionPresentationAuthoring` 해석 경로에 `Dash` motion kind를 추가한다.
+- root motion override가 필요하면 unit move-only인지 여부를 먼저 판정하고 `UnitLocomotionPresentationAuthoring` 또는 `EntityMotionPresentationAuthoring` 해석 경로에 `Dash` motion kind를 추가한다.
 - animator tuning이 필요하면 `PlayerAnimationTimingAuthoring`에 `dashAnimatorDurationSeconds`를 추가한다.
 
 ### 10-2. 새 enemy archetype 추가 시
 
 - AI 규칙 차이는 `EnemyAiProfile` 또는 그 하위 설정에서 확장한다.
-- 보기만 다르면 `EntityMotionPresentationAuthoring` 또는 `EnemyAnimationTimingAuthoring`으로 처리한다.
+- 보기만 다르면 `UnitLocomotionPresentationAuthoring`, `EntityMotionPresentationAuthoring`, `EnemyAnimationTimingAuthoring` 중 맞는 presentation surface로 처리한다.
 - gameplay cadence 차이와 animation cadence 차이를 같은 필드에 넣지 않는다.
 
 ### 10-3. 적별 이동 시간이 달라질 때
@@ -318,7 +336,7 @@ if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
 판정 결과:
 
 - gameplay가 다르면 `EnemyAiProfile`
-- presentation만 다르면 `EntityMotionPresentationAuthoring`
+- presentation만 다르면 move-only는 `UnitLocomotionPresentationAuthoring`, 그 외 motion은 `EntityMotionPresentationAuthoring`
 
 ### 10-4. 적별 공격 연출 시간이 달라질 때
 
@@ -340,6 +358,7 @@ if (animator.GetCurrentAnimatorStateInfo(0).IsName("Attack"))
 
 ```text
 EnemyAiProfile
+  + UnitLocomotionPresentationAuthoring
   + EntityMotionPresentationAuthoring
   + EnemyAnimationTimingAuthoring
 ```
