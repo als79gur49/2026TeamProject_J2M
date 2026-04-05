@@ -30,5 +30,6 @@ namespace Game.Feature.Gameplay.BoardState
         public BoxCapabilities boxCapabilities;
         public EnemyAiMode aiMode;
         public int aiStateTimer;
+        public int enemyLocomotionCooldownTicks;
     }
 }

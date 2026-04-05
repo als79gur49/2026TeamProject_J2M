@@ -82,6 +82,7 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new InvalidOperationException("Duplicate entity id detected while adding entity.");
             }
 
+            entity.enemyLocomotionCooldownTicks = Mathf.Max(0, entity.enemyLocomotionCooldownTicks);
             EnsurePlacementIsLegal(entity, entity.position, ignoredEntityId: 0);
             _entitiesById.Add(entity.entityId, entity);
             SetOccupancyForEntity(entity);
@@ -149,6 +150,17 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.aiMode = aiMode;
             entity.aiStateTimer = aiStateTimer;
+            UpdateStoredEntity(entity);
+        }
+
+        private void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks)
+        {
+            if (!TryGetEntity(entityId, out var entity))
+            {
+                return;
+            }
+
+            entity.enemyLocomotionCooldownTicks = Mathf.Max(0, cooldownTicks);
             UpdateStoredEntity(entity);
         }
 
@@ -389,6 +401,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer)
         {
             ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
+        }
+
+        void IWorldStateMutationPort.SetEnemyLocomotionCooldown(int entityId, int cooldownTicks)
+        {
+            SetEnemyLocomotionCooldown(entityId, cooldownTicks);
         }
 
         void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)

@@ -101,7 +101,8 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entity.spawnTick).Append('|')
                     .Append((int)entity.boxCapabilities).Append('|')
                     .Append((int)entity.aiMode).Append('|')
-                    .Append(entity.aiStateTimer).Append('\n');
+                    .Append(entity.aiStateTimer).Append('|')
+                    .Append(entity.enemyLocomotionCooldownTicks).Append('\n');
             }
         }
 

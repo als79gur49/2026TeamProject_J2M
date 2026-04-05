@@ -252,7 +252,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks: 2));
+                new EnemyAttackTimingSettings(windupTicks: 2),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks: 2));
 
             var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
             {
@@ -269,12 +270,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(thirtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
             Assert.That(sixtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
             Assert.That(thirtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
+            Assert.That(sixtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
+            Assert.That(thirtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
             Assert.That(
                 sixtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks / 60f,
                 Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
             Assert.That(
                 sixtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks / 60f,
                 Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
+            Assert.That(
+                sixtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks / 60f,
+                Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks / 30f).Within(0.0001f));
         }
 
         [Test]

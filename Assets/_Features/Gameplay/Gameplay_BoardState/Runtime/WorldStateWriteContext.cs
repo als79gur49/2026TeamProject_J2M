@@ -33,6 +33,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.ApplyEnemyAiState(entityId, aiMode, aiStateTimer);
         }
 
+        public void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks)
+        {
+            _port.SetEnemyLocomotionCooldown(entityId, cooldownTicks);
+        }
+
         public void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             _port.SetEnemyActionState(entityId, state);

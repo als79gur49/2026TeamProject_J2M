@@ -220,6 +220,86 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public struct EnemyLocomotionTimingSettings
+    {
+        [SerializeField] private int moveCooldownTicks;
+
+        public EnemyLocomotionTimingSettings(int moveCooldownTicks)
+        {
+            this.moveCooldownTicks = moveCooldownTicks;
+        }
+
+        public int MoveCooldownTicks => moveCooldownTicks;
+
+        public void Validate(string paramName)
+        {
+            if (moveCooldownTicks < 0)
+            {
+                throw new ArgumentException("Enemy locomotion timing settings require a non-negative move cooldown tick count.", paramName);
+            }
+        }
+
+        public static EnemyLocomotionTimingSettings CreateDefaultMelee()
+        {
+            return new EnemyLocomotionTimingSettings(moveCooldownTicks: 0);
+        }
+    }
+
+    [Serializable]
+    public struct EnemyLocomotionTimingAuthoringSettings
+    {
+        [SerializeField] private float moveCooldownSeconds;
+
+        public EnemyLocomotionTimingAuthoringSettings(float moveCooldownSeconds)
+        {
+            this.moveCooldownSeconds = moveCooldownSeconds;
+        }
+
+        public float MoveCooldownSeconds => moveCooldownSeconds;
+
+        public void Validate(string paramName)
+        {
+            if (moveCooldownSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy locomotion timing authoring settings require a non-negative move cooldown duration.", paramName);
+            }
+        }
+
+        public EnemyLocomotionTimingSettings ToRuntimeSettings(int simulationTicksPerSecond)
+        {
+            Validate(nameof(EnemyLocomotionTimingAuthoringSettings));
+
+            return new EnemyLocomotionTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(
+                    moveCooldownSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true));
+        }
+
+        public static EnemyLocomotionTimingAuthoringSettings CreateDefaultMelee()
+        {
+            return FromRuntimeSettings(
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        public static EnemyLocomotionTimingAuthoringSettings FromRuntimeSettings(
+            EnemyLocomotionTimingSettings runtimeSettings,
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            return new EnemyLocomotionTimingAuthoringSettings(
+                runtimeSettings.MoveCooldownTicks / (float)simulationTicksPerSecond);
+        }
+    }
+
     public readonly struct EnemyAiRuntimeDefinition
     {
         public EnemyAiRuntimeDefinition(
@@ -234,6 +314,35 @@ namespace Game.Feature.Gameplay.Entities
             IChaseStrategy chaseStrategy,
             IAttackDecisionStrategy attackDecisionStrategy,
             IEnemyAiStateResolver stateResolver)
+            : this(
+                commonSettings,
+                patrolSettings,
+                detectionSettings,
+                chaseSettings,
+                attackDecisionSettings,
+                attackTimingSettings,
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                patrolStrategy,
+                detectionStrategy,
+                chaseStrategy,
+                attackDecisionStrategy,
+                stateResolver)
+        {
+        }
+
+        public EnemyAiRuntimeDefinition(
+            EnemyAiCommonSettings commonSettings,
+            PatrolSettings patrolSettings,
+            DetectionSettings detectionSettings,
+            ChaseSettings chaseSettings,
+            AttackDecisionSettings attackDecisionSettings,
+            EnemyAttackTimingSettings attackTimingSettings,
+            EnemyLocomotionTimingSettings locomotionTimingSettings,
+            IPatrolStrategy patrolStrategy,
+            IDetectionStrategy detectionStrategy,
+            IChaseStrategy chaseStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            IEnemyAiStateResolver stateResolver)
         {
             CommonSettings = commonSettings;
             PatrolSettings = patrolSettings;
@@ -241,6 +350,7 @@ namespace Game.Feature.Gameplay.Entities
             ChaseSettings = chaseSettings;
             AttackDecisionSettings = attackDecisionSettings;
             AttackTimingSettings = attackTimingSettings;
+            LocomotionTimingSettings = locomotionTimingSettings;
             PatrolStrategy = patrolStrategy;
             DetectionStrategy = detectionStrategy;
             ChaseStrategy = chaseStrategy;
@@ -262,6 +372,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyAttackTimingSettings AttackTimingSettings { get; }
 
+        public EnemyLocomotionTimingSettings LocomotionTimingSettings { get; }
+
         public IPatrolStrategy PatrolStrategy { get; }
 
         public IDetectionStrategy DetectionStrategy { get; }
@@ -278,6 +390,7 @@ namespace Game.Feature.Gameplay.Entities
             DetectionSettings.Validate(paramName);
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);
+            LocomotionTimingSettings.Validate(paramName);
 
             if (PatrolStrategy == null ||
                 DetectionStrategy == null ||
@@ -298,6 +411,7 @@ namespace Game.Feature.Gameplay.Entities
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
                 EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
                 ForwardPatrolStrategy.Instance,
                 NearestOpponentDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,
@@ -321,6 +435,7 @@ namespace Game.Feature.Gameplay.Entities
                 profile.ChaseSettings,
                 profile.AttackDecisionSettings,
                 profile.AttackTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
+                profile.LocomotionTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 ResolvePatrolStrategy(profile.PatrolStrategyKind),
                 ResolveDetectionStrategy(profile.DetectionStrategyKind),
                 ResolveChaseStrategy(profile.ChaseStrategyKind),

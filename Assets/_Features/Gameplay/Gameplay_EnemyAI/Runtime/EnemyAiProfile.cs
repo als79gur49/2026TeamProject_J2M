@@ -7,7 +7,8 @@ namespace Game.Feature.Gameplay.Entities
     [CreateAssetMenu(menuName = "Gameplay/AI/Enemy AI Profile", fileName = "EnemyAiProfile")]
     public sealed class EnemyAiProfile : ScriptableObject, ISerializationCallbackReceiver
     {
-        private const int CurrentSerializedVersion = 1;
+        private const int CurrentSerializedVersion = 2;
+        private const int AttackTimingAuthoringSerializedVersion = 1;
 
         [SerializeField] private EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default;
         [SerializeField] private PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward;
@@ -20,6 +21,7 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private ChaseSettings chaseSettings = new(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak, true);
         [SerializeField] private AttackDecisionSettings attackDecisionSettings = new(1);
         [SerializeField] private EnemyAttackTimingAuthoringSettings attackTimingSettings = new(0f);
+        [SerializeField] private EnemyLocomotionTimingAuthoringSettings locomotionTimingSettings = new(0f);
         [SerializeField] [HideInInspector] private int serializedVersion = CurrentSerializedVersion;
         [FormerlySerializedAs("commonSettings")]
         [SerializeField] [HideInInspector] private EnemyAiCommonSettings legacyCommonSettings = EnemyAiCommonSettings.CreateDefaultMelee();
@@ -48,6 +50,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings => attackTimingSettings;
 
+        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => locomotionTimingSettings;
+
         public void ResetToDefaultMelee()
         {
             ApplyConfiguration(
@@ -57,6 +61,7 @@ namespace Game.Feature.Gameplay.Entities
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
                 EnemyAttackTimingAuthoringSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee(),
                 EnemyAiStateResolverKind.Default,
                 PatrolStrategyKind.Forward,
                 DetectionStrategyKind.NearestOpponent,
@@ -71,6 +76,7 @@ namespace Game.Feature.Gameplay.Entities
             ChaseSettings chaseSettings,
             AttackDecisionSettings attackDecisionSettings,
             EnemyAttackTimingAuthoringSettings attackTimingSettings = default,
+            EnemyLocomotionTimingAuthoringSettings locomotionTimingSettings = default,
             EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
             PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
             DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
@@ -83,6 +89,7 @@ namespace Game.Feature.Gameplay.Entities
             this.chaseSettings = chaseSettings;
             this.attackDecisionSettings = attackDecisionSettings;
             this.attackTimingSettings = attackTimingSettings;
+            this.locomotionTimingSettings = locomotionTimingSettings;
             this.stateResolverKind = stateResolverKind;
             this.patrolStrategyKind = patrolStrategyKind;
             this.detectionStrategyKind = detectionStrategyKind;
@@ -108,12 +115,17 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            commonSettings = EnemyAiCommonAuthoringSettings.FromRuntimeSettings(
-                legacyCommonSettings,
-                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-            attackTimingSettings = EnemyAttackTimingAuthoringSettings.FromRuntimeSettings(
-                legacyAttackTimingSettings,
-                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            if (serializedVersion < AttackTimingAuthoringSerializedVersion)
+            {
+                commonSettings = EnemyAiCommonAuthoringSettings.FromRuntimeSettings(
+                    legacyCommonSettings,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                attackTimingSettings = EnemyAttackTimingAuthoringSettings.FromRuntimeSettings(
+                    legacyAttackTimingSettings,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            }
+
+            locomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee();
             serializedVersion = CurrentSerializedVersion;
         }
 
@@ -157,6 +169,7 @@ namespace Game.Feature.Gameplay.Entities
             ChaseSettings chaseSettings,
             AttackDecisionSettings attackDecisionSettings,
             EnemyAttackTimingSettings attackTimingSettings = default,
+            EnemyLocomotionTimingSettings locomotionTimingSettings = default,
             EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
             PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
             DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
@@ -175,6 +188,9 @@ namespace Game.Feature.Gameplay.Entities
                 attackDecisionSettings,
                 EnemyAttackTimingAuthoringSettings.FromRuntimeSettings(
                     attackTimingSettings,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                EnemyLocomotionTimingAuthoringSettings.FromRuntimeSettings(
+                    locomotionTimingSettings,
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 stateResolverKind,
                 patrolStrategyKind,

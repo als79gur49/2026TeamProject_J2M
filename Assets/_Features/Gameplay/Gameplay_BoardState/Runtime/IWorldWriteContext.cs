@@ -23,6 +23,8 @@ namespace Game.Feature.Gameplay.BoardState
     public interface IPreMovementStateCommitContext : IPlayerControlCommitContext
     {
         void SetFacing(int entityId, Direction facing);
+
+        void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
     }
 
     internal interface IMovementCommitContext : IPlayerControlCommitContext
@@ -36,6 +38,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetFacing(int entityId, Direction facing);
 
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
+
+        void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
 
         void SetTopology(CubeTopologyState topology);
     }

@@ -518,7 +518,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEntityState(EntityState entity)
         {
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|Face={entity.position.face}|Presence={entity.boardPresence}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}";
         }
 
         private static string FormatCell(SurfaceCell cell)

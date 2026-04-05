@@ -92,6 +92,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     .Append("|BoxCapabilities=").Append(entity.boxCapabilities)
                     .Append("|AiMode=").Append(entity.aiMode)
                     .Append("|AiTimer=").Append(entity.aiStateTimer)
+                    .Append("|LocomotionCooldown=").Append(entity.enemyLocomotionCooldownTicks)
                     .Append("|Face=").Append(entity.position.face)
                     .Append("|Presence=").Append(entity.boardPresence);
             }

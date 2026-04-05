@@ -626,6 +626,35 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void DeterminismHash_EnemyLocomotionCooldown_IsIncludedInCanonicalState()
+        {
+            var zeroCooldownPipeline = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase, enemyLocomotionCooldownTicks: 0),
+                }));
+            var cooledDownPipeline = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase, enemyLocomotionCooldownTicks: 2),
+                }));
+
+            var zeroCooldownResult = zeroCooldownPipeline.RunTick(new TickInput(1));
+            var cooledDownResult = cooledDownPipeline.RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase, enemyLocomotionCooldownTicks: 2),
+                }),
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(zeroCooldownResult.DeterminismHash, Is.Not.EqualTo(cooledDownResult.DeterminismHash));
+            Assert.That(cooledDownResult.Trace.Text, Does.Contain("LocomotionCooldown=1"));
+            Assert.That(replay[0].FinalEntitiesDump, Does.Contain("LocomotionCooldown=1"));
+        }
+
+        [Test]
         public void DeterminismHash_EnemyActionState_IsIncludedInCanonicalState()
         {
             var idleWorldState = CreateWorldState(new[]
@@ -1063,12 +1092,26 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp, EnemyAiMode aiMode = EnemyAiMode.None, int aiStateTimer = 0)
+        private static EntityState CreateUnit(
+            int entityId,
+            int teamId,
+            Vector2Int position,
+            int hp,
+            EnemyAiMode aiMode = EnemyAiMode.None,
+            int aiStateTimer = 0,
+            int enemyLocomotionCooldownTicks = 0)
         {
-            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer);
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer, enemyLocomotionCooldownTicks);
         }
 
-        private static EntityState CreateUnit(int entityId, int teamId, SurfaceCell position, int hp, EnemyAiMode aiMode = EnemyAiMode.None, int aiStateTimer = 0)
+        private static EntityState CreateUnit(
+            int entityId,
+            int teamId,
+            SurfaceCell position,
+            int hp,
+            EnemyAiMode aiMode = EnemyAiMode.None,
+            int aiStateTimer = 0,
+            int enemyLocomotionCooldownTicks = 0)
         {
             return new EntityState
             {
@@ -1085,6 +1128,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 spawnTick = 0,
                 aiMode = aiMode,
                 aiStateTimer = aiStateTimer,
+                enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
         }
 

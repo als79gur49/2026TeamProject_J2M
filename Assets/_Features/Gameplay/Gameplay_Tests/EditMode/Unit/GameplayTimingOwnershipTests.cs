@@ -515,6 +515,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "commonSettings",
                     "detectionSettings",
                     "detectionStrategyKind",
+                    "locomotionTimingSettings",
                     "patrolSettings",
                     "patrolStrategyKind",
                     "stateResolverKind",
