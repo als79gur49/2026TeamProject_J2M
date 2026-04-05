@@ -59,7 +59,6 @@ namespace Game.Feature.Gameplay.Host
         [Header("Timing")]
         [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
-        [SerializeField, HideInInspector] private float playerMoveCooldownSeconds = -1f;
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
@@ -212,15 +211,7 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerControlTimingSettings CreatePlayerControlTimingSettings()
         {
-            var resolvedSettings = playerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
-
-            if (resolvedSettings.MoveCooldownSeconds < 0f &&
-                playerMoveCooldownSeconds >= 0f)
-            {
-                resolvedSettings.MoveCooldownSeconds = playerMoveCooldownSeconds;
-            }
-
-            return resolvedSettings;
+            return playerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
         }
 
         private IGameplayEntityViewFactory ResolveViewFactory(in InitialGameplayState initialState)

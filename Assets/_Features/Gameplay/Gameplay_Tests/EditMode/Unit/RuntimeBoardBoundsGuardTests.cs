@@ -540,9 +540,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         },
                         InitialTopology = new CubeTopologyState(FaceId.Floor),
                         PlayerEntityId = 10,
-                        PlayerPushContactThresholdSeconds = 1f / 60f,
                         PlayerControlTiming = new PlayerControlTimingSettings
                         {
+                            PushContactThresholdSeconds = 1f / 60f,
                             PushExecuteDelaySeconds = 2f / 60f,
                             PushInputLockDurationSeconds = 4f / 60f,
                         },

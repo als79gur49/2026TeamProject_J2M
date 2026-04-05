@@ -35,8 +35,6 @@ namespace Game.Feature.Gameplay.Host
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
-        public float PlayerMoveCooldownSeconds = -1f;
-        public float PlayerPushContactThresholdSeconds = -1f;
         public float MoveMotionDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
@@ -158,22 +156,7 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
         {
-            var resolvedSettings = PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
-
-            // Legacy fallback while scene assets and tests migrate to PlayerControlTiming.
-            if (resolvedSettings.MoveCooldownSeconds < 0f &&
-                PlayerMoveCooldownSeconds >= 0f)
-            {
-                resolvedSettings.MoveCooldownSeconds = PlayerMoveCooldownSeconds;
-            }
-
-            if (resolvedSettings.PushContactThresholdSeconds < 0f &&
-                PlayerPushContactThresholdSeconds >= 0f)
-            {
-                resolvedSettings.PushContactThresholdSeconds = PlayerPushContactThresholdSeconds;
-            }
-
-            return resolvedSettings;
+            return PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
         }
     }
 }
