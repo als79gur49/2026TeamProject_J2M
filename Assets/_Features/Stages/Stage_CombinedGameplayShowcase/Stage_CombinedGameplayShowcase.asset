@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   board:
     MinInclusive: {x: 0, y: 0}
-    MaxInclusive: {x: 10, y: 6}
+    MaxInclusive: {x: 15, y: 8}
     InitialBottomFace: 0
     PerimeterFaces: 00000000010000000200000003000000
     SharedEdgeOpeningColumns: 01000000030000000700000009000000
@@ -32,6 +32,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   boxSpawns:
   - EntityId: 30
     Kind: 2
@@ -45,6 +46,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 31
     Kind: 2
     Cell:
@@ -57,6 +59,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 36
     Kind: 2
     Cell:
@@ -69,6 +72,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 32
     Kind: 2
     Cell:
@@ -81,6 +85,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 33
     Kind: 2
     Cell:
@@ -93,6 +98,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 34
     Kind: 2
     Cell:
@@ -105,6 +111,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 37
     Kind: 2
     Cell:
@@ -117,6 +124,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 35
     Kind: 2
     Cell:
@@ -129,6 +137,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 40
     Kind: 2
     Cell:
@@ -141,6 +150,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 41
     Kind: 2
     Cell:
@@ -153,6 +163,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 42
     Kind: 2
     Cell:
@@ -165,6 +176,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 43
     Kind: 2
     Cell:
@@ -177,46 +189,21 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   enemySpawns:
-  - EntityId: 50
+  - EntityId: 53
     Kind: 1
     Cell:
       face: 0
-      x: 1
-      y: 5
-    Facing: 3
-    Hp: 3
-    BoxCapabilities: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: 69a8ae7c6dca4915aabd04f2aa03489e, type: 2}
-    EnemyPresentationId:
-  - EntityId: 51
-    Kind: 1
-    Cell:
-      face: 1
-      x: 2
-      y: 2
-    Facing: 3
-    Hp: 2
-    BoxCapabilities: 0
-    EnemyAiMode: 1
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    EnemyPresentationId:
-  - EntityId: 52
-    Kind: 1
-    Cell:
-      face: 0
-      x: 2
+      x: 5
       y: 2
     Facing: 4
     Hp: 3
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
-    EnemyPresentationId: windup_melee_showcase
+    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    EnemyPresentationId: nonAttacking_showcase
   wallSpawns:
   - EntityId: 196
     Kind: 3
@@ -230,6 +217,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 197
     Kind: 3
     Cell:
@@ -242,6 +230,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 198
     Kind: 3
     Cell:
@@ -254,6 +243,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 199
     Kind: 3
     Cell:
@@ -266,6 +256,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
   - EntityId: 200
     Kind: 3
     Cell:
@@ -278,3 +269,4 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
