@@ -37,6 +37,7 @@ namespace Game.Feature.Stages
         public EnemyAiMode EnemyAiMode;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfile;
+        public string EnemyPresentationId;
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Definition", fileName = "StageDefinition")]

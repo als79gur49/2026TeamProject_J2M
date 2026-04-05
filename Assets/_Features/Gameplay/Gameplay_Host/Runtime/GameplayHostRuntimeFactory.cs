@@ -82,7 +82,8 @@ namespace Game.Feature.Gameplay.Host
                         boardRoot.EntityRoot,
                         configuration.CellSize,
                         configuration.PlayerEntityId,
-                        playerViewPrefab)
+                        playerViewPrefab,
+                        BuildEnemyViewPrefabs(configuration))
                     : null);
             var viewBinder = new GameplayEntityViewBinder(viewRegistry, viewFactory);
 
@@ -169,6 +170,15 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return profilesByEntityId;
+        }
+
+        private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(
+            GameplaySceneHostConfiguration configuration)
+        {
+            return EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
+                configuration?.EnemyPresentationCatalog,
+                configuration?.EnemyPresentationBindings,
+                nameof(GameplaySceneHostConfiguration));
         }
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(

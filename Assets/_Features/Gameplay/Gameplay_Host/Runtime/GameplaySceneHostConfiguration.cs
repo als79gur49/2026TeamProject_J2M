@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Host
         public bool DirectionChangeConsumesDelay;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
+        public EnemyPresentationCatalog EnemyPresentationCatalog;
+        public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();

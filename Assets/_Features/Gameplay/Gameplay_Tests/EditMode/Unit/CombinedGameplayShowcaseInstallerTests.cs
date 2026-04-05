@@ -19,6 +19,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string CombinedEnemyPresentationCatalogAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
+        private const string WindupEnemyPresentationId = "windup_melee_showcase";
 
         [Test]
         public void CombinedGameplayStage_PopulatesSharedEdgeOpeningsAcrossAllFourFaces()
@@ -140,6 +143,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(floorWindupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(floorWindupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
             Assert.That(floorWindupProfile.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void CombinedGameplayStage_BuildsEnemyPresentationBindingForWindupVariant()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(buildResult.EnemyPresentationBindings, Is.Not.Null);
+            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(1));
+            Assert.That(buildResult.EnemyPresentationBindings[0].EntityId, Is.EqualTo(52));
+            Assert.That(buildResult.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(WindupEnemyPresentationId));
         }
 
         [Test]
@@ -320,7 +334,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
                 var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
                 boardRoot.EnsureHierarchy();
-
                 var factory = CreateViewFactory(installer, boardRoot);
                 var buildResult = BuildCombinedStage();
 
@@ -366,7 +379,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
                 var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
                 boardRoot.EnsureHierarchy();
-
                 var factory = CreateViewFactory(installer, boardRoot);
                 var buildResult = BuildCombinedStage();
                 Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, 2), out var windupEnemy), Is.True);
@@ -483,10 +495,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return StageRuntimeBuilder.Build(stage);
         }
 
+        private static void AssignEnemyPresentationCatalog(CombinedGameplayShowcaseInstaller installer)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CombinedEnemyPresentationCatalogAssetPath);
+            Assert.That(catalog, Is.Not.Null, $"Missing enemy presentation catalog asset at '{CombinedEnemyPresentationCatalogAssetPath}'.");
+
+            var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
+                "enemyPresentationCatalog",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(installer, catalog);
+        }
+
+        private static void AssignStageDefinition(CombinedGameplayShowcaseInstaller installer)
+        {
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
+
+            var field = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageDefinition",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(installer, stage);
+        }
+
         private static IGameplayEntityViewFactory CreateViewFactory(
             CombinedGameplayShowcaseInstaller installer,
             GameplayBoardRoot boardRoot)
         {
+            AssignStageDefinition(installer);
+            AssignEnemyPresentationCatalog(installer);
+
             var factoryMethod = installer.GetType().GetMethod(
                 "CreateViewFactory",
                 BindingFlags.Instance | BindingFlags.NonPublic);

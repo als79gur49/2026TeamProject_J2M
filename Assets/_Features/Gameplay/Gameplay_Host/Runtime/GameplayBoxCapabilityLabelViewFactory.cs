@@ -1,4 +1,5 @@
 using System.Text;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -15,10 +16,18 @@ namespace Game.Feature.Gameplay.Host
         private readonly float _cellSize;
         private readonly DefaultGameplayEntityViewFactory _defaultFactory;
 
-        public GameplayBoxCapabilityLabelViewFactory(Transform parent, float cellSize, int playerEntityId)
+        public GameplayBoxCapabilityLabelViewFactory(
+            Transform parent,
+            float cellSize,
+            int playerEntityId,
+            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null)
         {
             _cellSize = cellSize;
-            _defaultFactory = new DefaultGameplayEntityViewFactory(parent, cellSize, playerEntityId);
+            _defaultFactory = new DefaultGameplayEntityViewFactory(
+                parent,
+                cellSize,
+                playerEntityId,
+                enemyViewPrefabsByEntityId: enemyViewPrefabsByEntityId);
         }
 
         public GameplayEntityView CreateView(in EntityState entity)

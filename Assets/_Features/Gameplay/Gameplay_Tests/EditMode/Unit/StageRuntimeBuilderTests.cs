@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string WindupEnemyPresentationId = "windup_melee_showcase";
 
         [Test]
         public void StageRuntimeBuilder_DuplicateEntityIdRejects()
@@ -175,6 +176,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(windupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(windupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
             Assert.That(windupProfile.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+
+            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(1));
+            Assert.That(TryGetPresentationBinding(buildResult, 52, out var presentationBinding), Is.True);
+            Assert.That(presentationBinding.PresentationId, Is.EqualTo(WindupEnemyPresentationId));
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_BuildsEnemyPresentationBindingsOnlyForEnemySpawnsWithIds()
+        {
+            var enemyProfile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                var stage = CreateStage(
+                    "EnemyPresentationBindings",
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()),
+                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Right),
+                    CreateSpawn(
+                        20,
+                        StageSpawnKind.Enemy,
+                        new SurfaceCell(FaceId.Floor, 1, 1),
+                        hp: 2,
+                        enemyAiMode: EnemyAiMode.Patrol,
+                        enemyAiProfile: enemyProfile,
+                        enemyPresentationId: $"  {WindupEnemyPresentationId}  "),
+                    CreateSpawn(
+                        21,
+                        StageSpawnKind.Enemy,
+                        new SurfaceCell(FaceId.Floor, 2, 1),
+                        hp: 2,
+                        enemyAiMode: EnemyAiMode.Patrol,
+                        enemyAiProfile: enemyProfile,
+                        enemyPresentationId: " "),
+                    CreateSpawn(
+                        30,
+                        StageSpawnKind.Box,
+                        new SurfaceCell(FaceId.Floor, 1, 2),
+                        hp: 1,
+                        enemyPresentationId: "ignored_box_presentation"));
+
+                try
+                {
+                    var buildResult = StageRuntimeBuilder.Build(stage);
+                    Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(1));
+                    Assert.That(buildResult.EnemyPresentationBindings[0].EntityId, Is.EqualTo(20));
+                    Assert.That(buildResult.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(WindupEnemyPresentationId));
+                }
+                finally
+                {
+                    UnityEngine.Object.DestroyImmediate(stage);
+                }
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyProfile);
+            }
         }
 
         private static StageDefinition CreateStage(
@@ -220,7 +277,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             BoxCapabilities boxCapabilities = BoxCapabilities.None,
             EnemyAiMode enemyAiMode = EnemyAiMode.None,
             int enemyAiStateTimer = 0,
-            EnemyAiProfile enemyAiProfile = null)
+            EnemyAiProfile enemyAiProfile = null,
+            string enemyPresentationId = null)
         {
             return new StageSpawnDefinition
             {
@@ -233,6 +291,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAiMode = enemyAiMode,
                 EnemyAiStateTimer = enemyAiStateTimer,
                 EnemyAiProfile = enemyAiProfile,
+                EnemyPresentationId = enemyPresentationId,
             };
         }
 
@@ -351,6 +410,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             profile = null;
+            return false;
+        }
+
+        private static bool TryGetPresentationBinding(
+            StageRuntimeBuildResult buildResult,
+            int entityId,
+            out EnemyPresentationBinding binding)
+        {
+            for (var i = 0; i < buildResult.EnemyPresentationBindings.Length; i++)
+            {
+                var entry = buildResult.EnemyPresentationBindings[i];
+                if (entry.EntityId != entityId)
+                {
+                    continue;
+                }
+
+                binding = entry;
+                return true;
+            }
+
+            binding = default;
             return false;
         }
     }

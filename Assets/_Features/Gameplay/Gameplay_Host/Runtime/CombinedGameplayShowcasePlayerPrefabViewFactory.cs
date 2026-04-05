@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -15,7 +16,8 @@ namespace Game.Feature.Gameplay.Host
             Transform parent,
             int playerEntityId,
             GameplayEntityView playerViewPrefab,
-            float cellSize)
+            float cellSize,
+            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null)
         {
             _parent = parent ?? throw new ArgumentNullException(nameof(parent));
             _playerEntityId = playerEntityId;
@@ -23,7 +25,11 @@ namespace Game.Feature.Gameplay.Host
                 ? playerViewPrefab
                 : throw new ArgumentNullException(nameof(playerViewPrefab));
             PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(_playerViewPrefab, nameof(CombinedGameplayShowcasePlayerPrefabViewFactory));
-            _fallbackFactory = new GameplayBoxCapabilityLabelViewFactory(parent, cellSize, playerEntityId);
+            _fallbackFactory = new GameplayBoxCapabilityLabelViewFactory(
+                parent,
+                cellSize,
+                playerEntityId,
+                enemyViewPrefabsByEntityId);
         }
 
         public GameplayEntityView CreateView(in EntityState entity)

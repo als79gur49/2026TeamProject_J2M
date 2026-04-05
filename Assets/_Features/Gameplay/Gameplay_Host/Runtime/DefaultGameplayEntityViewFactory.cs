@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
@@ -14,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Material _projectileMaterial;
         private readonly Transform _parent;
         private readonly int _playerEntityId;
+        private readonly IReadOnlyDictionary<int, GameplayEntityView> _enemyViewPrefabsByEntityId;
         private readonly Material _unitMaterial;
         private readonly Material _wallMaterial;
 
@@ -21,12 +23,14 @@ namespace Game.Feature.Gameplay.Host
             Transform parent,
             float cellSize,
             int playerEntityId,
-            GameplayEntityView playerViewPrefab = null)
+            GameplayEntityView playerViewPrefab = null,
+            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null)
         {
             _parent = parent;
             _cellSize = cellSize;
             _playerEntityId = playerEntityId;
             _playerViewPrefab = playerViewPrefab;
+            _enemyViewPrefabsByEntityId = enemyViewPrefabsByEntityId;
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
 
             if (shader == null)
@@ -47,17 +51,51 @@ namespace Game.Feature.Gameplay.Host
             if (entity.entityId == _playerEntityId &&
                 _playerViewPrefab != null)
             {
-                PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(_playerViewPrefab, nameof(DefaultGameplayEntityViewFactory));
-                var instance = UnityEngine.Object.Instantiate(_playerViewPrefab, _parent);
-                instance.name = $"EntityView_{entity.entityId}";
-                instance.transform.localPosition = Vector3.zero;
-                instance.transform.localRotation = Quaternion.identity;
-                instance.transform.localScale = Vector3.one;
-                instance.Initialize(entity.entityId);
-                PlayerViewPrefabRequirements.ValidatePlayerViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
-                return instance;
+                return CreatePlayerPrefabView(entity);
             }
 
+            if (TryCreateEnemyPrefabView(entity, out var enemyView))
+            {
+                return enemyView;
+            }
+
+            return CreatePrimitiveView(entity);
+        }
+
+        public GameplayEntityView PlayerViewPrefab => _playerViewPrefab;
+
+        private GameplayEntityView CreatePlayerPrefabView(in EntityState entity)
+        {
+            PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(_playerViewPrefab, nameof(DefaultGameplayEntityViewFactory));
+            var instance = UnityEngine.Object.Instantiate(_playerViewPrefab, _parent);
+            ResetViewTransform(instance, entity.entityId);
+            PlayerViewPrefabRequirements.ValidatePlayerViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
+            return instance;
+        }
+
+        private bool TryCreateEnemyPrefabView(in EntityState entity, out GameplayEntityView view)
+        {
+            view = null;
+
+            if (entity.type != EntityType.Unit ||
+                entity.aiMode == EnemyAiMode.None ||
+                _enemyViewPrefabsByEntityId == null ||
+                !_enemyViewPrefabsByEntityId.TryGetValue(entity.entityId, out var prefab) ||
+                prefab == null)
+            {
+                return false;
+            }
+
+            var instance = UnityEngine.Object.Instantiate(prefab, _parent);
+            ResetViewTransform(instance, entity.entityId);
+            EnemyViewPrefabRequirements.ValidateEnemyViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
+            EnsureRenderableVisual(instance, entity);
+            view = instance;
+            return true;
+        }
+
+        private GameplayEntityView CreatePrimitiveView(in EntityState entity)
+        {
             var viewObject = new GameObject($"EntityView_{entity.entityId}");
             viewObject.transform.SetParent(_parent, worldPositionStays: false);
             viewObject.transform.localPosition = Vector3.zero;
@@ -78,6 +116,32 @@ namespace Game.Feature.Gameplay.Host
                 viewObject.AddComponent<EnemyAnimatorDriver>();
             }
 
+            AttachPrimitiveVisual(view, entity);
+            return view;
+        }
+
+        private static void ResetViewTransform(GameplayEntityView view, int entityId)
+        {
+            view.name = $"EntityView_{entityId}";
+            view.transform.localPosition = Vector3.zero;
+            view.transform.localRotation = Quaternion.identity;
+            view.transform.localScale = Vector3.one;
+            view.Initialize(entityId);
+        }
+
+        private void EnsureRenderableVisual(GameplayEntityView view, in EntityState entity)
+        {
+            if (view == null ||
+                view.GetComponentInChildren<Renderer>(includeInactive: true) != null)
+            {
+                return;
+            }
+
+            AttachPrimitiveVisual(view, entity);
+        }
+
+        private void AttachPrimitiveVisual(GameplayEntityView view, in EntityState entity)
+        {
             var visualProfile = GameplayEntityVisualProfile.Create(entity.type, _cellSize);
             view.ConfigureModelRoot(visualProfile.ModelLocalPosition, visualProfile.ModelLocalRotation);
 
@@ -106,11 +170,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 renderer.sharedMaterial = ResolveMaterial(entity);
             }
-
-            return view;
         }
-
-        public GameplayEntityView PlayerViewPrefab => _playerViewPrefab;
 
         private static Material CreateMaterial(Shader shader, Color color)
         {

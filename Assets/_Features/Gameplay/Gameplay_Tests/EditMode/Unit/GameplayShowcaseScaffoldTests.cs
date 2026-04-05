@@ -197,7 +197,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     playerEntityId: 10,
-                    Array.Empty<EnemyAiProfileOverride>());
+                    Array.Empty<EnemyAiProfileOverride>(),
+                    Array.Empty<EnemyPresentationBinding>());
             }
 
             protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()
@@ -233,15 +234,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseScene_SerializesWindupEnemyTimingAuthoringOverride()
+        public void CombinedGameplayShowcaseScene_SerializesEnemyPresentationCatalogReference()
         {
             var sceneText = ReadNormalizedText(CombinedScenePath);
 
-            StringAssert.Contains("enemyAnimationTimingOverrides:", sceneText);
-            StringAssert.Contains("- EntityId: 52", sceneText);
-            StringAssert.Contains("AttackWindupAnimatorDurationSeconds: 0.35", sceneText);
-            StringAssert.Contains("RecoverAnimatorDurationSeconds: 0.5", sceneText);
-            StringAssert.Contains("StateTransitionCrossFadeDurationSeconds: 0.08", sceneText);
+            StringAssert.Contains("enemyPresentationCatalog:", sceneText);
+            StringAssert.DoesNotContain("enemyAnimationTimingOverrides:", sceneText);
         }
 
         [Test]

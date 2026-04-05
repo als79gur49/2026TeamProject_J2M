@@ -13,6 +13,7 @@ namespace Game.Feature.Stages
             var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
             var initialEntities = BuildInitialEntities(validated);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
+            var enemyPresentationBindings = BuildEnemyPresentationBindings(validated.Spawns);
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
@@ -20,7 +21,8 @@ namespace Game.Feature.Stages
                 initialEntities,
                 TerrainData.Empty,
                 validated.PlayerEntityId,
-                enemyAiProfileOverrides);
+                enemyAiProfileOverrides,
+                enemyPresentationBindings);
         }
 
         private static EntityState[] BuildInitialEntities(StageDefinitionValidator.ValidatedStageData validated)
@@ -63,6 +65,35 @@ namespace Game.Feature.Stages
 
             overrides.Sort(EnemyAiProfileOverrideComparer.Instance);
             return overrides.ToArray();
+        }
+
+        private static EnemyPresentationBinding[] BuildEnemyPresentationBindings(IReadOnlyList<StageSpawnDefinition> spawns)
+        {
+            var bindings = new List<EnemyPresentationBinding>();
+
+            for (var i = 0; i < spawns.Count; i++)
+            {
+                var spawn = spawns[i];
+                if (spawn.Kind != StageSpawnKind.Enemy)
+                {
+                    continue;
+                }
+
+                var presentationId = NormalizePresentationId(spawn.EnemyPresentationId);
+                if (string.IsNullOrEmpty(presentationId))
+                {
+                    continue;
+                }
+
+                bindings.Add(new EnemyPresentationBinding
+                {
+                    EntityId = spawn.EntityId,
+                    PresentationId = presentationId,
+                });
+            }
+
+            bindings.Sort(EnemyPresentationBindingComparer.Instance);
+            return bindings.ToArray();
         }
 
         private static EntityState CreateSpawnEntity(StageSpawnDefinition spawn)
@@ -126,6 +157,13 @@ namespace Game.Feature.Stages
                 : fallbackFacing;
         }
 
+        private static string NormalizePresentationId(string presentationId)
+        {
+            return string.IsNullOrWhiteSpace(presentationId)
+                ? string.Empty
+                : presentationId.Trim();
+        }
+
         private static EntityState CreateWall(int entityId, SurfaceCell position, int hp = 1)
         {
             return new EntityState
@@ -156,6 +194,16 @@ namespace Game.Feature.Stages
             public static readonly EnemyAiProfileOverrideComparer Instance = new();
 
             public int Compare(EnemyAiProfileOverride left, EnemyAiProfileOverride right)
+            {
+                return left.EntityId.CompareTo(right.EntityId);
+            }
+        }
+
+        private sealed class EnemyPresentationBindingComparer : IComparer<EnemyPresentationBinding>
+        {
+            public static readonly EnemyPresentationBindingComparer Instance = new();
+
+            public int Compare(EnemyPresentationBinding left, EnemyPresentationBinding right)
             {
                 return left.EntityId.CompareTo(right.EntityId);
             }

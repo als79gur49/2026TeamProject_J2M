@@ -20,7 +20,8 @@ namespace Game.Feature.Gameplay.Host
                 EntityState[] initialEntities,
                 GameplayTerrainData initialTerrain,
                 int playerEntityId,
-                EnemyAiProfileOverride[] enemyAiProfileOverrides)
+                EnemyAiProfileOverride[] enemyAiProfileOverrides,
+                EnemyPresentationBinding[] enemyPresentationBindings)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
                 PlayerEntityId = playerEntityId;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
+                EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             }
 
             public BoardBounds BoardBounds { get; }
@@ -41,6 +43,8 @@ namespace Game.Feature.Gameplay.Host
             public int PlayerEntityId { get; }
 
             public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
+
+            public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
         }
 
         [SerializeField] private InputActionAsset actions;
@@ -126,6 +130,11 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
+        protected virtual EnemyPresentationCatalog ResolveEnemyPresentationCatalog()
+        {
+            return null;
+        }
+
         protected abstract InitialGameplayState BuildInitialGameplayState();
 
         protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
@@ -173,6 +182,8 @@ namespace Game.Feature.Gameplay.Host
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
+                EnemyPresentationBindings = initialState.EnemyPresentationBindings,
+                EnemyPresentationCatalog = ResolveEnemyPresentationCatalog(),
                 FlipMotionDurationSeconds = flipMotionDurationSeconds,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialMoveDelaySeconds = initialMoveDelaySeconds,

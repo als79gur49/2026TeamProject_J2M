@@ -272,6 +272,132 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHost_Initialize_WithEnemyPresentationBindingButMissingCatalog_Throws()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithEnemyPresentationBindingButMissingCatalog_Throws");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                var exception = Assert.Throws<InvalidOperationException>(
+                    () => host.Initialize(
+                        new GameplaySceneHostConfiguration
+                        {
+                            AutoAdvanceTicks = false,
+                            AutoCreateViews = true,
+                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                            InitialEntities = new[]
+                            {
+                                CreatePlayerEntity(),
+                                CreateEnemyEntity(),
+                            },
+                            InitialTopology = new CubeTopologyState(FaceId.Floor),
+                            PlayerEntityId = 10,
+                            EnemyPresentationBindings = new[]
+                            {
+                                new EnemyPresentationBinding
+                                {
+                                    EntityId = 40,
+                                    PresentationId = "windup_melee_showcase",
+                                },
+                            },
+                        }));
+
+                StringAssert.Contains(nameof(EnemyPresentationCatalog), exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy");
+            var enemyPrefabObject = new GameObject("EnemyPresentationPrefab");
+            var enemyCatalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+
+            try
+            {
+                var enemyPrefabView = enemyPrefabObject.AddComponent<GameplayEntityView>();
+                enemyPrefabObject.AddComponent<Animator>();
+                var timingAuthoring = enemyPrefabObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
+
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    timingAuthoring,
+                    "attackWindupAnimatorDurationSeconds",
+                    0.35f);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    timingAuthoring,
+                    "recoverAnimatorDurationSeconds",
+                    0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    timingAuthoring,
+                    "stateTransitionCrossFadeDurationSeconds",
+                    0.08f);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    enemyCatalog,
+                    "entries",
+                    new[]
+                    {
+                        new EnemyPresentationCatalogEntry
+                        {
+                            PresentationId = "windup_melee_showcase",
+                            ViewPrefab = enemyPrefabView,
+                        },
+                    });
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreatePlayerEntity(),
+                            CreateEnemyEntity(entityId: 40, position: new SurfaceCell(FaceId.Floor, 1, 0)),
+                            CreateEnemyEntity(entityId: 41, position: new SurfaceCell(FaceId.Floor, 2, 0)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        EnemyPresentationCatalog = enemyCatalog,
+                        EnemyPresentationBindings = new[]
+                        {
+                            new EnemyPresentationBinding
+                            {
+                                EntityId = 40,
+                                PresentationId = "windup_melee_showcase",
+                            },
+                        },
+                    });
+
+                Assert.That(host.ViewRegistry.TryGetView(40, out var boundEnemyView), Is.True);
+                Assert.That(boundEnemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(boundEnemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Not.Null);
+                Assert.That(boundEnemyView.GetComponent<Animator>(), Is.Not.Null);
+
+                var boundTiming = boundEnemyView.GetComponent<EnemyAnimationTimingAuthoring>().CreateSnapshot();
+                Assert.That(boundTiming.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
+                Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+
+                Assert.That(host.ViewRegistry.TryGetView(41, out var fallbackEnemyView), Is.True);
+                Assert.That(fallbackEnemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(fallbackEnemyView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(enemyCatalog);
+                UnityEngine.Object.DestroyImmediate(enemyPrefabObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void EnemyAiProfile_SerializedFields_RemainLogicOnlyContract()
         {
             var serializedFieldNames = typeof(EnemyAiProfile)
@@ -316,12 +442,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
-        private static EntityState CreateEnemyEntity()
+        private static EntityState CreateEnemyEntity(
+            int entityId = 40,
+            SurfaceCell? position = null)
         {
             return new EntityState
             {
-                entityId = 40,
-                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                entityId = entityId,
+                position = position ?? new SurfaceCell(FaceId.Floor, 0, 0),
                 hp = 3,
                 maxHp = 3,
                 teamId = 2,
