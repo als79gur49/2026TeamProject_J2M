@@ -46,10 +46,10 @@ namespace Game.Feature.Gameplay.Host
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
-            var timingProfile = configuration.CreateTimingProfile();
+            var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
-            var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, timingProfile);
+            var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, generalTimingProfile);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 normalizedInitialEntities,
@@ -69,7 +69,8 @@ namespace Game.Feature.Gameplay.Host
                 worldState,
                 BuildStaticEntityLogics(configuration, playerControlTiming),
                 inputBuffer,
-                timingProfile,
+                generalTimingProfile,
+                playerControlTiming,
                 startTickIndex: 1);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
@@ -92,7 +93,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialBoardBounds,
                 configuration.InitialTopology,
                 configuration.CellSize,
-                timingProfile,
+                generalTimingProfile,
                 boardRoot,
                 boardSurfaceRenderer,
                 configuration.TopologyRotationVisualMapping);
@@ -117,7 +118,7 @@ namespace Game.Feature.Gameplay.Host
                 tickRunner,
                 presenter,
                 configuration.Actions,
-                timingProfile,
+                generalTimingProfile,
                 configuration.MoveDeadzone,
                 configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks);
@@ -128,7 +129,7 @@ namespace Game.Feature.Gameplay.Host
                 inputBuffer,
                 inputHost,
                 presenter,
-                timingProfile,
+                generalTimingProfile,
                 tickRunner,
                 viewRegistry,
                 viewCameraTarget,

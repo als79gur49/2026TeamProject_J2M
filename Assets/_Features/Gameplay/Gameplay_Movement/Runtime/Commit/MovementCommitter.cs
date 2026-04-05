@@ -16,15 +16,16 @@ namespace Game.Feature.Gameplay.Movement.Commit
         private const int ProjectileImpactDamageAmount = 1;
         private readonly int _playerMoveCooldownTicks;
 
-        public MovementCommitter()
-            : this(GameplayTimingProfile.CreateDefault())
+        public MovementCommitter(PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
         {
-        }
+            if (playerControlTiming.MoveCooldownTicks < 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(playerControlTiming),
+                    "Player move cooldown ticks must be zero or greater.");
+            }
 
-        public MovementCommitter(GameplayTimingProfile timingProfile)
-        {
-            var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
-            _playerMoveCooldownTicks = resolvedTimingProfile.PlayerMoveCooldownTicks;
+            _playerMoveCooldownTicks = playerControlTiming.MoveCooldownTicks;
         }
 
         public void Commit(

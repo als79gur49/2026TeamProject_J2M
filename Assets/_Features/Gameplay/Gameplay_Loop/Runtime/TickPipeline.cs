@@ -49,20 +49,9 @@ namespace Game.Feature.Gameplay.Loop
         public TickPipeline(
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
-            ISnapshotEntityLogicProvider entityLogicProvider)
-            : this(
-                worldState,
-                entityLogics,
-                entityLogicProvider,
-                GameplayTimingProfile.CreateDefault())
-        {
-        }
-
-        internal TickPipeline(
-            WorldState worldState,
-            IEnumerable<IEntityLogic> entityLogics,
             ISnapshotEntityLogicProvider entityLogicProvider,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile generalTimingProfile,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -74,10 +63,10 @@ namespace Game.Feature.Gameplay.Loop
             _entityLogicProvider = entityLogicProvider ?? throw new ArgumentNullException(nameof(entityLogicProvider));
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
-            var resolvedTimingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
-            _movementExpander = new MovementExpander(resolvedTimingProfile);
-            _movementCommitter = new MovementCommitter(resolvedTimingProfile);
-            _attackExpander = new AttackExpander(resolvedTimingProfile);
+            var resolvedGeneralTimingProfile = generalTimingProfile ?? throw new ArgumentNullException(nameof(generalTimingProfile));
+            _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
+            _movementCommitter = new MovementCommitter(playerControlTiming);
+            _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
         }
 
         public TickResult RunTick(in TickInput input)

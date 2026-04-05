@@ -77,44 +77,12 @@ namespace Game.Feature.Gameplay.Loop
             float repeatedMoveIntervalSeconds,
             float boxSlideStepIntervalSeconds,
             float projectileStepIntervalSeconds,
-            float pushMotionDurationSeconds,
-            float topologyMotionDurationSeconds,
-            float flipMotionDurationSeconds,
-            float flipArcHeightInCells,
-            int maxTicksPerFrame,
-            float playerMoveCooldownSeconds = -1f,
-            float playerPushContactThresholdSeconds = -1f)
-            : this(
-                simulationTicksPerSecond,
-                initialMoveDelaySeconds,
-                repeatedMoveIntervalSeconds,
-                boxSlideStepIntervalSeconds,
-                projectileStepIntervalSeconds,
-                pushMotionDurationSeconds,
-                pushMotionDurationSeconds,
-                topologyMotionDurationSeconds,
-                flipMotionDurationSeconds,
-                flipArcHeightInCells,
-                maxTicksPerFrame,
-                playerMoveCooldownSeconds,
-                playerPushContactThresholdSeconds)
-        {
-        }
-
-        public GameplayTimingProfile(
-            int simulationTicksPerSecond,
-            float initialMoveDelaySeconds,
-            float repeatedMoveIntervalSeconds,
-            float boxSlideStepIntervalSeconds,
-            float projectileStepIntervalSeconds,
             float moveMotionDurationSeconds,
             float pushMotionDurationSeconds,
             float topologyMotionDurationSeconds,
             float flipMotionDurationSeconds,
             float flipArcHeightInCells,
-            int maxTicksPerFrame,
-            float playerMoveCooldownSeconds = -1f,
-            float playerPushContactThresholdSeconds = -1f)
+            int maxTicksPerFrame)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -209,14 +177,6 @@ namespace Game.Feature.Gameplay.Loop
             RepeatedMoveIntervalTicks = SecondsToTicks(repeatedMoveIntervalSeconds, simulationTicksPerSecond);
             BoxSlideStepIntervalTicks = SecondsToTicks(boxSlideStepIntervalSeconds, simulationTicksPerSecond);
             ProjectileStepIntervalTicks = SecondsToTicks(projectileStepIntervalSeconds, simulationTicksPerSecond);
-            PlayerMoveCooldownSeconds = playerMoveCooldownSeconds >= 0f
-                ? playerMoveCooldownSeconds
-                : repeatedMoveIntervalSeconds;
-            PlayerPushContactThresholdSeconds = playerPushContactThresholdSeconds >= 0f
-                ? playerPushContactThresholdSeconds
-                : DefaultPlayerPushContactThresholdSeconds;
-            PlayerMoveCooldownTicks = SecondsToTicks(PlayerMoveCooldownSeconds, simulationTicksPerSecond, allowZero: true);
-            PlayerPushContactThresholdTicks = SecondsToTicks(PlayerPushContactThresholdSeconds, simulationTicksPerSecond);
         }
 
         public int SimulationTicksPerSecond { get; }
@@ -250,14 +210,6 @@ namespace Game.Feature.Gameplay.Loop
         public int BoxSlideStepIntervalTicks { get; }
 
         public int ProjectileStepIntervalTicks { get; }
-
-        public float PlayerMoveCooldownSeconds { get; }
-
-        public float PlayerPushContactThresholdSeconds { get; }
-
-        public int PlayerMoveCooldownTicks { get; }
-
-        public int PlayerPushContactThresholdTicks { get; }
 
         public static GameplayTimingProfile CreateDefault()
         {

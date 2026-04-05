@@ -63,7 +63,6 @@ namespace Game.Feature.Gameplay.Host
             var moveMotionDurationSeconds = ResolveMoveMotionDurationSeconds(pushMotionDurationSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
-            var playerControlTiming = CreatePlayerControlTimingSnapshot(repeatedMoveIntervalSeconds);
 
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
@@ -80,9 +79,7 @@ namespace Game.Feature.Gameplay.Host
                     : GameplayTimingProfile.DefaultFlipArcHeightInCells,
                 MaxTicksPerFrame > 0
                     ? MaxTicksPerFrame
-                    : GameplayTimingProfile.DefaultMaxTicksPerFrame,
-                playerControlTiming.MoveCooldownSeconds,
-                playerControlTiming.PushContactThresholdSeconds);
+                    : GameplayTimingProfile.DefaultMaxTicksPerFrame);
         }
 
         public PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot()
