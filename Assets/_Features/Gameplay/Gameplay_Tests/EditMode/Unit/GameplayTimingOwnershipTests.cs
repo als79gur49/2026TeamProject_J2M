@@ -292,6 +292,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAnimatorDriver_CrossFadeOverride_SuppressesWindupAndRecoveryTriggerFallbacks()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_CrossFadeOverride_SuppressesWindupAndRecoveryTriggerFallbacks");
+
+            try
+            {
+                rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.4f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.08f);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Attack,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2.5f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(GetPrivateInstanceField<int>(driver, "_windupTriggerDispatchCount"), Is.Zero);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: true,
+                    startedRecoveryThisTick: true,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
+                Assert.That(driver.RecoverySignalCount, Is.EqualTo(1));
+                Assert.That(GetPrivateInstanceField<int>(driver, "_recoveryTriggerDispatchCount"), Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional");
@@ -499,6 +557,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 aiMode = EnemyAiMode.Patrol,
                 aiStateTimer = 0,
             };
+        }
+
+        private static T GetPrivateInstanceField<T>(object target, string fieldName)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}' on {target.GetType().Name}.");
+            return (T)field.GetValue(target);
         }
 
     }

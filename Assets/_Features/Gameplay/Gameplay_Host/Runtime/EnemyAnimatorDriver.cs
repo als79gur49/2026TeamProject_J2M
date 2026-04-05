@@ -86,8 +86,10 @@ namespace Game.Feature.Gameplay.Host
             if (state.StartedWindupThisTick)
             {
                 WindupSignalCount++;
-                TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup);
-                DispatchWindupTrigger(targetAnimator);
+                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Windup))
+                {
+                    DispatchWindupTrigger(targetAnimator);
+                }
             }
 
             if (state.ExecutedThisTick)
@@ -99,8 +101,10 @@ namespace Game.Feature.Gameplay.Host
             if (state.StartedRecoveryThisTick)
             {
                 RecoverySignalCount++;
-                TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Recovery);
-                DispatchRecoveryTrigger(targetAnimator);
+                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.Recovery))
+                {
+                    DispatchRecoveryTrigger(targetAnimator);
+                }
             }
 
             if (state.TookDamage)
