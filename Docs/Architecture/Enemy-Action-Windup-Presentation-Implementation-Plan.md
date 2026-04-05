@@ -156,14 +156,14 @@ public struct EnemyAttackTimingSettings
 
 주의:
 
-- `recoverTicks`는 계속 기존 authoritative source를 유지한다.
+- `recover` gameplay timing은 runtime normalization 이후에도 tick authoritative를 유지한다.
 - animation tuning field는 여기에 넣지 않는다.
 
 진행 상태:
 
 - 2026-04-04 구현 완료
 - `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiConfig.cs`에 `EnemyAttackTimingSettings`를 추가하고 `EnemyAiRuntimeDefinition`이 해당 값을 검증 및 보관하도록 연결했다.
-- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiProfile.cs` serialized surface에 `attackTimingSettings`를 추가해 profile이 logic-only wind-up tick을 runtime definition으로 전달하도록 반영했다.
+- `Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyAiProfile.cs` serialized surface에 `attackTimingSettings`를 추가해 profile이 logic-only wind-up timing authoring을 runtime definition으로 전달하도록 반영했다.
 - 기존 구형 `EnemyAiConfig` 경로는 wind-up 기본값 `0`을 유지하도록 맞춰 default melee profile의 즉시 공격 동작이 깨지지 않게 했다.
 - `GameplayTimingOwnershipTests`, `EnemyLogicTests`에 serialized contract, default `0`, custom wind-up 전달, 음수 validation 회귀 테스트를 추가했다.
 - 검증은 Unity `6000.3.11f1` batchmode script compilation 성공 로그 기준으로 확인했다. CLI `-runTests`는 현재 환경에서 결과 XML을 남기지 않아 새 테스트 실행 결과는 후속 확인이 필요하다.
@@ -449,7 +449,7 @@ public readonly struct TickEnemyActionPresentationSignal
 진행 상태:
 
 - 2026-04-05 구현 완료
-- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyAi_WindupMelee.asset`를 추가해 기본 melee resolver에 `attackTimingSettings.windupTicks = 2`를 주는 showcase 전용 wind-up profile을 만들었다.
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyAi_WindupMelee.asset`를 추가해 기본 melee resolver에 `attackTimingSettings.windupSeconds = 2 / 60`를 주는 showcase 전용 wind-up profile을 만들었다.
 - `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52` floor striker를 `(Floor, 2, 2)`에 추가해 기존 charger lane을 막지 않으면서 시작 구역 근처에서 wind-up -> execute -> recover presentation을 볼 수 있게 했다.
 - `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 floor striker용 serialized `enemyAnimationTimingOverrides`와 showcase 전용 wrapper view factory를 추가해 실제 scene runtime path에서 `EnemyAnimationTimingAuthoring`와 fallback `Animator`가 연결되도록 확장했고, overlay highlight에도 tuned wind-up / recover timing 의도를 반영했다.
 - `Assets/Scenes/CombinedGameplayShowcase.unity`는 `entityId 52`용 `0.35s / 0.5s / 0.08s` timing override를 serialize하도록 갱신돼 scene asset 자체가 showcase authoring 연결 상태를 보존한다.

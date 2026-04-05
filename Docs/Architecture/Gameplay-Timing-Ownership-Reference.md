@@ -169,7 +169,7 @@ logic execute 시점을 바꾸면 안 된다.
 
 | 값 의미 | 목표 canonical owner | 금지 위치 |
 | --- | --- | --- |
-| `recoverTicks`, detection range, attack cadence 같은 AI 규칙 | `EnemyAiProfile` | `EnemyAnimatorDriver` |
+| `recoverSeconds`/`windupSeconds` authoring, detection range, attack cadence 같은 AI 규칙 | `EnemyAiProfile` | `EnemyAnimatorDriver` |
 | attack / hit / death trigger, state name, clip tuning | `EnemyAnimatorDriver` 또는 미래 `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
 | enemy별 animation duration override | 미래 `EnemyAnimationTimingAuthoring` | `EnemyAiProfile` |
 
