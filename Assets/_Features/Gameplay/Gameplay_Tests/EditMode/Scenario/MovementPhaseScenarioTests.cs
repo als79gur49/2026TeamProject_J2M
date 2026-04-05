@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
 using Game.Feature.Gameplay.Movement.Sorting;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -305,7 +306,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateImmediatePushPlayerLogic(10),
                 },
-                timingProfile);
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 6);
@@ -348,7 +350,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     CreateImmediatePushPlayerLogic(10),
                 },
-                timingProfile);
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
@@ -1829,7 +1832,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             new MovementResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
-            new MovementCommitter().Commit(
+            new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot()).Commit(
                 snapshot,
                 sortedIntents,
                 input.TickIndex,
@@ -1847,6 +1850,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     commitEvents,
                     rejectedReasons),
                 CreateSnapshot(worldState));
+        }
+
+        private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot(
+            GameplayTimingProfile timingProfile = null)
+        {
+            var generalTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                generalTimingProfile.SimulationTicksPerSecond,
+                generalTimingProfile.RepeatedMoveIntervalSeconds);
         }
 
         private static EntityState CreateUnit(int entityId, Vector2Int position, int hp = 3, int teamId = 1, Direction facing = Direction.Right)

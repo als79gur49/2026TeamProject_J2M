@@ -16,6 +16,7 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Model.Sorting;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Movement.Collection;
@@ -511,7 +512,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[] { logic },
-                timingProfile);
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
             logic.SetTickIndex(1);
             var firstResult = pipeline.RunTick(new TickInput(1));
@@ -579,7 +581,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
-                timingProfile);
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
             var firstResult = pipeline.RunTick(new TickInput(1));
             var snapshotAfterFirstTick = CreateSnapshot(worldState);
@@ -639,7 +642,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
-                timingProfile);
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
             var firstResult = pipeline.RunTick(new TickInput(1));
             Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
@@ -1281,6 +1285,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(createSnapshotMethod, Is.Not.Null);
 
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
+        }
+
+        private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot(
+            GameplayTimingProfile timingProfile = null)
+        {
+            var generalTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                generalTimingProfile.SimulationTicksPerSecond,
+                generalTimingProfile.RepeatedMoveIntervalSeconds);
         }
 
         private static GameplayTimingProfile CreateTimingProfile(

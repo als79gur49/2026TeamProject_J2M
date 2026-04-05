@@ -17,6 +17,7 @@ using Game.Feature.Gameplay.Model.Sorting;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -157,7 +158,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 worldState,
                 new IEntityLogic[] { },
                 new StubEntityLogicProvider(
-                    new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), null)));
+                    new StubEntityLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0)), null)),
+                GameplayTimingProfile.CreateDefault(),
+                CreateDefaultPlayerControlTimingSnapshot());
 
             var result = pipeline.RunTick(new TickInput(3));
 
@@ -382,7 +385,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 Array.Empty<IEntityLogic>(),
-                GameplayTimingProfile.CreateDefault());
+                GameplayTimingProfile.CreateDefault(),
+                CreateDefaultPlayerControlTimingSnapshot());
 
             var result = pipeline.RunTick(new TickInput(1));
 
@@ -1482,6 +1486,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static PlayerControlTimingAuthoritativeSnapshot CreateDefaultPlayerControlTimingSnapshot()
+        {
+            var generalTimingProfile = GameplayTimingProfile.CreateDefault();
+            return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                generalTimingProfile.SimulationTicksPerSecond,
+                generalTimingProfile.RepeatedMoveIntervalSeconds);
         }
 
         private static WorldState CreateWorldState(

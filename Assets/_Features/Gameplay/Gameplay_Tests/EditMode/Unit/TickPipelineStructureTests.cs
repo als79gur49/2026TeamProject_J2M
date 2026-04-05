@@ -11,6 +11,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement.Commit;
 using Game.Feature.Gameplay.Movement.Collection;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 
@@ -242,6 +243,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     typeof(WorldState),
                     typeof(IEnumerable<IEntityLogic>),
                     typeof(ISnapshotEntityLogicProvider),
+                    typeof(GameplayTimingProfile),
+                    typeof(PlayerControlTimingAuthoritativeSnapshot),
                 });
 
             Assert.That(constructor, Is.Not.Null);
@@ -262,6 +265,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     typeof(WorldState),
                     typeof(IEnumerable<IEntityLogic>),
                     typeof(ISnapshotEntityLogicProvider),
+                    typeof(GameplayTimingProfile),
+                    typeof(PlayerControlTimingAuthoritativeSnapshot),
                 },
                 constructors[0]);
         }
@@ -343,6 +348,149 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void MovementCommitter_ConsumesCanonicalPlayerControlTimingSnapshot()
+        {
+            var constructors = typeof(MovementCommitter)
+                .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            Assert.That(
+                constructors.Any(constructor =>
+                    HasParameterTypes(
+                        constructor,
+                        typeof(PlayerControlTimingAuthoritativeSnapshot))),
+                Is.True);
+            Assert.That(
+                constructors.Any(constructor =>
+                    HasParameterTypes(
+                        constructor,
+                        typeof(GameplayTimingProfile))),
+                Is.False);
+            Assert.That(
+                constructors.Any(constructor => HasParameterTypes(constructor)),
+                Is.False);
+        }
+
+        [Test]
+        public void GameplayCompositionRoot_AndBootstrapper_ExposeExplicitGeneralAndPlayerTimingOverloads()
+        {
+            var compositionRootPipelineFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(GameplayTimingProfile),
+                    typeof(PlayerControlTimingAuthoritativeSnapshot),
+                },
+                modifiers: null);
+            var compositionRootRunnerFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickRunner),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(TickInputBuffer),
+                    typeof(GameplayTimingProfile),
+                    typeof(PlayerControlTimingAuthoritativeSnapshot),
+                    typeof(int),
+                },
+                modifiers: null);
+            var bootstrapperPipelineFactory = typeof(GameplayBootstrapper).GetMethod(
+                nameof(GameplayBootstrapper.CreateTickPipeline),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(GameplayTimingProfile),
+                    typeof(PlayerControlTimingAuthoritativeSnapshot),
+                },
+                modifiers: null);
+            var bootstrapperRunnerFactory = typeof(GameplayBootstrapper).GetMethod(
+                nameof(GameplayBootstrapper.CreateTickRunner),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(TickInputBuffer),
+                    typeof(GameplayTimingProfile),
+                    typeof(PlayerControlTimingAuthoritativeSnapshot),
+                    typeof(int),
+                },
+                modifiers: null);
+
+            Assert.That(compositionRootPipelineFactory, Is.Not.Null);
+            Assert.That(compositionRootRunnerFactory, Is.Not.Null);
+            Assert.That(bootstrapperPipelineFactory, Is.Not.Null);
+            Assert.That(bootstrapperRunnerFactory, Is.Not.Null);
+        }
+
+        [Test]
+        public void GameplayCompositionRoot_AndBootstrapper_DoNotExposeGeneralTimingOnlyOverloads()
+        {
+            var compositionRootPipelineFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickPipeline),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(GameplayTimingProfile),
+                },
+                modifiers: null);
+            var compositionRootRunnerFactory = typeof(GameplayCompositionRoot).GetMethod(
+                nameof(GameplayCompositionRoot.CreateTickRunner),
+                BindingFlags.Static | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(TickInputBuffer),
+                    typeof(GameplayTimingProfile),
+                    typeof(int),
+                },
+                modifiers: null);
+            var bootstrapperPipelineFactory = typeof(GameplayBootstrapper).GetMethod(
+                nameof(GameplayBootstrapper.CreateTickPipeline),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(GameplayTimingProfile),
+                },
+                modifiers: null);
+            var bootstrapperRunnerFactory = typeof(GameplayBootstrapper).GetMethod(
+                nameof(GameplayBootstrapper.CreateTickRunner),
+                BindingFlags.Instance | BindingFlags.Public,
+                binder: null,
+                types: new[]
+                {
+                    typeof(WorldState),
+                    typeof(IEnumerable<IEntityLogic>),
+                    typeof(TickInputBuffer),
+                    typeof(GameplayTimingProfile),
+                    typeof(int),
+                },
+                modifiers: null);
+
+            Assert.That(compositionRootPipelineFactory, Is.Null);
+            Assert.That(compositionRootRunnerFactory, Is.Null);
+            Assert.That(bootstrapperPipelineFactory, Is.Null);
+            Assert.That(bootstrapperRunnerFactory, Is.Null);
+        }
+
+        [Test]
         public void IEntityLogic_IsMarkerInterface()
         {
             var methods = typeof(IEntityLogic)
@@ -384,6 +532,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(movementParameters[0].ParameterType, Is.EqualTo(typeof(WorldSnapshot)));
             Assert.That(movementParameters[1].ParameterType, Is.EqualTo(typeof(TickInput).MakeByRefType()));
             Assert.That(movementParameters[2].ParameterType, Is.EqualTo(typeof(List<RawMovementIntent>)));
+        }
+
+        private static bool HasParameterTypes(
+            MethodBase methodBase,
+            params Type[] parameterTypes)
+        {
+            return methodBase
+                .GetParameters()
+                .Select(parameter => parameter.ParameterType)
+                .SequenceEqual(parameterTypes);
         }
     }
 }

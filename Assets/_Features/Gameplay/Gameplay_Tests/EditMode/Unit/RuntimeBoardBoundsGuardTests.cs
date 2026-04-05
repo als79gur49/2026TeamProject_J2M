@@ -150,10 +150,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.BoxSlideStepIntervalTicks, Is.EqualTo(12));
             Assert.That(profile.ProjectileStepIntervalSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.ProjectileStepIntervalTicks, Is.EqualTo(12));
-            Assert.That(profile.PlayerMoveCooldownSeconds, Is.EqualTo(0.4f));
-            Assert.That(profile.PlayerMoveCooldownTicks, Is.EqualTo(24));
-            Assert.That(profile.PlayerPushContactThresholdSeconds, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds));
-            Assert.That(profile.PlayerPushContactThresholdTicks, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks));
             Assert.That(profile.MoveMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.PushMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.TopologyMotionDurationSeconds, Is.EqualTo(0.2f));
@@ -161,40 +157,54 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplaySceneHostConfiguration_CreateTimingProfile_ChangingSimulationTicksPerSecondPreservesTimeMeaning()
+        public void GameplaySceneHostConfiguration_CreateTimingProfile_ChangingSimulationTicksPerSecondPreservesGeneralTimeMeaning()
         {
             var sixtyTpsProfile = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 60,
-                PlayerControlTiming = new PlayerControlTimingSettings
-                {
-                    PushContactThresholdSeconds = 1f / 30f,
-                },
             }.CreateTimingProfile();
             var oneTwentyTpsProfile = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 120,
-                PlayerControlTiming = new PlayerControlTimingSettings
-                {
-                    PushContactThresholdSeconds = 1f / 30f,
-                },
             }.CreateTimingProfile();
 
             Assert.That(sixtyTpsProfile.RepeatedMoveIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.RepeatedMoveIntervalSeconds));
             Assert.That(sixtyTpsProfile.BoxSlideStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.BoxSlideStepIntervalSeconds));
             Assert.That(sixtyTpsProfile.ProjectileStepIntervalSeconds, Is.EqualTo(oneTwentyTpsProfile.ProjectileStepIntervalSeconds));
-            Assert.That(sixtyTpsProfile.PlayerMoveCooldownSeconds, Is.EqualTo(oneTwentyTpsProfile.PlayerMoveCooldownSeconds));
-            Assert.That(sixtyTpsProfile.PlayerPushContactThresholdSeconds, Is.EqualTo(oneTwentyTpsProfile.PlayerPushContactThresholdSeconds));
             Assert.That(sixtyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(24));
             Assert.That(oneTwentyTpsProfile.RepeatedMoveIntervalTicks, Is.EqualTo(48));
             Assert.That(sixtyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(12));
             Assert.That(oneTwentyTpsProfile.BoxSlideStepIntervalTicks, Is.EqualTo(24));
             Assert.That(sixtyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(12));
             Assert.That(oneTwentyTpsProfile.ProjectileStepIntervalTicks, Is.EqualTo(24));
-            Assert.That(sixtyTpsProfile.PlayerMoveCooldownTicks, Is.EqualTo(24));
-            Assert.That(oneTwentyTpsProfile.PlayerMoveCooldownTicks, Is.EqualTo(48));
-            Assert.That(sixtyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(2));
-            Assert.That(oneTwentyTpsProfile.PlayerPushContactThresholdTicks, Is.EqualTo(4));
+        }
+
+        [Test]
+        public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_ChangingSimulationTicksPerSecondPreservesPlayerTimeMeaning()
+        {
+            var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 60,
+                PlayerControlTiming = new PlayerControlTimingSettings
+                {
+                    PushContactThresholdSeconds = 1f / 30f,
+                },
+            }.CreatePlayerControlTimingSnapshot();
+            var oneTwentyTpsSnapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 120,
+                PlayerControlTiming = new PlayerControlTimingSettings
+                {
+                    PushContactThresholdSeconds = 1f / 30f,
+                },
+            }.CreatePlayerControlTimingSnapshot();
+
+            Assert.That(sixtyTpsSnapshot.MoveCooldownSeconds, Is.EqualTo(oneTwentyTpsSnapshot.MoveCooldownSeconds));
+            Assert.That(sixtyTpsSnapshot.PushContactThresholdSeconds, Is.EqualTo(oneTwentyTpsSnapshot.PushContactThresholdSeconds));
+            Assert.That(sixtyTpsSnapshot.MoveCooldownTicks, Is.EqualTo(24));
+            Assert.That(oneTwentyTpsSnapshot.MoveCooldownTicks, Is.EqualTo(48));
+            Assert.That(sixtyTpsSnapshot.PushContactThresholdTicks, Is.EqualTo(2));
+            Assert.That(oneTwentyTpsSnapshot.PushContactThresholdTicks, Is.EqualTo(4));
         }
 
         [Test]
@@ -228,6 +238,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.FlipInputLockDurationTicks, Is.EqualTo(8));
             Assert.That(snapshot.FlipWindupTicks, Is.Zero);
             Assert.That(snapshot.FlipRecoveryTicks, Is.EqualTo(8));
+        }
+
+        [Test]
+        public void PlayerControlTimingSettings_CreateAuthoritativeSnapshot_PreservesExplicitPlayerTimingValues()
+        {
+            var snapshot = new PlayerControlTimingSettings
+            {
+                MoveCooldownSeconds = 0.3f,
+                PushContactThresholdSeconds = 1f / 24f,
+            }.CreateAuthoritativeSnapshot(
+                simulationTicksPerSecond: 120,
+                repeatedMoveIntervalSeconds: 0.4f);
+
+            Assert.That(snapshot.MoveCooldownSeconds, Is.EqualTo(0.3f));
+            Assert.That(snapshot.MoveCooldownTicks, Is.EqualTo(36));
+            Assert.That(snapshot.PushContactThresholdSeconds, Is.EqualTo(1f / 24f));
+            Assert.That(snapshot.PushContactThresholdTicks, Is.EqualTo(5));
         }
 
         [Test]
@@ -457,6 +484,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             AutoAdvanceTicks = false,
                             AutoCreateViews = false,
                             InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                            RepeatedMoveIntervalSeconds = 1f / 60f,
                             InitialEntities = new[]
                             {
                                 new EntityState
@@ -476,8 +504,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             StaticEntityLogics = Array.Empty<IEntityLogic>(),
                         }));
 
-                Assert.That(host.TimingProfile.PlayerMoveCooldownSeconds, Is.EqualTo(GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds));
-                Assert.That(host.TimingProfile.PlayerPushContactThresholdSeconds, Is.EqualTo(GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds));
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                var firstTick = host.InputHost.RunSingleTick();
+                var secondTick = host.InputHost.RunSingleTick();
+
+                CollectionAssert.AreEqual(
+                    new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
+                    firstTick.MovementPhaseResult.CommitEvents);
+                Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
                 Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
             }
             finally
@@ -2688,6 +2722,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
                     projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.4f,
                     flipMotionDurationSeconds: 0.2f,
@@ -2856,6 +2891,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     repeatedMoveIntervalSeconds: 0.4f,
                     boxSlideStepIntervalSeconds: 0.2f,
                     projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.2f,
                     pushMotionDurationSeconds: 0.2f,
                     topologyMotionDurationSeconds: 0.4f,
                     flipMotionDurationSeconds: 0.2f,

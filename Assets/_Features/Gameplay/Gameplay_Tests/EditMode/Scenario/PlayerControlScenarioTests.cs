@@ -17,7 +17,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         public void PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam()
         {
-            var timingProfile = CreateTimingProfile(playerMoveCooldownTicks: 3);
+            var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerMoveCooldownTicks: 3);
             var worldState = CreateWorldState(
                 new[]
                 {
@@ -30,7 +33,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     new PlayerLogic(10),
                 },
-                timingProfile);
+                timingProfile,
+                playerControlTiming);
 
             var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var secondTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
@@ -302,9 +306,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         public void PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes()
         {
-            var timingProfile = CreateTimingProfile(
-                playerPushContactThresholdTicks: 1);
-            var actionTiming = CreateActionTiming(
+            var timingProfile = CreateTimingProfile();
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerPushContactThresholdTicks: 1,
                 playerPushExecuteDelayTicks: 2,
                 playerPushInputLockDurationTicks: 4);
             var worldState = CreateWorldState(new[]
@@ -319,15 +324,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new PlayerLogic(
+                    CreatePlayerLogic(
                         10,
-                        timingProfile.PlayerPushContactThresholdTicks,
-                        actionTiming.PushWindupTicks,
-                        actionTiming.PushRecoveryTicks,
-                        actionTiming.FlipWindupTicks,
-                        actionTiming.FlipRecoveryTicks),
+                        playerControlTiming),
                 },
-                timingProfile);
+                timingProfile,
+                playerControlTiming);
 
             var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var lockedWindupTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Flip(Direction.Left)));
@@ -372,22 +374,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static GameplayTimingProfile CreateTimingProfile(
             int simulationTicksPerSecond = 60,
-            int playerMoveCooldownTicks = 2,
-            int playerPushContactThresholdTicks = GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks)
+            int repeatedMoveIntervalTicks = 2)
         {
             return new GameplayTimingProfile(
                 simulationTicksPerSecond,
                 initialMoveDelaySeconds: 0f,
-                repeatedMoveIntervalSeconds: 0.4f,
+                repeatedMoveIntervalSeconds: repeatedMoveIntervalTicks / (float)simulationTicksPerSecond,
                 boxSlideStepIntervalSeconds: 0.2f,
                 projectileStepIntervalSeconds: 0.2f,
+                moveMotionDurationSeconds: 0.2f,
                 pushMotionDurationSeconds: 0.2f,
                 topologyMotionDurationSeconds: 0.2f,
                 flipMotionDurationSeconds: 0.2f,
                 flipArcHeightInCells: 0.65f,
-                maxTicksPerFrame: 8,
-                playerMoveCooldownSeconds: playerMoveCooldownTicks / (float)simulationTicksPerSecond,
-                playerPushContactThresholdSeconds: playerPushContactThresholdTicks / (float)simulationTicksPerSecond);
+                maxTicksPerFrame: 8);
         }
 
         private static PlayerLogic CreatePushThresholdPlayerLogic(int entityId)
@@ -401,27 +401,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 flipRecoveryTicks: 0);
         }
 
-        private static (int PushWindupTicks, int PushRecoveryTicks, int FlipWindupTicks, int FlipRecoveryTicks) CreateActionTiming(
+        private static PlayerLogic CreatePlayerLogic(
+            int entityId,
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+        {
+            return new PlayerLogic(
+                entityId,
+                playerControlTiming.PushContactThresholdTicks,
+                playerControlTiming.PushWindupTicks,
+                playerControlTiming.PushRecoveryTicks,
+                playerControlTiming.FlipWindupTicks,
+                playerControlTiming.FlipRecoveryTicks);
+        }
+
+        private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot(
+            GameplayTimingProfile timingProfile,
+            int? playerMoveCooldownTicks = null,
+            int? playerPushContactThresholdTicks = null,
             int playerPushExecuteDelayTicks = 1,
             int playerPushInputLockDurationTicks = 1,
             int playerFlipExecuteDelayTicks = 1,
             int playerFlipInputLockDurationTicks = 1)
         {
-            if (playerPushInputLockDurationTicks < playerPushExecuteDelayTicks)
+            return new PlayerControlTimingSettings
             {
-                throw new System.ArgumentOutOfRangeException(nameof(playerPushInputLockDurationTicks));
-            }
+                MoveCooldownSeconds = ResolveSeconds(
+                    playerMoveCooldownTicks,
+                    timingProfile.SimulationTicksPerSecond),
+                PushContactThresholdSeconds = ResolveSeconds(
+                    playerPushContactThresholdTicks,
+                    timingProfile.SimulationTicksPerSecond),
+                PushExecuteDelaySeconds = playerPushExecuteDelayTicks / (float)timingProfile.SimulationTicksPerSecond,
+                PushInputLockDurationSeconds = playerPushInputLockDurationTicks / (float)timingProfile.SimulationTicksPerSecond,
+                FlipExecuteDelaySeconds = playerFlipExecuteDelayTicks / (float)timingProfile.SimulationTicksPerSecond,
+                FlipInputLockDurationSeconds = playerFlipInputLockDurationTicks / (float)timingProfile.SimulationTicksPerSecond,
+            }.CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+        }
 
-            if (playerFlipInputLockDurationTicks < playerFlipExecuteDelayTicks)
-            {
-                throw new System.ArgumentOutOfRangeException(nameof(playerFlipInputLockDurationTicks));
-            }
-
-            return (
-                playerPushExecuteDelayTicks,
-                playerPushInputLockDurationTicks - playerPushExecuteDelayTicks,
-                playerFlipExecuteDelayTicks,
-                playerFlipInputLockDurationTicks - playerFlipExecuteDelayTicks);
+        private static float ResolveSeconds(
+            int? tickOverride,
+            int simulationTicksPerSecond)
+        {
+            return tickOverride.HasValue
+                ? tickOverride.Value / (float)simulationTicksPerSecond
+                : -1f;
         }
 
         private static EntityState CreateUnit(int entityId, Vector2Int position, Direction facing = Direction.Right)
