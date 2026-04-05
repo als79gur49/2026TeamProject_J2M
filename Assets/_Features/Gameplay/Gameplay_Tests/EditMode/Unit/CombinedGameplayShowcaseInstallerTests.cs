@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
         private const string CombinedEnemyPresentationCatalogAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
         private const string WindupEnemyPresentationId = "windup_melee_showcase";
 
         [Test]

@@ -2,7 +2,7 @@ using System;
 
 namespace Game.Feature.Gameplay.Host
 {
-    internal static class EnemyViewPrefabRequirements
+    public static class EnemyViewPrefabRequirements
     {
         public static EnemyAnimatorDriver GetAnimatorDriver(
             GameplayEntityView enemyViewPrefab,

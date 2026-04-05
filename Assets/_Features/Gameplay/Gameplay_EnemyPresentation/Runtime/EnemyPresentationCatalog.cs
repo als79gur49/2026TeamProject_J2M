@@ -19,7 +19,7 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationCatalogEntry[] Entries => entries ?? Array.Empty<EnemyPresentationCatalogEntry>();
     }
 
-    internal static class EnemyPresentationCatalogResolver
+    public static class EnemyPresentationCatalogResolver
     {
         public static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(
             EnemyPresentationCatalog catalog,

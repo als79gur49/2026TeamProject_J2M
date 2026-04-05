@@ -81,7 +81,7 @@ namespace Game.Feature.Gameplay.Host
             return motionDurationSeconds > 0f;
         }
 
-        internal static EntityMotionPresentationAuthoring GetOptionalValidatedAuthoring(GameplayEntityView entityView)
+        public static EntityMotionPresentationAuthoring GetOptionalValidatedAuthoring(GameplayEntityView entityView)
         {
             if (entityView == null)
             {
