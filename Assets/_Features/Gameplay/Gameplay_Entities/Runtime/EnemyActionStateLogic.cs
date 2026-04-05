@@ -21,7 +21,10 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public EnemyActionStateLogic(int entityId, EnemyAiProfile profile)
-            : this(entityId, (profile ?? throw new ArgumentNullException(nameof(profile))).CreateRuntimeDefinition())
+            : this(
+                entityId,
+                (profile ?? throw new ArgumentNullException(nameof(profile)))
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond))
         {
         }
 
@@ -235,15 +238,15 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyEntityLogicFactory _enemyLogicFactory;
 
         public EnemyActionStateEntityLogicFactory()
-            : this(EnemyAiProfile.CreateRuntimeDefault())
+            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
         {
         }
 
         public EnemyActionStateEntityLogicFactory(
-            EnemyAiProfile defaultProfile,
-            IReadOnlyDictionary<int, EnemyAiProfile> profilesByEntityId = null)
+            EnemyAiRuntimeDefinition defaultDefinition,
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
         {
-            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultProfile, profilesByEntityId);
+            _enemyLogicFactory = new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId);
         }
 
         public bool CanCreate(in EntityState entity)
@@ -253,7 +256,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public IEntityLogic Create(in EntityState entity)
         {
-            return new EnemyActionStateLogic(entity.entityId, _enemyLogicFactory.ResolveProfile(entity));
+            return new EnemyActionStateLogic(entity.entityId, _enemyLogicFactory.ResolveDefinition(entity));
         }
     }
 

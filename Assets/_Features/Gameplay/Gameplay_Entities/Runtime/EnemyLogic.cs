@@ -40,7 +40,10 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public EnemyLogic(int entityId, EnemyAiProfile profile)
-            : this(entityId, (profile ?? throw new ArgumentNullException(nameof(profile))).CreateRuntimeDefinition())
+            : this(
+                entityId,
+                (profile ?? throw new ArgumentNullException(nameof(profile)))
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond))
         {
         }
 

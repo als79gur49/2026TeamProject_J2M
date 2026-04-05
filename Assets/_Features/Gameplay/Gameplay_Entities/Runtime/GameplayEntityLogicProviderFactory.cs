@@ -1,30 +1,31 @@
+using System.Collections.Generic;
+using Game.Feature.Gameplay.Loop;
+
 namespace Game.Feature.Gameplay.Entities
 {
-    using System.Collections.Generic;
-
     public static class GameplayEntityLogicProviderFactory
     {
         public static ISnapshotEntityLogicProvider CreateDefault()
         {
-            return CreateDefault(null);
+            return CreateDefault(EnemyAiRuntimeDefinition.CreateDefaultMelee());
         }
 
         public static ISnapshotEntityLogicProvider CreateDefault(EnemyAiProfile enemyAiProfile)
         {
-            return CreateDefault(enemyAiProfile, null);
+            var defaultDefinition = (enemyAiProfile ?? EnemyAiProfile.CreateRuntimeDefault())
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            return CreateDefault(defaultDefinition);
         }
 
         public static ISnapshotEntityLogicProvider CreateDefault(
-            EnemyAiProfile enemyAiProfile,
-            IReadOnlyDictionary<int, EnemyAiProfile> profilesByEntityId)
+            EnemyAiRuntimeDefinition defaultDefinition,
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
         {
-            var defaultProfile = enemyAiProfile ?? EnemyAiProfile.CreateRuntimeDefault();
-
             return new SnapshotEntityLogicProvider(
                 new IEntityLogicFactory[]
                 {
-                    new EnemyEntityLogicFactory(defaultProfile, profilesByEntityId),
-                    new EnemyActionStateEntityLogicFactory(defaultProfile, profilesByEntityId),
+                    new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId),
+                    new EnemyActionStateEntityLogicFactory(defaultDefinition, definitionsByEntityId),
                     new SlidingBoxEntityLogicFactory(),
                     new ProjectileEntityLogicFactory(),
                 });

@@ -6,20 +6,22 @@ namespace Game.Feature.Gameplay.Entities
 {
     internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory
     {
-        private readonly EnemyAiProfile _defaultProfile;
-        private readonly IReadOnlyDictionary<int, EnemyAiProfile> _profilesByEntityId;
+        private readonly EnemyAiRuntimeDefinition _defaultDefinition;
+        private readonly IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> _definitionsByEntityId;
 
         public EnemyEntityLogicFactory()
-            : this(EnemyAiProfile.CreateRuntimeDefault())
+            : this(EnemyAiRuntimeDefinition.CreateDefaultMelee())
         {
         }
 
         public EnemyEntityLogicFactory(
-            EnemyAiProfile defaultProfile,
-            IReadOnlyDictionary<int, EnemyAiProfile> profilesByEntityId = null)
+            EnemyAiRuntimeDefinition defaultDefinition,
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId = null)
         {
-            _defaultProfile = defaultProfile ?? throw new ArgumentNullException(nameof(defaultProfile));
-            _profilesByEntityId = profilesByEntityId;
+            defaultDefinition.Validate(nameof(defaultDefinition));
+
+            _defaultDefinition = defaultDefinition;
+            _definitionsByEntityId = definitionsByEntityId;
         }
 
         public bool CanCreate(in EntityState entity)
@@ -30,19 +32,19 @@ namespace Game.Feature.Gameplay.Entities
 
         public IEntityLogic Create(in EntityState entity)
         {
-            return new EnemyLogic(entity.entityId, ResolveProfile(entity));
+            return new EnemyLogic(entity.entityId, ResolveDefinition(entity));
         }
 
-        internal EnemyAiProfile ResolveProfile(in EntityState entity)
+        internal EnemyAiRuntimeDefinition ResolveDefinition(in EntityState entity)
         {
-            if (_profilesByEntityId != null &&
-                _profilesByEntityId.TryGetValue(entity.entityId, out var overriddenProfile) &&
-                overriddenProfile != null)
+            if (_definitionsByEntityId != null &&
+                _definitionsByEntityId.TryGetValue(entity.entityId, out var overriddenDefinition))
             {
-                return overriddenProfile;
+                overriddenDefinition.Validate(nameof(overriddenDefinition));
+                return overriddenDefinition;
             }
 
-            return _defaultProfile;
+            return _defaultDefinition;
         }
     }
 }

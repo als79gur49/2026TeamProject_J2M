@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
@@ -71,6 +72,75 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
+    public struct EnemyAiCommonAuthoringSettings
+    {
+        [SerializeField] private int movementPriority;
+        [SerializeField] private int attackPriority;
+        [SerializeField] private float recoverSeconds;
+
+        public EnemyAiCommonAuthoringSettings(
+            int movementPriority,
+            int attackPriority,
+            float recoverSeconds)
+        {
+            this.movementPriority = movementPriority;
+            this.attackPriority = attackPriority;
+            this.recoverSeconds = recoverSeconds;
+        }
+
+        public int MovementPriority => movementPriority;
+
+        public int AttackPriority => attackPriority;
+
+        public float RecoverSeconds => recoverSeconds;
+
+        public void Validate(string paramName)
+        {
+            if (recoverSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy AI common authoring settings require a non-negative recover duration.", paramName);
+            }
+        }
+
+        public EnemyAiCommonSettings ToRuntimeSettings(int simulationTicksPerSecond)
+        {
+            Validate(nameof(EnemyAiCommonAuthoringSettings));
+
+            return new EnemyAiCommonSettings(
+                movementPriority,
+                attackPriority,
+                GameplayTimingProfile.SecondsToTicks(
+                    recoverSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true));
+        }
+
+        public static EnemyAiCommonAuthoringSettings CreateDefaultMelee()
+        {
+            return FromRuntimeSettings(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        public static EnemyAiCommonAuthoringSettings FromRuntimeSettings(
+            EnemyAiCommonSettings runtimeSettings,
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            return new EnemyAiCommonAuthoringSettings(
+                runtimeSettings.MovementPriority,
+                runtimeSettings.AttackPriority,
+                runtimeSettings.RecoverTicks / (float)simulationTicksPerSecond);
+        }
+    }
+
+    [Serializable]
     public struct EnemyAttackTimingSettings
     {
         [SerializeField] private int windupTicks;
@@ -93,6 +163,60 @@ namespace Game.Feature.Gameplay.Entities
         public static EnemyAttackTimingSettings CreateDefaultMelee()
         {
             return new EnemyAttackTimingSettings(windupTicks: 0);
+        }
+    }
+
+    [Serializable]
+    public struct EnemyAttackTimingAuthoringSettings
+    {
+        [SerializeField] private float windupSeconds;
+
+        public EnemyAttackTimingAuthoringSettings(float windupSeconds)
+        {
+            this.windupSeconds = windupSeconds;
+        }
+
+        public float WindupSeconds => windupSeconds;
+
+        public void Validate(string paramName)
+        {
+            if (windupSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy attack timing authoring settings require a non-negative wind-up duration.", paramName);
+            }
+        }
+
+        public EnemyAttackTimingSettings ToRuntimeSettings(int simulationTicksPerSecond)
+        {
+            Validate(nameof(EnemyAttackTimingAuthoringSettings));
+
+            return new EnemyAttackTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(
+                    windupSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true));
+        }
+
+        public static EnemyAttackTimingAuthoringSettings CreateDefaultMelee()
+        {
+            return FromRuntimeSettings(
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        public static EnemyAttackTimingAuthoringSettings FromRuntimeSettings(
+            EnemyAttackTimingSettings runtimeSettings,
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            return new EnemyAttackTimingAuthoringSettings(
+                runtimeSettings.WindupTicks / (float)simulationTicksPerSecond);
         }
     }
 
@@ -181,7 +305,9 @@ namespace Game.Feature.Gameplay.Entities
                 DefaultEnemyAiStateResolver.Instance);
         }
 
-        internal static EnemyAiRuntimeDefinition CreateFromProfile(EnemyAiProfile profile)
+        internal static EnemyAiRuntimeDefinition CreateFromProfile(
+            EnemyAiProfile profile,
+            int simulationTicksPerSecond)
         {
             if (profile == null)
             {
@@ -189,12 +315,12 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return new EnemyAiRuntimeDefinition(
-                profile.CommonSettings,
+                profile.CommonSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 profile.PatrolSettings,
                 profile.DetectionSettings,
                 profile.ChaseSettings,
                 profile.AttackDecisionSettings,
-                profile.AttackTimingSettings,
+                profile.AttackTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 ResolvePatrolStrategy(profile.PatrolStrategyKind),
                 ResolveDetectionStrategy(profile.DetectionStrategyKind),
                 ResolveChaseStrategy(profile.ChaseStrategyKind),

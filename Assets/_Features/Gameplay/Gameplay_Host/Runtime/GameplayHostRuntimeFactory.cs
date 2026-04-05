@@ -48,6 +48,7 @@ namespace Game.Feature.Gameplay.Host
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
+            var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, generalTimingProfile);
 
@@ -63,8 +64,8 @@ namespace Game.Feature.Gameplay.Host
             var inputBuffer = new TickInputBuffer();
             var bootstrapper = new GameplayBootstrapper(
                 GameplayEntityLogicProviderFactory.CreateDefault(
-                    configuration.DefaultEnemyAiProfile,
-                    BuildEnemyAiProfileOverrides(configuration)));
+                    enemyAiRuntime.DefaultDefinition,
+                    enemyAiRuntime.DefinitionsByEntityId));
             var tickRunner = bootstrapper.CreateTickRunner(
                 worldState,
                 BuildStaticEntityLogics(configuration, playerControlTiming),
@@ -137,40 +138,6 @@ namespace Game.Feature.Gameplay.Host
                 viewCamera,
                 viewCameraRig,
                 presentedInitialEntities);
-        }
-
-        private static IReadOnlyDictionary<int, EnemyAiProfile> BuildEnemyAiProfileOverrides(
-            GameplaySceneHostConfiguration configuration)
-        {
-            if (configuration?.EnemyAiProfileOverrides == null ||
-                configuration.EnemyAiProfileOverrides.Length == 0)
-            {
-                return null;
-            }
-
-            var profilesByEntityId = new Dictionary<int, EnemyAiProfile>();
-            for (var i = 0; i < configuration.EnemyAiProfileOverrides.Length; i++)
-            {
-                var overrideEntry = configuration.EnemyAiProfileOverrides[i];
-                if (overrideEntry.EntityId <= 0)
-                {
-                    throw new ArgumentException("Enemy AI profile overrides require a positive entity ID.", nameof(configuration));
-                }
-
-                if (overrideEntry.Profile == null)
-                {
-                    throw new ArgumentException("Enemy AI profile overrides require a non-null profile.", nameof(configuration));
-                }
-
-                if (profilesByEntityId.ContainsKey(overrideEntry.EntityId))
-                {
-                    throw new ArgumentException("Enemy AI profile overrides cannot contain duplicate entity IDs.", nameof(configuration));
-                }
-
-                profilesByEntityId.Add(overrideEntry.EntityId, overrideEntry.Profile);
-            }
-
-            return profilesByEntityId;
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(

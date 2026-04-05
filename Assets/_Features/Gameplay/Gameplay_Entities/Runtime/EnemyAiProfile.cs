@@ -1,21 +1,30 @@
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Entities
 {
     [CreateAssetMenu(menuName = "Gameplay/AI/Enemy AI Profile", fileName = "EnemyAiProfile")]
-    public sealed class EnemyAiProfile : ScriptableObject
+    public sealed class EnemyAiProfile : ScriptableObject, ISerializationCallbackReceiver
     {
+        private const int CurrentSerializedVersion = 1;
+
         [SerializeField] private EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default;
         [SerializeField] private PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward;
         [SerializeField] private DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent;
         [SerializeField] private ChaseStrategyKind chaseStrategyKind = ChaseStrategyKind.AxisPriority;
         [SerializeField] private AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
-        [SerializeField] private EnemyAiCommonSettings commonSettings = new(50, 50, 1);
+        [SerializeField] private EnemyAiCommonAuthoringSettings commonSettings = new(50, 50, 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         [SerializeField] private PatrolSettings patrolSettings = new(PatrolBlockedMovementResponse.Stop);
         [SerializeField] private DetectionSettings detectionSettings = new(8, true, false);
         [SerializeField] private ChaseSettings chaseSettings = new(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak, true);
         [SerializeField] private AttackDecisionSettings attackDecisionSettings = new(1);
-        [SerializeField] private EnemyAttackTimingSettings attackTimingSettings = new(0);
+        [SerializeField] private EnemyAttackTimingAuthoringSettings attackTimingSettings = new(0f);
+        [SerializeField] [HideInInspector] private int serializedVersion = CurrentSerializedVersion;
+        [FormerlySerializedAs("commonSettings")]
+        [SerializeField] [HideInInspector] private EnemyAiCommonSettings legacyCommonSettings = EnemyAiCommonSettings.CreateDefaultMelee();
+        [FormerlySerializedAs("attackTimingSettings")]
+        [SerializeField] [HideInInspector] private EnemyAttackTimingSettings legacyAttackTimingSettings = EnemyAttackTimingSettings.CreateDefaultMelee();
 
         public EnemyAiStateResolverKind StateResolverKind => stateResolverKind;
 
@@ -27,7 +36,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public AttackDecisionStrategyKind AttackDecisionStrategyKind => attackDecisionStrategyKind;
 
-        public EnemyAiCommonSettings CommonSettings => commonSettings;
+        public EnemyAiCommonAuthoringSettings CommonSettings => commonSettings;
 
         public PatrolSettings PatrolSettings => patrolSettings;
 
@@ -37,17 +46,17 @@ namespace Game.Feature.Gameplay.Entities
 
         public AttackDecisionSettings AttackDecisionSettings => attackDecisionSettings;
 
-        public EnemyAttackTimingSettings AttackTimingSettings => attackTimingSettings;
+        public EnemyAttackTimingAuthoringSettings AttackTimingSettings => attackTimingSettings;
 
         public void ResetToDefaultMelee()
         {
             ApplyConfiguration(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
+                EnemyAiCommonAuthoringSettings.CreateDefaultMelee(),
                 PatrolSettings.CreateDefault(),
                 DetectionSettings.CreateDefaultMelee(),
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyAttackTimingAuthoringSettings.CreateDefaultMelee(),
                 EnemyAiStateResolverKind.Default,
                 PatrolStrategyKind.Forward,
                 DetectionStrategyKind.NearestOpponent,
@@ -56,12 +65,12 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public void ApplyConfiguration(
-            EnemyAiCommonSettings commonSettings,
+            EnemyAiCommonAuthoringSettings commonSettings,
             PatrolSettings patrolSettings,
             DetectionSettings detectionSettings,
             ChaseSettings chaseSettings,
             AttackDecisionSettings attackDecisionSettings,
-            EnemyAttackTimingSettings attackTimingSettings = default,
+            EnemyAttackTimingAuthoringSettings attackTimingSettings = default,
             EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default,
             PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward,
             DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent,
@@ -79,11 +88,33 @@ namespace Game.Feature.Gameplay.Entities
             this.detectionStrategyKind = detectionStrategyKind;
             this.chaseStrategyKind = chaseStrategyKind;
             this.attackDecisionStrategyKind = attackDecisionStrategyKind;
+            serializedVersion = CurrentSerializedVersion;
         }
 
-        public EnemyAiRuntimeDefinition CreateRuntimeDefinition()
+        public EnemyAiRuntimeDefinition CreateRuntimeDefinition(int simulationTicksPerSecond)
         {
-            return EnemyAiRuntimeDefinition.CreateFromProfile(this);
+            return EnemyAiRuntimeDefinition.CreateFromProfile(this, simulationTicksPerSecond);
+        }
+
+        public void OnBeforeSerialize()
+        {
+            serializedVersion = CurrentSerializedVersion;
+        }
+
+        public void OnAfterDeserialize()
+        {
+            if (serializedVersion >= CurrentSerializedVersion)
+            {
+                return;
+            }
+
+            commonSettings = EnemyAiCommonAuthoringSettings.FromRuntimeSettings(
+                legacyCommonSettings,
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            attackTimingSettings = EnemyAttackTimingAuthoringSettings.FromRuntimeSettings(
+                legacyAttackTimingSettings,
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            serializedVersion = CurrentSerializedVersion;
         }
 
         public static EnemyAiProfile CreateRuntimeDefault()
@@ -135,17 +166,23 @@ namespace Game.Feature.Gameplay.Entities
             var profile = CreateInstance<EnemyAiProfile>();
             profile.hideFlags = HideFlags.HideAndDontSave;
             profile.ApplyConfiguration(
-                commonSettings,
+                EnemyAiCommonAuthoringSettings.FromRuntimeSettings(
+                    commonSettings,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 patrolSettings,
                 detectionSettings,
                 chaseSettings,
                 attackDecisionSettings,
-                attackTimingSettings,
+                EnemyAttackTimingAuthoringSettings.FromRuntimeSettings(
+                    attackTimingSettings,
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond),
                 stateResolverKind,
                 patrolStrategyKind,
                 detectionStrategyKind,
                 chaseStrategyKind,
                 attackDecisionStrategyKind);
+            profile.legacyCommonSettings = commonSettings;
+            profile.legacyAttackTimingSettings = attackTimingSettings;
             return profile;
         }
     }

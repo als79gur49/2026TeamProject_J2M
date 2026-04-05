@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -9,6 +10,21 @@ using UnityEngine.InputSystem;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public readonly struct EnemyAiRuntimeCollectionSnapshot
+    {
+        public EnemyAiRuntimeCollectionSnapshot(
+            EnemyAiRuntimeDefinition defaultDefinition,
+            IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> definitionsByEntityId)
+        {
+            DefaultDefinition = defaultDefinition;
+            DefinitionsByEntityId = definitionsByEntityId;
+        }
+
+        public EnemyAiRuntimeDefinition DefaultDefinition { get; }
+
+        public IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> DefinitionsByEntityId { get; }
+    }
+
     public enum TopologyRotationVisualMapping
     {
         ForwardUsesNegativeX = 0,
@@ -87,6 +103,13 @@ namespace Game.Feature.Gameplay.Host
             return CreatePlayerControlTimingSnapshot(ResolveRepeatedMoveIntervalSeconds());
         }
 
+        public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
+        {
+            return new EnemyAiRuntimeCollectionSnapshot(
+                ResolveDefaultEnemyAiProfile().CreateRuntimeDefinition(SimulationTicksPerSecond),
+                CreateEnemyAiDefinitionOverrides());
+        }
+
         private float ResolveInitialMoveDelaySeconds()
         {
             return InitialMoveDelaySeconds >= 0f
@@ -151,9 +174,51 @@ namespace Game.Feature.Gameplay.Host
                 repeatedMoveIntervalSeconds);
         }
 
+        private EnemyAiProfile ResolveDefaultEnemyAiProfile()
+        {
+            return DefaultEnemyAiProfile != null
+                ? DefaultEnemyAiProfile
+                : EnemyAiProfile.CreateRuntimeDefault();
+        }
+
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
         {
             return PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+        }
+
+        private IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> CreateEnemyAiDefinitionOverrides()
+        {
+            if (EnemyAiProfileOverrides == null ||
+                EnemyAiProfileOverrides.Length == 0)
+            {
+                return null;
+            }
+
+            var definitionsByEntityId = new Dictionary<int, EnemyAiRuntimeDefinition>();
+            for (var i = 0; i < EnemyAiProfileOverrides.Length; i++)
+            {
+                var overrideEntry = EnemyAiProfileOverrides[i];
+                if (overrideEntry.EntityId <= 0)
+                {
+                    throw new ArgumentException("Enemy AI profile overrides require a positive entity ID.", nameof(EnemyAiProfileOverrides));
+                }
+
+                if (overrideEntry.Profile == null)
+                {
+                    throw new ArgumentException("Enemy AI profile overrides require a non-null profile.", nameof(EnemyAiProfileOverrides));
+                }
+
+                if (definitionsByEntityId.ContainsKey(overrideEntry.EntityId))
+                {
+                    throw new ArgumentException("Enemy AI profile overrides cannot contain duplicate entity IDs.", nameof(EnemyAiProfileOverrides));
+                }
+
+                definitionsByEntityId.Add(
+                    overrideEntry.EntityId,
+                    overrideEntry.Profile.CreateRuntimeDefinition(SimulationTicksPerSecond));
+            }
+
+            return definitionsByEntityId;
         }
     }
 }
