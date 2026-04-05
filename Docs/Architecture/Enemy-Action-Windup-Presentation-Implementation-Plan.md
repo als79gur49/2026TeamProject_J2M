@@ -541,7 +541,161 @@ public readonly struct TickEnemyActionPresentationSignal
 - cast start / cast release trigger: `TickEnemyActionPresentationSignal`
 - cast clip speed override: `EnemyAnimationTimingAuthoring`
 
-## 10. 최종 결론
+## 10. `EnemyPresentationCatalog` 기반 presentation composition 재설계
+
+현재 3차 PR의 showcase 연결은 `CombinedGameplayShowcaseInstaller`가 `entityId 52`에만 `EnemyAnimationTimingAuthoring`를 붙이는 scene-local composition 방식이다.
+
+이 방식은 showcase 검증에는 충분하지만, 장기적으로 enemy 종류가 늘고 scene / theme별 view 교체 요구가 생기면 다음 문제가 생긴다.
+
+- stage gameplay data가 어떤 enemy prefab을 써야 하는지까지 떠안게 된다.
+- scene installer가 entity ID 기준 hardcoded presentation hookup을 계속 관리해야 한다.
+- 같은 `EnemyAiProfile`을 서로 다른 visual / prefab / timing authoring으로 재사용하기 어렵다.
+
+장기적으로는 `EnemyArchetype`보다 `EnemyPresentationCatalog`를 우선 도입하는 편이 현재 구조와 더 잘 맞는다.
+
+이유:
+
+- 현재 구조는 `EnemyAiProfile`을 logic authority로 유지하는 방향이 명확하다.
+- stage는 gameplay 배치와 logic 규칙만 authoring하고, scene / host가 presentation을 조립하는 계층 분리가 더 자연스럽다.
+- 같은 stage를 다른 showcase / theme scene에서 재사용하면서 presentation만 교체하기 쉽다.
+
+핵심 원칙:
+
+- `EnemyAiProfile`은 계속 logic-only authoritative config다.
+- `EnemyActionRuntimeState`는 계속 per-instance authoritative runtime state다.
+- `EnemyPresentationCatalog`는 non-authoritative presentation registry다.
+- enemy prefab root의 `EnemyAnimationTimingAuthoring`와 `EnemyAnimatorDriver`는 presentation 초기값과 animator hookup만 담당한다.
+
+권장 데이터 구조:
+
+```csharp
+[Serializable]
+public struct EnemyPresentationBinding
+{
+    public int EntityId;
+    public string PresentationId;
+}
+
+[Serializable]
+public struct EnemyPresentationCatalogEntry
+{
+    public string PresentationId;
+    public GameplayEntityView ViewPrefab;
+}
+
+[CreateAssetMenu(menuName = "Gameplay/Presentation/Enemy Presentation Catalog")]
+public sealed class EnemyPresentationCatalog : ScriptableObject
+{
+    [SerializeField] private EnemyPresentationCatalogEntry[] entries;
+}
+```
+
+이 설계에서 `PresentationId`는 stage runtime이 host로 넘기는 lightweight key이고, prefab / animator / timing authoring의 실제 참조는 catalog가 가진다.
+
+enemy prefab root 권장 구성:
+
+- `GameplayEntityView`
+- `EnemyAnimatorDriver`
+- optional `EnemyAnimationTimingAuthoring`
+- optional `EntityMotionPresentationAuthoring`
+- optional child `Animator`
+
+이때 `EnemyAnimationTimingAuthoring`는 prefab에 직렬화된 wind-up / recover / crossfade 기본값을 제공하고, gameplay authority는 계속 `EnemyAiProfile` / `EnemyActionRuntimeState`에 남는다.
+
+파일별 권장 수정안:
+
+1. `Assets/_Features/Stages/Runtime/StageDefinition.cs`
+- `StageSpawnDefinition`의 enemy authoring surface에 `string EnemyPresentationId`를 추가한다.
+- `EnemyAiProfile` 필드는 유지한다.
+- 의미는 `Kind == Enemy`일 때만 유효하고, 빈 값이면 fallback primitive enemy view를 사용한다.
+
+2. `Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs`
+- `BuildEnemyAiProfileOverrides(...)`와 별도로 `BuildEnemyPresentationBindings(...)`를 추가한다.
+- stage builder는 `PresentationId`만 수집해 `EntityId -> PresentationId` binding을 만든다.
+- stage builder는 catalog asset이나 prefab 참조를 직접 알지 않는다.
+
+3. `Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs`
+- `EnemyPresentationBinding[] EnemyPresentationBindings`를 추가한다.
+- 기존 `EnemyAiProfileOverrides`와 병렬로 runtime host에 전달한다.
+
+4. `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`
+- `InitialGameplayState`에 `EnemyPresentationBindings`를 추가한다.
+- `protected virtual EnemyPresentationCatalog ResolveEnemyPresentationCatalog()`를 추가한다.
+- `CreateConfiguration(...)`가 stage runtime binding과 scene-level catalog를 함께 host configuration으로 전달하도록 확장한다.
+
+5. `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs`
+- `EnemyPresentationCatalog EnemyPresentationCatalog`
+- `EnemyPresentationBinding[] EnemyPresentationBindings`
+- 위 두 필드를 추가한다.
+- 이 필드들은 logic timing profile 계산과 분리된 presentation composition surface로 취급한다.
+
+6. `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs`
+- `BuildEnemyAiProfileOverrides(...)`와 동일한 패턴으로 `BuildEnemyViewPrefabs(...)`를 추가한다.
+- `EnemyPresentationBindings`를 `EnemyPresentationCatalog`로 해석해 `IReadOnlyDictionary<int, GameplayEntityView>`를 만든다.
+- binding이 있는데 catalog가 없거나 `PresentationId`를 찾지 못하면 fail-fast한다.
+- binding이 없으면 기존 primitive fallback 경로를 유지한다.
+
+7. `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`
+- ctor에 `IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null`을 추가한다.
+- enemy unit 생성 시 먼저 prefab dictionary를 조회한다.
+- prefab이 있으면 instantiate 후 `Initialize(entity.entityId)`를 호출한다.
+- prefab이 없으면 기존 cube + `EnemyAnimatorDriver` fallback을 유지한다.
+
+8. 신규 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyViewPrefabRequirements.cs`
+- enemy prefab validation helper를 추가한다.
+- root에 `EnemyAnimatorDriver`가 있는지 검증한다.
+- `EnemyAnimationTimingAuthoring`와 `EntityMotionPresentationAuthoring`가 있으면 `Validate()`를 호출한다.
+- `Animator`는 optional로 유지해 debug / primitive hybrid prefab도 허용한다.
+
+9. `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`
+- `enemyAnimationTimingOverrides` serialized field와 wrapper `EnemyAnimationTimingOverrideViewFactory`를 제거한다.
+- 대신 `EnemyPresentationCatalog enemyPresentationCatalog`를 scene reference로 가진다.
+- showcase scene은 `ResolveEnemyPresentationCatalog()`만 override하고, `entityId 52` timing override 숫자는 enemy prefab authoring으로 이동한다.
+
+권장 런타임 흐름:
+
+```text
+StageSpawnDefinition
+  -> EnemyAiProfile + EnemyPresentationId
+  -> StageRuntimeBuilder
+  -> EnemyAiProfileOverride[] + EnemyPresentationBinding[]
+  -> GameplaySceneHostConfiguration
+  -> GameplayHostRuntimeFactory
+  -> Enemy logic assembly / enemy view prefab resolution
+  -> EnemyAnimatorDriver consumes prefab authoring
+```
+
+운영 규칙:
+
+- `EnemyPresentationId`가 비어 있으면 fallback primitive enemy view 허용
+- `EnemyPresentationId`가 있는데 catalog 해석 실패면 즉시 오류
+- 같은 `EnemyAiProfile`을 여러 `PresentationId`가 공유할 수 있다
+- per-entity timing tweak가 필요하면 installer hardcoding 대신 다른 `PresentationId` 또는 다른 prefab entry를 추가한다
+- 새 action이 추가될 때 authoritative timing은 여전히 9번 규칙을 따른다
+
+이 재설계에서 바뀌지 않는 계층:
+
+- `EnemyLogic`
+- `EnemyActionRuntimeState`
+- `TickEnemyActionPresentationSignal`
+- `EnemyViewPresentationMapper`
+- `EnemyAnimatorDriver`의 signal 소비 방식
+
+즉 `EnemyPresentationCatalog`는 deterministic gameplay loop를 바꾸는 설계가 아니라, stage와 scene 사이의 presentation composition boundary를 명시적으로 만드는 설계다.
+
+진행 상태:
+
+- 2026-04-05 구현 완료
+- `Assets/_Features/Gameplay/Gameplay_Shared/Runtime/EnemyPresentationBinding.cs`와 `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyPresentationCatalog.cs`를 추가해 stage-runtime binding key와 scene-level presentation catalog asset surface를 분리했다.
+- `Assets/_Features/Stages/Runtime/StageDefinition.cs`, `Assets/_Features/Stages/Runtime/StageRuntimeBuilder.cs`, `Assets/_Features/Stages/Runtime/StageRuntimeBuildResult.cs`에 `EnemyPresentationId` authoring, `EnemyPresentationBinding[]` 수집, runtime 전달 경로를 추가했다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplaySceneHostConfiguration.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayHostRuntimeFactory.cs`는 stage binding과 `EnemyPresentationCatalog`를 host configuration으로 넘기고, binding이 있을 때만 prefab dictionary를 fail-fast 해석하도록 확장했다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/DefaultGameplayEntityViewFactory.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/EnemyViewPrefabRequirements.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayBoxCapabilityLabelViewFactory.cs`, `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcasePlayerPrefabViewFactory.cs`는 catalog-bound enemy prefab instantiate, prefab root validation, renderer가 없는 debug/hybrid prefab용 primitive visual fallback을 지원하도록 갱신했다.
+- `Assets/_Features/Gameplay/Gameplay_Host/Runtime/CombinedGameplayShowcaseInstaller.cs`는 기존 `enemyAnimationTimingOverrides` hardcoding을 제거하고 `EnemyPresentationCatalog enemyPresentationCatalog` scene reference 기반으로 showcase enemy presentation을 조립하도록 바꿨다.
+- `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset`에 `entityId 52`의 `EnemyPresentationId = windup_melee_showcase`를 추가했고, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyView_WindupMelee.prefab`, `Assets/_Features/Stages/Stage_CombinedGameplayShowcase/EnemyPresentationCatalog_CombinedGameplayShowcase.asset`, `Assets/Scenes/CombinedGameplayShowcase.unity`를 함께 갱신해 timing override 숫자를 prefab authoring으로 이동시켰다.
+- `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageRuntimeBuilderTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CombinedGameplayShowcaseInstallerTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayTimingOwnershipTests.cs`, `Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/GameplayShowcaseScaffoldTests.cs`에 binding build, host fail-fast, catalog-bound prefab hookup, showcase scene serialization 회귀 테스트를 추가 및 갱신했다.
+- 검증은 Unity `6000.3.11f1` batchmode project load/script compilation 성공과 `cmd.exe /c dotnet build 2026TeamProject_J2M.sln -c Debug` 통과로 확인했다. Unity `-runTests`는 현재 환경에서 이번에도 결과 XML을 남기지 않아 targeted EditMode 실행 결과는 별도 후속 확인이 필요하다.
+
+## 11. 최종 결론
 
 이번 작업의 핵심은 적 공격을 "즉시 attack intent"에서 "macro attack state + separate action timing state" 구조로 바꾸는 것이다.
 
