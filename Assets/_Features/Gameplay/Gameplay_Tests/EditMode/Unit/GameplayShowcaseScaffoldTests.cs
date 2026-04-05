@@ -344,6 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var prefabText = ReadNormalizedText(PlayerAnimationTestPrefabPath);
 
+            StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
             StringAssert.Contains("PlayerAnimationTimingAuthoring", prefabText);
             StringAssert.DoesNotContain("PlayerActionTimingAuthoring", prefabText);

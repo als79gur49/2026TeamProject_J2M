@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
@@ -674,7 +675,8 @@ namespace Game.Feature.Gameplay.Host
 
         private float ResolveMotionDurationSeconds(int entityId, TickEntityMotionKind motionKind)
         {
-            if (TryResolveEntityMotionOverrideDurationSeconds(entityId, motionKind, out var durationSeconds))
+            if (TryResolveUnitMotionOverrideDurationSeconds(entityId, motionKind, out var durationSeconds) ||
+                TryResolveEntityMotionOverrideDurationSeconds(entityId, motionKind, out durationSeconds))
             {
                 return durationSeconds;
             }
@@ -733,6 +735,27 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var authoring = EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(view);
+            return authoring != null &&
+                   authoring.TryGetMotionDurationOverride(motionKind, out durationSeconds);
+        }
+
+        private bool TryResolveUnitMotionOverrideDurationSeconds(
+            int entityId,
+            TickEntityMotionKind motionKind,
+            out float durationSeconds)
+        {
+            durationSeconds = 0f;
+
+            if (motionKind != TickEntityMotionKind.Move ||
+                !_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) ||
+                entityType != EntityType.Unit ||
+                !_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) ||
+                view == null)
+            {
+                return false;
+            }
+
+            var authoring = UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(view);
             return authoring != null &&
                    authoring.TryGetMotionDurationOverride(motionKind, out durationSeconds);
         }

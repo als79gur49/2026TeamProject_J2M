@@ -221,6 +221,7 @@ GameObject:
   - component: {fileID: 8002113175247343230}
   - component: {fileID: 7753676487796264323}
   - component: {fileID: 5823939067857017187}
+  - component: {fileID: 6677889900112233445}
   - component: {fileID: 7766554433221100998}
   - component: {fileID: 3345667788990011223}
   - component: {fileID: 8843883875010402886}
@@ -297,6 +298,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 10
   modelRoot: {fileID: 4319990900103009031}
+--- !u!114 &6677889900112233445
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1527559081314479672}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
+  moveMotionDurationSeconds: -1
 --- !u!114 &7766554433221100998
 MonoBehaviour:
   m_ObjectHideFlags: 0

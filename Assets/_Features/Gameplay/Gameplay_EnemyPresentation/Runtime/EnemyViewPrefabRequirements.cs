@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.Host
         {
             GetAnimatorDriver(enemyViewPrefab, ownerDescription);
             EnemyAnimationTimingAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
+            UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
             EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(enemyViewPrefab);
         }
 
