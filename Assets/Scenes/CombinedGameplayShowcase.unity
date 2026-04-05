@@ -547,11 +547,7 @@ MonoBehaviour:
   topologyRotationVisualMapping: 0
   stageDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}
   playerViewPrefab: {fileID: 5823939067857017187, guid: 6696aac23f8317d4d94786b02b62bb6c, type: 3}
-  enemyAnimationTimingOverrides:
-  - EntityId: 52
-    AttackWindupAnimatorDurationSeconds: 0.35
-    RecoverAnimatorDurationSeconds: 0.5
-    StateTransitionCrossFadeDurationSeconds: 0.08
+  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0
