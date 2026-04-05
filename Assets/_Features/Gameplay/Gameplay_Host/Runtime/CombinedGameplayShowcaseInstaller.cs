@@ -1,8 +1,6 @@
-using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
-using Game.Feature.Stages;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -12,28 +10,21 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayEntityView playerViewPrefab;
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
 
-        protected override IGameplayEntityViewFactory CreateViewFactory(GameplayBoardRoot boardRoot)
+        protected override IGameplayEntityViewFactory CreateViewFactory(
+            GameplayBoardRoot boardRoot,
+            in InitialGameplayState initialState)
         {
             if (!AutoCreateViews || boardRoot == null)
             {
                 return null;
             }
 
-            var enemyViewPrefabsByEntityId = ResolveEnemyViewPrefabs();
-            IGameplayEntityViewFactory baseFactory = playerViewPrefab != null
-                ? new CombinedGameplayShowcasePlayerPrefabViewFactory(
-                    boardRoot.EntityRoot,
-                    PlayerEntityId,
-                    playerViewPrefab,
-                    CellSize,
-                    enemyViewPrefabsByEntityId)
-                : new GameplayBoxCapabilityLabelViewFactory(
-                    boardRoot.EntityRoot,
-                    CellSize,
-                    PlayerEntityId,
-                    enemyViewPrefabsByEntityId);
-
-            return baseFactory;
+            return new GameplayBoxCapabilityLabelViewFactory(
+                boardRoot.EntityRoot,
+                CellSize,
+                initialState.PlayerEntityId,
+                playerViewPrefab,
+                ResolveEnemyViewPrefabs(initialState.EnemyPresentationBindings));
         }
 
         protected override GameplayEntityView ResolvePlayerViewPrefab()
@@ -60,12 +51,12 @@ namespace Game.Feature.Gameplay.Host
                 });
         }
 
-        private IReadOnlyDictionary<int, GameplayEntityView> ResolveEnemyViewPrefabs()
+        private IReadOnlyDictionary<int, GameplayEntityView> ResolveEnemyViewPrefabs(
+            EnemyPresentationBinding[] enemyPresentationBindings)
         {
-            var buildResult = StageRuntimeBuilder.Build(StageDefinition);
             return EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
                 ResolveEnemyPresentationCatalog(),
-                buildResult.EnemyPresentationBindings,
+                enemyPresentationBindings,
                 nameof(CombinedGameplayShowcaseInstaller));
         }
     }

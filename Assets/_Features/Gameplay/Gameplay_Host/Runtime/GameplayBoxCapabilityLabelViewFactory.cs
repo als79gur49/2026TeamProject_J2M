@@ -6,7 +6,7 @@ using UnityEngine.Rendering;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public sealed class GameplayBoxCapabilityLabelViewFactory : IGameplayEntityViewFactory
+    public sealed class GameplayBoxCapabilityLabelViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource
     {
         private const string CapabilityLabelObjectName = "CapabilityLabel";
         private const int LabelFontSize = 80;
@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Host
             Transform parent,
             float cellSize,
             int playerEntityId,
+            GameplayEntityView playerViewPrefab = null,
             IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null)
         {
             _cellSize = cellSize;
@@ -27,6 +28,7 @@ namespace Game.Feature.Gameplay.Host
                 parent,
                 cellSize,
                 playerEntityId,
+                playerViewPrefab,
                 enemyViewPrefabsByEntityId: enemyViewPrefabsByEntityId);
         }
 
@@ -41,6 +43,8 @@ namespace Game.Feature.Gameplay.Host
             AttachCapabilityLabel(view, entity.boxCapabilities);
             return view;
         }
+
+        public GameplayEntityView PlayerViewPrefab => _defaultFactory.PlayerViewPrefab;
 
         private void AttachCapabilityLabel(GameplayEntityView view, BoxCapabilities capabilities)
         {

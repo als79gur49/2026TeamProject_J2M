@@ -47,15 +47,17 @@ namespace Game.Feature.Gameplay.Host
             public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
         }
 
+        [Header("Bootstrap")]
         [SerializeField] private InputActionAsset actions;
         [SerializeField] private bool autoAdvanceTicks = true;
         [SerializeField] private bool autoCreateViews = true;
         [SerializeField] private bool configureMainCamera = true;
         [SerializeField] private float cellSize = 1.15f;
-        [SerializeField] private bool directionChangeConsumesDelay;
-        [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private float moveDeadzone = 0.5f;
-        [SerializeField] private int playerEntityId = 10;
+        [SerializeField] private bool directionChangeConsumesDelay;
+
+        [Header("Timing")]
+        [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
         [SerializeField, HideInInspector] private float playerMoveCooldownSeconds = -1f;
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
@@ -65,11 +67,11 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float pushMotionDurationSeconds = GameplayTimingProfile.DefaultPushMotionDurationSeconds;
         [SerializeField] private float flipMotionDurationSeconds = GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
         [SerializeField] private float topologyMotionDurationSeconds = -1f;
+
+        [Header("Presentation")]
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
 
         protected bool AutoCreateViews => autoCreateViews;
-
-        protected int PlayerEntityId => playerEntityId;
 
         protected float CellSize => cellSize;
 
@@ -106,7 +108,9 @@ namespace Game.Feature.Gameplay.Host
             return GameplayCameraSettings.CreateShowcaseDefault();
         }
 
-        protected virtual IGameplayEntityViewFactory CreateViewFactory(GameplayBoardRoot boardRoot)
+        protected virtual IGameplayEntityViewFactory CreateViewFactory(
+            GameplayBoardRoot boardRoot,
+            in InitialGameplayState initialState)
         {
             if (!autoCreateViews || boardRoot == null)
             {
@@ -116,7 +120,7 @@ namespace Game.Feature.Gameplay.Host
             return new DefaultGameplayEntityViewFactory(
                 boardRoot.EntityRoot,
                 cellSize,
-                playerEntityId,
+                initialState.PlayerEntityId,
                 ResolvePlayerViewPrefab());
         }
 
@@ -163,7 +167,7 @@ namespace Game.Feature.Gameplay.Host
             InitialGameplayState initialState,
             GameplayCameraSettings cameraSettings)
         {
-            return CreateConfiguration(initialState, cameraSettings, ResolveViewFactory());
+            return CreateConfiguration(initialState, cameraSettings, ResolveViewFactory(initialState));
         }
 
         private GameplaySceneHostConfiguration CreateConfiguration(
@@ -193,7 +197,7 @@ namespace Game.Feature.Gameplay.Host
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerControlTiming = CreatePlayerControlTimingSettings(),
-                PlayerViewPrefab = ResolvePlayerViewPrefab(),
+                PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
                 MoveMotionDurationSeconds = moveMotionDurationSeconds,
                 PushMotionDurationSeconds = pushMotionDurationSeconds,
@@ -219,10 +223,10 @@ namespace Game.Feature.Gameplay.Host
             return resolvedSettings;
         }
 
-        private IGameplayEntityViewFactory ResolveViewFactory()
+        private IGameplayEntityViewFactory ResolveViewFactory(in InitialGameplayState initialState)
         {
             var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
-            return CreateViewFactory(boardRoot);
+            return CreateViewFactory(boardRoot, initialState);
         }
 
         private void ConfigureSceneCamera(

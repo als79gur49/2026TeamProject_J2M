@@ -247,11 +247,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(prefabField, Is.Not.Null);
                 prefabField.SetValue(installer, playerPrefabView);
 
-                var factoryMethod = installer.GetType().GetMethod(
-                    "CreateViewFactory",
-                    BindingFlags.Instance | BindingFlags.NonPublic);
-                Assert.That(factoryMethod, Is.Not.Null);
-                var factory = (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new object[] { boardRoot });
+                var factory = CreateViewFactory(installer, boardRoot);
                 Assert.That(factory, Is.Not.Null);
 
                 var playerView = factory.CreateView(
@@ -299,22 +295,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_Throws()
+        public void GameplayBoxCapabilityLabelViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_ThrowsWhenCreatingPlayerView()
         {
-            var parentObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_Throws");
-            var playerPrefabObject = new GameObject("CombinedGameplayShowcasePlayerPrefabViewFactory_PlayerPrefab");
+            var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_ThrowsWhenCreatingPlayerView");
+            var playerPrefabObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_PlayerPrefab");
 
             try
             {
                 var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
                 playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
 
+                var factory = new GameplayBoxCapabilityLabelViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    playerViewPrefab: playerPrefabView);
+
                 Assert.Throws<System.InvalidOperationException>(
-                    () => new CombinedGameplayShowcasePlayerPrefabViewFactory(
-                        parentObject.transform,
-                        playerEntityId: 10,
-                        playerViewPrefab: playerPrefabView,
-                        cellSize: 1f));
+                    () => factory.CreateView(
+                        new EntityState
+                        {
+                            entityId = 10,
+                            position = new SurfaceCell(FaceId.Floor, 0, 0),
+                            hp = 3,
+                            maxHp = 3,
+                            teamId = 1,
+                            type = EntityType.Unit,
+                            state = EntityPhaseState.Idle,
+                            facing = Direction.Right,
+                        }));
             }
             finally
             {
@@ -525,12 +534,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             AssignStageDefinition(installer);
             AssignEnemyPresentationCatalog(installer);
+            var initialState = BuildInitialGameplayState(installer);
 
             var factoryMethod = installer.GetType().GetMethod(
                 "CreateViewFactory",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(factoryMethod, Is.Not.Null);
-            return (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new object[] { boardRoot });
+            return (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new[] { (object)boardRoot, initialState });
+        }
+
+        private static object BuildInitialGameplayState(CombinedGameplayShowcaseInstaller installer)
+        {
+            var buildInitialStateMethod = typeof(StageBackedGameplayShowcaseInstallerBase).GetMethod(
+                "BuildInitialGameplayState",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(buildInitialStateMethod, Is.Not.Null);
+            return buildInitialStateMethod.Invoke(installer, Array.Empty<object>());
         }
 
         private static bool HasWallAt(IReadOnlyList<EntityState> entities, SurfaceCell cell)

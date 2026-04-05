@@ -122,6 +122,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayPresentationCleanup_CreateConfiguration_DoesNotDuplicatePlayerPrefabWhenViewFactoryProvidesIt()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var playerPrefabObject = new GameObject("GameplayPresentationCleanup_PlayerPrefab");
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+                SceneManager.MoveGameObjectToScene(playerPrefabObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                SetBaseInstallerField(installer, "actions", actions);
+
+                var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
+                playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
+                playerPrefabObject.AddComponent<PlayerAnimationTimingAuthoring>();
+
+                installer.PlayerViewPrefabOverride = playerPrefabView;
+                installer.ViewFactoryOverride = new TestPlayerPrefabSourceViewFactory(playerPrefabView);
+
+                var configuration = installer.BuildConfigurationForTests();
+
+                Assert.That(configuration.ViewFactory, Is.SameAs(installer.ViewFactoryOverride));
+                Assert.That(configuration.PlayerViewPrefab, Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
         private static void SetBaseInstallerField(object target, string fieldName, object value)
         {
             var field = typeof(GameplayShowcaseSceneInstallerBase).GetField(
@@ -174,6 +209,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             internal static readonly BoardBounds DefaultBoardBounds = new(new Vector2Int(0, 0), new Vector2Int(4, 4));
 
+            public GameplayEntityView PlayerViewPrefabOverride { get; set; }
+
+            public IGameplayEntityViewFactory ViewFactoryOverride { get; set; }
+
             public GameplaySceneHostConfiguration BuildConfigurationForTests()
             {
                 var createConfiguration = typeof(GameplayShowcaseSceneInstallerBase).GetMethod(
@@ -187,6 +226,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 return (GameplaySceneHostConfiguration)createConfiguration.Invoke(
                     this,
                     new object[] { BuildInitialGameplayState(), GetCameraSettings() });
+            }
+
+            protected override IGameplayEntityViewFactory CreateViewFactory(
+                GameplayBoardRoot boardRoot,
+                in InitialGameplayState initialState)
+            {
+                return ViewFactoryOverride ?? base.CreateViewFactory(boardRoot, initialState);
+            }
+
+            protected override GameplayEntityView ResolvePlayerViewPrefab()
+            {
+                return PlayerViewPrefabOverride;
             }
 
             protected override InitialGameplayState BuildInitialGameplayState()
@@ -208,6 +259,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "Summary",
                     "Move: WASD",
                     new[] { "Highlight" });
+            }
+        }
+
+        private sealed class TestPlayerPrefabSourceViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource
+        {
+            public TestPlayerPrefabSourceViewFactory(GameplayEntityView playerViewPrefab)
+            {
+                PlayerViewPrefab = playerViewPrefab;
+            }
+
+            public GameplayEntityView PlayerViewPrefab { get; }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                return null;
             }
         }
     }

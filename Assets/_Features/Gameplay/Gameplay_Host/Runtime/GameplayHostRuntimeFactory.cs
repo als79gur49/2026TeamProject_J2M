@@ -287,15 +287,6 @@ namespace Game.Feature.Gameplay.Host
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)
         {
-            if (configuration.PlayerViewPrefab != null &&
-                configuration.ViewFactory is IPlayerViewPrefabSource configuredPrefabSource &&
-                configuredPrefabSource.PlayerViewPrefab != null &&
-                configuredPrefabSource.PlayerViewPrefab != configuration.PlayerViewPrefab)
-            {
-                throw new InvalidOperationException(
-                    "GameplaySceneHostConfiguration.PlayerViewPrefab must match the player prefab exposed by the configured view factory.");
-            }
-
             if (configuration.PlayerViewPrefab != null)
             {
                 PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(
