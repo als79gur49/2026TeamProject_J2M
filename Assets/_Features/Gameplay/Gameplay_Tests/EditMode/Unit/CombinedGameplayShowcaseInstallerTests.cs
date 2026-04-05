@@ -142,7 +142,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetProfileOverride(buildResult, 52, out var floorWindupProfile), Is.True);
             Assert.That(floorWindupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(floorWindupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
-            Assert.That(floorWindupProfile.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+            Assert.That(floorWindupProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
         }
 
         [Test]
@@ -488,7 +488,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var overlay = installer.GetShowcaseOverlayContent();
 
                 Assert.That(overlay.Title, Is.EqualTo("Combined Gameplay Showcase"));
-                Assert.That(overlay.Highlights, Has.Some.Contains("2-tick wind-up melee profile"));
+                Assert.That(overlay.Highlights, Has.Some.Contains("brief wind-up melee profile"));
                 Assert.That(overlay.Highlights, Has.Some.Contains("charger lane"));
             }
             finally

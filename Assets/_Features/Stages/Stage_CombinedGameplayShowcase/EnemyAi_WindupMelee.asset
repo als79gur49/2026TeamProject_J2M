@@ -20,7 +20,7 @@ MonoBehaviour:
   commonSettings:
     movementPriority: 50
     attackPriority: 50
-    recoverTicks: 1
+    recoverSeconds: 0.016666668
   patrolSettings:
     blockedMovementResponse: 0
   detectionSettings:
@@ -33,4 +33,5 @@ MonoBehaviour:
   attackDecisionSettings:
     attackRange: 1
   attackTimingSettings:
-    windupTicks: 2
+    windupSeconds: 0.033333335
+  serializedVersion: 1

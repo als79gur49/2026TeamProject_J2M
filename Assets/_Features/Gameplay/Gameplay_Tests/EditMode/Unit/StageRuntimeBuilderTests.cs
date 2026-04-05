@@ -3,6 +3,7 @@ using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -175,7 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetProfileOverride(buildResult, 52, out var windupProfile), Is.True);
             Assert.That(windupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(windupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
-            Assert.That(windupProfile.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+            Assert.That(windupProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
 
             Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(1));
             Assert.That(TryGetPresentationBinding(buildResult, 52, out var presentationBinding), Is.True);
