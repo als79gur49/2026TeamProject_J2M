@@ -283,7 +283,7 @@
 - destination/edge reservation을 `전체 충돌용`과 `shared-unit 차단용`으로 이원화해 unit-only move끼리는 같은 칸/edge를 공유할 수 있게 하면서도 `Push`/`Item`/topology change 같은 보수적 group은 unit move와 계속 상호 충돌하도록 유지했다.
 - `TickPipeline`과 movement phase 테스트 helper가 resolver에 pre-movement snapshot을 넘기도록 연결했고, `MovementPhaseScenarioTests`와 `TickPipelineStageOneTests`를 확장해 same-destination unit stacking과 box/unit reservation 보호를 함께 검증했다.
 
-### 6단계. 공격/접촉 규칙 수정
+### 6단계. 공격/접촉 규칙 수정 [완료]
 
 목표
 
@@ -314,6 +314,15 @@
 
 - 플레이어와 적이 같은 타일에 존재할 수 있다.
 - same-cell 상태에서 melee 또는 접촉 피해 규칙이 정상 발동한다.
+
+주요 구현 내용
+
+- `AttackExpander`의 direct attack contact check를 `same-cell 또는 직교 인접`으로 확장해 stacked unit 상태에서도 melee intent가 reject되지 않게 했다.
+- `EnemyActionStateTargeting.ResolveFacing(...)`의 zero-delta 경로를 명시적으로 유지해 same-cell 공격 시작 시 기존 facing을 그대로 사용하도록 고정했다.
+- `EnemyCombatPolicy`와 `EnemyAiConfig`에 `ContactSameCellAttackDecisionStrategy` / `AttackDecisionStrategyKind.ContactSameCell`을 추가해 `same-cell일 때만 피해를 주는` contact-damage enemy를 프로필로 authoring할 수 있게 했다.
+- `EnemyAiProfile.CreateRuntimeContactDamage()` helper를 추가했고, 이 경로는 `AttackState`의 same-tick execute를 그대로 재사용해 이동 후 overlap이 생긴 tick에 즉시 피해를 만들 수 있게 했다.
+- same-cell contact damage의 tick 내 중복은 현재 구조에서 `entity당 attack phase ownership 1개 + source logic이 tick당 raw attack intent 1회 생성` 규칙으로 제한되며, scenario test에서 `DamageCommitted`가 tick당 1회만 발생하는지 고정했다.
+- `AttackPhaseScenarioTests`, `EnemyAiScenarioTests`, `EnemyLogicTests`를 확장해 post-move same-cell melee, contact-damage enemy의 same-tick overlap damage, same-cell facing 유지, `ContactSameCell` range rule을 검증했다.
 
 ### 7단계. Projectile impact target 결정론화
 
