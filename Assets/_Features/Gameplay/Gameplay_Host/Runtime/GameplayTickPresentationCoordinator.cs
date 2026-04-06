@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayTickPresentationCoordinator
     {
+        private static readonly bool EnableUnitPresentationPlaneOffsets = false;
         private const float UnitPresentationOffsetRadiusInCells = 0.2f;
         private const float UnitPresentationSquareHalfExtentInCells = 0.14f;
 
@@ -941,7 +942,6 @@ namespace Game.Feature.Gameplay.Host
         {
             _stateStore.BeginCommittedFrame(topology);
             var presentableTargets = new List<PresentableEntityTarget>(entities.Count);
-            var stackedUnitEntityIdsByCell = new Dictionary<SurfaceCell, List<int>>();
 
             for (var i = 0; i < entities.Count; i++)
             {
@@ -963,28 +963,39 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore.ViewsByEntityId[entity.entityId] = view;
                 _animationSync.CacheDrivers(entity.entityId, view);
                 presentableTargets.Add(new PresentableEntityTarget(entity, projectedPose));
-
-                if (entity.type != EntityType.Unit)
-                {
-                    continue;
-                }
-
-                if (!stackedUnitEntityIdsByCell.TryGetValue(entity.position, out var stackedEntityIds))
-                {
-                    stackedEntityIds = new List<int>();
-                    stackedUnitEntityIdsByCell[entity.position] = stackedEntityIds;
-                }
-
-                stackedEntityIds.Add(entity.entityId);
             }
 
-            var unitPresentationPlaneOffsetsByEntityId =
-                BuildUnitPresentationPlaneOffsetsByEntityId(stackedUnitEntityIdsByCell);
+            Dictionary<int, Vector2> unitPresentationPlaneOffsetsByEntityId = null;
+            if (EnableUnitPresentationPlaneOffsets)
+            {
+                var stackedUnitEntityIdsByCell = new Dictionary<SurfaceCell, List<int>>();
+                for (var i = 0; i < presentableTargets.Count; i++)
+                {
+                    var target = presentableTargets[i];
+                    if (target.Entity.type != EntityType.Unit)
+                    {
+                        continue;
+                    }
+
+                    if (!stackedUnitEntityIdsByCell.TryGetValue(target.Entity.position, out var stackedEntityIds))
+                    {
+                        stackedEntityIds = new List<int>();
+                        stackedUnitEntityIdsByCell[target.Entity.position] = stackedEntityIds;
+                    }
+
+                    stackedEntityIds.Add(target.Entity.entityId);
+                }
+
+                unitPresentationPlaneOffsetsByEntityId =
+                    BuildUnitPresentationPlaneOffsetsByEntityId(stackedUnitEntityIdsByCell);
+            }
 
             for (var i = 0; i < presentableTargets.Count; i++)
             {
                 var target = presentableTargets[i];
-                var presentationPlaneOffset = target.Entity.type == EntityType.Unit &&
+                var presentationPlaneOffset = EnableUnitPresentationPlaneOffsets &&
+                                              target.Entity.type == EntityType.Unit &&
+                                              unitPresentationPlaneOffsetsByEntityId != null &&
                                               unitPresentationPlaneOffsetsByEntityId.TryGetValue(
                                                   target.Entity.entityId,
                                                   out var resolvedPresentationPlaneOffset)

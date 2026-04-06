@@ -398,6 +398,12 @@
 - 기존 motion start/end pose는 committed local target pose를 그대로 재사용하게 두어, same-cell 이동 후 도착 unit과 기존 occupant가 같은 tick 프레젠테이션에서 서로 다른 slot으로 정렬되도록 맞췄다.
 - `GameplayTickPresentationCoordinatorTests`에 초기 same-cell 배치, 이동 후 same-cell 재정렬, ceiling face tangent-plane 보장을 검증하는 테스트를 추가했다.
 
+현재 상태 메모
+
+- 2026-04-07 기준으로 runtime에서는 same-cell unit presentation offset을 비활성화했다.
+- 이유는 겹침이 발생하는 순간 기존 occupant까지 즉시 재배치되어 시각적으로 부자연스럽게 보였기 때문이다.
+- overlap 규칙 자체는 유지되며, 현재는 stacked unit도 모두 타일 중심 pose를 공유한다.
+
 ### 9단계. 디버그, trace, determinism 보강 [완료]
 
 목표

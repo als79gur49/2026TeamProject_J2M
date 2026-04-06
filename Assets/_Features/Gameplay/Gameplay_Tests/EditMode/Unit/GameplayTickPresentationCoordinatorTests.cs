@@ -655,9 +655,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_PresentInitialStackedUnits_AssignsDistinctSurfaceOffsets()
+        public void GameplayTickViewPresenter_PresentInitialStackedUnits_UsesSharedCenterPoseWhenOffsetsDisabled()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_PresentInitialStackedUnits_AssignsDistinctSurfaceOffsets");
+            var rootObject = new GameObject("GameplayTickViewPresenter_PresentInitialStackedUnits_UsesSharedCenterPoseWhenOffsetsDisabled");
 
             try
             {
@@ -693,14 +693,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var center = GetProjectedEntityPosition(boardBounds, topology, stackedCell, EntityType.Unit);
                 var playerPosition = playerView.transform.localPosition;
                 var enemyPosition = enemyView.transform.localPosition;
-                var midpoint = (playerPosition + enemyPosition) * 0.5f;
 
-                Assert.That(playerPosition.x, Is.LessThan(center.x));
-                Assert.That(enemyPosition.x, Is.GreaterThan(center.x));
-                Assert.That(Vector3.Distance(playerPosition, enemyPosition), Is.GreaterThan(0.01f));
-                Assert.That(playerPosition.y, Is.EqualTo(center.y).Within(0.001f));
-                Assert.That(enemyPosition.y, Is.EqualTo(center.y).Within(0.001f));
-                AssertPositionApproximately(midpoint, center);
+                AssertPositionApproximately(playerPosition, center);
+                AssertPositionApproximately(enemyPosition, center);
             }
             finally
             {
@@ -709,9 +704,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_MoveIntoOccupiedCell_ReflowsStackedUnitOffsets()
+        public void GameplayTickViewPresenter_MoveIntoOccupiedCell_KeepsSharedCenterPoseWhenOffsetsDisabled()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_MoveIntoOccupiedCell_ReflowsStackedUnitOffsets");
+            var rootObject = new GameObject("GameplayTickViewPresenter_MoveIntoOccupiedCell_KeepsSharedCenterPoseWhenOffsetsDisabled");
 
             try
             {
@@ -760,12 +755,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var center = GetProjectedEntityPosition(boardBounds, topology, stackedCell, EntityType.Unit);
                 var playerPosition = playerView.transform.localPosition;
                 var enemyPosition = enemyView.transform.localPosition;
-                var midpoint = (playerPosition + enemyPosition) * 0.5f;
 
-                Assert.That(playerPosition.x, Is.LessThan(center.x));
-                Assert.That(enemyPosition.x, Is.GreaterThan(center.x));
-                Assert.That(Vector3.Distance(playerPosition, enemyPosition), Is.GreaterThan(0.01f));
-                AssertPositionApproximately(midpoint, center);
+                AssertPositionApproximately(playerPosition, center);
+                AssertPositionApproximately(enemyPosition, center);
             }
             finally
             {
@@ -774,9 +766,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void GameplayTickViewPresenter_StackedUnitsOnCeilingFace_StayOnFaceTangentPlane()
+        public void GameplayTickViewPresenter_StackedUnitsOnCeilingFace_StayCenteredWhenOffsetsDisabled()
         {
-            var rootObject = new GameObject("GameplayTickViewPresenter_StackedUnitsOnCeilingFace_StayOnFaceTangentPlane");
+            var rootObject = new GameObject("GameplayTickViewPresenter_StackedUnitsOnCeilingFace_StayCenteredWhenOffsetsDisabled");
 
             try
             {
@@ -816,9 +808,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var playerOffset = playerView.transform.localPosition - center;
                 var enemyOffset = enemyView.transform.localPosition - center;
 
-                Assert.That(Vector3.Distance(playerView.transform.localPosition, enemyView.transform.localPosition), Is.GreaterThan(0.01f));
-                Assert.That(Mathf.Abs(Vector3.Dot(playerOffset, projectedPose.Normal)), Is.LessThan(0.001f));
-                Assert.That(Mathf.Abs(Vector3.Dot(enemyOffset, projectedPose.Normal)), Is.LessThan(0.001f));
+                Assert.That(playerOffset.sqrMagnitude, Is.LessThan(0.000001f));
+                Assert.That(enemyOffset.sqrMagnitude, Is.LessThan(0.000001f));
             }
             finally
             {
