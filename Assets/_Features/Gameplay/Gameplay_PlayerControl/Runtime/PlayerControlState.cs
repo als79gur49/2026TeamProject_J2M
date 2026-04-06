@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.PlayerControl
     public struct PlayerControlState
     {
         public int moveCooldownTicks;
+        public int nextMoveAllowedTick;
         public int pushContactTicks;
         public int pushTargetEntityId;
         public Direction pushDirection;
@@ -176,11 +177,23 @@ namespace Game.Feature.Gameplay.PlayerControl
 
         public static PlayerControlState ConsumeMoveCooldown(
             in PlayerControlState state,
-            int moveCooldownTicks)
+            int moveCooldownTicks,
+            int tickIndex)
         {
             var updatedState = ResetContact(state);
             updatedState.moveCooldownTicks = Mathf.Max(0, moveCooldownTicks);
+            updatedState.nextMoveAllowedTick = updatedState.moveCooldownTicks > 0
+                ? tickIndex + updatedState.moveCooldownTicks + 1
+                : 0;
             return updatedState;
+        }
+
+        public static bool IsMoveOnCooldown(
+            in PlayerControlState state,
+            int tickIndex)
+        {
+            return state.moveCooldownTicks > 0 ||
+                   (state.nextMoveAllowedTick > 0 && tickIndex < state.nextMoveAllowedTick);
         }
 
         public static bool TryResolvePushContact(

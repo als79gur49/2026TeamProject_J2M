@@ -637,7 +637,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
             AssertViewMatchesProjectedState(host, entityId: 10);
 
-            for (var i = 0; i < host.TimingProfile.RepeatedMoveIntervalTicks - 2; i++)
+            for (var i = 0; i < host.TimingProfile.RepeatedMoveIntervalTicks - 1; i++)
             {
                 host.InputHost.RunSingleTick();
                 host.Presenter.UpdatePresentation(0f);

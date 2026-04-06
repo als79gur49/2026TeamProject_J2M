@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var secondTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var fourthTick = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Right)));
+            var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
@@ -47,13 +48,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 firstTick.MovementPhaseResult.CommitEvents);
             Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(fourthTick.MovementPhaseResult.SortedIntents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[] { "MoveCommitted|G=1|I=1|E=10|To=(2,0)|Facing=Right" },
-                fourthTick.MovementPhaseResult.CommitEvents);
+                fifthTick.MovementPhaseResult.CommitEvents);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.moveCooldownTicks, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick()
+        {
+            var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerMoveCooldownTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                },
+                timingProfile);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                timingProfile,
+                playerControlTiming);
+
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var secondTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
+            var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
+                firstTick.MovementPhaseResult.CommitEvents);
+            Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[] { "MoveCommitted|G=1|I=1|E=10|To=(2,0)|Facing=Right" },
+                thirdTick.MovementPhaseResult.CommitEvents);
+            Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
+            Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
         }
 
         [Test]

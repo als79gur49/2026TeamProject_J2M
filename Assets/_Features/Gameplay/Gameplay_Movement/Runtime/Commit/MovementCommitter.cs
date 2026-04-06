@@ -134,7 +134,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 }
 
                 ApplyEnemyLocomotionCommit(snapshot, sortedIntents, group, writeContext);
-                ApplyPlayerControlCommit(snapshot, sortedIntents, group, writeContext);
+                ApplyPlayerControlCommit(snapshot, sortedIntents, tickIndex, group, writeContext);
             }
         }
 
@@ -166,6 +166,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
         private void ApplyPlayerControlCommit(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
+            int tickIndex,
             ActionGroup group,
             IMovementCommitContext writeContext)
         {
@@ -184,7 +185,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             switch (intent.CommandKind)
             {
                 case MovementCommandKind.Move:
-                    updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks);
+                    updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks, tickIndex);
                     break;
 
                 default:

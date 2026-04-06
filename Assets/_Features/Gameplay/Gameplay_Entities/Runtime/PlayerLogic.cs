@@ -158,7 +158,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (hasControlState &&
-                controlState.moveCooldownTicks > 0)
+                PlayerControlQueries.IsMoveOnCooldown(controlState, input.TickIndex))
             {
                 return;
             }

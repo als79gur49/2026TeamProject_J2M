@@ -221,6 +221,7 @@ namespace Game.Feature.Gameplay.Loop
                 builder
                     .Append(entry.EntityId).Append('|')
                     .Append(entry.State.moveCooldownTicks).Append('|')
+                    .Append(entry.State.nextMoveAllowedTick).Append('|')
                     .Append(entry.State.pushContactTicks).Append('|')
                     .Append(entry.State.pushTargetEntityId).Append('|')
                     .Append((int)entry.State.pushDirection).Append('|')
