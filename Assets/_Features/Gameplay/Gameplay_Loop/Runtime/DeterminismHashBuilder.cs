@@ -55,7 +55,10 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyActions").Append('\n');
             AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
-            builder.Append("UnitOccupancy").Append('\n');
+            builder.Append("SolidOccupancy").Append('\n');
+            AppendOccupancyLines(builder, GetOrderedSolidOccupancy(finalSnapshot));
+
+            builder.Append("StackedUnitOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedUnitOccupancy(finalSnapshot));
 
             builder.Append("ProjectileOccupancy").Append('\n');
@@ -110,6 +113,13 @@ namespace Game.Feature.Gameplay.Loop
         {
             var occupancyEntries = new List<SnapshotOccupancyEntry>();
             finalSnapshot.EnumerateUnitOccupancyOrdered(occupancyEntries);
+            return occupancyEntries;
+        }
+
+        private static List<SnapshotOccupancyEntry> GetOrderedSolidOccupancy(WorldSnapshot finalSnapshot)
+        {
+            var occupancyEntries = new List<SnapshotOccupancyEntry>();
+            finalSnapshot.EnumerateSolidOccupancyOrdered(occupancyEntries);
             return occupancyEntries;
         }
 

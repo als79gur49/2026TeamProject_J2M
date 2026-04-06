@@ -363,12 +363,16 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
-            SnapshotReadQueries.EnumerateCombinedOccupancyOrdered(
+            SnapshotReadQueries.EnumerateStackedUnitOccupancyOrdered(
                 _entitiesById,
                 _stackedUnitsByCell,
-                _solidOccupancy,
                 _topology,
                 buffer);
+        }
+
+        internal void EnumerateSolidOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
+        {
+            SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _solidOccupancy, _topology, buffer);
         }
 
         internal void EnumeratePlayerControlStatesOrdered(List<PlayerControlSnapshotEntry> buffer)

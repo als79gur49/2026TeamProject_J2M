@@ -466,6 +466,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
                 new EntityState
                 {
+                    entityId = 25,
+                    position = new Vector2Int(0, 2),
+                    hp = 2,
+                    maxHp = 2,
+                    teamId = 2,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 15,
+                    position = new Vector2Int(0, 1),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 0,
+                    type = EntityType.Box,
+                },
+                new EntityState
+                {
                     entityId = 40,
                     position = new Vector2Int(2, 1),
                     hp = 1,
@@ -485,18 +503,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var snapshot = CreateSnapshot(worldState);
             var orderedUnits = new List<SnapshotOccupancyEntry>();
+            var orderedSolids = new List<SnapshotOccupancyEntry>();
             var orderedProjectiles = new List<SnapshotOccupancyEntry>();
 
             snapshot.EnumerateUnitOccupancyOrdered(orderedUnits);
+            snapshot.EnumerateSolidOccupancyOrdered(orderedSolids);
             snapshot.EnumerateProjectileOccupancyOrdered(orderedProjectiles);
 
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (X: 0, Y: 2, EntityId: 10),
+                    (X: 0, Y: 2, EntityId: 25),
                     (X: 3, Y: 1, EntityId: 30),
                 },
                 orderedUnits.Select(entry => (entry.Cell.x, entry.Cell.y, entry.EntityId)).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (X: 0, Y: 1, EntityId: 15),
+                },
+                orderedSolids.Select(entry => (entry.Cell.x, entry.Cell.y, entry.EntityId)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {

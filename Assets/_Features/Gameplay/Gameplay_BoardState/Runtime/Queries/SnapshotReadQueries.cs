@@ -375,6 +375,45 @@ namespace Game.Feature.Gameplay.BoardState
                 buffer.Add(new SnapshotOccupancyEntry(pair.Key, pair.Value));
             }
 
+            AppendStackedUnitOccupancyEntries(
+                entitiesById,
+                stackedUnitsByCell,
+                topology,
+                buffer);
+
+            buffer.Sort(OccupancyEntryComparer.Instance);
+        }
+
+        public static void EnumerateStackedUnitOccupancyOrdered(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            List<SnapshotOccupancyEntry> buffer)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell);
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            AppendStackedUnitOccupancyEntries(
+                entitiesById,
+                stackedUnitsByCell,
+                topology,
+                buffer);
+
+            buffer.Sort(OccupancyEntryComparer.Instance);
+        }
+
+        private static void AppendStackedUnitOccupancyEntries(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            List<SnapshotOccupancyEntry> buffer)
+        {
             foreach (var pair in stackedUnitsByCell)
             {
                 if (!topology.IsFaceActive(pair.Key.face))
@@ -393,8 +432,6 @@ namespace Game.Feature.Gameplay.BoardState
                     buffer.Add(new SnapshotOccupancyEntry(pair.Key, entity.entityId));
                 }
             }
-
-            buffer.Sort(OccupancyEntryComparer.Instance);
         }
 
         public static void EnumerateTerrainBlockedCellsOrdered(

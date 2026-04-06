@@ -398,7 +398,7 @@
 - 기존 motion start/end pose는 committed local target pose를 그대로 재사용하게 두어, same-cell 이동 후 도착 unit과 기존 occupant가 같은 tick 프레젠테이션에서 서로 다른 slot으로 정렬되도록 맞췄다.
 - `GameplayTickPresentationCoordinatorTests`에 초기 same-cell 배치, 이동 후 same-cell 재정렬, ceiling face tangent-plane 보장을 검증하는 테스트를 추가했다.
 
-### 9단계. 디버그, trace, determinism 보강
+### 9단계. 디버그, trace, determinism 보강 [완료]
 
 목표
 
@@ -419,6 +419,13 @@
 완료 기준
 
 - replay artifact와 determinism hash가 stacked unit 상태를 안정적으로 반영한다.
+
+주요 구현 내용
+
+- `WorldSnapshot`/`SnapshotReadQueries`에 `stacked unit occupancy`와 `solid occupancy`의 ordered enumeration을 분리해, trace/hash가 새 점유 모델을 레이어별로 직접 읽게 했다.
+- `TickTraceFormatter`의 occupancy dump는 이제 `Layer=Solid|Unit|Projectile` 형식으로 출력되며, 전체 라인은 `face -> x -> y -> entityId` 순으로 재정렬되어 same-cell stacked state가 여러 줄로 안정적으로 노출된다.
+- `DeterminismHashBuilder`는 기존 뭉뚱그린 non-projectile occupancy 대신 `SolidOccupancy`, `StackedUnitOccupancy`, `ProjectileOccupancy`를 각각 canonical dump에 포함하도록 바꿔 stacked unit 정보와 solid layer 상태가 hash에 명시적으로 반영되게 했다.
+- `TickReplayDeterminismTests`, `TickPipelineStageOneTests`, `FuzzDeterminismTests`를 갱신해 stacked unit/solid/projectile layered occupancy dump, entityId 오름차순 same-cell ordering, replay artifact 포맷을 고정했다.
 
 ### 10단계. 테스트 추가 및 회귀 검증
 

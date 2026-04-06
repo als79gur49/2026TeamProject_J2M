@@ -220,6 +220,53 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void Replay_OccupancyDump_ListsLayeredEntriesForStackedUnitsInCellOrder()
+        {
+            var frames = new TickReplayHarness().Run(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(0, 0), hp: 2),
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateProjectile(entityId: 50, teamId: 1, position: new Vector2Int(0, 0), hp: 1),
+                    CreateBox(entityId: 30, position: new Vector2Int(1, 0)),
+                }),
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(
+                frames[0].OccupancyDump,
+                Is.EqualTo(
+                    "Layer=Unit|Cell=(0,0)|E=10|Face=Floor\n" +
+                    "Layer=Unit|Cell=(0,0)|E=20|Face=Floor\n" +
+                    "Layer=Projectile|Cell=(0,0)|E=50|Face=Floor\n" +
+                    "Layer=Solid|Cell=(1,0)|E=30|Face=Floor"));
+            Assert.That(frames[0].Trace, Does.Contain("Final.Occupancy"));
+        }
+
+        [Test]
+        public void DeterminismHash_StackedUnitOccupancy_IsIncludedInCanonicalState()
+        {
+            var stackedResult = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(0, 0), hp: 2),
+                }))
+                .RunTick(new TickInput(1));
+            var separatedResult = GameplayCompositionRoot.CreateTickPipeline(
+                CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+                }))
+                .RunTick(new TickInput(1));
+
+            Assert.That(stackedResult.DeterminismHash, Is.Not.EqualTo(separatedResult.DeterminismHash));
+            Assert.That(stackedResult.Trace.Text, Does.Contain("Layer=Unit|Cell=(0,0)|E=10|Face=Floor"));
+            Assert.That(stackedResult.Trace.Text, Does.Contain("Layer=Unit|Cell=(0,0)|E=20|Face=Floor"));
+        }
+
+        [Test]
         public void Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunPushBoxReplaySequence();

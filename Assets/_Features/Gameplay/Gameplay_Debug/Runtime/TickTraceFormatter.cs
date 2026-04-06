@@ -99,15 +99,29 @@ namespace Game.Feature.Gameplay.Debug
 
         private static List<string> GetOccupancyEntries(WorldSnapshot snapshot)
         {
-            var occupancyLines = new List<string>();
+            var occupancyEntries = new List<TraceOccupancyEntry>();
+
+            var solidEntries = new List<SnapshotOccupancyEntry>();
+            snapshot.EnumerateSolidOccupancyOrdered(solidEntries);
+            AddOccupancyEntries(occupancyEntries, "Solid", solidEntries);
 
             var unitEntries = new List<SnapshotOccupancyEntry>();
             snapshot.EnumerateUnitOccupancyOrdered(unitEntries);
-            AddOccupancyLines(occupancyLines, "Unit", unitEntries);
+            AddOccupancyEntries(occupancyEntries, "Unit", unitEntries);
 
             var projectileEntries = new List<SnapshotOccupancyEntry>();
             snapshot.EnumerateProjectileOccupancyOrdered(projectileEntries);
-            AddOccupancyLines(occupancyLines, "Projectile", projectileEntries);
+            AddOccupancyEntries(occupancyEntries, "Projectile", projectileEntries);
+
+            occupancyEntries.Sort(TraceOccupancyEntryComparer.Instance);
+
+            var occupancyLines = new List<string>(occupancyEntries.Count);
+            for (var i = 0; i < occupancyEntries.Count; i++)
+            {
+                var entry = occupancyEntries[i];
+                occupancyLines.Add(
+                    $"Layer={entry.LayerName}|Cell=({entry.Entry.Cell.x},{entry.Entry.Cell.y})|E={entry.Entry.EntityId}|Face={entry.Entry.Cell.face}");
+            }
 
             return occupancyLines;
         }
@@ -158,21 +172,19 @@ namespace Game.Feature.Gameplay.Debug
             return terrainLines;
         }
 
-        private static void AddOccupancyLines(
-            List<string> buffer,
+        private static void AddOccupancyEntries(
+            List<TraceOccupancyEntry> buffer,
             string layerName,
             IReadOnlyList<SnapshotOccupancyEntry> entries)
         {
             if (entries.Count == 0)
             {
-                buffer.Add($"{layerName}|<empty>");
                 return;
             }
 
             for (var i = 0; i < entries.Count; i++)
             {
-                var entry = entries[i];
-                buffer.Add($"{layerName}|Cell=({entry.Cell.x},{entry.Cell.y})|E={entry.EntityId}|Face={entry.Cell.face}");
+                buffer.Add(new TraceOccupancyEntry(layerName, entries[i]));
             }
         }
 
@@ -520,6 +532,53 @@ namespace Game.Feature.Gameplay.Debug
 
             builder.Append(']');
             return builder.ToString();
+        }
+
+        private readonly struct TraceOccupancyEntry
+        {
+            public TraceOccupancyEntry(string layerName, SnapshotOccupancyEntry entry)
+            {
+                LayerName = layerName;
+                Entry = entry;
+            }
+
+            public string LayerName { get; }
+
+            public SnapshotOccupancyEntry Entry { get; }
+        }
+
+        private sealed class TraceOccupancyEntryComparer : IComparer<TraceOccupancyEntry>
+        {
+            internal static readonly TraceOccupancyEntryComparer Instance = new();
+
+            public int Compare(TraceOccupancyEntry left, TraceOccupancyEntry right)
+            {
+                var result = left.Entry.Cell.face.CompareTo(right.Entry.Cell.face);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                result = left.Entry.Cell.x.CompareTo(right.Entry.Cell.x);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                result = left.Entry.Cell.y.CompareTo(right.Entry.Cell.y);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                result = left.Entry.EntityId.CompareTo(right.Entry.EntityId);
+                if (result != 0)
+                {
+                    return result;
+                }
+
+                return string.CompareOrdinal(left.LayerName, right.LayerName);
+            }
         }
 
         private static string FormatEntityState(EntityState entity)
