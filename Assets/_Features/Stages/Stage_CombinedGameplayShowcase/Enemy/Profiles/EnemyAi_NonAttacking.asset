@@ -35,7 +35,7 @@ MonoBehaviour:
   attackTimingSettings:
     windupSeconds: 0
   locomotionTimingSettings:
-    moveCooldownSeconds: 1
+    moveCooldownSeconds: 0.8
   serializedVersion: 2
   legacyCommonSettings:
     movementPriority: 50

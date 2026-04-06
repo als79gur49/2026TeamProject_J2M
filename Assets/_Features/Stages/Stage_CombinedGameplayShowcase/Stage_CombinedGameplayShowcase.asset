@@ -204,6 +204,32 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
     EnemyPresentationId: Attacking_showcase
+  - EntityId: 55
+    Kind: 1
+    Cell:
+      face: 0
+      x: 7
+      y: 2
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
+    EnemyPresentationId: nonAttacking_showcase
+  - EntityId: 56
+    Kind: 1
+    Cell:
+      face: 0
+      x: 7
+      y: 8
+    Facing: 1
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
+    EnemyPresentationId: nonAttacking_showcase
   wallSpawns:
   - EntityId: 196
     Kind: 3

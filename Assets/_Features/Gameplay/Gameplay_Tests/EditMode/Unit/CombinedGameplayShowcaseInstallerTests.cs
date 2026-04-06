@@ -21,7 +21,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
         private const string CombinedEnemyPresentationCatalogAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
-        private const string WindupEnemyPresentationId = "windup_melee_showcase";
+        private const int ConfiguredShowcaseEnemyId = 54;
+        private const int WallFollowerShowcaseEnemyId = 56;
+        private const string AttackingEnemyPresentationId = "Attacking_showcase";
+        private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
 
         [Test]
         public void CombinedGameplayStage_PopulatesSharedEdgeOpeningsAcrossAllFourFaces()
@@ -87,73 +90,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayStage_PlacesThreeEnemyVariantsForAiShowcase()
+        public void CombinedGameplayStage_PlacesConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
 
             Assert.That(
-                TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 1, 5), out var floorEnemy),
+                TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 6, 2), out var showcaseEnemy),
                 Is.True,
-                "Floor face should include an immediately reachable charge enemy.");
-            Assert.That(floorEnemy.teamId, Is.EqualTo(2));
-            Assert.That(floorEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-
+                "The current combined showcase should place its configured enemy on the floor face.");
+            Assert.That(showcaseEnemy.entityId, Is.EqualTo(ConfiguredShowcaseEnemyId));
+            Assert.That(showcaseEnemy.teamId, Is.EqualTo(2));
+            Assert.That(showcaseEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(showcaseEnemy.hp, Is.EqualTo(3));
             Assert.That(
-                TryGetUnitAt(entities, new SurfaceCell(FaceId.Front, 2, 2), out var frontEnemy),
-                Is.True,
-                "Front face should include a non-attacking scout after a surface transition.");
-            Assert.That(frontEnemy.teamId, Is.EqualTo(2));
-            Assert.That(frontEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-
-            Assert.That(
-                TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 2, 2), out var floorWindupEnemy),
-                Is.True,
-                "Floor face should include a nearby wind-up enemy so attack telegraph presentation is visible in the showcase start area.");
-            Assert.That(floorWindupEnemy.teamId, Is.EqualTo(2));
-            Assert.That(floorWindupEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-
-            Assert.That(
-                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorEnemy.position),
-                Is.EqualTo(4),
-                "The floor enemy should start inside sense range but outside attack range so Chase appears before Charge.");
-            Assert.That(
-                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), floorWindupEnemy.position),
-                Is.EqualTo(2),
-                "The wind-up enemy should start close enough to telegraph quickly without spawning directly in the charger lane.");
+                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 1, 1), showcaseEnemy.position),
+                Is.EqualTo(6),
+                "The authored showcase enemy should remain visible from the spawn lane without spawning adjacent to the player.");
         }
 
         [Test]
-        public void CombinedGameplayStage_BuildsEnemyProfileOverridesForChargeScoutAndWindupVariants()
+        public void CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
             Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(3));
 
-            Assert.That(TryGetProfileOverride(buildResult, 50, out var floorChargingProfile), Is.True);
-            Assert.That(floorChargingProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
-            Assert.That(floorChargingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-
-            Assert.That(TryGetProfileOverride(buildResult, 51, out var frontScoutProfile), Is.True);
-            Assert.That(frontScoutProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-            Assert.That(frontScoutProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
-
-            Assert.That(TryGetProfileOverride(buildResult, 52, out var floorWindupProfile), Is.True);
-            Assert.That(floorWindupProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
-            Assert.That(floorWindupProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
-            Assert.That(floorWindupProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+            Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
+            Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(showcaseProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+            Assert.That(showcaseProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
+            Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
         }
 
         [Test]
-        public void CombinedGameplayStage_BuildsEnemyPresentationBindingForWindupVariant()
+        public void CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyPresentationBindings, Is.Not.Null);
-            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(1));
-            Assert.That(buildResult.EnemyPresentationBindings[0].EntityId, Is.EqualTo(52));
-            Assert.That(buildResult.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(WindupEnemyPresentationId));
+            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(3));
+            Assert.That(TryGetPresentationBinding(buildResult, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
+            Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
+            Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
+        }
+
+        [Test]
+        public void CombinedGameplayStage_PlacesWallFollowerShowcaseEnemyNearElevatedPushBox()
+        {
+            var buildResult = BuildCombinedStage();
+            var entities = buildResult.InitialEntities;
+
+            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 10, 6), out var wallFollowerEnemy), Is.True);
+            Assert.That(wallFollowerEnemy.entityId, Is.EqualTo(WallFollowerShowcaseEnemyId));
+            Assert.That(wallFollowerEnemy.teamId, Is.EqualTo(2));
+            Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
+            Assert.That(
+                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 9, 6), wallFollowerEnemy.position),
+                Is.EqualTo(1),
+                "The wall-follow showcase enemy should spawn adjacent to the elevated push box it patrols around.");
+        }
+
+        [Test]
+        public void CombinedGameplayStage_BuildsWallFollowerProfileOverride()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(TryGetProfileOverride(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerProfile), Is.True);
+            Assert.That(wallFollowerProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.WallFollow));
+            Assert.That(wallFollowerProfile.DetectionStrategyKind, Is.EqualTo(DetectionStrategyKind.None));
+            Assert.That(wallFollowerProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(wallFollowerProfile.PatrolSettings.TurnPreference, Is.EqualTo(WallFollowTurnPreference.Left));
         }
 
         [Test]
@@ -333,10 +343,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringOnlyToWindupDemoEnemy()
+        public void CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringOnlyToWindupDemoEnemy");
-            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringOnlyToWindupDemoEnemy_BoardRoot");
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy");
+            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy_BoardRoot");
 
             try
             {
@@ -346,38 +356,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var factory = CreateViewFactory(installer, boardRoot);
                 var buildResult = BuildCombinedStage();
 
-                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, 2), out var windupEnemy), Is.True);
-                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 5), out var chargingEnemy), Is.True);
+                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 6, 2), out var showcaseEnemy), Is.True);
 
-                var windupView = factory.CreateView(windupEnemy);
-                var chargingView = factory.CreateView(chargingEnemy);
+                var showcaseView = factory.CreateView(showcaseEnemy);
 
-                var authoring = windupView.GetComponent<EnemyAnimationTimingAuthoring>();
+                var authoring = showcaseView.GetComponent<EnemyAnimationTimingAuthoring>();
                 Assert.That(authoring, Is.Not.Null);
-                Assert.That(windupView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(windupView.GetComponent<Animator>(), Is.Not.Null);
+                Assert.That(showcaseView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(showcaseView.GetComponent<Animator>(), Is.Not.Null);
 
                 var snapshot = authoring.CreateSnapshot();
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
-                Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+                Assert.That(windupDurationSeconds, Is.EqualTo(1f));
                 Assert.That(
                     snapshot.TryGetAttackWindupReferenceClipLengthSeconds(
                         out var windupReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(windupReferenceClipLengthSeconds, Is.GreaterThan(0f));
                 Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
-                Assert.That(recoverDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(recoverDurationSeconds, Is.EqualTo(1f));
                 Assert.That(
                     snapshot.TryGetRecoverReferenceClipLengthSeconds(
                         out var recoverReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(recoverReferenceClipLengthSeconds, Is.GreaterThan(0f));
                 Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
-                Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.08f));
-
-                Assert.That(chargingView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(chargingView.GetComponent<EnemyAnimationTimingAuthoring>(), Is.Null);
-                Assert.That(chargingView.GetComponent<Animator>(), Is.Null);
+                Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.001f));
             }
             finally
             {
@@ -387,11 +391,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver()
+        public void CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver");
-            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver_BoardRoot");
-            var presenterObject = new GameObject("CombinedGameplayShowcaseInstaller_WindupDemoEnemy_TimingAuthoringFeedsPresenterDriver_Presenter");
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver");
+            var boardRootObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver_BoardRoot");
+            var presenterObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver_Presenter");
 
             try
             {
@@ -400,7 +404,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardRoot.EnsureHierarchy();
                 var factory = CreateViewFactory(installer, boardRoot);
                 var buildResult = BuildCombinedStage();
-                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, 2), out var windupEnemy), Is.True);
+                Assert.That(TryGetUnitAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 6, 2), out var showcaseEnemy), Is.True);
 
                 var presenter = presenterObject.AddComponent<GameplayTickViewPresenter>();
                 var registry = presenterObject.AddComponent<GameplayEntityViewRegistry>();
@@ -411,9 +415,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.InitialTopology,
                     cellSize: 1f,
                     GameplayTimingProfile.CreateDefault());
-                presenter.PresentInitial(new[] { windupEnemy }, buildResult.InitialTopology);
+                presenter.PresentInitial(new[] { showcaseEnemy }, buildResult.InitialTopology);
 
-                Assert.That(registry.TryGetView(windupEnemy.entityId, out var enemyView), Is.True);
+                Assert.That(registry.TryGetView(showcaseEnemy.entityId, out var enemyView), Is.True);
                 var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
                 Assert.That(driver, Is.Not.Null);
                 var timingSnapshot = enemyView.GetComponent<EnemyAnimationTimingAuthoring>().CreateSnapshot();
@@ -428,7 +432,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 presenter.Present(CreateTickResult(
                     tickIndex: 1,
-                    new[] { WithAiMode(windupEnemy, EnemyAiMode.Attack) },
+                    new[] { WithAiMode(showcaseEnemy, EnemyAiMode.Attack) },
                     buildResult.InitialTopology,
                     new TickPresentationData(
                         Array.Empty<TickEntityMotion>(),
@@ -439,7 +443,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[]
                         {
                             new TickEnemyActionPresentationSignal(
-                                windupEnemy.entityId,
+                                showcaseEnemy.entityId,
                                 EnemyActionKind.Melee,
                                 activeActionSequence: 1,
                                 startedThisTick: true,
@@ -450,17 +454,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Attack));
-                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.35f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(
                     driver.CurrentAnimatorSpeed,
-                    Is.EqualTo(windupReferenceClipLengthSeconds / 0.35f).Within(0.0001f));
-                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
+                    Is.EqualTo(windupReferenceClipLengthSeconds / 1f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.001f).Within(0.0001f));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
                 Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
 
                 presenter.Present(CreateTickResult(
                     tickIndex: 2,
-                    new[] { WithAiMode(windupEnemy, EnemyAiMode.Recover) },
+                    new[] { WithAiMode(showcaseEnemy, EnemyAiMode.Recover) },
                     buildResult.InitialTopology,
                     new TickPresentationData(
                         Array.Empty<TickEntityMotion>(),
@@ -471,7 +475,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[]
                         {
                             new TickEnemyActionPresentationSignal(
-                                windupEnemy.entityId,
+                                showcaseEnemy.entityId,
                                 EnemyActionKind.Melee,
                                 activeActionSequence: 1,
                                 startedThisTick: false,
@@ -482,11 +486,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
-                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(
                     driver.CurrentAnimatorSpeed,
-                    Is.EqualTo(recoverReferenceClipLengthSeconds / 0.5f).Within(0.0001f));
-                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
+                    Is.EqualTo(recoverReferenceClipLengthSeconds / 1f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.001f).Within(0.0001f));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
                 Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
                 Assert.That(driver.AttackSignalCount, Is.EqualTo(1));
@@ -501,9 +505,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void CombinedGameplayShowcaseInstaller_OverlayMentionsWindupDemoLane()
+        public void CombinedGameplayShowcaseInstaller_OverlayMentionsWallFollowerDemoLane()
         {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_OverlayMentionsWindupDemoLane");
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_OverlayMentionsWallFollowerDemoLane");
 
             try
             {
@@ -512,7 +516,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(overlay.Title, Is.EqualTo("Combined Gameplay Showcase"));
                 Assert.That(overlay.Highlights, Has.Some.Contains("brief wind-up melee profile"));
-                Assert.That(overlay.Highlights, Has.Some.Contains("charger lane"));
+                Assert.That(overlay.Highlights, Has.Some.Contains("wall-follow patrol profile"));
             }
             finally
             {
@@ -651,6 +655,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             profile = null;
+            return false;
+        }
+
+        private static bool TryGetPresentationBinding(
+            StageRuntimeBuildResult buildResult,
+            int entityId,
+            out EnemyPresentationBinding binding)
+        {
+            for (var i = 0; i < buildResult.EnemyPresentationBindings.Length; i++)
+            {
+                var entry = buildResult.EnemyPresentationBindings[i];
+                if (entry.EntityId != entityId)
+                {
+                    continue;
+                }
+
+                binding = entry;
+                return true;
+            }
+
+            binding = default;
             return false;
         }
 

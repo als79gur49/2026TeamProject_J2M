@@ -45,9 +45,9 @@ namespace Game.Feature.Gameplay.Host
                 "Move: WASD   Push: E   Flip: Q",
                 new[]
                 {
-                    "Floor charger starts in the traversal lane to demo Patrol -> Chase -> Charge immediately.",
-                    "Front-face scout uses the non-attacking profile so surface-transition chase behavior stays visible.",
-                    "Floor striker near spawn uses a brief wind-up melee profile plus tuned wind-up/recover timing so those beats can be inspected without blocking the charger lane.",
+                    "Floor striker near spawn uses a brief wind-up melee profile plus tuned wind-up/recover timing so those beats can be inspected in place.",
+                    "Adjacent floor scout uses the non-attacking profile so move-only pursuit pacing can be compared against the striker lane.",
+                    "Elevated floor scout circles the nearby push box with a wall-follow patrol profile and never enters chase or attack.",
                 });
         }
 

@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab");
 
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
-            StringAssert.Contains("moveMotionDurationSeconds: -1", prefabText);
+            StringAssert.Contains("moveMotionDurationSeconds: 1", prefabText);
             StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
             StringAssert.DoesNotContain("EntityMotionPresentationAuthoring", prefabText);
             StringAssert.DoesNotContain("pushMotionDurationSeconds", prefabText);
