@@ -427,7 +427,7 @@
 - `DeterminismHashBuilder`는 기존 뭉뚱그린 non-projectile occupancy 대신 `SolidOccupancy`, `StackedUnitOccupancy`, `ProjectileOccupancy`를 각각 canonical dump에 포함하도록 바꿔 stacked unit 정보와 solid layer 상태가 hash에 명시적으로 반영되게 했다.
 - `TickReplayDeterminismTests`, `TickPipelineStageOneTests`, `FuzzDeterminismTests`를 갱신해 stacked unit/solid/projectile layered occupancy dump, entityId 오름차순 same-cell ordering, replay artifact 포맷을 고정했다.
 
-### 10단계. 테스트 추가 및 회귀 검증
+### 10단계. 테스트 추가 및 회귀 검증 [완료]
 
 목표
 
@@ -455,6 +455,14 @@
 
 - 신규 핵심 테스트 통과
 - 기존 movement/attack/cleanup/determinism 테스트 회귀 없음
+
+주요 구현 내용
+
+- `MovementPhaseScenarioTests`에 `Movement_EnemyMoveIntoPlayerCell_SucceedsAndStacks`를 추가해 `enemy -> player same-cell` 이동 허용을 문서 시나리오 이름 그대로 고정했다.
+- `AttackPhaseScenarioTests`에 `Attack_AlreadySameCellContactAttack_SucceedsWithoutMovement`를 추가해 이미 같은 타일을 공유 중인 상태에서도 melee/contact attack이 정상 확장/커밋되는 경로를 고정했다.
+- `EnemyAiScenarioTests`에 `EnemyAi_ContactDamageProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving`를 추가해 contact-damage enemy가 same-cell 상태에서 이동 없이 피해를 적용하는 규칙을 회귀 테스트로 잠갔다.
+- `GameplayWorldStateTestFactory.cs`의 test support에 `GameplayCliTestRunner.RunEditModeTests()`를 추가해 Unity batchmode에서 선택한 EditMode 테스트 집합을 동기 실행하고 요약을 로그로 남길 수 있게 했다.
+- headless regression subset으로 movement / attack / cleanup / determinism / presentation 관련 `16`개 overlap 핵심 테스트를 실행했고 `Passed=16`, `Failed=0`, `Skipped=0`을 확인했다.
 
 ## 구현 순서 권장
 
