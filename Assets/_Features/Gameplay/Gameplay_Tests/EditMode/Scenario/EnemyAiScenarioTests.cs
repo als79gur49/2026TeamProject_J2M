@@ -263,6 +263,42 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void EnemyAi_ContactDamageProfile_MovesIntoPlayerCell_AndDealsSameTickDamage()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeContactDamage());
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = worldState.CreateSnapshot();
+            var stackedUnits = new List<EntityState>();
+            var enemy = GetEntity(worldState, 40);
+            var player = GetEntity(worldState, 10);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(player.hp, Is.EqualTo(2));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+
+            snapshotAfter.EnumerateUnitsAt(new Vector2Int(0, 0), stackedUnits);
+            CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+            Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+        }
+
+        [Test]
         public void EnemyAi_ChargingProfile_StartsChargeUsingObstacleLane_AndStopsAtAdjacentUnit()
         {
             var worldState = CreateWorldState(

@@ -238,6 +238,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyActionStateTargeting_ResolveFacing_SameCell_KeepsSourceFacing()
+        {
+            var source = CreateUnit(
+                entityId: 40,
+                teamId: 2,
+                position: new SurfaceCell(FaceId.Floor, 1, 1),
+                aiMode: EnemyAiMode.Attack,
+                facing: Direction.Left);
+            var target = CreateUnit(
+                entityId: 10,
+                teamId: 1,
+                position: new SurfaceCell(FaceId.Floor, 1, 1),
+                aiMode: EnemyAiMode.None,
+                facing: Direction.Up);
+
+            var resolvedFacing = EnemyActionStateTargeting.ResolveFacing(source, target);
+
+            Assert.That(resolvedFacing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        public void ContactSameCellAttackDecisionStrategy_RequiresExactSameCell()
+        {
+            var strategy = ContactSameCellAttackDecisionStrategy.Instance;
+            var settings = AttackDecisionSettings.CreateDefaultMelee();
+            var source = CreateUnit(
+                entityId: 40,
+                teamId: 2,
+                position: new SurfaceCell(FaceId.Floor, 1, 1),
+                aiMode: EnemyAiMode.Chase,
+                facing: Direction.Left);
+            var sameCellTarget = CreateUnit(
+                entityId: 10,
+                teamId: 1,
+                position: new SurfaceCell(FaceId.Floor, 1, 1),
+                aiMode: EnemyAiMode.None);
+            var adjacentTarget = CreateUnit(
+                entityId: 20,
+                teamId: 1,
+                position: new SurfaceCell(FaceId.Floor, 2, 1),
+                aiMode: EnemyAiMode.None);
+
+            Assert.That(strategy.IsTargetInRange(source, sameCellTarget, settings), Is.True);
+            Assert.That(strategy.IsTargetInRange(source, adjacentTarget, settings), Is.False);
+        }
+
+        [Test]
         public void EnemyLogic_RecoverMode_DoesNotProduceMovementOrAttackIntent()
         {
             var worldState = CreateWorldState(new[]

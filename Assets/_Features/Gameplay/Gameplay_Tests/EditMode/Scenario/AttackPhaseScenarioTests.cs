@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     new StubCombatLogic(
                         movementIntent: new RawMovementIntent(10, 5, new Vector2Int(1, 0)),
-                        attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 20, 5)),
+                        attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(1));
@@ -91,6 +91,60 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Attack_MoveThenAttack_UsesPostMoveSnapshotForSameCellContact()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubCombatLogic(
+                        movementIntent: new RawMovementIntent(10, 5, new Vector2Int(1, 0)),
+                        attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var stackedUnits = new List<EntityState>();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, IntentId: 2, TargetId: 20),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (GroupId: 2, SourceId: 10, DamageTargetId: 20),
+                },
+                result.AttackPhaseResult
+                    .SelectedGroups
+                    .Select(group => (group.GroupId, group.SourceId, DamageTargetId: group.Damages.Single().TargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
+                    "DamageCommitted|G=2|I=2|Target=20|Amount=1",
+                },
+                result.AttackPhaseResult.CommitEvents);
+
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(1));
+
+            snapshotAfter.EnumerateUnitsAt(new Vector2Int(1, 0), stackedUnits);
+            CollectionAssert.AreEqual(new[] { 10, 20 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+        }
+
+        [Test]
         public void Attack_DeadAfterDamage_StillOccupiesUntilCleanup()
         {
             var worldState = CreateWorldState(new[]
@@ -101,8 +155,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var entityLogics = new IAttackEntityLogic[]
             {
-                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 30, 5)),
-                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 20, 30, 5)),
+                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 30, 5)),
+                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 20, 30, 5)),
             };
 
             var attackPhaseResult = RunAttackPhaseOnly(worldState, entityLogics, tickIndex: 5);
@@ -192,8 +246,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new IEntityLogic[]
                 {
                     CreateImmediatePushPlayerLogic(10),
-                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 40, 30, 10)),
-                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 50, 10, 5)),
+                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 30, 10)),
+                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 50, 10, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -382,13 +436,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "AttackRejected|Stage=Expand|I=1|Source=10|Target=20|Reason=NotAdjacent|SourceCell=(0,0)|TargetCell=(2,0)",
+                    "AttackRejected|Stage=Expand|I=1|Source=10|Target=20|Reason=NotSameCellOrAdjacent|SourceCell=(0,0)|TargetCell=(2,0)",
                 },
                 result.AttackPhaseResult.RejectedReasons);
             Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(3));
             Assert.That(IsMarkedForDeath(snapshotAfter, 20), Is.False);
             Assert.That(result.Trace.Text, Does.Contain("Attack.RejectedReasons"));
-            Assert.That(result.Trace.Text, Does.Contain("Reason=NotAdjacent"));
+            Assert.That(result.Trace.Text, Does.Contain("Reason=NotSameCellOrAdjacent"));
         }
 
         [Test]
@@ -1071,8 +1125,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 10, 30, 5)),
-                    new StubCombatLogic(controlledEntityId: 20, attackIntentFactory: snapshot => TryCreateAdjacentAttack(snapshot, 20, 30, 5)),
+                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 30, 5)),
+                    new StubCombatLogic(controlledEntityId: 20, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 20, 30, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(5));
@@ -1156,7 +1210,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        private static RawAttackIntent? TryCreateAdjacentAttack(
+        private static RawAttackIntent? TryCreateContactRangeAttack(
             WorldSnapshot snapshot,
             int sourceId,
             int targetId,
@@ -1172,7 +1226,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 return null;
             }
 
-            if (Math.Abs(source.position.x - target.position.x) + Math.Abs(source.position.y - target.position.y) != 1)
+            if (source.position.face != target.position.face)
+            {
+                return null;
+            }
+
+            if (Math.Abs(source.position.x - target.position.x) + Math.Abs(source.position.y - target.position.y) > 1)
             {
                 return null;
             }
