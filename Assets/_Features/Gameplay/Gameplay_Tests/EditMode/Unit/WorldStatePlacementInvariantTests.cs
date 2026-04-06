@@ -265,7 +265,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void SpawnEntity_ProjectileDestinationOccupiedByUnit_ThrowsAndLeavesWorldUnchanged()
+        public void SpawnEntity_ProjectileDestinationOccupiedByUnit_AllowsProjectileAndPreservesUnitOccupancy()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -273,14 +273,35 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 10, position: Vector2Int.zero),
                 });
 
+            worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
+            Assert.That(snapshot.TryGetEntity(20, out var projectile), Is.True);
+            Assert.That(projectile.type, Is.EqualTo(EntityType.Projectile));
+            Assert.That(projectile.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
+            Assert.That(occupant.entityId, Is.EqualTo(10));
+            Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out var projectileOccupant), Is.True);
+            Assert.That(projectileOccupant.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        public void SpawnEntity_ProjectileDestinationOccupiedByBox_ThrowsAndLeavesWorldUnchanged()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 10, position: Vector2Int.zero),
+                });
+
             Assert.Throws<InvalidOperationException>(
                 () => worldState.CreateWriteContext().SpawnEntity(CreateProjectile(entityId: 20, position: Vector2Int.zero)));
 
             var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
+            Assert.That(snapshot.TryGetEntity(10, out var box), Is.True);
+            Assert.That(box.type, Is.EqualTo(EntityType.Box));
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
             Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out _), Is.False);
         }
 

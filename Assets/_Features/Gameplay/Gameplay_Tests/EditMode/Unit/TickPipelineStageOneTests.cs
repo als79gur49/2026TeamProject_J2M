@@ -507,7 +507,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_BlocksMovementUntilCleanupEvenWhenEntityIsMarkedForDeath()
+        public void WorldSnapshot_MarkedForDeathUnit_DoesNotBlockUnitPlacementButStillBlocksMovementUntilCleanup()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -524,12 +524,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var snapshot = CreateSnapshot(worldState);
 
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
             Assert.That(snapshot.BlocksMovement(10), Is.True);
         }
 
         [Test]
-        public void WorldSnapshot_IsBlockedForUnit_ConsidersBoardBoundsTerrainAndIgnoresProjectileLayer()
+        public void WorldSnapshot_IsBlockedForUnit_ConsidersBoardBoundsTerrainAndIgnoresProjectileAndUnitLayers()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -541,6 +541,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp = 3,
                         maxHp = 3,
                         teamId = 1,
+                        type = EntityType.Unit,
+                    },
+                    new EntityState
+                    {
+                        entityId = 15,
+                        position = new Vector2Int(1, 0),
+                        hp = 2,
+                        maxHp = 2,
+                        teamId = 2,
                         type = EntityType.Unit,
                     },
                     new EntityState
@@ -570,13 +579,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.IsInsideBoard(new Vector2Int(-1, 0)), Is.False);
             Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(-1, 0)), Is.True);
             Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(0, 1)), Is.True);
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
+            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
             Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(2, 0)), Is.False);
             Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(3, 0)), Is.True);
         }
 
         [Test]
-        public void WorldSnapshot_TryGetPlacementBlocker_AppliesGameplayFaceAndBoardPresencePolicy()
+        public void WorldSnapshot_TryGetPlacementBlocker_AppliesGameplayFacePresenceAndEntityTypeRules()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -610,6 +619,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         type = EntityType.Unit,
                         markedForDeath = true,
                     },
+                    new EntityState
+                    {
+                        entityId = 40,
+                        position = new SurfaceCell(FaceId.Floor, 1, 1),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 0,
+                        type = EntityType.None,
+                    },
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(3, 1)),
                 new GameplayTerrainData(new[] { new Vector2Int(0, 1) }));
@@ -626,10 +644,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.False);
 
             Assert.That(
-                snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out var blocker),
+                snapshot.TryGetPlacementBlocker(EntityType.Unit, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out _),
+                Is.False);
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Projectile, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out _),
+                Is.False);
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Box, new SurfaceCell(FaceId.Floor, 3, 0), ignoredEntityId: 0, out var blocker),
                 Is.True);
             Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
             Assert.That(blocker.EntityId, Is.EqualTo(30));
+
+            Assert.That(
+                snapshot.TryGetPlacementBlocker(EntityType.Projectile, new SurfaceCell(FaceId.Floor, 1, 1), ignoredEntityId: 0, out var solidBlocker),
+                Is.True);
+            Assert.That(solidBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(solidBlocker.EntityId, Is.EqualTo(40));
         }
 
         [Test]

@@ -378,6 +378,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsOnStackedUnitsOnNextCell()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new[]
+                    {
+                        CreateUnit(
+                            entityId: 20,
+                            position: new SurfaceCell(FaceId.Front, 1, 1)),
+                        CreateUnit(
+                            entityId: 30,
+                            position: new SurfaceCell(FaceId.Front, 1, 1),
+                            teamId: 2),
+                    },
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Front, 1, 0),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(stopper.EntityId, Is.EqualTo(20));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 1, 1)));
+        }
+
+        [Test]
         public void WorldSnapshot_GameplayQueries_HideDetachedEntities()
         {
             var snapshot = CreateSnapshot(

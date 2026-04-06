@@ -219,83 +219,66 @@ namespace Game.Feature.Gameplay.BoardState
             int ignoredEntityId,
             out EntityState entity)
         {
-            if (entityType == EntityType.Projectile)
+            switch (entityType)
             {
-                if (TryGetPlacementOccupant(
-                        entitiesById,
-                        projectileOccupancy,
-                        topology,
-                        queryMode,
-                        cell,
-                        ignoredEntityId,
-                        out entity))
-                {
-                    return true;
-                }
-
-                if (TryGetPlacementOccupant(
+                case EntityType.Unit:
+                    return TryGetPlacementOccupant(
                         entitiesById,
                         solidOccupancyByCell,
                         topology,
                         queryMode,
                         cell,
                         ignoredEntityId,
-                        out entity))
-                {
-                    return true;
-                }
+                        out entity);
 
-                return TryGetPlacementStackedUnit(
-                    entitiesById,
-                    stackedUnitsByCell,
-                    topology,
-                    queryMode,
-                    cell,
-                    ignoredEntityId,
-                    out entity);
+                case EntityType.Projectile:
+                    if (TryGetPlacementOccupant(
+                            entitiesById,
+                            projectileOccupancy,
+                            topology,
+                            queryMode,
+                            cell,
+                            ignoredEntityId,
+                            out entity))
+                    {
+                        return true;
+                    }
+
+                    return TryGetPlacementOccupant(
+                        entitiesById,
+                        solidOccupancyByCell,
+                        topology,
+                        queryMode,
+                        cell,
+                        ignoredEntityId,
+                        out entity);
+
+                case EntityType.Box:
+                case EntityType.None:
+                    if (TryGetPlacementOccupant(
+                            entitiesById,
+                            solidOccupancyByCell,
+                            topology,
+                            queryMode,
+                            cell,
+                            ignoredEntityId,
+                            out entity))
+                    {
+                        return true;
+                    }
+
+                    return TryGetPlacementStackedUnit(
+                        entitiesById,
+                        stackedUnitsByCell,
+                        topology,
+                        queryMode,
+                        cell,
+                        ignoredEntityId,
+                        out entity);
+
+                default:
+                    throw new InvalidOperationException($"Unsupported placement entity type: {entityType}");
             }
-
-            if (TryGetPlacementOccupant(
-                    entitiesById,
-                    solidOccupancyByCell,
-                    topology,
-                    queryMode,
-                    cell,
-                    ignoredEntityId,
-                    out entity))
-            {
-                return true;
-            }
-
-            if ((entityType == EntityType.Box || entityType == EntityType.None) &&
-                TryGetPlacementStackedUnit(
-                    entitiesById,
-                    stackedUnitsByCell,
-                    topology,
-                    queryMode,
-                    cell,
-                    ignoredEntityId,
-                    out entity))
-            {
-                return true;
-            }
-
-            if (entityType == EntityType.Unit &&
-                queryMode == PlacementQueryMode.Gameplay &&
-                TryGetPlacementStackedUnit(
-                    entitiesById,
-                    stackedUnitsByCell,
-                    topology,
-                    queryMode,
-                    cell,
-                    ignoredEntityId,
-                    out entity))
-            {
-                return true;
-            }
-
-            entity = default;
-            return false;
         }
 
         private static IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateStackedUnitQueryView(

@@ -446,6 +446,41 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Attack_FireProjectileIntent_AllowsSpawnIntoOccupiedUnitCell()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
+                });
+            var defaultTimingProfile = GameplayTimingProfile.CreateDefault();
+
+            var result = pipeline.RunTick(new TickInput(4));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
+                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(1,0)|Type=Projectile|SpawnTick=4",
+                },
+                result.AttackPhaseResult.CommitEvents);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var occupiedUnit), Is.True);
+            Assert.That(occupiedUnit.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var spawnedProjectile), Is.True);
+            Assert.That(spawnedProjectile.entityId, Is.EqualTo(21));
+            Assert.That(spawnedProjectile.stateTimer, Is.EqualTo(defaultTimingProfile.ProjectileStepIntervalTicks));
+            Assert.That(snapshotAfter.TryGetUnitAt(new Vector2Int(1, 0), out var primaryOccupant), Is.True);
+            Assert.That(primaryOccupant.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
         public void Attack_SpawnIds_AreAssignedByCommitOrder()
         {
             var worldState = CreateWorldState(new[]
