@@ -212,6 +212,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_EnemyMoveIntoPlayerCell_SucceedsAndStacks()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(0, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[] { "MoveCommitted|G=1|I=1|E=20|To=(0,0)|Facing=Left" },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(0, 0)));
+            CollectionAssert.AreEqual(
+                new[] { 10, 20 },
+                GetUnitIdsAt(worldState, new SurfaceCell(FaceId.Floor, 0, 0)));
+        }
+
+        [Test]
         public void Movement_PushInputPushBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
         {
             var worldState = CreateWorldState(new[]

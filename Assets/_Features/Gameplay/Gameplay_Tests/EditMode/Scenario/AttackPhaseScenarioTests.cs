@@ -145,6 +145,54 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Attack_AlreadySameCellContactAttack_SucceedsWithoutMovement()
+        {
+            var stackedCell = new Vector2Int(1, 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: stackedCell, hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: stackedCell, hp: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubCombatLogic(
+                        controlledEntityId: 10,
+                        attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var stackedUnits = new List<EntityState>();
+
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, IntentId: 1, TargetId: 20),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
+                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
+                },
+                result.AttackPhaseResult.CommitEvents);
+
+            Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetEntityPosition(snapshotAfter, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(1));
+
+            snapshotAfter.EnumerateUnitsAt(stackedCell, stackedUnits);
+            CollectionAssert.AreEqual(new[] { 10, 20 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+        }
+
+        [Test]
         public void Attack_DeadAfterDamage_StillOccupiesUntilCleanup()
         {
             var worldState = CreateWorldState(new[]
