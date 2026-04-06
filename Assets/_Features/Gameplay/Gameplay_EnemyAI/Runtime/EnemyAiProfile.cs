@@ -170,6 +170,17 @@ namespace Game.Feature.Gameplay.Entities
                 attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
         }
 
+        public static EnemyAiProfile CreateRuntimeContactDamage()
+        {
+            return CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.ContactSameCell);
+        }
+
         public static EnemyAiProfile CreateRuntimeInstance(
             EnemyAiCommonSettings commonSettings,
             PatrolSettings patrolSettings,

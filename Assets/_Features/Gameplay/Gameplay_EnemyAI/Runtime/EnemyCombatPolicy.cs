@@ -125,4 +125,46 @@ namespace Game.Feature.Gameplay.Entities
             return Math.Abs(delta.x) + Math.Abs(delta.y);
         }
     }
+
+    public sealed class ContactSameCellAttackDecisionStrategy : IAttackDecisionStrategy
+    {
+        public static readonly ContactSameCellAttackDecisionStrategy Instance = new();
+
+        public bool TryBuildAttackIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState target,
+            in EnemyAiCommonSettings commonSettings,
+            in AttackDecisionSettings settings,
+            out RawAttackIntent intent)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            intent = default;
+
+            if (!IsTargetInRange(source, target, settings))
+            {
+                return false;
+            }
+
+            intent = new RawAttackIntent(
+                source.entityId,
+                commonSettings.AttackPriority,
+                target.entityId);
+            return true;
+        }
+
+        public bool IsTargetInRange(
+            in EntityState source,
+            in EntityState target,
+            in AttackDecisionSettings settings)
+        {
+            settings.Validate(nameof(settings));
+            return source.position.face == target.position.face &&
+                   source.position.PlanarPosition == target.position.PlanarPosition;
+        }
+    }
 }

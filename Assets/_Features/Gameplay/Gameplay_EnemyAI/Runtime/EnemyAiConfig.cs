@@ -29,6 +29,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         Melee = 0,
         None = 1,
+        ContactSameCell = 2,
     }
 
     [Serializable]
@@ -488,6 +489,9 @@ namespace Game.Feature.Gameplay.Entities
 
                 case AttackDecisionStrategyKind.None:
                     return NoAttackDecisionStrategy.Instance;
+
+                case AttackDecisionStrategyKind.ContactSameCell:
+                    return ContactSameCellAttackDecisionStrategy.Instance;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown attack decision strategy kind.");

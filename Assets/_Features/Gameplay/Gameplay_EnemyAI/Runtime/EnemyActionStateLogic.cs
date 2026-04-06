@@ -347,6 +347,7 @@ namespace Game.Feature.Gameplay.Entities
                     : Direction.Down;
             }
 
+            // Overlap contact attacks keep the actor's committed facing.
             return source.facing;
         }
 

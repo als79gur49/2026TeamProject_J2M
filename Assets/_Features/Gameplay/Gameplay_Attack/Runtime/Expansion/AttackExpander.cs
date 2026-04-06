@@ -106,10 +106,10 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                     continue;
                 }
 
-                if (!IsOrthogonallyAdjacent(source.position, target.position))
+                if (!IsSameCellOrOrthogonallyAdjacent(source.position, target.position))
                 {
                     rejectedReasons.Add(
-                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=NotAdjacent|SourceCell=({source.position.x},{source.position.y})|TargetCell=({target.position.x},{target.position.y})");
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=NotSameCellOrAdjacent|SourceCell=({source.position.x},{source.position.y})|TargetCell=({target.position.x},{target.position.y})");
                     continue;
                 }
 
@@ -351,10 +351,16 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             }
         }
 
-        private static bool IsOrthogonallyAdjacent(Vector2Int source, Vector2Int target)
+        private static bool IsSameCellOrOrthogonallyAdjacent(SurfaceCell source, SurfaceCell target)
         {
-            var delta = source - target;
-            return Math.Abs(delta.x) + Math.Abs(delta.y) == 1;
+            if (source.face != target.face)
+            {
+                return false;
+            }
+
+            var delta = source.PlanarPosition - target.PlanarPosition;
+            var distance = Math.Abs(delta.x) + Math.Abs(delta.y);
+            return distance <= 1;
         }
     }
 }
