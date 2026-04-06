@@ -43,24 +43,38 @@ namespace Game.Feature.Gameplay.Entities
     {
         [SerializeField] private ChaseAxisPriorityMode axisPriority;
         [SerializeField] private bool trySecondaryAxisWhenBlocked;
+        [SerializeField] private int desiredChaseDistance;
 
         public ChaseSettings(
             ChaseAxisPriorityMode axisPriority,
-            bool trySecondaryAxisWhenBlocked)
+            bool trySecondaryAxisWhenBlocked,
+            int desiredChaseDistance = 0)
         {
             this.axisPriority = axisPriority;
             this.trySecondaryAxisWhenBlocked = trySecondaryAxisWhenBlocked;
+            this.desiredChaseDistance = desiredChaseDistance;
         }
 
         public ChaseAxisPriorityMode AxisPriority => axisPriority;
 
         public bool TrySecondaryAxisWhenBlocked => trySecondaryAxisWhenBlocked;
 
+        public int DesiredChaseDistance => desiredChaseDistance;
+
+        public void Validate(string paramName)
+        {
+            if (desiredChaseDistance < 0)
+            {
+                throw new ArgumentException("Enemy chase settings require a non-negative desired chase distance.", paramName);
+            }
+        }
+
         public static ChaseSettings CreateDefault()
         {
             return new ChaseSettings(
                 ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak,
-                trySecondaryAxisWhenBlocked: true);
+                trySecondaryAxisWhenBlocked: true,
+                desiredChaseDistance: 0);
         }
     }
 
@@ -175,7 +189,9 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var planarDelta = target.position - source.position;
-            if (Math.Abs(planarDelta.x) + Math.Abs(planarDelta.y) <= 1)
+            settings.Validate(nameof(settings));
+
+            if (Math.Abs(planarDelta.x) + Math.Abs(planarDelta.y) <= settings.DesiredChaseDistance)
             {
                 return false;
             }

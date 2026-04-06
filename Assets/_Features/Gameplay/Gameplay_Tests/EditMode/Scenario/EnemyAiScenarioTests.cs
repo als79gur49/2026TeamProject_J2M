@@ -258,7 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
             Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
             Assert.That(player.hp, Is.EqualTo(3));
-            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
             Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
         }
 

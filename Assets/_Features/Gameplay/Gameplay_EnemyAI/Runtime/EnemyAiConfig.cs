@@ -388,6 +388,7 @@ namespace Game.Feature.Gameplay.Entities
         public void Validate(string paramName)
         {
             CommonSettings.Validate(paramName);
+            ChaseSettings.Validate(paramName);
             DetectionSettings.Validate(paramName);
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);

@@ -732,6 +732,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAiRuntimeDefinition_NegativeDesiredChaseDistance_ThrowsArgumentException()
+        {
+            var exception = Assert.Throws<ArgumentException>(
+                () => new EnemyAiRuntimeDefinition(
+                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    new ChaseSettings(
+                        ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak,
+                        trySecondaryAxisWhenBlocked: true,
+                        desiredChaseDistance: -1),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    EnemyAttackTimingSettings.CreateDefaultMelee(),
+                    EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                    ForwardPatrolStrategy.Instance,
+                    NearestOpponentDetectionStrategy.Instance,
+                    AxisPriorityChaseStrategy.Instance,
+                    MeleeAttackDecisionStrategy.Instance,
+                    DefaultEnemyAiStateResolver.Instance));
+
+            Assert.That(exception.ParamName, Is.EqualTo("EnemyAiRuntimeDefinition"));
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_PatrolEnemy_IsMaterializedDuringTick()
         {
             var worldState = CreateWorldState(new[]
@@ -976,6 +1000,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
             Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
             Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
         }
 
