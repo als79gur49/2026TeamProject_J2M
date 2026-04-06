@@ -654,6 +654,178 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayTickViewPresenter_PresentInitialStackedUnits_AssignsDistinctSurfaceOffsets()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PresentInitialStackedUnits_AssignsDistinctSurfaceOffsets");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var stackedCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, stackedCell),
+                        CreateEnemyUnit(20, stackedCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                Assert.That(registry.TryGetView(20, out var enemyView), Is.True);
+
+                var center = GetProjectedEntityPosition(boardBounds, topology, stackedCell, EntityType.Unit);
+                var playerPosition = playerView.transform.localPosition;
+                var enemyPosition = enemyView.transform.localPosition;
+                var midpoint = (playerPosition + enemyPosition) * 0.5f;
+
+                Assert.That(playerPosition.x, Is.LessThan(center.x));
+                Assert.That(enemyPosition.x, Is.GreaterThan(center.x));
+                Assert.That(Vector3.Distance(playerPosition, enemyPosition), Is.GreaterThan(0.01f));
+                Assert.That(playerPosition.y, Is.EqualTo(center.y).Within(0.001f));
+                Assert.That(enemyPosition.y, Is.EqualTo(center.y).Within(0.001f));
+                AssertPositionApproximately(midpoint, center);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_MoveIntoOccupiedCell_ReflowsStackedUnitOffsets()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_MoveIntoOccupiedCell_ReflowsStackedUnitOffsets");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var stackedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                        CreateEnemyUnit(20, stackedCell),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateMotionTickResult(
+                        new[]
+                        {
+                            CreatePlayerUnit(10, stackedCell),
+                            CreateEnemyUnit(20, stackedCell),
+                        },
+                        topology,
+                        new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, stackedCell)));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                Assert.That(registry.TryGetView(20, out var enemyView), Is.True);
+
+                var center = GetProjectedEntityPosition(boardBounds, topology, stackedCell, EntityType.Unit);
+                var playerPosition = playerView.transform.localPosition;
+                var enemyPosition = enemyView.transform.localPosition;
+                var midpoint = (playerPosition + enemyPosition) * 0.5f;
+
+                Assert.That(playerPosition.x, Is.LessThan(center.x));
+                Assert.That(enemyPosition.x, Is.GreaterThan(center.x));
+                Assert.That(Vector3.Distance(playerPosition, enemyPosition), Is.GreaterThan(0.01f));
+                AssertPositionApproximately(midpoint, center);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_StackedUnitsOnCeilingFace_StayOnFaceTangentPlane()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_StackedUnitsOnCeilingFace_StayOnFaceTangentPlane");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Front);
+                var stackedCell = new SurfaceCell(FaceId.Ceiling, 0, 0);
+                var projector = new GameplayCubeProjector(boardBounds, 1f);
+
+                Assert.That(projector.TryProjectEntityCell(stackedCell, topology, EntityType.Unit, out var projectedPose), Is.True);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, stackedCell),
+                        CreateEnemyUnit(20, stackedCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                Assert.That(registry.TryGetView(20, out var enemyView), Is.True);
+
+                var center = projectedPose.LocalPosition;
+                var playerOffset = playerView.transform.localPosition - center;
+                var enemyOffset = enemyView.transform.localPosition - center;
+
+                Assert.That(Vector3.Distance(playerView.transform.localPosition, enemyView.transform.localPosition), Is.GreaterThan(0.01f));
+                Assert.That(Mathf.Abs(Vector3.Dot(playerOffset, projectedPose.Normal)), Is.LessThan(0.001f));
+                Assert.That(Mathf.Abs(Vector3.Dot(enemyOffset, projectedPose.Normal)), Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static GameplayTimingProfile CreateTimingProfile()
         {
             return new GameplayTimingProfile(
@@ -728,6 +900,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SurfaceCell destinationCell,
             TickEntityMotionKind motionKind)
         {
+            return CreateMotionTickResult(
+                new[]
+                {
+                    finalEntity,
+                },
+                topology,
+                new TickEntityMotion(finalEntity.entityId, motionKind, sourceCell, destinationCell));
+        }
+
+        private static TickResult CreateMotionTickResult(
+            IReadOnlyList<EntityState> finalEntities,
+            CubeTopologyState topology,
+            params TickEntityMotion[] motions)
+        {
             return new TickResult(
                 1,
                 Array.Empty<TickPhase>(),
@@ -735,17 +921,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
                 CleanupPhaseResult.Empty,
-                new[]
-                {
-                    finalEntity,
-                },
+                finalEntities,
                 Array.Empty<string>(),
                 topology,
                 new TickPresentationData(
-                    new[]
-                    {
-                        new TickEntityMotion(finalEntity.entityId, motionKind, sourceCell, destinationCell),
-                    }),
+                    motions),
                 string.Empty,
                 TickTrace.Empty);
         }

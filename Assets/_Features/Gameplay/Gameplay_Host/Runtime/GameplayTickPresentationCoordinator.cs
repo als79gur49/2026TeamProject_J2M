@@ -10,6 +10,9 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayTickPresentationCoordinator
     {
+        private const float UnitPresentationOffsetRadiusInCells = 0.2f;
+        private const float UnitPresentationSquareHalfExtentInCells = 0.14f;
+
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly RotationTrack _boardRotationTrack = new();
         private readonly List<int> _completedMotionTrackIds = new();
@@ -284,14 +287,15 @@ namespace Game.Feature.Gameplay.Host
             SurfaceCell cell,
             CubeTopologyState topology,
             ProjectedCellPose projectedPose,
-            Direction facing)
+            Direction facing,
+            Vector2 presentationPlaneOffset = default)
         {
             var localRotation = _projector.TryResolveEntityRotation(cell, topology, facing, out var resolvedRotation)
                 ? resolvedRotation
                 : projectedPose.LocalRotation;
 
             return new GameplayEntityPose(
-                projectedPose.LocalPosition,
+                ResolvePresentationLocalPosition(projectedPose, presentationPlaneOffset),
                 localRotation);
         }
 
@@ -936,6 +940,8 @@ namespace Game.Feature.Gameplay.Host
         private void StoreCommittedEntityTargets(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
         {
             _stateStore.BeginCommittedFrame(topology);
+            var presentableTargets = new List<PresentableEntityTarget>(entities.Count);
+            var stackedUnitEntityIdsByCell = new Dictionary<SurfaceCell, List<int>>();
 
             for (var i = 0; i < entities.Count; i++)
             {
@@ -956,12 +962,118 @@ namespace Game.Feature.Gameplay.Host
 
                 _stateStore.ViewsByEntityId[entity.entityId] = view;
                 _animationSync.CacheDrivers(entity.entityId, view);
-                _stateStore.CommittedLocalTargetPoses[entity.entityId] = CreateEntityPose(
-                    entity.position,
-                    topology,
-                    projectedPose,
-                    entity.facing);
+                presentableTargets.Add(new PresentableEntityTarget(entity, projectedPose));
+
+                if (entity.type != EntityType.Unit)
+                {
+                    continue;
+                }
+
+                if (!stackedUnitEntityIdsByCell.TryGetValue(entity.position, out var stackedEntityIds))
+                {
+                    stackedEntityIds = new List<int>();
+                    stackedUnitEntityIdsByCell[entity.position] = stackedEntityIds;
+                }
+
+                stackedEntityIds.Add(entity.entityId);
             }
+
+            var unitPresentationPlaneOffsetsByEntityId =
+                BuildUnitPresentationPlaneOffsetsByEntityId(stackedUnitEntityIdsByCell);
+
+            for (var i = 0; i < presentableTargets.Count; i++)
+            {
+                var target = presentableTargets[i];
+                var presentationPlaneOffset = target.Entity.type == EntityType.Unit &&
+                                              unitPresentationPlaneOffsetsByEntityId.TryGetValue(
+                                                  target.Entity.entityId,
+                                                  out var resolvedPresentationPlaneOffset)
+                    ? resolvedPresentationPlaneOffset
+                    : Vector2.zero;
+
+                _stateStore.CommittedLocalTargetPoses[target.Entity.entityId] = CreateEntityPose(
+                    target.Entity.position,
+                    topology,
+                    target.ProjectedPose,
+                    target.Entity.facing,
+                    presentationPlaneOffset);
+            }
+        }
+
+        private Dictionary<int, Vector2> BuildUnitPresentationPlaneOffsetsByEntityId(
+            Dictionary<SurfaceCell, List<int>> stackedUnitEntityIdsByCell)
+        {
+            var planeOffsetsByEntityId = new Dictionary<int, Vector2>();
+
+            foreach (var pair in stackedUnitEntityIdsByCell)
+            {
+                var entityIds = pair.Value;
+                entityIds.Sort();
+
+                for (var slotIndex = 0; slotIndex < entityIds.Count; slotIndex++)
+                {
+                    planeOffsetsByEntityId[entityIds[slotIndex]] = ResolveUnitPresentationPlaneOffset(
+                        slotIndex,
+                        entityIds.Count);
+                }
+            }
+
+            return planeOffsetsByEntityId;
+        }
+
+        private Vector2 ResolveUnitPresentationPlaneOffset(int slotIndex, int slotCount)
+        {
+            if (slotCount <= 1)
+            {
+                return Vector2.zero;
+            }
+
+            var circleRadius = UnitPresentationOffsetRadiusInCells * _projector.CellSize;
+            var squareHalfExtent = UnitPresentationSquareHalfExtentInCells * _projector.CellSize;
+
+            return slotCount switch
+            {
+                2 => new Vector2(slotIndex == 0 ? -circleRadius : circleRadius, 0f),
+                3 => slotIndex switch
+                {
+                    0 => new Vector2(0f, circleRadius),
+                    1 => new Vector2(-circleRadius * 0.8660254f, -circleRadius * 0.5f),
+                    _ => new Vector2(circleRadius * 0.8660254f, -circleRadius * 0.5f),
+                },
+                4 => slotIndex switch
+                {
+                    0 => new Vector2(-squareHalfExtent, squareHalfExtent),
+                    1 => new Vector2(squareHalfExtent, squareHalfExtent),
+                    2 => new Vector2(-squareHalfExtent, -squareHalfExtent),
+                    _ => new Vector2(squareHalfExtent, -squareHalfExtent),
+                },
+                _ => ResolveCircularPresentationPlaneOffset(slotIndex, slotCount, circleRadius),
+            };
+        }
+
+        private static Vector3 ResolvePresentationLocalPosition(
+            ProjectedCellPose projectedPose,
+            Vector2 presentationPlaneOffset)
+        {
+            if (presentationPlaneOffset.sqrMagnitude <= 0.000001f)
+            {
+                return projectedPose.LocalPosition;
+            }
+
+            return projectedPose.LocalPosition +
+                   (projectedPose.LocalRotation * new Vector3(
+                       presentationPlaneOffset.x,
+                       presentationPlaneOffset.y,
+                       0f));
+        }
+
+        private static Vector2 ResolveCircularPresentationPlaneOffset(
+            int slotIndex,
+            int slotCount,
+            float radius)
+        {
+            var angle = ((Mathf.PI * 2f) / slotCount * slotIndex) + (Mathf.PI * 0.5f);
+            return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
         }
 
         private void StoreCommittedFrame(
@@ -1177,6 +1289,19 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return TryResolveLocalPose(change.EntityId, change.Cell, change.Topology, change.Facing, out localPose);
+        }
+
+        private readonly struct PresentableEntityTarget
+        {
+            public PresentableEntityTarget(EntityState entity, ProjectedCellPose projectedPose)
+            {
+                Entity = entity;
+                ProjectedPose = projectedPose;
+            }
+
+            public EntityState Entity { get; }
+
+            public ProjectedCellPose ProjectedPose { get; }
         }
     }
 }
