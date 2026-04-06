@@ -246,7 +246,7 @@
 - `PlayerControlQueries.TryResolvePushContact` / `TryResolveFlipTarget`는 box 전용 helper를 통해 `TryGetBoxAt(...)`만 사용하도록 고정해 adjacent unit이 push hold나 flip action 시작 조건으로 섞이지 않게 했다.
 - `MovementPhaseScenarioTests`, `PlayerMovementInputTests`, `TickReplayDeterminismTests`를 갱신해 scripted move/player move의 same-cell stacking, push/flip의 unit 비반응, replay determinism을 검증했다.
 
-### 5단계. 이동 Resolver 충돌 규칙 수정
+### 5단계. 이동 Resolver 충돌 규칙 수정 [완료]
 
 목표
 
@@ -276,6 +276,12 @@
 
 - 두 적이 같은 tick에 같은 destination으로 들어가는 시나리오가 통과한다.
 - box move와 topology move의 기존 충돌 보호는 유지된다.
+
+주요 구현 내용
+
+- `MovementResolver`에 snapshot 기반 `unit-only move` 판별을 추가해 `GroupKind == Move`, `TopologyChanges.Count == 0`, `Moves` 대상이 모두 `EntityType.Unit`인 후보만 shared-destination 완화 대상으로 분리했다.
+- destination/edge reservation을 `전체 충돌용`과 `shared-unit 차단용`으로 이원화해 unit-only move끼리는 같은 칸/edge를 공유할 수 있게 하면서도 `Push`/`Item`/topology change 같은 보수적 group은 unit move와 계속 상호 충돌하도록 유지했다.
+- `TickPipeline`과 movement phase 테스트 helper가 resolver에 pre-movement snapshot을 넘기도록 연결했고, `MovementPhaseScenarioTests`와 `TickPipelineStageOneTests`를 확장해 same-destination unit stacking과 box/unit reservation 보호를 함께 검증했다.
 
 ### 6단계. 공격/접촉 규칙 수정
 

@@ -112,6 +112,52 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_TwoScriptedUnitsEnteringSameDestinationInSameTick_BothSucceedAndStack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(2, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(10, 10, new Vector2Int(1, 0))),
+                    new StubMovementLogic(new RawMovementIntent(20, 5, new Vector2Int(1, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move, Destination: new Vector2Int(1, 0)),
+                    (GroupId: 2, SourceId: 20, Kind: ActionGroupKind.Move, Destination: new Vector2Int(1, 0)),
+                },
+                result.MovementPhaseResult
+                    .ExpandedCandidates
+                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.Moves.Single().Destination))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[] { 1, 2 },
+                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+                    "MoveCommitted|G=2|I=2|E=20|To=(1,0)|Facing=Left",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(1, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+            CollectionAssert.AreEqual(
+                new[] { 10, 20 },
+                GetUnitIdsAt(worldState, new SurfaceCell(FaceId.Floor, 1, 0)));
+        }
+
+        [Test]
         public void Movement_MoveIntoPushBox_StartsHoldContactWithoutMoveOrRejection()
         {
             var worldState = CreateWorldState(new[]
@@ -1953,7 +1999,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             var selectedGroups = new List<ActionGroup>();
-            new MovementResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
+            new MovementResolver().Resolve(snapshot, expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
             new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot()).Commit(

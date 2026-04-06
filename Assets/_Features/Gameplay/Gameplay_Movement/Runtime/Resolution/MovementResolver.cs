@@ -8,6 +8,29 @@ namespace Game.Feature.Gameplay.Movement.Resolution
     internal sealed class MovementResolver
     {
         public void Resolve(
+            WorldSnapshot snapshot,
+            IReadOnlyList<ActionGroup> sortedCandidates,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            ResolveCore(snapshot, sortedCandidates, buffer, rejectedReasons);
+        }
+
+        public void Resolve(
+            IReadOnlyList<ActionGroup> sortedCandidates,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            ResolveCore(null, sortedCandidates, buffer, rejectedReasons);
+        }
+
+        private static void ResolveCore(
+            WorldSnapshot snapshot,
             IReadOnlyList<ActionGroup> sortedCandidates,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
@@ -31,7 +54,9 @@ namespace Game.Feature.Gameplay.Movement.Resolution
 
             var selectedIntentIds = new HashSet<int>();
             var reservedDestinations = new HashSet<SurfaceCell>();
+            var reservedBlockingDestinations = new HashSet<SurfaceCell>();
             var reservedEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
+            var reservedBlockingEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
             var reservedAffectedEntities = new HashSet<int>();
             ExclusiveGroupReservation? firstSelectedReservation = null;
             ExclusiveGroupReservation? topologyExclusiveReservation = null;
@@ -57,7 +82,11 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                     continue;
                 }
 
-                if (TryGetConflictingDestination(candidate, reservedDestinations, out var conflictingDestination))
+                var reservationMode = ResolveReservationMode(snapshot, candidate);
+                var destinationsToCheck = reservationMode == ReservationMode.UnitSharedMove
+                    ? reservedBlockingDestinations
+                    : reservedDestinations;
+                if (TryGetConflictingDestination(candidate, destinationsToCheck, out var conflictingDestination))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=DestinationReserved|Cell={FormatCell(conflictingDestination)}");
@@ -65,7 +94,10 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 }
 
                 if (RequiresEdgeReservation(candidate) &&
-                    TryGetConflictingEdge(candidate, reservedEdges, out var conflictingEdge))
+                    TryGetConflictingEdge(
+                        candidate,
+                        reservationMode == ReservationMode.UnitSharedMove ? reservedBlockingEdges : reservedEdges,
+                        out var conflictingEdge))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Resolve|G={candidate.GroupId}|I={candidate.IntentId}|Source={candidate.SourceId}|Reason=EdgeReserved|From={FormatCell(conflictingEdge.First)}|To={FormatCell(conflictingEdge.Second)}");
@@ -84,8 +116,11 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 ReserveCandidate(
                     candidate,
                     reservedDestinations,
+                    reservedBlockingDestinations,
                     reservedEdges,
+                    reservedBlockingEdges,
                     reservedAffectedEntities,
+                    reservationMode,
                     ref firstSelectedReservation,
                     ref topologyExclusiveReservation);
             }
@@ -94,15 +129,25 @@ namespace Game.Feature.Gameplay.Movement.Resolution
         private static void ReserveCandidate(
             ActionGroup candidate,
             HashSet<SurfaceCell> reservedDestinations,
+            ISet<SurfaceCell> reservedBlockingDestinations,
             IDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
+            IDictionary<UndirectedEdgeKey, EdgeReservation> reservedBlockingEdges,
             ISet<int> reservedAffectedEntities,
+            ReservationMode reservationMode,
             ref ExclusiveGroupReservation? firstSelectedReservation,
             ref ExclusiveGroupReservation? topologyExclusiveReservation)
         {
+            var blocksSharedUnitMoves = reservationMode == ReservationMode.Conservative;
+
             for (var moveIndex = 0; moveIndex < candidate.Moves.Count; moveIndex++)
             {
                 var move = candidate.Moves[moveIndex];
                 reservedDestinations.Add(move.DestinationCell);
+                if (blocksSharedUnitMoves)
+                {
+                    reservedBlockingDestinations.Add(move.DestinationCell);
+                }
+
                 reservedAffectedEntities.Add(move.EntityId);
 
                 if (RequiresEdgeReservation(candidate) && move.SourceCell != move.DestinationCell)
@@ -112,7 +157,12 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                         move.SourceCell,
                         move.DestinationCell,
                         candidate.GroupId);
-                    reservedEdges[UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To)] = edgeReservation;
+                    var edgeKey = UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To);
+                    reservedEdges[edgeKey] = edgeReservation;
+                    if (blocksSharedUnitMoves)
+                    {
+                        reservedBlockingEdges[edgeKey] = edgeReservation;
+                    }
                 }
             }
 
@@ -262,6 +312,28 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             return candidate.GroupKind != ActionGroupKind.Flip;
         }
 
+        private static ReservationMode ResolveReservationMode(WorldSnapshot snapshot, ActionGroup candidate)
+        {
+            if (snapshot == null ||
+                candidate.GroupKind != ActionGroupKind.Move ||
+                HasTopologyChange(candidate) ||
+                candidate.Moves.Count == 0)
+            {
+                return ReservationMode.Conservative;
+            }
+
+            for (var i = 0; i < candidate.Moves.Count; i++)
+            {
+                if (!snapshot.TryGetEntity(candidate.Moves[i].EntityId, out var entity) ||
+                    entity.type != EntityType.Unit)
+                {
+                    return ReservationMode.Conservative;
+                }
+            }
+
+            return ReservationMode.UnitSharedMove;
+        }
+
         private static bool HasTopologyChange(ActionGroup candidate)
         {
             return candidate.TopologyChanges.Count > 0;
@@ -369,6 +441,12 @@ namespace Game.Feature.Gameplay.Movement.Resolution
 
                 return left.y.CompareTo(right.y);
             }
+        }
+
+        private enum ReservationMode
+        {
+            Conservative = 0,
+            UnitSharedMove = 1,
         }
     }
 }

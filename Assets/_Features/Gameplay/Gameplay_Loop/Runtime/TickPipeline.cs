@@ -310,7 +310,7 @@ namespace Game.Feature.Gameplay.Loop
             AssignMovementGroupIds(expandedCandidates);
 
             var selectedGroups = new List<ActionGroup>();
-            _movementResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
+            _movementResolver.Resolve(snapshot, expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
             _movementCommitter.Commit(

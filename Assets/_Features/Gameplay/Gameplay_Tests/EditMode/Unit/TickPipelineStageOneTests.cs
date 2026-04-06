@@ -949,6 +949,116 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void Movement_UnitSharedMove_RejectsLaterCandidateWhenPushAlreadyReservedDestination()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 20,
+                    position = new Vector2Int(2, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 30,
+                    position = new Vector2Int(0, 0),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 0,
+                    type = EntityType.Box,
+                },
+            });
+            var snapshot = CreateSnapshot(worldState);
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreatePushGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 40,
+                    priority: 10,
+                    new MoveAction(entityId: 30, source: new Vector2Int(0, 0), destination: new Vector2Int(1, 0), facing: Direction.Right)),
+                CreateMoveGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 20,
+                    priority: 5,
+                    new MoveAction(entityId: 20, source: new Vector2Int(2, 0), destination: new Vector2Int(1, 0), facing: Direction.Left)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(snapshot, sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=DestinationReserved|Cell=(1,0)",
+                },
+                rejectedReasons);
+        }
+
+        [Test]
+        public void Movement_UnitSharedMove_RejectsLaterPushCandidateThatSharesUndirectedEdge()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                new EntityState
+                {
+                    entityId = 10,
+                    position = new Vector2Int(0, 0),
+                    hp = 3,
+                    maxHp = 3,
+                    teamId = 1,
+                    type = EntityType.Unit,
+                },
+                new EntityState
+                {
+                    entityId = 30,
+                    position = new Vector2Int(1, 0),
+                    hp = 1,
+                    maxHp = 1,
+                    teamId = 0,
+                    type = EntityType.Box,
+                },
+            });
+            var snapshot = CreateSnapshot(worldState);
+            var resolver = new MovementResolver();
+            var sortedCandidates = new List<ActionGroup>
+            {
+                CreateMoveGroup(
+                    groupId: 1,
+                    intentId: 1,
+                    sourceId: 10,
+                    priority: 10,
+                    new MoveAction(entityId: 10, source: new Vector2Int(0, 0), destination: new Vector2Int(1, 0), facing: Direction.Right)),
+                CreatePushGroup(
+                    groupId: 2,
+                    intentId: 2,
+                    sourceId: 40,
+                    priority: 5,
+                    new MoveAction(entityId: 30, source: new Vector2Int(1, 0), destination: new Vector2Int(0, 0), facing: Direction.Left)),
+            };
+            var selectedGroups = new List<ActionGroup>();
+            var rejectedReasons = new List<string>();
+
+            resolver.Resolve(snapshot, sortedCandidates, selectedGroups, rejectedReasons);
+
+            CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Resolve|G=2|I=2|Source=40|Reason=EdgeReserved|From=(0,0)|To=(1,0)",
+                },
+                rejectedReasons);
+        }
+
+        [Test]
         public void Movement_TopologyReservation_RejectsLaterCandidateThatAlsoChangesTopology()
         {
             var resolver = new MovementResolver();
@@ -1608,7 +1718,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int priority,
             params MoveAction[] moves)
         {
-            var actionGroup = new ActionGroup(intentId, sourceId, priority, ActionGroupKind.Move);
+            return CreateMovementGroup(groupId, intentId, sourceId, priority, ActionGroupKind.Move, moves);
+        }
+
+        private static ActionGroup CreatePushGroup(
+            int groupId,
+            int intentId,
+            int sourceId,
+            int priority,
+            params MoveAction[] moves)
+        {
+            return CreateMovementGroup(groupId, intentId, sourceId, priority, ActionGroupKind.Push, moves);
+        }
+
+        private static ActionGroup CreateMovementGroup(
+            int groupId,
+            int intentId,
+            int sourceId,
+            int priority,
+            ActionGroupKind groupKind,
+            params MoveAction[] moves)
+        {
+            var actionGroup = new ActionGroup(intentId, sourceId, priority, groupKind);
             actionGroup.AssignGroupId(groupId);
 
             for (var i = 0; i < moves.Length; i++)
