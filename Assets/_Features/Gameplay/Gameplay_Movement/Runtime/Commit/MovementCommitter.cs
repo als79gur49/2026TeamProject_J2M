@@ -8,7 +8,6 @@ using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.PlayerControl;
-using UnityEngine;
 
 namespace Game.Feature.Gameplay.Movement.Commit
 {
@@ -77,7 +76,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
                 if (group.GroupKind == ActionGroupKind.ProjectileImpact)
                 {
-                    var reservation = CreateProjectileImpactReservation(snapshot, sortedIntents, tickIndex, group, reservationSequence);
+                    var reservation = CreateProjectileImpactReservation(snapshot, tickIndex, group, reservationSequence);
                     transientBuffer.AddImpact(reservation);
                     commitEvents.Add(
                         $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={reservation.SourceId}|Target={reservation.TargetId}|At={FormatCell(reservation.Position)}|Damage={reservation.Damage}|Sequence={reservation.ReservationSequence}");
@@ -197,7 +196,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
         private static ImpactReservation CreateProjectileImpactReservation(
             WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> sortedIntents,
             int tickIndex,
             ActionGroup group,
             int reservationSequence)
@@ -214,18 +212,16 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     $"Projectile impact group must reference a projectile source. Source={group.SourceId}, Type={source.type}, Intent={group.IntentId}");
             }
 
-            var intent = FindIntent(sortedIntents, group.IntentId);
-            if (intent == null)
+            if (group.ProjectileImpactTargetId <= 0)
             {
                 throw new InvalidOperationException(
-                    $"Projectile impact group is missing its movement intent. Source={group.SourceId}, Intent={group.IntentId}");
+                    $"Projectile impact group is missing its resolved target. Source={group.SourceId}, Intent={group.IntentId}, Group={group.GroupId}");
             }
 
-            var destination = ResolveIntentTargetCell(source.position, intent.Destination);
-            if (!snapshot.TryPickImpactTargetAt(destination, source.teamId, out var target))
+            if (!snapshot.TryGetEntity(group.ProjectileImpactTargetId, out var target))
             {
                 throw new InvalidOperationException(
-                    $"Projectile impact group requires a blocking target at the destination. Source={group.SourceId}, Intent={group.IntentId}, Destination={destination}");
+                    $"Projectile impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={group.ProjectileImpactTargetId}");
             }
 
             return new ImpactReservation(
@@ -292,12 +288,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
             throw new InvalidOperationException(
                 $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
-        }
-
-        private static SurfaceCell ResolveIntentTargetCell(SurfaceCell source, Vector2Int destination)
-        {
-            var delta = destination - source.PlanarPosition;
-            return source + delta;
         }
 
         private static string FormatCell(SurfaceCell cell)

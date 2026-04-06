@@ -37,6 +37,8 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public ActionGroupKind GroupKind { get; }
 
+        public int ProjectileImpactTargetId { get; private set; }
+
         public List<MoveAction> Moves { get; }
 
         public List<DamageAction> Damages { get; }
@@ -52,6 +54,26 @@ namespace Game.Feature.Gameplay.Model.Groups
         public List<TopologyChangeAction> TopologyChanges { get; }
 
         public List<DelayedAttackAction> DelayedAttacks { get; }
+
+        public void AssignProjectileImpactTarget(int targetId)
+        {
+            if (GroupKind != ActionGroupKind.ProjectileImpact)
+            {
+                throw new InvalidOperationException("Only projectile impact groups can assign an impact target.");
+            }
+
+            if (targetId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(targetId), "Projectile impact targets must be positive entity IDs.");
+            }
+
+            if (ProjectileImpactTargetId != 0)
+            {
+                throw new InvalidOperationException("Projectile impact target has already been assigned.");
+            }
+
+            ProjectileImpactTargetId = targetId;
+        }
 
         internal void AssignGroupId(int groupId)
         {

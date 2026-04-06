@@ -292,7 +292,14 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|I=").Append(group.IntentId)
                 .Append("|Source=").Append(group.SourceId)
                 .Append("|Priority=").Append(group.Priority)
-                .Append("|Kind=").Append(group.GroupKind)
+                .Append("|Kind=").Append(group.GroupKind);
+
+            if (group.ProjectileImpactTargetId > 0)
+            {
+                builder.Append("|ImpactTarget=").Append(group.ProjectileImpactTargetId);
+            }
+
+            builder
                 .Append("|Moves=").Append(FormatMoves(group.Moves))
                 .Append("|Damages=").Append(FormatDamages(group.Damages))
                 .Append("|Spawns=").Append(FormatSpawns(group.Spawns))

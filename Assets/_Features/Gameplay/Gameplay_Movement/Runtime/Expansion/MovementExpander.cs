@@ -571,6 +571,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.ProjectileImpact);
+            actionGroup.AssignProjectileImpactTarget(target.entityId);
             buffer.Add(actionGroup);
             return true;
         }

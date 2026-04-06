@@ -1736,10 +1736,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var finalSnapshot = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.ProjectileImpact, MoveCount: 0) },
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.ProjectileImpact, MoveCount: 0, TargetId: 20) },
                 result.MovementPhaseResult
                     .ExpandedCandidates
-                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, MoveCount: group.Moves.Count))
+                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, MoveCount: group.Moves.Count, TargetId: group.ProjectileImpactTargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[]
@@ -1813,6 +1813,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
+                    (GroupId: 1, SourceId: 10, TargetId: 30),
+                },
+                result.MovementPhaseResult
+                    .ExpandedCandidates
+                    .Select(group => (group.GroupId, group.SourceId, TargetId: group.ProjectileImpactTargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
                     "ImpactReservationCreated|G=1|I=1|Source=10|Target=30|At=(1,0)|Damage=1|Sequence=1",
                 },
                 result.MovementPhaseResult.CommitEvents);
@@ -1836,6 +1845,54 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(friendlyUnit.hp, Is.EqualTo(3));
             Assert.That(finalSnapshot.TryGetEntity(30, out var hostileUnit), Is.True);
             Assert.That(hostileUnit.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void MovementCommitter_ProjectileImpact_UsesResolvedGroupTargetWithoutIntentLookup()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 10, position: new Vector2Int(0, 0), hp: 1),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
+            });
+            var snapshot = CreateSnapshot(worldState);
+            var projectileImpactGroup = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.ProjectileImpact);
+            projectileImpactGroup.AssignGroupId(1);
+            projectileImpactGroup.AssignProjectileImpactTarget(20);
+
+            var transientBuffer = new PhaseTransientBuffer();
+            var commitEvents = new List<string>();
+
+            new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot()).Commit(
+                snapshot,
+                Array.Empty<MoveIntent>(),
+                tickIndex: 1,
+                worldState.CreateWriteContext(),
+                transientBuffer,
+                new[] { projectileImpactGroup },
+                commitEvents);
+
+            var reservations = transientBuffer.DrainImpacts();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=10|Target=20|At=(1,0)|Damage=1|Sequence=1",
+                },
+                commitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1, Tick: 1),
+                },
+                reservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.Position,
+                        reservation.Damage,
+                        Tick: reservation.TickGenerated))
+                    .ToArray());
         }
 
         [Test]

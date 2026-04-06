@@ -161,6 +161,8 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
+            var hasHostile = false;
+            var hostile = default(EntityState);
             var hasFallback = false;
             var fallback = default(EntityState);
 
@@ -174,15 +176,26 @@ namespace Game.Feature.Gameplay.BoardState
 
                 if (candidate.teamId != sourceTeamId)
                 {
-                    entity = candidate;
-                    return true;
+                    if (!hasHostile || candidate.entityId < hostile.entityId)
+                    {
+                        hostile = candidate;
+                        hasHostile = true;
+                    }
+
+                    continue;
                 }
 
-                if (!hasFallback)
+                if (!hasFallback || candidate.entityId < fallback.entityId)
                 {
                     fallback = candidate;
                     hasFallback = true;
                 }
+            }
+
+            if (hasHostile)
+            {
+                entity = hostile;
+                return true;
             }
 
             if (!hasFallback)
