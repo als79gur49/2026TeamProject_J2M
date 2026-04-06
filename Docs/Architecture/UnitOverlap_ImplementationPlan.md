@@ -122,7 +122,7 @@
 - `WorldSnapshot`/`SnapshotReadQueries`는 새 점유 모델을 읽도록 변경했고, 기존 callsite 호환을 위해 `TryGetUnitAt`는 당분간 `solid 우선 + stacked unit 대표값` 조회로 유지했다.
 - `WorldStatePlacementInvariantTests`를 갱신해 unit stacking 허용, inactive face authoritative stacking 허용, reoccupy 허용, solid stacking 금지를 검증했다.
 
-### 2단계. Snapshot 질의 API 재설계
+### 2단계. Snapshot 질의 API 재설계 [완료]
 
 목표
 
@@ -153,6 +153,15 @@
 완료 기준
 
 - `Box 찾기`, `Unit 찾기`, `충돌 타깃 선택`이 서로 다른 함수로 나뉜다.
+
+주요 구현 내용
+
+- `WorldSnapshot`/`SnapshotReadQueries`/`WorldQueryService`에 `HasAnyUnitAt`, `EnumerateUnitsAt`, `TryGetPrimaryUnitAt`, `TryGetBoxAt`, `TryGetSolidOccupantAt`, `TryPickImpactTargetAt`를 추가했다.
+- `TryGetUnitAt`는 삭제하지 않고 `legacy primary non-projectile occupant` 의미로 유지했으며, 새 코드에서는 explicit query API를 사용하도록 주석과 callsite를 정리했다.
+- stacked unit query의 공통 표현을 `IReadOnlyCollection<int>` 기준으로 맞춰 authoritative `SortedSet<int>`와 snapshot `ReadOnlyCollection<int>`를 같은 query 계층에서 읽을 수 있게 정리했다.
+- `MovementExpander`, `PlayerControlState`, `EnemyMovementPolicy`, `MovementCommitter`는 각각 `box 조회`, `solid 조회`, `impact target 선택`에 맞는 전용 snapshot query를 사용하도록 변경했다.
+- `TryPickImpactTargetAt`는 `solid occupant 우선`, stacked unit만 있는 경우 `hostile unit 우선 + entityId 오름차순 fallback`으로 결정되게 구현했고, projectile impact 예약 생성도 같은 API를 타도록 맞췄다.
+- `WorldSurfaceQueryTests`, `MovementPhaseScenarioTests`에 explicit query API와 stacked cell projectile target selection 경로를 고정하는 테스트를 추가했다.
 
 ### 3단계. 배치 차단 규칙 재정의
 
