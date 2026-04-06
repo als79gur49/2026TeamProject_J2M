@@ -163,7 +163,7 @@
 - `TryPickImpactTargetAt`는 `solid occupant 우선`, stacked unit만 있는 경우 `hostile unit 우선 + entityId 오름차순 fallback`으로 결정되게 구현했고, projectile impact 예약 생성도 같은 API를 타도록 맞췄다.
 - `WorldSurfaceQueryTests`, `MovementPhaseScenarioTests`에 explicit query API와 stacked cell projectile target selection 경로를 고정하는 테스트를 추가했다.
 
-### 3단계. 배치 차단 규칙 재정의
+### 3단계. 배치 차단 규칙 재정의 [완료]
 
 목표
 
@@ -200,6 +200,14 @@
 
 - `WorldSnapshot.IsBlockedForUnit()`가 `stacked unit만 있는 칸`에 대해 `false`를 반환한다.
 - `Box` landing/slide는 stacked unit이 있으면 여전히 차단된다.
+
+주요 구현 내용
+
+- `WorldPlacementPolicy.TryGetBlockingPlacementEntity`를 entity type별 switch로 재정의해 `Unit`, `Projectile`, `Box/Wall(None)`의 차단 대상을 명시적으로 분리했다.
+- `Unit` placement/gameplay blocker는 이제 `solid occupant`만 차단하며, stacked unit이나 marked-for-death unit만 있는 칸에 대해서는 `IsBlockedForUnit()`/`TryGetPlacementBlocker(EntityType.Unit, ...)`가 `false`를 반환한다.
+- `Projectile` placement blocker는 `projectile occupant`와 `solid occupant`만 차단하도록 바꿔 unit이 서 있는 칸에도 spawn/occupy가 가능하게 했고, 실제 target 선택은 기존 `TryPickImpactTargetAt` + movement impact reservation 경로로 넘겼다.
+- `Box / Wall(None)` placement blocker는 stacked unit을 계속 차단하도록 유지했고, `WorldSnapshot.TryResolveNextSurfaceBoxSlideStep()` 테스트로 stacked unit 위 slide stop을 고정했다.
+- `WorldStatePlacementInvariantTests`, `TickPipelineStageOneTests`, `WorldSurfaceQueryTests`, `AttackPhaseScenarioTests`를 갱신해 projectile-on-unit spawn 허용, projectile-on-solid 금지, unit placement unblock, box slide-on-stacked-unit block을 검증했다.
 
 ### 4단계. 이동 확장 로직 수정
 
