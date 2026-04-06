@@ -209,7 +209,7 @@
 - `Box / Wall(None)` placement blocker는 stacked unit을 계속 차단하도록 유지했고, `WorldSnapshot.TryResolveNextSurfaceBoxSlideStep()` 테스트로 stacked unit 위 slide stop을 고정했다.
 - `WorldStatePlacementInvariantTests`, `TickPipelineStageOneTests`, `WorldSurfaceQueryTests`, `AttackPhaseScenarioTests`를 갱신해 projectile-on-unit spawn 허용, projectile-on-solid 금지, unit placement unblock, box slide-on-stacked-unit block을 검증했다.
 
-### 4단계. 이동 확장 로직 수정
+### 4단계. 이동 확장 로직 수정 [완료]
 
 목표
 
@@ -238,6 +238,13 @@
 
 - 플레이어가 적이 서 있는 칸으로 정상 이동 가능하다.
 - 플레이어의 push/flip는 stacked unit에 반응하지 않고 box에만 반응한다.
+
+주요 구현 내용
+
+- `MovementExpander.ExpandMoveLike`의 목적지 해석을 `box/solid occupant` 우선으로 명시해 `Unit`만 있는 칸은 이동 차단으로 보지 않고 정상 `Move` group을 생성하도록 정리했다.
+- 같은 경로에서 `Push` 입력은 `Box`가 없는 경우 즉시 `PushTargetNotBox`로 거절되게 했고, `Wall(EntityType.None)`/`Unit`을 box 상호작용 대상으로 오인하지 않도록 solid-layer 분기를 분리했다.
+- `PlayerControlQueries.TryResolvePushContact` / `TryResolveFlipTarget`는 box 전용 helper를 통해 `TryGetBoxAt(...)`만 사용하도록 고정해 adjacent unit이 push hold나 flip action 시작 조건으로 섞이지 않게 했다.
+- `MovementPhaseScenarioTests`, `PlayerMovementInputTests`, `TickReplayDeterminismTests`를 갱신해 scripted move/player move의 same-cell stacking, push/flip의 unit 비반응, replay determinism을 검증했다.
 
 ### 5단계. 이동 Resolver 충돌 규칙 수정
 
