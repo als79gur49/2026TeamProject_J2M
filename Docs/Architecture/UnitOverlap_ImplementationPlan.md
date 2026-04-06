@@ -356,7 +356,7 @@
 - `TickTraceFormatter`는 projectile impact group의 `ImpactTarget`을 trace에 남기도록 보강해 replay/debug 시 target 결정 경로를 바로 확인할 수 있게 했다.
 - `MovementPhaseScenarioTests`를 확장해 stacked hostile target 선택, expand된 group의 target 고정, commit 단계의 `intent lookup / cell 재조회 없음`을 검증했고, build 검증에서 `Game.Feature.Gameplay.Tests.csproj` 컴파일이 오류 없이 통과했다.
 
-### 8단계. 프레젠테이션 오프셋 도입
+### 8단계. 프레젠테이션 오프셋 도입 [완료]
 
 목표
 
@@ -389,6 +389,14 @@
 완료 기준
 
 - 플레이어와 적이 같은 타일에 있어도 둘 다 시각적으로 식별 가능하다.
+
+주요 구현 내용
+
+- `GameplayTickPresentationCoordinator.StoreCommittedEntityTargets(...)`에서 presentable entity를 먼저 수집한 뒤, `Unit`만 `cell -> entityId list`로 그룹화하고 `entityId 오름차순`으로 slot index를 확정하도록 변경했다.
+- slot pattern은 `1명 center`, `2명 좌우`, `3명 삼각`, `4명 사각`, `5명 이상 원형 분산`으로 구현했고, `Box`/`Projectile`/`Wall(None)`은 기존처럼 중심 pose를 유지한다.
+- slot offset은 `ProjectedCellPose.LocalRotation`의 `right/up` 축을 사용해 타일 면의 local tangent plane 위에서만 적용되도록 구현해, floor/ceiling/front face 어디에서도 normal 방향으로 밀리지 않게 했다.
+- 기존 motion start/end pose는 committed local target pose를 그대로 재사용하게 두어, same-cell 이동 후 도착 unit과 기존 occupant가 같은 tick 프레젠테이션에서 서로 다른 slot으로 정렬되도록 맞췄다.
+- `GameplayTickPresentationCoordinatorTests`에 초기 same-cell 배치, 이동 후 same-cell 재정렬, ceiling face tangent-plane 보장을 검증하는 테스트를 추가했다.
 
 ### 9단계. 디버그, trace, determinism 보강
 
