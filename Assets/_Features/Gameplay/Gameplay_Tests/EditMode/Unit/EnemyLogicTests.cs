@@ -423,6 +423,244 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WallFollowPatrolStrategy_RightHandWall_PrefersForwardWhileHandAnchorExists()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
+            var strategy = WallFollowPatrolStrategy.Instance;
+
+            var facingChanged = ((IPatrolFacingStrategy)strategy).TryResolveFacing(snapshot, source, settings, out var facing);
+            var builtIntent = strategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                settings,
+                out var intent);
+
+            Assert.That(facingChanged, Is.False);
+            Assert.That(facing, Is.EqualTo(Direction.Left));
+            Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.True);
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 0)));
+        }
+
+        [Test]
+        public void WallFollowPatrolStrategy_ResultAnchorForward_ReacquiresHandAnchorAfterStep()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
+            var strategy = WallFollowPatrolStrategy.Instance;
+
+            var chosen = EnemyMovementStrategyShared.TryChooseWallFollowDirection(snapshot, source, settings, out var direction);
+            var builtIntent = strategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                settings,
+                out var intent);
+
+            Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.False);
+            Assert.That(chosen, Is.True);
+            Assert.That(direction, Is.EqualTo(Direction.Up));
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(0, 1)));
+        }
+
+        [Test]
+        public void WallFollowPatrolStrategy_ResultAnchorPreferredTurn_RoundsConvexCorner()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 2), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 3)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
+            var strategy = WallFollowPatrolStrategy.Instance;
+
+            var facingChanged = ((IPatrolFacingStrategy)strategy).TryResolveFacing(snapshot, source, settings, out var facing);
+            var builtIntent = strategy.TryBuildMovementIntent(
+                snapshot,
+                source,
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                settings,
+                out var intent);
+
+            Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.False);
+            Assert.That(facingChanged, Is.True);
+            Assert.That(facing, Is.EqualTo(Direction.Right));
+            Assert.That(builtIntent, Is.True);
+            Assert.That(intent.Destination, Is.EqualTo(new Vector2Int(1, 2)));
+        }
+
+        [Test]
+        public void WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 2)),
+                CreateWall(entityId: 91, position: new Vector2Int(2, 1)),
+                CreateWall(entityId: 92, position: new Vector2Int(0, 1)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+            });
+            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
+                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));
+                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Left);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var result = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
+
+                Assert.That(result.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 }));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoxAsAnchor()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 50, position: new Vector2Int(1, 1)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            Assert.That(
+                EnemyMovementStrategyShared.HasWallFollowAnchor(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, 40),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left)),
+                Is.True);
+        }
+
+        [Test]
+        public void EnemyMovementStrategyShared_WallFollowResultAnchor_TreatsBoxAsAnchor()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateBox(entityId: 50, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+
+            Assert.That(
+                EnemyMovementStrategyShared.TryChooseWallFollowDirection(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, 40),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right),
+                    out var direction),
+                Is.True);
+            Assert.That(direction, Is.EqualTo(Direction.Up));
+        }
+
+        [Test]
+        public void EnemyMovementStrategyShared_WallFollowAnchor_IgnoresUnitsIncludingPlayers()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            Assert.That(
+                EnemyMovementStrategyShared.HasWallFollowAnchor(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, 40),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Left)),
+                Is.False);
+        }
+
+        [Test]
+        public void EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoardEdgeAsAnchor()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+
+            Assert.That(
+                EnemyMovementStrategyShared.HasWallFollowAnchor(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, 40),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right)),
+                Is.True);
+        }
+
+        [Test]
+        public void EnemyMovementStrategyShared_WallFollowResultAnchor_IgnoresUnitsIncludingPlayers()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+
+            Assert.That(
+                EnemyMovementStrategyShared.TryChooseWallFollowDirection(
+                    worldState.CreateSnapshot(),
+                    GetEntity(worldState, 40),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right),
+                    out var direction),
+                Is.True);
+            Assert.That(direction, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
         public void EnemyEntityLogicFactory_ProfileDrivenAssembly_UsesInjectedProfileSettings()
         {
             var profile = EnemyAiProfile.CreateRuntimeInstance(
@@ -472,6 +710,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAiProfile.CreateRuntimeDefault(),
                 EnemyAiProfile.CreateRuntimeNonAttacking(),
                 EnemyAiProfile.CreateRuntimeCharging(),
+                EnemyAiProfile.CreateRuntimeWallFollower(),
             };
 
             try
@@ -1005,6 +1244,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultEntityLogicProvider_WallFollowerProfile_DoesNotLeavePatrolWhenDetectionDisabled()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(0, 0)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_WallFollowerProfile_DoesNotArmActionStateOrAttack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
         public void DefaultEntityLogicProvider_ChargingProfile_DoesNotArmActionStateOrAttack()
         {
             var worldState = CreateWorldState(
@@ -1171,6 +1462,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));
         }
 
+        [Test]
+        public void DefaultEntityLogicProvider_WallFollowerProfile_BoundaryStep_DoesNotCreateTopologyChangingMovementGroup()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
+            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+                Assert.That(result.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
+                Assert.That(result.EventLog, Has.None.Contains("TopologyCommitted"));
+                Assert.That(result.Trace.Text, Does.Not.Contain("TopologyCommitted"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -1322,6 +1641,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 markedForDeath = false,
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.None,
+                aiMode = EnemyAiMode.None,
+                aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, Vector2Int position)
+        {
+            return CreateWall(entityId, SurfaceCell.FromPlanar(position));
+        }
+
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
                 aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };

@@ -234,6 +234,158 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void EnemyAi_WallFollowerProfile_CirculatesAroundWallAcrossMultipleTicks()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var ticks = new[]
+                {
+                    pipeline.RunTick(new TickInput(1)),
+                    pipeline.RunTick(new TickInput(2)),
+                    pipeline.RunTick(new TickInput(3)),
+                    pipeline.RunTick(new TickInput(4)),
+                    pipeline.RunTick(new TickInput(5)),
+                    pipeline.RunTick(new TickInput(6)),
+                    pipeline.RunTick(new TickInput(7)),
+                    pipeline.RunTick(new TickInput(8)),
+                };
+                var enemy = GetEntity(worldState, 40);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        new Vector2Int(0, 0),
+                        new Vector2Int(0, 1),
+                        new Vector2Int(0, 2),
+                        new Vector2Int(1, 2),
+                        new Vector2Int(2, 2),
+                        new Vector2Int(2, 1),
+                        new Vector2Int(2, 0),
+                        new Vector2Int(1, 0),
+                    },
+                    ticks.Select(tick => GetEntityAfterTick(tick, 40).position.PlanarPosition).ToArray());
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_WallFollowerProfile_CirculatesAroundBoxAcrossMultipleTicks()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateBox(entityId: 50, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var ticks = new[]
+                {
+                    pipeline.RunTick(new TickInput(1)),
+                    pipeline.RunTick(new TickInput(2)),
+                    pipeline.RunTick(new TickInput(3)),
+                    pipeline.RunTick(new TickInput(4)),
+                    pipeline.RunTick(new TickInput(5)),
+                    pipeline.RunTick(new TickInput(6)),
+                    pipeline.RunTick(new TickInput(7)),
+                    pipeline.RunTick(new TickInput(8)),
+                };
+                var enemy = GetEntity(worldState, 40);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        new Vector2Int(2, 0),
+                        new Vector2Int(2, 1),
+                        new Vector2Int(2, 2),
+                        new Vector2Int(1, 2),
+                        new Vector2Int(0, 2),
+                        new Vector2Int(0, 1),
+                        new Vector2Int(0, 0),
+                        new Vector2Int(1, 0),
+                    },
+                    ticks.Select(tick => GetEntityAfterTick(tick, 40).position.PlanarPosition).ToArray());
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_WallFollowerProfile_CirculatesAlongBoardEdgeAcrossMultipleTicks()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var ticks = new[]
+                {
+                    pipeline.RunTick(new TickInput(1)),
+                    pipeline.RunTick(new TickInput(2)),
+                    pipeline.RunTick(new TickInput(3)),
+                    pipeline.RunTick(new TickInput(4)),
+                    pipeline.RunTick(new TickInput(5)),
+                    pipeline.RunTick(new TickInput(6)),
+                    pipeline.RunTick(new TickInput(7)),
+                    pipeline.RunTick(new TickInput(8)),
+                };
+                var enemy = GetEntity(worldState, 40);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        new Vector2Int(2, 0),
+                        new Vector2Int(2, 1),
+                        new Vector2Int(2, 2),
+                        new Vector2Int(1, 2),
+                        new Vector2Int(0, 2),
+                        new Vector2Int(0, 1),
+                        new Vector2Int(0, 0),
+                        new Vector2Int(1, 0),
+                    },
+                    ticks.Select(tick => GetEntityAfterTick(tick, 40).position.PlanarPosition).ToArray());
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
         public void EnemyAi_NonAttackingProfile_OnlyPatrolsAndChases()
         {
             var worldState = CreateWorldState(new[]
@@ -260,6 +412,43 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
             Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+        }
+
+        [Test]
+        public void EnemyAi_WallFollowerProfile_PlayerInSenseRange_RemainsInPatrolPermanently()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(3, 2)));
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var enemy = GetEntity(worldState, 40);
+                var player = GetEntity(worldState, 10);
+
+                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(player.hp, Is.EqualTo(3));
+                Assert.That(firstTick.Trace.Text, Does.Not.Contain("To=Chase"));
+                Assert.That(secondTick.Trace.Text, Does.Not.Contain("To=Chase"));
+                Assert.That(thirdTick.Trace.Text, Does.Not.Contain("To=Chase"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
         }
 
         [Test]
@@ -408,6 +597,44 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(fourthTick.MovementPhaseResult.RawIntents, Is.Empty);
         }
 
+        [Test]
+        public void EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left, moveCooldownTicks: 2);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var fourthTick = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(firstTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
+                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));
+                Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(secondTick, 40).facing, Is.EqualTo(Direction.Right));
+                Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 1)));
+                Assert.That(GetEntityAfterTick(thirdTick, 40).facing, Is.EqualTo(Direction.Up));
+                Assert.That(fourthTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(GetEntityAfterTick(fourthTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 1)));
+                Assert.That(GetEntityAfterTick(fourthTick, 40).facing, Is.EqualTo(Direction.Up));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -460,6 +687,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new EnemyLocomotionTimingSettings(moveCooldownTicks),
                 stateResolverKind: EnemyAiStateResolverKind.Charge,
                 attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+        }
+
+        private static EnemyAiProfile CreateWallFollowerProfile(
+            WallFollowTurnPreference turnPreference,
+            int moveCooldownTicks = 0)
+        {
+            return EnemyAiProfile.CreateRuntimeWallFollower(turnPreference, moveCooldownTicks);
         }
 
         private static EntityState CreateUnit(
@@ -533,6 +767,27 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 markedForDeath = false,
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.None,
+                aiMode = EnemyAiMode.None,
+                aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateWall(int entityId, Vector2Int position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = SurfaceCell.FromPlanar(position),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
                 aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };

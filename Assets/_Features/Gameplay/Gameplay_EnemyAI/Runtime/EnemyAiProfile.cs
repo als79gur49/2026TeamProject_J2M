@@ -12,8 +12,10 @@ namespace Game.Feature.Gameplay.Entities
     [CreateAssetMenu(menuName = "Gameplay/AI/Enemy AI Profile", fileName = "EnemyAiProfile")]
     public sealed class EnemyAiProfile : ScriptableObject, ISerializationCallbackReceiver
     {
-        private const int CurrentSerializedVersion = 2;
+        private const int CurrentSerializedVersion = 3;
         private const int AttackTimingAuthoringSerializedVersion = 1;
+        private const int LocomotionTimingSerializedVersion = 2;
+        private const int PatrolWallFollowSettingsSerializedVersion = 3;
 
         [SerializeField] private EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default;
         [SerializeField] private PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward;
@@ -133,7 +135,16 @@ namespace Game.Feature.Gameplay.Entities
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             }
 
-            locomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee();
+            if (serializedVersion < PatrolWallFollowSettingsSerializedVersion)
+            {
+                patrolSettings = new PatrolSettings(patrolSettings.BlockedMovementResponse);
+            }
+
+            if (serializedVersion < LocomotionTimingSerializedVersion)
+            {
+                locomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee();
+            }
+
             serializedVersion = CurrentSerializedVersion;
         }
 
@@ -167,6 +178,27 @@ namespace Game.Feature.Gameplay.Entities
                 ChaseSettings.CreateDefault(),
                 AttackDecisionSettings.CreateDefaultMelee(),
                 stateResolverKind: EnemyAiStateResolverKind.Charge,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+        }
+
+        public static EnemyAiProfile CreateRuntimeWallFollower(
+            WallFollowTurnPreference turnPreference = WallFollowTurnPreference.Right,
+            int moveCooldownTicks = 0)
+        {
+            return CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                new PatrolSettings(
+                    PatrolBlockedMovementResponse.Stop,
+                    turnPreference,
+                    followWalls: true,
+                    followBoxes: true),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                new EnemyLocomotionTimingSettings(moveCooldownTicks),
+                patrolStrategyKind: PatrolStrategyKind.WallFollow,
+                detectionStrategyKind: DetectionStrategyKind.None,
                 attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
         }
 

@@ -54,6 +54,26 @@ namespace Game.Feature.Gameplay.Entities
             out EntityState target);
     }
 
+    public sealed class NoDetectionStrategy : IDetectionStrategy
+    {
+        public static readonly NoDetectionStrategy Instance = new();
+
+        public bool TryFindTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in DetectionSettings settings,
+            out EntityState target)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            target = default;
+            return false;
+        }
+    }
+
     public sealed class NearestOpponentDetectionStrategy : IDetectionStrategy
     {
         public static readonly NearestOpponentDetectionStrategy Instance = new();

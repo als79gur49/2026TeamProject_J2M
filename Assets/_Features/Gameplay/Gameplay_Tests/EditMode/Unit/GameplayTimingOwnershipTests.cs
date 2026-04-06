@@ -618,7 +618,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var serializedFieldNames = typeof(EnemyAiProfile)
                 .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                .Where(field => field.IsPublic || field.GetCustomAttribute<SerializeField>() != null)
+                .Where(field =>
+                    (field.IsPublic || field.GetCustomAttribute<SerializeField>() != null) &&
+                    field.GetCustomAttribute<HideInInspector>() == null)
                 .Select(field => field.Name)
                 .OrderBy(name => name)
                 .ToArray();

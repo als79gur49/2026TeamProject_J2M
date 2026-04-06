@@ -116,24 +116,25 @@ namespace Game.Feature.Gameplay.Entities
                 _commonSettings,
                 _detectionSettings,
                 _attackDecisionSettings);
+            var resolvedFacing = ResolvePatrolFacing(snapshot, source, stage, decision);
 
             if (decision.Mode == source.aiMode && decision.Timer == source.aiStateTimer)
             {
-                if (decision.Facing.HasValue)
+                if (resolvedFacing.HasValue)
                 {
-                    writeContext.SetFacing(source.entityId, decision.Facing.Value);
+                    writeContext.SetFacing(source.entityId, resolvedFacing.Value);
                 }
 
                 return;
             }
 
             writeContext.ApplyEnemyAiState(source.entityId, decision.Mode, decision.Timer);
-            if (decision.Facing.HasValue)
+            if (resolvedFacing.HasValue)
             {
-                writeContext.SetFacing(source.entityId, decision.Facing.Value);
+                writeContext.SetFacing(source.entityId, resolvedFacing.Value);
             }
             transitions.Add(
-                $"EnemyAiTransition|Stage={stage}|E={source.entityId}|From={source.aiMode}|FromTimer={source.aiStateTimer}|To={decision.Mode}|ToTimer={decision.Timer}|Reason={decision.Reason}|Facing={(decision.Facing.HasValue ? decision.Facing.Value.ToString() : source.facing.ToString())}");
+                $"EnemyAiTransition|Stage={stage}|E={source.entityId}|From={source.aiMode}|FromTimer={source.aiStateTimer}|To={decision.Mode}|ToTimer={decision.Timer}|Reason={decision.Reason}|Facing={(resolvedFacing.HasValue ? resolvedFacing.Value.ToString() : source.facing.ToString())}");
         }
 
         void IPreMovementStateLogic.CommitPreMovementState(
@@ -345,6 +346,29 @@ namespace Game.Feature.Gameplay.Entities
                 intent.CommandKind,
                 intent.LocalSequence,
                 _locomotionTimingSettings.MoveCooldownTicks);
+        }
+
+        private Direction? ResolvePatrolFacing(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            EnemyAiTransitionStage stage,
+            in EnemyAiTransitionDecision decision)
+        {
+            if (decision.Facing.HasValue)
+            {
+                return decision.Facing.Value;
+            }
+
+            if (stage != EnemyAiTransitionStage.BeforeMovement ||
+                decision.Mode != EnemyAiMode.Patrol ||
+                source.enemyLocomotionCooldownTicks > 0 ||
+                _patrolStrategy is not IPatrolFacingStrategy patrolFacingStrategy ||
+                !patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
+            {
+                return null;
+            }
+
+            return patrolFacing;
         }
     }
 

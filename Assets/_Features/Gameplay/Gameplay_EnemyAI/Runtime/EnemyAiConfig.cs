@@ -13,11 +13,13 @@ namespace Game.Feature.Gameplay.Entities
     public enum PatrolStrategyKind
     {
         Forward = 0,
+        WallFollow = 1,
     }
 
     public enum DetectionStrategyKind
     {
         NearestOpponent = 0,
+        None = 1,
     }
 
     public enum ChaseStrategyKind
@@ -452,6 +454,9 @@ namespace Game.Feature.Gameplay.Entities
                 case PatrolStrategyKind.Forward:
                     return ForwardPatrolStrategy.Instance;
 
+                case PatrolStrategyKind.WallFollow:
+                    return WallFollowPatrolStrategy.Instance;
+
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown patrol strategy kind.");
             }
@@ -463,6 +468,9 @@ namespace Game.Feature.Gameplay.Entities
             {
                 case DetectionStrategyKind.NearestOpponent:
                     return NearestOpponentDetectionStrategy.Instance;
+
+                case DetectionStrategyKind.None:
+                    return NoDetectionStrategy.Instance;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown detection strategy kind.");
