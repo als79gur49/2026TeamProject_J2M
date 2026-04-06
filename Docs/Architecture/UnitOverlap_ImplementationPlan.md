@@ -324,7 +324,7 @@
 - same-cell contact damage의 tick 내 중복은 현재 구조에서 `entity당 attack phase ownership 1개 + source logic이 tick당 raw attack intent 1회 생성` 규칙으로 제한되며, scenario test에서 `DamageCommitted`가 tick당 1회만 발생하는지 고정했다.
 - `AttackPhaseScenarioTests`, `EnemyAiScenarioTests`, `EnemyLogicTests`를 확장해 post-move same-cell melee, contact-damage enemy의 same-tick overlap damage, same-cell facing 유지, `ContactSameCell` range rule을 검증했다.
 
-### 7단계. Projectile impact target 결정론화
+### 7단계. Projectile impact target 결정론화 [완료]
 
 목표
 
@@ -347,6 +347,14 @@
 완료 기준
 
 - 같은 replay를 여러 번 돌려도 stacked cell impact 결과가 동일하다.
+
+주요 구현 내용
+
+- `SnapshotReadQueries.TryPickImpactTargetAt`를 `hostile unit 우선 + entityId 오름차순`으로 명시 계산하도록 보강해 stacked unit 컬렉션의 순회 순서에 암묵적으로 기대지 않게 했다.
+- `MovementExpander`의 `ProjectileImpact` candidate는 expand 시점에 선택된 실제 `target entityId`를 `ActionGroup.ProjectileImpactTargetId`로 고정 기록하도록 바꿨다.
+- `MovementCommitter`는 projectile impact reservation 생성 시 더 이상 destination cell이나 move intent를 재조회하지 않고, group에 저장된 확정 target만 사용하도록 변경했다.
+- `TickTraceFormatter`는 projectile impact group의 `ImpactTarget`을 trace에 남기도록 보강해 replay/debug 시 target 결정 경로를 바로 확인할 수 있게 했다.
+- `MovementPhaseScenarioTests`를 확장해 stacked hostile target 선택, expand된 group의 target 고정, commit 단계의 `intent lookup / cell 재조회 없음`을 검증했고, build 검증에서 `Game.Feature.Gameplay.Tests.csproj` 컴파일이 오류 없이 통과했다.
 
 ### 8단계. 프레젠테이션 오프셋 도입
 
