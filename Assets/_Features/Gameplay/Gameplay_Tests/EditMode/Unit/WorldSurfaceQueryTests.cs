@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -27,6 +28,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 1), out var activeOccupant), Is.True);
             Assert.That(activeOccupant.entityId, Is.EqualTo(10));
             Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Ceiling, 1, 1), out _), Is.False);
+        }
+
+        [Test]
+        public void WorldSnapshot_ExplicitOccupancyQueries_SeparateUnitsAndSolids()
+        {
+            var unitCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var boxCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var inactiveUnitCell = new SurfaceCell(FaceId.Ceiling, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: unitCell),
+                    CreateUnit(entityId: 20, position: unitCell, teamId: 2),
+                    CreateUnit(entityId: 30, position: inactiveUnitCell),
+                    CreateBox(entityId: 40, position: boxCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty);
+            var snapshot = CreateSnapshot(worldState);
+            var units = new List<EntityState>();
+
+            Assert.That(snapshot.HasAnyUnitAt(unitCell), Is.True);
+            Assert.That(snapshot.TryGetPrimaryUnitAt(unitCell, out var primaryUnit), Is.True);
+            Assert.That(primaryUnit.entityId, Is.EqualTo(10));
+
+            snapshot.EnumerateUnitsAt(unitCell, units);
+            CollectionAssert.AreEqual(new[] { 10, 20 }, units.ConvertAll(entity => entity.entityId));
+
+            Assert.That(snapshot.HasAnyUnitAt(inactiveUnitCell), Is.False);
+            Assert.That(snapshot.TryGetPrimaryUnitAt(inactiveUnitCell, out _), Is.False);
+
+            Assert.That(snapshot.TryGetSolidOccupantAt(unitCell, out _), Is.False);
+            Assert.That(snapshot.TryGetBoxAt(unitCell, out _), Is.False);
+
+            Assert.That(snapshot.TryGetSolidOccupantAt(boxCell, out var solidOccupant), Is.True);
+            Assert.That(solidOccupant.entityId, Is.EqualTo(40));
+            Assert.That(snapshot.TryGetBoxAt(boxCell, out var box), Is.True);
+            Assert.That(box.entityId, Is.EqualTo(40));
+            Assert.That(snapshot.TryGetPrimaryUnitAt(boxCell, out _), Is.False);
+        }
+
+        [Test]
+        public void WorldSnapshot_TryPickImpactTargetAt_PrefersHostileThenFallsBackDeterministically()
+        {
+            var hostileCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var friendlyOnlyCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var boxCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 40, position: boxCell),
+                    CreateUnit(entityId: 10, position: hostileCell, teamId: 1),
+                    CreateUnit(entityId: 20, position: hostileCell, teamId: 2),
+                    CreateUnit(entityId: 30, position: hostileCell, teamId: 2),
+                    CreateUnit(entityId: 50, position: friendlyOnlyCell, teamId: 1),
+                    CreateUnit(entityId: 60, position: friendlyOnlyCell, teamId: 1),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
+                GameplayTerrainData.Empty);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(snapshot.TryPickImpactTargetAt(hostileCell, sourceTeamId: 1, out var hostileTarget), Is.True);
+            Assert.That(hostileTarget.entityId, Is.EqualTo(20));
+
+            Assert.That(snapshot.TryPickImpactTargetAt(friendlyOnlyCell, sourceTeamId: 1, out var fallbackTarget), Is.True);
+            Assert.That(fallbackTarget.entityId, Is.EqualTo(50));
+
+            Assert.That(snapshot.TryPickImpactTargetAt(boxCell, sourceTeamId: 1, out var boxTarget), Is.True);
+            Assert.That(boxTarget.entityId, Is.EqualTo(40));
+            Assert.That(boxTarget.type, Is.EqualTo(EntityType.Box));
         }
 
         [Test]
@@ -450,6 +521,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int entityId,
             SurfaceCell position,
             bool markedForDeath = false,
+            int teamId = 1,
             EntityBoardPresence boardPresence = EntityBoardPresence.Occupying)
         {
             return new EntityState
@@ -458,7 +530,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 position = position,
                 hp = 3,
                 maxHp = 3,
-                teamId = 1,
+                teamId = teamId,
                 type = EntityType.Unit,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
@@ -466,6 +538,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
                 spawnTick = 0,
+            };
+        }
+
+        private static EntityState CreateBox(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = 0,
+                boxCapabilities = BoxCapabilities.None,
             };
         }
     }

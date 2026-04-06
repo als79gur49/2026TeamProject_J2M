@@ -1677,6 +1677,53 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_ProjectileImpact_PrefersHostileTargetWithinStackedUnits()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateProjectile(entityId: 10, position: new Vector2Int(0, 0), hp: 1),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 1),
+                CreateUnit(entityId: 30, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new StubMovementLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0))),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var finalSnapshot = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=10|Target=30|At=(1,0)|Damage=1|Sequence=1",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 10, TargetId: 30, Damage: 1, Tick: 1, GroupId: 1, Sequence: 1),
+                },
+                result.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.Damage,
+                        Tick: reservation.TickGenerated,
+                        GroupId: reservation.SourceActionGroupId,
+                        Sequence: reservation.ReservationSequence))
+                    .ToArray());
+
+            Assert.That(finalSnapshot.TryGetEntity(20, out var friendlyUnit), Is.True);
+            Assert.That(friendlyUnit.hp, Is.EqualTo(3));
+            Assert.That(finalSnapshot.TryGetEntity(30, out var hostileUnit), Is.True);
+            Assert.That(hostileUnit.hp, Is.EqualTo(2));
+        }
+
+        [Test]
         public void Movement_ProjectileReservations_AssignSequenceByCommitOrder()
         {
             var worldState = CreateWorldState(new[]
