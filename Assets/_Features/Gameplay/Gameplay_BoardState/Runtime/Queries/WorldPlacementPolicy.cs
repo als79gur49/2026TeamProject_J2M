@@ -10,18 +10,28 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool IsBlockedForUnit(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData,
             SurfaceCell cell)
         {
-            return TryGetUnitBlocker(entitiesById, unitOccupancy, topology, boardBounds, terrainData, cell, out _);
+            return TryGetUnitBlocker(
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
+                topology,
+                boardBounds,
+                terrainData,
+                cell,
+                out _);
         }
 
         public static bool TryGetAuthoritativePlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -32,7 +42,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return TryGetPlacementBlockerCore(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
                 terrainData,
@@ -46,7 +57,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetGameplayPlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -58,7 +70,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return TryGetPlacementBlockerCore(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
                 terrainData,
@@ -72,7 +85,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetUnitBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -87,7 +101,8 @@ namespace Game.Feature.Gameplay.BoardState
 
             return TryGetGameplayPlacementBlocker(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 EmptyOccupancy,
                 topology,
                 boardBounds,
@@ -100,7 +115,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool TryGetPlacementBlockerCore(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -111,7 +127,12 @@ namespace Game.Feature.Gameplay.BoardState
             PlacementQueryMode queryMode,
             out SlideStopper blocker)
         {
-            ValidateQueryDictionaries(entitiesById, unitOccupancy);
+            ValidateQueryDictionaries(entitiesById, solidOccupancyByCell);
+
+            if (stackedUnitsByCell == null)
+            {
+                throw new ArgumentNullException(nameof(stackedUnitsByCell));
+            }
 
             if (projectileOccupancy == null)
             {
@@ -143,7 +164,8 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (TryGetBlockingPlacementEntity(
                     entitiesById,
-                    unitOccupancy,
+                    stackedUnitsByCell,
+                    solidOccupancyByCell,
                     projectileOccupancy,
                     topology,
                     queryMode,
@@ -162,7 +184,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool TryGetBlockingPlacementEntity(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
@@ -187,7 +210,7 @@ namespace Game.Feature.Gameplay.BoardState
 
                 if (TryGetPlacementOccupant(
                         entitiesById,
-                        unitOccupancy,
+                        solidOccupancyByCell,
                         topology,
                         queryMode,
                         cell,
@@ -196,15 +219,52 @@ namespace Game.Feature.Gameplay.BoardState
                 {
                     return true;
                 }
+
+                return TryGetPlacementStackedUnit(
+                    entitiesById,
+                    stackedUnitsByCell,
+                    topology,
+                    queryMode,
+                    cell,
+                    ignoredEntityId,
+                    out entity);
             }
-            else if (TryGetPlacementOccupant(
-                         entitiesById,
-                         unitOccupancy,
-                         topology,
-                         queryMode,
-                         cell,
-                         ignoredEntityId,
-                         out entity))
+
+            if (TryGetPlacementOccupant(
+                    entitiesById,
+                    solidOccupancyByCell,
+                    topology,
+                    queryMode,
+                    cell,
+                    ignoredEntityId,
+                    out entity))
+            {
+                return true;
+            }
+
+            if ((entityType == EntityType.Box || entityType == EntityType.None) &&
+                TryGetPlacementStackedUnit(
+                    entitiesById,
+                    stackedUnitsByCell,
+                    topology,
+                    queryMode,
+                    cell,
+                    ignoredEntityId,
+                    out entity))
+            {
+                return true;
+            }
+
+            if (entityType == EntityType.Unit &&
+                queryMode == PlacementQueryMode.Gameplay &&
+                TryGetPlacementStackedUnit(
+                    entitiesById,
+                    stackedUnitsByCell,
+                    topology,
+                    queryMode,
+                    cell,
+                    ignoredEntityId,
+                    out entity))
             {
                 return true;
             }
@@ -224,6 +284,35 @@ namespace Game.Feature.Gameplay.BoardState
         {
             if (TryGetStoredOccupant(entitiesById, occupancyByCell, cell, out entity) &&
                 entity.entityId != ignoredEntityId &&
+                GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
+                    entity,
+                    topology,
+                    requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay))
+            {
+                return true;
+            }
+
+            entity = default;
+            return false;
+        }
+
+        private static bool TryGetPlacementStackedUnit(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            PlacementQueryMode queryMode,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out EntityState entity)
+        {
+            if (SnapshotReadQueries.TryGetStoredStackedUnit(
+                    entitiesById,
+                    stackedUnitsByCell,
+                    topology,
+                    cell,
+                    requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay,
+                    ignoredEntityId,
+                    out entity) &&
                 GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
                     entity,
                     topology,

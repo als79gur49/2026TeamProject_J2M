@@ -37,18 +37,27 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool IsBlockedForUnit(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData,
             SurfaceCell cell)
         {
-            return WorldPlacementPolicy.IsBlockedForUnit(entitiesById, unitOccupancy, topology, boardBounds, terrainData, cell);
+            return WorldPlacementPolicy.IsBlockedForUnit(
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
+                topology,
+                boardBounds,
+                terrainData,
+                cell);
         }
 
         public static bool TryGetAuthoritativePlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -59,7 +68,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return WorldPlacementPolicy.TryGetAuthoritativePlacementBlocker(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
                 terrainData,
@@ -71,7 +81,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetGameplayPlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -83,7 +94,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return WorldPlacementPolicy.TryGetGameplayPlacementBlocker(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 projectileOccupancy,
                 topology,
                 boardBounds,
@@ -135,7 +147,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetUnitBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -144,7 +157,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return WorldPlacementPolicy.TryGetUnitBlocker(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 topology,
                 boardBounds,
                 terrainData,
@@ -247,7 +261,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryResolveNextSurfaceBoxSlideStep(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -258,7 +273,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return SurfaceSlideQueries.TryResolveNextSurfaceBoxSlideStep(
                 entitiesById,
-                unitOccupancy,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
                 topology,
                 boardBounds,
                 terrainData,

@@ -6,9 +6,12 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class SurfaceSlideQueries
     {
+        private static readonly IReadOnlyDictionary<SurfaceCell, int> EmptyProjectileOccupancy = new Dictionary<SurfaceCell, int>();
+
         public static bool TryResolveNextSurfaceBoxSlideStep(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData,
@@ -17,7 +20,7 @@ namespace Game.Feature.Gameplay.BoardState
             out SurfaceCell destination,
             out SlideStopper stopper)
         {
-            ValidateQueryDictionaries(entitiesById, unitOccupancy);
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell, solidOccupancyByCell);
 
             if (terrainData == null)
             {
@@ -36,10 +39,12 @@ namespace Game.Feature.Gameplay.BoardState
             if (!boardBounds.IsBounded)
             {
                 destination = origin + delta;
-                if (TryGetSurfaceBoxSlideBlocker(
+                if (TryGetBoxSlideBlocker(
                         entitiesById,
-                        unitOccupancy,
+                        stackedUnitsByCell,
+                        solidOccupancyByCell,
                         topology,
+                        boardBounds,
                         terrainData,
                         destination,
                         out stopper))
@@ -64,10 +69,12 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            if (TryGetSurfaceBoxSlideBlocker(
+            if (TryGetBoxSlideBlocker(
                     entitiesById,
-                    unitOccupancy,
+                    stackedUnitsByCell,
+                    solidOccupancyByCell,
                     topology,
+                    boardBounds,
                     terrainData,
                     destination,
                     out stopper))
@@ -117,56 +124,48 @@ namespace Game.Feature.Gameplay.BoardState
             return false;
         }
 
-        private static bool TryGetSurfaceBoxSlideBlocker(
+        private static bool TryGetBoxSlideBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> unitOccupancy,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
+            BoardBounds boardBounds,
             TerrainData terrainData,
             SurfaceCell cell,
             out SlideStopper stopper)
         {
-            if (terrainData.BlocksUnitMovement(cell.PlanarPosition))
-            {
-                stopper = SlideStopper.CreateTerrain(cell);
-                return true;
-            }
-
-            if (TryGetStoredOccupant(entitiesById, unitOccupancy, cell, out var entity) &&
-                GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, topology) &&
-                entity.type != EntityType.Projectile)
-            {
-                stopper = SlideStopper.CreateEntity(entity);
-                return true;
-            }
-
-            stopper = default;
-            return false;
-        }
-
-        private static bool TryGetStoredOccupant(
-            IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,
-            SurfaceCell cell,
-            out EntityState entity)
-        {
-            entity = default;
-
-            return occupancyByCell.TryGetValue(cell, out var entityId) &&
-                   entitiesById.TryGetValue(entityId, out entity);
+            return WorldPlacementPolicy.TryGetGameplayPlacementBlocker(
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
+                EmptyProjectileOccupancy,
+                topology,
+                boardBounds,
+                terrainData,
+                EntityType.Box,
+                cell,
+                ignoredEntityId: 0,
+                out stopper);
         }
 
         private static void ValidateQueryDictionaries(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, int> occupancyByCell)
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell)
         {
             if (entitiesById == null)
             {
                 throw new ArgumentNullException(nameof(entitiesById));
             }
 
-            if (occupancyByCell == null)
+            if (stackedUnitsByCell == null)
             {
-                throw new ArgumentNullException(nameof(occupancyByCell));
+                throw new ArgumentNullException(nameof(stackedUnitsByCell));
+            }
+
+            if (solidOccupancyByCell == null)
+            {
+                throw new ArgumentNullException(nameof(solidOccupancyByCell));
             }
         }
     }

@@ -15,13 +15,15 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
+        private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
+        private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> _stackedUnitsByCell;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
-        private readonly IReadOnlyDictionary<SurfaceCell, int> _unitOccupancy;
 
         internal WorldSnapshot(
             Dictionary<int, EntityState> entitiesById,
-            Dictionary<SurfaceCell, int> unitOccupancy,
+            Dictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
+            Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<SurfaceCell, int> projectileOccupancy,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
@@ -30,7 +32,8 @@ namespace Game.Feature.Gameplay.BoardState
             TerrainData terrainData)
         {
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
-            _unitOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(unitOccupancy ?? throw new ArgumentNullException(nameof(unitOccupancy)));
+            _stackedUnitsByCell = CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell)));
+            _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
@@ -101,7 +104,14 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool IsBlockedForUnit(SurfaceCell cell)
         {
-            return WorldPlacementPolicy.IsBlockedForUnit(_entitiesById, _unitOccupancy, _topology, _boardBounds, _terrainData, cell);
+            return WorldPlacementPolicy.IsBlockedForUnit(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                _topology,
+                _boardBounds,
+                _terrainData,
+                cell);
         }
 
         public bool IsBlockedForUnit(Vector2Int cell)
@@ -127,7 +137,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return WorldPlacementPolicy.TryGetGameplayPlacementBlocker(
                 _entitiesById,
-                _unitOccupancy,
+                _stackedUnitsByCell,
+                _solidOccupancy,
                 _projectileOccupancy,
                 topology,
                 _boardBounds,
@@ -231,7 +242,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return SurfaceSlideQueries.TryResolveNextSurfaceBoxSlideStep(
                 _entitiesById,
-                _unitOccupancy,
+                _stackedUnitsByCell,
+                _solidOccupancy,
                 topology,
                 _boardBounds,
                 _terrainData,
@@ -268,7 +280,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return WorldPlacementPolicy.TryGetUnitBlocker(
                 _entitiesById,
-                _unitOccupancy,
+                _stackedUnitsByCell,
+                _solidOccupancy,
                 topology,
                 _boardBounds,
                 _terrainData,
@@ -288,7 +301,12 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
-            SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _unitOccupancy, _topology, buffer);
+            SnapshotReadQueries.EnumerateCombinedOccupancyOrdered(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                _topology,
+                buffer);
         }
 
         internal void EnumeratePlayerControlStatesOrdered(List<PlayerControlSnapshotEntry> buffer)
@@ -332,7 +350,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal bool TryGetUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
-            return SnapshotReadQueries.TryGetEntityAt(_entitiesById, _unitOccupancy, topology, cell, out entity);
+            return SnapshotReadQueries.TryGetPrimaryNonProjectileOccupantAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                topology,
+                cell,
+                out entity);
         }
 
         internal bool TryGetProjectileAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
@@ -343,6 +367,30 @@ namespace Game.Feature.Gameplay.BoardState
         private SurfaceCell CreateDefaultQueryCell(Vector2Int cell)
         {
             return SurfaceCell.FromPlanar(cell, _topology.BottomFace);
+        }
+
+        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> CreateReadonlyStackedUnitsByCell(
+            Dictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell)
+        {
+            var buffer = new Dictionary<SurfaceCell, IReadOnlyList<int>>(stackedUnitsByCell.Count);
+
+            foreach (var pair in stackedUnitsByCell)
+            {
+                if (pair.Value == null)
+                {
+                    throw new ArgumentNullException(nameof(stackedUnitsByCell));
+                }
+
+                var orderedEntityIds = new List<int>(pair.Value.Count);
+                foreach (var entityId in pair.Value)
+                {
+                    orderedEntityIds.Add(entityId);
+                }
+
+                buffer.Add(pair.Key, orderedEntityIds.AsReadOnly());
+            }
+
+            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>>(buffer);
         }
     }
 }

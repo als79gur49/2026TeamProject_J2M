@@ -10,12 +10,13 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private readonly Dictionary<int, EntityState> _entitiesById = new();
         private readonly Dictionary<SurfaceCell, int> _projectileOccupancy = new();
+        private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
+        private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
-        private readonly Dictionary<SurfaceCell, int> _unitOccupancy = new();
 
         internal WorldState()
             : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
@@ -61,7 +62,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return new WorldSnapshot(
                 new Dictionary<int, EntityState>(_entitiesById),
-                new Dictionary<SurfaceCell, int>(_unitOccupancy),
+                CloneStackedUnitsByCell(),
+                new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
@@ -245,11 +247,15 @@ namespace Game.Feature.Gameplay.BoardState
             switch (entity.type)
             {
                 case EntityType.Projectile:
-                    _projectileOccupancy.Remove(entity.position);
+                    ClearLayerOccupancy(_projectileOccupancy, entity.position, entity.entityId);
+                    break;
+
+                case EntityType.Unit:
+                    ClearStackedUnitOccupancy(entity.position, entity.entityId);
                     break;
 
                 default:
-                    _unitOccupancy.Remove(entity.position);
+                    ClearLayerOccupancy(_solidOccupancy, entity.position, entity.entityId);
                     break;
             }
         }
@@ -267,8 +273,12 @@ namespace Game.Feature.Gameplay.BoardState
                     SetLayerOccupancy(_projectileOccupancy, entity.position, entity.entityId);
                     break;
 
+                case EntityType.Unit:
+                    SetStackedUnitOccupancy(entity.position, entity.entityId);
+                    break;
+
                 default:
-                    SetLayerOccupancy(_unitOccupancy, entity.position, entity.entityId);
+                    SetLayerOccupancy(_solidOccupancy, entity.position, entity.entityId);
                     break;
             }
         }
@@ -282,7 +292,8 @@ namespace Game.Feature.Gameplay.BoardState
         {
             if (!WorldPlacementPolicy.TryGetAuthoritativePlacementBlocker(
                     _entitiesById,
-                    _unitOccupancy,
+                    _stackedUnitsByCell,
+                    _solidOccupancy,
                     _projectileOccupancy,
                     _boardBounds,
                     _terrainData,
@@ -331,6 +342,48 @@ namespace Game.Feature.Gameplay.BoardState
             _entitiesById[entity.entityId] = entity;
         }
 
+        private Dictionary<SurfaceCell, SortedSet<int>> CloneStackedUnitsByCell()
+        {
+            var clone = new Dictionary<SurfaceCell, SortedSet<int>>(_stackedUnitsByCell.Count);
+
+            foreach (var pair in _stackedUnitsByCell)
+            {
+                clone.Add(pair.Key, new SortedSet<int>(pair.Value));
+            }
+
+            return clone;
+        }
+
+        private void ClearStackedUnitOccupancy(SurfaceCell position, int entityId)
+        {
+            if (!_stackedUnitsByCell.TryGetValue(position, out var entityIds))
+            {
+                return;
+            }
+
+            if (!entityIds.Remove(entityId))
+            {
+                throw new InvalidOperationException(
+                    $"Conflicting stacked-unit occupancy detected while updating world state at {position}.");
+            }
+
+            if (entityIds.Count == 0)
+            {
+                _stackedUnitsByCell.Remove(position);
+            }
+        }
+
+        private void SetStackedUnitOccupancy(SurfaceCell position, int entityId)
+        {
+            if (!_stackedUnitsByCell.TryGetValue(position, out var entityIds))
+            {
+                entityIds = new SortedSet<int>();
+                _stackedUnitsByCell.Add(position, entityIds);
+            }
+
+            entityIds.Add(entityId);
+        }
+
         private static bool ShouldStoreEntityInOccupancy(EntityState entity)
         {
             return entity.boardPresence == EntityBoardPresence.Occupying;
@@ -366,6 +419,25 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             occupancyByCell[position] = entityId;
+        }
+
+        private static void ClearLayerOccupancy(
+            Dictionary<SurfaceCell, int> occupancyByCell,
+            SurfaceCell position,
+            int entityId)
+        {
+            if (!occupancyByCell.TryGetValue(position, out var occupantId))
+            {
+                return;
+            }
+
+            if (occupantId != entityId)
+            {
+                throw new InvalidOperationException(
+                    $"Conflicting occupancy detected while updating world state at {position}.");
+            }
+
+            occupancyByCell.Remove(position);
         }
 
         bool IWorldStateMutationPort.TryGetEntity(int entityId, out EntityState entity)
