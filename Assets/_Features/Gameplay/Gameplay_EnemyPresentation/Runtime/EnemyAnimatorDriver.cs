@@ -276,9 +276,20 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            return animationTiming.TryGetReferenceClipLengthSeconds(
-                phase,
-                out referenceClipLengthSeconds);
+            switch (phase)
+            {
+                case EnemyPresentationPhase.Windup:
+                    return animationTiming.TryGetAttackWindupReferenceClipLengthSeconds(
+                        out referenceClipLengthSeconds);
+
+                case EnemyPresentationPhase.Recovery:
+                    return animationTiming.TryGetRecoverReferenceClipLengthSeconds(
+                        out referenceClipLengthSeconds);
+
+                default:
+                    referenceClipLengthSeconds = 0f;
+                    return false;
+            }
         }
 
         private string ResolveStateName(EnemyPresentationPhase phase)

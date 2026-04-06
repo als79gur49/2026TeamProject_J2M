@@ -361,16 +361,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
                 Assert.That(
-                    snapshot.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Windup,
+                    snapshot.TryGetAttackWindupReferenceClipLengthSeconds(
                         out var windupReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(windupReferenceClipLengthSeconds, Is.GreaterThan(0f));
                 Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
                 Assert.That(recoverDurationSeconds, Is.EqualTo(0.5f));
                 Assert.That(
-                    snapshot.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Recovery,
+                    snapshot.TryGetRecoverReferenceClipLengthSeconds(
                         out var recoverReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(recoverReferenceClipLengthSeconds, Is.GreaterThan(0f));
@@ -420,13 +418,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver, Is.Not.Null);
                 var timingSnapshot = enemyView.GetComponent<EnemyAnimationTimingAuthoring>().CreateSnapshot();
                 Assert.That(
-                    timingSnapshot.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Windup,
+                    timingSnapshot.TryGetAttackWindupReferenceClipLengthSeconds(
                         out var windupReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(
-                    timingSnapshot.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Recovery,
+                    timingSnapshot.TryGetRecoverReferenceClipLengthSeconds(
                         out var recoverReferenceClipLengthSeconds),
                     Is.True);
 

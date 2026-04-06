@@ -47,24 +47,16 @@ namespace Game.Feature.Gameplay.Host
             return EnemyAnimationTimingAuthoring.IsStateTransitionCrossFadeOverride(durationSeconds);
         }
 
-        internal bool TryGetReferenceClipLengthSeconds(
-            EnemyPresentationPhase phase,
-            out float referenceClipLengthSeconds)
+        internal bool TryGetAttackWindupReferenceClipLengthSeconds(out float referenceClipLengthSeconds)
         {
-            switch (phase)
-            {
-                case EnemyPresentationPhase.Windup:
-                    referenceClipLengthSeconds = AttackWindupReferenceClipLengthSeconds;
-                    return referenceClipLengthSeconds > 0f;
+            referenceClipLengthSeconds = AttackWindupReferenceClipLengthSeconds;
+            return referenceClipLengthSeconds > 0f;
+        }
 
-                case EnemyPresentationPhase.Recovery:
-                    referenceClipLengthSeconds = RecoverReferenceClipLengthSeconds;
-                    return referenceClipLengthSeconds > 0f;
-
-                default:
-                    referenceClipLengthSeconds = 0f;
-                    return false;
-            }
+        internal bool TryGetRecoverReferenceClipLengthSeconds(out float referenceClipLengthSeconds)
+        {
+            referenceClipLengthSeconds = RecoverReferenceClipLengthSeconds;
+            return referenceClipLengthSeconds > 0f;
         }
     }
 

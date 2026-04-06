@@ -151,16 +151,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
                 Assert.That(
-                    snapshot.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Windup,
+                    snapshot.TryGetAttackWindupReferenceClipLengthSeconds(
                         out var windupReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(windupReferenceClipLengthSeconds, Is.EqualTo(windupReferenceClip.length).Within(0.0001f));
                 Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
                 Assert.That(recoverDurationSeconds, Is.EqualTo(0.6f));
                 Assert.That(
-                    snapshot.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Recovery,
+                    snapshot.TryGetRecoverReferenceClipLengthSeconds(
                         out var recoverReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(recoverReferenceClipLengthSeconds, Is.EqualTo(recoverReferenceClip.length).Within(0.0001f));
@@ -596,8 +594,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(boundTiming.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
                 Assert.That(
-                    boundTiming.TryGetReferenceClipLengthSeconds(
-                        EnemyPresentationPhase.Windup,
+                    boundTiming.TryGetAttackWindupReferenceClipLengthSeconds(
                         out var windupReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(windupReferenceClipLengthSeconds, Is.EqualTo(1f).Within(0.0001f));
