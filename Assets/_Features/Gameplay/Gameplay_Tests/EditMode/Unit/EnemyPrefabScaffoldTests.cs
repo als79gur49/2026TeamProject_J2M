@@ -27,9 +27,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("moveMotionDurationSeconds: -1", prefabText);
             StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
+            StringAssert.Contains("attackWindupReferenceClip:", prefabText);
+            StringAssert.Contains("recoverReferenceClip:", prefabText);
             StringAssert.DoesNotContain("EntityMotionPresentationAuthoring", prefabText);
             StringAssert.DoesNotContain("pushMotionDurationSeconds", prefabText);
             StringAssert.DoesNotContain("flipMotionDurationSeconds", prefabText);
+        }
+
+        [Test]
+        public void EnemyViewAttackingPrefab_BindsExplicitEnemyTimingReferenceClips()
+        {
+            var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab");
+
+            StringAssert.Contains("EnemyAnimationTimingAuthoring", prefabText);
+            StringAssert.Contains("attackWindupAnimatorDurationSeconds: 1", prefabText);
+            StringAssert.Contains("recoverAnimatorDurationSeconds: 1", prefabText);
+            StringAssert.Contains("attackWindupReferenceClip:", prefabText);
+            StringAssert.Contains("recoverReferenceClip:", prefabText);
         }
 
         private static string ReadNormalizedText(string assetPath)

@@ -8,11 +8,15 @@ namespace Game.Feature.Gameplay.Host
         public EnemyAnimationTimingSnapshot(
             float attackWindupAnimatorDurationSeconds,
             float recoverAnimatorDurationSeconds,
-            float stateTransitionCrossFadeDurationSeconds)
+            float stateTransitionCrossFadeDurationSeconds,
+            float attackWindupReferenceClipLengthSeconds,
+            float recoverReferenceClipLengthSeconds)
         {
             AttackWindupAnimatorDurationSeconds = attackWindupAnimatorDurationSeconds;
             RecoverAnimatorDurationSeconds = recoverAnimatorDurationSeconds;
             StateTransitionCrossFadeDurationSeconds = stateTransitionCrossFadeDurationSeconds;
+            AttackWindupReferenceClipLengthSeconds = attackWindupReferenceClipLengthSeconds;
+            RecoverReferenceClipLengthSeconds = recoverReferenceClipLengthSeconds;
         }
 
         public float AttackWindupAnimatorDurationSeconds { get; }
@@ -20,6 +24,10 @@ namespace Game.Feature.Gameplay.Host
         public float RecoverAnimatorDurationSeconds { get; }
 
         public float StateTransitionCrossFadeDurationSeconds { get; }
+
+        internal float AttackWindupReferenceClipLengthSeconds { get; }
+
+        internal float RecoverReferenceClipLengthSeconds { get; }
 
         public bool TryGetAttackWindupAnimatorDurationOverride(out float durationSeconds)
         {
@@ -38,6 +46,26 @@ namespace Game.Feature.Gameplay.Host
             durationSeconds = StateTransitionCrossFadeDurationSeconds;
             return EnemyAnimationTimingAuthoring.IsStateTransitionCrossFadeOverride(durationSeconds);
         }
+
+        internal bool TryGetReferenceClipLengthSeconds(
+            EnemyPresentationPhase phase,
+            out float referenceClipLengthSeconds)
+        {
+            switch (phase)
+            {
+                case EnemyPresentationPhase.Windup:
+                    referenceClipLengthSeconds = AttackWindupReferenceClipLengthSeconds;
+                    return referenceClipLengthSeconds > 0f;
+
+                case EnemyPresentationPhase.Recovery:
+                    referenceClipLengthSeconds = RecoverReferenceClipLengthSeconds;
+                    return referenceClipLengthSeconds > 0f;
+
+                default:
+                    referenceClipLengthSeconds = 0f;
+                    return false;
+            }
+        }
     }
 
     /// <summary>
@@ -55,6 +83,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float attackWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float recoverAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = DefaultStateTransitionCrossFadeDurationSeconds;
+        [SerializeField] private AnimationClip attackWindupReferenceClip;
+        [SerializeField] private AnimationClip recoverReferenceClip;
 
         public float AttackWindupAnimatorDurationSeconds => attackWindupAnimatorDurationSeconds;
 
@@ -67,15 +97,37 @@ namespace Game.Feature.Gameplay.Host
             ValidateAnimatorDuration(attackWindupAnimatorDurationSeconds, nameof(attackWindupAnimatorDurationSeconds));
             ValidateAnimatorDuration(recoverAnimatorDurationSeconds, nameof(recoverAnimatorDurationSeconds));
             ValidateCrossFadeDuration(stateTransitionCrossFadeDurationSeconds, nameof(stateTransitionCrossFadeDurationSeconds));
+            ResolveReferenceClipLengthSeconds(
+                attackWindupAnimatorDurationSeconds,
+                attackWindupReferenceClip,
+                nameof(attackWindupReferenceClip),
+                nameof(attackWindupAnimatorDurationSeconds));
+            ResolveReferenceClipLengthSeconds(
+                recoverAnimatorDurationSeconds,
+                recoverReferenceClip,
+                nameof(recoverReferenceClip),
+                nameof(recoverAnimatorDurationSeconds));
         }
 
         public EnemyAnimationTimingSnapshot CreateSnapshot()
         {
             Validate();
+            var attackWindupReferenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
+                attackWindupAnimatorDurationSeconds,
+                attackWindupReferenceClip,
+                nameof(attackWindupReferenceClip),
+                nameof(attackWindupAnimatorDurationSeconds));
+            var recoverReferenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
+                recoverAnimatorDurationSeconds,
+                recoverReferenceClip,
+                nameof(recoverReferenceClip),
+                nameof(recoverAnimatorDurationSeconds));
             return new EnemyAnimationTimingSnapshot(
                 attackWindupAnimatorDurationSeconds,
                 recoverAnimatorDurationSeconds,
-                stateTransitionCrossFadeDurationSeconds);
+                stateTransitionCrossFadeDurationSeconds,
+                attackWindupReferenceClipLengthSeconds,
+                recoverReferenceClipLengthSeconds);
         }
 
         public static bool IsAnimatorDurationOverride(float animatorDurationSeconds)
@@ -133,6 +185,35 @@ namespace Game.Feature.Gameplay.Host
                     parameterName,
                     "Cross-fade duration must be zero or greater, or -1 to keep the driver default behavior.");
             }
+        }
+
+        private static float ResolveReferenceClipLengthSeconds(
+            float animatorDurationSeconds,
+            AnimationClip referenceClip,
+            string clipFieldName,
+            string durationFieldName)
+        {
+            if (referenceClip == null)
+            {
+                if (animatorDurationSeconds == UseDriverDefaultSentinel)
+                {
+                    return 0f;
+                }
+
+                throw new InvalidOperationException(
+                    $"{clipFieldName} must be assigned when {durationFieldName} overrides animator duration.");
+            }
+
+            var clipLengthSeconds = referenceClip.length;
+            if (clipLengthSeconds <= 0f ||
+                float.IsNaN(clipLengthSeconds) ||
+                float.IsInfinity(clipLengthSeconds))
+            {
+                throw new InvalidOperationException(
+                    $"{clipFieldName} must reference an AnimationClip with a finite positive length.");
+            }
+
+            return clipLengthSeconds;
         }
     }
 }

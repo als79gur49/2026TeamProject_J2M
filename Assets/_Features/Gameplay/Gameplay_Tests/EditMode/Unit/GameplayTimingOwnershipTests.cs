@@ -132,25 +132,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides()
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides");
+            var windupReferenceClip = CreateReferenceClip("HumanM@Attack1H04_R_Windup", 0.53333336f);
+            var recoverReferenceClip = CreateReferenceClip("HumanM@Attack1H04_R_Recover", 0.6333333f);
 
             try
             {
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.35f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.6f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.12f);
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 0.35f,
+                    recoverAnimatorDurationSeconds: 0.6f,
+                    stateTransitionCrossFadeDurationSeconds: 0.12f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
 
                 var snapshot = authoring.CreateSnapshot();
 
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+                Assert.That(
+                    snapshot.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Windup,
+                        out var windupReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(windupReferenceClipLengthSeconds, Is.EqualTo(windupReferenceClip.length).Within(0.0001f));
                 Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
                 Assert.That(recoverDurationSeconds, Is.EqualTo(0.6f));
+                Assert.That(
+                    snapshot.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Recovery,
+                        out var recoverReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(recoverReferenceClipLengthSeconds, Is.EqualTo(recoverReferenceClip.length).Within(0.0001f));
                 Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
                 Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.12f));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -175,6 +195,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", -2f);
                 var invalidCrossFadeException = Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
                 Assert.That(invalidCrossFadeException.ParamName, Is.EqualTo("stateTransitionCrossFadeDurationSeconds"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimationTimingAuthoring_CreateSnapshot_DurationOverrideWithoutReferenceClip_Throws()
+        {
+            var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_DurationOverrideWithoutReferenceClip_Throws");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 1f);
+
+                var exception = Assert.Throws<InvalidOperationException>(() => authoring.CreateSnapshot());
+                StringAssert.Contains("attackWindupReferenceClip", exception.Message);
+                StringAssert.Contains("attackWindupAnimatorDurationSeconds", exception.Message);
             }
             finally
             {
@@ -224,15 +264,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly");
+            var windupReferenceClip = CreateReferenceClip("WindupReference", 1f);
+            var recoverReferenceClip = CreateReferenceClip("RecoverReference", 1f);
 
             try
             {
                 var animator = rootObject.AddComponent<Animator>();
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.4f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.5f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.08f);
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 0.4f,
+                    recoverAnimatorDurationSeconds: 0.5f,
+                    stateTransitionCrossFadeDurationSeconds: 0.08f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
 
                 var snapshot = authoring.CreateSnapshot();
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
@@ -287,6 +333,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -295,15 +343,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyAnimatorDriver_CrossFadeOverride_SuppressesWindupAndRecoveryTriggerFallbacks()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_CrossFadeOverride_SuppressesWindupAndRecoveryTriggerFallbacks");
+            var windupReferenceClip = CreateReferenceClip("WindupReference", 1f);
+            var recoverReferenceClip = CreateReferenceClip("RecoverReference", 1f);
 
             try
             {
                 rootObject.AddComponent<Animator>();
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 0.4f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "recoverAnimatorDurationSeconds", 0.5f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", 0.08f);
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 0.4f,
+                    recoverAnimatorDurationSeconds: 0.5f,
+                    stateTransitionCrossFadeDurationSeconds: 0.08f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
 
                 driver.Apply(new EnemyViewPresentationState(
                     entityId: 40,
@@ -345,6 +399,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimatorDriver_StateNameAndClipNameMismatch_UsesReferenceClipLengthForAnimatorSpeed()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_StateNameAndClipNameMismatch_UsesReferenceClipLengthForAnimatorSpeed");
+            var windupReferenceClip = CreateReferenceClip("HumanM@Attack1H04_R_Windup", 0.53333336f);
+            var recoverReferenceClip = CreateReferenceClip("HumanM@Attack1H04_R_Recover", 0.6333333f);
+
+            try
+            {
+                var animator = rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 1f,
+                    recoverAnimatorDurationSeconds: 1f,
+                    stateTransitionCrossFadeDurationSeconds: 0.01f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Attack,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(windupReferenceClip.length).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(windupReferenceClip.length).Within(0.0001f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: true,
+                    startedRecoveryThisTick: true,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(recoverReferenceClip.length).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(recoverReferenceClip.length).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -415,6 +533,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy");
             var enemyPrefabObject = new GameObject("EnemyPresentationPrefab");
             var enemyCatalog = ScriptableObject.CreateInstance<EnemyPresentationCatalog>();
+            var windupReferenceClip = CreateReferenceClip("WindupReference", 1f);
+            var recoverReferenceClip = CreateReferenceClip("RecoverReference", 1f);
 
             try
             {
@@ -422,19 +542,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 enemyPrefabObject.AddComponent<Animator>();
                 var timingAuthoring = enemyPrefabObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 enemyPrefabObject.AddComponent<EnemyAnimatorDriver>();
-
-                PlayerViewPrefabTestUtility.SetSerializedField(
+                ConfigureEnemyAnimationTimingAuthoring(
                     timingAuthoring,
-                    "attackWindupAnimatorDurationSeconds",
-                    0.35f);
-                PlayerViewPrefabTestUtility.SetSerializedField(
-                    timingAuthoring,
-                    "recoverAnimatorDurationSeconds",
-                    0.5f);
-                PlayerViewPrefabTestUtility.SetSerializedField(
-                    timingAuthoring,
-                    "stateTransitionCrossFadeDurationSeconds",
-                    0.08f);
+                    attackWindupAnimatorDurationSeconds: 0.35f,
+                    recoverAnimatorDurationSeconds: 0.5f,
+                    stateTransitionCrossFadeDurationSeconds: 0.08f,
+                    attackWindupReferenceClip: windupReferenceClip,
+                    recoverReferenceClip: recoverReferenceClip);
                 PlayerViewPrefabTestUtility.SetSerializedField(
                     enemyCatalog,
                     "entries",
@@ -481,6 +595,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boundTiming = boundEnemyView.GetComponent<EnemyAnimationTimingAuthoring>().CreateSnapshot();
                 Assert.That(boundTiming.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+                Assert.That(
+                    boundTiming.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Windup,
+                        out var windupReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(windupReferenceClipLengthSeconds, Is.EqualTo(1f).Within(0.0001f));
 
                 Assert.That(host.ViewRegistry.TryGetView(41, out var fallbackEnemyView), Is.True);
                 Assert.That(fallbackEnemyView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
@@ -488,6 +608,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
                 UnityEngine.Object.DestroyImmediate(enemyCatalog);
                 UnityEngine.Object.DestroyImmediate(enemyPrefabObject);
                 UnityEngine.Object.DestroyImmediate(hostObject);
@@ -565,6 +687,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}' on {target.GetType().Name}.");
             return (T)field.GetValue(target);
+        }
+
+        private static void ConfigureEnemyAnimationTimingAuthoring(
+            EnemyAnimationTimingAuthoring authoring,
+            float attackWindupAnimatorDurationSeconds,
+            float recoverAnimatorDurationSeconds,
+            float stateTransitionCrossFadeDurationSeconds,
+            AnimationClip attackWindupReferenceClip = null,
+            AnimationClip recoverReferenceClip = null)
+        {
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "attackWindupAnimatorDurationSeconds",
+                attackWindupAnimatorDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "recoverAnimatorDurationSeconds",
+                recoverAnimatorDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "stateTransitionCrossFadeDurationSeconds",
+                stateTransitionCrossFadeDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "attackWindupReferenceClip",
+                attackWindupReferenceClip);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "recoverReferenceClip",
+                recoverReferenceClip);
+        }
+
+        private static AnimationClip CreateReferenceClip(string clipName, float lengthSeconds)
+        {
+            var clip = new AnimationClip
+            {
+                name = clipName,
+                frameRate = 60f,
+            };
+
+            clip.SetCurve(
+                string.Empty,
+                typeof(Transform),
+                "m_LocalPosition.x",
+                AnimationCurve.Linear(0f, 0f, lengthSeconds, 1f));
+            return clip;
         }
 
     }

@@ -100,6 +100,8 @@ MonoBehaviour:
   attackWindupAnimatorDurationSeconds: 0.35
   recoverAnimatorDurationSeconds: 0.5
   stateTransitionCrossFadeDurationSeconds: 0.08
+  attackWindupReferenceClip: {fileID: 7400000, guid: 52ce4489866b12e4a90879b05e608ddb, type: 2}
+  recoverReferenceClip: {fileID: 7400000, guid: 014e6188255d29b48a18eaf30e093d7b, type: 2}
 --- !u!114 &1140300000000000001
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -360,8 +360,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var snapshot = authoring.CreateSnapshot();
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
                 Assert.That(windupDurationSeconds, Is.EqualTo(0.35f));
+                Assert.That(
+                    snapshot.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Windup,
+                        out var windupReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(windupReferenceClipLengthSeconds, Is.GreaterThan(0f));
                 Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
                 Assert.That(recoverDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(
+                    snapshot.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Recovery,
+                        out var recoverReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(recoverReferenceClipLengthSeconds, Is.GreaterThan(0f));
                 Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
                 Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.08f));
 
@@ -406,6 +418,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(registry.TryGetView(windupEnemy.entityId, out var enemyView), Is.True);
                 var driver = enemyView.GetComponent<EnemyAnimatorDriver>();
                 Assert.That(driver, Is.Not.Null);
+                var timingSnapshot = enemyView.GetComponent<EnemyAnimationTimingAuthoring>().CreateSnapshot();
+                Assert.That(
+                    timingSnapshot.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Windup,
+                        out var windupReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(
+                    timingSnapshot.TryGetReferenceClipLengthSeconds(
+                        EnemyPresentationPhase.Recovery,
+                        out var recoverReferenceClipLengthSeconds),
+                    Is.True);
 
                 presenter.Present(CreateTickResult(
                     tickIndex: 1,
@@ -432,7 +455,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Attack));
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.35f).Within(0.0001f));
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1f / 0.35f).Within(0.0001f));
+                Assert.That(
+                    driver.CurrentAnimatorSpeed,
+                    Is.EqualTo(windupReferenceClipLengthSeconds / 0.35f).Within(0.0001f));
                 Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
                 Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
@@ -462,7 +487,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver.CurrentAiMode, Is.EqualTo(EnemyAiMode.Recover));
                 Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.5f).Within(0.0001f));
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(
+                    driver.CurrentAnimatorSpeed,
+                    Is.EqualTo(recoverReferenceClipLengthSeconds / 0.5f).Within(0.0001f));
                 Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.08f).Within(0.0001f));
                 Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Recover"));
                 Assert.That(driver.WindupSignalCount, Is.EqualTo(1));

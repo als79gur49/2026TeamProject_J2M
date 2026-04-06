@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
 
@@ -55,8 +54,6 @@ namespace Game.Feature.Gameplay.Host
         private bool _animationTimingResolved;
         private bool _hasAnimationTimingAuthoring;
         private EnemyAnimationTimingSnapshot _animationTiming;
-        private readonly Dictionary<string, float> _clipLengthCache = new();
-        private RuntimeAnimatorController _cachedClipLengthController;
         private Animator _validatedOptionalParameterAnimator;
         private RuntimeAnimatorController _validatedOptionalParameterController;
         private bool _supportsAiModeParameter;
@@ -172,7 +169,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void ApplyAnimatorTiming(Animator targetAnimator, EnemyPresentationPhase phase)
         {
-            var targetSpeed = ResolveAnimatorSpeed(targetAnimator, phase, out var presentationDurationSeconds);
+            var targetSpeed = ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
             CurrentAnimatorSpeed = targetSpeed;
             CurrentPresentationDurationSeconds = presentationDurationSeconds;
 
@@ -204,7 +201,6 @@ namespace Game.Feature.Gameplay.Host
         }
 
         private float ResolveAnimatorSpeed(
-            Animator targetAnimator,
             EnemyPresentationPhase phase,
             out float presentationDurationSeconds)
         {
@@ -214,12 +210,21 @@ namespace Game.Feature.Gameplay.Host
                 return 1f;
             }
 
-            var stateName = ResolveStateName(phase);
-            var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(targetAnimator, stateName);
+            var hasReferenceClipLength = TryResolveReferenceClipLengthSeconds(
+                phase,
+                out var referenceClipLengthSeconds);
             if (!TryResolveAnimatorDurationOverride(phase, out var overrideDurationSeconds))
             {
-                presentationDurationSeconds = referenceClipLengthSeconds;
+                presentationDurationSeconds = hasReferenceClipLength
+                    ? referenceClipLengthSeconds
+                    : 0f;
                 return 1f;
+            }
+
+            if (!hasReferenceClipLength)
+            {
+                throw new InvalidOperationException(
+                    $"Missing reference clip length for {nameof(EnemyPresentationPhase)}.{phase}.");
             }
 
             presentationDurationSeconds = overrideDurationSeconds;
@@ -261,6 +266,21 @@ namespace Game.Feature.Gameplay.Host
             return animationTiming.TryGetStateTransitionCrossFadeDurationOverride(out durationSeconds);
         }
 
+        private bool TryResolveReferenceClipLengthSeconds(
+            EnemyPresentationPhase phase,
+            out float referenceClipLengthSeconds)
+        {
+            if (!TryResolveAnimationTiming(out var animationTiming))
+            {
+                referenceClipLengthSeconds = 0f;
+                return false;
+            }
+
+            return animationTiming.TryGetReferenceClipLengthSeconds(
+                phase,
+                out referenceClipLengthSeconds);
+        }
+
         private string ResolveStateName(EnemyPresentationPhase phase)
         {
             switch (phase)
@@ -274,45 +294,6 @@ namespace Game.Feature.Gameplay.Host
                 default:
                     return string.Empty;
             }
-        }
-
-        private float ResolveReferenceClipLengthSeconds(Animator targetAnimator, string stateName)
-        {
-            if (string.IsNullOrWhiteSpace(stateName))
-            {
-                return 1f;
-            }
-
-            var controller = targetAnimator?.runtimeAnimatorController;
-            if (_cachedClipLengthController != controller)
-            {
-                _clipLengthCache.Clear();
-                _cachedClipLengthController = controller;
-            }
-
-            if (_clipLengthCache.TryGetValue(stateName, out var cachedLength))
-            {
-                return cachedLength;
-            }
-
-            var clips = controller?.animationClips;
-            if (clips != null)
-            {
-                for (var i = 0; i < clips.Length; i++)
-                {
-                    var clip = clips[i];
-                    if (clip != null &&
-                        string.Equals(clip.name, stateName, StringComparison.Ordinal))
-                    {
-                        var resolvedLength = Mathf.Max(clip.length, 0.01f);
-                        _clipLengthCache[stateName] = resolvedLength;
-                        return resolvedLength;
-                    }
-                }
-            }
-
-            _clipLengthCache[stateName] = 1f;
-            return 1f;
         }
 
         private static EnemyPresentationPhase ResolvePresentationPhase(in EnemyViewPresentationState state)
