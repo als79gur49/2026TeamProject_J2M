@@ -222,7 +222,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             var destination = ResolveIntentTargetCell(source.position, intent.Destination);
-            if (!snapshot.TryGetUnitAt(destination, out var target))
+            if (!snapshot.TryPickImpactTargetAt(destination, source.teamId, out var target))
             {
                 throw new InvalidOperationException(
                     $"Projectile impact group requires a blocking target at the destination. Source={group.SourceId}, Intent={group.IntentId}, Destination={destination}");

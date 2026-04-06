@@ -206,8 +206,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
-            if (!snapshot.TryGetUnitAt(movementTopology, targetCell, out var target) ||
-                target.type != EntityType.Box ||
+            if (!snapshot.TryGetBoxAt(movementTopology, targetCell, out var target) ||
                 !HasBoxCapability(target, BoxCapabilities.Push) ||
                 !snapshot.Topology.IsFaceActive(target.position.face))
             {
@@ -249,8 +248,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
-            if (!snapshot.TryGetUnitAt(targetCell, out var entity) ||
-                entity.type != EntityType.Box ||
+            if (!snapshot.TryGetBoxAt(targetCell, out var entity) ||
                 !HasBoxCapability(entity, BoxCapabilities.Flip) ||
                 snapshot.TryGetPlacementBlocker(snapshot.Topology, entity.type, landingCell, entity.entityId, out _))
             {

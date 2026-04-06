@@ -27,11 +27,178 @@ namespace Game.Feature.Gameplay.BoardState
                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, topology);
         }
 
-        // Legacy non-projectile lookup keeps solid-first resolution so existing box/wall callers stay stable
-        // until the explicit unit/solid APIs land in the next stage.
+        public static bool HasAnyUnitAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell);
+
+            return topology.IsFaceActive(cell.face) &&
+                   TryGetStoredStackedUnit(
+                       entitiesById,
+                       stackedUnitsByCell,
+                       topology,
+                       cell,
+                       requireGameplayVisibility: true,
+                       ignoredEntityId: 0,
+                       out _);
+        }
+
+        public static void EnumerateUnitsAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            List<EntityState> buffer)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell);
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            if (!topology.IsFaceActive(cell.face) ||
+                !stackedUnitsByCell.TryGetValue(cell, out var entityIds))
+            {
+                return;
+            }
+
+            foreach (var entityId in entityIds)
+            {
+                if (!entitiesById.TryGetValue(entityId, out var entity) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, topology))
+                {
+                    continue;
+                }
+
+                buffer.Add(entity);
+            }
+        }
+
+        public static bool TryGetPrimaryUnitAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell);
+
+            entity = default;
+
+            if (!topology.IsFaceActive(cell.face))
+            {
+                return false;
+            }
+
+            return TryGetStoredStackedUnit(
+                entitiesById,
+                stackedUnitsByCell,
+                topology,
+                cell,
+                requireGameplayVisibility: true,
+                ignoredEntityId: 0,
+                out entity);
+        }
+
+        public static bool TryGetSolidOccupantAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            return TryGetEntityAt(entitiesById, solidOccupancyByCell, topology, cell, out entity);
+        }
+
+        public static bool TryGetBoxAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            if (TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out entity) &&
+                entity.type == EntityType.Box)
+            {
+                return true;
+            }
+
+            entity = default;
+            return false;
+        }
+
+        public static bool TryPickImpactTargetAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell, solidOccupancyByCell);
+
+            entity = default;
+
+            if (!topology.IsFaceActive(cell.face))
+            {
+                return false;
+            }
+
+            if (TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out entity))
+            {
+                return true;
+            }
+
+            if (!stackedUnitsByCell.TryGetValue(cell, out var entityIds))
+            {
+                return false;
+            }
+
+            var hasFallback = false;
+            var fallback = default(EntityState);
+
+            foreach (var entityId in entityIds)
+            {
+                if (!entitiesById.TryGetValue(entityId, out var candidate) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(candidate, topology))
+                {
+                    continue;
+                }
+
+                if (candidate.teamId != sourceTeamId)
+                {
+                    entity = candidate;
+                    return true;
+                }
+
+                if (!hasFallback)
+                {
+                    fallback = candidate;
+                    hasFallback = true;
+                }
+            }
+
+            if (!hasFallback)
+            {
+                return false;
+            }
+
+            entity = fallback;
+            return true;
+        }
+
+        // Legacy non-projectile lookup keeps solid-first resolution so existing box/wall callers stay stable.
+        // Prefer explicit unit/solid/box/impact queries in new code.
         public static bool TryGetPrimaryNonProjectileOccupantAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             SurfaceCell cell,
@@ -165,7 +332,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static void EnumerateCombinedOccupancyOrdered(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             List<SnapshotOccupancyEntry> buffer)
@@ -202,10 +369,9 @@ namespace Game.Feature.Gameplay.BoardState
                     continue;
                 }
 
-                var entityIds = pair.Value;
-                for (var i = 0; i < entityIds.Count; i++)
+                foreach (var entityId in pair.Value)
                 {
-                    if (!entitiesById.TryGetValue(entityIds[i], out var entity) ||
+                    if (!entitiesById.TryGetValue(entityId, out var entity) ||
                         !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, topology))
                     {
                         continue;
@@ -255,7 +421,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal static bool TryGetStoredStackedUnit(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             CubeTopologyState topology,
             SurfaceCell cell,
             bool requireGameplayVisibility,
@@ -269,9 +435,8 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            for (var i = 0; i < entityIds.Count; i++)
+            foreach (var entityId in entityIds)
             {
-                var entityId = entityIds[i];
                 if (entityId == ignoredEntityId ||
                     !entitiesById.TryGetValue(entityId, out var candidate))
                 {
@@ -307,7 +472,22 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static void ValidateQueryDictionaries(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell)
+        {
+            if (entitiesById == null)
+            {
+                throw new ArgumentNullException(nameof(entitiesById));
+            }
+
+            if (stackedUnitsByCell == null)
+            {
+                throw new ArgumentNullException(nameof(stackedUnitsByCell));
+            }
+        }
+
+        private static void ValidateQueryDictionaries(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell)
         {
             if (entitiesById == null)

@@ -16,7 +16,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
-        private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> _stackedUnitsByCell;
+        private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
 
@@ -61,7 +61,69 @@ namespace Game.Feature.Gameplay.BoardState
             return _enemyActionStatesByEntityId.TryGetValue(entityId, out state);
         }
 
+        public bool HasAnyUnitAt(SurfaceCell cell)
+        {
+            return HasAnyUnitAt(_topology, cell);
+        }
+
+        public bool HasAnyUnitAt(Vector2Int cell)
+        {
+            return HasAnyUnitAt(CreateDefaultQueryCell(cell));
+        }
+
+        public void EnumerateUnitsAt(SurfaceCell cell, List<EntityState> buffer)
+        {
+            SnapshotReadQueries.EnumerateUnitsAt(_entitiesById, _stackedUnitsByCell, _topology, cell, buffer);
+        }
+
+        public void EnumerateUnitsAt(Vector2Int cell, List<EntityState> buffer)
+        {
+            EnumerateUnitsAt(CreateDefaultQueryCell(cell), buffer);
+        }
+
+        public bool TryGetPrimaryUnitAt(SurfaceCell cell, out EntityState entity)
+        {
+            return TryGetPrimaryUnitAt(_topology, cell, out entity);
+        }
+
+        public bool TryGetPrimaryUnitAt(Vector2Int cell, out EntityState entity)
+        {
+            return TryGetPrimaryUnitAt(CreateDefaultQueryCell(cell), out entity);
+        }
+
+        public bool TryGetBoxAt(SurfaceCell cell, out EntityState entity)
+        {
+            return TryGetBoxAt(_topology, cell, out entity);
+        }
+
+        public bool TryGetBoxAt(Vector2Int cell, out EntityState entity)
+        {
+            return TryGetBoxAt(CreateDefaultQueryCell(cell), out entity);
+        }
+
+        public bool TryGetSolidOccupantAt(SurfaceCell cell, out EntityState entity)
+        {
+            return TryGetSolidOccupantAt(_topology, cell, out entity);
+        }
+
+        public bool TryGetSolidOccupantAt(Vector2Int cell, out EntityState entity)
+        {
+            return TryGetSolidOccupantAt(CreateDefaultQueryCell(cell), out entity);
+        }
+
+        public bool TryPickImpactTargetAt(SurfaceCell cell, int sourceTeamId, out EntityState entity)
+        {
+            return TryPickImpactTargetAt(_topology, cell, sourceTeamId, out entity);
+        }
+
+        public bool TryPickImpactTargetAt(Vector2Int cell, int sourceTeamId, out EntityState entity)
+        {
+            return TryPickImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
+        }
+
         // Cell queries always resolve against committed authoritative occupancy, not render-time motion tracks.
+        // Legacy compatibility API: this returns the primary non-projectile occupant, not "unit only".
+        // Prefer TryGetPrimaryUnitAt/TryGetBoxAt/TryGetSolidOccupantAt/TryPickImpactTargetAt in new code.
         public bool TryGetUnitAt(SurfaceCell cell, out EntityState entity)
         {
             return TryGetUnitAt(_topology, cell, out entity);
@@ -348,6 +410,42 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _projectileOccupancy, _topology, buffer);
         }
 
+        internal bool HasAnyUnitAt(CubeTopologyState topology, SurfaceCell cell)
+        {
+            return SnapshotReadQueries.HasAnyUnitAt(_entitiesById, _stackedUnitsByCell, topology, cell);
+        }
+
+        internal bool TryGetPrimaryUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
+        {
+            return SnapshotReadQueries.TryGetPrimaryUnitAt(_entitiesById, _stackedUnitsByCell, topology, cell, out entity);
+        }
+
+        internal bool TryGetBoxAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
+        {
+            return SnapshotReadQueries.TryGetBoxAt(_entitiesById, _solidOccupancy, topology, cell, out entity);
+        }
+
+        internal bool TryGetSolidOccupantAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
+        {
+            return SnapshotReadQueries.TryGetSolidOccupantAt(_entitiesById, _solidOccupancy, topology, cell, out entity);
+        }
+
+        internal bool TryPickImpactTargetAt(
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryPickImpactTargetAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                topology,
+                cell,
+                sourceTeamId,
+                out entity);
+        }
+
         internal bool TryGetUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
             return SnapshotReadQueries.TryGetPrimaryNonProjectileOccupantAt(
@@ -369,10 +467,10 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceCell.FromPlanar(cell, _topology.BottomFace);
         }
 
-        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> CreateReadonlyStackedUnitsByCell(
+        private static ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> CreateReadonlyStackedUnitsByCell(
             Dictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell)
         {
-            var buffer = new Dictionary<SurfaceCell, IReadOnlyList<int>>(stackedUnitsByCell.Count);
+            var buffer = new Dictionary<SurfaceCell, IReadOnlyCollection<int>>(stackedUnitsByCell.Count);
 
             foreach (var pair in stackedUnitsByCell)
             {
@@ -390,7 +488,7 @@ namespace Game.Feature.Gameplay.BoardState
                 buffer.Add(pair.Key, orderedEntityIds.AsReadOnly());
             }
 
-            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>>(buffer);
+            return new ReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>>(buffer);
         }
     }
 }

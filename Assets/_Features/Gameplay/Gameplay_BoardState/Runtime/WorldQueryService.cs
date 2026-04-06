@@ -17,6 +17,74 @@ namespace Game.Feature.Gameplay.BoardState
             return SnapshotReadQueries.TryGetEntityAt(entitiesById, occupancyByCell, topology, cell, out entity);
         }
 
+        public static bool HasAnyUnitAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell)
+        {
+            return SnapshotReadQueries.HasAnyUnitAt(entitiesById, stackedUnitsByCell, topology, cell);
+        }
+
+        public static void EnumerateUnitsAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            List<EntityState> buffer)
+        {
+            SnapshotReadQueries.EnumerateUnitsAt(entitiesById, stackedUnitsByCell, topology, cell, buffer);
+        }
+
+        public static bool TryGetPrimaryUnitAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryGetPrimaryUnitAt(entitiesById, stackedUnitsByCell, topology, cell, out entity);
+        }
+
+        public static bool TryGetBoxAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryGetBoxAt(entitiesById, solidOccupancyByCell, topology, cell, out entity);
+        }
+
+        public static bool TryGetSolidOccupantAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out entity);
+        }
+
+        public static bool TryPickImpactTargetAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryPickImpactTargetAt(
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
+                topology,
+                cell,
+                sourceTeamId,
+                out entity);
+        }
+
         public static bool IsInsideBoard(BoardBounds boardBounds, SurfaceCell cell)
         {
             return boardBounds.Contains(cell.PlanarPosition);
@@ -37,7 +105,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool IsBlockedForUnit(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -56,7 +124,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetAuthoritativePlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
@@ -81,7 +149,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetGameplayPlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
@@ -147,7 +215,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryGetUnitBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -261,7 +329,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryResolveNextSurfaceBoxSlideStep(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,

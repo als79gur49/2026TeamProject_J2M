@@ -439,7 +439,7 @@ namespace Game.Feature.Gameplay.Entities
             var current = source.position;
             while (TryResolveChargeScanStep(snapshot, current, delta, out var nextCell))
             {
-                if (IsChargeStoppingObstacle(snapshot, source.entityId, nextCell))
+                if (IsChargeStoppingObstacle(snapshot, nextCell))
                 {
                     return reachableSteps > 0;
                 }
@@ -473,7 +473,6 @@ namespace Game.Feature.Gameplay.Entities
 
         private static bool IsChargeStoppingObstacle(
             WorldSnapshot snapshot,
-            int sourceEntityId,
             SurfaceCell cell)
         {
             if (!snapshot.IsInsideBoard(cell) || snapshot.IsTerrainBlockedForUnit(cell))
@@ -481,12 +480,7 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            if (!snapshot.TryGetUnitAt(cell, out var occupant) || occupant.entityId == sourceEntityId)
-            {
-                return false;
-            }
-
-            return occupant.type != EntityType.Unit;
+            return snapshot.TryGetSolidOccupantAt(cell, out _);
         }
     }
 }

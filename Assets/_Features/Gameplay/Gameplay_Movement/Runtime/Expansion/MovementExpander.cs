@@ -141,42 +141,42 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 ? snapshot.Topology
                 : updatedTopology;
 
-            if (snapshot.TryGetUnitAt(movementTopology, destinationCell, out var target))
+            if (snapshot.TryGetBoxAt(movementTopology, destinationCell, out var targetBox))
             {
-                if (target.type == EntityType.Box)
+                if (HasBoxCapability(targetBox, BoxCapabilities.Item))
                 {
-                    if (HasBoxCapability(target, BoxCapabilities.Item))
-                    {
-                        ExpandItem(source, target, intent, destinationCell, stepFacing, rotationKind, updatedTopology, buffer);
-                        return;
-                    }
-
-                    if (intent.CommandKind == MovementCommandKind.Push &&
-                        snapshot.Topology.IsFaceActive(target.position.face) &&
-                        HasBoxCapability(target, BoxCapabilities.Push))
-                    {
-                        TryExpandPush(snapshot, source, target, intent, delta, stepFacing, buffer, rejectedReasons);
-                        return;
-                    }
-
-                    if (intent.CommandKind == MovementCommandKind.Push)
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotPushBox|Cell={FormatCell(target.position)}|Target={target.entityId}|Capabilities={target.boxCapabilities}");
-                        return;
-                    }
+                    ExpandItem(source, targetBox, intent, destinationCell, stepFacing, rotationKind, updatedTopology, buffer);
+                    return;
                 }
-                else if (intent.CommandKind == MovementCommandKind.Push)
+
+                if (intent.CommandKind == MovementCommandKind.Push &&
+                    snapshot.Topology.IsFaceActive(targetBox.position.face) &&
+                    HasBoxCapability(targetBox, BoxCapabilities.Push))
+                {
+                    TryExpandPush(snapshot, source, targetBox, intent, delta, stepFacing, buffer, rejectedReasons);
+                    return;
+                }
+
+                if (intent.CommandKind == MovementCommandKind.Push)
                 {
                     rejectedReasons.Add(
-                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotPushBox|Cell={FormatCell(targetBox.position)}|Target={targetBox.entityId}|Capabilities={targetBox.boxCapabilities}");
                     return;
                 }
             }
             else if (intent.CommandKind == MovementCommandKind.Push)
             {
-                rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target=0|Type=None");
+                if (TryGetNonProjectileOccupantForDiagnostics(snapshot, movementTopology, destinationCell, out var target))
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
+                }
+                else
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target=0|Type=None");
+                }
+
                 return;
             }
 
@@ -248,10 +248,10 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (!snapshot.TryGetUnitAt(targetCell, out var target) ||
-                target.type != EntityType.Box ||
+            if (!snapshot.TryGetBoxAt(targetCell, out var target) ||
                 !HasBoxCapability(target, BoxCapabilities.Flip))
             {
+                TryGetNonProjectileOccupantForDiagnostics(snapshot, snapshot.Topology, targetCell, out target);
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotFlippableBox|Cell={FormatCell(targetCell)}|Target={target.entityId}|Type={target.type}|Capabilities={target.boxCapabilities}");
                 return;
@@ -295,12 +295,9 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             var delta = ResolveIntentDelta(entity.position, intent.Destination);
             var destinationCell = entity.position + delta;
 
-            if (snapshot.TryGetUnitAt(destinationCell, out _))
+            if (TryExpandProjectileImpact(snapshot, intent, entity.teamId, destinationCell, buffer, rejectedReasons))
             {
-                if (TryExpandProjectileImpact(snapshot, intent, destinationCell, buffer, rejectedReasons))
-                {
-                    return;
-                }
+                return;
             }
 
             if (snapshot.TryGetProjectileAt(destinationCell, out _))
@@ -542,11 +539,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         private static bool TryExpandProjectileImpact(
             WorldSnapshot snapshot,
             MoveIntent intent,
+            int sourceTeamId,
             SurfaceCell destinationCell,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            if (!snapshot.TryGetUnitAt(destinationCell, out var target))
+            if (!snapshot.TryPickImpactTargetAt(destinationCell, sourceTeamId, out var target))
             {
                 return false;
             }
@@ -565,6 +563,20 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 ActionGroupKind.ProjectileImpact);
             buffer.Add(actionGroup);
             return true;
+        }
+
+        private static bool TryGetNonProjectileOccupantForDiagnostics(
+            WorldSnapshot snapshot,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out EntityState entity)
+        {
+            if (snapshot.TryGetSolidOccupantAt(topology, cell, out entity))
+            {
+                return true;
+            }
+
+            return snapshot.TryGetPrimaryUnitAt(topology, cell, out entity);
         }
 
         private static Vector2Int ResolveIntentDelta(SurfaceCell source, Vector2Int destination)

@@ -10,7 +10,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static bool TryResolveNextSurfaceBoxSlideStep(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -126,7 +126,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static bool TryGetBoxSlideBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -150,7 +150,7 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static void ValidateQueryDictionaries(
             IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyList<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell)
         {
             if (entitiesById == null)
