@@ -197,10 +197,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
-        public void Replay_ScriptedMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_ScriptedMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog()
         {
-            var firstReplay = RunScriptedMoveIntoUnitBlockedReplaySequence();
-            var secondReplay = RunScriptedMoveIntoUnitBlockedReplaySequence();
+            var firstReplay = RunScriptedMoveIntoUnitStackedReplaySequence();
+            var secondReplay = RunScriptedMoveIntoUnitStackedReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -214,9 +214,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Reason=BlockedDestination|Cell=(1,0)"));
-            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
 
@@ -288,10 +287,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
-        public void Replay_PlayerMoveIntoUnitBlockedScenario_ProducesSameHashTraceAndEventLog()
+        public void Replay_PlayerMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog()
         {
-            var firstReplay = RunPlayerMoveIntoUnitBlockedReplaySequence();
-            var secondReplay = RunPlayerMoveIntoUnitBlockedReplaySequence();
+            var firstReplay = RunPlayerMoveIntoUnitStackedReplaySequence();
+            var secondReplay = RunPlayerMoveIntoUnitStackedReplaySequence();
 
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
@@ -305,8 +304,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
-            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
 
@@ -801,7 +800,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunScriptedMoveIntoUnitBlockedReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunScriptedMoveIntoUnitStackedReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -965,7 +964,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
-        private static IReadOnlyList<TickReplayFrame> RunPlayerMoveIntoUnitBlockedReplaySequence()
+        private static IReadOnlyList<TickReplayFrame> RunPlayerMoveIntoUnitStackedReplaySequence()
         {
             var worldState = CreateWorldState(new[]
             {

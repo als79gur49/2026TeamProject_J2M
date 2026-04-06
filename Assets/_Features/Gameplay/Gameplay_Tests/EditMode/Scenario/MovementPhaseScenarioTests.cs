@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_ScriptedMoveIntoUnit_FailsWithoutPushing()
+        public void Movement_ScriptedMoveIntoUnit_SucceedsAndStacks()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -85,19 +85,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     new StubMovementLogic(new RawMovementIntent(10, 5, new Vector2Int(1, 0))),
                 });
 
+            var occupancyBefore = DumpUnitOccupancy(CreateSnapshot(worldState));
             var result = pipeline.RunTick(new TickInput(1));
+            var occupancyAfter = DumpUnitOccupancy(CreateSnapshot(worldState));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
-            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
-            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move, Destination: new Vector2Int(1, 0)) },
+                result.MovementPhaseResult
+                    .ExpandedCandidates
+                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.Moves.Single().Destination))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[] { 1 },
+                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(occupancyBefore, Is.EqualTo("10@(0,0),20@(1,0)"));
+            Assert.That(occupancyAfter, Is.EqualTo("10@(1,0),20@(1,0)"));
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+            CollectionAssert.AreEqual(
+                new[] { 10, 20 },
+                GetUnitIdsAt(worldState, new SurfaceCell(FaceId.Floor, 1, 0)));
         }
 
         [Test]
@@ -127,7 +138,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_MoveIntoUnit_FailsWithoutPushing()
+        public void Movement_MoveIntoUnit_SucceedsWithoutStartingPushContact()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -143,17 +154,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
-            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
-            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+                new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+            CollectionAssert.AreEqual(
+                new[] { 10, 20 },
+                GetUnitIdsAt(worldState, new SurfaceCell(FaceId.Floor, 1, 0)));
         }
 
         [Test]
@@ -774,6 +783,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Movement_PushInputIntoUnit_FailsBecausePushTargetsOnlyBoxes()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=PushTargetNotBox|Cell=(1,0)|Target=20|Type=Unit",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
         public void Movement_Flip_SucceedsWhenOppositeCellIsFree()
         {
             var worldState = CreateWorldState(new[]
@@ -860,6 +899,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new[]
                 {
                     "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipTargetNotFlippableBox|Cell=(-1,0)|Target=20|Type=Box|Capabilities=None",
+                },
+                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(-1, 0)));
+        }
+
+        [Test]
+        public void Movement_FlipInputIntoUnit_FailsBecauseFlipTargetsOnlyBoxes()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateUnit(entityId: 20, position: new Vector2Int(-1, 0), teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+
+            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipTargetNotFlippableBox|Cell=(-1,0)|Target=20|Type=Unit|Capabilities=None",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -2024,6 +2093,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshot = CreateSnapshot(worldState);
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             return entity.position;
+        }
+
+        private static int[] GetUnitIdsAt(WorldState worldState, SurfaceCell cell)
+        {
+            var snapshot = CreateSnapshot(worldState);
+            var entities = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, entities);
+            return entities.Select(entity => entity.entityId).ToArray();
         }
 
         private static Direction GetEntityFacing(WorldState worldState, int entityId)

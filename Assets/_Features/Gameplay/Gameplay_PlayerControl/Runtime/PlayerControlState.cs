@@ -206,9 +206,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
-            if (!snapshot.TryGetBoxAt(movementTopology, targetCell, out var target) ||
-                !HasBoxCapability(target, BoxCapabilities.Push) ||
-                !snapshot.Topology.IsFaceActive(target.position.face))
+            if (!TryResolvePushBoxContact(snapshot, movementTopology, targetCell, out var target))
             {
                 contact = default;
                 return false;
@@ -248,9 +246,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
-            if (!snapshot.TryGetBoxAt(targetCell, out var entity) ||
-                !HasBoxCapability(entity, BoxCapabilities.Flip) ||
-                snapshot.TryGetPlacementBlocker(snapshot.Topology, entity.type, landingCell, entity.entityId, out _))
+            if (!TryResolveFlippableBoxTarget(snapshot, targetCell, landingCell, out var entity))
             {
                 target = default;
                 return false;
@@ -290,6 +286,36 @@ namespace Game.Feature.Gameplay.PlayerControl
                 ? snapshot.Topology
                 : updatedTopology;
             return true;
+        }
+
+        private static bool TryResolvePushBoxContact(
+            WorldSnapshot snapshot,
+            CubeTopologyState movementTopology,
+            SurfaceCell targetCell,
+            out EntityState target)
+        {
+            if (!snapshot.TryGetBoxAt(movementTopology, targetCell, out target))
+            {
+                return false;
+            }
+
+            return HasBoxCapability(target, BoxCapabilities.Push) &&
+                   snapshot.Topology.IsFaceActive(target.position.face);
+        }
+
+        private static bool TryResolveFlippableBoxTarget(
+            WorldSnapshot snapshot,
+            SurfaceCell targetCell,
+            SurfaceCell landingCell,
+            out EntityState entity)
+        {
+            if (!snapshot.TryGetBoxAt(targetCell, out entity) ||
+                !HasBoxCapability(entity, BoxCapabilities.Flip))
+            {
+                return false;
+            }
+
+            return !snapshot.TryGetPlacementBlocker(snapshot.Topology, entity.type, landingCell, entity.entityId, out _);
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

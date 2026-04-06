@@ -428,6 +428,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerControlStateLogic_MoveIntoUnit_DoesNotAccumulatePushContact()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3),
+            });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(controlState.pushTargetEntityId, Is.Zero);
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+        }
+
+        [Test]
+        public void PlayerControlStateLogic_FlipInputAgainstUnit_DoesNotStartFlipAction()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Floor, -1, 0), hp: 3),
+            });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Left)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+        }
+
+        [Test]
         public void PlayerControlQueries_StartAction_ZeroWindup_MarksExecutionAttemptedImmediately()
         {
             var startedState = PlayerControlQueries.StartAction(

@@ -141,7 +141,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 ? snapshot.Topology
                 : updatedTopology;
 
-            if (snapshot.TryGetBoxAt(movementTopology, destinationCell, out var targetBox))
+            var hasTargetBox = snapshot.TryGetBoxAt(movementTopology, destinationCell, out var targetBox);
+            var solidOccupant = default(EntityState);
+            var hasSolidOccupant = hasTargetBox ||
+                                   snapshot.TryGetSolidOccupantAt(movementTopology, destinationCell, out solidOccupant);
+
+            if (hasTargetBox)
             {
                 if (HasBoxCapability(targetBox, BoxCapabilities.Item))
                 {
@@ -166,7 +171,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
             else if (intent.CommandKind == MovementCommandKind.Push)
             {
-                if (TryGetNonProjectileOccupantForDiagnostics(snapshot, movementTopology, destinationCell, out var target))
+                if (hasSolidOccupant)
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={solidOccupant.entityId}|Type={solidOccupant.type}");
+                }
+                else if (TryGetNonProjectileOccupantForDiagnostics(snapshot, movementTopology, destinationCell, out var target))
                 {
                     rejectedReasons.Add(
                         $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetNotBox|Cell={FormatCell(destinationCell)}|Target={target.entityId}|Type={target.type}");
