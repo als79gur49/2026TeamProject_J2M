@@ -66,6 +66,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float pushMotionDurationSeconds = GameplayTimingProfile.DefaultPushMotionDurationSeconds;
         [SerializeField] private float flipMotionDurationSeconds = GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
         [SerializeField] private float topologyMotionDurationSeconds = -1f;
+        [SerializeField] private float itemConsumeEffectDurationSeconds = GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds;
+        [SerializeField] private float boxDestroyEffectDurationSeconds = GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds;
 
         [Header("Presentation")]
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
@@ -188,6 +190,8 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = ResolveEnemyPresentationCatalog(),
                 FlipMotionDurationSeconds = flipMotionDurationSeconds,
+                ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
+                BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialMoveDelaySeconds = initialMoveDelaySeconds,
                 InitialEntities = initialState.InitialEntities,

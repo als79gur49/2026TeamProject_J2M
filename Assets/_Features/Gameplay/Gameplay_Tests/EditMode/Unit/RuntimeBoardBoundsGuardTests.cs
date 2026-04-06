@@ -115,15 +115,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(defaultProfile.MoveMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(defaultProfile.PushMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(defaultProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.25f));
+            Assert.That(defaultProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds));
+            Assert.That(defaultProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds));
 
             configuration.MoveMotionDurationSeconds = 0.1f;
             configuration.TopologyMotionDurationSeconds = 0.45f;
+            configuration.ItemConsumeEffectDurationSeconds = 0.6f;
+            configuration.BoxDestroyEffectDurationSeconds = 0.3f;
 
             var overriddenProfile = configuration.CreateTimingProfile();
 
             Assert.That(overriddenProfile.MoveMotionDurationSeconds, Is.EqualTo(0.1f));
             Assert.That(overriddenProfile.PushMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(overriddenProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
+            Assert.That(overriddenProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(0.6f));
+            Assert.That(overriddenProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(0.3f));
         }
 
         [Test]
@@ -154,6 +160,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.PushMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.TopologyMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.FlipMotionDurationSeconds, Is.EqualTo(0.2f));
+            Assert.That(profile.ItemConsumeEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds));
+            Assert.That(profile.BoxDestroyEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds));
         }
 
         [Test]
@@ -3947,6 +3955,184 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds * 0.5f);
                 Assert.That(removedView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_ItemConsumeSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_ItemConsumeSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.05f,
+                    topologyMotionDurationSeconds: 0.05f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8,
+                    itemConsumeEffectDurationSeconds: 0.25f);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var itemCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, sourceCell),
+                        CreateSurfaceBox(20, itemCell, facing: Direction.Up),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, destinationCell),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            new[]
+                            {
+                                new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                            },
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, itemCell, topology, Direction.Up),
+                                new TickVisibilityChange(20, TickVisibilityChangeKind.Remove, itemCell, topology, Direction.Up),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    20,
+                                    TickEntityExitCause.ItemConsume,
+                                    itemCell,
+                                    topology,
+                                    Direction.Up,
+                                    EntityType.Box,
+                                    sourceActorEntityId: 10),
+                            })));
+
+                Assert.That(registry.TryGetView(20, out var itemView), Is.True);
+                Assert.That(itemView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                Assert.That(itemView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(
+                    timingProfile.ItemConsumeEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_BoxDestroyExitSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_BoxDestroyExitSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.05f,
+                    topologyMotionDurationSeconds: 0.05f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8,
+                    itemConsumeEffectDurationSeconds: 0.25f,
+                    boxDestroyEffectDurationSeconds: 0.22f);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var boxCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceBox(20, boxCell, facing: Direction.Right),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(20, TickVisibilityChangeKind.Detach, boxCell, topology, Direction.Right),
+                                new TickVisibilityChange(20, TickVisibilityChangeKind.Remove, boxCell, topology, Direction.Right),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    20,
+                                    TickEntityExitCause.BoxDestroy,
+                                    boxCell,
+                                    topology,
+                                    Direction.Right,
+                                    EntityType.Box,
+                                    sourceActorEntityId: 10),
+                            })));
+
+                Assert.That(registry.TryGetView(20, out var boxView), Is.True);
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds);
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(
+                    timingProfile.BoxDestroyEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
             }
             finally
             {

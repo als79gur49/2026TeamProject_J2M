@@ -275,6 +275,81 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator GameplayInputHost_ItemPickup_HidesOriginalItemBeforeNextMoveWhileConsumeEffectContinues()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
+                },
+                moveMotionDurationSeconds: 0.05f,
+                repeatedMoveIntervalSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                itemConsumeEffectDurationSeconds: 0.3f);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+
+            Assert.That(host.ViewRegistry.TryGetView(30, out var itemView), Is.True);
+            Assert.That(itemView.gameObject.activeSelf, Is.False);
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.MoveMotionDurationSeconds);
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+            EntityState playerEntity = default;
+            var reachedNextTile = false;
+            for (var i = 0; i < 4; i++)
+            {
+                host.InputHost.SetRawMoveInput(Vector2.right);
+                host.InputHost.RunSingleTick();
+
+                var snapshot = host.WorldState.CreateSnapshot();
+                Assert.That(snapshot.TryGetEntity(10, out playerEntity), Is.True);
+                Assert.That(itemView.gameObject.activeSelf, Is.False);
+                if (playerEntity.position == new SurfaceCell(FaceId.Floor, 2, 0))
+                {
+                    reachedNextTile = true;
+                    break;
+                }
+            }
+
+            Assert.That(reachedNextTile, Is.True, "Player never completed the follow-up move while the consume effect was active.");
+            Assert.That(playerEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(itemView.gameObject.activeSelf, Is.False);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_PushDestroyBox_HidesOriginalBoxWhileDestroyEffectContinues()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 2, 0)),
+                },
+                playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                boxDestroyEffectDurationSeconds: 0.3f);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+            host.InputHost.RunSingleTick();
+
+            Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            Assert.That(boxView.gameObject.activeSelf, Is.False);
+            Assert.That(host.Presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         public IEnumerator GameplayInputHost_FlipBufferedAtTickBoundary_PrioritizesFlipOverMove()
         {
             var host = CreateHost(new[]
@@ -646,6 +721,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             bool directionChangeConsumesDelay = false,
             float playerPushContactThresholdSeconds = GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds,
             float moveMotionDurationSeconds = 0.2f,
+            float itemConsumeEffectDurationSeconds = -1f,
+            float boxDestroyEffectDurationSeconds = -1f,
             float pushPresentationDurationSeconds = -1f,
             float flipPresentationDurationSeconds = -1f)
         {
@@ -685,6 +762,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     MaxTicksPerFrame = 8,
                     MoveDeadzone = 0.5f,
                     MoveMotionDurationSeconds = moveMotionDurationSeconds,
+                    ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
+                    BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                     PlayerEntityId = 10,
                     PlayerControlTiming = new PlayerControlTimingSettings
                     {

@@ -56,6 +56,8 @@ namespace Game.Feature.Gameplay.Host
         public float TopologyMotionDurationSeconds = -1f;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
         public float FlipMotionDurationSeconds = -1f;
+        public float ItemConsumeEffectDurationSeconds = -1f;
+        public float BoxDestroyEffectDurationSeconds = -1f;
         public float FlipArcHeightInCells = GameplayTimingProfile.DefaultFlipArcHeightInCells;
         public float BoxSlideStepIntervalSeconds = -1f;
         public float ProjectileStepIntervalSeconds = -1f;
@@ -79,6 +81,8 @@ namespace Game.Feature.Gameplay.Host
             var moveMotionDurationSeconds = ResolveMoveMotionDurationSeconds(pushMotionDurationSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
+            var itemConsumeEffectDurationSeconds = ResolveItemConsumeEffectDurationSeconds();
+            var boxDestroyEffectDurationSeconds = ResolveBoxDestroyEffectDurationSeconds();
 
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
@@ -95,7 +99,9 @@ namespace Game.Feature.Gameplay.Host
                     : GameplayTimingProfile.DefaultFlipArcHeightInCells,
                 MaxTicksPerFrame > 0
                     ? MaxTicksPerFrame
-                    : GameplayTimingProfile.DefaultMaxTicksPerFrame);
+                    : GameplayTimingProfile.DefaultMaxTicksPerFrame,
+                itemConsumeEffectDurationSeconds,
+                boxDestroyEffectDurationSeconds);
         }
 
         public PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot()
@@ -164,6 +170,20 @@ namespace Game.Feature.Gameplay.Host
             return FlipMotionDurationSeconds > 0f
                 ? FlipMotionDurationSeconds
                 : GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
+        }
+
+        private float ResolveItemConsumeEffectDurationSeconds()
+        {
+            return ItemConsumeEffectDurationSeconds > 0f
+                ? ItemConsumeEffectDurationSeconds
+                : GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds;
+        }
+
+        private float ResolveBoxDestroyEffectDurationSeconds()
+        {
+            return BoxDestroyEffectDurationSeconds > 0f
+                ? BoxDestroyEffectDurationSeconds
+                : GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds;
         }
 
         private PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot(

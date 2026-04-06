@@ -687,7 +687,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_PushInputOnItemPushFlipDestroyBox_ResolvesAsItemBeforePushFlipOrDestroy_AndViewShowsDetachRemove()
+        public void Movement_PushInputOnItemPushFlipDestroyBox_ResolvesAsItemBeforePushFlipOrDestroy_AndPresentationUsesEntityExitOwnership()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -728,15 +728,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
                     .ToArray());
             CollectionAssert.AreEqual(
-                new[]
-                {
-                    (EntityId: 20, Kind: TickVisibilityChangeKind.Detach),
-                    (EntityId: 20, Kind: TickVisibilityChangeKind.Remove),
-                },
+                Array.Empty<(int EntityId, TickVisibilityChangeKind Kind)>(),
                 result.PresentationData
                     .VisibilityChanges
                     .Select(change => (change.EntityId, change.ChangeKind))
                     .ToArray());
+            Assert.That(result.PresentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.ItemConsume));
             CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
@@ -1364,6 +1363,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "DestroyMarked|G=1|I=1|Target=20|Condition=AlwaysMark",
                 },
                 result.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                Array.Empty<(int EntityId, TickVisibilityChangeKind Kind)>(),
+                result.PresentationData
+                    .VisibilityChanges
+                    .Select(change => (change.EntityId, change.ChangeKind))
+                    .ToArray());
+            Assert.That(result.PresentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
+            Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
             CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);

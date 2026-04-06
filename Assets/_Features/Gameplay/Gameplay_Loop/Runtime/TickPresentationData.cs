@@ -232,6 +232,55 @@ namespace Game.Feature.Gameplay.Loop
         public bool StartedRecoveryThisTick { get; }
     }
 
+    public enum TickEntityExitCause
+    {
+        None = 0,
+        ItemConsume = 1,
+        BoxDestroy = 2,
+    }
+
+    // Exit signals transfer visual ownership away from the authoritative entity view.
+    // Once an exit is committed, the original entity view must not remain visible in
+    // the scene just to support a lingering effect; any echo is transient-only.
+    public readonly struct TickEntityExitPresentationSignal
+    {
+        public TickEntityExitPresentationSignal(
+            int exitedEntityId,
+            TickEntityExitCause exitCause,
+            SurfaceCell sourceCell,
+            CubeTopologyState topology,
+            Direction facing,
+            EntityType entityType,
+            int? sourceActorEntityId = null,
+            int? anchorEntityId = null)
+        {
+            ExitedEntityId = exitedEntityId;
+            ExitCause = exitCause;
+            SourceCell = sourceCell;
+            Topology = topology;
+            Facing = facing;
+            EntityType = entityType;
+            SourceActorEntityId = sourceActorEntityId;
+            AnchorEntityId = anchorEntityId;
+        }
+
+        public int ExitedEntityId { get; }
+
+        public TickEntityExitCause ExitCause { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction Facing { get; }
+
+        public EntityType EntityType { get; }
+
+        public int? SourceActorEntityId { get; }
+
+        public int? AnchorEntityId { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
@@ -240,8 +289,10 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<TickVisibilityChange>(),
             Array.Empty<TickTransitionVisibilityChange>(),
             Array.Empty<TickPlayerActionPresentationSignal>(),
-            Array.Empty<TickEnemyActionPresentationSignal>());
+            Array.Empty<TickEnemyActionPresentationSignal>(),
+            Array.Empty<TickEntityExitPresentationSignal>());
 
+        private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
@@ -307,6 +358,25 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
             IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                playerActionSignals,
+                enemyActionSignals,
+                Array.Empty<TickEntityExitPresentationSignal>())
+        {
+        }
+
+        public TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals)
         {
             if (entityMotions == null)
             {
@@ -333,6 +403,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(enemyActionSignals));
             }
 
+            if (entityExitSignals == null)
+            {
+                throw new ArgumentNullException(nameof(entityExitSignals));
+            }
+
             _entityMotions = new ReadOnlyCollection<TickEntityMotion>(new List<TickEntityMotion>(entityMotions));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
@@ -342,6 +417,8 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickPlayerActionPresentationSignal>(playerActionSignals));
             _enemyActionSignals = new ReadOnlyCollection<TickEnemyActionPresentationSignal>(
                 new List<TickEnemyActionPresentationSignal>(enemyActionSignals));
+            _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
+                new List<TickEntityExitPresentationSignal>(entityExitSignals));
         }
 
         public IReadOnlyList<TickEntityMotion> EntityMotions => _entityMotions;
@@ -355,5 +432,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickPlayerActionPresentationSignal> PlayerActionSignals => _playerActionSignals;
 
         public IReadOnlyList<TickEnemyActionPresentationSignal> EnemyActionSignals => _enemyActionSignals;
+
+        public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
     }
 }

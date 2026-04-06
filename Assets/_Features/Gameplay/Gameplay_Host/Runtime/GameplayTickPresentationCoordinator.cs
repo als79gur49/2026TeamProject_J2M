@@ -15,8 +15,11 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
+        private readonly HashSet<int> _exitOwnedEntityIds = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
+        private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
         private readonly GameplayPresentationStateStore _stateStore = new();
+        private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
 
@@ -46,6 +49,8 @@ namespace Game.Feature.Gameplay.Host
         public bool IsPresentationActive => CurrentPresentationPhase != GameplayPresentationPhase.Idle;
 
         public bool IsTopologyTransitionActive => CurrentPresentationPhase == GameplayPresentationPhase.TopologyTransition;
+
+        public int ActiveTransientEffectCount => _transientEffectPresenter.ActiveEffectCount;
 
         public Quaternion PresentedBoardRotation => _presentedBoardRotation;
 
@@ -84,8 +89,11 @@ namespace Game.Feature.Gameplay.Host
             _isBoardSurfaceTransitionActive = false;
 
             _boardRotationTrack.Clear();
+            _exitOwnedEntityIds.Clear();
             _localMotionTracks.Clear();
+            _pendingEntityExitSignals.Clear();
             _visibilityTracks.Clear();
+            _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
 
@@ -106,12 +114,16 @@ namespace Game.Feature.Gameplay.Host
             var previousCommittedTopology = _stateStore.CommittedTopology;
 
             StoreCommittedFrame(result.FinalEntities, result.FinalTopology);
+            RefreshEntityExitPlan(result.PresentationData);
             RefreshTopologyTrack(result.PresentationData);
             RefreshBoardSurfaceTransition(result.PresentationData);
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
             RefreshTransitionVisibilityState(result.PresentationData);
+            PlayEntityExitEffects();
+            ApplyEntityExitOwnership();
             _animationSync.ApplyTickPresentation(result, _stateStore.ViewsByEntityId, ResolvePlayerMotionDurationSeconds);
+            UpdatePresentation(0f);
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -124,8 +136,11 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
 
             _localMotionTracks.Clear();
+            _exitOwnedEntityIds.Clear();
             _visibilityTracks.Clear();
             _boardRotationTrack.Clear();
+            _pendingEntityExitSignals.Clear();
+            _transientEffectPresenter.Clear();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
             _presentedBoardRotation = Quaternion.identity;
@@ -163,6 +178,7 @@ namespace Game.Feature.Gameplay.Host
             UpdateBoardSurfaceTransition(presentedBoardRotation);
             CleanupCompletedBoardSurfaceTransitionState();
             CleanupCompletedTopologyTransitionState();
+            _transientEffectPresenter.Update(deltaTime);
 
             _completedMotionTrackIds.Clear();
             _completedVisibilityTrackIds.Clear();
@@ -347,6 +363,11 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            if (_transientEffectPresenter.HasActiveEffects)
+            {
+                return true;
+            }
+
             return false;
         }
 
@@ -505,6 +526,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var change = presentationData.TransitionVisibilityChanges[i];
                 if (change.Mode == TickTransitionVisibilityMode.None ||
+                    _exitOwnedEntityIds.Contains(change.EntityId) ||
                     !TryResolveTransitionLocalPose(
                         change.EntityId,
                         change.Cell,
@@ -597,6 +619,10 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entityId = pair.Key;
                 var change = pair.Value;
+                if (_exitOwnedEntityIds.Contains(entityId))
+                {
+                    continue;
+                }
 
                 if (change.ChangeKind == TickVisibilityChangeKind.Spawn)
                 {
@@ -616,6 +642,47 @@ namespace Game.Feature.Gameplay.Host
 
                 _stateStore.RetainedLocalTargetPoses[entityId] = retainedLocalPose;
                 _visibilityTracks[entityId] = VisibilityTrack.CreateHide(ResolveVisibilityDurationSeconds(entityId));
+            }
+        }
+
+        private void RefreshEntityExitPlan(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            _exitOwnedEntityIds.Clear();
+            _pendingEntityExitSignals.Clear();
+
+            for (var i = 0; i < presentationData.EntityExitSignals.Count; i++)
+            {
+                var signal = presentationData.EntityExitSignals[i];
+                if (!_exitOwnedEntityIds.Add(signal.ExitedEntityId))
+                {
+                    continue;
+                }
+
+                _pendingEntityExitSignals.Add(signal);
+            }
+        }
+
+        private void PlayEntityExitEffects()
+        {
+            for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
+            {
+                var signal = _pendingEntityExitSignals[i];
+                if (!TryResolveEntityExitSignalLocalPose(signal, out var localPose))
+                {
+                    continue;
+                }
+
+                _stateStore.ViewsByEntityId.TryGetValue(signal.ExitedEntityId, out var sourceView);
+                _transientEffectPresenter.PlayExitEffect(
+                    signal,
+                    sourceView,
+                    localPose,
+                    ResolveEntityExitEffectDurationSeconds(signal.ExitCause));
             }
         }
 
@@ -824,6 +891,8 @@ namespace Game.Feature.Gameplay.Host
 
         private float ResolveVisibilityDurationSeconds(int entityId)
         {
+            // Legacy detach/remove visibility tracks borrow push presentation timing as a
+            // minimum hide tail. Exit-owned removals must not route through this fallback.
             var durationSeconds = _timingProfile.PushMotionDurationSeconds;
             if (_localMotionTracks.TryGetValue(entityId, out var track))
             {
@@ -831,6 +900,37 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return durationSeconds;
+        }
+
+        private float ResolveEntityExitEffectDurationSeconds(TickEntityExitCause exitCause)
+        {
+            return exitCause switch
+            {
+                TickEntityExitCause.ItemConsume => _timingProfile.ItemConsumeEffectDurationSeconds,
+                TickEntityExitCause.BoxDestroy => _timingProfile.BoxDestroyEffectDurationSeconds,
+                _ => _timingProfile.ItemConsumeEffectDurationSeconds,
+            };
+        }
+
+        private void ApplyEntityExitOwnership()
+        {
+            foreach (var entityId in _exitOwnedEntityIds)
+            {
+                // Exit ownership removes the authoritative entity view from presentation
+                // state immediately. Any lingering visual is transient-effect-only.
+                _localMotionTracks.Remove(entityId);
+                _visibilityTracks.Remove(entityId);
+                _stateStore.CommittedLocalTargetPoses.Remove(entityId);
+                _stateStore.RetainedLocalTargetPoses.Remove(entityId);
+                _stateStore.TransitionVisibilityStates.Remove(entityId);
+                _stateStore.EntityTypesByEntityId.Remove(entityId);
+
+                if (_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
+                    view != null)
+                {
+                    view.SetVisible(false);
+                }
+            }
         }
 
         private void StoreCommittedEntityTargets(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
@@ -946,6 +1046,20 @@ namespace Game.Feature.Gameplay.Host
             }
 
             pose = CreateEntityPose(cell, topology, projectedPose, facing);
+            return true;
+        }
+
+        private bool TryResolveEntityExitSignalLocalPose(
+            TickEntityExitPresentationSignal signal,
+            out GameplayEntityPose pose)
+        {
+            pose = default;
+            if (!_projector.TryProjectEntityCell(signal.SourceCell, signal.Topology, signal.EntityType, out var projectedPose))
+            {
+                return false;
+            }
+
+            pose = CreateEntityPose(signal.SourceCell, signal.Topology, projectedPose, signal.Facing);
             return true;
         }
 

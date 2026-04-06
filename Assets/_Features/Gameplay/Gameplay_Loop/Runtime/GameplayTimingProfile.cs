@@ -14,6 +14,8 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultPushMotionDurationSeconds = 0.2f;
         public const float DefaultTopologyMotionDurationSeconds = DefaultPushMotionDurationSeconds;
         public const float DefaultFlipMotionDurationSeconds = 0.2f;
+        public const float DefaultItemConsumeEffectDurationSeconds = 0.18f;
+        public const float DefaultBoxDestroyEffectDurationSeconds = 0.14f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
         public const int DefaultPlayerPushContactThresholdTicks = 12;
@@ -82,7 +84,9 @@ namespace Game.Feature.Gameplay.Loop
             float topologyMotionDurationSeconds,
             float flipMotionDurationSeconds,
             float flipArcHeightInCells,
-            int maxTicksPerFrame)
+            int maxTicksPerFrame,
+            float itemConsumeEffectDurationSeconds = DefaultItemConsumeEffectDurationSeconds,
+            float boxDestroyEffectDurationSeconds = DefaultBoxDestroyEffectDurationSeconds)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -161,6 +165,20 @@ namespace Game.Feature.Gameplay.Loop
                     "Max ticks per frame must be greater than zero.");
             }
 
+            if (itemConsumeEffectDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(itemConsumeEffectDurationSeconds),
+                    "Item consume effect duration must be greater than zero.");
+            }
+
+            if (boxDestroyEffectDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(boxDestroyEffectDurationSeconds),
+                    "Box destroy effect duration must be greater than zero.");
+            }
+
             SimulationTicksPerSecond = simulationTicksPerSecond;
             SimulationTickIntervalSeconds = 1f / simulationTicksPerSecond;
             InitialMoveDelaySeconds = initialMoveDelaySeconds;
@@ -171,6 +189,8 @@ namespace Game.Feature.Gameplay.Loop
             PushMotionDurationSeconds = pushMotionDurationSeconds;
             TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
+            ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds;
+            BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds;
             FlipArcHeightInCells = flipArcHeightInCells;
             MaxTicksPerFrame = maxTicksPerFrame;
             InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
@@ -199,6 +219,10 @@ namespace Game.Feature.Gameplay.Loop
 
         public float FlipMotionDurationSeconds { get; }
 
+        public float ItemConsumeEffectDurationSeconds { get; }
+
+        public float BoxDestroyEffectDurationSeconds { get; }
+
         public float FlipArcHeightInCells { get; }
 
         public int MaxTicksPerFrame { get; }
@@ -224,7 +248,9 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultTopologyMotionDurationSeconds,
                 DefaultFlipMotionDurationSeconds,
                 DefaultFlipArcHeightInCells,
-                DefaultMaxTicksPerFrame);
+                DefaultMaxTicksPerFrame,
+                DefaultItemConsumeEffectDurationSeconds,
+                DefaultBoxDestroyEffectDurationSeconds);
         }
 
         public static int SecondsToTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

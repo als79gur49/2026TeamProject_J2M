@@ -32,6 +32,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsTopologyTransitionActive => _presentationCoordinator.IsTopologyTransitionActive;
 
+        public int ActiveTransientEffectCount => _presentationCoordinator.ActiveTransientEffectCount;
+
         public Quaternion PresentedBoardRotation => _presentationCoordinator.PresentedBoardRotation;
 
         public Vector3 CubeCenter => _presentationCoordinator.CubeCenter;

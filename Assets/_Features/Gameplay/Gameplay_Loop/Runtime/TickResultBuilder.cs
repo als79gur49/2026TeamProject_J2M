@@ -209,22 +209,26 @@ namespace Game.Feature.Gameplay.Loop
         public TickPresentationData Build(in TickPresentationBuildContext context)
         {
             var entityMotions = new List<TickEntityMotion>();
+            var entityExitSignals = new List<TickEntityExitPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
+            var exitOwnedEntityIds = new HashSet<int>();
 
-            BuildMovementPresentation(context, entityMotions, visibilityChanges);
+            BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
+            BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildAttackPresentation(context, visibilityChanges);
-            BuildCleanupPresentation(context, visibilityChanges);
+            BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
 
             var topologyMotion = BuildTopologyMotion(context);
-            BuildTransitionVisibilityPresentation(context, visibilityChanges, transitionVisibilityChanges);
+            BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
                    enemyActionSignals.Count == 0 &&
+                   entityExitSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
@@ -236,13 +240,15 @@ namespace Game.Feature.Gameplay.Loop
                     visibilityChanges,
                     transitionVisibilityChanges,
                     playerActionSignals,
-                    enemyActionSignals);
+                    enemyActionSignals,
+                    entityExitSignals);
         }
 
         private static void BuildMovementPresentation(
             in TickPresentationBuildContext context,
             List<TickEntityMotion> entityMotions,
-            List<TickVisibilityChange> visibilityChanges)
+            List<TickVisibilityChange> visibilityChanges,
+            ISet<int> exitOwnedEntityIds)
         {
             var selectedGroups = context.MovementPhaseResult.SelectedGroups;
 
@@ -250,7 +256,11 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var group = selectedGroups[groupIndex];
                 AppendEntityMotions(context, group, entityMotions);
-                AppendDetachVisibilityChanges(context.PreMovementSnapshot, group.BoardPresenceChanges, visibilityChanges);
+                AppendDetachVisibilityChanges(
+                    context.PreMovementSnapshot,
+                    group.BoardPresenceChanges,
+                    visibilityChanges,
+                    exitOwnedEntityIds);
             }
         }
 
@@ -283,15 +293,67 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
+        private static void BuildEntityExitPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEntityExitPresentationSignal> entityExitSignals,
+            ISet<int> exitOwnedEntityIds)
+        {
+            // Exit-owned removals bypass generic detach/remove visibility tracks. The
+            // authoritative entity view disappears immediately; only transient echoes linger.
+            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
+            var signaledEntityIds = new HashSet<int>();
+            var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                var destroyTargets = CollectDestroyTargets(group);
+                for (var changeIndex = 0; changeIndex < group.BoardPresenceChanges.Count; changeIndex++)
+                {
+                    var boardPresenceChange = group.BoardPresenceChanges[changeIndex];
+                    if (boardPresenceChange.BoardPresence != EntityBoardPresence.Detached ||
+                        !removedEntityIds.Contains(boardPresenceChange.EntityId) ||
+                        !signaledEntityIds.Add(boardPresenceChange.EntityId) ||
+                        !context.PreMovementSnapshot.TryGetEntity(boardPresenceChange.EntityId, out var sourceEntity))
+                    {
+                        continue;
+                    }
+
+                    var exitCause = ResolveEntityExitCause(group, destroyTargets, sourceEntity);
+                    if (exitCause == TickEntityExitCause.None)
+                    {
+                        continue;
+                    }
+
+                    entityExitSignals.Add(
+                        new TickEntityExitPresentationSignal(
+                            boardPresenceChange.EntityId,
+                            exitCause,
+                            sourceEntity.position,
+                            context.PreMovementSnapshot.Topology,
+                            sourceEntity.facing,
+                            sourceEntity.type,
+                            sourceActorEntityId: group.SourceId));
+                    exitOwnedEntityIds.Add(boardPresenceChange.EntityId);
+                }
+            }
+        }
+
         private static void BuildCleanupPresentation(
             in TickPresentationBuildContext context,
-            List<TickVisibilityChange> visibilityChanges)
+            List<TickVisibilityChange> visibilityChanges,
+            ISet<int> exitOwnedEntityIds)
         {
             var removedEntityIds = context.CleanupPhaseResult.RemovedEntityIds;
 
             for (var i = 0; i < removedEntityIds.Count; i++)
             {
                 var entityId = removedEntityIds[i];
+                if (exitOwnedEntityIds.Contains(entityId))
+                {
+                    continue;
+                }
+
                 if (!context.PostAttackSnapshot.TryGetEntity(entityId, out var removedEntity))
                 {
                     continue;
@@ -497,6 +559,7 @@ namespace Game.Feature.Gameplay.Loop
         private static void BuildTransitionVisibilityPresentation(
             in TickPresentationBuildContext context,
             IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals,
             List<TickTransitionVisibilityChange> transitionVisibilityChanges)
         {
             var sourceTopology = context.PreMovementSnapshot.Topology;
@@ -508,7 +571,8 @@ namespace Game.Feature.Gameplay.Loop
 
             var excludedEntityIds = CollectTransitionVisibilityExcludedEntityIds(
                 context.MovementPhaseResult.SelectedGroups,
-                visibilityChanges);
+                visibilityChanges,
+                entityExitSignals);
             var preMovementEntities = new List<EntityState>();
             context.PreMovementSnapshot.EnumerateEntitiesOrdered(preMovementEntities);
 
@@ -601,12 +665,14 @@ namespace Game.Feature.Gameplay.Loop
         private static void AppendDetachVisibilityChanges(
             WorldSnapshot sourceSnapshot,
             IReadOnlyList<BoardPresenceChangeAction> boardPresenceChanges,
-            List<TickVisibilityChange> visibilityChanges)
+            List<TickVisibilityChange> visibilityChanges,
+            ISet<int> excludedEntityIds)
         {
             for (var i = 0; i < boardPresenceChanges.Count; i++)
             {
                 var boardPresenceChange = boardPresenceChanges[i];
                 if (boardPresenceChange.BoardPresence != EntityBoardPresence.Detached ||
+                    excludedEntityIds.Contains(boardPresenceChange.EntityId) ||
                     !sourceSnapshot.TryGetEntity(boardPresenceChange.EntityId, out var sourceEntity))
                 {
                     continue;
@@ -680,7 +746,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static HashSet<int> CollectTransitionVisibilityExcludedEntityIds(
             IReadOnlyList<ActionGroup> selectedGroups,
-            IReadOnlyList<TickVisibilityChange> visibilityChanges)
+            IReadOnlyList<TickVisibilityChange> visibilityChanges,
+            IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals)
         {
             var excludedEntityIds = new HashSet<int>();
 
@@ -698,7 +765,42 @@ namespace Game.Feature.Gameplay.Loop
                 excludedEntityIds.Add(visibilityChanges[i].EntityId);
             }
 
+            for (var i = 0; i < entityExitSignals.Count; i++)
+            {
+                excludedEntityIds.Add(entityExitSignals[i].ExitedEntityId);
+            }
+
             return excludedEntityIds;
+        }
+
+        private static HashSet<int> CollectDestroyTargets(ActionGroup group)
+        {
+            var destroyTargets = new HashSet<int>();
+            for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
+            {
+                destroyTargets.Add(group.Destroys[destroyIndex].TargetId);
+            }
+
+            return destroyTargets;
+        }
+
+        private static TickEntityExitCause ResolveEntityExitCause(
+            ActionGroup group,
+            ISet<int> destroyTargets,
+            EntityState sourceEntity)
+        {
+            if (group.GroupKind == ActionGroupKind.Item)
+            {
+                return TickEntityExitCause.ItemConsume;
+            }
+
+            if (sourceEntity.type == EntityType.Box &&
+                destroyTargets.Contains(sourceEntity.entityId))
+            {
+                return TickEntityExitCause.BoxDestroy;
+            }
+
+            return TickEntityExitCause.None;
         }
 
         private static bool TryResolveEntityType(

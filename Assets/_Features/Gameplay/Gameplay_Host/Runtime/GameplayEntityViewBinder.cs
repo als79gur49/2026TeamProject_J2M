@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -39,6 +40,8 @@ namespace Game.Feature.Gameplay.Host
             _viewRegistry.Register(createdView);
             return createdView;
         }
+
+        public Transform SearchRoot => _viewRegistry.SearchRoot;
 
         public void HideViewsExcept(HashSet<int> visibleEntityIds)
         {

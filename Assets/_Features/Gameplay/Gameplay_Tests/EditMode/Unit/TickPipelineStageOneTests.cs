@@ -1233,13 +1233,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (EntityId: 20, Kind: TickVisibilityChangeKind.Detach),
                     (EntityId: 30, Kind: TickVisibilityChangeKind.Spawn),
-                    (EntityId: 20, Kind: TickVisibilityChangeKind.Remove),
                 },
                 presentationData.VisibilityChanges
                     .Select(change => (change.EntityId, change.ChangeKind))
                     .ToArray());
+            Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            Assert.That(presentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
+            Assert.That(presentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.ItemConsume));
+            Assert.That(presentationData.EntityExitSignals[0].SourceActorEntityId, Is.EqualTo(10));
+            Assert.That(presentationData.EntityExitSignals[0].SourceCell, Is.EqualTo(itemCell));
+            Assert.That(presentationData.EntityExitSignals[0].Topology, Is.EqualTo(initialTopology));
+            Assert.That(presentationData.EntityExitSignals[0].EntityType, Is.EqualTo(EntityType.Box));
             Assert.That(presentationData.TransitionVisibilityChanges, Is.Empty);
         }
 
