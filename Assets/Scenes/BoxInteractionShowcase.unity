@@ -998,20 +998,8 @@ MonoBehaviour:
   cellSize: 1.15
   moveDeadzone: 0.5
   directionChangeConsumesDelay: 0
-  initialMoveDelaySeconds: 0
-  playerControlTiming:
-    MoveCooldownSeconds: -1
-    PushContactThresholdSeconds: -1
-    PushExecuteDelaySeconds: 0.016666668
-    PushInputLockDurationSeconds: 0.016666668
-    FlipExecuteDelaySeconds: 0.016666668
-    FlipInputLockDurationSeconds: 0.016666668
-  repeatedMoveIntervalSeconds: 0.5
-  boxSlideStepIntervalSeconds: 0.1
-  projectileStepIntervalSeconds: 0.2
-  pushMotionDurationSeconds: 0.3
-  flipMotionDurationSeconds: 0.2
-  topologyMotionDurationSeconds: -1
+  simulationTimingPreset: {fileID: 11400000, guid: 55db288ec57e4824b15be63c9a662c90, type: 2}
+  presentationTimingPreset: {fileID: 11400000, guid: e74a2114beb347ca87939f8446ed7f5c, type: 2}
   topologyRotationVisualMapping: 0
   stageDefinition: {fileID: 11400000, guid: 394a3b219e254dd68f3ea4cc8647f0c2, type: 2}
 --- !u!4 &1179627482

@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Timing;
 using Game.Feature.Stages;
 using NUnit.Framework;
 using UnityEditor;
@@ -21,6 +22,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
         private const string CombinedEnemyPresentationCatalogAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
+        private const string DefaultSimulationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
+        private const string DefaultPresentationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
         private const int ConfiguredShowcaseEnemyId = 54;
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 57;
@@ -582,12 +587,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
             field.SetValue(installer, stage);
         }
 
+        private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
+        {
+            var simulationPreset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(
+                DefaultSimulationTimingPresetAssetPath);
+            Assert.That(
+                simulationPreset,
+                Is.Not.Null,
+                $"Missing simulation timing preset asset at '{DefaultSimulationTimingPresetAssetPath}'.");
+
+            var presentationPreset = AssetDatabase.LoadAssetAtPath<GameplayPresentationTimingPreset>(
+                DefaultPresentationTimingPresetAssetPath);
+            Assert.That(
+                presentationPreset,
+                Is.Not.Null,
+                $"Missing presentation timing preset asset at '{DefaultPresentationTimingPresetAssetPath}'.");
+
+            var simulationField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+                "simulationTimingPreset",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(simulationField, Is.Not.Null);
+            simulationField.SetValue(installer, simulationPreset);
+
+            var presentationField = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+                "presentationTimingPreset",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(presentationField, Is.Not.Null);
+            presentationField.SetValue(installer, presentationPreset);
+        }
+
         private static IGameplayEntityViewFactory CreateViewFactory(
             CombinedGameplayShowcaseInstaller installer,
             GameplayBoardRoot boardRoot)
         {
             AssignStageDefinition(installer);
             AssignEnemyPresentationCatalog(installer);
+            AssignTimingPresets(installer);
             var initialState = BuildInitialGameplayState(installer);
 
             var factoryMethod = installer.GetType().GetMethod(

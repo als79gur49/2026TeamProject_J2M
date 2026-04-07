@@ -6,7 +6,9 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Timing;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -70,6 +72,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var scene = CreateIsolatedTestScene();
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset(moveCooldownSeconds: 0.35f);
+            var presentationTimingPreset = CreatePresentationTimingPreset(topologyMotionDurationSeconds: 0.45f);
 
             try
             {
@@ -78,14 +82,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
                 SetBaseInstallerField(installer, "actions", actions);
-                SetBaseInstallerField(
-                    installer,
-                    "playerControlTiming",
-                    new PlayerControlTimingSettings
-                    {
-                        MoveCooldownSeconds = 0.35f,
-                    });
-                SetBaseInstallerField(installer, "topologyMotionDurationSeconds", 0.45f);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
                 SetBaseInstallerField(
                     installer,
                     "topologyRotationVisualMapping",
@@ -117,6 +115,66 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        public void GameplayShowcaseInstaller_CreateConfiguration_MissingSimulationTimingPreset_ThrowsInstallerName()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
+
+                var exception = Assert.Throws<TargetInvocationException>(() => installer.BuildConfigurationForTests());
+                Assert.That(exception?.InnerException, Is.TypeOf<InvalidOperationException>());
+                Assert.That(exception?.InnerException?.Message, Does.Contain(nameof(TestGameplayShowcaseInstaller)));
+                Assert.That(exception?.InnerException?.Message, Does.Contain(nameof(GameplaySimulationTimingPreset)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        public void GameplayShowcaseInstaller_CreateConfiguration_MissingPresentationTimingPreset_ThrowsInstallerName()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+
+                var exception = Assert.Throws<TargetInvocationException>(() => installer.BuildConfigurationForTests());
+                Assert.That(exception?.InnerException, Is.TypeOf<InvalidOperationException>());
+                Assert.That(exception?.InnerException?.Message, Does.Contain(nameof(TestGameplayShowcaseInstaller)));
+                Assert.That(exception?.InnerException?.Message, Does.Contain(nameof(GameplayPresentationTimingPreset)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
                 UnityEngine.Object.DestroyImmediate(actions);
                 ResetIsolatedTestScene();
             }
@@ -127,6 +185,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var scene = CreateIsolatedTestScene();
             var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
             var playerPrefabObject = new GameObject("GameplayPresentationCleanup_PlayerPrefab");
 
             try
@@ -137,6 +197,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
                 SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
 
                 var playerPrefabView = playerPrefabObject.AddComponent<GameplayEntityView>();
                 playerPrefabObject.AddComponent<PlayerAnimatorDriver>();
@@ -152,6 +214,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
                 UnityEngine.Object.DestroyImmediate(actions);
                 ResetIsolatedTestScene();
             }
@@ -159,12 +223,56 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void SetBaseInstallerField(object target, string fieldName, object value)
         {
-            var field = typeof(GameplayShowcaseSceneInstallerBase).GetField(
+            SetPrivateField(typeof(GameplayShowcaseSceneInstallerBase), target, fieldName, value);
+        }
+
+        private static void SetPrivateField(Type ownerType, object target, string fieldName, object value)
+        {
+            var field = ownerType.GetField(
                 fieldName,
                 BindingFlags.Instance | BindingFlags.NonPublic);
 
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
+        }
+
+        private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
+            float initialMoveDelaySeconds = 0f,
+            float moveCooldownSeconds = -1f,
+            float repeatedMoveIntervalSeconds = 0.6f,
+            float boxSlideStepIntervalSeconds = 0.2f,
+            float projectileStepIntervalSeconds = 0.2f)
+        {
+            var preset = ScriptableObject.CreateInstance<GameplaySimulationTimingPreset>();
+            var playerControlTiming = new PlayerControlTimingSettings
+            {
+                MoveCooldownSeconds = moveCooldownSeconds,
+            };
+
+            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "initialMoveDelaySeconds", initialMoveDelaySeconds);
+            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "playerControlTiming", playerControlTiming);
+            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "repeatedMoveIntervalSeconds", repeatedMoveIntervalSeconds);
+            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "boxSlideStepIntervalSeconds", boxSlideStepIntervalSeconds);
+            SetPrivateField(typeof(GameplaySimulationTimingPreset), preset, "projectileStepIntervalSeconds", projectileStepIntervalSeconds);
+            return preset;
+        }
+
+        private static GameplayPresentationTimingPreset CreatePresentationTimingPreset(
+            float moveMotionDurationSeconds = -1f,
+            float pushMotionDurationSeconds = 0.2f,
+            float flipMotionDurationSeconds = 0.2f,
+            float topologyMotionDurationSeconds = -1f,
+            float itemConsumeEffectDurationSeconds = -1f,
+            float boxDestroyEffectDurationSeconds = -1f)
+        {
+            var preset = ScriptableObject.CreateInstance<GameplayPresentationTimingPreset>();
+            SetPrivateField(typeof(GameplayPresentationTimingPreset), preset, "moveMotionDurationSeconds", moveMotionDurationSeconds);
+            SetPrivateField(typeof(GameplayPresentationTimingPreset), preset, "pushMotionDurationSeconds", pushMotionDurationSeconds);
+            SetPrivateField(typeof(GameplayPresentationTimingPreset), preset, "flipMotionDurationSeconds", flipMotionDurationSeconds);
+            SetPrivateField(typeof(GameplayPresentationTimingPreset), preset, "topologyMotionDurationSeconds", topologyMotionDurationSeconds);
+            SetPrivateField(typeof(GameplayPresentationTimingPreset), preset, "itemConsumeEffectDurationSeconds", itemConsumeEffectDurationSeconds);
+            SetPrivateField(typeof(GameplayPresentationTimingPreset), preset, "boxDestroyEffectDurationSeconds", boxDestroyEffectDurationSeconds);
+            return preset;
         }
 
         private static Scene CreateIsolatedTestScene()
@@ -283,60 +391,103 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string BoxInteractionScenePath = "Assets/Scenes/BoxInteractionShowcase.unity";
         private const string TraversalScenePath = "Assets/Scenes/CubeSurfaceTraversalShowcase.unity";
+        private const string CombinedSceneInstallerIdentifier =
+            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
+        private const string BoxInteractionSceneInstallerIdentifier =
+            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.BoxInteractionShowcaseInstaller";
+        private const string TraversalSceneInstallerIdentifier =
+            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CubeSurfaceTraversalShowcaseInstaller";
+        private const string CombinedStageAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string BoxInteractionStageAssetPath =
+            "Assets/_Features/Stages/Stage_BoxInteractionShowcase/Stage_BoxInteractionShowcase.asset";
+        private const string TraversalStageAssetPath =
+            "Assets/_Features/Stages/Stage_CubeSurfaceTraversalShowcase/Stage_CubeSurfaceTraversalShowcase.asset";
+        private const string DefaultSimulationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
+        private const string DefaultPresentationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
         private const string PlayerAnimationTestPrefabPath =
             "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Entity_View_PlayerAnimationTest.prefab";
 
         [Test]
-        public void CombinedGameplayShowcaseScene_SerializesPlayerControlTimingInsteadOfLegacyCooldownField()
+        public void CombinedGameplayShowcaseScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
         {
-            var sceneText = ReadNormalizedText(CombinedScenePath);
+            var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
 
-            StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: 0.5", sceneText);
-            StringAssert.DoesNotContain("playerEntityId:", sceneText);
-            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", sceneText);
-            StringAssert.Contains(
-                "stageDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}",
-                sceneText);
+            AssertUsesTimingPresetReferences(
+                installerBlock,
+                CombinedStageAssetPath,
+                DefaultSimulationTimingPresetAssetPath,
+                DefaultPresentationTimingPresetAssetPath);
+            StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
+            StringAssert.DoesNotContain("playerControlTiming:", installerBlock);
+            StringAssert.DoesNotContain("repeatedMoveIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("boxSlideStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("projectileStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("moveMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("pushMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("flipMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("topologyMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("itemConsumeEffectDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("boxDestroyEffectDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", installerBlock);
         }
 
         [Test]
         public void CombinedGameplayShowcaseScene_SerializesEnemyPresentationCatalogReference()
         {
-            var sceneText = ReadNormalizedText(CombinedScenePath);
+            var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
 
-            StringAssert.Contains("enemyPresentationCatalog:", sceneText);
-            StringAssert.DoesNotContain("enemyAnimationTimingOverrides:", sceneText);
+            StringAssert.Contains("enemyPresentationCatalog:", installerBlock);
+            StringAssert.DoesNotContain("enemyAnimationTimingOverrides:", installerBlock);
         }
 
         [Test]
-        public void BoxInteractionShowcaseScene_SerializesPlayerControlTimingDefaults()
+        public void BoxInteractionShowcaseScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
         {
-            var sceneText = ReadNormalizedText(BoxInteractionScenePath);
+            var installerBlock = ReadInstallerBlock(BoxInteractionScenePath, BoxInteractionSceneInstallerIdentifier);
 
-            StringAssert.Contains("playerControlTiming:\n    MoveCooldownSeconds: -1", sceneText);
-            StringAssert.DoesNotContain("playerEntityId:", sceneText);
-            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", sceneText);
-            StringAssert.Contains(
-                "stageDefinition: {fileID: 11400000, guid: 394a3b219e254dd68f3ea4cc8647f0c2, type: 2}",
-                sceneText);
+            AssertUsesTimingPresetReferences(
+                installerBlock,
+                BoxInteractionStageAssetPath,
+                DefaultSimulationTimingPresetAssetPath,
+                DefaultPresentationTimingPresetAssetPath);
+            StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
+            StringAssert.DoesNotContain("playerControlTiming:", installerBlock);
+            StringAssert.DoesNotContain("repeatedMoveIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("boxSlideStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("projectileStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("pushMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("flipMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("topologyMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", installerBlock);
         }
 
         [Test]
-        public void CubeSurfaceTraversalShowcaseScene_DropsLegacyTickSerializedFields()
+        public void CubeSurfaceTraversalShowcaseScene_UsesTimingPresetReferencesAndDropsLegacyTickSerializedFields()
         {
             var sceneText = ReadNormalizedText(TraversalScenePath);
+            var installerBlock = ReadInstallerBlock(TraversalScenePath, TraversalSceneInstallerIdentifier);
 
             StringAssert.DoesNotContain("initialMoveDelayTicks", sceneText);
             StringAssert.DoesNotContain("repeatedMoveIntervalTicks", sceneText);
             StringAssert.DoesNotContain("tickIntervalSeconds", sceneText);
-            StringAssert.DoesNotContain("playerEntityId:", sceneText);
-            StringAssert.Contains("initialMoveDelaySeconds: 0", sceneText);
-            StringAssert.Contains("repeatedMoveIntervalSeconds: 0.4", sceneText);
-            StringAssert.Contains("playerControlTiming:", sceneText);
-            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", sceneText);
-            StringAssert.Contains(
-                "stageDefinition: {fileID: 11400000, guid: a44d479002364aad91f8cd5b3b1e1242, type: 2}",
-                sceneText);
+            AssertUsesTimingPresetReferences(
+                installerBlock,
+                TraversalStageAssetPath,
+                DefaultSimulationTimingPresetAssetPath,
+                DefaultPresentationTimingPresetAssetPath);
+            StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
+            StringAssert.DoesNotContain("playerControlTiming:", installerBlock);
+            StringAssert.DoesNotContain("repeatedMoveIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("boxSlideStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("projectileStepIntervalSeconds:", installerBlock);
+            StringAssert.DoesNotContain("moveMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("pushMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("flipMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("topologyMotionDurationSeconds:", installerBlock);
+            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", installerBlock);
         }
 
         [Test]
@@ -358,6 +509,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var normalizedAssetPath = assetPath.Replace('/', Path.DirectorySeparatorChar);
             var fullPath = Path.Combine(projectRoot, normalizedAssetPath);
             return File.ReadAllText(fullPath).Replace("\r\n", "\n");
+        }
+
+        private static string ReadInstallerBlock(string assetPath, string editorClassIdentifier)
+        {
+            var sceneText = ReadNormalizedText(assetPath);
+            var marker = $"m_EditorClassIdentifier: {editorClassIdentifier}";
+            var markerIndex = sceneText.IndexOf(marker, StringComparison.Ordinal);
+            Assert.That(markerIndex, Is.GreaterThanOrEqualTo(0), $"Missing installer block '{editorClassIdentifier}'.");
+
+            var blockStart = sceneText.LastIndexOf("--- !u!114", markerIndex, StringComparison.Ordinal);
+            Assert.That(blockStart, Is.GreaterThanOrEqualTo(0), "Could not find the start of the installer MonoBehaviour block.");
+
+            var blockEnd = sceneText.IndexOf("\n--- !u!", markerIndex, StringComparison.Ordinal);
+            if (blockEnd < 0)
+            {
+                blockEnd = sceneText.Length;
+            }
+
+            return sceneText.Substring(blockStart, blockEnd - blockStart);
+        }
+
+        private static void AssertUsesTimingPresetReferences(
+            string installerBlock,
+            string stageAssetPath,
+            string simulationTimingPresetAssetPath,
+            string presentationTimingPresetAssetPath)
+        {
+            StringAssert.Contains(
+                $"stageDefinition: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(stageAssetPath)}, type: 2}}",
+                installerBlock);
+            StringAssert.Contains(
+                $"simulationTimingPreset: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(simulationTimingPresetAssetPath)}, type: 2}}",
+                installerBlock);
+            StringAssert.Contains(
+                $"presentationTimingPreset: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(presentationTimingPresetAssetPath)}, type: 2}}",
+                installerBlock);
         }
     }
 }

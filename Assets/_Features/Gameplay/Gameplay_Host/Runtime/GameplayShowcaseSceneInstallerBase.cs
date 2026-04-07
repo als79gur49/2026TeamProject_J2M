@@ -1,8 +1,7 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
-using Game.Feature.Gameplay.Loop;
-using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Timing;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -57,17 +56,8 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private bool directionChangeConsumesDelay;
 
         [Header("Timing")]
-        [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
-        [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
-        [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
-        [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
-        [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
-        [SerializeField] private float moveMotionDurationSeconds = -1f;
-        [SerializeField] private float pushMotionDurationSeconds = GameplayTimingProfile.DefaultPushMotionDurationSeconds;
-        [SerializeField] private float flipMotionDurationSeconds = GameplayTimingProfile.DefaultFlipMotionDurationSeconds;
-        [SerializeField] private float topologyMotionDurationSeconds = -1f;
-        [SerializeField] private float itemConsumeEffectDurationSeconds = GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds;
-        [SerializeField] private float boxDestroyEffectDurationSeconds = GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds;
+        [SerializeField] private GameplaySimulationTimingPreset simulationTimingPreset;
+        [SerializeField] private GameplayPresentationTimingPreset presentationTimingPreset;
 
         [Header("Presentation")]
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
@@ -164,6 +154,7 @@ namespace Game.Feature.Gameplay.Host
                 CreateCameraSettings(),
                 initialState.InitialTopology);
         }
+
         private GameplaySceneHostConfiguration CreateConfiguration(
             InitialGameplayState initialState,
             GameplayCameraSettings cameraSettings)
@@ -176,52 +167,62 @@ namespace Game.Feature.Gameplay.Host
             GameplayCameraSettings cameraSettings,
             IGameplayEntityViewFactory viewFactory)
         {
-            return new GameplaySceneHostConfiguration
+            var configuration = new GameplaySceneHostConfiguration
             {
                 Actions = actions,
                 AutoAdvanceTicks = autoAdvanceTicks,
                 AutoCreateViews = autoCreateViews,
                 CameraSettings = cameraSettings,
                 CellSize = cellSize,
-                BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds,
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = ResolveEnemyPresentationCatalog(),
-                FlipMotionDurationSeconds = flipMotionDurationSeconds,
-                ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
-                BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                 InitialBoardBounds = initialState.BoardBounds,
-                InitialMoveDelaySeconds = initialMoveDelaySeconds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
                 PlayerEntityId = initialState.PlayerEntityId,
-                PlayerControlTiming = CreatePlayerControlTimingSettings(),
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
-                ProjectileStepIntervalSeconds = projectileStepIntervalSeconds,
-                MoveMotionDurationSeconds = moveMotionDurationSeconds,
-                PushMotionDurationSeconds = pushMotionDurationSeconds,
-                RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                 SnapViewCameraToTarget = configureMainCamera,
-                TopologyMotionDurationSeconds = topologyMotionDurationSeconds,
                 TopologyRotationVisualMapping = topologyRotationVisualMapping,
                 ViewCamera = configureMainCamera ? Camera.main : null,
                 ViewFactory = viewFactory,
             };
-        }
 
-        private PlayerControlTimingSettings CreatePlayerControlTimingSettings()
-        {
-            return playerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+            ResolveSimulationTimingPreset().ApplyTo(configuration);
+            ResolvePresentationTimingPreset().ApplyTo(configuration);
+            return configuration;
         }
 
         private IGameplayEntityViewFactory ResolveViewFactory(in InitialGameplayState initialState)
         {
             var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
             return CreateViewFactory(boardRoot, initialState);
+        }
+
+        private GameplaySimulationTimingPreset ResolveSimulationTimingPreset()
+        {
+            if (simulationTimingPreset == null)
+            {
+                throw new InvalidOperationException(
+                    $"{GetType().Name} on '{name}' requires a {nameof(GameplaySimulationTimingPreset)} reference.");
+            }
+
+            return simulationTimingPreset;
+        }
+
+        private GameplayPresentationTimingPreset ResolvePresentationTimingPreset()
+        {
+            if (presentationTimingPreset == null)
+            {
+                throw new InvalidOperationException(
+                    $"{GetType().Name} on '{name}' requires a {nameof(GameplayPresentationTimingPreset)} reference.");
+            }
+
+            return presentationTimingPreset;
         }
 
         private void ConfigureSceneCamera(

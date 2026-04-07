@@ -18,6 +18,10 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             "Assets/_Features/Stages/Stage_BoxInteractionShowcase/Stage_BoxInteractionShowcase.asset";
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string DefaultSimulationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
+        private const string DefaultPresentationTimingPresetAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
 
         [MenuItem("Tools/Gameplay/Build Showcase Scenes")]
         public static void BuildAllScenes()
@@ -34,7 +38,9 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             BuildScene<CubeSurfaceTraversalShowcaseInstaller>(
                 TraversalScenePath,
                 "Cube Surface Traversal Showcase",
-                TraversalStageAssetPath);
+                TraversalStageAssetPath,
+                DefaultSimulationTimingPresetAssetPath,
+                DefaultPresentationTimingPresetAssetPath);
         }
 
         public static void BuildBoxInteractionScene()
@@ -42,7 +48,9 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             BuildScene<BoxInteractionShowcaseInstaller>(
                 BoxScenePath,
                 "Box Interaction Showcase",
-                BoxStageAssetPath);
+                BoxStageAssetPath,
+                DefaultSimulationTimingPresetAssetPath,
+                DefaultPresentationTimingPresetAssetPath);
         }
 
         public static void BuildCombinedGameplayScene()
@@ -50,13 +58,17 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             BuildScene<CombinedGameplayShowcaseInstaller>(
                 CombinedScenePath,
                 "Box Slide Test Scene",
-                CombinedStageAssetPath);
+                CombinedStageAssetPath,
+                DefaultSimulationTimingPresetAssetPath,
+                DefaultPresentationTimingPresetAssetPath);
         }
 
         private static void BuildScene<TInstaller>(
             string scenePath,
             string rootObjectName,
-            string stageAssetPath)
+            string stageAssetPath,
+            string simulationTimingPresetAssetPath,
+            string presentationTimingPresetAssetPath)
             where TInstaller : GameplayShowcaseSceneInstallerBase
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
@@ -65,6 +77,14 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             var installer = installerObject.AddComponent<TInstaller>();
             AssignActions(installer);
             AssignStageDefinition(installer, stageAssetPath);
+            AssignObjectReference(
+                installer,
+                "simulationTimingPreset",
+                simulationTimingPresetAssetPath);
+            AssignObjectReference(
+                installer,
+                "presentationTimingPreset",
+                presentationTimingPresetAssetPath);
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 installerObject,
                 installer.GetShowcaseOverlayContent(),
@@ -104,6 +124,29 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             stageDefinitionProperty.objectReferenceValue = stageAsset;
+            serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static void AssignObjectReference(
+            Component installer,
+            string fieldName,
+            string assetPath)
+        {
+            var asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(assetPath);
+            if (asset == null)
+            {
+                throw new InvalidOperationException($"Missing asset at '{assetPath}'.");
+            }
+
+            var serializedObject = new SerializedObject(installer);
+            var presetProperty = serializedObject.FindProperty(fieldName);
+            if (presetProperty == null)
+            {
+                throw new InvalidOperationException(
+                    $"Installer '{installer.GetType().Name}' does not expose a serialized {fieldName} field.");
+            }
+
+            presetProperty.objectReferenceValue = asset;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
     }

@@ -1,0 +1,25 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a3ec481e4e74bfc806a5908afc106bd, type: 3}
+  m_Name: GameplaySimulationTimingPreset_DefaultShowcase
+  m_EditorClassIdentifier: 
+  initialMoveDelaySeconds: 0
+  playerControlTiming:
+    MoveCooldownSeconds: 0.5
+    PushContactThresholdSeconds: -1
+    PushExecuteDelaySeconds: 0.016666668
+    PushInputLockDurationSeconds: 0.016666668
+    FlipExecuteDelaySeconds: 0.016666668
+    FlipInputLockDurationSeconds: 0.016666668
+  repeatedMoveIntervalSeconds: 0.6
+  boxSlideStepIntervalSeconds: 0.2
+  projectileStepIntervalSeconds: 0.2
