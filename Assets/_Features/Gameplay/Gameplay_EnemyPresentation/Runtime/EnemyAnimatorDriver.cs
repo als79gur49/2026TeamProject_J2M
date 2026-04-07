@@ -6,18 +6,25 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class EnemyAnimatorDriver : MonoBehaviour
     {
+        private const string DefaultLocomotionStateName = "Move";
         private const string AiModeParameterName = "EnemyAiMode";
         private const string ActiveActionKindParameterName = "EnemyActionKind";
+        private const string JumpPhaseParameterName = "EnemyJumpPhase";
         private const string MovingParameterName = "IsMoving";
         private static readonly int AiModeParameterHash = Animator.StringToHash(AiModeParameterName);
         private static readonly int ActiveActionKindParameterHash = Animator.StringToHash(ActiveActionKindParameterName);
+        private static readonly int JumpPhaseParameterHash = Animator.StringToHash(JumpPhaseParameterName);
         private static readonly int MovingParameterHash = Animator.StringToHash(MovingParameterName);
 
         [SerializeField] private Animator animator;
         [SerializeField] private EnemyAnimationTimingAuthoring animationTimingAuthoring;
         [SerializeField] private string windupStateName = "Windup";
+        [SerializeField] private string jumpWindupStateName = "JumpWindup";
+        [SerializeField] private string jumpAirborneStateName = "JumpAirborne";
         [SerializeField] private string recoveryStateName = "Recover";
         [SerializeField] private string windupTriggerName = "Windup";
+        [SerializeField] private string jumpWindupTriggerName = "JumpWindup";
+        [SerializeField] private string jumpAirborneTriggerName = "JumpAirborne";
         [SerializeField] private string attackTriggerName = "Attack";
         [SerializeField] private string recoveryTriggerName = "Recover";
         [SerializeField] private string hitTriggerName = "Hit";
@@ -39,6 +46,10 @@ namespace Game.Feature.Gameplay.Host
 
         public int RecoverySignalCount { get; private set; }
 
+        public int JumpWindupSignalCount { get; private set; }
+
+        public int JumpAirborneSignalCount { get; private set; }
+
         public int HitSignalCount { get; private set; }
 
         public int DeathSignalCount { get; private set; }
@@ -58,6 +69,7 @@ namespace Game.Feature.Gameplay.Host
         private RuntimeAnimatorController _validatedOptionalParameterController;
         private bool _supportsAiModeParameter;
         private bool _supportsActiveActionKindParameter;
+        private bool _supportsJumpPhaseParameter;
         private bool _supportsMovingParameter;
         private int _windupTriggerDispatchCount;
         private int _recoveryTriggerDispatchCount;
@@ -79,6 +91,29 @@ namespace Game.Feature.Gameplay.Host
             SyncOptionalParameters(targetAnimator, state);
 
             ApplyAnimatorTiming(targetAnimator, ResolvePresentationPhase(state));
+
+            if (state.StartedJumpWindupThisTick)
+            {
+                JumpWindupSignalCount++;
+                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpWindup))
+                {
+                    SetTrigger(targetAnimator, jumpWindupTriggerName);
+                }
+            }
+
+            if (state.StartedJumpAirborneThisTick)
+            {
+                JumpAirborneSignalCount++;
+                if (!TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.JumpAirborne))
+                {
+                    SetTrigger(targetAnimator, jumpAirborneTriggerName);
+                }
+            }
+
+            if (state.LandedFromJumpThisTick)
+            {
+                TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
+            }
 
             if (state.StartedWindupThisTick)
             {
@@ -181,23 +216,8 @@ namespace Game.Feature.Gameplay.Host
 
         private bool TryApplyPresentationCrossFade(Animator targetAnimator, EnemyPresentationPhase phase)
         {
-            if (!TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds))
-            {
-                return false;
-            }
-
             var stateName = ResolveStateName(phase);
-            if (targetAnimator == null || string.IsNullOrWhiteSpace(stateName))
-            {
-                return false;
-            }
-
-            LastCrossFadeDurationSeconds = Mathf.Max(0f, crossFadeDurationSeconds);
-            LastCrossFadedStateName = stateName;
-            targetAnimator.CrossFadeInFixedTime(
-                Animator.StringToHash(stateName),
-                LastCrossFadeDurationSeconds);
-            return true;
+            return TryApplyNamedStateCrossFade(targetAnimator, stateName, requireOverride: true);
         }
 
         private float ResolveAnimatorSpeed(
@@ -243,6 +263,12 @@ namespace Game.Feature.Gameplay.Host
 
             switch (phase)
             {
+                case EnemyPresentationPhase.JumpWindup:
+                    return animationTiming.TryGetJumpWindupAnimatorDurationOverride(out durationSeconds);
+
+                case EnemyPresentationPhase.JumpAirborne:
+                    return animationTiming.TryGetJumpAirborneAnimatorDurationOverride(out durationSeconds);
+
                 case EnemyPresentationPhase.Windup:
                     return animationTiming.TryGetAttackWindupAnimatorDurationOverride(out durationSeconds);
 
@@ -278,6 +304,14 @@ namespace Game.Feature.Gameplay.Host
 
             switch (phase)
             {
+                case EnemyPresentationPhase.JumpWindup:
+                    return animationTiming.TryGetJumpWindupReferenceClipLengthSeconds(
+                        out referenceClipLengthSeconds);
+
+                case EnemyPresentationPhase.JumpAirborne:
+                    return animationTiming.TryGetJumpAirborneReferenceClipLengthSeconds(
+                        out referenceClipLengthSeconds);
+
                 case EnemyPresentationPhase.Windup:
                     return animationTiming.TryGetAttackWindupReferenceClipLengthSeconds(
                         out referenceClipLengthSeconds);
@@ -296,6 +330,12 @@ namespace Game.Feature.Gameplay.Host
         {
             switch (phase)
             {
+                case EnemyPresentationPhase.JumpWindup:
+                    return jumpWindupStateName;
+
+                case EnemyPresentationPhase.JumpAirborne:
+                    return jumpAirborneStateName;
+
                 case EnemyPresentationPhase.Windup:
                     return windupStateName;
 
@@ -309,6 +349,15 @@ namespace Game.Feature.Gameplay.Host
 
         private static EnemyPresentationPhase ResolvePresentationPhase(in EnemyViewPresentationState state)
         {
+            switch (state.JumpPhase)
+            {
+                case EnemyJumpPhase.Windup:
+                    return EnemyPresentationPhase.JumpWindup;
+
+                case EnemyJumpPhase.Airborne:
+                    return EnemyPresentationPhase.JumpAirborne;
+            }
+
             switch (state.AiMode)
             {
                 case EnemyAiMode.Attack:
@@ -332,6 +381,11 @@ namespace Game.Feature.Gameplay.Host
             if (SupportsActiveActionKindParameter(targetAnimator))
             {
                 targetAnimator.SetInteger(ActiveActionKindParameterHash, (int)state.ActiveActionKind);
+            }
+
+            if (SupportsJumpPhaseParameter(targetAnimator))
+            {
+                targetAnimator.SetInteger(JumpPhaseParameterHash, ResolveAnimatorJumpPhase(state.JumpPhase));
             }
 
             SyncOptionalMovingParameter(targetAnimator, state.IsMoving);
@@ -380,6 +434,17 @@ namespace Game.Feature.Gameplay.Host
             return _supportsMovingParameter;
         }
 
+        private bool SupportsJumpPhaseParameter(Animator targetAnimator)
+        {
+            if (targetAnimator == null)
+            {
+                return false;
+            }
+
+            RefreshOptionalParameterSupport(targetAnimator);
+            return _supportsJumpPhaseParameter;
+        }
+
         private void RefreshOptionalParameterSupport(Animator targetAnimator)
         {
             if (targetAnimator == null)
@@ -398,7 +463,13 @@ namespace Game.Feature.Gameplay.Host
             _validatedOptionalParameterController = controller;
             _supportsAiModeParameter = false;
             _supportsActiveActionKindParameter = false;
+            _supportsJumpPhaseParameter = false;
             _supportsMovingParameter = false;
+
+             if (controller == null)
+             {
+                 return;
+             }
 
             var parameters = targetAnimator.parameters;
             for (var i = 0; i < parameters.Length; i++)
@@ -414,6 +485,10 @@ namespace Game.Feature.Gameplay.Host
                     {
                         _supportsActiveActionKindParameter = true;
                     }
+                    else if (parameter.nameHash == JumpPhaseParameterHash)
+                    {
+                        _supportsJumpPhaseParameter = true;
+                    }
                 }
                 else if (parameter.type == AnimatorControllerParameterType.Bool &&
                          parameter.nameHash == MovingParameterHash)
@@ -421,6 +496,16 @@ namespace Game.Feature.Gameplay.Host
                     _supportsMovingParameter = true;
                 }
             }
+        }
+
+        private static int ResolveAnimatorJumpPhase(EnemyJumpPhase jumpPhase)
+        {
+            return jumpPhase switch
+            {
+                EnemyJumpPhase.Windup => 1,
+                EnemyJumpPhase.Airborne => 2,
+                _ => 0,
+            };
         }
 
         private void DispatchWindupTrigger(Animator targetAnimator)
@@ -441,7 +526,9 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool SetTrigger(Animator targetAnimator, string parameterName)
         {
-            if (targetAnimator == null || string.IsNullOrWhiteSpace(parameterName))
+            if (targetAnimator == null ||
+                targetAnimator.runtimeAnimatorController == null ||
+                string.IsNullOrWhiteSpace(parameterName))
             {
                 return false;
             }
@@ -450,11 +537,45 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        private bool TryApplyNamedStateCrossFade(
+            Animator targetAnimator,
+            string stateName,
+            bool requireOverride = false)
+        {
+            if (string.IsNullOrWhiteSpace(stateName))
+            {
+                return false;
+            }
+
+            var hasOverride = TryResolveStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds);
+            if (requireOverride && !hasOverride)
+            {
+                return false;
+            }
+
+            LastCrossFadeDurationSeconds = hasOverride
+                ? Mathf.Max(0f, crossFadeDurationSeconds)
+                : 0f;
+            LastCrossFadedStateName = stateName;
+
+            if (targetAnimator == null || targetAnimator.runtimeAnimatorController == null)
+            {
+                return true;
+            }
+
+            targetAnimator.CrossFadeInFixedTime(
+                Animator.StringToHash(stateName),
+                LastCrossFadeDurationSeconds);
+            return true;
+        }
+
         private enum EnemyPresentationPhase
         {
             None = 0,
             Windup = 1,
             Recovery = 2,
+            JumpWindup = 3,
+            JumpAirborne = 4,
         }
     }
 }

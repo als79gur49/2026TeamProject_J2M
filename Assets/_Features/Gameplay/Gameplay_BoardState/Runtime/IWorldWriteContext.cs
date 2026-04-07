@@ -25,6 +25,15 @@ namespace Game.Feature.Gameplay.BoardState
         void SetFacing(int entityId, Direction facing);
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
+
+        void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
+    }
+
+    internal interface IEnemyJumpCommitContext
+    {
+        void MoveEnemyJumpEntity(int entityId, SurfaceCell destination);
+
+        void SetEnemyJumpBoardPresence(int entityId, EntityBoardPresence boardPresence);
     }
 
     internal interface IMovementCommitContext : IPlayerControlCommitContext
@@ -62,7 +71,7 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
     }
 
-    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyActionCommitContext
+    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyActionCommitContext
     {
     }
 }

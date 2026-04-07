@@ -149,7 +149,8 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            int currentTickIndex = 0)
+            int currentTickIndex = 0,
+            WorldSnapshot jumpBaselineSnapshot = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -159,7 +160,8 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
-                currentTickIndex)
+                currentTickIndex,
+                jumpBaselineSnapshot)
         {
         }
 
@@ -172,7 +174,8 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
-            int currentTickIndex = 0)
+            int currentTickIndex = 0,
+            WorldSnapshot jumpBaselineSnapshot = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -183,6 +186,7 @@ namespace Game.Feature.Gameplay.Loop
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
             CurrentTickIndex = currentTickIndex;
+            JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -202,6 +206,8 @@ namespace Game.Feature.Gameplay.Loop
         public CleanupPhaseResult CleanupPhaseResult { get; }
 
         public int CurrentTickIndex { get; }
+
+        public WorldSnapshot JumpBaselineSnapshot { get; }
     }
 
     internal sealed class TickPresentationDataBuilder
@@ -211,6 +217,7 @@ namespace Game.Feature.Gameplay.Loop
             var entityMotions = new List<TickEntityMotion>();
             var entityExitSignals = new List<TickEntityExitPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
+            var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
@@ -222,12 +229,14 @@ namespace Game.Feature.Gameplay.Loop
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
+            BuildEnemyJumpPresentation(context, enemyJumpSignals);
 
             var topologyMotion = BuildTopologyMotion(context);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
 
             return entityMotions.Count == 0 &&
                    enemyActionSignals.Count == 0 &&
+                   enemyJumpSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
@@ -241,6 +250,7 @@ namespace Game.Feature.Gameplay.Loop
                     transitionVisibilityChanges,
                     playerActionSignals,
                     enemyActionSignals,
+                    enemyJumpSignals,
                     entityExitSignals);
         }
 
@@ -504,6 +514,86 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
+        private static void BuildEnemyJumpPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEnemyJumpPresentationSignal> enemyJumpSignals)
+        {
+            var candidateEntityIds = new List<int>();
+            var seenEntityIds = new HashSet<int>();
+            var preMovementEntries = new List<EnemyJumpSnapshotEntry>();
+            var postMovementEntries = new List<EnemyJumpSnapshotEntry>();
+            var finalEntries = new List<EnemyJumpSnapshotEntry>();
+
+            context.JumpBaselineSnapshot.EnumerateEnemyJumpStatesOrdered(preMovementEntries);
+            context.PostMovementSnapshot.EnumerateEnemyJumpStatesOrdered(postMovementEntries);
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyJumpStatesOrdered(finalEntries);
+
+            CollectEnemyJumpCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyJumpCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyJumpCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
+
+            for (var i = 0; i < candidateEntityIds.Count; i++)
+            {
+                var entityId = candidateEntityIds[i];
+                var hasPreviousState = context.JumpBaselineSnapshot.TryGetEnemyJumpState(entityId, out var previousJumpState);
+                var hasPostMovementState = context.PostMovementSnapshot.TryGetEnemyJumpState(entityId, out var postMovementJumpState);
+                var hasFinalState = context.FinalAuthoritativeSnapshot.TryGetEnemyJumpState(entityId, out var finalJumpState);
+
+                var resolvedState = ResolvePresentationJumpState(
+                    hasPreviousState,
+                    previousJumpState,
+                    hasPostMovementState,
+                    postMovementJumpState,
+                    hasFinalState,
+                    finalJumpState);
+                if (!ShouldEmitJumpSignal(hasPreviousState, previousJumpState, hasPostMovementState, postMovementJumpState, hasFinalState, finalJumpState))
+                {
+                    continue;
+                }
+
+                var startedWindupThisTick = resolvedState.phase == EnemyJumpPhase.Windup &&
+                                            (!hasPreviousState || previousJumpState.phase != EnemyJumpPhase.Windup);
+                var retryThisTick = hasPreviousState &&
+                                    previousJumpState.phase == EnemyJumpPhase.Airborne &&
+                                    resolvedState.phase == EnemyJumpPhase.Airborne &&
+                                    resolvedState.retryCount > previousJumpState.retryCount;
+                var startedAirborneThisTick = resolvedState.phase == EnemyJumpPhase.Airborne &&
+                                              (!hasPreviousState || previousJumpState.phase != EnemyJumpPhase.Airborne) &&
+                                              !retryThisTick;
+                var landedThisTick = hasPreviousState &&
+                                     previousJumpState.phase == EnemyJumpPhase.Airborne &&
+                                     resolvedState.phase != EnemyJumpPhase.Airborne &&
+                                     context.FinalAuthoritativeSnapshot.TryGetEntity(entityId, out var landedEntity) &&
+                                     landedEntity.boardPresence == EntityBoardPresence.Occupying;
+                var facing = ResolveJumpPresentationFacing(context, entityId);
+                var presentationTargetCell = ResolveJumpPresentationTargetCell(
+                    context,
+                    entityId,
+                    resolvedState,
+                    landedThisTick);
+                var remainingAirborneTicks = resolvedState.phase == EnemyJumpPhase.Airborne
+                    ? Math.Max(0, resolvedState.landingTick - context.CurrentTickIndex)
+                    : 0;
+
+                enemyJumpSignals.Add(
+                    new TickEnemyJumpPresentationSignal(
+                        entityId,
+                        resolvedState.sequence,
+                        resolvedState.phase,
+                        startedWindupThisTick,
+                        startedAirborneThisTick,
+                        landedThisTick,
+                        retryThisTick,
+                        sourceCell: resolvedState.sourceCell,
+                        lockedTargetCell: resolvedState.lockedTargetCell,
+                        presentationTargetCell: presentationTargetCell,
+                        facing: facing,
+                        landingTick: resolvedState.landingTick,
+                        remainingAirborneTicks: remainingAirborneTicks,
+                        retryCount: resolvedState.retryCount));
+            }
+        }
+
         private static void CollectEnemyActionCandidateIds(
             List<EnemyActionSnapshotEntry> entries,
             HashSet<int> seenEntityIds,
@@ -520,6 +610,106 @@ namespace Game.Feature.Gameplay.Loop
 
                 candidateEntityIds.Add(entry.EntityId);
             }
+        }
+
+        private static void CollectEnemyJumpCandidateIds(
+            List<EnemyJumpSnapshotEntry> entries,
+            HashSet<int> seenEntityIds,
+            List<int> candidateEntityIds)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.State.phase == EnemyJumpPhase.None ||
+                    !seenEntityIds.Add(entry.EntityId))
+                {
+                    continue;
+                }
+
+                candidateEntityIds.Add(entry.EntityId);
+            }
+        }
+
+        private static EnemyJumpRuntimeState ResolvePresentationJumpState(
+            bool hasPreviousState,
+            in EnemyJumpRuntimeState previousJumpState,
+            bool hasPostMovementState,
+            in EnemyJumpRuntimeState postMovementJumpState,
+            bool hasFinalState,
+            in EnemyJumpRuntimeState finalJumpState)
+        {
+            if (hasFinalState)
+            {
+                return finalJumpState;
+            }
+
+            if (hasPostMovementState)
+            {
+                return postMovementJumpState;
+            }
+
+            return hasPreviousState
+                ? previousJumpState
+                : default;
+        }
+
+        private static bool ShouldEmitJumpSignal(
+            bool hasPreviousState,
+            in EnemyJumpRuntimeState previousJumpState,
+            bool hasPostMovementState,
+            in EnemyJumpRuntimeState postMovementJumpState,
+            bool hasFinalState,
+            in EnemyJumpRuntimeState finalJumpState)
+        {
+            return (hasPreviousState && previousJumpState.phase != EnemyJumpPhase.None) ||
+                   (hasPostMovementState && postMovementJumpState.phase != EnemyJumpPhase.None) ||
+                   (hasFinalState && finalJumpState.phase != EnemyJumpPhase.None);
+        }
+
+        private static Direction ResolveJumpPresentationFacing(
+            in TickPresentationBuildContext context,
+            int entityId)
+        {
+            return TryResolveJumpPresentationEntity(context, entityId, out var entity)
+                ? entity.facing
+                : Direction.Up;
+        }
+
+        private static SurfaceCell ResolveJumpPresentationTargetCell(
+            in TickPresentationBuildContext context,
+            int entityId,
+            in EnemyJumpRuntimeState jumpState,
+            bool landedThisTick)
+        {
+            if (landedThisTick &&
+                context.FinalAuthoritativeSnapshot.TryGetEntity(entityId, out var landedEntity))
+            {
+                return landedEntity.position;
+            }
+
+            if (TryResolveJumpPresentationEntity(context, entityId, out var entity) &&
+                EnemyJumpQueries.TryResolveLandingCell(
+                    context.FinalAuthoritativeSnapshot,
+                    entity,
+                    jumpState,
+                    out var predictedLandingCell,
+                    out _))
+            {
+                return predictedLandingCell;
+            }
+
+            return jumpState.lockedTargetCell;
+        }
+
+        private static bool TryResolveJumpPresentationEntity(
+            in TickPresentationBuildContext context,
+            int entityId,
+            out EntityState entity)
+        {
+            return context.FinalAuthoritativeSnapshot.TryGetEntity(entityId, out entity) ||
+                   context.PostMovementSnapshot.TryGetEntity(entityId, out entity) ||
+                   context.JumpBaselineSnapshot.TryGetEntity(entityId, out entity) ||
+                   context.PreMovementSnapshot.TryGetEntity(entityId, out entity);
         }
 
         private static bool DidStartEnemyRecovery(

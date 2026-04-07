@@ -47,4 +47,55 @@ namespace Game.Feature.Gameplay.Entities
             return _defaultDefinition;
         }
     }
+
+    internal static class EnemyParticipationPolicy
+    {
+        public static bool TryGetEnemyLogicEntity(
+            WorldSnapshot snapshot,
+            int entityId,
+            out EntityState entity)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!snapshot.TryGetEntity(entityId, out entity))
+            {
+                return false;
+            }
+
+            return IsEnemyLogicEntity(entity);
+        }
+
+        public static bool IsEnemyLogicEntity(in EntityState entity)
+        {
+            return entity.type == EntityType.Unit &&
+                   entity.aiMode != EnemyAiMode.None;
+        }
+
+        public static bool CanParticipateOnCurrentTopology(
+            WorldSnapshot snapshot,
+            in EntityState entity)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            return IsEnemyLogicEntity(entity) &&
+                   entity.position.face == snapshot.Topology.BottomFace;
+        }
+
+        public static bool IsControllableParticipant(
+            WorldSnapshot snapshot,
+            in EntityState entity)
+        {
+            return CanParticipateOnCurrentTopology(snapshot, entity) &&
+                   entity.hp > 0 &&
+                   !entity.markedForDeath &&
+                   entity.boardPresence == EntityBoardPresence.Occupying &&
+                   entity.aiMode != EnemyAiMode.Dead;
+        }
+    }
 }

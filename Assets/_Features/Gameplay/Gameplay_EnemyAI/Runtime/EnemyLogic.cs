@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.PlayerControl;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -23,6 +24,22 @@ namespace Game.Feature.Gameplay.Entities
 
     public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
     {
+        private readonly struct GroundLocomotionResolution
+        {
+            public GroundLocomotionResolution(bool hasIntent, RawMovementIntent intent, bool canAttemptJumpFallback)
+            {
+                HasIntent = hasIntent;
+                Intent = intent;
+                CanAttemptJumpFallback = canAttemptJumpFallback;
+            }
+
+            public bool HasIntent { get; }
+
+            public RawMovementIntent Intent { get; }
+
+            public bool CanAttemptJumpFallback { get; }
+        }
+
         private readonly int _entityId;
         private readonly EnemyAiCommonSettings _commonSettings;
         private readonly PatrolSettings _patrolSettings;
@@ -30,6 +47,8 @@ namespace Game.Feature.Gameplay.Entities
         private readonly ChaseSettings _chaseSettings;
         private readonly AttackDecisionSettings _attackDecisionSettings;
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
+        private readonly MovementSkillStrategyKind _movementSkillStrategyKind;
+        private readonly EnemyJumpTimingSettings _jumpTimingSettings;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly IChaseStrategy _chaseStrategy;
@@ -71,6 +90,8 @@ namespace Game.Feature.Gameplay.Entities
             _chaseSettings = aiDefinition.ChaseSettings;
             _attackDecisionSettings = aiDefinition.AttackDecisionSettings;
             _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
+            _movementSkillStrategyKind = aiDefinition.MovementSkillStrategyKind;
+            _jumpTimingSettings = aiDefinition.JumpTimingSettings;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
@@ -164,12 +185,24 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(actionTransitions));
             }
 
-            if (!TryGetControllableEnemy(snapshot, out var source))
+            if (!TryGetAiControlledEnemy(snapshot, out var source))
             {
                 return;
             }
 
-            if (source.enemyLocomotionCooldownTicks <= 0)
+            var suppressMovementThisTick = false;
+            if (_movementSkillStrategyKind == MovementSkillStrategyKind.JumpToLockedTarget)
+            {
+                if (writeContext is not IEnemyJumpCommitContext jumpWriteContext)
+                {
+                    throw new ArgumentException("Pre-movement write context must expose enemy jump commit capabilities.", nameof(writeContext));
+                }
+
+                suppressMovementThisTick = CommitJumpState(snapshot, in input, source, writeContext, jumpWriteContext, updates);
+            }
+
+            if (!TryGetControllableEnemy(snapshot, out source) ||
+                source.enemyLocomotionCooldownTicks <= 0)
             {
                 return;
             }
@@ -178,6 +211,11 @@ namespace Game.Feature.Gameplay.Entities
             writeContext.SetEnemyLocomotionCooldown(_entityId, nextCooldown);
             updates.Add(
                 $"EnemyLocomotionCooldownUpdated|E={_entityId}|From={source.enemyLocomotionCooldownTicks}|To={nextCooldown}");
+
+            if (suppressMovementThisTick)
+            {
+                return;
+            }
         }
 
         public void CollectMovementIntents(
@@ -200,72 +238,15 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            switch (source.aiMode)
+            if (ShouldSuppressMovementForJump(snapshot, input.TickIndex))
             {
-                case EnemyAiMode.Patrol:
-                    if (source.enemyLocomotionCooldownTicks > 0)
-                    {
-                        return;
-                    }
+                return;
+            }
 
-                    if (_patrolStrategy.TryBuildMovementIntent(
-                            snapshot,
-                            source,
-                            _commonSettings,
-                            _patrolSettings,
-                            out var patrolIntent))
-                    {
-                        buffer.Add(ApplyLocomotionCooldown(patrolIntent));
-                    }
-
-                    return;
-
-                case EnemyAiMode.Chase:
-                    if (source.enemyLocomotionCooldownTicks > 0)
-                    {
-                        return;
-                    }
-
-                    if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
-                    {
-                        return;
-                    }
-
-                    if (_chaseStrategy.TryBuildMovementIntent(
-                            snapshot,
-                            source,
-                            chaseTarget,
-                            _commonSettings,
-                            _chaseSettings,
-                            out var chaseIntent))
-                    {
-                        buffer.Add(ApplyLocomotionCooldown(chaseIntent));
-                    }
-
-                    return;
-
-                case EnemyAiMode.Charge:
-                    if (source.enemyLocomotionCooldownTicks > 0)
-                    {
-                        return;
-                    }
-
-                    var chargeDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
-                    if (chargeDelta.HasValue &&
-                        EnemyMovementStrategyShared.TryBuildMoveIntent(
-                            snapshot,
-                            source,
-                            _commonSettings,
-                            chargeDelta.Value,
-                            out var chargeIntent))
-                    {
-                        buffer.Add(ApplyLocomotionCooldown(chargeIntent));
-                    }
-
-                    return;
-
-                default:
-                    return;
+            var locomotion = ResolveBaselineGroundLocomotion(snapshot, source);
+            if (locomotion.HasIntent)
+            {
+                buffer.Add(ApplyLocomotionCooldown(locomotion.Intent));
             }
         }
 
@@ -282,6 +263,11 @@ namespace Game.Feature.Gameplay.Entities
             if (buffer == null)
             {
                 throw new ArgumentNullException(nameof(buffer));
+            }
+
+            if (ShouldSuppressAttackForJump(snapshot))
+            {
+                return;
             }
 
             RawAttackIntent attackIntent;
@@ -312,29 +298,53 @@ namespace Game.Feature.Gameplay.Entities
 
         private bool TryGetAiControlledEnemy(WorldSnapshot snapshot, out EntityState source)
         {
-            if (!snapshot.TryGetEntity(_entityId, out source))
+            if (!EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out source))
             {
                 return false;
             }
 
-            return source.type == EntityType.Unit &&
-                   source.aiMode != EnemyAiMode.None;
+            return EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source);
+        }
+
+        private bool ShouldSuppressMovementForJump(WorldSnapshot snapshot, int tickIndex)
+        {
+            if (!TryGetJumpState(snapshot, out var jumpState))
+            {
+                return false;
+            }
+
+            return jumpState.phase == EnemyJumpPhase.Windup ||
+                   jumpState.phase == EnemyJumpPhase.Airborne ||
+                   (jumpState.phase == EnemyJumpPhase.Cooldown &&
+                    jumpState.landingTick == tickIndex);
+        }
+
+        private bool ShouldSuppressAttackForJump(WorldSnapshot snapshot)
+        {
+            if (!TryGetJumpState(snapshot, out var jumpState))
+            {
+                return false;
+            }
+
+            return jumpState.phase == EnemyJumpPhase.Windup ||
+                   jumpState.phase == EnemyJumpPhase.Airborne;
+        }
+
+        private bool TryGetJumpState(WorldSnapshot snapshot, out EnemyJumpRuntimeState jumpState)
+        {
+            jumpState = default;
+            return _movementSkillStrategyKind == MovementSkillStrategyKind.JumpToLockedTarget &&
+                   snapshot.TryGetEnemyJumpState(_entityId, out jumpState);
         }
 
         private bool TryGetControllableEnemy(WorldSnapshot snapshot, out EntityState source)
         {
-            if (!snapshot.TryGetEntity(_entityId, out source))
+            if (!EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out source))
             {
                 return false;
             }
 
-            return source.type == EntityType.Unit &&
-                   source.hp > 0 &&
-                   !source.markedForDeath &&
-                   source.boardPresence == EntityBoardPresence.Occupying &&
-                   snapshot.Topology.IsFaceActive(source.position.face) &&
-                   source.aiMode != EnemyAiMode.None &&
-                   source.aiMode != EnemyAiMode.Dead;
+            return EnemyParticipationPolicy.IsControllableParticipant(snapshot, source);
         }
 
         private RawMovementIntent ApplyLocomotionCooldown(RawMovementIntent intent)
@@ -346,6 +356,331 @@ namespace Game.Feature.Gameplay.Entities
                 intent.CommandKind,
                 intent.LocalSequence,
                 _locomotionTimingSettings.MoveCooldownTicks);
+        }
+
+        private bool CommitJumpState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext stateWriteContext,
+            IEnemyJumpCommitContext jumpWriteContext,
+            List<string> updates)
+        {
+            var hasPreviousState = snapshot.TryGetEnemyJumpState(_entityId, out var previousState);
+            var nextState = previousState;
+            var suppressMovementThisTick = false;
+
+            if (source.hp <= 0 ||
+                source.markedForDeath ||
+                source.aiMode == EnemyAiMode.Dead)
+            {
+                if (ShouldWriteJumpState(hasPreviousState, previousState, EnemyJumpQueries.Clear(previousState)))
+                {
+                    nextState = EnemyJumpQueries.Clear(previousState);
+                    stateWriteContext.SetEnemyJumpState(_entityId, nextState);
+                    AppendJumpUpdate(updates, _entityId, "ClearDead", nextState);
+                }
+
+                return false;
+            }
+
+            if (!hasPreviousState || previousState.phase == EnemyJumpPhase.None)
+            {
+                var locomotion = ResolveBaselineGroundLocomotion(snapshot, source);
+                if (TryResolveJumpStart(snapshot, source, locomotion, input.TickIndex, out nextState))
+                {
+                    suppressMovementThisTick = true;
+                    AppendJumpUpdate(updates, _entityId, "Start", nextState);
+                }
+            }
+
+            if (nextState.phase == EnemyJumpPhase.Windup)
+            {
+                suppressMovementThisTick = true;
+
+                if (input.TickIndex >= nextState.windupEndTick)
+                {
+                    jumpWriteContext.SetEnemyJumpBoardPresence(_entityId, EntityBoardPresence.Detached);
+                    nextState = EnemyJumpQueries.BeginAirborne(nextState);
+                    AppendJumpUpdate(updates, _entityId, "Takeoff", nextState);
+                }
+            }
+
+            if (nextState.phase == EnemyJumpPhase.Airborne)
+            {
+                suppressMovementThisTick = true;
+
+                if (input.TickIndex >= nextState.landingTick)
+                {
+                    if (EnemyJumpQueries.TryResolveLandingCell(snapshot, source, nextState, out var landingCell, out var landingRule))
+                    {
+                        jumpWriteContext.MoveEnemyJumpEntity(_entityId, landingCell);
+                        jumpWriteContext.SetEnemyJumpBoardPresence(_entityId, EntityBoardPresence.Occupying);
+                        nextState = EnemyJumpQueries.EnterCooldown(nextState, _jumpTimingSettings.CooldownTicks);
+                        AppendJumpUpdate(
+                            updates,
+                            _entityId,
+                            "Landing",
+                            nextState,
+                            $"Cell={landingCell}|Rule={landingRule}");
+                    }
+                    else
+                    {
+                        nextState = EnemyJumpQueries.ScheduleRetry(nextState, input.TickIndex + 1);
+                        AppendJumpUpdate(updates, _entityId, "Retry", nextState, "Reason=NoLegalLandingCell");
+                    }
+                }
+            }
+            else if (nextState.phase == EnemyJumpPhase.Cooldown)
+            {
+                var cooledState = EnemyJumpQueries.TickCooldown(nextState);
+                if (!AreEqual(nextState, cooledState))
+                {
+                    nextState = cooledState;
+                    AppendJumpUpdate(
+                        updates,
+                        _entityId,
+                        nextState.phase == EnemyJumpPhase.None ? "CooldownComplete" : "CooldownTick",
+                        nextState);
+                }
+
+            }
+
+            if (ShouldWriteJumpState(hasPreviousState, previousState, nextState))
+            {
+                stateWriteContext.SetEnemyJumpState(_entityId, nextState);
+            }
+
+            return suppressMovementThisTick;
+        }
+
+        private GroundLocomotionResolution ResolveBaselineGroundLocomotion(
+            WorldSnapshot snapshot,
+            in EntityState source)
+        {
+            if (source.enemyLocomotionCooldownTicks > 0)
+            {
+                return default;
+            }
+
+            switch (source.aiMode)
+            {
+                case EnemyAiMode.Patrol:
+                    if (_patrolStrategy.TryBuildMovementIntent(
+                            snapshot,
+                            source,
+                            _commonSettings,
+                            _patrolSettings,
+                            out var patrolIntent))
+                    {
+                        return new GroundLocomotionResolution(
+                            hasIntent: true,
+                            patrolIntent,
+                            canAttemptJumpFallback: false);
+                    }
+
+                    return new GroundLocomotionResolution(
+                        hasIntent: false,
+                        default,
+                        canAttemptJumpFallback: true);
+
+                case EnemyAiMode.Chase:
+                    if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
+                    {
+                        return default;
+                    }
+
+                    if (_chaseStrategy.TryBuildMovementIntent(
+                            snapshot,
+                            source,
+                            chaseTarget,
+                            _commonSettings,
+                            _chaseSettings,
+                            out var chaseIntent))
+                    {
+                        return new GroundLocomotionResolution(
+                            hasIntent: true,
+                            chaseIntent,
+                            canAttemptJumpFallback: false);
+                    }
+
+                    return new GroundLocomotionResolution(
+                        hasIntent: false,
+                        default,
+                        canAttemptJumpFallback: true);
+
+                case EnemyAiMode.Charge:
+                    var chargeDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
+                    if (chargeDelta.HasValue &&
+                        EnemyMovementStrategyShared.TryBuildMoveIntent(
+                            snapshot,
+                            source,
+                            _commonSettings,
+                            chargeDelta.Value,
+                            out var chargeIntent))
+                    {
+                        return new GroundLocomotionResolution(
+                            hasIntent: true,
+                            chargeIntent,
+                            canAttemptJumpFallback: false);
+                    }
+
+                    return default;
+
+                default:
+                    return default;
+            }
+        }
+
+        private bool TryResolveJumpStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in GroundLocomotionResolution locomotion,
+            int tickIndex,
+            out EnemyJumpRuntimeState jumpState)
+        {
+            jumpState = default;
+            var hasExistingState = snapshot.TryGetEnemyJumpState(_entityId, out var existingState);
+
+            if (locomotion.HasIntent ||
+                !locomotion.CanAttemptJumpFallback ||
+                source.boardPresence != EntityBoardPresence.Occupying ||
+                (hasExistingState &&
+                 existingState.phase == EnemyJumpPhase.Cooldown &&
+                 existingState.cooldownRemainingTicks > 0))
+            {
+                return false;
+            }
+
+            switch (source.aiMode)
+            {
+                case EnemyAiMode.Patrol:
+                    return TryResolvePatrolJumpStart(snapshot, source, hasExistingState ? existingState : default, tickIndex, out jumpState);
+
+                case EnemyAiMode.Chase:
+                    return TryResolveChaseJumpStart(snapshot, source, hasExistingState ? existingState : default, tickIndex, out jumpState);
+
+                default:
+                    return false;
+            }
+        }
+
+        private bool TryResolvePatrolJumpStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyJumpRuntimeState previousState,
+            int tickIndex,
+            out EnemyJumpRuntimeState jumpState)
+        {
+            jumpState = default;
+
+            var forwardDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
+            if (!forwardDelta.HasValue)
+            {
+                return false;
+            }
+
+            var lockedTargetCell = source.position + (forwardDelta.Value * 2);
+            jumpState = EnemyJumpQueries.StartJump(
+                previousState,
+                source.position,
+                lockedTargetCell,
+                tickIndex,
+                _jumpTimingSettings);
+
+            return TryResolveJumpLanding(snapshot, source, jumpState);
+        }
+
+        private bool TryResolveChaseJumpStart(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyJumpRuntimeState previousState,
+            int tickIndex,
+            out EnemyJumpRuntimeState jumpState)
+        {
+            jumpState = default;
+            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
+                target.position == source.position ||
+                target.position.face != source.position.face)
+            {
+                return false;
+            }
+
+            jumpState = EnemyJumpQueries.StartJump(
+                previousState,
+                source.position,
+                target.position,
+                tickIndex,
+                _jumpTimingSettings);
+
+            return TryResolveJumpLanding(snapshot, source, jumpState);
+        }
+
+        private static bool TryResolveJumpLanding(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyJumpRuntimeState jumpState)
+        {
+            return EnemyJumpQueries.TryResolveLandingCell(snapshot, source, jumpState, out var landingCell, out _) &&
+                   landingCell != source.position;
+        }
+
+        private static bool ShouldWriteJumpState(
+            bool hadPreviousState,
+            in EnemyJumpRuntimeState previousState,
+            in EnemyJumpRuntimeState nextState)
+        {
+            return hadPreviousState ||
+                   nextState.IsActive ||
+                   nextState.sequence != 0 ||
+                   !AreEqual(previousState, nextState);
+        }
+
+        private static bool AreEqual(
+            in EnemyJumpRuntimeState left,
+            in EnemyJumpRuntimeState right)
+        {
+            return left.phase == right.phase &&
+                   left.sequence == right.sequence &&
+                   left.sourceCell == right.sourceCell &&
+                   left.lockedTargetCell == right.lockedTargetCell &&
+                   left.windupEndTick == right.windupEndTick &&
+                   left.landingTick == right.landingTick &&
+                   left.cooldownRemainingTicks == right.cooldownRemainingTicks &&
+                   left.retryCount == right.retryCount;
+        }
+
+        private static void AppendJumpUpdate(
+            List<string> updates,
+            int entityId,
+            string label,
+            in EnemyJumpRuntimeState state,
+            string extra = null)
+        {
+            if (updates == null)
+            {
+                throw new ArgumentNullException(nameof(updates));
+            }
+
+            var builder = new System.Text.StringBuilder();
+            builder
+                .Append("EnemyJumpStateUpdated|E=").Append(entityId)
+                .Append("|Label=").Append(label ?? string.Empty)
+                .Append("|Phase=").Append(state.phase)
+                .Append("|Seq=").Append(state.sequence)
+                .Append("|Source=").Append(state.sourceCell)
+                .Append("|Locked=").Append(state.lockedTargetCell)
+                .Append("|WindupEnd=").Append(state.windupEndTick)
+                .Append("|Landing=").Append(state.landingTick)
+                .Append("|Cooldown=").Append(state.cooldownRemainingTicks)
+                .Append("|Retry=").Append(state.retryCount);
+
+            if (!string.IsNullOrEmpty(extra))
+            {
+                builder.Append('|').Append(extra);
+            }
+
+            updates.Add(builder.ToString());
         }
 
         private Direction? ResolvePatrolFacing(

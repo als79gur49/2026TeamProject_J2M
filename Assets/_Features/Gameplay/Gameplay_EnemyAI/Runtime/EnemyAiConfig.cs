@@ -34,6 +34,12 @@ namespace Game.Feature.Gameplay.Entities
         ContactSameCell = 2,
     }
 
+    public enum MovementSkillStrategyKind
+    {
+        None = 0,
+        JumpToLockedTarget = 1,
+    }
+
     [Serializable]
     public struct EnemyAiCommonSettings
     {
@@ -303,6 +309,118 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    [Serializable]
+    public struct EnemyJumpTimingSettings
+    {
+        [SerializeField] private int windupTicks;
+        [SerializeField] private int airborneTicks;
+        [SerializeField] private int cooldownTicks;
+
+        public EnemyJumpTimingSettings(
+            int windupTicks,
+            int airborneTicks,
+            int cooldownTicks)
+        {
+            this.windupTicks = windupTicks;
+            this.airborneTicks = airborneTicks;
+            this.cooldownTicks = cooldownTicks;
+        }
+
+        public int WindupTicks => windupTicks;
+
+        public int AirborneTicks => airborneTicks;
+
+        public int CooldownTicks => cooldownTicks;
+
+        public void Validate(string paramName)
+        {
+            if (windupTicks < 0 || airborneTicks < 0 || cooldownTicks < 0)
+            {
+                throw new ArgumentException("Enemy jump timing settings require non-negative tick counts.", paramName);
+            }
+        }
+
+        public static EnemyJumpTimingSettings CreateDefault()
+        {
+            return new EnemyJumpTimingSettings(windupTicks: 0, airborneTicks: 0, cooldownTicks: 0);
+        }
+    }
+
+    [Serializable]
+    public struct EnemyJumpTimingAuthoringSettings
+    {
+        [SerializeField] private float windupSeconds;
+        [SerializeField] private float airborneSeconds;
+        [SerializeField] private float cooldownSeconds;
+
+        public EnemyJumpTimingAuthoringSettings(
+            float windupSeconds,
+            float airborneSeconds,
+            float cooldownSeconds)
+        {
+            this.windupSeconds = windupSeconds;
+            this.airborneSeconds = airborneSeconds;
+            this.cooldownSeconds = cooldownSeconds;
+        }
+
+        public float WindupSeconds => windupSeconds;
+
+        public float AirborneSeconds => airborneSeconds;
+
+        public float CooldownSeconds => cooldownSeconds;
+
+        public void Validate(string paramName)
+        {
+            if (windupSeconds < 0f || airborneSeconds < 0f || cooldownSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy jump timing authoring settings require non-negative durations.", paramName);
+            }
+        }
+
+        public EnemyJumpTimingSettings ToRuntimeSettings(int simulationTicksPerSecond)
+        {
+            Validate(nameof(EnemyJumpTimingAuthoringSettings));
+
+            return new EnemyJumpTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(
+                    windupSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true),
+                GameplayTimingProfile.SecondsToTicks(
+                    airborneSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true),
+                GameplayTimingProfile.SecondsToTicks(
+                    cooldownSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true));
+        }
+
+        public static EnemyJumpTimingAuthoringSettings CreateDefault()
+        {
+            return FromRuntimeSettings(
+                EnemyJumpTimingSettings.CreateDefault(),
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        public static EnemyJumpTimingAuthoringSettings FromRuntimeSettings(
+            EnemyJumpTimingSettings runtimeSettings,
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            return new EnemyJumpTimingAuthoringSettings(
+                runtimeSettings.WindupTicks / (float)simulationTicksPerSecond,
+                runtimeSettings.AirborneTicks / (float)simulationTicksPerSecond,
+                runtimeSettings.CooldownTicks / (float)simulationTicksPerSecond);
+        }
+    }
+
     public readonly struct EnemyAiRuntimeDefinition
     {
         public EnemyAiRuntimeDefinition(
@@ -325,6 +443,8 @@ namespace Game.Feature.Gameplay.Entities
                 attackDecisionSettings,
                 attackTimingSettings,
                 EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                MovementSkillStrategyKind.None,
+                EnemyJumpTimingSettings.CreateDefault(),
                 patrolStrategy,
                 detectionStrategy,
                 chaseStrategy,
@@ -346,6 +466,39 @@ namespace Game.Feature.Gameplay.Entities
             IChaseStrategy chaseStrategy,
             IAttackDecisionStrategy attackDecisionStrategy,
             IEnemyAiStateResolver stateResolver)
+            : this(
+                commonSettings,
+                patrolSettings,
+                detectionSettings,
+                chaseSettings,
+                attackDecisionSettings,
+                attackTimingSettings,
+                locomotionTimingSettings,
+                MovementSkillStrategyKind.None,
+                EnemyJumpTimingSettings.CreateDefault(),
+                patrolStrategy,
+                detectionStrategy,
+                chaseStrategy,
+                attackDecisionStrategy,
+                stateResolver)
+        {
+        }
+
+        public EnemyAiRuntimeDefinition(
+            EnemyAiCommonSettings commonSettings,
+            PatrolSettings patrolSettings,
+            DetectionSettings detectionSettings,
+            ChaseSettings chaseSettings,
+            AttackDecisionSettings attackDecisionSettings,
+            EnemyAttackTimingSettings attackTimingSettings,
+            EnemyLocomotionTimingSettings locomotionTimingSettings,
+            MovementSkillStrategyKind movementSkillStrategyKind,
+            EnemyJumpTimingSettings jumpTimingSettings,
+            IPatrolStrategy patrolStrategy,
+            IDetectionStrategy detectionStrategy,
+            IChaseStrategy chaseStrategy,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            IEnemyAiStateResolver stateResolver)
         {
             CommonSettings = commonSettings;
             PatrolSettings = patrolSettings;
@@ -354,6 +507,8 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings = attackDecisionSettings;
             AttackTimingSettings = attackTimingSettings;
             LocomotionTimingSettings = locomotionTimingSettings;
+            MovementSkillStrategyKind = movementSkillStrategyKind;
+            JumpTimingSettings = jumpTimingSettings;
             PatrolStrategy = patrolStrategy;
             DetectionStrategy = detectionStrategy;
             ChaseStrategy = chaseStrategy;
@@ -377,6 +532,10 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings { get; }
 
+        public MovementSkillStrategyKind MovementSkillStrategyKind { get; }
+
+        public EnemyJumpTimingSettings JumpTimingSettings { get; }
+
         public IPatrolStrategy PatrolStrategy { get; }
 
         public IDetectionStrategy DetectionStrategy { get; }
@@ -395,6 +554,7 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionSettings.Validate(paramName);
             AttackTimingSettings.Validate(paramName);
             LocomotionTimingSettings.Validate(paramName);
+            JumpTimingSettings.Validate(paramName);
 
             if (PatrolStrategy == null ||
                 DetectionStrategy == null ||
@@ -416,6 +576,8 @@ namespace Game.Feature.Gameplay.Entities
                 AttackDecisionSettings.CreateDefaultMelee(),
                 EnemyAttackTimingSettings.CreateDefaultMelee(),
                 EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                MovementSkillStrategyKind.None,
+                EnemyJumpTimingSettings.CreateDefault(),
                 ForwardPatrolStrategy.Instance,
                 NearestOpponentDetectionStrategy.Instance,
                 AxisPriorityChaseStrategy.Instance,
@@ -440,6 +602,8 @@ namespace Game.Feature.Gameplay.Entities
                 profile.AttackDecisionSettings,
                 profile.AttackTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 profile.LocomotionTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
+                profile.MovementSkillStrategyKind,
+                profile.JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
                 ResolvePatrolStrategy(profile.PatrolStrategyKind),
                 ResolveDetectionStrategy(profile.DetectionStrategyKind),
                 ResolveChaseStrategy(profile.ChaseStrategyKind),

@@ -622,6 +622,40 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void Snapshot_EnemyJumpState_PreservesStoredRuntimeState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 4,
+                    sourceCell = new SurfaceCell(FaceId.Floor, 0, 1),
+                    lockedTargetCell = new SurfaceCell(FaceId.Floor, 4, 1),
+                    windupEndTick = 7,
+                    landingTick = 9,
+                    cooldownRemainingTicks = 2,
+                    retryCount = 1,
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEnemyJumpState(40, out var jumpState), Is.True);
+            Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(jumpState.sequence, Is.EqualTo(4));
+            Assert.That(jumpState.sourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(jumpState.lockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 1)));
+            Assert.That(jumpState.windupEndTick, Is.EqualTo(7));
+            Assert.That(jumpState.landingTick, Is.EqualTo(9));
+            Assert.That(jumpState.cooldownRemainingTicks, Is.EqualTo(2));
+            Assert.That(jumpState.retryCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState()
         {
             var idlePipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -738,6 +772,40 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(actionResult.Trace.Text, Does.Contain("Final.EnemyActions"));
             Assert.That(actionResult.Trace.Text, Does.Contain("E=40|Kind=Melee|Seq=2|Target=10|Direction=Left|Start=4|Execute=5|Attempted=0"));
             Assert.That(replay[0].EnemyActionDump, Does.Contain("E=40|Kind=Melee|Seq=2|Target=10|Direction=Left|Start=4|Execute=5|Attempted=0"));
+        }
+
+        [Test]
+        public void DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState()
+        {
+            var idleWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+            var jumpWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Chase),
+            });
+
+            jumpWorldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 2,
+                    sourceCell = new SurfaceCell(FaceId.Floor, 0, 1),
+                    lockedTargetCell = new SurfaceCell(FaceId.Floor, 4, 1),
+                    windupEndTick = 4,
+                    landingTick = 6,
+                    cooldownRemainingTicks = 0,
+                    retryCount = 3,
+                });
+
+            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var jumpResult = GameplayCompositionRoot.CreateTickPipeline(jumpWorldState).RunTick(new TickInput(1));
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(jumpResult.DeterminismHash));
+            Assert.That(jumpResult.Trace.Text, Does.Contain("Final.EnemyJumps"));
+            Assert.That(jumpResult.Trace.Text, Does.Contain("E=40|Phase=Airborne|Seq=2|Source=Floor(0,1)|Locked=Floor(4,1)|WindupEnd=4|Landing=6|Cooldown=0|Retry=3"));
         }
 
         [Test]

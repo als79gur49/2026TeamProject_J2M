@@ -277,6 +277,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void RunTick_OffBottomEnemy_DoesNotEmitMovementOrAttackTrace()
+        {
+            var player = CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Front, 1, 0), Direction.Left);
+            var enemy = CreateEnemyEntity(40, new SurfaceCell(FaceId.Front, 0, 0), EnemyAiMode.Chase, Direction.Right);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                    enemy,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("Source=40|Priority="));
+            Assert.That(result.Trace.Text, Does.Not.Contain("Source=40|Target=10"));
+        }
+
+        [Test]
+        public void RunTick_TopologyRotation_ReevaluatesEnemyParticipationBeforeAttackCollection()
+        {
+            var player = CreateEntity(10, EntityType.Unit, new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up);
+            var enemy = CreateEnemyEntity(40, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.Attack, Direction.Up);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    player,
+                    enemy,
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                CreateEnemyActionState(
+                    EnemyActionKind.Melee,
+                    sequence: 1,
+                    lockedTargetEntityId: 10,
+                    direction: Direction.Up,
+                    startTick: 0,
+                    executeTick: 1));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+
+            Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState), Is.True);
+            Assert.That(actionState.IsActive, Is.False);
+            Assert.That(actionState.sequence, Is.EqualTo(1));
+            Assert.That(result.Trace.Text, Does.Contain("EnemyAction.BeforeAttackCollectionTransitions"));
+            Assert.That(result.Trace.Text, Does.Contain("E=40|Prev=Melee|Curr=None|PrevSeq=1|CurrSeq=1|Started=False|Canceled=True"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
+        }
+
+        [Test]
         public void GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileCadence()
         {
             var worldState = CreateWorldState(new[]
@@ -1655,6 +1727,186 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(signal.StartedRecoveryThisTick, Is.False);
         }
 
+        [Test]
+        public void TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart()
+        {
+            const int enemyId = 40;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var jumpState = CreateEnemyJumpState(
+                EnemyJumpPhase.Windup,
+                sequence: 3,
+                sourceCell: enemyCell,
+                lockedTargetCell: new SurfaceCell(FaceId.Floor, 3, 1));
+
+            var preMovementSnapshot = CreateSnapshotWithEnemyJumpStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Patrol, Direction.Right),
+                });
+            var postMovementSnapshot = CreateSnapshotWithEnemyJumpStates(
+                new[]
+                {
+                    CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Patrol, Direction.Right),
+                },
+                new EnemyJumpStateSeed(enemyId, jumpState));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty,
+                    currentTickIndex: 5,
+                    jumpBaselineSnapshot: preMovementSnapshot));
+
+            var signal = presentationData.EnemyJumpSignals.Single();
+            Assert.That(signal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(signal.Sequence, Is.EqualTo(3));
+            Assert.That(signal.Phase, Is.EqualTo(EnemyJumpPhase.Windup));
+            Assert.That(signal.StartedWindupThisTick, Is.True);
+            Assert.That(signal.StartedAirborneThisTick, Is.False);
+            Assert.That(signal.LandedThisTick, Is.False);
+            Assert.That(signal.RetryThisTick, Is.False);
+            Assert.That(signal.SourceCell, Is.EqualTo(enemyCell));
+            Assert.That(signal.LockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+            Assert.That(signal.PresentationTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+            Assert.That(signal.Facing, Is.EqualTo(Direction.Right));
+            Assert.That(signal.LandingTick, Is.EqualTo(7));
+            Assert.That(signal.RemainingAirborneTicks, Is.Zero);
+            Assert.That(signal.RetryCount, Is.Zero);
+            Assert.That(presentationData.EnemyActionSignals, Is.Empty);
+        }
+
+        [Test]
+        public void TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry()
+        {
+            const int enemyId = 40;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var windupState = CreateEnemyJumpState(
+                EnemyJumpPhase.Windup,
+                sequence: 4,
+                sourceCell,
+                targetCell);
+            var airborneState = CreateEnemyJumpState(
+                EnemyJumpPhase.Airborne,
+                sequence: 4,
+                sourceCell,
+                targetCell);
+            var retryState = CreateEnemyJumpState(
+                EnemyJumpPhase.Airborne,
+                sequence: 4,
+                sourceCell,
+                targetCell,
+                retryCount: 1);
+
+            var airborneStartPresentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, airborneState)),
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, airborneState)),
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, airborneState)),
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, airborneState)),
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty,
+                    currentTickIndex: 6,
+                    jumpBaselineSnapshot: CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right),
+                        },
+                        new EnemyJumpStateSeed(enemyId, windupState))));
+
+            var startSignal = airborneStartPresentationData.EnemyJumpSignals.Single();
+            Assert.That(startSignal.Phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(startSignal.StartedWindupThisTick, Is.False);
+            Assert.That(startSignal.StartedAirborneThisTick, Is.True);
+            Assert.That(startSignal.LandedThisTick, Is.False);
+            Assert.That(startSignal.RetryThisTick, Is.False);
+            Assert.That(startSignal.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(startSignal.LockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(startSignal.PresentationTargetCell, Is.EqualTo(targetCell));
+            Assert.That(startSignal.Facing, Is.EqualTo(Direction.Right));
+            Assert.That(startSignal.LandingTick, Is.EqualTo(7));
+            Assert.That(startSignal.RemainingAirborneTicks, Is.EqualTo(1));
+            Assert.That(startSignal.RetryCount, Is.Zero);
+
+            var retryPresentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, retryState)),
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, retryState)),
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, retryState)),
+                    CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, retryState)),
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupPhaseResult.Empty,
+                    currentTickIndex: 7,
+                    jumpBaselineSnapshot: CreateSnapshotWithEnemyJumpStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, sourceCell, EnemyAiMode.Patrol, Direction.Right, EntityBoardPresence.Detached),
+                        },
+                        new EnemyJumpStateSeed(enemyId, airborneState))));
+
+            var retrySignal = retryPresentationData.EnemyJumpSignals.Single();
+            Assert.That(retrySignal.Phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            Assert.That(retrySignal.StartedWindupThisTick, Is.False);
+            Assert.That(retrySignal.StartedAirborneThisTick, Is.False);
+            Assert.That(retrySignal.LandedThisTick, Is.False);
+            Assert.That(retrySignal.RetryThisTick, Is.True);
+            Assert.That(retrySignal.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(retrySignal.LockedTargetCell, Is.EqualTo(targetCell));
+            Assert.That(retrySignal.PresentationTargetCell, Is.EqualTo(targetCell));
+            Assert.That(retrySignal.Facing, Is.EqualTo(Direction.Right));
+            Assert.That(retrySignal.LandingTick, Is.EqualTo(8));
+            Assert.That(retrySignal.RemainingAirborneTicks, Is.EqualTo(1));
+            Assert.That(retrySignal.RetryCount, Is.EqualTo(1));
+            Assert.That(retryPresentationData.EnemyActionSignals, Is.Empty);
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -1725,6 +1977,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 for (var i = 0; i < actionStates.Length; i++)
                 {
                     writeContext.SetEnemyActionState(actionStates[i].EntityId, actionStates[i].State);
+                }
+            }
+
+            return CreateSnapshot(worldState);
+        }
+
+        private static WorldSnapshot CreateSnapshotWithEnemyJumpStates(
+            IEnumerable<EntityState> initialEntities,
+            params EnemyJumpStateSeed[] jumpStates)
+        {
+            var worldState = CreateWorldState(initialEntities);
+            if (jumpStates != null && jumpStates.Length > 0)
+            {
+                var writeContext = CreateWriteContext(worldState);
+                for (var i = 0; i < jumpStates.Length; i++)
+                {
+                    writeContext.SetEnemyJumpState(jumpStates[i].EntityId, jumpStates[i].State);
                 }
             }
 
@@ -1843,13 +2112,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EnemyJumpRuntimeState CreateEnemyJumpState(
+            EnemyJumpPhase phase,
+            int sequence,
+            SurfaceCell sourceCell,
+            SurfaceCell lockedTargetCell,
+            int retryCount = 0)
+        {
+            return new EnemyJumpRuntimeState
+            {
+                phase = phase,
+                sequence = sequence,
+                sourceCell = sourceCell,
+                lockedTargetCell = lockedTargetCell,
+                windupEndTick = 5,
+                landingTick = 7 + retryCount,
+                retryCount = retryCount,
+            };
+        }
+
         private static EntityState CreateEnemyEntity(
             int entityId,
             SurfaceCell position,
             EnemyAiMode aiMode,
-            Direction facing)
+            Direction facing,
+            EntityBoardPresence boardPresence = EntityBoardPresence.Occupying)
         {
-            var entity = CreateEntity(entityId, EntityType.Unit, position, facing);
+            var entity = CreateEntity(entityId, EntityType.Unit, position, facing, boardPresence);
             entity.aiMode = aiMode;
             entity.teamId = 2;
             return entity;
@@ -1889,6 +2178,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public int EntityId { get; }
 
             public EnemyActionRuntimeState State { get; }
+        }
+
+        private readonly struct EnemyJumpStateSeed
+        {
+            public EnemyJumpStateSeed(int entityId, EnemyJumpRuntimeState state)
+            {
+                EntityId = entityId;
+                State = state;
+            }
+
+            public int EntityId { get; }
+
+            public EnemyJumpRuntimeState State { get; }
         }
 
         private sealed class StubEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding

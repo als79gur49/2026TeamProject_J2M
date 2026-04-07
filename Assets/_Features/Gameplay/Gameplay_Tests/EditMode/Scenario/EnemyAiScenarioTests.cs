@@ -194,6 +194,142 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.EventLog, Does.Contain("CleanupRemoved|E=40"));
         }
 
+        [TestCase(FaceId.Front)]
+        [TestCase(FaceId.Ceiling)]
+        [TestCase(FaceId.Back)]
+        public void EnemyAi_MultiTick_OffBottomEnemy_DoesNotMoveOrDamagePlayer(FaceId enemyFace)
+        {
+            var enemyCell = new SurfaceCell(enemyFace, 0, 0);
+            var playerCell = new SurfaceCell(enemyFace, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: playerCell, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: enemyCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var firstTick = pipeline.RunTick(new TickInput(1));
+            var secondTick = pipeline.RunTick(new TickInput(2));
+            var thirdTick = pipeline.RunTick(new TickInput(3));
+
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(enemyCell));
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(thirdTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+        }
+
+        [Test]
+        public void EnemyAi_TopologyChange_MakesBottomEnemySuspendImmediately()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var activeTick = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            var suspendedTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(activeTick.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceId), Does.Contain(40));
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
+            Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(suspendedTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
+            Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+        }
+
+        [Test]
+        public void EnemyAi_TopologyChange_RestoresParticipationWhenEnemyReturnsToBottom()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var suspendedTick = pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
+            var resumedTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(suspendedTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                resumedTick.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+        }
+
+        [Test]
+        public void EnemyAi_JumpProfile_OffBottom_DoesNotStartOrProgressJump()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out _), Is.False);
+                Assert.That(firstTick.PresentationData.EnemyJumpSignals, Is.Empty);
+
+                worldState.CreateWriteContext().SetEnemyJumpState(
+                    40,
+                    new EnemyJumpRuntimeState
+                    {
+                        phase = EnemyJumpPhase.Windup,
+                        sequence = 1,
+                        sourceCell = new SurfaceCell(FaceId.Front, 0, 0),
+                        lockedTargetCell = new SurfaceCell(FaceId.Front, 2, 0),
+                        windupEndTick = 2,
+                        landingTick = 3,
+                        cooldownRemainingTicks = 0,
+                        retryCount = 0,
+                    });
+
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(jumpState.windupEndTick, Is.EqualTo(2));
+                Assert.That(jumpState.landingTick, Is.EqualTo(3));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
         [Test]
         public void EnemyAi_MultiTick_BoundaryPatrol_NeverCommitsTopologyChange()
         {
@@ -412,6 +548,459 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(player.hp, Is.EqualTo(3));
             Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
             Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+        }
+
+        [Test]
+        public void EnemyAi_JumpPatrol_OpenGround_PrefersPatrolLocomotion()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateJumpPatrolProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 2);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out _), Is.False);
+                Assert.That(firstTick.PresentationData.EnemyJumpSignals, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpPatrol_ForwardBlocked_StartsJumpFallback()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpPatrolProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 2);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(GetEntity(worldState, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1)));
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(jumpState.lockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
+                Assert.That(firstTick.PresentationData.EnemyJumpSignals.Single().StartedWindupThisTick, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpChase_OpenGround_PrefersGroundChaseLocomotion()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEntity(worldState, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out _), Is.False);
+                Assert.That(firstTick.PresentationData.EnemyJumpSignals, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpStart_LocksPlayerSurfaceCellAtStartTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 2, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(jumpState.lockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+                Assert.That(jumpState.sourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpWindup_KeepsSourceCellOccupied()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 2, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+
+                snapshot.EnumerateUnitsAt(sourceCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                CollectionAssert.AreEqual(new[] { 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Windup));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_Jump_PresentationSignals_EmitWindupAndAirborneFromRuntimePipeline()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var windupTick = pipeline.RunTick(new TickInput(1));
+                var windupSignal = windupTick.PresentationData.EnemyJumpSignals.Single();
+
+                Assert.That(windupSignal.EntityId, Is.EqualTo(40));
+                Assert.That(windupSignal.Phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(windupSignal.StartedWindupThisTick, Is.True);
+                Assert.That(windupSignal.StartedAirborneThisTick, Is.False);
+                Assert.That(windupSignal.LandedThisTick, Is.False);
+                Assert.That(windupSignal.RetryThisTick, Is.False);
+                Assert.That(windupSignal.SourceCell, Is.EqualTo(sourceCell));
+                Assert.That(windupSignal.LockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+                Assert.That(windupSignal.Facing, Is.EqualTo(Direction.Right));
+                Assert.That(windupSignal.LandingTick, Is.EqualTo(3));
+                Assert.That(windupSignal.RemainingAirborneTicks, Is.Zero);
+                Assert.That(windupSignal.RetryCount, Is.Zero);
+
+                var airborneTick = pipeline.RunTick(new TickInput(2));
+                var airborneSignal = airborneTick.PresentationData.EnemyJumpSignals.Single();
+
+                Assert.That(airborneSignal.EntityId, Is.EqualTo(40));
+                Assert.That(airborneSignal.Phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(airborneSignal.StartedWindupThisTick, Is.False);
+                Assert.That(airborneSignal.StartedAirborneThisTick, Is.True);
+                Assert.That(airborneSignal.LandedThisTick, Is.False);
+                Assert.That(airborneSignal.RetryThisTick, Is.False);
+                Assert.That(airborneSignal.SourceCell, Is.EqualTo(sourceCell));
+                Assert.That(airborneSignal.LockedTargetCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+                Assert.That(airborneSignal.Facing, Is.EqualTo(Direction.Right));
+                Assert.That(airborneSignal.LandingTick, Is.EqualTo(3));
+                Assert.That(airborneSignal.RemainingAirborneTicks, Is.EqualTo(1));
+                Assert.That(airborneSignal.RetryCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpAirborne_SetsDetached_AndBecomesUntargetable()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+
+                snapshot.EnumerateUnitsAt(sourceCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(snapshot.CanBeTargetedForNewSelection(40), Is.False);
+                Assert.That(stackedUnits, Is.Empty);
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpLanding_OnLockedPlayerCell_AllowsUnitStacking()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var snapshot = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+
+                snapshot.EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpLanding_BoxOnLockedCell_UsesTwoRingFallback()
+        {
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: lockedTargetCell, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(1, 0)),
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.MoveEntity(10, new SurfaceCell(FaceId.Floor, 4, 1));
+                writeContext.MoveEntity(50, lockedTargetCell);
+
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 1)));
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(lockedTargetCell));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetRing1Forward"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpLanding_TargetTwoRingBlocked_FallsBackToSourceTwoRing()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: lockedTargetCell, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(1, 0)),
+                    CreateBox(entityId: 51, position: new Vector2Int(2, 0)),
+                    CreateWall(entityId: 60, position: new Vector2Int(4, 2)),
+                    CreateWall(entityId: 61, position: new Vector2Int(4, 0)),
+                    CreateWall(entityId: 62, position: new Vector2Int(3, 1)),
+                    CreateWall(entityId: 63, position: new Vector2Int(3, 2)),
+                    CreateWall(entityId: 64, position: new Vector2Int(3, 0)),
+                    CreateWall(entityId: 65, position: new Vector2Int(2, 1)),
+                    CreateWall(entityId: 66, position: new Vector2Int(1, 1)),
+                    CreateWall(entityId: 67, position: new Vector2Int(0, 2)),
+                    CreateWall(entityId: 68, position: new Vector2Int(0, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.MoveEntity(10, new SurfaceCell(FaceId.Front, 2, 2));
+                writeContext.MoveEntity(50, lockedTargetCell);
+
+                pipeline.RunTick(new TickInput(2));
+                worldState.CreateWriteContext().MoveEntity(51, sourceCell);
+                var landingTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 2)));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=SourceRing2ForwardLeft"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpLanding_NoLegalCellWithinAllowedSpace_StaysAirborne_AndRetriesSameLockedTarget()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var lockedTargetCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: lockedTargetCell, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(2, 2)),
+                    CreateBox(entityId: 51, position: new Vector2Int(2, 0)),
+                    CreateWall(entityId: 60, position: new Vector2Int(4, 2)),
+                    CreateWall(entityId: 61, position: new Vector2Int(4, 0)),
+                    CreateWall(entityId: 62, position: new Vector2Int(3, 1)),
+                    CreateWall(entityId: 63, position: new Vector2Int(3, 2)),
+                    CreateWall(entityId: 64, position: new Vector2Int(3, 0)),
+                    CreateWall(entityId: 65, position: new Vector2Int(2, 1)),
+                    CreateWall(entityId: 66, position: new Vector2Int(1, 1)),
+                    CreateWall(entityId: 67, position: new Vector2Int(0, 2)),
+                    CreateWall(entityId: 68, position: new Vector2Int(1, 2)),
+                    CreateWall(entityId: 69, position: new Vector2Int(0, 0)),
+                    CreateWall(entityId: 70, position: new Vector2Int(1, 0)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.MoveEntity(10, new SurfaceCell(FaceId.Front, 2, 2));
+                writeContext.MoveEntity(50, lockedTargetCell);
+
+                pipeline.RunTick(new TickInput(2));
+                worldState.CreateWriteContext().MoveEntity(51, sourceCell);
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.lockedTargetCell, Is.EqualTo(lockedTargetCell));
+                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_Jump_DoesNotUseAttackPhase()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpCooldown_DoesNotBlockPatrolLocomotion_AndLandingTickDoesNotAddExtraGroundMove()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 2)));
+            var profile = CreateJumpPatrolProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 2);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var cooldownTick = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1)));
+                Assert.That(GetEntityAfterTick(secondTick, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(GetEntityAfterTick(landingTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 1)));
+                Assert.That(GetEntityAfterTick(cooldownTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 1)));
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(landingTick.PresentationData.EnemyJumpSignals.Single().LandedThisTick, Is.True);
+                Assert.That(cooldownTick.PresentationData.EnemyJumpSignals, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
         }
 
         [Test]
@@ -647,6 +1236,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, Game.Feature.Gameplay.BoardState.TerrainData.Empty);
         }
 
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            CubeTopologyState topology)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                topology);
+        }
+
         private static EntityState GetEntity(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
@@ -662,6 +1262,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(entityId, out var actionState), Is.True);
             return actionState;
+        }
+
+        private static EnemyJumpRuntimeState GetEnemyJumpState(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(entityId, out var jumpState), Is.True);
+            return jumpState;
         }
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
@@ -689,6 +1295,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
         }
 
+        private static EnemyAiProfile CreateJumpChaserProfile(
+            int windupTicks,
+            int airborneTicks,
+            int cooldownTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeJumpChaser(
+                new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks));
+        }
+
+        private static EnemyAiProfile CreateJumpPatrolProfile(
+            int windupTicks,
+            int airborneTicks,
+            int cooldownTicks)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks),
+                detectionStrategyKind: DetectionStrategyKind.None,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None,
+                movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+        }
+
         private static EnemyAiProfile CreateWallFollowerProfile(
             WallFollowTurnPreference turnPreference,
             int moveCooldownTicks = 0)
@@ -702,7 +1336,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Vector2Int position,
             int hp,
             EnemyAiMode aiMode = EnemyAiMode.None,
-            Direction facing = Direction.Right)
+            Direction facing = Direction.Right,
+            int aiStateTimer = 0,
+            int enemyLocomotionCooldownTicks = 0)
         {
             return new EntityState
             {
@@ -719,7 +1355,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 markedForDeath = false,
                 spawnTick = 0,
                 aiMode = aiMode,
-                aiStateTimer = 0,
+                aiStateTimer = aiStateTimer,
+                enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
         }
 
@@ -729,7 +1366,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             SurfaceCell position,
             int hp,
             EnemyAiMode aiMode = EnemyAiMode.None,
-            Direction facing = Direction.Right)
+            Direction facing = Direction.Right,
+            int aiStateTimer = 0,
+            int enemyLocomotionCooldownTicks = 0)
         {
             return new EntityState
             {
@@ -746,7 +1385,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 markedForDeath = false,
                 spawnTick = 0,
                 aiMode = aiMode,
-                aiStateTimer = 0,
+                aiStateTimer = aiStateTimer,
+                enemyLocomotionCooldownTicks = enemyLocomotionCooldownTicks,
             };
         }
 

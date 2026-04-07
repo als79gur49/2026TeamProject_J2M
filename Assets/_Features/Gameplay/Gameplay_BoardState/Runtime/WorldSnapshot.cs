@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private readonly BoardBounds _boardBounds;
         private readonly IReadOnlyDictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<SurfaceCell, int> projectileOccupancy,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
+            Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -36,6 +38,7 @@ namespace Game.Feature.Gameplay.BoardState
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
+            _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
             _topology = topology;
             _boardBounds = boardBounds;
@@ -59,6 +62,11 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyActionState(int entityId, out EnemyActionRuntimeState state)
         {
             return _enemyActionStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEnemyJumpState(int entityId, out EnemyJumpRuntimeState state)
+        {
+            return _enemyJumpStatesByEntityId.TryGetValue(entityId, out state);
         }
 
         public bool HasAnyUnitAt(SurfaceCell cell)
@@ -404,6 +412,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyActionStatesByEntityId)
             {
                 buffer.Add(new EnemyActionSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyJumpStatesOrdered(List<EnemyJumpSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyJumpStatesByEntityId)
+            {
+                buffer.Add(new EnemyJumpSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

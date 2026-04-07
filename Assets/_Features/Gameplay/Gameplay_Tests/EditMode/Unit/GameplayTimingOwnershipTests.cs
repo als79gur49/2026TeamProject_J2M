@@ -133,6 +133,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides");
             var windupReferenceClip = CreateReferenceClip("HumanM@Attack1H04_R_Windup", 0.53333336f);
+            var jumpWindupReferenceClip = CreateReferenceClip("EnemyJumpWindupReference", 0.8f);
+            var jumpAirborneReferenceClip = CreateReferenceClip("EnemyJumpAirborneReference", 1.1f);
             var recoverReferenceClip = CreateReferenceClip("HumanM@Attack1H04_R_Recover", 0.6333333f);
 
             try
@@ -141,9 +143,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ConfigureEnemyAnimationTimingAuthoring(
                     authoring,
                     attackWindupAnimatorDurationSeconds: 0.35f,
+                    jumpWindupAnimatorDurationSeconds: 0.45f,
+                    jumpAirborneAnimatorDurationSeconds: 0.9f,
                     recoverAnimatorDurationSeconds: 0.6f,
                     stateTransitionCrossFadeDurationSeconds: 0.12f,
                     attackWindupReferenceClip: windupReferenceClip,
+                    jumpWindupReferenceClip: jumpWindupReferenceClip,
+                    jumpAirborneReferenceClip: jumpAirborneReferenceClip,
                     recoverReferenceClip: recoverReferenceClip);
 
                 var snapshot = authoring.CreateSnapshot();
@@ -155,6 +161,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         out var windupReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(windupReferenceClipLengthSeconds, Is.EqualTo(windupReferenceClip.length).Within(0.0001f));
+                Assert.That(snapshot.TryGetJumpWindupAnimatorDurationOverride(out var jumpWindupDurationSeconds), Is.True);
+                Assert.That(jumpWindupDurationSeconds, Is.EqualTo(0.45f));
+                Assert.That(
+                    snapshot.TryGetJumpWindupReferenceClipLengthSeconds(
+                        out var jumpWindupReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(jumpWindupReferenceClipLengthSeconds, Is.EqualTo(jumpWindupReferenceClip.length).Within(0.0001f));
+                Assert.That(snapshot.TryGetJumpAirborneAnimatorDurationOverride(out var jumpAirborneDurationSeconds), Is.True);
+                Assert.That(jumpAirborneDurationSeconds, Is.EqualTo(0.9f));
+                Assert.That(
+                    snapshot.TryGetJumpAirborneReferenceClipLengthSeconds(
+                        out var jumpAirborneReferenceClipLengthSeconds),
+                    Is.True);
+                Assert.That(jumpAirborneReferenceClipLengthSeconds, Is.EqualTo(jumpAirborneReferenceClip.length).Within(0.0001f));
                 Assert.That(snapshot.TryGetRecoverAnimatorDurationOverride(out var recoverDurationSeconds), Is.True);
                 Assert.That(recoverDurationSeconds, Is.EqualTo(0.6f));
                 Assert.That(
@@ -168,6 +188,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(windupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(jumpWindupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(jumpAirborneReferenceClip);
                 UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
@@ -190,6 +212,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     authoring,
                     "attackWindupAnimatorDurationSeconds",
                     EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "jumpWindupAnimatorDurationSeconds", 0f);
+                var invalidJumpWindupException = Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
+                Assert.That(invalidJumpWindupException.ParamName, Is.EqualTo("jumpWindupAnimatorDurationSeconds"));
+
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    authoring,
+                    "jumpWindupAnimatorDurationSeconds",
+                    EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel);
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "stateTransitionCrossFadeDurationSeconds", -2f);
                 var invalidCrossFadeException = Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
                 Assert.That(invalidCrossFadeException.ParamName, Is.EqualTo("stateTransitionCrossFadeDurationSeconds"));
@@ -210,9 +240,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
                 PlayerViewPrefabTestUtility.SetSerializedField(authoring, "attackWindupAnimatorDurationSeconds", 1f);
 
-                var exception = Assert.Throws<InvalidOperationException>(() => authoring.CreateSnapshot());
-                StringAssert.Contains("attackWindupReferenceClip", exception.Message);
-                StringAssert.Contains("attackWindupAnimatorDurationSeconds", exception.Message);
+                var attackException = Assert.Throws<InvalidOperationException>(() => authoring.CreateSnapshot());
+                StringAssert.Contains("attackWindupReferenceClip", attackException.Message);
+                StringAssert.Contains("attackWindupAnimatorDurationSeconds", attackException.Message);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    authoring,
+                    "attackWindupAnimatorDurationSeconds",
+                    EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "jumpAirborneAnimatorDurationSeconds", 1f);
+
+                var jumpException = Assert.Throws<InvalidOperationException>(() => authoring.CreateSnapshot());
+                StringAssert.Contains("jumpAirborneReferenceClip", jumpException.Message);
+                StringAssert.Contains("jumpAirborneAnimatorDurationSeconds", jumpException.Message);
             }
             finally
             {
@@ -235,6 +275,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "CreateSnapshot",
                     "Validate",
                     "get_AttackWindupAnimatorDurationSeconds",
+                    "get_JumpAirborneAnimatorDurationSeconds",
+                    "get_JumpWindupAnimatorDurationSeconds",
                     "get_RecoverAnimatorDurationSeconds",
                     "get_StateTransitionCrossFadeDurationSeconds",
                 },
@@ -466,6 +508,91 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAnimatorDriver_JumpSignals_UseSeparatePresentationPhases()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_JumpSignals_UseSeparatePresentationPhases");
+            var jumpWindupReferenceClip = CreateReferenceClip("EnemyJumpWindupReference", 0.5f);
+            var jumpAirborneReferenceClip = CreateReferenceClip("EnemyJumpAirborneReference", 1.5f);
+
+            try
+            {
+                var animator = rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    stateTransitionCrossFadeDurationSeconds: 0.05f,
+                    jumpWindupAnimatorDurationSeconds: 0.25f,
+                    jumpAirborneAnimatorDurationSeconds: 0.75f,
+                    jumpWindupReferenceClip: jumpWindupReferenceClip,
+                    jumpAirborneReferenceClip: jumpAirborneReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Patrol,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.Windup,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: true,
+                    startedJumpAirborneThisTick: false,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.JumpWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.JumpAirborneSignalCount, Is.Zero);
+                Assert.That(driver.WindupSignalCount, Is.Zero);
+                Assert.That(driver.AttackSignalCount, Is.Zero);
+                Assert.That(driver.RecoverySignalCount, Is.Zero);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.25f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("JumpWindup"));
+                Assert.That(animator.speed, Is.EqualTo(2f).Within(0.0001f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Patrol,
+                    activeActionKind: EnemyActionKind.None,
+                    jumpPhase: EnemyJumpPhase.Airborne,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    startedJumpWindupThisTick: false,
+                    startedJumpAirborneThisTick: true,
+                    landedFromJumpThisTick: false,
+                    retryingJumpAirborneThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.JumpWindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.JumpAirborneSignalCount, Is.EqualTo(1));
+                Assert.That(driver.WindupSignalCount, Is.Zero);
+                Assert.That(driver.AttackSignalCount, Is.Zero);
+                Assert.That(driver.RecoverySignalCount, Is.Zero);
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.75f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadeDurationSeconds, Is.EqualTo(0.05f).Within(0.0001f));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("JumpAirborne"));
+                Assert.That(animator.speed, Is.EqualTo(2f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(jumpWindupReferenceClip);
+                UnityEngine.Object.DestroyImmediate(jumpAirborneReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional");
@@ -636,7 +763,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "commonSettings",
                     "detectionSettings",
                     "detectionStrategyKind",
+                    "jumpTimingSettings",
                     "locomotionTimingSettings",
+                    "movementSkillStrategyKind",
                     "patrolSettings",
                     "patrolStrategyKind",
                     "stateResolverKind",
@@ -693,8 +822,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float attackWindupAnimatorDurationSeconds,
             float recoverAnimatorDurationSeconds,
             float stateTransitionCrossFadeDurationSeconds,
+            float jumpWindupAnimatorDurationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+            float jumpAirborneAnimatorDurationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
             AnimationClip attackWindupReferenceClip = null,
-            AnimationClip recoverReferenceClip = null)
+            AnimationClip recoverReferenceClip = null,
+            AnimationClip jumpWindupReferenceClip = null,
+            AnimationClip jumpAirborneReferenceClip = null)
         {
             PlayerViewPrefabTestUtility.SetSerializedField(
                 authoring,
@@ -702,8 +835,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 attackWindupAnimatorDurationSeconds);
             PlayerViewPrefabTestUtility.SetSerializedField(
                 authoring,
+                "jumpWindupAnimatorDurationSeconds",
+                jumpWindupAnimatorDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "jumpAirborneAnimatorDurationSeconds",
+                jumpAirborneAnimatorDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
                 "recoverAnimatorDurationSeconds",
                 recoverAnimatorDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "jumpWindupReferenceClip",
+                jumpWindupReferenceClip);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "jumpAirborneReferenceClip",
+                jumpAirborneReferenceClip);
             PlayerViewPrefabTestUtility.SetSerializedField(
                 authoring,
                 "stateTransitionCrossFadeDurationSeconds",

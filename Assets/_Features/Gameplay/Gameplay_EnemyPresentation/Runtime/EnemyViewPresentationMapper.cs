@@ -19,15 +19,55 @@ namespace Game.Feature.Gameplay.Host
             bool startedRecoveryThisTick,
             bool tookDamage,
             bool didDie)
+            : this(
+                entityId,
+                tickIndex,
+                aiMode,
+                activeActionKind,
+                EnemyJumpPhase.None,
+                isMoving,
+                startedWindupThisTick,
+                executedThisTick,
+                startedRecoveryThisTick,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
+                tookDamage,
+                didDie)
+        {
+        }
+
+        public EnemyViewPresentationState(
+            int entityId,
+            int tickIndex,
+            EnemyAiMode aiMode,
+            EnemyActionKind activeActionKind,
+            EnemyJumpPhase jumpPhase,
+            bool isMoving,
+            bool startedWindupThisTick,
+            bool executedThisTick,
+            bool startedRecoveryThisTick,
+            bool startedJumpWindupThisTick,
+            bool startedJumpAirborneThisTick,
+            bool landedFromJumpThisTick,
+            bool retryingJumpAirborneThisTick,
+            bool tookDamage,
+            bool didDie)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
             AiMode = aiMode;
             ActiveActionKind = activeActionKind;
+            JumpPhase = jumpPhase;
             IsMoving = isMoving;
             StartedWindupThisTick = startedWindupThisTick;
             ExecutedThisTick = executedThisTick;
             StartedRecoveryThisTick = startedRecoveryThisTick;
+            StartedJumpWindupThisTick = startedJumpWindupThisTick;
+            StartedJumpAirborneThisTick = startedJumpAirborneThisTick;
+            LandedFromJumpThisTick = landedFromJumpThisTick;
+            RetryingJumpAirborneThisTick = retryingJumpAirborneThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -40,6 +80,8 @@ namespace Game.Feature.Gameplay.Host
 
         public EnemyActionKind ActiveActionKind { get; }
 
+        public EnemyJumpPhase JumpPhase { get; }
+
         public bool IsMoving { get; }
 
         public bool StartedWindupThisTick { get; }
@@ -47,6 +89,14 @@ namespace Game.Feature.Gameplay.Host
         public bool ExecutedThisTick { get; }
 
         public bool StartedRecoveryThisTick { get; }
+
+        public bool StartedJumpWindupThisTick { get; }
+
+        public bool StartedJumpAirborneThisTick { get; }
+
+        public bool LandedFromJumpThisTick { get; }
+
+        public bool RetryingJumpAirborneThisTick { get; }
 
         public bool DidAttack => ExecutedThisTick;
 
@@ -60,6 +110,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _attackingEntityIds = new();
         private readonly HashSet<int> _candidateEntityIds = new();
         private readonly Dictionary<int, TickEnemyActionPresentationSignal> _enemyActionSignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemyJumpPresentationSignal> _enemyJumpSignalsByEntityId = new();
         private readonly HashSet<int> _damagedEntityIds = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
@@ -90,6 +141,7 @@ namespace Game.Feature.Gameplay.Host
             _movingEntityIds.Clear();
             _attackingEntityIds.Clear();
             _enemyActionSignalsByEntityId.Clear();
+            _enemyJumpSignalsByEntityId.Clear();
             _damagedEntityIds.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
@@ -98,6 +150,7 @@ namespace Game.Feature.Gameplay.Host
             CollectMovementSignals(result.PresentationData);
             CollectAttackSignals(result.AttackPhaseResult);
             CollectEnemyActionSignals(result.PresentationData);
+            CollectEnemyJumpSignals(result.PresentationData);
             CollectRemovalSignals(result.CleanupPhaseResult);
 
             foreach (var entityId in _candidateEntityIds)
@@ -115,9 +168,14 @@ namespace Game.Feature.Gameplay.Host
                     ? finalEntity.aiMode
                     : EnemyAiMode.Dead;
                 var activeActionKind = EnemyActionKind.None;
+                var jumpPhase = EnemyJumpPhase.None;
                 var startedWindupThisTick = false;
                 var executedThisTick = _attackingEntityIds.Contains(entityId);
                 var startedRecoveryThisTick = false;
+                var startedJumpWindupThisTick = false;
+                var startedJumpAirborneThisTick = false;
+                var landedFromJumpThisTick = false;
+                var retryingJumpAirborneThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
                 {
@@ -127,15 +185,29 @@ namespace Game.Feature.Gameplay.Host
                     startedRecoveryThisTick = actionSignal.StartedRecoveryThisTick;
                 }
 
+                if (_enemyJumpSignalsByEntityId.TryGetValue(entityId, out var jumpSignal))
+                {
+                    jumpPhase = jumpSignal.Phase;
+                    startedJumpWindupThisTick = jumpSignal.StartedWindupThisTick;
+                    startedJumpAirborneThisTick = jumpSignal.StartedAirborneThisTick;
+                    landedFromJumpThisTick = jumpSignal.LandedThisTick;
+                    retryingJumpAirborneThisTick = jumpSignal.RetryThisTick;
+                }
+
                 buffer[entityId] = new EnemyViewPresentationState(
                     entityId,
                     result.TickIndex,
                     aiMode,
                     activeActionKind,
+                    jumpPhase,
                     _movingEntityIds.Contains(entityId),
                     startedWindupThisTick,
                     executedThisTick,
                     startedRecoveryThisTick,
+                    startedJumpWindupThisTick,
+                    startedJumpAirborneThisTick,
+                    landedFromJumpThisTick,
+                    retryingJumpAirborneThisTick,
                     _damagedEntityIds.Contains(entityId),
                     didDie);
             }
@@ -154,10 +226,15 @@ namespace Game.Feature.Gameplay.Host
                 tickIndex: -1,
                 entity.aiMode,
                 EnemyActionKind.None,
+                EnemyJumpPhase.None,
                 isMoving: false,
                 startedWindupThisTick: false,
                 executedThisTick: false,
                 startedRecoveryThisTick: false,
+                startedJumpWindupThisTick: false,
+                startedJumpAirborneThisTick: false,
+                landedFromJumpThisTick: false,
+                retryingJumpAirborneThisTick: false,
                 tookDamage: false,
                 didDie: entity.aiMode == EnemyAiMode.Dead || entity.markedForDeath);
             return true;
@@ -213,6 +290,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyActionSignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyActionSignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemyJumpSignals(TickPresentationData presentationData)
+        {
+            var enemyJumpSignals = presentationData.EnemyJumpSignals;
+            for (var i = 0; i < enemyJumpSignals.Count; i++)
+            {
+                var signal = enemyJumpSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemyJumpSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 

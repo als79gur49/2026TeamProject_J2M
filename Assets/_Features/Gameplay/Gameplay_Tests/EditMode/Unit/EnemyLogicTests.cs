@@ -122,6 +122,221 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyLogic_JumpCapablePatrol_OpenGround_UsesPatrolMovementIntent()
+        {
+            var profile = CreateJumpPatrolProfile();
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var buffer = new List<RawMovementIntent>();
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Move),
+                    },
+                    buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out _), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyLogic_JumpCapableChase_OpenGround_UsesGroundChaseMovementIntent()
+        {
+            var profile = CreateJumpEnemyProfile(attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var buffer = new List<RawMovementIntent>();
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Move),
+                    },
+                    buffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out _), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [TestCase(EnemyJumpPhase.Windup)]
+        [TestCase(EnemyJumpPhase.Airborne)]
+        public void EnemyLogic_JumpActivePhases_SuppressMovementAndAttack(EnemyJumpPhase phase)
+        {
+            var profile = CreateJumpEnemyProfile();
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var movementBuffer = new List<RawMovementIntent>();
+            var attackBuffer = new List<RawAttackIntent>();
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                CreateEnemyJumpState(
+                    phase,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 0),
+                    landingTick: 5));
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 5,
+                    executionAttempted = false,
+                });
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(5), movementBuffer);
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(5), attackBuffer);
+
+                Assert.That(movementBuffer, Is.Empty);
+                Assert.That(attackBuffer, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyLogic_JumpCooldown_DoesNotSuppressMovementOrAttack()
+        {
+            var profile = CreateJumpEnemyProfile();
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var movementBuffer = new List<RawMovementIntent>();
+            var attackBuffer = new List<RawAttackIntent>();
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                CreateEnemyJumpState(
+                    EnemyJumpPhase.Cooldown,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 0),
+                    landingTick: 4,
+                    cooldownRemainingTicks: 2));
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 5,
+                    executionAttempted = false,
+                });
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(5), movementBuffer);
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(5), attackBuffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, Destination: new Vector2Int(1, 0), Command: MovementCommandKind.Move),
+                    },
+                    movementBuffer.Select(intent => (intent.SourceId, intent.Destination, intent.CommandKind)).ToArray());
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10),
+                    },
+                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyLogic_JumpLandingTick_SuppressesMovementButNotAttack()
+        {
+            var profile = CreateJumpEnemyProfile();
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var movementBuffer = new List<RawMovementIntent>();
+            var attackBuffer = new List<RawAttackIntent>();
+            worldState.CreateWriteContext().SetEnemyJumpState(
+                40,
+                CreateEnemyJumpState(
+                    EnemyJumpPhase.Cooldown,
+                    sourceCell: new SurfaceCell(FaceId.Floor, 0, 0),
+                    lockedTargetCell: new SurfaceCell(FaceId.Floor, 2, 0),
+                    landingTick: 5,
+                    cooldownRemainingTicks: 2));
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 5,
+                    executionAttempted = false,
+                });
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(5), movementBuffer);
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(5), attackBuffer);
+
+                Assert.That(movementBuffer, Is.Empty);
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10),
+                    },
+                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId)).ToArray());
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
         public void EnemyLogic_ChaseMode_BoundaryStep_DoesNotCreateTopologyChangingMovementGroup()
         {
             var worldState = CreateWorldState(
@@ -733,6 +948,74 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAi_JumpProfile_InspectorTimings_AreSeconds_AndConvertToTicks()
+        {
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                profile.ApplyConfiguration(
+                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                    PatrolSettings.CreateDefault(),
+                    DetectionSettings.CreateDefaultMelee(),
+                    ChaseSettings.CreateDefault(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+                    new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f),
+                    new EnemyJumpTimingAuthoringSettings(windupSeconds: 0.1f, airborneSeconds: 0.2f, cooldownSeconds: 0.3f),
+                    attackDecisionStrategyKind: AttackDecisionStrategyKind.None,
+                    movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(profile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+                Assert.That(profile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.1f).Within(0.0001f));
+                Assert.That(profile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.2f).Within(0.0001f));
+                Assert.That(profile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.3f).Within(0.0001f));
+                Assert.That(definition.JumpTimingSettings.WindupTicks, Is.EqualTo(6));
+                Assert.That(definition.JumpTimingSettings.AirborneTicks, Is.EqualTo(12));
+                Assert.That(definition.JumpTimingSettings.CooldownTicks, Is.EqualTo(18));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpProfile_SerializedFields_RemainLogicOnlyContract()
+        {
+            var serializedFieldNames = typeof(EnemyAiProfile)
+                .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic)
+                .Where(field =>
+                    (field.IsPublic || field.GetCustomAttributes(typeof(SerializeField), inherit: false).Length > 0) &&
+                    field.GetCustomAttributes(typeof(HideInInspector), inherit: false).Length == 0)
+                .Select(field => field.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "attackDecisionSettings",
+                    "attackDecisionStrategyKind",
+                    "attackTimingSettings",
+                    "chaseSettings",
+                    "chaseStrategyKind",
+                    "commonSettings",
+                    "detectionSettings",
+                    "detectionStrategyKind",
+                    "jumpTimingSettings",
+                    "locomotionTimingSettings",
+                    "movementSkillStrategyKind",
+                    "patrolSettings",
+                    "patrolStrategyKind",
+                    "stateResolverKind",
+                },
+                serializedFieldNames);
+        }
+
+        [Test]
         public void EnemyLocomotionCooldown_Authority_ComesFromEnemyAiProfileRuntimeDefinitionAndEntityState()
         {
             var profile = CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2);
@@ -1131,8 +1414,125 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 result.AttackPhaseResult
                     .SortedInputs
                     .Select(intent => (intent.SourceId, intent.TargetId))
+                .ToArray());
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_BottomFaceEnemy_StillParticipatesInAutonomy()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                result.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
             Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+        }
+
+        [TestCase(FaceId.Front)]
+        [TestCase(FaceId.Ceiling)]
+        [TestCase(FaceId.Back)]
+        public void DefaultEntityLogicProvider_OffBottomEnemy_DoesNotParticipateInAutonomy(FaceId enemyFace)
+        {
+            var enemyCell = new SurfaceCell(enemyFace, 0, 0);
+            var playerCell = new SurfaceCell(enemyFace, 1, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: playerCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: enemyCell, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            var result = pipeline.RunTick(new TickInput(1));
+
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(enemyCell));
+            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(3));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_OffBottomEnemy_FreezesAiTimerAndLocomotionCooldown()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 3, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: new SurfaceCell(FaceId.Front, 0, 0),
+                        aiMode: EnemyAiMode.Recover,
+                        facing: Direction.Right,
+                        aiStateTimer: 2,
+                        enemyLocomotionCooldownTicks: 2),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2));
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(2));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(2));
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.Trace.Text, Does.Not.Contain("EnemyLocomotionCooldownUpdated|E=40"));
+        }
+
+        [Test]
+        public void DefaultEntityLogicProvider_OffBottomEnemy_ClearsStaleEnemyActionState()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 1, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), aiMode: EnemyAiMode.Attack, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 0,
+                    executeTick = 1,
+                    executionAttempted = false,
+                });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 0));
+
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+            Assert.That(actionState.IsActive, Is.False);
+            Assert.That(actionState.sequence, Is.EqualTo(1));
         }
 
         [Test]
@@ -1502,6 +1902,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, Game.Feature.Gameplay.BoardState.TerrainData.Empty);
         }
 
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            CubeTopologyState topology)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(
+                initialEntities,
+                new BoardBounds(new Vector2Int(-32, -32), new Vector2Int(32, 32)),
+                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
+                topology);
+        }
+
         private static Vector2Int GetEntityPosition(WorldState worldState, int entityId)
         {
             Assert.That(worldState.CreateSnapshot().TryGetEntity(entityId, out var entity), Is.True);
@@ -1555,6 +1966,58 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new EnemyLocomotionTimingSettings(moveCooldownTicks),
                 stateResolverKind: EnemyAiStateResolverKind.Charge,
                 attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+        }
+
+        private static EnemyAiProfile CreateJumpPatrolProfile()
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
+                detectionStrategyKind: DetectionStrategyKind.None,
+                attackDecisionStrategyKind: AttackDecisionStrategyKind.None,
+                movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+        }
+
+        private static EnemyAiProfile CreateJumpEnemyProfile(
+            AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee)
+        {
+            return EnemyAiProfile.CreateRuntimeInstance(
+                EnemyAiCommonSettings.CreateDefaultMelee(),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                EnemyAttackTimingSettings.CreateDefaultMelee(),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
+                attackDecisionStrategyKind: attackDecisionStrategyKind,
+                movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+        }
+
+        private static EnemyJumpRuntimeState CreateEnemyJumpState(
+            EnemyJumpPhase phase,
+            SurfaceCell sourceCell,
+            SurfaceCell lockedTargetCell,
+            int landingTick,
+            int cooldownRemainingTicks = 0)
+        {
+            return new EnemyJumpRuntimeState
+            {
+                phase = phase,
+                sequence = 1,
+                sourceCell = sourceCell,
+                lockedTargetCell = lockedTargetCell,
+                windupEndTick = landingTick - 1,
+                landingTick = landingTick,
+                cooldownRemainingTicks = cooldownRemainingTicks,
+                retryCount = 0,
+            };
         }
 
         private static void SetSerializedField(object target, string fieldName, object value)

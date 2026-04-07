@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
         private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
+        private readonly Dictionary<int, JumpDetachedVisibilityState> _jumpDetachedVisibilityStates = new();
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
         private readonly Dictionary<int, GameplayEntityPose> _retainedLocalTargetPoses = new();
@@ -22,6 +23,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool HasAnyCommittedFrame { get; set; }
 
+        public Dictionary<int, JumpDetachedVisibilityState> JumpDetachedVisibilityStates => _jumpDetachedVisibilityStates;
+
         public Dictionary<int, GameplayEntityPose> RetainedLocalTargetPoses => _retainedLocalTargetPoses;
 
         public Dictionary<int, TransitionVisibilityState> TransitionVisibilityStates => _transitionVisibilityStates;
@@ -34,6 +37,7 @@ namespace Game.Feature.Gameplay.Host
             HasAnyCommittedFrame = false;
             _committedLocalTargetPoses.Clear();
             _entityTypesByEntityId.Clear();
+            _jumpDetachedVisibilityStates.Clear();
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
             _viewsByEntityId.Clear();
@@ -58,6 +62,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             foreach (var pair in _retainedLocalTargetPoses)
+            {
+                AddProcessingEntityId(pair.Key);
+            }
+
+            foreach (var pair in _jumpDetachedVisibilityStates)
             {
                 AddProcessingEntityId(pair.Key);
             }

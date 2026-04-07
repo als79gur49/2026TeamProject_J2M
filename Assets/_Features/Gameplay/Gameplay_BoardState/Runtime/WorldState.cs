@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
+        private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
@@ -66,6 +67,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
+                new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 _topology,
                 _boardBounds,
@@ -117,6 +119,7 @@ namespace Game.Feature.Gameplay.BoardState
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
             _enemyActionStatesByEntityId.Remove(entityId);
+            _enemyJumpStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
         }
 
@@ -235,6 +238,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyActionStatesByEntityId[entityId] = state;
+        }
+
+        private void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _enemyJumpStatesByEntityId[entityId] = state;
         }
 
         private void ClearOccupancyForEntity(EntityState entity)
@@ -483,6 +496,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             SetEnemyActionState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
+        {
+            SetEnemyJumpState(entityId, state);
         }
 
         void IWorldStateMutationPort.MarkDestroy(int entityId)

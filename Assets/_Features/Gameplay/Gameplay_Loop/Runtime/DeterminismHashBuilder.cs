@@ -55,6 +55,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyActions").Append('\n');
             AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
+            builder.Append("EnemyJumps").Append('\n');
+            AppendEnemyJumpLines(builder, GetOrderedEnemyJumpStates(finalSnapshot));
+
             builder.Append("SolidOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedSolidOccupancy(finalSnapshot));
 
@@ -121,6 +124,13 @@ namespace Game.Feature.Gameplay.Loop
             var occupancyEntries = new List<SnapshotOccupancyEntry>();
             finalSnapshot.EnumerateSolidOccupancyOrdered(occupancyEntries);
             return occupancyEntries;
+        }
+
+        private static List<EnemyJumpSnapshotEntry> GetOrderedEnemyJumpStates(WorldSnapshot finalSnapshot)
+        {
+            var enemyJumpEntries = new List<EnemyJumpSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyJumpStatesOrdered(enemyJumpEntries);
+            return enemyJumpEntries;
         }
 
         private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
@@ -259,6 +269,36 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.startTick).Append('|')
                     .Append(entry.State.executeTick).Append('|')
                     .Append(entry.State.executionAttempted ? 1 : 0).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyJumpLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyJumpSnapshotEntry> enemyJumpEntries)
+        {
+            if (enemyJumpEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < enemyJumpEntries.Count; i++)
+            {
+                var entry = enemyJumpEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append((int)entry.State.phase).Append('|')
+                    .Append(entry.State.sequence).Append('|')
+                    .Append((int)entry.State.sourceCell.face).Append('|')
+                    .Append(entry.State.sourceCell.x).Append('|')
+                    .Append(entry.State.sourceCell.y).Append('|')
+                    .Append((int)entry.State.lockedTargetCell.face).Append('|')
+                    .Append(entry.State.lockedTargetCell.x).Append('|')
+                    .Append(entry.State.lockedTargetCell.y).Append('|')
+                    .Append(entry.State.windupEndTick).Append('|')
+                    .Append(entry.State.landingTick).Append('|')
+                    .Append(entry.State.cooldownRemainingTicks).Append('|')
+                    .Append(entry.State.retryCount).Append('\n');
             }
         }
 

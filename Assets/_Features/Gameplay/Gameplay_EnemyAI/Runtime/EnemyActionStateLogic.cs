@@ -69,12 +69,24 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(transitions));
             }
 
-            if (!TryGetEnemy(snapshot, out var source))
+            if (!EnemyParticipationPolicy.TryGetEnemyLogicEntity(snapshot, _entityId, out var source))
             {
                 return;
             }
 
             var hasPreviousAction = snapshot.TryGetEnemyActionState(_entityId, out var previousAction);
+            if (!EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source))
+            {
+                var clearedAction = EnemyActionQueries.Clear(previousAction);
+                if (ShouldWriteActionState(hasPreviousAction, previousAction, clearedAction))
+                {
+                    writeContext.SetEnemyActionState(_entityId, clearedAction);
+                    transitions.Add(new EnemyActionTransition(_entityId, previousAction, clearedAction));
+                }
+
+                return;
+            }
+
             var nextAction = stage switch
             {
                 EnemyActionStage.BeforeAttackCollection => CommitBeforeAttackCollection(snapshot, source, previousAction, writeContext, input.TickIndex),
@@ -196,18 +208,6 @@ namespace Game.Feature.Gameplay.Entities
                 writeContext.ApplyEnemyAiState(_entityId, fallbackMode, 0);
             }
         }
-
-        private bool TryGetEnemy(WorldSnapshot snapshot, out EntityState source)
-        {
-            if (!snapshot.TryGetEntity(_entityId, out source))
-            {
-                return false;
-            }
-
-            return source.type == EntityType.Unit &&
-                   source.aiMode != EnemyAiMode.None;
-        }
-
         private static bool ShouldWriteActionState(
             bool hadPreviousAction,
             in EnemyActionRuntimeState previousAction,

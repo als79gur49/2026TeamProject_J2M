@@ -11,15 +11,18 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickPresentationCoordinator
     {
         private static readonly bool EnableUnitPresentationPlaneOffsets = false;
+        private const float DefaultJumpArcHeightInCells = 0.75f;
         private const float UnitPresentationOffsetRadiusInCells = 0.2f;
         private const float UnitPresentationSquareHalfExtentInCells = 0.14f;
 
+        private readonly List<int> _completedJumpTrackIds = new();
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
         private readonly RotationTrack _boardRotationTrack = new();
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly HashSet<int> _exitOwnedEntityIds = new();
+        private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
         private readonly GameplayPresentationStateStore _stateStore = new();
@@ -94,6 +97,7 @@ namespace Game.Feature.Gameplay.Host
 
             _boardRotationTrack.Clear();
             _exitOwnedEntityIds.Clear();
+            _jumpTracks.Clear();
             _localMotionTracks.Clear();
             _pendingEntityExitSignals.Clear();
             _visibilityTracks.Clear();
@@ -122,6 +126,7 @@ namespace Game.Feature.Gameplay.Host
             RefreshTopologyTrack(result.PresentationData);
             RefreshBoardSurfaceTransition(result.PresentationData);
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
+            RefreshJumpDetachedVisibilityState(result, previousCommittedLocalTargetPoses);
             RefreshVisibilityTracks(result.PresentationData, previousCommittedLocalTargetPoses);
             RefreshTransitionVisibilityState(result.PresentationData);
             PlayEntityExitEffects();
@@ -143,6 +148,7 @@ namespace Game.Feature.Gameplay.Host
             _exitOwnedEntityIds.Clear();
             _visibilityTracks.Clear();
             _boardRotationTrack.Clear();
+            _jumpTracks.Clear();
             _pendingEntityExitSignals.Clear();
             _transientEffectPresenter.Clear();
             _animationSync.Reset();
@@ -185,6 +191,7 @@ namespace Game.Feature.Gameplay.Host
             _transientEffectPresenter.Update(deltaTime);
 
             _completedMotionTrackIds.Clear();
+            _completedJumpTrackIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _visibleEntityIds.Clear();
 
@@ -211,7 +218,24 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
 
+                if (_jumpTracks.TryGetValue(entityId, out var jumpTrack) &&
+                    jumpTrack.HasClip)
+                {
+                    localPose = jumpTrack.SampleAndAdvance(deltaTime, localPose);
+                    if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedState))
+                    {
+                        _stateStore.JumpDetachedVisibilityStates[entityId] =
+                            new JumpDetachedVisibilityState(jumpDetachedState.JumpPhase, localPose);
+                    }
+
+                    if (!jumpTrack.HasClip)
+                    {
+                        _completedJumpTrackIds.Add(entityId);
+                    }
+                }
+
                 var isVisible = _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId) ||
+                                _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) ||
                                 _stateStore.TransitionVisibilityStates.ContainsKey(entityId);
                 if (_visibilityTracks.TryGetValue(entityId, out var visibilityTrack))
                 {
@@ -248,6 +272,11 @@ namespace Game.Feature.Gameplay.Host
                 _localMotionTracks.Remove(_completedMotionTrackIds[i]);
             }
 
+            for (var i = 0; i < _completedJumpTrackIds.Count; i++)
+            {
+                _jumpTracks.Remove(_completedJumpTrackIds[i]);
+            }
+
             for (var i = 0; i < _completedVisibilityTrackIds.Count; i++)
             {
                 var entityId = _completedVisibilityTrackIds[i];
@@ -260,7 +289,11 @@ namespace Game.Feature.Gameplay.Host
                 if (!visibilityTrack.TargetVisibility && !_stateStore.CommittedLocalTargetPoses.ContainsKey(entityId))
                 {
                     _stateStore.RetainedLocalTargetPoses.Remove(entityId);
-                    _stateStore.EntityTypesByEntityId.Remove(entityId);
+                    if (!_stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) &&
+                        !_stateStore.TransitionVisibilityStates.ContainsKey(entityId))
+                    {
+                        _stateStore.EntityTypesByEntityId.Remove(entityId);
+                    }
                 }
             }
 
@@ -314,7 +347,8 @@ namespace Game.Feature.Gameplay.Host
                 _completedTransitionVisibilityStateIds.Add(pair.Key);
                 if (pair.Value.Mode != TickTransitionVisibilityMode.RetainUntilTransitionComplete ||
                     _stateStore.CommittedLocalTargetPoses.ContainsKey(pair.Key) ||
-                    _stateStore.RetainedLocalTargetPoses.ContainsKey(pair.Key))
+                    _stateStore.RetainedLocalTargetPoses.ContainsKey(pair.Key) ||
+                    _stateStore.JumpDetachedVisibilityStates.ContainsKey(pair.Key))
                 {
                     continue;
                 }
@@ -363,6 +397,14 @@ namespace Game.Feature.Gameplay.Host
             foreach (var pair in _visibilityTracks)
             {
                 if (pair.Value.IsActive)
+                {
+                    return true;
+                }
+            }
+
+            foreach (var pair in _jumpTracks)
+            {
+                if (pair.Value.HasClip)
                 {
                     return true;
                 }
@@ -629,6 +671,12 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                if (_stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId))
+                {
+                    _visibilityTracks.Remove(entityId);
+                    continue;
+                }
+
                 if (change.ChangeKind == TickVisibilityChangeKind.Spawn)
                 {
                     _stateStore.RetainedLocalTargetPoses.Remove(entityId);
@@ -647,6 +695,70 @@ namespace Game.Feature.Gameplay.Host
 
                 _stateStore.RetainedLocalTargetPoses[entityId] = retainedLocalPose;
                 _visibilityTracks[entityId] = VisibilityTrack.CreateHide(ResolveVisibilityDurationSeconds(entityId));
+            }
+        }
+
+        private void RefreshJumpDetachedVisibilityState(
+            TickResult result,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses)
+        {
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            if (previousCommittedLocalTargetPoses == null)
+            {
+                throw new ArgumentNullException(nameof(previousCommittedLocalTargetPoses));
+            }
+
+            var activeAirborneEntityIds = new HashSet<int>();
+            var jumpSignals = result.PresentationData.EnemyJumpSignals;
+            for (var i = 0; i < jumpSignals.Count; i++)
+            {
+                var signal = jumpSignals[i];
+                if (signal.Phase != EnemyJumpPhase.Airborne || signal.LandedThisTick)
+                {
+                    ClearJumpPresentationState(signal.EntityId);
+                    continue;
+                }
+
+                activeAirborneEntityIds.Add(signal.EntityId);
+                _visibilityTracks.Remove(signal.EntityId);
+
+                if (TryResolveJumpTrack(signal, previousCommittedLocalTargetPoses, result, out var jumpTrack, out var localPose))
+                {
+                    _jumpTracks[signal.EntityId] = jumpTrack;
+                    _stateStore.JumpDetachedVisibilityStates[signal.EntityId] =
+                        new JumpDetachedVisibilityState(signal.Phase, localPose);
+                    continue;
+                }
+
+                if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(signal.EntityId, out var existingState))
+                {
+                    _stateStore.JumpDetachedVisibilityStates[signal.EntityId] =
+                        new JumpDetachedVisibilityState(signal.Phase, existingState.LocalPose);
+                }
+            }
+
+            _completedTransitionVisibilityStateIds.Clear();
+            foreach (var pair in _stateStore.JumpDetachedVisibilityStates)
+            {
+                if (!activeAirborneEntityIds.Contains(pair.Key))
+                {
+                    _completedTransitionVisibilityStateIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _completedTransitionVisibilityStateIds.Count; i++)
+            {
+                ClearJumpPresentationState(_completedTransitionVisibilityStateIds[i]);
+            }
+
+            var removedEntityIds = result.CleanupPhaseResult.RemovedEntityIds;
+            for (var i = 0; i < removedEntityIds.Count; i++)
+            {
+                ClearJumpPresentationState(removedEntityIds[i]);
             }
         }
 
@@ -904,6 +1016,11 @@ namespace Game.Feature.Gameplay.Host
                 durationSeconds = Mathf.Max(durationSeconds, track.TotalRemainingSeconds);
             }
 
+            if (_jumpTracks.TryGetValue(entityId, out var jumpTrack))
+            {
+                durationSeconds = Mathf.Max(durationSeconds, jumpTrack.RemainingSeconds);
+            }
+
             return durationSeconds;
         }
 
@@ -923,9 +1040,11 @@ namespace Game.Feature.Gameplay.Host
             {
                 // Exit ownership removes the authoritative entity view from presentation
                 // state immediately. Any lingering visual is transient-effect-only.
+                _jumpTracks.Remove(entityId);
                 _localMotionTracks.Remove(entityId);
                 _visibilityTracks.Remove(entityId);
                 _stateStore.CommittedLocalTargetPoses.Remove(entityId);
+                _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
                 _stateStore.RetainedLocalTargetPoses.Remove(entityId);
                 _stateStore.TransitionVisibilityStates.Remove(entityId);
                 _stateStore.EntityTypesByEntityId.Remove(entityId);
@@ -1115,7 +1234,19 @@ namespace Game.Feature.Gameplay.Host
                 return true;
             }
 
+            if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var jumpDetachedVisibilityState))
+            {
+                localPose = jumpDetachedVisibilityState.LocalPose;
+                return true;
+            }
+
             return _stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out localPose);
+        }
+
+        private void ClearJumpPresentationState(int entityId)
+        {
+            _jumpTracks.Remove(entityId);
+            _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
         }
 
         private bool TryResolveLegacyTransitionLocalPose(
@@ -1300,6 +1431,150 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return TryResolveLocalPose(change.EntityId, change.Cell, change.Topology, change.Facing, out localPose);
+        }
+
+        private bool TryResolveJumpDetachedLocalPose(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            TickResult result,
+            out GameplayEntityPose localPose)
+        {
+            if (previousCommittedLocalTargetPoses.TryGetValue(entityId, out localPose))
+            {
+                return true;
+            }
+
+            if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var existingState))
+            {
+                localPose = existingState.LocalPose;
+                return true;
+            }
+
+            if (_stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out localPose))
+            {
+                return true;
+            }
+
+            var visibilityChanges = result.PresentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.EntityId != entityId ||
+                    change.ChangeKind != TickVisibilityChangeKind.Detach)
+                {
+                    continue;
+                }
+
+                return TryResolveVisibilityLocalPose(
+                    change,
+                    previousCommittedLocalTargetPoses,
+                    result.PresentationData.TopologyMotion,
+                    out localPose);
+            }
+
+            var finalEntities = result.FinalEntities;
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                if (entity.entityId != entityId)
+                {
+                    continue;
+                }
+
+                return TryResolveLocalPose(entityId, entity.position, result.FinalTopology, entity.facing, out localPose);
+            }
+
+            localPose = default;
+            return false;
+        }
+
+        private bool TryResolveJumpTrack(
+            TickEnemyJumpPresentationSignal signal,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            TickResult result,
+            out JumpTrack jumpTrack,
+            out GameplayEntityPose localPose)
+        {
+            jumpTrack = null;
+            localPose = default;
+            _jumpTracks.TryGetValue(signal.EntityId, out var existingTrack);
+
+            if (!signal.StartedAirborneThisTick &&
+                !signal.RetryThisTick &&
+                existingTrack != null &&
+                existingTrack.HasClip &&
+                _stateStore.JumpDetachedVisibilityStates.TryGetValue(signal.EntityId, out var existingState))
+            {
+                jumpTrack = existingTrack;
+                localPose = existingState.LocalPose;
+                return true;
+            }
+
+            if (!TryResolveJumpTrackStartPose(signal.EntityId, previousCommittedLocalTargetPoses, result, out var startPose) ||
+                !TryResolveJumpTrackEndPose(signal, out var endPose))
+            {
+                return false;
+            }
+
+            jumpTrack = existingTrack ?? new JumpTrack();
+            jumpTrack.Replace(
+                JumpClip.Create(
+                    startPose,
+                    endPose,
+                    ResolveJumpDurationSeconds(signal),
+                    ResolveJumpArcHeightWorld(signal.EntityId)));
+            localPose = startPose;
+            return true;
+        }
+
+        private bool TryResolveJumpTrackStartPose(
+            int entityId,
+            IReadOnlyDictionary<int, GameplayEntityPose> previousCommittedLocalTargetPoses,
+            TickResult result,
+            out GameplayEntityPose localPose)
+        {
+            if (_stateStore.JumpDetachedVisibilityStates.TryGetValue(entityId, out var existingState))
+            {
+                localPose = existingState.LocalPose;
+                return true;
+            }
+
+            if (_jumpTracks.TryGetValue(entityId, out var existingTrack) &&
+                existingTrack.HasClip)
+            {
+                localPose = existingTrack.CurrentPose;
+                return true;
+            }
+
+            return TryResolveJumpDetachedLocalPose(
+                entityId,
+                previousCommittedLocalTargetPoses,
+                result,
+                out localPose);
+        }
+
+        private bool TryResolveJumpTrackEndPose(
+            TickEnemyJumpPresentationSignal signal,
+            out GameplayEntityPose localPose)
+        {
+            return TryResolveLocalPose(
+                signal.EntityId,
+                signal.PresentationTargetCell,
+                _stateStore.CommittedTopology,
+                signal.Facing == Direction.None ? Direction.Up : signal.Facing,
+                out localPose);
+        }
+
+        private float ResolveJumpArcHeightWorld(int entityId)
+        {
+            return DefaultJumpArcHeightInCells * _projector.CellSize;
+        }
+
+        private float ResolveJumpDurationSeconds(TickEnemyJumpPresentationSignal signal)
+        {
+            return Mathf.Max(
+                0.0001f,
+                Mathf.Max(0, signal.RemainingAirborneTicks) * _timingProfile.SimulationTickIntervalSeconds);
         }
 
         private readonly struct PresentableEntityTarget

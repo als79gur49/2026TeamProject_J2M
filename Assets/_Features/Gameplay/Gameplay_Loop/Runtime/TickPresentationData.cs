@@ -232,6 +232,69 @@ namespace Game.Feature.Gameplay.Loop
         public bool StartedRecoveryThisTick { get; }
     }
 
+    public readonly struct TickEnemyJumpPresentationSignal
+    {
+        public TickEnemyJumpPresentationSignal(
+            int entityId,
+            int sequence,
+            EnemyJumpPhase phase,
+            bool startedWindupThisTick,
+            bool startedAirborneThisTick,
+            bool landedThisTick,
+            bool retryThisTick,
+            SurfaceCell sourceCell = default,
+            SurfaceCell lockedTargetCell = default,
+            SurfaceCell presentationTargetCell = default,
+            Direction facing = Direction.None,
+            int landingTick = 0,
+            int remainingAirborneTicks = 0,
+            int retryCount = 0)
+        {
+            EntityId = entityId;
+            Sequence = sequence;
+            Phase = phase;
+            StartedWindupThisTick = startedWindupThisTick;
+            StartedAirborneThisTick = startedAirborneThisTick;
+            LandedThisTick = landedThisTick;
+            RetryThisTick = retryThisTick;
+            SourceCell = sourceCell;
+            LockedTargetCell = lockedTargetCell;
+            PresentationTargetCell = presentationTargetCell;
+            Facing = facing;
+            LandingTick = landingTick;
+            RemainingAirborneTicks = remainingAirborneTicks;
+            RetryCount = retryCount;
+        }
+
+        public int EntityId { get; }
+
+        public int Sequence { get; }
+
+        public EnemyJumpPhase Phase { get; }
+
+        public bool StartedWindupThisTick { get; }
+
+        public bool StartedAirborneThisTick { get; }
+
+        public bool LandedThisTick { get; }
+
+        public bool RetryThisTick { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell LockedTargetCell { get; }
+
+        public SurfaceCell PresentationTargetCell { get; }
+
+        public Direction Facing { get; }
+
+        public int LandingTick { get; }
+
+        public int RemainingAirborneTicks { get; }
+
+        public int RetryCount { get; }
+    }
+
     public enum TickEntityExitCause
     {
         None = 0,
@@ -290,10 +353,12 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<TickTransitionVisibilityChange>(),
             Array.Empty<TickPlayerActionPresentationSignal>(),
             Array.Empty<TickEnemyActionPresentationSignal>(),
+            Array.Empty<TickEnemyJumpPresentationSignal>(),
             Array.Empty<TickEntityExitPresentationSignal>());
 
         private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
+        private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
         private readonly TickTopologyMotion? _topologyMotion;
@@ -365,6 +430,7 @@ namespace Game.Feature.Gameplay.Loop
                 transitionVisibilityChanges,
                 playerActionSignals,
                 enemyActionSignals,
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
                 Array.Empty<TickEntityExitPresentationSignal>())
         {
         }
@@ -376,6 +442,27 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
             IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                playerActionSignals,
+                enemyActionSignals,
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals)
+        {
+        }
+
+        public TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals)
         {
             if (entityMotions == null)
@@ -403,6 +490,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(enemyActionSignals));
             }
 
+            if (enemyJumpSignals == null)
+            {
+                throw new ArgumentNullException(nameof(enemyJumpSignals));
+            }
+
             if (entityExitSignals == null)
             {
                 throw new ArgumentNullException(nameof(entityExitSignals));
@@ -417,6 +509,8 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickPlayerActionPresentationSignal>(playerActionSignals));
             _enemyActionSignals = new ReadOnlyCollection<TickEnemyActionPresentationSignal>(
                 new List<TickEnemyActionPresentationSignal>(enemyActionSignals));
+            _enemyJumpSignals = new ReadOnlyCollection<TickEnemyJumpPresentationSignal>(
+                new List<TickEnemyJumpPresentationSignal>(enemyJumpSignals));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
         }
@@ -432,6 +526,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickPlayerActionPresentationSignal> PlayerActionSignals => _playerActionSignals;
 
         public IReadOnlyList<TickEnemyActionPresentationSignal> EnemyActionSignals => _enemyActionSignals;
+
+        public IReadOnlyList<TickEnemyJumpPresentationSignal> EnemyJumpSignals => _enemyJumpSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
     }

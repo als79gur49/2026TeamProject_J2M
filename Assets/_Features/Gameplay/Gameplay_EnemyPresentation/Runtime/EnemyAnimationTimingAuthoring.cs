@@ -7,19 +7,31 @@ namespace Game.Feature.Gameplay.Host
     {
         public EnemyAnimationTimingSnapshot(
             float attackWindupAnimatorDurationSeconds,
+            float jumpWindupAnimatorDurationSeconds,
+            float jumpAirborneAnimatorDurationSeconds,
             float recoverAnimatorDurationSeconds,
             float stateTransitionCrossFadeDurationSeconds,
             float attackWindupReferenceClipLengthSeconds,
+            float jumpWindupReferenceClipLengthSeconds,
+            float jumpAirborneReferenceClipLengthSeconds,
             float recoverReferenceClipLengthSeconds)
         {
             AttackWindupAnimatorDurationSeconds = attackWindupAnimatorDurationSeconds;
+            JumpWindupAnimatorDurationSeconds = jumpWindupAnimatorDurationSeconds;
+            JumpAirborneAnimatorDurationSeconds = jumpAirborneAnimatorDurationSeconds;
             RecoverAnimatorDurationSeconds = recoverAnimatorDurationSeconds;
             StateTransitionCrossFadeDurationSeconds = stateTransitionCrossFadeDurationSeconds;
             AttackWindupReferenceClipLengthSeconds = attackWindupReferenceClipLengthSeconds;
+            JumpWindupReferenceClipLengthSeconds = jumpWindupReferenceClipLengthSeconds;
+            JumpAirborneReferenceClipLengthSeconds = jumpAirborneReferenceClipLengthSeconds;
             RecoverReferenceClipLengthSeconds = recoverReferenceClipLengthSeconds;
         }
 
         public float AttackWindupAnimatorDurationSeconds { get; }
+
+        public float JumpWindupAnimatorDurationSeconds { get; }
+
+        public float JumpAirborneAnimatorDurationSeconds { get; }
 
         public float RecoverAnimatorDurationSeconds { get; }
 
@@ -27,11 +39,27 @@ namespace Game.Feature.Gameplay.Host
 
         internal float AttackWindupReferenceClipLengthSeconds { get; }
 
+        internal float JumpWindupReferenceClipLengthSeconds { get; }
+
+        internal float JumpAirborneReferenceClipLengthSeconds { get; }
+
         internal float RecoverReferenceClipLengthSeconds { get; }
 
         public bool TryGetAttackWindupAnimatorDurationOverride(out float durationSeconds)
         {
             durationSeconds = AttackWindupAnimatorDurationSeconds;
+            return EnemyAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
+
+        public bool TryGetJumpWindupAnimatorDurationOverride(out float durationSeconds)
+        {
+            durationSeconds = JumpWindupAnimatorDurationSeconds;
+            return EnemyAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
+
+        public bool TryGetJumpAirborneAnimatorDurationOverride(out float durationSeconds)
+        {
+            durationSeconds = JumpAirborneAnimatorDurationSeconds;
             return EnemyAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
         }
 
@@ -53,6 +81,18 @@ namespace Game.Feature.Gameplay.Host
             return referenceClipLengthSeconds > 0f;
         }
 
+        internal bool TryGetJumpWindupReferenceClipLengthSeconds(out float referenceClipLengthSeconds)
+        {
+            referenceClipLengthSeconds = JumpWindupReferenceClipLengthSeconds;
+            return referenceClipLengthSeconds > 0f;
+        }
+
+        internal bool TryGetJumpAirborneReferenceClipLengthSeconds(out float referenceClipLengthSeconds)
+        {
+            referenceClipLengthSeconds = JumpAirborneReferenceClipLengthSeconds;
+            return referenceClipLengthSeconds > 0f;
+        }
+
         internal bool TryGetRecoverReferenceClipLengthSeconds(out float referenceClipLengthSeconds)
         {
             referenceClipLengthSeconds = RecoverReferenceClipLengthSeconds;
@@ -63,7 +103,7 @@ namespace Game.Feature.Gameplay.Host
     /// <summary>
     /// Optional enemy animation-only tuning surface.
     /// These overrides affect animator playback and cross-fades only; authoritative AI cadence such as
-    /// windup, recover, and locomotion cooldown stays in EnemyAiProfile and runtime state.
+    /// attack windup, jump phases, recover, and locomotion cooldown stays in EnemyAiProfile and runtime state.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class EnemyAnimationTimingAuthoring : MonoBehaviour
@@ -73,12 +113,20 @@ namespace Game.Feature.Gameplay.Host
         public const float DefaultStateTransitionCrossFadeDurationSeconds = UseDriverDefaultSentinel;
 
         [SerializeField] private float attackWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float jumpWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float jumpAirborneAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float recoverAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = DefaultStateTransitionCrossFadeDurationSeconds;
         [SerializeField] private AnimationClip attackWindupReferenceClip;
+        [SerializeField] private AnimationClip jumpWindupReferenceClip;
+        [SerializeField] private AnimationClip jumpAirborneReferenceClip;
         [SerializeField] private AnimationClip recoverReferenceClip;
 
         public float AttackWindupAnimatorDurationSeconds => attackWindupAnimatorDurationSeconds;
+
+        public float JumpWindupAnimatorDurationSeconds => jumpWindupAnimatorDurationSeconds;
+
+        public float JumpAirborneAnimatorDurationSeconds => jumpAirborneAnimatorDurationSeconds;
 
         public float RecoverAnimatorDurationSeconds => recoverAnimatorDurationSeconds;
 
@@ -87,6 +135,8 @@ namespace Game.Feature.Gameplay.Host
         public void Validate()
         {
             ValidateAnimatorDuration(attackWindupAnimatorDurationSeconds, nameof(attackWindupAnimatorDurationSeconds));
+            ValidateAnimatorDuration(jumpWindupAnimatorDurationSeconds, nameof(jumpWindupAnimatorDurationSeconds));
+            ValidateAnimatorDuration(jumpAirborneAnimatorDurationSeconds, nameof(jumpAirborneAnimatorDurationSeconds));
             ValidateAnimatorDuration(recoverAnimatorDurationSeconds, nameof(recoverAnimatorDurationSeconds));
             ValidateCrossFadeDuration(stateTransitionCrossFadeDurationSeconds, nameof(stateTransitionCrossFadeDurationSeconds));
             ResolveReferenceClipLengthSeconds(
@@ -94,6 +144,16 @@ namespace Game.Feature.Gameplay.Host
                 attackWindupReferenceClip,
                 nameof(attackWindupReferenceClip),
                 nameof(attackWindupAnimatorDurationSeconds));
+            ResolveReferenceClipLengthSeconds(
+                jumpWindupAnimatorDurationSeconds,
+                jumpWindupReferenceClip,
+                nameof(jumpWindupReferenceClip),
+                nameof(jumpWindupAnimatorDurationSeconds));
+            ResolveReferenceClipLengthSeconds(
+                jumpAirborneAnimatorDurationSeconds,
+                jumpAirborneReferenceClip,
+                nameof(jumpAirborneReferenceClip),
+                nameof(jumpAirborneAnimatorDurationSeconds));
             ResolveReferenceClipLengthSeconds(
                 recoverAnimatorDurationSeconds,
                 recoverReferenceClip,
@@ -109,6 +169,16 @@ namespace Game.Feature.Gameplay.Host
                 attackWindupReferenceClip,
                 nameof(attackWindupReferenceClip),
                 nameof(attackWindupAnimatorDurationSeconds));
+            var jumpWindupReferenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
+                jumpWindupAnimatorDurationSeconds,
+                jumpWindupReferenceClip,
+                nameof(jumpWindupReferenceClip),
+                nameof(jumpWindupAnimatorDurationSeconds));
+            var jumpAirborneReferenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
+                jumpAirborneAnimatorDurationSeconds,
+                jumpAirborneReferenceClip,
+                nameof(jumpAirborneReferenceClip),
+                nameof(jumpAirborneAnimatorDurationSeconds));
             var recoverReferenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
                 recoverAnimatorDurationSeconds,
                 recoverReferenceClip,
@@ -116,9 +186,13 @@ namespace Game.Feature.Gameplay.Host
                 nameof(recoverAnimatorDurationSeconds));
             return new EnemyAnimationTimingSnapshot(
                 attackWindupAnimatorDurationSeconds,
+                jumpWindupAnimatorDurationSeconds,
+                jumpAirborneAnimatorDurationSeconds,
                 recoverAnimatorDurationSeconds,
                 stateTransitionCrossFadeDurationSeconds,
                 attackWindupReferenceClipLengthSeconds,
+                jumpWindupReferenceClipLengthSeconds,
+                jumpAirborneReferenceClipLengthSeconds,
                 recoverReferenceClipLengthSeconds);
         }
 

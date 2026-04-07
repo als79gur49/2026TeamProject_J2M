@@ -43,6 +43,21 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyActionState(entityId, state);
         }
 
+        public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
+        {
+            _port.SetEnemyJumpState(entityId, state);
+        }
+
+        public void MoveEnemyJumpEntity(int entityId, SurfaceCell destination)
+        {
+            _port.MoveEntityTo(entityId, destination);
+        }
+
+        public void SetEnemyJumpBoardPresence(int entityId, EntityBoardPresence boardPresence)
+        {
+            _port.SetBoardPresence(entityId, boardPresence);
+        }
+
         public void SetFacing(int entityId, Direction facing)
         {
             _port.SetFacing(entityId, facing);
