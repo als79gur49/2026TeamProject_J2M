@@ -1,3 +1,4 @@
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
@@ -29,15 +30,19 @@ namespace Game.Feature.Gameplay.Host
     {
         public TransitionVisibilityState(
             TickTransitionVisibilityMode mode,
-            GameplayEntityPose localPose)
+            GameplayEntityPose localPose,
+            GameplayProjectedFaceSlot? projectedSlot)
         {
             Mode = mode;
             LocalPose = localPose;
+            ProjectedSlot = projectedSlot;
         }
 
         public TickTransitionVisibilityMode Mode { get; }
 
         public GameplayEntityPose LocalPose { get; }
+
+        public GameplayProjectedFaceSlot? ProjectedSlot { get; }
     }
 
     public readonly struct JumpDetachedVisibilityState

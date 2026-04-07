@@ -89,6 +89,7 @@ namespace Game.Feature.Gameplay.Host
             var instance = UnityEngine.Object.Instantiate(prefab, _parent);
             ResetViewTransform(instance, entity.entityId);
             EnemyViewPrefabRequirements.ValidateEnemyViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
+            EnsureEnemyInactiveVisualController(instance, entity);
             EnsureRenderableVisual(instance, entity);
             view = instance;
             return true;
@@ -114,6 +115,7 @@ namespace Game.Feature.Gameplay.Host
                      entity.aiMode != EnemyAiMode.None)
             {
                 viewObject.AddComponent<EnemyAnimatorDriver>();
+                viewObject.AddComponent<EnemyInactiveVisualController>();
             }
 
             AttachPrimitiveVisual(view, entity);
@@ -138,6 +140,19 @@ namespace Game.Feature.Gameplay.Host
             }
 
             AttachPrimitiveVisual(view, entity);
+        }
+
+        private static void EnsureEnemyInactiveVisualController(GameplayEntityView view, in EntityState entity)
+        {
+            if (view == null ||
+                entity.type != EntityType.Unit ||
+                entity.aiMode == EnemyAiMode.None ||
+                view.GetComponent<EnemyInactiveVisualController>() != null)
+            {
+                return;
+            }
+
+            view.gameObject.AddComponent<EnemyInactiveVisualController>();
         }
 
         private void AttachPrimitiveVisual(GameplayEntityView view, in EntityState entity)

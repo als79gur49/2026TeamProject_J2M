@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 
@@ -7,6 +8,10 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayPresentationStateStore
     {
         private readonly Dictionary<int, GameplayEntityPose> _committedLocalTargetPoses = new();
+        private readonly Dictionary<int, GameplayProjectedFaceSlot> _committedProjectedSlotsByEntityId = new();
+        private readonly Dictionary<int, EnemyAiMode> _enemyAiModesByEntityId = new();
+        private readonly Dictionary<int, EnemyVisualPresentationFacts> _enemyVisualFactsByEntityId = new();
+        private readonly Dictionary<int, EnemyVisualSemanticState> _enemyVisualSemanticStatesByEntityId = new();
         private readonly Dictionary<int, EntityType> _entityTypesByEntityId = new();
         private readonly Dictionary<int, JumpDetachedVisibilityState> _jumpDetachedVisibilityStates = new();
         private readonly HashSet<int> _processingEntityIds = new();
@@ -18,6 +23,14 @@ namespace Game.Feature.Gameplay.Host
         public Dictionary<int, GameplayEntityPose> CommittedLocalTargetPoses => _committedLocalTargetPoses;
 
         public CubeTopologyState CommittedTopology { get; set; }
+
+        public Dictionary<int, GameplayProjectedFaceSlot> CommittedProjectedSlotsByEntityId => _committedProjectedSlotsByEntityId;
+
+        public Dictionary<int, EnemyAiMode> EnemyAiModesByEntityId => _enemyAiModesByEntityId;
+
+        public Dictionary<int, EnemyVisualPresentationFacts> EnemyVisualFactsByEntityId => _enemyVisualFactsByEntityId;
+
+        public Dictionary<int, EnemyVisualSemanticState> EnemyVisualSemanticStatesByEntityId => _enemyVisualSemanticStatesByEntityId;
 
         public Dictionary<int, EntityType> EntityTypesByEntityId => _entityTypesByEntityId;
 
@@ -36,6 +49,10 @@ namespace Game.Feature.Gameplay.Host
             CommittedTopology = topology;
             HasAnyCommittedFrame = false;
             _committedLocalTargetPoses.Clear();
+            _committedProjectedSlotsByEntityId.Clear();
+            _enemyAiModesByEntityId.Clear();
+            _enemyVisualFactsByEntityId.Clear();
+            _enemyVisualSemanticStatesByEntityId.Clear();
             _entityTypesByEntityId.Clear();
             _jumpDetachedVisibilityStates.Clear();
             _retainedLocalTargetPoses.Clear();
@@ -49,6 +66,9 @@ namespace Game.Feature.Gameplay.Host
         {
             CommittedTopology = topology;
             _committedLocalTargetPoses.Clear();
+            _committedProjectedSlotsByEntityId.Clear();
+            _enemyVisualFactsByEntityId.Clear();
+            _enemyVisualSemanticStatesByEntityId.Clear();
         }
 
         public IReadOnlyList<int> BuildProcessingEntityIds()

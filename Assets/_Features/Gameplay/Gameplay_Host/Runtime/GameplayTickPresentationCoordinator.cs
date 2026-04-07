@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -21,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
+        private readonly IEnemyVisualSemanticResolver _enemyVisualSemanticResolver = new DefaultEnemyVisualSemanticResolver();
         private readonly HashSet<int> _exitOwnedEntityIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
@@ -194,6 +196,8 @@ namespace Game.Feature.Gameplay.Host
             _completedJumpTrackIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _visibleEntityIds.Clear();
+            _stateStore.EnemyVisualFactsByEntityId.Clear();
+            _stateStore.EnemyVisualSemanticStatesByEntityId.Clear();
 
             var processingEntityIds = _stateStore.BuildProcessingEntityIds();
             for (var i = 0; i < processingEntityIds.Count; i++)
@@ -256,6 +260,7 @@ namespace Game.Feature.Gameplay.Host
                     resolvedPlayerAnimationState,
                     ResolvePlayerAnimationStateMotionDurationSeconds(entityId, resolvedPlayerAnimationState),
                     _stateStore.ViewsByEntityId);
+                UpdateEnemyVisualPresentationState(entityId, isVisible, hasActiveMotion, view);
 
                 if (!isVisible)
                 {
@@ -292,6 +297,10 @@ namespace Game.Feature.Gameplay.Host
                     if (!_stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId) &&
                         !_stateStore.TransitionVisibilityStates.ContainsKey(entityId))
                     {
+                        _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
+                        _stateStore.EnemyAiModesByEntityId.Remove(entityId);
+                        _stateStore.EnemyVisualFactsByEntityId.Remove(entityId);
+                        _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
                         _stateStore.EntityTypesByEntityId.Remove(entityId);
                     }
                 }
@@ -353,6 +362,10 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
+                _stateStore.CommittedProjectedSlotsByEntityId.Remove(pair.Key);
+                _stateStore.EnemyAiModesByEntityId.Remove(pair.Key);
+                _stateStore.EnemyVisualFactsByEntityId.Remove(pair.Key);
+                _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(pair.Key);
                 _stateStore.EntityTypesByEntityId.Remove(pair.Key);
             }
 
@@ -585,7 +598,17 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                _stateStore.TransitionVisibilityStates[change.EntityId] = new TransitionVisibilityState(change.Mode, localPose);
+                var projectedSlot = _projector.TryGetProjectedTransitionEntitySlot(
+                    change.Cell,
+                    change.Topology,
+                    topologyMotion.DestinationTopology,
+                    out var resolvedProjectedSlot)
+                    ? (GameplayProjectedFaceSlot?)resolvedProjectedSlot
+                    : null;
+                _stateStore.TransitionVisibilityStates[change.EntityId] = new TransitionVisibilityState(
+                    change.Mode,
+                    localPose,
+                    projectedSlot);
             }
         }
 
@@ -1044,6 +1067,10 @@ namespace Game.Feature.Gameplay.Host
                 _localMotionTracks.Remove(entityId);
                 _visibilityTracks.Remove(entityId);
                 _stateStore.CommittedLocalTargetPoses.Remove(entityId);
+                _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
+                _stateStore.EnemyAiModesByEntityId.Remove(entityId);
+                _stateStore.EnemyVisualFactsByEntityId.Remove(entityId);
+                _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
                 _stateStore.JumpDetachedVisibilityStates.Remove(entityId);
                 _stateStore.RetainedLocalTargetPoses.Remove(entityId);
                 _stateStore.TransitionVisibilityStates.Remove(entityId);
@@ -1066,6 +1093,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entity = entities[i];
                 _stateStore.EntityTypesByEntityId[entity.entityId] = entity.type;
+                _stateStore.EnemyAiModesByEntityId[entity.entityId] = entity.aiMode;
 
                 if (!ShouldPresent(entity, topology) ||
                     !_projector.TryProjectEntityCell(entity.position, topology, entity.type, out var projectedPose))
@@ -1127,6 +1155,11 @@ namespace Game.Feature.Gameplay.Host
                     target.ProjectedPose,
                     target.Entity.facing,
                     presentationPlaneOffset);
+
+                if (_projector.TryGetProjectedEntitySlot(target.Entity.position, topology, out var projectedSlot))
+                {
+                    _stateStore.CommittedProjectedSlotsByEntityId[target.Entity.entityId] = projectedSlot;
+                }
             }
         }
 
@@ -1241,6 +1274,75 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return _stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out localPose);
+        }
+
+        private void UpdateEnemyVisualPresentationState(
+            int entityId,
+            bool isVisible,
+            bool hasActiveMotion,
+            GameplayEntityView view)
+        {
+            var facts = BuildEnemyVisualPresentationFacts(entityId, isVisible, hasActiveMotion);
+            _stateStore.EnemyVisualFactsByEntityId[entityId] = facts;
+
+            var semanticState = _enemyVisualSemanticResolver.Resolve(facts);
+            _stateStore.EnemyVisualSemanticStatesByEntityId[entityId] = semanticState;
+
+            if (view != null &&
+                view.TryGetComponent<EnemyInactiveVisualController>(out var controller) &&
+                controller != null)
+            {
+                controller.Apply(semanticState);
+            }
+        }
+
+        private EnemyVisualPresentationFacts BuildEnemyVisualPresentationFacts(
+            int entityId,
+            bool isVisible,
+            bool hasActiveMotion)
+        {
+            var isCommittedVisible = _stateStore.CommittedLocalTargetPoses.ContainsKey(entityId);
+            var isTransitionVisible = _stateStore.TransitionVisibilityStates.TryGetValue(entityId, out var transitionVisibilityState);
+            var isJumpDetachedVisible = _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId);
+            var isTransitionOnlyVisible = isTransitionVisible && !isCommittedVisible;
+            var hasEntityType = _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType);
+            var hasEnemyAiMode = _stateStore.EnemyAiModesByEntityId.TryGetValue(entityId, out var aiMode);
+            var isEnemy = hasEntityType &&
+                          entityType == EntityType.Unit &&
+                          hasEnemyAiMode &&
+                          aiMode != EnemyAiMode.None;
+
+            return new EnemyVisualPresentationFacts(
+                entityId,
+                isEnemy,
+                isVisible,
+                isCommittedVisible,
+                isTransitionVisible,
+                isTransitionOnlyVisible,
+                isJumpDetachedVisible,
+                ResolveProjectedSlot(entityId, isCommittedVisible, isTransitionVisible, transitionVisibilityState),
+                isEnemy ? aiMode : EnemyAiMode.None,
+                hasActiveMotion);
+        }
+
+        private GameplayProjectedFaceSlot? ResolveProjectedSlot(
+            int entityId,
+            bool isCommittedVisible,
+            bool isTransitionVisible,
+            TransitionVisibilityState transitionVisibilityState)
+        {
+            if (isCommittedVisible &&
+                _stateStore.CommittedProjectedSlotsByEntityId.TryGetValue(entityId, out var committedSlot))
+            {
+                return committedSlot;
+            }
+
+            if (isTransitionVisible)
+            {
+                return transitionVisibilityState.ProjectedSlot;
+            }
+
+            return null;
         }
 
         private void ClearJumpPresentationState(int entityId)

@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
@@ -72,6 +73,20 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryGetProjectedEntitySlot(
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            out GameplayProjectedFaceSlot slot)
+        {
+            if (!_boardBounds.Contains(cell.PlanarPosition))
+            {
+                slot = default;
+                return false;
+            }
+
+            return TryResolveEntitySlot(cell.face, topology, out slot);
+        }
+
         public bool TryProjectTransitionEntityCell(
             SurfaceCell cell,
             CubeTopologyState sourceTopology,
@@ -102,6 +117,21 @@ namespace Game.Feature.Gameplay.Host
 
             projectedPose = ProjectCell(slot, cell, -ResolveEntitySurfaceOffset(entityType));
             return true;
+        }
+
+        public bool TryGetProjectedTransitionEntitySlot(
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            out GameplayProjectedFaceSlot slot)
+        {
+            if (!_boardBounds.Contains(cell.PlanarPosition))
+            {
+                slot = default;
+                return false;
+            }
+
+            return TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out slot);
         }
 
         public bool TryProjectSurfaceCell(
@@ -187,17 +217,17 @@ namespace Game.Feature.Gameplay.Host
             return Vector3.zero;
         }
 
-        private bool TryResolveEntitySlot(FaceId face, CubeTopologyState topology, out CubeFaceSlot slot)
+        private bool TryResolveEntitySlot(FaceId face, CubeTopologyState topology, out GameplayProjectedFaceSlot slot)
         {
             if (face == topology.BottomFace)
             {
-                slot = CubeFaceSlot.Bottom;
+                slot = GameplayProjectedFaceSlot.Bottom;
                 return true;
             }
 
             if (face == topology.FrontFace)
             {
-                slot = CubeFaceSlot.Front;
+                slot = GameplayProjectedFaceSlot.Front;
                 return true;
             }
 
@@ -205,7 +235,7 @@ namespace Game.Feature.Gameplay.Host
             return false;
         }
 
-        private bool TryResolveSurfaceSlot(FaceId face, CubeTopologyState topology, out CubeFaceSlot slot)
+        private bool TryResolveSurfaceSlot(FaceId face, CubeTopologyState topology, out GameplayProjectedFaceSlot slot)
         {
             if (TryResolveEntitySlot(face, topology, out slot))
             {
@@ -214,13 +244,13 @@ namespace Game.Feature.Gameplay.Host
 
             if (face == FaceIdUtility.GetNext(topology.FrontFace))
             {
-                slot = CubeFaceSlot.Top;
+                slot = GameplayProjectedFaceSlot.Top;
                 return true;
             }
 
             if (face == FaceIdUtility.GetPrevious(topology.BottomFace))
             {
-                slot = CubeFaceSlot.Back;
+                slot = GameplayProjectedFaceSlot.Back;
                 return true;
             }
 
@@ -232,7 +262,7 @@ namespace Game.Feature.Gameplay.Host
             FaceId face,
             CubeTopologyState sourceTopology,
             CubeTopologyState destinationTopology,
-            out CubeFaceSlot slot)
+            out GameplayProjectedFaceSlot slot)
         {
             if (!sourceTopology.IsFaceActive(face) &&
                 !destinationTopology.IsFaceActive(face))
@@ -244,7 +274,7 @@ namespace Game.Feature.Gameplay.Host
             return TryResolveSurfaceSlot(face, destinationTopology, out slot);
         }
 
-        private ProjectedCellPose ProjectCell(CubeFaceSlot slot, SurfaceCell cell, float surfaceOffset)
+        private ProjectedCellPose ProjectCell(GameplayProjectedFaceSlot slot, SurfaceCell cell, float surfaceOffset)
         {
             var centeredX = ResolveCenteredCoordinate(cell.x, _boardBounds.MinInclusive.x, Width);
             var centeredY = ResolveCenteredCoordinate(cell.y, _boardBounds.MinInclusive.y, Height);
@@ -256,7 +286,7 @@ namespace Game.Feature.Gameplay.Host
             return new ProjectedCellPose(localPosition, frame.Rotation, frame.Normal);
         }
 
-        private FaceFrame ResolveFrame(CubeFaceSlot slot)
+        private FaceFrame ResolveFrame(GameplayProjectedFaceSlot slot)
         {
             var referenceFaceDistance = _halfHeight + _faceSeamHalfGap;
             var referenceFrame = new FaceFrame(
@@ -272,14 +302,14 @@ namespace Game.Feature.Gameplay.Host
             return referenceFrame.Rotate(slotRotation);
         }
 
-        private static Quaternion ResolveSlotRotation(CubeFaceSlot slot)
+        private static Quaternion ResolveSlotRotation(GameplayProjectedFaceSlot slot)
         {
             return slot switch
             {
-                CubeFaceSlot.Bottom => Quaternion.identity,
-                CubeFaceSlot.Front => Quaternion.Euler(-90f, 0f, 0f),
-                CubeFaceSlot.Top => Quaternion.Euler(180f, 0f, 0f),
-                CubeFaceSlot.Back => Quaternion.Euler(90f, 0f, 0f),
+                GameplayProjectedFaceSlot.Bottom => Quaternion.identity,
+                GameplayProjectedFaceSlot.Front => Quaternion.Euler(-90f, 0f, 0f),
+                GameplayProjectedFaceSlot.Top => Quaternion.Euler(180f, 0f, 0f),
+                GameplayProjectedFaceSlot.Back => Quaternion.Euler(90f, 0f, 0f),
                 _ => throw new ArgumentOutOfRangeException(nameof(slot), slot, null),
             };
         }
@@ -307,14 +337,6 @@ namespace Game.Feature.Gameplay.Host
             };
 
             return Quaternion.LookRotation(frame.Normal, upAxis);
-        }
-
-        private enum CubeFaceSlot
-        {
-            Bottom = 0,
-            Front = 1,
-            Top = 2,
-            Back = 3,
         }
 
         private readonly struct FaceFrame
