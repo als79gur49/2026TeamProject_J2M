@@ -1,0 +1,272 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 34338d9a5ccd4ded8ee77e24852e6087, type: 3}
+  m_Name: Stage_CombinedGameplayShowcase 2
+  m_EditorClassIdentifier: 
+  board:
+    MinInclusive: {x: 0, y: 0}
+    MaxInclusive: {x: 15, y: 8}
+    InitialBottomFace: 0
+    PerimeterFaces: 00000000010000000200000003000000
+    SharedEdgeOpeningColumns: 01000000030000000700000009000000
+    GeneratedPerimeterWallEntityIdStart: 1000
+  playerSpawns:
+  - EntityId: 10
+    Kind: 0
+    Cell:
+      face: 0
+      x: 1
+      y: 1
+    Facing: 2
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  boxSpawns:
+  - EntityId: 30
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 1
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 31
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 4
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 36
+    Kind: 2
+    Cell:
+      face: 0
+      x: 5
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 32
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 5
+    Facing: 4
+    Hp: 1
+    BoxCapabilities: 2
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 33
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 1
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 3
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 34
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 3
+    Facing: 4
+    Hp: 1
+    BoxCapabilities: 6
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 37
+    Kind: 2
+    Cell:
+      face: 0
+      x: 8
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 11
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 35
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 5
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 7
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 40
+    Kind: 2
+    Cell:
+      face: 0
+      x: 9
+      y: 6
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 41
+    Kind: 2
+    Cell:
+      face: 1
+      x: 3
+      y: 1
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 5
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 42
+    Kind: 2
+    Cell:
+      face: 2
+      x: 7
+      y: 1
+    Facing: 4
+    Hp: 1
+    BoxCapabilities: 3
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 43
+    Kind: 2
+    Cell:
+      face: 3
+      x: 3
+      y: 5
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  enemySpawns:
+  - EntityId: 56
+    Kind: 1
+    Cell:
+      face: 0
+      x: 4
+      y: 4
+    Facing: 1
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
+    EnemyPresentationId: Attacking_showcase
+  wallSpawns:
+  - EntityId: 196
+    Kind: 3
+    Cell:
+      face: 0
+      x: 5
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 197
+    Kind: 3
+    Cell:
+      face: 0
+      x: 6
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 198
+    Kind: 3
+    Cell:
+      face: 0
+      x: 9
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 199
+    Kind: 3
+    Cell:
+      face: 0
+      x: 9
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
+  - EntityId: 200
+    Kind: 3
+    Cell:
+      face: 1
+      x: 9
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    EnemyPresentationId: 
