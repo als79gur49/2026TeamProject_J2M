@@ -186,7 +186,7 @@ SkinnedMeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 8d6f92e38d8e77249bba0892aa4a7413, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -565,8 +565,12 @@ MonoBehaviour:
   animator: {fileID: 1973374220910874260}
   animationTimingAuthoring: {fileID: 2407586926128549279}
   windupStateName: Windup
+  jumpWindupStateName: JumpWindup
+  jumpAirborneStateName: JumpAirborne
   recoveryStateName: Recover
   windupTriggerName: Windup
+  jumpWindupTriggerName: JumpWindup
+  jumpAirborneTriggerName: JumpAirborne
   attackTriggerName: Attack
   recoveryTriggerName: Recover
   hitTriggerName: Hit
@@ -584,9 +588,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
   attackWindupAnimatorDurationSeconds: 1
+  jumpWindupAnimatorDurationSeconds: -1
+  jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: 1
   stateTransitionCrossFadeDurationSeconds: 0.001
   attackWindupReferenceClip: {fileID: 7400000, guid: 52ce4489866b12e4a90879b05e608ddb, type: 2}
+  jumpWindupReferenceClip: {fileID: 0}
+  jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: 7400000, guid: 014e6188255d29b48a18eaf30e093d7b, type: 2}
 --- !u!1 &2124947621262512643
 GameObject:
