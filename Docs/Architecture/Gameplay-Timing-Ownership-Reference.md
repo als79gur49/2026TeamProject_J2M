@@ -189,7 +189,7 @@ logic execute 시점을 바꾸면 안 된다.
 | `EntityMotionPresentationAuthoring` | actor-specific fallback move / push / flip / box interaction motion override | execute delay, cooldown, AI cadence |
 | `PlayerAnimationTimingAuthoring` | player push / flip animator duration override | execute delay, input lock, contact threshold |
 | `PlayerAnimatorDriver` | animation state 적용, optional parameter sync, speed 계산 | authoritative player timing source |
-| `EnemyAnimationTimingAuthoring` | enemy animation-only tuning 확장 포인트 | AI decision cadence, locomotion cooldown authority |
+| `EnemyAnimationTimingAuthoring` | enemy attack / recover / jump animation-only tuning 확장 포인트 | AI decision cadence, locomotion cooldown authority |
 
 ## 5. Fallback과 이름 변경 고정
 

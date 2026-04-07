@@ -227,7 +227,7 @@ Animator clip 재생 속도, crossfade, state hold, state name mapping 같은 �
 | unit move-only motion duration | Actor Motion Presentation | `UnitLocomotionPresentationAuthoring` | unit prefab move override, entity motion/global로 fallback |
 | actor-specific push / flip / box interaction motion duration | Actor Motion Presentation | `EntityMotionPresentationAuthoring` | player / enemy / box 공용 |
 | player push / flip animator duration | Actor Animation Presentation | `PlayerAnimationTimingAuthoring` | 필요 시만 override |
-| enemy attack / recover animation tuning | Actor Animation Presentation | `EnemyAnimationTimingAuthoring` | animation-only, AI cadence 금지 |
+| enemy attack / recover / jump animation tuning | Actor Animation Presentation | `EnemyAnimationTimingAuthoring` | animation-only, AI cadence 금지 |
 
 ## 7. Fallback 규칙
 
