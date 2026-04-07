@@ -15,6 +15,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string walkStateName = "Walk";
         [SerializeField] private string pushStateName = "Push";
         [SerializeField] private string flipStateName = "Flip";
+        [SerializeField] private string walkExitStateName;
+        [SerializeField] private string pushExitStateName;
+        [SerializeField] private string flipExitStateName;
         [FormerlySerializedAs("crossFadeDurationSeconds")]
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = 0.08f;
         [FormerlySerializedAs("actionTimingAuthoring")]
@@ -45,6 +48,10 @@ namespace Game.Feature.Gameplay.Host
         public float FlipPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Flip);
 
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
+
+        public float LastCrossFadeDurationSeconds { get; private set; }
+
+        public string LastCrossFadedStateName { get; private set; } = string.Empty;
 
         private void Reset()
         {
@@ -86,18 +93,15 @@ namespace Game.Feature.Gameplay.Host
             PlayerActionKind actionKind,
             float resolvedMotionDurationSeconds = 0f)
         {
-            var stateName = actionKind switch
-            {
-                PlayerActionKind.Push => pushStateName,
-                PlayerActionKind.Flip => flipStateName,
-                _ => string.Empty,
-            };
+            var stateName = ResolveActionStateName(actionKind);
+            var exitStateName = ResolveActionExitStateName(actionKind);
 
             return ResolvePresentationDurationSeconds(
                 actionKind,
                 resolvedMotionDurationSeconds,
                 ResolveAnimator(),
-                stateName);
+                stateName,
+                exitStateName);
         }
 
         private void ApplyResolvedState(
@@ -109,6 +113,18 @@ namespace Game.Feature.Gameplay.Host
             var targetAnimator = ResolveAnimator();
             ApplyAnimatorSpeed(targetAnimator, resolvedState, resolvedMotionDurationSeconds);
             SyncOptionalStateParameter(targetAnimator, resolvedState);
+
+            if (!restart &&
+                TryResolveWalkExitTransitionStateName(resolvedState, out var walkExitTransitionStateName))
+            {
+                CurrentState = resolvedState;
+                CrossFadeState(
+                    targetAnimator,
+                    walkExitTransitionStateName,
+                    stateTransitionCrossFadeDurationSeconds);
+                ApplyExecuteSignal(targetAnimator, executeActionKind, resolvedState);
+                return;
+            }
 
             if (resolvedState == CurrentState &&
                 !restart)
@@ -131,6 +147,42 @@ namespace Game.Feature.Gameplay.Host
                 PlayerViewAnimationState.Flip => flipStateName,
                 _ => idleStateName,
             };
+        }
+
+        private string ResolveActionStateName(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => pushStateName,
+                PlayerActionKind.Flip => flipStateName,
+                _ => string.Empty,
+            };
+        }
+
+        private string ResolveActionExitStateName(PlayerActionKind actionKind)
+        {
+            return actionKind switch
+            {
+                PlayerActionKind.Push => pushExitStateName,
+                PlayerActionKind.Flip => flipExitStateName,
+                _ => string.Empty,
+            };
+        }
+
+        private bool TryResolveWalkExitTransitionStateName(
+            PlayerViewAnimationState resolvedState,
+            out string stateName)
+        {
+            if (CurrentState == PlayerViewAnimationState.Walk &&
+                resolvedState == PlayerViewAnimationState.Idle &&
+                !string.IsNullOrWhiteSpace(walkExitStateName))
+            {
+                stateName = walkExitStateName;
+                return true;
+            }
+
+            stateName = string.Empty;
+            return false;
         }
 
         private Animator ResolveAnimator()
@@ -174,14 +226,22 @@ namespace Game.Feature.Gameplay.Host
                 stateTransitionCrossFadeDurationSeconds);
         }
 
-        private static void CrossFadeState(Animator targetAnimator, string stateName, float durationSeconds)
+        private void CrossFadeState(Animator targetAnimator, string stateName, float durationSeconds)
         {
-            if (targetAnimator == null || string.IsNullOrWhiteSpace(stateName))
+            if (string.IsNullOrWhiteSpace(stateName))
             {
                 return;
             }
 
-            targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), Mathf.Max(0f, durationSeconds));
+            LastCrossFadedStateName = stateName;
+            LastCrossFadeDurationSeconds = Mathf.Max(0f, durationSeconds);
+
+            if (targetAnimator == null)
+            {
+                return;
+            }
+
+            targetAnimator.CrossFadeInFixedTime(Animator.StringToHash(stateName), LastCrossFadeDurationSeconds);
         }
 
         private void SyncOptionalStateParameter(Animator targetAnimator, PlayerViewAnimationState resolvedState)
@@ -260,12 +320,17 @@ namespace Game.Feature.Gameplay.Host
                 ? PlayerActionKind.Push
                 : PlayerActionKind.Flip;
             var stateName = ResolveStateName(resolvedState);
+            var exitStateName = ResolveActionExitStateName(actionKind);
             var presentationDurationSeconds = ResolvePresentationDurationSeconds(
                 actionKind,
                 resolvedMotionDurationSeconds,
                 targetAnimator,
-                stateName);
-            var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(targetAnimator, stateName);
+                stateName,
+                exitStateName);
+            var referenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
+                targetAnimator,
+                stateName,
+                exitStateName);
             return Mathf.Max(0.01f, referenceClipLengthSeconds / presentationDurationSeconds);
         }
 
@@ -273,7 +338,8 @@ namespace Game.Feature.Gameplay.Host
             PlayerActionKind actionKind,
             float resolvedMotionDurationSeconds,
             Animator targetAnimator,
-            string stateName)
+            string stateName,
+            string exitStateName)
         {
             var animationTiming = ResolveAnimationTiming();
             if (animationTiming.TryGetAnimatorDurationOverride(actionKind, out var animatorDurationSeconds))
@@ -286,12 +352,16 @@ namespace Game.Feature.Gameplay.Host
                 return resolvedMotionDurationSeconds;
             }
 
-            return ResolveReferenceClipLengthSeconds(targetAnimator, stateName);
+            return ResolveReferenceClipLengthSeconds(targetAnimator, stateName, exitStateName);
         }
 
-        private float ResolveReferenceClipLengthSeconds(Animator targetAnimator, string stateName)
+        private float ResolveReferenceClipLengthSeconds(
+            Animator targetAnimator,
+            string stateName,
+            string exitStateName = "")
         {
-            if (string.IsNullOrWhiteSpace(stateName))
+            if (string.IsNullOrWhiteSpace(stateName) &&
+                string.IsNullOrWhiteSpace(exitStateName))
             {
                 return 1f;
             }
@@ -303,29 +373,49 @@ namespace Game.Feature.Gameplay.Host
                 _cachedClipLengthController = controller;
             }
 
-            if (_clipLengthCache.TryGetValue(stateName, out var cachedLength))
+            var cacheKey = string.IsNullOrWhiteSpace(exitStateName)
+                ? stateName
+                : $"{stateName}->{exitStateName}";
+            if (_clipLengthCache.TryGetValue(cacheKey, out var cachedLength))
             {
                 return cachedLength;
             }
 
-            var clips = controller?.animationClips;
-            if (clips != null)
+            var resolvedLength = ResolveClipLengthSeconds(controller, stateName);
+            if (!string.IsNullOrWhiteSpace(exitStateName))
             {
-                for (var i = 0; i < clips.Length; i++)
+                resolvedLength += ResolveClipLengthSeconds(controller, exitStateName);
+            }
+
+            if (resolvedLength <= 0f)
+            {
+                resolvedLength = 1f;
+            }
+
+            _clipLengthCache[cacheKey] = resolvedLength;
+            return resolvedLength;
+        }
+
+        private static float ResolveClipLengthSeconds(RuntimeAnimatorController controller, string clipName)
+        {
+            if (controller == null ||
+                string.IsNullOrWhiteSpace(clipName))
+            {
+                return 0f;
+            }
+
+            var clips = controller.animationClips;
+            for (var i = 0; i < clips.Length; i++)
+            {
+                var clip = clips[i];
+                if (clip != null &&
+                    string.Equals(clip.name, clipName, StringComparison.Ordinal))
                 {
-                    var clip = clips[i];
-                    if (clip != null &&
-                        string.Equals(clip.name, stateName, StringComparison.Ordinal))
-                    {
-                        var resolvedLength = Mathf.Max(clip.length, 0.01f);
-                        _clipLengthCache[stateName] = resolvedLength;
-                        return resolvedLength;
-                    }
+                    return Mathf.Max(clip.length, 0.01f);
                 }
             }
 
-            _clipLengthCache[stateName] = 1f;
-            return 1f;
+            return 0f;
         }
 
         private void ApplyExecuteSignal(

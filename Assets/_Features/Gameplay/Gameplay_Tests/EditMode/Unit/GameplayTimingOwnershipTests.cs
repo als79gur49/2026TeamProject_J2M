@@ -7,6 +7,8 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
+using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -126,6 +128,133 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_WithCompositeFlipState_UsesExitStateClipLengthForSpeed()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WithCompositeFlipState_UsesExitStateClipLengthForSpeed");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var animator = rootObject.AddComponent<Animator>();
+                var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(controller, Is.Not.Null);
+
+                animator.runtimeAnimatorController = controller;
+
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "flipStateName", "Change_Start");
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "flipExitStateName", "Change_Stop");
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 2f);
+
+                var expectedReferenceLengthSeconds = controller.animationClips
+                    .Where(clip => clip != null &&
+                                   (string.Equals(clip.name, "Change_Start", StringComparison.Ordinal) ||
+                                    string.Equals(clip.name, "Change_Stop", StringComparison.Ordinal)))
+                    .Sum(clip => clip.length);
+
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
+
+                Assert.That(expectedReferenceLengthSeconds, Is.GreaterThan(0f));
+                Assert.That(
+                    driver.CurrentAnimatorSpeed,
+                    Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_WalkSequence_UsesWalkStartOnInitialMoveAndWalkDoneWhenMovementStops()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WalkSequence_UsesWalkStartOnInitialMoveAndWalkDoneWhenMovementStops");
+
+            try
+            {
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "walkStateName", "Walk_Start");
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "walkExitStateName", "Walk_Done");
+
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Walk);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Start"));
+
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Walk);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Start"));
+
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Idle);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Done"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerS1Controller_WalkSequence_TransitionsFromStartToLoopAndDoneToIdle()
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.layers, Has.Length.GreaterThanOrEqualTo(1));
+
+            var stateMachine = controller.layers[0].stateMachine;
+            var idleState = FindState(stateMachine, "Idle");
+            var walkStartState = FindState(stateMachine, "Walk_Start");
+            var walkLoopState = FindState(stateMachine, "Walk_Loop");
+            var walkDoneState = FindState(stateMachine, "Walk_Done");
+
+            Assert.That(idleState, Is.Not.Null);
+            Assert.That(walkStartState, Is.Not.Null);
+            Assert.That(walkLoopState, Is.Not.Null);
+            Assert.That(walkDoneState, Is.Not.Null);
+
+            Assert.That(
+                HasTransition(walkStartState, walkLoopState.name),
+                Is.True,
+                "Walk_Start must advance into Walk_Loop for continuous movement.");
+            Assert.That(
+                HasTransition(walkDoneState, idleState.name),
+                Is.True,
+                "Walk_Done must return to Idle after movement stops.");
+        }
+
+        [Test]
+        public void PlayerS1Prefab_PlayerAnimatorDriver_MapsWalkSequenceStates()
+        {
+            var prefabObject = AssetDatabase.LoadAssetAtPath<GameObject>(
+                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Player_S1.prefab");
+
+            Assert.That(prefabObject, Is.Not.Null);
+
+            var driver = prefabObject.GetComponent<PlayerAnimatorDriver>();
+            var view = prefabObject.GetComponent<GameplayEntityView>();
+
+            Assert.That(driver, Is.Not.Null);
+            Assert.That(view, Is.Not.Null);
+            Assert.That(view.ModelRoot, Is.Not.Null);
+            Assert.That(GetPrivateInstanceField<string>(driver, "walkStateName"), Is.EqualTo("Walk_Start"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "walkExitStateName"), Is.EqualTo("Walk_Done"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "pushStateName"), Is.EqualTo("Kick"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "flipStateName"), Is.EqualTo("Change_Start"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "flipExitStateName"), Is.EqualTo("Change_Stop"));
         }
 
         [Test]
@@ -881,6 +1010,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "m_LocalPosition.x",
                 AnimationCurve.Linear(0f, 0f, lengthSeconds, 1f));
             return clip;
+        }
+
+        private static AnimatorState FindState(AnimatorStateMachine stateMachine, string stateName)
+        {
+            foreach (var childState in stateMachine.states)
+            {
+                if (childState.state != null &&
+                    string.Equals(childState.state.name, stateName, StringComparison.Ordinal))
+                {
+                    return childState.state;
+                }
+            }
+
+            return null;
+        }
+
+        private static bool HasTransition(AnimatorState state, string destinationStateName)
+        {
+            if (state == null)
+            {
+                return false;
+            }
+
+            foreach (var transition in state.transitions)
+            {
+                if (transition.destinationState != null &&
+                    string.Equals(transition.destinationState.name, destinationStateName, StringComparison.Ordinal) &&
+                    transition.hasExitTime)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
     }
