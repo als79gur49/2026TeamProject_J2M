@@ -47,6 +47,7 @@ namespace Game.Feature.Gameplay.Host
                 {
                     "Floor striker near spawn uses a brief wind-up melee profile plus tuned wind-up/recover timing so those beats can be inspected in place.",
                     "Adjacent floor scout uses the non-attacking profile so move-only pursuit pacing can be compared against the striker lane.",
+                    "Far floor jumper uses a jump-to-locked-target movement skill so detached airborne relanding can be inspected without adding a new attack type.",
                     "Elevated floor scout circles the nearby push box with a wall-follow patrol profile and never enters chase or attack.",
                 });
         }

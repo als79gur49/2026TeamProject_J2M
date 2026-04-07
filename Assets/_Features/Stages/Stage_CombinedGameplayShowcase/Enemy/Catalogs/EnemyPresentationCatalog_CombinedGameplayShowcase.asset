@@ -19,3 +19,5 @@ MonoBehaviour:
     ViewPrefab: {fileID: 2823823344174377908, guid: 46a5570e50d3d91459ff0980ae576e65, type: 3}
   - PresentationId: Attacking_showcase
     ViewPrefab: {fileID: 2823823344174377908, guid: 83caa4e85bf10db439b3962f8682e4ce, type: 3}
+  - PresentationId: Jump_showcase
+    ViewPrefab: {fileID: 2823823344174377908, guid: 6f32c68c11dbede40b0bc721539b2af5, type: 3}

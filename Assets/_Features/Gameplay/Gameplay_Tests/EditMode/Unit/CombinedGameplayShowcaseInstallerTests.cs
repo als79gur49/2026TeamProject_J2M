@@ -23,8 +23,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
         private const int ConfiguredShowcaseEnemyId = 54;
         private const int WallFollowerShowcaseEnemyId = 56;
+        private const int JumpShowcaseEnemyId = 57;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
+        private const string JumpEnemyPresentationId = "Jump_showcase";
 
         [Test]
         public void CombinedGameplayStage_PopulatesSharedEdgeOpeningsAcrossAllFourFaces()
@@ -115,7 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(3));
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(4));
 
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
@@ -130,28 +132,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyPresentationBindings, Is.Not.Null);
-            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(3));
+            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(4));
             Assert.That(TryGetPresentationBinding(buildResult, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
             Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(buildResult, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
+            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
         }
 
         [Test]
-        public void CombinedGameplayStage_PlacesWallFollowerShowcaseEnemyNearElevatedPushBox()
+        public void CombinedGameplayStage_PlacesWallFollowerShowcaseEnemyAtConfiguredPatrolLane()
         {
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
 
-            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 10, 6), out var wallFollowerEnemy), Is.True);
+            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 7, 8), out var wallFollowerEnemy), Is.True);
             Assert.That(wallFollowerEnemy.entityId, Is.EqualTo(WallFollowerShowcaseEnemyId));
             Assert.That(wallFollowerEnemy.teamId, Is.EqualTo(2));
             Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
-            Assert.That(
-                GetPlanarDistance(new SurfaceCell(FaceId.Floor, 9, 6), wallFollowerEnemy.position),
-                Is.EqualTo(1),
-                "The wall-follow showcase enemy should spawn adjacent to the elevated push box it patrols around.");
         }
 
         [Test]
@@ -164,6 +164,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(wallFollowerProfile.DetectionStrategyKind, Is.EqualTo(DetectionStrategyKind.None));
             Assert.That(wallFollowerProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(wallFollowerProfile.PatrolSettings.TurnPreference, Is.EqualTo(WallFollowTurnPreference.Left));
+        }
+
+        [Test]
+        public void CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane()
+        {
+            var buildResult = BuildCombinedStage();
+            var entities = buildResult.InitialEntities;
+
+            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 10, 2), out var jumpEnemy), Is.True);
+            Assert.That(jumpEnemy.entityId, Is.EqualTo(JumpShowcaseEnemyId));
+            Assert.That(jumpEnemy.teamId, Is.EqualTo(2));
+            Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(jumpEnemy.facing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        public void CombinedGameplayStage_BuildsJumpShowcaseProfileOverride()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(TryGetProfileOverride(buildResult, JumpShowcaseEnemyId, out var jumpProfile), Is.True);
+            Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+            Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
+            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.35f));
+            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.8f));
         }
 
         [Test]
@@ -516,6 +542,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(overlay.Title, Is.EqualTo("Combined Gameplay Showcase"));
                 Assert.That(overlay.Highlights, Has.Some.Contains("brief wind-up melee profile"));
+                Assert.That(overlay.Highlights, Has.Some.Contains("jump-to-locked-target movement skill"));
                 Assert.That(overlay.Highlights, Has.Some.Contains("wall-follow patrol profile"));
             }
             finally

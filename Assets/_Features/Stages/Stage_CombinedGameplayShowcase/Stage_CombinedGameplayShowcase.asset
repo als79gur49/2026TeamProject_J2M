@@ -230,6 +230,19 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
     EnemyPresentationId: nonAttacking_showcase
+  - EntityId: 57
+    Kind: 1
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    EnemyPresentationId: Jump_showcase
   wallSpawns:
   - EntityId: 196
     Kind: 3

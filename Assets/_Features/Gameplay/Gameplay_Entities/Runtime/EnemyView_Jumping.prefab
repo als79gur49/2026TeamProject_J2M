@@ -349,7 +349,7 @@ Animator:
   m_GameObject: {fileID: 1225762992415310247}
   m_Enabled: 1
   m_Avatar: {fileID: 9000000, guid: 2faa610713d3b3c439473daa55e8c60a, type: 3}
-  m_Controller: {fileID: 9100000, guid: 765230bf4a8129e4a8d267d7aecade3c, type: 2}
+  m_Controller: {fileID: 9100000, guid: 9168bd8b01cd71b41ba9ada921cfe23e, type: 2}
   m_CullingMode: 1
   m_UpdateMode: 0
   m_ApplyRootMotion: 0
@@ -501,7 +501,7 @@ GameObject:
   - component: {fileID: 4994410876415863292}
   - component: {fileID: 2407586926128549279}
   m_Layer: 0
-  m_Name: EnemyView_NonAttacking
+  m_Name: EnemyView_Jumping
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -588,9 +588,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyAnimationTimingAuthoring
   attackWindupAnimatorDurationSeconds: -1
+  jumpWindupAnimatorDurationSeconds: 0.35
+  jumpAirborneAnimatorDurationSeconds: 1
   recoverAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: -1
   attackWindupReferenceClip: {fileID: 0}
+  jumpWindupReferenceClip: {fileID: -3544255934867108276, guid: b3346507aa15a1f438b62b8c71c8e015, type: 3}
+  jumpAirborneReferenceClip: {fileID: -1882785798809544496, guid: d2cf396bf78df7d4aa7b7145dfeada21, type: 3}
   recoverReferenceClip: {fileID: 0}
 --- !u!1 &2124947621262512643
 GameObject:

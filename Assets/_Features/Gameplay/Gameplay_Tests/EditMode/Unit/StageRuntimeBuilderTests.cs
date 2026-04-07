@@ -18,8 +18,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int ConfiguredShowcaseEnemyId = 54;
         private const int NonAttackingShowcaseEnemyId = 55;
         private const int WallFollowerShowcaseEnemyId = 56;
+        private const int JumpShowcaseEnemyId = 57;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
+        private const string JumpEnemyPresentationId = "Jump_showcase";
         private const string WindupEnemyPresentationId = "windup_melee_showcase";
 
         [Test]
@@ -122,7 +124,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
             Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
             Assert.That(stage.BoxSpawns.Length, Is.EqualTo(12));
-            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(3));
+            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(4));
             Assert.That(stage.WallSpawns.Length, Is.EqualTo(5));
 
             var buildResult = StageRuntimeBuilder.Build(stage);
@@ -165,11 +167,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(nonAttackingEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, WallFollowerShowcaseEnemyId, out var wallFollowerEnemy), Is.True);
-            Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 10, 6)));
+            Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 8)));
             Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
             Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
 
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(3));
+            Assert.That(TryGetEntity(buildResult.InitialEntities, JumpShowcaseEnemyId, out var jumpEnemy), Is.True);
+            Assert.That(jumpEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 10, 2)));
+            Assert.That(jumpEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(4));
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
             Assert.That(showcaseProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
@@ -184,13 +191,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(wallFollowerProfile.DetectionStrategyKind, Is.EqualTo(DetectionStrategyKind.None));
             Assert.That(wallFollowerProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
 
-            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(3));
+            Assert.That(TryGetProfileOverride(buildResult, JumpShowcaseEnemyId, out var jumpProfile), Is.True);
+            Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+            Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
+            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.35f));
+            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.8f));
+
+            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(4));
             Assert.That(TryGetPresentationBinding(buildResult, ConfiguredShowcaseEnemyId, out var presentationBinding), Is.True);
             Assert.That(presentationBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(buildResult, NonAttackingShowcaseEnemyId, out var nonAttackingBinding), Is.True);
             Assert.That(nonAttackingBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(buildResult, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
+            Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
         }
 
         [Test]

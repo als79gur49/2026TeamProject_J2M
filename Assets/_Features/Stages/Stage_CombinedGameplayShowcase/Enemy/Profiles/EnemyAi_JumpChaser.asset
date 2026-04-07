@@ -10,18 +10,18 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
-  m_Name: EnemyAi_NonAttacking
+  m_Name: EnemyAi_JumpChaser
   m_EditorClassIdentifier: 
   stateResolverKind: 0
   patrolStrategyKind: 0
   detectionStrategyKind: 0
   chaseStrategyKind: 0
   attackDecisionStrategyKind: 1
-  movementSkillStrategyKind: 0
+  movementSkillStrategyKind: 1
   commonSettings:
     movementPriority: 50
     attackPriority: 50
-    recoverSeconds: 0.1666667
+    recoverSeconds: 0.3
   patrolSettings:
     blockedMovementResponse: 0
     turnPreference: 1
@@ -42,9 +42,9 @@ MonoBehaviour:
   locomotionTimingSettings:
     moveCooldownSeconds: 0.8
   jumpTimingSettings:
-    windupSeconds: 0
-    airborneSeconds: 0
-    cooldownSeconds: 0
+    windupSeconds: 0.35
+    airborneSeconds: 1
+    cooldownSeconds: 3
   serializedVersion: 4
   legacyCommonSettings:
     movementPriority: 50
