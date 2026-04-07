@@ -10,9 +10,6 @@ namespace Game.Feature.Gameplay.Host
     {
         private const string VisibleTilePoolObjectName = "VisibleTilePool";
         private const string TransitionTilePoolObjectName = "TransitionTilePool";
-        private const float TileCoverageMultiplier = 0.98f;
-        private const float TileThicknessMultiplier = 0.08f;
-
         [SerializeField] private bool renderDecorativeFaces = false;
         [SerializeField] private Transform visibleTilePoolRoot;
         [SerializeField] private Transform transitionTilePoolRoot;
@@ -501,9 +498,9 @@ namespace Game.Feature.Gameplay.Host
         private Vector3 ResolveTileScale()
         {
             return new Vector3(
-                _cellSize * TileCoverageMultiplier,
-                _cellSize * TileCoverageMultiplier,
-                _cellSize * TileThicknessMultiplier);
+                _cellSize * GameplayPresentationGeometry.TileCoverageMultiplier,
+                _cellSize * GameplayPresentationGeometry.TileCoverageMultiplier,
+                _cellSize * GameplayPresentationGeometry.TileThicknessMultiplier);
         }
 
         private Material ResolveMaterial(SurfaceTileRole tileRole)

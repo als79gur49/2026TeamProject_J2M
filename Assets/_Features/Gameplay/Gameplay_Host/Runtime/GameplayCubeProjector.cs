@@ -7,8 +7,6 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayCubeProjector
     {
-        private const float DefaultEntitySurfaceOffsetMultiplier = 0.08f;
-        private const float ProjectileSurfaceOffsetMultiplier = 0.18f;
         private const float ActiveFaceSeamGapMultiplier = 1f;
 
         private readonly BoardBounds _boardBounds;
@@ -321,9 +319,7 @@ namespace Game.Feature.Gameplay.Host
 
         private float ResolveEntitySurfaceOffset(EntityType entityType)
         {
-            return entityType == EntityType.Projectile
-                ? ProjectileSurfaceOffsetMultiplier * _cellSize
-                : DefaultEntitySurfaceOffsetMultiplier * _cellSize;
+            return GameplayEntityVisualProfile.ResolveSurfaceOffsetFromFacePlane(entityType, _cellSize);
         }
 
         private static Quaternion ResolveEntityRotation(FaceFrame frame, Direction facing)

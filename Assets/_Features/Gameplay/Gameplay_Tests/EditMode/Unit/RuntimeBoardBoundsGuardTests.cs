@@ -916,9 +916,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profile = GameplayEntityVisualProfile.Create(EntityType.Box, 1f);
 
+            Assert.That(profile.ModelLocalScale, Is.EqualTo(new Vector3(1f, 1f, 0.5f)));
+            Assert.That(profile.SurfaceOffsetFromFacePlane, Is.EqualTo(0.43f).Within(0.001f));
             Assert.That(profile.ModelLocalPosition.z, Is.LessThan(0f));
             Assert.That(profile.ModelLocalPosition.z, Is.GreaterThan(-(profile.ModelLocalScale.z * 0.5f)));
             Assert.That(profile.ModelLocalScale.z, Is.GreaterThan(0f));
+            Assert.That(ResolveEntityOuterFaceDepth(profile), Is.EqualTo(0.25f).Within(0.001f));
+        }
+
+        [Test]
+        public void GameplayEntityVisualProfile_UnitVisualRecedesIntoFaceInterior()
+        {
+            var profile = GameplayEntityVisualProfile.Create(EntityType.Unit, 1f);
+
+            Assert.That(profile.SurfaceOffsetFromFacePlane, Is.EqualTo(0.37f).Within(0.001f));
+            Assert.That(profile.ModelLocalPosition.z, Is.LessThan(0f));
+            Assert.That(profile.ModelLocalPosition.z, Is.GreaterThan(-(profile.ModelLocalScale.z * 0.5f)));
+            Assert.That(profile.ModelLocalScale.z, Is.GreaterThan(0f));
+            Assert.That(ResolveEntityOuterFaceDepth(profile), Is.EqualTo(0.25f).Within(0.001f));
         }
 
         [Test]
@@ -926,9 +941,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var profile = GameplayEntityVisualProfile.Create(EntityType.None, 1f);
 
+            Assert.That(profile.ModelLocalScale, Is.EqualTo(new Vector3(1f, 1f, 0.5f)));
+            Assert.That(profile.SurfaceOffsetFromFacePlane, Is.EqualTo(0.37f).Within(0.001f));
             Assert.That(profile.ModelLocalPosition.z, Is.LessThan(0f));
             Assert.That(profile.ModelLocalPosition.z, Is.GreaterThan(-(profile.ModelLocalScale.z * 0.5f)));
             Assert.That(profile.ModelLocalScale.z, Is.GreaterThan(0f));
+            Assert.That(ResolveEntityOuterFaceDepth(profile), Is.EqualTo(0.25f).Within(0.001f));
         }
 
         [Test]
@@ -5008,9 +5026,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(tileTransform.localPosition, Is.EqualTo(expectedPosition));
             Assert.That(Quaternion.Angle(tileTransform.localRotation, projectedPose.LocalRotation), Is.LessThan(0.001f));
-            Assert.That(tileTransform.localScale.x, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
-            Assert.That(tileTransform.localScale.y, Is.EqualTo(cellSize * 0.98f).Within(0.001f));
-            Assert.That(tileTransform.localScale.z, Is.EqualTo(cellSize * 0.08f).Within(0.001f));
+            Assert.That(tileTransform.localScale.x, Is.EqualTo(cellSize).Within(0.001f));
+            Assert.That(tileTransform.localScale.y, Is.EqualTo(cellSize).Within(0.001f));
+            Assert.That(tileTransform.localScale.z, Is.EqualTo(cellSize * 0.25f).Within(0.001f));
+        }
+
+        private static float ResolveEntityOuterFaceDepth(GameplayEntityVisualProfile profile)
+        {
+            return profile.SurfaceOffsetFromFacePlane
+                   - profile.ModelLocalPosition.z
+                   - (profile.ModelLocalScale.z * 0.5f);
         }
 
         private static void AssertSurfaceTileMatchesRetainedTransitionProjection(
