@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 36391a4d530b4b3284abe3ebab69cb27, type: 3}
   m_Name: GameplayPresentationTimingPreset_DefaultShowcase
   m_EditorClassIdentifier: 
-  moveMotionDurationSeconds: 0.2
+  moveMotionDurationSeconds: 0.5
   pushMotionDurationSeconds: 1
   flipMotionDurationSeconds: 1
   topologyMotionDurationSeconds: 2

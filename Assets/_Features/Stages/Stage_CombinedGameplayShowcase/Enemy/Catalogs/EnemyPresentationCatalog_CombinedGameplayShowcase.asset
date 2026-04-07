@@ -16,8 +16,8 @@ MonoBehaviour:
   - PresentationId: windup_melee_showcase
     ViewPrefab: {fileID: 1140100000000000001, guid: b456abcadc504e01840a42fea9f1cfbf, type: 3}
   - PresentationId: nonAttacking_showcase
-    ViewPrefab: {fileID: 2823823344174377908, guid: 46a5570e50d3d91459ff0980ae576e65, type: 3}
+    ViewPrefab: {fileID: 9211435893976661014, guid: d2fcbcdf8d3b4dd4b88dd02f4fb843ae, type: 3}
   - PresentationId: Attacking_showcase
-    ViewPrefab: {fileID: 2823823344174377908, guid: 83caa4e85bf10db439b3962f8682e4ce, type: 3}
+    ViewPrefab: {fileID: 6386733526280430255, guid: d25f546e192650048aeec864272891c2, type: 3}
   - PresentationId: Jump_showcase
     ViewPrefab: {fileID: 2823823344174377908, guid: 6f32c68c11dbede40b0bc721539b2af5, type: 3}
