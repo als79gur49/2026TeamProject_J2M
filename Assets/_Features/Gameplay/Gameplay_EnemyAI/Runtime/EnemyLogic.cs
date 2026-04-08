@@ -16,10 +16,9 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings);
+            in DetectionSettings detectionSettings);
     }
 
     public sealed class EnemyLogic : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
@@ -45,14 +44,12 @@ namespace Game.Feature.Gameplay.Entities
         private readonly PatrolSettings _patrolSettings;
         private readonly DetectionSettings _detectionSettings;
         private readonly ChaseSettings _chaseSettings;
-        private readonly AttackDecisionSettings _attackDecisionSettings;
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
-        private readonly MovementSkillStrategyKind _movementSkillStrategyKind;
-        private readonly EnemyJumpTimingSettings _jumpTimingSettings;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly IChaseStrategy _chaseStrategy;
-        private readonly IAttackDecisionStrategy _attackDecisionStrategy;
+        private readonly EnemyCombatCapabilityRuntime _combatCapability;
+        private readonly EnemyMovementSkillCapabilityRuntime _movementSkillCapability;
         private readonly IEnemyAiStateResolver _stateResolver;
 
         public EnemyLogic(int entityId)
@@ -88,15 +85,13 @@ namespace Game.Feature.Gameplay.Entities
             _patrolSettings = aiDefinition.PatrolSettings;
             _detectionSettings = aiDefinition.DetectionSettings;
             _chaseSettings = aiDefinition.ChaseSettings;
-            _attackDecisionSettings = aiDefinition.AttackDecisionSettings;
             _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
-            _movementSkillStrategyKind = aiDefinition.MovementSkillStrategyKind;
-            _jumpTimingSettings = aiDefinition.JumpTimingSettings;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
-            _attackDecisionStrategy = aiDefinition.AttackDecisionStrategy;
             _stateResolver = aiDefinition.StateResolver;
+            aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
+            aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
         }
 
         public int ControlledEntityId => _entityId;
@@ -133,10 +128,9 @@ namespace Game.Feature.Gameplay.Entities
                 source,
                 stage,
                 _detectionStrategy,
-                _attackDecisionStrategy,
+                _combatCapability,
                 _commonSettings,
-                _detectionSettings,
-                _attackDecisionSettings);
+                _detectionSettings);
             var resolvedFacing = ResolvePatrolFacing(snapshot, source, stage, decision);
 
             if (decision.Mode == source.aiMode && decision.Timer == source.aiStateTimer)
@@ -191,7 +185,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var suppressMovementThisTick = false;
-            if (_movementSkillStrategyKind == MovementSkillStrategyKind.JumpToLockedTarget)
+            if (HasJumpMovementSkill())
             {
                 if (writeContext is not IEnemyJumpCommitContext jumpWriteContext)
                 {
@@ -270,6 +264,11 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
+            if (_combatCapability == null)
+            {
+                return;
+            }
+
             RawAttackIntent attackIntent;
             if (!TryGetControllableEnemy(snapshot, out var source) ||
                 !snapshot.TryGetEnemyActionState(_entityId, out var actionState) ||
@@ -278,16 +277,16 @@ namespace Game.Feature.Gameplay.Entities
                     snapshot,
                     source,
                     actionState,
-                    _attackDecisionStrategy,
+                    _combatCapability.AttackDecisionStrategy,
                     _detectionSettings,
-                    _attackDecisionSettings,
+                    _combatCapability.AttackDecisionSettings,
                     out var target) ||
-                !_attackDecisionStrategy.TryBuildAttackIntent(
+                !_combatCapability.AttackDecisionStrategy.TryBuildAttackIntent(
                     snapshot,
                     source,
                     target,
                     _commonSettings,
-                    _attackDecisionSettings,
+                    _combatCapability.AttackDecisionSettings,
                     out attackIntent))
             {
                 return;
@@ -333,8 +332,14 @@ namespace Game.Feature.Gameplay.Entities
         private bool TryGetJumpState(WorldSnapshot snapshot, out EnemyJumpRuntimeState jumpState)
         {
             jumpState = default;
-            return _movementSkillStrategyKind == MovementSkillStrategyKind.JumpToLockedTarget &&
+            return HasJumpMovementSkill() &&
                    snapshot.TryGetEnemyJumpState(_entityId, out jumpState);
+        }
+
+        private bool HasJumpMovementSkill()
+        {
+            return _movementSkillCapability != null &&
+                   _movementSkillCapability.Kind == MovementSkillStrategyKind.JumpToLockedTarget;
         }
 
         private bool TryGetControllableEnemy(WorldSnapshot snapshot, out EntityState source)
@@ -416,7 +421,7 @@ namespace Game.Feature.Gameplay.Entities
                     {
                         jumpWriteContext.MoveEnemyJumpEntity(_entityId, landingCell);
                         jumpWriteContext.SetEnemyJumpBoardPresence(_entityId, EntityBoardPresence.Occupying);
-                        nextState = EnemyJumpQueries.EnterCooldown(nextState, _jumpTimingSettings.CooldownTicks);
+                        nextState = EnemyJumpQueries.EnterCooldown(nextState, _movementSkillCapability.JumpTimingSettings.CooldownTicks);
                         AppendJumpUpdate(
                             updates,
                             _entityId,
@@ -586,7 +591,7 @@ namespace Game.Feature.Gameplay.Entities
                 source.position,
                 lockedTargetCell,
                 tickIndex,
-                _jumpTimingSettings);
+                _movementSkillCapability.JumpTimingSettings);
 
             return TryResolveJumpLanding(snapshot, source, jumpState);
         }
@@ -611,7 +616,7 @@ namespace Game.Feature.Gameplay.Entities
                 source.position,
                 target.position,
                 tickIndex,
-                _jumpTimingSettings);
+                _movementSkillCapability.JumpTimingSettings);
 
             return TryResolveJumpLanding(snapshot, source, jumpState);
         }
@@ -716,10 +721,9 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            in DetectionSettings detectionSettings)
         {
             if (snapshot == null)
             {
@@ -731,11 +735,6 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(detectionStrategy));
             }
 
-            if (attackDecisionStrategy == null)
-            {
-                throw new ArgumentNullException(nameof(attackDecisionStrategy));
-            }
-
             if (source.hp <= 0 || source.markedForDeath)
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Dead, 0, "Dead");
@@ -744,10 +743,10 @@ namespace Game.Feature.Gameplay.Entities
             switch (stage)
             {
                 case EnemyAiTransitionStage.BeforeMovement:
-                    return ResolveBeforeMovement(snapshot, source, detectionStrategy, attackDecisionStrategy, commonSettings, detectionSettings, attackDecisionSettings);
+                    return ResolveBeforeMovement(snapshot, source, detectionStrategy, combatCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.BeforeAttack:
-                    return ResolveBeforeAttack(snapshot, source, detectionStrategy, attackDecisionStrategy, commonSettings, detectionSettings, attackDecisionSettings);
+                    return ResolveBeforeAttack(snapshot, source, detectionStrategy, combatCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
                     return ResolveAfterAttack(snapshot, source, commonSettings);
@@ -761,10 +760,9 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            in DetectionSettings detectionSettings)
         {
             switch (source.aiMode)
             {
@@ -779,9 +777,8 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         detectionStrategy,
-                        attackDecisionStrategy,
+                        combatCapability,
                         detectionSettings,
-                        attackDecisionSettings,
                         EnemyAiMode.Patrol);
 
                 case EnemyAiMode.Recover:
@@ -809,10 +806,9 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            in DetectionSettings detectionSettings)
         {
             switch (source.aiMode)
             {
@@ -822,9 +818,8 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         detectionStrategy,
-                        attackDecisionStrategy,
+                        combatCapability,
                         detectionSettings,
-                        attackDecisionSettings,
                         EnemyAiMode.Patrol);
 
                 default:
@@ -859,22 +854,22 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings,
             EnemyAiMode patrolFallback)
         {
             if (source.aiMode == EnemyAiMode.Attack &&
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
                 actionState.IsActive)
             {
-                if (EnemyActionStateTargeting.TryResolveLockedTarget(
+                if (combatCapability != null &&
+                    EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
                         source,
                         actionState,
-                        attackDecisionStrategy,
+                        combatCapability.AttackDecisionStrategy,
                         detectionSettings,
-                        attackDecisionSettings,
+                        combatCapability.AttackDecisionSettings,
                         out _))
                 {
                     return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedTargetInRange", actionState.direction);
@@ -891,7 +886,8 @@ namespace Game.Feature.Gameplay.Entities
                 return new EnemyAiTransitionDecision(patrolFallback, 0, "NoTarget");
             }
 
-            if (attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
+            if (combatCapability != null &&
+                combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange");
             }
@@ -914,10 +910,9 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            in DetectionSettings detectionSettings)
         {
             if (snapshot == null)
             {
@@ -927,11 +922,6 @@ namespace Game.Feature.Gameplay.Entities
             if (detectionStrategy == null)
             {
                 throw new ArgumentNullException(nameof(detectionStrategy));
-            }
-
-            if (attackDecisionStrategy == null)
-            {
-                throw new ArgumentNullException(nameof(attackDecisionStrategy));
             }
 
             if (source.hp <= 0 || source.markedForDeath)
@@ -945,18 +935,16 @@ namespace Game.Feature.Gameplay.Entities
                     snapshot,
                     source,
                     detectionStrategy,
-                    attackDecisionStrategy,
+                    combatCapability,
                     commonSettings,
-                    detectionSettings,
-                    attackDecisionSettings),
+                    detectionSettings),
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
                     snapshot,
                     source,
                     detectionStrategy,
-                    attackDecisionStrategy,
+                    combatCapability,
                     commonSettings,
-                    detectionSettings,
-                    attackDecisionSettings),
+                    detectionSettings),
                 EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
             };
@@ -986,10 +974,9 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            in DetectionSettings detectionSettings)
         {
             switch (source.aiMode)
             {
@@ -1006,7 +993,7 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
 
                 case EnemyAiMode.Chase:
-                    return ResolveChase(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings);
+                    return ResolveChase(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
 
                 case EnemyAiMode.Charge:
                     if (source.enemyLocomotionCooldownTicks > 0)
@@ -1016,7 +1003,7 @@ namespace Game.Feature.Gameplay.Entities
 
                     if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source))
                     {
-                        return ResolvePostCharge(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings, "ChargeBlocked");
+                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeBlocked");
                     }
 
                     return source.aiStateTimer > 0
@@ -1024,7 +1011,7 @@ namespace Game.Feature.Gameplay.Entities
                         : new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeFinalStep");
 
                 case EnemyAiMode.Attack:
-                    return ResolveAttackOrFallback(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings);
+                    return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
 
                 case EnemyAiMode.Recover:
                     if (source.aiStateTimer > 0)
@@ -1045,10 +1032,9 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            in DetectionSettings detectionSettings)
         {
             if (source.aiMode == EnemyAiMode.Charge)
             {
@@ -1058,13 +1044,13 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 return source.aiStateTimer == 0
-                    ? ResolvePostCharge(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings, "ChargeComplete")
+                    ? ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeComplete")
                     : new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeInProgress");
             }
 
             if (source.aiMode == EnemyAiMode.Chase || source.aiMode == EnemyAiMode.Attack)
             {
-                return ResolveAttackOrFallback(snapshot, source, detectionStrategy, attackDecisionStrategy, detectionSettings, attackDecisionSettings);
+                return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
             }
 
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoBeforeAttackTransition");
@@ -1074,16 +1060,16 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            EnemyCombatCapabilityRuntime combatCapability,
+            in DetectionSettings detectionSettings)
         {
             if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
             }
 
-            if (attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings))
+            if (combatCapability != null &&
+                combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings))
             {
                 return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange");
             }
@@ -1100,21 +1086,21 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
-            in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings)
+            EnemyCombatCapabilityRuntime combatCapability,
+            in DetectionSettings detectionSettings)
         {
             if (source.aiMode == EnemyAiMode.Attack &&
                 snapshot.TryGetEnemyActionState(source.entityId, out var actionState) &&
                 actionState.IsActive)
             {
-                if (EnemyActionStateTargeting.TryResolveLockedTarget(
+                if (combatCapability != null &&
+                    EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
                         source,
                         actionState,
-                        attackDecisionStrategy,
+                        combatCapability.AttackDecisionStrategy,
                         detectionSettings,
-                        attackDecisionSettings,
+                        combatCapability.AttackDecisionSettings,
                         out _))
                 {
                     return new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "LockedTargetInRange", actionState.direction);
@@ -1131,7 +1117,8 @@ namespace Game.Feature.Gameplay.Entities
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
             }
 
-            return attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings)
+            return combatCapability != null &&
+                   combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings)
                 ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, "TargetInRange")
                 : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
         }
@@ -1140,9 +1127,8 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source,
             IDetectionStrategy detectionStrategy,
-            IAttackDecisionStrategy attackDecisionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
             in DetectionSettings detectionSettings,
-            in AttackDecisionSettings attackDecisionSettings,
             string reason)
         {
             if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
@@ -1150,7 +1136,8 @@ namespace Game.Feature.Gameplay.Entities
                 return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, reason);
             }
 
-            return attackDecisionStrategy.IsTargetInRange(source, target, attackDecisionSettings)
+            return combatCapability != null &&
+                   combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings)
                 ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, reason)
                 : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, reason);
         }

@@ -424,6 +424,17 @@ namespace Game.Feature.Gameplay.Entities
     public readonly struct EnemyAiRuntimeDefinition
     {
         public EnemyAiRuntimeDefinition(
+            EnemyCoreRuntime core,
+            EnemyBrainRuntime brain,
+            EnemyCapabilityRuntimeSet capabilities)
+        {
+            Core = core;
+            Brain = brain;
+            Capabilities = capabilities;
+            Validate(nameof(EnemyAiRuntimeDefinition));
+        }
+
+        public EnemyAiRuntimeDefinition(
             EnemyAiCommonSettings commonSettings,
             PatrolSettings patrolSettings,
             DetectionSettings detectionSettings,
@@ -499,71 +510,71 @@ namespace Game.Feature.Gameplay.Entities
             IChaseStrategy chaseStrategy,
             IAttackDecisionStrategy attackDecisionStrategy,
             IEnemyAiStateResolver stateResolver)
+            : this(
+                new EnemyCoreRuntime(commonSettings, locomotionTimingSettings),
+                new EnemyBrainRuntime(
+                    new EnemyStateResolverRuntime(ResolveStateResolverKind(stateResolver), stateResolver),
+                    new EnemyPatrolRuntime(ResolvePatrolStrategyKind(patrolStrategy), patrolSettings, patrolStrategy),
+                    new EnemyDetectionRuntime(ResolveDetectionStrategyKind(detectionStrategy), detectionSettings, detectionStrategy),
+                    new EnemyChaseRuntime(ResolveChaseStrategyKind(chaseStrategy), chaseSettings, chaseStrategy)),
+                CreateCapabilities(
+                    attackDecisionStrategy,
+                    attackDecisionSettings,
+                    attackTimingSettings,
+                    movementSkillStrategyKind,
+                    jumpTimingSettings))
         {
-            CommonSettings = commonSettings;
-            PatrolSettings = patrolSettings;
-            DetectionSettings = detectionSettings;
-            ChaseSettings = chaseSettings;
-            AttackDecisionSettings = attackDecisionSettings;
-            AttackTimingSettings = attackTimingSettings;
-            LocomotionTimingSettings = locomotionTimingSettings;
-            MovementSkillStrategyKind = movementSkillStrategyKind;
-            JumpTimingSettings = jumpTimingSettings;
-            PatrolStrategy = patrolStrategy;
-            DetectionStrategy = detectionStrategy;
-            ChaseStrategy = chaseStrategy;
-            AttackDecisionStrategy = attackDecisionStrategy;
-            StateResolver = stateResolver;
-
-            Validate(nameof(EnemyAiRuntimeDefinition));
         }
 
-        public EnemyAiCommonSettings CommonSettings { get; }
+        public EnemyCoreRuntime Core { get; }
 
-        public PatrolSettings PatrolSettings { get; }
+        public EnemyBrainRuntime Brain { get; }
 
-        public DetectionSettings DetectionSettings { get; }
+        public EnemyCapabilityRuntimeSet Capabilities { get; }
 
-        public ChaseSettings ChaseSettings { get; }
+        public EnemyAiCommonSettings CommonSettings => Core.CommonSettings;
 
-        public AttackDecisionSettings AttackDecisionSettings { get; }
+        public PatrolSettings PatrolSettings => Brain.Patrol.Settings;
 
-        public EnemyAttackTimingSettings AttackTimingSettings { get; }
+        public DetectionSettings DetectionSettings => Brain.Detection.Settings;
 
-        public EnemyLocomotionTimingSettings LocomotionTimingSettings { get; }
+        public ChaseSettings ChaseSettings => Brain.Chase.Settings;
 
-        public MovementSkillStrategyKind MovementSkillStrategyKind { get; }
+        public AttackDecisionSettings AttackDecisionSettings => Capabilities.TryGetCombat(out var combat)
+            ? combat.AttackDecisionSettings
+            : global::Game.Feature.Gameplay.Entities.AttackDecisionSettings.CreateDefaultMelee();
 
-        public EnemyJumpTimingSettings JumpTimingSettings { get; }
+        public EnemyAttackTimingSettings AttackTimingSettings => Capabilities.TryGetCombat(out var combat)
+            ? combat.AttackTimingSettings
+            : global::Game.Feature.Gameplay.Entities.EnemyAttackTimingSettings.CreateDefaultMelee();
 
-        public IPatrolStrategy PatrolStrategy { get; }
+        public EnemyLocomotionTimingSettings LocomotionTimingSettings => Core.LocomotionTimingSettings;
 
-        public IDetectionStrategy DetectionStrategy { get; }
+        public MovementSkillStrategyKind MovementSkillStrategyKind => Capabilities.TryGetMovementSkill(out var movementSkill)
+            ? movementSkill.Kind
+            : global::Game.Feature.Gameplay.Entities.MovementSkillStrategyKind.None;
 
-        public IChaseStrategy ChaseStrategy { get; }
+        public EnemyJumpTimingSettings JumpTimingSettings => Capabilities.TryGetMovementSkill(out var movementSkill)
+            ? movementSkill.JumpTimingSettings
+            : global::Game.Feature.Gameplay.Entities.EnemyJumpTimingSettings.CreateDefault();
 
-        public IAttackDecisionStrategy AttackDecisionStrategy { get; }
+        public IPatrolStrategy PatrolStrategy => Brain.Patrol.Strategy;
 
-        public IEnemyAiStateResolver StateResolver { get; }
+        public IDetectionStrategy DetectionStrategy => Brain.Detection.Strategy;
+
+        public IChaseStrategy ChaseStrategy => Brain.Chase.Strategy;
+
+        public IAttackDecisionStrategy AttackDecisionStrategy => Capabilities.TryGetCombat(out var combat)
+            ? combat.AttackDecisionStrategy
+            : NoAttackDecisionStrategy.Instance;
+
+        public IEnemyAiStateResolver StateResolver => Brain.StateResolver.Resolver;
 
         public void Validate(string paramName)
         {
-            CommonSettings.Validate(paramName);
-            ChaseSettings.Validate(paramName);
-            DetectionSettings.Validate(paramName);
-            AttackDecisionSettings.Validate(paramName);
-            AttackTimingSettings.Validate(paramName);
-            LocomotionTimingSettings.Validate(paramName);
-            JumpTimingSettings.Validate(paramName);
-
-            if (PatrolStrategy == null ||
-                DetectionStrategy == null ||
-                ChaseStrategy == null ||
-                AttackDecisionStrategy == null ||
-                StateResolver == null)
-            {
-                throw new ArgumentException("Enemy AI runtime definitions require non-null strategies and state resolvers.", paramName);
-            }
+            Core.Validate(paramName);
+            Brain.Validate(paramName);
+            Capabilities.Validate(paramName);
         }
 
         public static EnemyAiRuntimeDefinition CreateDefaultMelee()
@@ -589,101 +600,91 @@ namespace Game.Feature.Gameplay.Entities
             EnemyAiProfile profile,
             int simulationTicksPerSecond)
         {
-            if (profile == null)
-            {
-                throw new ArgumentNullException(nameof(profile));
-            }
-
-            return new EnemyAiRuntimeDefinition(
-                profile.CommonSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                profile.PatrolSettings,
-                profile.DetectionSettings,
-                profile.ChaseSettings,
-                profile.AttackDecisionSettings,
-                profile.AttackTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                profile.LocomotionTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                profile.MovementSkillStrategyKind,
-                profile.JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond),
-                ResolvePatrolStrategy(profile.PatrolStrategyKind),
-                ResolveDetectionStrategy(profile.DetectionStrategyKind),
-                ResolveChaseStrategy(profile.ChaseStrategyKind),
-                ResolveAttackDecisionStrategy(profile.AttackDecisionStrategyKind),
-                ResolveStateResolver(profile.StateResolverKind));
+            return EnemyAiProfileCompiler.Compile(profile, simulationTicksPerSecond);
         }
 
-        private static IPatrolStrategy ResolvePatrolStrategy(PatrolStrategyKind kind)
+        private static EnemyCapabilityRuntimeSet CreateCapabilities(
+            IAttackDecisionStrategy attackDecisionStrategy,
+            AttackDecisionSettings attackDecisionSettings,
+            EnemyAttackTimingSettings attackTimingSettings,
+            MovementSkillStrategyKind movementSkillStrategyKind,
+            EnemyJumpTimingSettings jumpTimingSettings)
         {
-            switch (kind)
+            EnemyCombatCapabilityRuntime combat = null;
+            var attackKind = ResolveAttackDecisionStrategyKind(attackDecisionStrategy);
+            if (attackKind != AttackDecisionStrategyKind.None)
             {
-                case PatrolStrategyKind.Forward:
-                    return ForwardPatrolStrategy.Instance;
-
-                case PatrolStrategyKind.WallFollow:
-                    return WallFollowPatrolStrategy.Instance;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown patrol strategy kind.");
+                combat = new EnemyCombatCapabilityRuntime(
+                    attackKind,
+                    attackDecisionSettings,
+                    attackTimingSettings,
+                    attackDecisionStrategy);
             }
+
+            EnemyMovementSkillCapabilityRuntime movementSkill = null;
+            if (movementSkillStrategyKind != MovementSkillStrategyKind.None)
+            {
+                movementSkill = new EnemyMovementSkillCapabilityRuntime(
+                    movementSkillStrategyKind,
+                    jumpTimingSettings);
+            }
+
+            return new EnemyCapabilityRuntimeSet(combat, movementSkill);
         }
 
-        private static IDetectionStrategy ResolveDetectionStrategy(DetectionStrategyKind kind)
+        private static PatrolStrategyKind ResolvePatrolStrategyKind(IPatrolStrategy patrolStrategy)
         {
-            switch (kind)
+            return patrolStrategy switch
             {
-                case DetectionStrategyKind.NearestOpponent:
-                    return NearestOpponentDetectionStrategy.Instance;
-
-                case DetectionStrategyKind.None:
-                    return NoDetectionStrategy.Instance;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown detection strategy kind.");
-            }
+                ForwardPatrolStrategy _ => PatrolStrategyKind.Forward,
+                WallFollowPatrolStrategy _ => PatrolStrategyKind.WallFollow,
+                null => throw new ArgumentNullException(nameof(patrolStrategy)),
+                _ => throw new ArgumentOutOfRangeException(nameof(patrolStrategy), patrolStrategy, "Unknown patrol strategy implementation."),
+            };
         }
 
-        private static IChaseStrategy ResolveChaseStrategy(ChaseStrategyKind kind)
+        private static DetectionStrategyKind ResolveDetectionStrategyKind(IDetectionStrategy detectionStrategy)
         {
-            switch (kind)
+            return detectionStrategy switch
             {
-                case ChaseStrategyKind.AxisPriority:
-                    return AxisPriorityChaseStrategy.Instance;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown chase strategy kind.");
-            }
+                NearestOpponentDetectionStrategy _ => DetectionStrategyKind.NearestOpponent,
+                NoDetectionStrategy _ => DetectionStrategyKind.None,
+                null => throw new ArgumentNullException(nameof(detectionStrategy)),
+                _ => throw new ArgumentOutOfRangeException(nameof(detectionStrategy), detectionStrategy, "Unknown detection strategy implementation."),
+            };
         }
 
-        private static IAttackDecisionStrategy ResolveAttackDecisionStrategy(AttackDecisionStrategyKind kind)
+        private static ChaseStrategyKind ResolveChaseStrategyKind(IChaseStrategy chaseStrategy)
         {
-            switch (kind)
+            return chaseStrategy switch
             {
-                case AttackDecisionStrategyKind.Melee:
-                    return MeleeAttackDecisionStrategy.Instance;
-
-                case AttackDecisionStrategyKind.None:
-                    return NoAttackDecisionStrategy.Instance;
-
-                case AttackDecisionStrategyKind.ContactSameCell:
-                    return ContactSameCellAttackDecisionStrategy.Instance;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown attack decision strategy kind.");
-            }
+                AxisPriorityChaseStrategy _ => ChaseStrategyKind.AxisPriority,
+                null => throw new ArgumentNullException(nameof(chaseStrategy)),
+                _ => throw new ArgumentOutOfRangeException(nameof(chaseStrategy), chaseStrategy, "Unknown chase strategy implementation."),
+            };
         }
 
-        private static IEnemyAiStateResolver ResolveStateResolver(EnemyAiStateResolverKind kind)
+        private static AttackDecisionStrategyKind ResolveAttackDecisionStrategyKind(IAttackDecisionStrategy attackDecisionStrategy)
         {
-            switch (kind)
+            return attackDecisionStrategy switch
             {
-                case EnemyAiStateResolverKind.Default:
-                    return DefaultEnemyAiStateResolver.Instance;
+                MeleeAttackDecisionStrategy _ => AttackDecisionStrategyKind.Melee,
+                NoAttackDecisionStrategy _ => AttackDecisionStrategyKind.None,
+                ContactSameCellAttackDecisionStrategy _ => AttackDecisionStrategyKind.ContactSameCell,
+                null => throw new ArgumentNullException(nameof(attackDecisionStrategy)),
+                _ => throw new ArgumentOutOfRangeException(nameof(attackDecisionStrategy), attackDecisionStrategy, "Unknown attack decision strategy implementation."),
+            };
+        }
 
-                case EnemyAiStateResolverKind.Charge:
-                    return ChargingEnemyAiStateResolver.Instance;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unknown enemy AI state resolver kind.");
-            }
+        private static EnemyAiStateResolverKind ResolveStateResolverKind(IEnemyAiStateResolver stateResolver)
+        {
+            return stateResolver switch
+            {
+                DefaultEnemyAiStateResolver _ => EnemyAiStateResolverKind.Default,
+                ChargingEnemyAiStateResolver _ => EnemyAiStateResolverKind.Charge,
+                null => throw new ArgumentNullException(nameof(stateResolver)),
+                _ => throw new ArgumentOutOfRangeException(nameof(stateResolver), stateResolver, "Unknown enemy AI state resolver implementation."),
+            };
         }
     }
 

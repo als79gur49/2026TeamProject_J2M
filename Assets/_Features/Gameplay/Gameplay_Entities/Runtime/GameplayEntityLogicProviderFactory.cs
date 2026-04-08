@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Entities
                 {
                     new EnemyEntityLogicFactory(defaultDefinition, definitionsByEntityId),
                     new EnemyActionStateEntityLogicFactory(defaultDefinition, definitionsByEntityId),
+                    new EnemyCombatEntityLogicFactory(defaultDefinition, definitionsByEntityId),
                     new SlidingBoxEntityLogicFactory(),
                     new ProjectileEntityLogicFactory(),
                 });

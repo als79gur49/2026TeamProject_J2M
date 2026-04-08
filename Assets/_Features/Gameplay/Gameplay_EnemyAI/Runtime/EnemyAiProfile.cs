@@ -1,73 +1,146 @@
+using System.Collections.Generic;
 using Game.Feature.Gameplay.Loop;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Entities
 {
     /// <summary>
     /// Authoritative enemy AI profile.
-    /// Locomotion cooldown cadence belongs here and resolves into runtime definitions and world-state counters,
-    /// never prefab-local presentation authoring.
+    /// Locomotion cadence belongs here and resolves into runtime definitions and world-state counters.
     /// </summary>
     [CreateAssetMenu(menuName = "Gameplay/AI/Enemy AI Profile", fileName = "EnemyAiProfile")]
     public sealed class EnemyAiProfile : ScriptableObject, ISerializationCallbackReceiver
     {
-        private const int CurrentSerializedVersion = 4;
+        private const int CurrentSerializedVersion = 5;
         private const int AttackTimingAuthoringSerializedVersion = 1;
         private const int LocomotionTimingSerializedVersion = 2;
         private const int PatrolWallFollowSettingsSerializedVersion = 3;
         private const int JumpMovementSkillSerializedVersion = 4;
 
-        [SerializeField] private EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default;
-        [SerializeField] private PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward;
-        [SerializeField] private DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent;
-        [SerializeField] private ChaseStrategyKind chaseStrategyKind = ChaseStrategyKind.AxisPriority;
-        [SerializeField] private AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
-        [SerializeField] private MovementSkillStrategyKind movementSkillStrategyKind = MovementSkillStrategyKind.None;
-        [SerializeField] private EnemyAiCommonAuthoringSettings commonSettings = new(50, 50, 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-        [SerializeField] private PatrolSettings patrolSettings = new(PatrolBlockedMovementResponse.Stop);
-        [SerializeField] private DetectionSettings detectionSettings = new(8, true, false);
-        [SerializeField] private ChaseSettings chaseSettings = new(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak, true);
-        [SerializeField] private AttackDecisionSettings attackDecisionSettings = new(1);
-        [SerializeField] private EnemyAttackTimingAuthoringSettings attackTimingSettings = new(0f);
-        [SerializeField] private EnemyLocomotionTimingAuthoringSettings locomotionTimingSettings = new(0f);
-        [SerializeField] private EnemyJumpTimingAuthoringSettings jumpTimingSettings = new(0f, 0f, 0f);
+        [SerializeField] private EnemyCoreAuthoring coreAuthoring;
+        [SerializeField] private EnemyBrainAuthoring brainAuthoring;
+        [SerializeField] private List<EnemyCapabilityAsset> capabilityAssets = new();
+
+        [SerializeField] [HideInInspector] private EnemyAiStateResolverKind stateResolverKind = EnemyAiStateResolverKind.Default;
+        [SerializeField] [HideInInspector] private PatrolStrategyKind patrolStrategyKind = PatrolStrategyKind.Forward;
+        [SerializeField] [HideInInspector] private DetectionStrategyKind detectionStrategyKind = DetectionStrategyKind.NearestOpponent;
+        [SerializeField] [HideInInspector] private ChaseStrategyKind chaseStrategyKind = ChaseStrategyKind.AxisPriority;
+        [SerializeField] [HideInInspector] private AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
+        [SerializeField] [HideInInspector] private MovementSkillStrategyKind movementSkillStrategyKind = MovementSkillStrategyKind.None;
+        [SerializeField] [HideInInspector] private EnemyAiCommonAuthoringSettings commonSettings = new(50, 50, 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        [SerializeField] [HideInInspector] private PatrolSettings patrolSettings = new(PatrolBlockedMovementResponse.Stop);
+        [SerializeField] [HideInInspector] private DetectionSettings detectionSettings = new(8, true, false);
+        [SerializeField] [HideInInspector] private ChaseSettings chaseSettings = new(ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak, true);
+        [SerializeField] [HideInInspector] private AttackDecisionSettings attackDecisionSettings = new(1);
+        [SerializeField] [HideInInspector] private EnemyAttackTimingAuthoringSettings attackTimingSettings = new(0f);
+        [SerializeField] [HideInInspector] private EnemyLocomotionTimingAuthoringSettings locomotionTimingSettings = new(0f);
+        [SerializeField] [HideInInspector] private EnemyJumpTimingAuthoringSettings jumpTimingSettings = new(0f, 0f, 0f);
         [SerializeField] [HideInInspector] private int serializedVersion = CurrentSerializedVersion;
-        [FormerlySerializedAs("commonSettings")]
         [SerializeField] [HideInInspector] private EnemyAiCommonSettings legacyCommonSettings = EnemyAiCommonSettings.CreateDefaultMelee();
-        [FormerlySerializedAs("attackTimingSettings")]
         [SerializeField] [HideInInspector] private EnemyAttackTimingSettings legacyAttackTimingSettings = EnemyAttackTimingSettings.CreateDefaultMelee();
 
-        public EnemyAiStateResolverKind StateResolverKind => stateResolverKind;
+        internal EnemyCoreAuthoring CoreAuthoring => coreAuthoring;
 
-        public PatrolStrategyKind PatrolStrategyKind => patrolStrategyKind;
+        internal EnemyBrainAuthoring BrainAuthoring => brainAuthoring;
 
-        public DetectionStrategyKind DetectionStrategyKind => detectionStrategyKind;
+        internal IReadOnlyList<EnemyCapabilityAsset> CapabilityAssets => capabilityAssets;
 
-        public ChaseStrategyKind ChaseStrategyKind => chaseStrategyKind;
+        internal bool UsesAuthoringConfiguration =>
+            coreAuthoring != null ||
+            brainAuthoring != null ||
+            (capabilityAssets != null && capabilityAssets.Count > 0);
 
-        public AttackDecisionStrategyKind AttackDecisionStrategyKind => attackDecisionStrategyKind;
+        internal EnemyAiStateResolverKind LegacyStateResolverKind => stateResolverKind;
 
-        public MovementSkillStrategyKind MovementSkillStrategyKind => movementSkillStrategyKind;
+        internal PatrolStrategyKind LegacyPatrolStrategyKind => patrolStrategyKind;
 
-        public EnemyAiCommonAuthoringSettings CommonSettings => commonSettings;
+        internal DetectionStrategyKind LegacyDetectionStrategyKind => detectionStrategyKind;
 
-        public PatrolSettings PatrolSettings => patrolSettings;
+        internal ChaseStrategyKind LegacyChaseStrategyKind => chaseStrategyKind;
 
-        public DetectionSettings DetectionSettings => detectionSettings;
+        internal AttackDecisionStrategyKind LegacyAttackDecisionStrategyKind => attackDecisionStrategyKind;
 
-        public ChaseSettings ChaseSettings => chaseSettings;
+        internal MovementSkillStrategyKind LegacyMovementSkillStrategyKind => movementSkillStrategyKind;
 
-        public AttackDecisionSettings AttackDecisionSettings => attackDecisionSettings;
+        internal EnemyAiCommonAuthoringSettings LegacyCommonSettings => commonSettings;
 
-        public EnemyAttackTimingAuthoringSettings AttackTimingSettings => attackTimingSettings;
+        internal PatrolSettings LegacyPatrolSettings => patrolSettings;
 
-        /// <summary>
-        /// Authoritative locomotion cadence authoring that is converted into tick-based runtime settings.
-        /// </summary>
-        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => locomotionTimingSettings;
+        internal DetectionSettings LegacyDetectionSettings => detectionSettings;
 
-        public EnemyJumpTimingAuthoringSettings JumpTimingSettings => jumpTimingSettings;
+        internal ChaseSettings LegacyChaseSettings => chaseSettings;
+
+        internal AttackDecisionSettings LegacyAttackDecisionSettings => attackDecisionSettings;
+
+        internal EnemyAttackTimingAuthoringSettings LegacyAttackTimingSettings => attackTimingSettings;
+
+        internal EnemyLocomotionTimingAuthoringSettings LegacyLocomotionTimingSettings => locomotionTimingSettings;
+
+        internal EnemyJumpTimingAuthoringSettings LegacyJumpTimingSettings => jumpTimingSettings;
+
+        public EnemyAiStateResolverKind StateResolverKind => coreAuthoring == null && brainAuthoring == null
+            ? stateResolverKind
+            : brainAuthoring?.StateResolver?.Kind ?? stateResolverKind;
+
+        public PatrolStrategyKind PatrolStrategyKind => coreAuthoring == null && brainAuthoring == null
+            ? patrolStrategyKind
+            : brainAuthoring?.PatrolStrategy?.Kind ?? patrolStrategyKind;
+
+        public DetectionStrategyKind DetectionStrategyKind => coreAuthoring == null && brainAuthoring == null
+            ? detectionStrategyKind
+            : brainAuthoring?.DetectionStrategy?.Kind ?? detectionStrategyKind;
+
+        public ChaseStrategyKind ChaseStrategyKind => coreAuthoring == null && brainAuthoring == null
+            ? chaseStrategyKind
+            : brainAuthoring?.ChaseStrategy?.Kind ?? chaseStrategyKind;
+
+        public AttackDecisionStrategyKind AttackDecisionStrategyKind
+        {
+            get
+            {
+                if (!UsesAuthoringConfiguration)
+                {
+                    return attackDecisionStrategyKind;
+                }
+
+                var combat = GetCombatCapabilityAsset();
+                return combat?.Kind ?? global::Game.Feature.Gameplay.Entities.AttackDecisionStrategyKind.None;
+            }
+        }
+
+        public MovementSkillStrategyKind MovementSkillStrategyKind
+        {
+            get
+            {
+                if (!UsesAuthoringConfiguration)
+                {
+                    return movementSkillStrategyKind;
+                }
+
+                var movementSkill = GetMovementSkillCapabilityAsset();
+                return movementSkill?.Kind ?? global::Game.Feature.Gameplay.Entities.MovementSkillStrategyKind.None;
+            }
+        }
+
+        public EnemyAiCommonAuthoringSettings CommonSettings => coreAuthoring != null
+            ? coreAuthoring.CommonSettings
+            : commonSettings;
+
+        public PatrolSettings PatrolSettings => brainAuthoring?.PatrolStrategy?.Settings ?? patrolSettings;
+
+        public DetectionSettings DetectionSettings => brainAuthoring?.DetectionStrategy?.Settings ?? detectionSettings;
+
+        public ChaseSettings ChaseSettings => brainAuthoring?.ChaseStrategy?.Settings ?? chaseSettings;
+
+        public AttackDecisionSettings AttackDecisionSettings => GetCombatCapabilityAsset()?.AttackDecisionSettings ?? attackDecisionSettings;
+
+        public EnemyAttackTimingAuthoringSettings AttackTimingSettings => GetCombatCapabilityAsset()?.AttackTimingSettings ?? attackTimingSettings;
+
+        public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => coreAuthoring != null
+            ? coreAuthoring.LocomotionTimingSettings
+            : locomotionTimingSettings;
+
+        public EnemyJumpTimingAuthoringSettings JumpTimingSettings => GetMovementSkillCapabilityAsset()?.JumpTimingSettings ?? jumpTimingSettings;
 
         public void ResetToDefaultMelee()
         {
@@ -104,6 +177,11 @@ namespace Game.Feature.Gameplay.Entities
             AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee,
             MovementSkillStrategyKind movementSkillStrategyKind = MovementSkillStrategyKind.None)
         {
+            coreAuthoring = null;
+            brainAuthoring = null;
+            capabilityAssets ??= new List<EnemyCapabilityAsset>();
+            capabilityAssets.Clear();
+
             this.commonSettings = commonSettings;
             this.patrolSettings = patrolSettings;
             this.detectionSettings = detectionSettings;
@@ -123,16 +201,19 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyAiRuntimeDefinition CreateRuntimeDefinition(int simulationTicksPerSecond)
         {
-            return EnemyAiRuntimeDefinition.CreateFromProfile(this, simulationTicksPerSecond);
+            return EnemyAiProfileCompiler.Compile(this, simulationTicksPerSecond);
         }
 
         public void OnBeforeSerialize()
         {
+            capabilityAssets ??= new List<EnemyCapabilityAsset>();
             serializedVersion = CurrentSerializedVersion;
         }
 
         public void OnAfterDeserialize()
         {
+            capabilityAssets ??= new List<EnemyCapabilityAsset>();
+
             if (serializedVersion >= CurrentSerializedVersion)
             {
                 return;
@@ -292,6 +373,42 @@ namespace Game.Feature.Gameplay.Entities
             profile.legacyCommonSettings = commonSettings;
             profile.legacyAttackTimingSettings = attackTimingSettings;
             return profile;
+        }
+
+        private EnemyCombatCapabilityAsset GetCombatCapabilityAsset()
+        {
+            if (capabilityAssets == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < capabilityAssets.Count; i++)
+            {
+                if (capabilityAssets[i] is EnemyCombatCapabilityAsset combatCapability)
+                {
+                    return combatCapability;
+                }
+            }
+
+            return null;
+        }
+
+        private EnemyMovementSkillCapabilityAsset GetMovementSkillCapabilityAsset()
+        {
+            if (capabilityAssets == null)
+            {
+                return null;
+            }
+
+            for (var i = 0; i < capabilityAssets.Count; i++)
+            {
+                if (capabilityAssets[i] is EnemyMovementSkillCapabilityAsset movementSkillCapability)
+                {
+                    return movementSkillCapability;
+                }
+            }
+
+            return null;
         }
     }
 }

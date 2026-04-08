@@ -9,11 +9,9 @@ namespace Game.Feature.Gameplay.Entities
     internal sealed class EnemyActionStateLogic : IEnemyActionStateLogic, IEntityLogicSourceBinding
     {
         private readonly int _entityId;
-        private readonly EnemyAttackTimingSettings _attackTimingSettings;
         private readonly DetectionSettings _detectionSettings;
-        private readonly AttackDecisionSettings _attackDecisionSettings;
         private readonly IDetectionStrategy _detectionStrategy;
-        private readonly IAttackDecisionStrategy _attackDecisionStrategy;
+        private readonly EnemyCombatCapabilityRuntime _combatCapability;
 
         public EnemyActionStateLogic(int entityId)
             : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
@@ -38,11 +36,9 @@ namespace Game.Feature.Gameplay.Entities
             aiDefinition.Validate(nameof(aiDefinition));
 
             _entityId = entityId;
-            _attackTimingSettings = aiDefinition.AttackTimingSettings;
             _detectionSettings = aiDefinition.DetectionSettings;
-            _attackDecisionSettings = aiDefinition.AttackDecisionSettings;
             _detectionStrategy = aiDefinition.DetectionStrategy;
-            _attackDecisionStrategy = aiDefinition.AttackDecisionStrategy;
+            aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
         }
 
         public int ControlledEntityId => _entityId;
@@ -75,6 +71,18 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var hasPreviousAction = snapshot.TryGetEnemyActionState(_entityId, out var previousAction);
+            if (_combatCapability == null)
+            {
+                var clearedAction = EnemyActionQueries.Clear(previousAction);
+                if (ShouldWriteActionState(hasPreviousAction, previousAction, clearedAction))
+                {
+                    writeContext.SetEnemyActionState(_entityId, clearedAction);
+                    transitions.Add(new EnemyActionTransition(_entityId, previousAction, clearedAction));
+                }
+
+                return;
+            }
+
             if (!EnemyParticipationPolicy.CanParticipateOnCurrentTopology(snapshot, source))
             {
                 var clearedAction = EnemyActionQueries.Clear(previousAction);
@@ -127,9 +135,9 @@ namespace Game.Feature.Gameplay.Entities
                         snapshot,
                         source,
                         previousAction,
-                        _attackDecisionStrategy,
+                        _combatCapability.AttackDecisionStrategy,
                         _detectionSettings,
-                        _attackDecisionSettings,
+                        _combatCapability.AttackDecisionSettings,
                         out _))
                 {
                     if (source.facing != previousAction.direction)
@@ -148,9 +156,9 @@ namespace Game.Feature.Gameplay.Entities
                     snapshot,
                     source,
                     _detectionStrategy,
-                    _attackDecisionStrategy,
+                    _combatCapability.AttackDecisionStrategy,
                     _detectionSettings,
-                    _attackDecisionSettings,
+                    _combatCapability.AttackDecisionSettings,
                     out var target,
                     out var direction))
             {
@@ -169,7 +177,7 @@ namespace Game.Feature.Gameplay.Entities
                 target.entityId,
                 direction,
                 tickIndex,
-                _attackTimingSettings.WindupTicks);
+                _combatCapability.AttackTimingSettings.WindupTicks);
             writeContext.SetFacing(_entityId, direction);
             return nextAction;
         }
@@ -256,7 +264,13 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool CanCreate(in EntityState entity)
         {
-            return _enemyLogicFactory.CanCreate(entity);
+            if (!_enemyLogicFactory.CanCreate(entity))
+            {
+                return false;
+            }
+
+            var definition = _enemyLogicFactory.ResolveDefinition(entity);
+            return definition.Capabilities.TryGetCombat(out _);
         }
 
         public IEntityLogic Create(in EntityState entity)
