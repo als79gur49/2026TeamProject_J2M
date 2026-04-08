@@ -34,43 +34,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string JumpEnemyPresentationId = "Jump_showcase";
 
         [Test]
-        public void CombinedGameplayStage_PreservesTraversalColumnsWithoutAutoPerimeterWalls()
+        public void CombinedGameplayStage_DoesNotAutoGeneratePerimeterWalls()
         {
             var buildResult = BuildCombinedStage();
             var boardBounds = buildResult.BoardBounds;
             var entities = buildResult.InitialEntities;
-            var sharedEdgeTraversalColumns = new[] { 1, 3, 7, 9 };
-
-            CollectionAssert.AreEqual(sharedEdgeTraversalColumns, buildResult.TraversalRules.SharedEdgeTraversalColumns);
-
-            foreach (var face in new[] { FaceId.Floor, FaceId.Front, FaceId.Ceiling, FaceId.Back })
-            {
-                for (var i = 0; i < sharedEdgeTraversalColumns.Length; i++)
-                {
-                    var column = sharedEdgeTraversalColumns[i];
-                    Assert.That(
-                        HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MinInclusive.y)),
-                        Is.False,
-                        $"{face} bottom edge cell at x={column} should remain traversable.");
-                    Assert.That(
-                        HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MaxInclusive.y)),
-                        Is.False,
-                        $"{face} top edge cell at x={column} should remain traversable.");
-                }
-            }
 
             Assert.That(
                 HasWallAt(entities, new SurfaceCell(FaceId.Floor, 2, boardBounds.MaxInclusive.y)),
                 Is.False,
-                "Automatic perimeter walls should no longer occupy non-traversal edge cells.");
+                "Automatic perimeter walls should not be synthesized on edge cells.");
             Assert.That(
                 HasWallAt(entities, new SurfaceCell(FaceId.Floor, 4, boardBounds.MaxInclusive.y)),
                 Is.False,
-                "Automatic perimeter walls should no longer occupy non-traversal edge cells.");
+                "Automatic perimeter walls should not be synthesized on edge cells.");
             Assert.That(
                 HasWallAt(entities, new SurfaceCell(FaceId.Floor, 10, boardBounds.MinInclusive.y)),
                 Is.False,
-                "Automatic perimeter walls should no longer occupy non-traversal edge cells.");
+                "Automatic perimeter walls should not be synthesized on edge cells.");
         }
 
         [Test]
@@ -87,15 +68,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 HasPushableBoxAt(entities, new SurfaceCell(FaceId.Front, 3, 1)),
                 Is.True,
-                "Front should start with a pushable box near a shared edge opening.");
+                "Front should retain its authored pushable box placement.");
             Assert.That(
                 HasPushableBoxAt(entities, new SurfaceCell(FaceId.Ceiling, 7, 1)),
                 Is.True,
-                "Ceiling should start with a pushable box near a shared edge opening.");
+                "Ceiling should retain its authored pushable box placement.");
             Assert.That(
                 HasPushableBoxAt(entities, new SurfaceCell(FaceId.Back, 3, 5)),
                 Is.True,
-                "Back should start with a pushable box near a shared edge opening.");
+                "Back should retain its authored pushable box placement.");
         }
 
         [Test]

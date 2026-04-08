@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
-using UnityEngine.Serialization;
 
 namespace Game.Feature.Stages
 {
@@ -21,8 +20,6 @@ namespace Game.Feature.Stages
         public Vector2Int MinInclusive;
         public Vector2Int MaxInclusive;
         public FaceId InitialBottomFace;
-        [FormerlySerializedAs("SharedEdgeOpeningColumns")]
-        public int[] SharedEdgeTraversalColumns;
     }
 
     [Serializable]
@@ -46,7 +43,6 @@ namespace Game.Feature.Stages
         [SerializeField] private StageBoardDefinition board = new()
         {
             InitialBottomFace = FaceId.Floor,
-            SharedEdgeTraversalColumns = Array.Empty<int>(),
         };
 
         [Header("Player Spawns")]

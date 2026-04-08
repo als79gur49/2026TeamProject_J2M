@@ -43,7 +43,6 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
-        public BoardTraversalRules InitialTraversalRules = BoardTraversalRules.Empty;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
         public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;
@@ -56,6 +55,7 @@ namespace Game.Feature.Gameplay.Host
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
+        public TopologyRotationTweenSettings TopologyRotationTween = TopologyRotationTweenSettings.CreateDefault();
         public float FlipMotionDurationSeconds = -1f;
         public float ItemConsumeEffectDurationSeconds = -1f;
         public float BoxDestroyEffectDurationSeconds = -1f;

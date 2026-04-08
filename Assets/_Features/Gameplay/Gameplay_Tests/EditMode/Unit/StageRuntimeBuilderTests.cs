@@ -83,20 +83,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageRuntimeBuilder_TraversalColumnOutsideBoundsRejects()
-        {
-            var stage = CreateStage(
-                "TraversalColumnOutsideBounds",
-                CreateBoard(
-                    new Vector2Int(0, 0),
-                    new Vector2Int(2, 2),
-                    sharedEdgeTraversalColumns: new[] { 1, 3 }),
-                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
-
-            AssertBuildThrows(stage, "traversal column 3 must be within board X bounds");
-        }
-
-        [Test]
         public void StageRuntimeBuilder_GroupKindMismatchRejects()
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
@@ -136,7 +122,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
-            CollectionAssert.AreEqual(new[] { 1, 3, 7, 9 }, buildResult.TraversalRules.SharedEdgeTraversalColumns);
             Assert.That(
                 buildResult.InitialEntities.Length,
                 Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
@@ -158,8 +143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.InitialEntities,
                     buildResult.BoardBounds,
                     buildResult.InitialTerrain,
-                    buildResult.InitialTopology,
-                    buildResult.TraversalRules)
+                    buildResult.InitialTopology)
                 .CreateSnapshot();
             Assert.That(snapshot.IsBlockedForUnit(floorWall.position), Is.True);
             Assert.That(snapshot.IsBlockedForUnit(frontWall.position), Is.True);
@@ -296,7 +280,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageBoardDefinition CreateBoard(
             Vector2Int minInclusive,
             Vector2Int maxInclusive,
-            int[] sharedEdgeTraversalColumns = null,
             FaceId initialBottomFace = FaceId.Floor)
         {
             return new StageBoardDefinition
@@ -304,7 +287,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 MinInclusive = minInclusive,
                 MaxInclusive = maxInclusive,
                 InitialBottomFace = initialBottomFace,
-                SharedEdgeTraversalColumns = sharedEdgeTraversalColumns,
             };
         }
 

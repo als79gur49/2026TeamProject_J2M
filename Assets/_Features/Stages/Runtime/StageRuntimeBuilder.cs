@@ -17,7 +17,6 @@ namespace Game.Feature.Stages
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
-                validated.TraversalRules,
                 validated.InitialTopology,
                 initialEntities,
                 TerrainData.Empty,

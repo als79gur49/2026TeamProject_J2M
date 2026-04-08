@@ -21,7 +21,6 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
         private readonly TerrainData _terrainData;
         private readonly CubeTopologyState _topology;
-        private readonly BoardTraversalRules _traversalRules;
 
         internal WorldSnapshot(
             Dictionary<int, EntityState> entitiesById,
@@ -34,8 +33,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            TerrainData terrainData,
-            BoardTraversalRules traversalRules)
+            TerrainData terrainData)
         {
             _entitiesById = new ReadOnlyDictionary<int, EntityState>(entitiesById ?? throw new ArgumentNullException(nameof(entitiesById)));
             _stackedUnitsByCell = CreateReadonlyStackedUnitsByCell(stackedUnitsByCell ?? throw new ArgumentNullException(nameof(stackedUnitsByCell)));
@@ -48,14 +46,11 @@ namespace Game.Feature.Gameplay.BoardState
             _topology = topology;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
-            _traversalRules = traversalRules ?? BoardTraversalRules.Empty;
         }
 
         public BoardBounds BoardBounds => _boardBounds;
 
         public CubeTopologyState Topology => _topology;
-
-        public BoardTraversalRules TraversalRules => _traversalRules;
 
         public bool TryGetEntity(int entityId, out EntityState entity)
         {
@@ -263,7 +258,6 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceTraversalQueries.TryResolvePlayerStep(
                 _topology,
                 _boardBounds,
-                _traversalRules,
                 origin,
                 direction,
                 out destination,
@@ -281,7 +275,6 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceTraversalQueries.TryResolvePlayerStep(
                 _topology,
                 _boardBounds,
-                _traversalRules,
                 origin,
                 delta,
                 out destination,
@@ -299,7 +292,6 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceTraversalQueries.TryResolveUnitStep(
                 _topology,
                 _boardBounds,
-                _traversalRules,
                 origin,
                 delta,
                 out destination,
@@ -344,7 +336,6 @@ namespace Game.Feature.Gameplay.BoardState
                 _solidOccupancy,
                 topology,
                 _boardBounds,
-                _traversalRules,
                 _terrainData,
                 origin,
                 delta,

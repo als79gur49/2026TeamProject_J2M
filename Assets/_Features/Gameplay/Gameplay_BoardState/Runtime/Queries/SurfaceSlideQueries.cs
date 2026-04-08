@@ -14,7 +14,6 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
             TerrainData terrainData,
             SurfaceCell origin,
             Vector2Int delta,
@@ -64,7 +63,7 @@ namespace Game.Feature.Gameplay.BoardState
                     $"Slide origin {origin} must be inside the configured board bounds.");
             }
 
-            if (!TryGetNextSurfaceBoxSlideCell(topology, boardBounds, traversalRules, origin, delta, out destination, out stopper))
+            if (!TryGetNextSurfaceBoxSlideCell(topology, boardBounds, origin, delta, out destination, out stopper))
             {
                 destination = default;
                 return false;
@@ -90,7 +89,6 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool TryGetNextSurfaceBoxSlideCell(
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
             SurfaceCell current,
             Vector2Int delta,
             out SurfaceCell next,
@@ -100,13 +98,6 @@ namespace Game.Feature.Gameplay.BoardState
                 delta == Vector2Int.up &&
                 current.y == boardBounds.MaxInclusive.y)
             {
-                if (!AllowsSharedEdgeTraversal(traversalRules, current.x))
-                {
-                    stopper = SlideStopper.CreateBoardEdge(current + delta);
-                    next = default;
-                    return false;
-                }
-
                 next = new SurfaceCell(topology.FrontFace, current.x, boardBounds.MinInclusive.y);
                 stopper = default;
                 return true;
@@ -116,13 +107,6 @@ namespace Game.Feature.Gameplay.BoardState
                 delta == Vector2Int.down &&
                 current.y == boardBounds.MinInclusive.y)
             {
-                if (!AllowsSharedEdgeTraversal(traversalRules, current.x))
-                {
-                    stopper = SlideStopper.CreateBoardEdge(current + delta);
-                    next = default;
-                    return false;
-                }
-
                 next = new SurfaceCell(topology.BottomFace, current.x, boardBounds.MaxInclusive.y);
                 stopper = default;
                 return true;
@@ -139,12 +123,6 @@ namespace Game.Feature.Gameplay.BoardState
             next = default;
             return false;
         }
-
-        private static bool AllowsSharedEdgeTraversal(BoardTraversalRules traversalRules, int column)
-        {
-            return (traversalRules ?? BoardTraversalRules.Empty).AllowsSharedEdgeTraversal(column);
-        }
-
         private static bool TryGetBoxSlideBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,

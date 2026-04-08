@@ -56,8 +56,7 @@ namespace Game.Feature.Gameplay.Host
                 normalizedInitialEntities,
                 configuration.InitialBoardBounds,
                 initialTerrain,
-                configuration.InitialTopology,
-                configuration.InitialTraversalRules);
+                configuration.InitialTopology);
             var initialSnapshot = SnapshotBuilder.Create(worldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
@@ -98,7 +97,8 @@ namespace Game.Feature.Gameplay.Host
                 generalTimingProfile,
                 boardRoot,
                 boardSurfaceRenderer,
-                configuration.TopologyRotationVisualMapping);
+                configuration.TopologyRotationVisualMapping,
+                configuration.TopologyRotationTween);
 
             boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,

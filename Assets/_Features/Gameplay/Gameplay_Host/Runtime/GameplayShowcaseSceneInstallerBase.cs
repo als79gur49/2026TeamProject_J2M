@@ -15,7 +15,6 @@ namespace Game.Feature.Gameplay.Host
         {
             public InitialGameplayState(
                 BoardBounds boardBounds,
-                BoardTraversalRules traversalRules,
                 CubeTopologyState initialTopology,
                 EntityState[] initialEntities,
                 GameplayTerrainData initialTerrain,
@@ -24,7 +23,6 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationBinding[] enemyPresentationBindings)
             {
                 BoardBounds = boardBounds;
-                TraversalRules = traversalRules ?? BoardTraversalRules.Empty;
                 InitialTopology = initialTopology;
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
@@ -36,8 +34,6 @@ namespace Game.Feature.Gameplay.Host
             public BoardBounds BoardBounds { get; }
 
             public CubeTopologyState InitialTopology { get; }
-
-            public BoardTraversalRules TraversalRules { get; }
 
             public EntityState[] InitialEntities { get; }
 
@@ -65,6 +61,7 @@ namespace Game.Feature.Gameplay.Host
 
         [Header("Presentation")]
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
+        [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
 
         protected bool AutoCreateViews => autoCreateViews;
 
@@ -185,7 +182,6 @@ namespace Game.Feature.Gameplay.Host
                 EnemyPresentationCatalog = ResolveEnemyPresentationCatalog(),
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
-                InitialTraversalRules = initialState.TraversalRules,
                 InitialTerrain = initialState.InitialTerrain,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
@@ -193,6 +189,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 SnapViewCameraToTarget = configureMainCamera,
                 TopologyRotationVisualMapping = topologyRotationVisualMapping,
+                TopologyRotationTween = topologyRotationTweenSettings,
                 ViewCamera = configureMainCamera ? Camera.main : null,
                 ViewFactory = viewFactory,
             };

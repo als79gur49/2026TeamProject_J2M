@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Stages
@@ -22,7 +21,6 @@ namespace Game.Feature.Stages
             var stageName = GetStageName(stage);
             var board = stage.Board;
             var boardBounds = CreateBoardBounds(stageName, board);
-            var traversalRules = CreateTraversalRules(stageName, boardBounds, board.SharedEdgeTraversalColumns);
             var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
             var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
 
@@ -30,7 +28,6 @@ namespace Game.Feature.Stages
                 boardBounds,
                 new CubeTopologyState(board.InitialBottomFace),
                 ExtractSpawns(spawnEntries),
-                traversalRules,
                 playerEntityId);
         }
 
@@ -165,34 +162,6 @@ namespace Game.Feature.Stages
             return spawns;
         }
 
-        private static BoardTraversalRules CreateTraversalRules(
-            string stageName,
-            BoardBounds boardBounds,
-            int[] sharedEdgeTraversalColumns)
-        {
-            if (sharedEdgeTraversalColumns == null || sharedEdgeTraversalColumns.Length == 0)
-            {
-                return BoardTraversalRules.Empty;
-            }
-
-            var normalizedColumns = sharedEdgeTraversalColumns
-                .Distinct()
-                .OrderBy(column => column)
-                .ToArray();
-
-            for (var i = 0; i < normalizedColumns.Length; i++)
-            {
-                var column = normalizedColumns[i];
-                if (column < boardBounds.MinInclusive.x || column > boardBounds.MaxInclusive.x)
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' traversal column {column} must be within board X bounds [{boardBounds.MinInclusive.x}, {boardBounds.MaxInclusive.x}].");
-                }
-            }
-
-            return new BoardTraversalRules(normalizedColumns);
-        }
-
         private static string FormatSpawnLabel(ExplicitSpawnEntry spawnEntry)
         {
             var spawn = spawnEntry.Spawn;
@@ -233,13 +202,11 @@ namespace Game.Feature.Stages
                 BoardBounds boardBounds,
                 CubeTopologyState initialTopology,
                 StageSpawnDefinition[] spawns,
-                BoardTraversalRules traversalRules,
                 int playerEntityId)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 Spawns = spawns ?? Array.Empty<StageSpawnDefinition>();
-                TraversalRules = traversalRules ?? BoardTraversalRules.Empty;
                 PlayerEntityId = playerEntityId;
             }
 
@@ -248,8 +215,6 @@ namespace Game.Feature.Stages
             public CubeTopologyState InitialTopology { get; }
 
             public StageSpawnDefinition[] Spawns { get; }
-
-            public BoardTraversalRules TraversalRules { get; }
 
             public int PlayerEntityId { get; }
         }

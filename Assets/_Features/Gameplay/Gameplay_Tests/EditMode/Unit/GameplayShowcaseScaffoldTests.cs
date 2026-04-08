@@ -88,6 +88,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     installer,
                     "topologyRotationVisualMapping",
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
+                SetBaseInstallerField(
+                    installer,
+                    "topologyRotationTweenSettings",
+                    new TopologyRotationTweenSettings
+                    {
+                        Mode = TopologyRotationTweenMode.QuaternionSlerp,
+                        Ease = TopologyRotationTweenEase.InOutBounce,
+                    });
 
                 var boardBounds = TestGameplayShowcaseInstaller.DefaultBoardBounds;
                 var configuration = installer.BuildConfigurationForTests();
@@ -102,6 +110,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     configuration.TopologyRotationVisualMapping,
                     Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
+                Assert.That(
+                    configuration.TopologyRotationTween.Mode,
+                    Is.EqualTo(TopologyRotationTweenMode.QuaternionSlerp));
+                Assert.That(
+                    configuration.TopologyRotationTween.Ease,
+                    Is.EqualTo(TopologyRotationTweenEase.InOutBounce));
                 Assert.That(
                     typeof(GameplaySceneHostConfiguration).GetField(
                         "GridOrigin",
@@ -352,7 +366,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 return new InitialGameplayState(
                     DefaultBoardBounds,
-                    BoardTraversalRules.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
@@ -390,20 +403,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayShowcaseAssetMigrationTests
     {
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string BoxInteractionScenePath = "Assets/Scenes/BoxInteractionShowcase.unity";
-        private const string TraversalScenePath = "Assets/Scenes/CubeSurfaceTraversalShowcase.unity";
         private const string CombinedSceneInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
-        private const string BoxInteractionSceneInstallerIdentifier =
-            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.BoxInteractionShowcaseInstaller";
-        private const string TraversalSceneInstallerIdentifier =
-            "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CubeSurfaceTraversalShowcaseInstaller";
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
-        private const string BoxInteractionStageAssetPath =
-            "Assets/_Features/Stages/Stage_BoxInteractionShowcase/Stage_BoxInteractionShowcase.asset";
-        private const string TraversalStageAssetPath =
-            "Assets/_Features/Stages/Stage_CubeSurfaceTraversalShowcase/Stage_CubeSurfaceTraversalShowcase.asset";
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
@@ -442,53 +445,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             StringAssert.Contains("enemyPresentationCatalog:", installerBlock);
             StringAssert.DoesNotContain("enemyAnimationTimingOverrides:", installerBlock);
-        }
-
-        [Test]
-        public void BoxInteractionShowcaseScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
-        {
-            var installerBlock = ReadInstallerBlock(BoxInteractionScenePath, BoxInteractionSceneInstallerIdentifier);
-
-            AssertUsesTimingPresetReferences(
-                installerBlock,
-                BoxInteractionStageAssetPath,
-                DefaultSimulationTimingPresetAssetPath,
-                DefaultPresentationTimingPresetAssetPath);
-            StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
-            StringAssert.DoesNotContain("playerControlTiming:", installerBlock);
-            StringAssert.DoesNotContain("repeatedMoveIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("boxSlideStepIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("projectileStepIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("pushMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("flipMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("topologyMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", installerBlock);
-        }
-
-        [Test]
-        public void CubeSurfaceTraversalShowcaseScene_UsesTimingPresetReferencesAndDropsLegacyTickSerializedFields()
-        {
-            var sceneText = ReadNormalizedText(TraversalScenePath);
-            var installerBlock = ReadInstallerBlock(TraversalScenePath, TraversalSceneInstallerIdentifier);
-
-            StringAssert.DoesNotContain("initialMoveDelayTicks", sceneText);
-            StringAssert.DoesNotContain("repeatedMoveIntervalTicks", sceneText);
-            StringAssert.DoesNotContain("tickIntervalSeconds", sceneText);
-            AssertUsesTimingPresetReferences(
-                installerBlock,
-                TraversalStageAssetPath,
-                DefaultSimulationTimingPresetAssetPath,
-                DefaultPresentationTimingPresetAssetPath);
-            StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
-            StringAssert.DoesNotContain("playerControlTiming:", installerBlock);
-            StringAssert.DoesNotContain("repeatedMoveIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("boxSlideStepIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("projectileStepIntervalSeconds:", installerBlock);
-            StringAssert.DoesNotContain("moveMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("pushMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("flipMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("topologyMotionDurationSeconds:", installerBlock);
-            StringAssert.DoesNotContain("playerMoveCooldownSeconds:", installerBlock);
         }
 
         [Test]

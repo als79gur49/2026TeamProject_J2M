@@ -18,16 +18,15 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
-        private readonly BoardTraversalRules _traversalRules;
         private CubeTopologyState _topology;
 
         internal WorldState()
-            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor), BoardTraversalRules.Empty)
+            : this(Array.Empty<EntityState>(), BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
         {
         }
 
         internal WorldState(IEnumerable<EntityState> initialEntities)
-            : this(initialEntities, BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor), BoardTraversalRules.Empty)
+            : this(initialEntities, BoardBounds.Unbounded, TerrainData.Empty, new CubeTopologyState(FaceId.Floor))
         {
         }
 
@@ -35,7 +34,7 @@ namespace Game.Feature.Gameplay.BoardState
             IEnumerable<EntityState> initialEntities,
             BoardBounds boardBounds,
             TerrainData terrainData)
-            : this(initialEntities, boardBounds, terrainData, new CubeTopologyState(FaceId.Floor), BoardTraversalRules.Empty)
+            : this(initialEntities, boardBounds, terrainData, new CubeTopologyState(FaceId.Floor))
         {
         }
 
@@ -44,16 +43,6 @@ namespace Game.Feature.Gameplay.BoardState
             BoardBounds boardBounds,
             TerrainData terrainData,
             CubeTopologyState topology)
-            : this(initialEntities, boardBounds, terrainData, topology, BoardTraversalRules.Empty)
-        {
-        }
-
-        internal WorldState(
-            IEnumerable<EntityState> initialEntities,
-            BoardBounds boardBounds,
-            TerrainData terrainData,
-            CubeTopologyState topology,
-            BoardTraversalRules traversalRules)
         {
             if (initialEntities == null)
             {
@@ -63,7 +52,6 @@ namespace Game.Feature.Gameplay.BoardState
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
             _topology = topology;
-            _traversalRules = traversalRules ?? BoardTraversalRules.Empty;
             ValidateTerrainBounds();
 
             foreach (var entity in initialEntities)
@@ -85,8 +73,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 _topology,
                 _boardBounds,
-                _terrainData,
-                _traversalRules);
+                _terrainData);
         }
 
         internal IWorldWriteContext CreateWriteContext()

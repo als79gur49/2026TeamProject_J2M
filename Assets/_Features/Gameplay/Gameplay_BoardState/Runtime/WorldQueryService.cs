@@ -243,31 +243,9 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            return TryResolvePlayerStep(
-                topology,
-                boardBounds,
-                BoardTraversalRules.Empty,
-                origin,
-                direction,
-                out destination,
-                out rotationKind,
-                out updatedTopology);
-        }
-
-        public static bool TryResolvePlayerStep(
-            CubeTopologyState topology,
-            BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
-            SurfaceCell origin,
-            Direction direction,
-            out SurfaceCell destination,
-            out CubeRotationKind rotationKind,
-            out CubeTopologyState updatedTopology)
-        {
             return SurfaceTraversalQueries.TryResolvePlayerStep(
                 topology,
                 boardBounds,
-                traversalRules,
                 origin,
                 direction,
                 out destination,
@@ -278,27 +256,6 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolvePlayerStep(
             CubeTopologyState topology,
             BoardBounds boardBounds,
-            SurfaceCell origin,
-            Vector2Int delta,
-            out SurfaceCell destination,
-            out CubeRotationKind rotationKind,
-            out CubeTopologyState updatedTopology)
-        {
-            return TryResolvePlayerStep(
-                topology,
-                boardBounds,
-                BoardTraversalRules.Empty,
-                origin,
-                delta,
-                out destination,
-                out rotationKind,
-                out updatedTopology);
-        }
-
-        public static bool TryResolvePlayerStep(
-            CubeTopologyState topology,
-            BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
@@ -308,7 +265,6 @@ namespace Game.Feature.Gameplay.BoardState
             return SurfaceTraversalQueries.TryResolvePlayerStep(
                 topology,
                 boardBounds,
-                traversalRules,
                 origin,
                 delta,
                 out destination,
@@ -325,31 +281,9 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            return TryResolveUnitStep(
-                topology,
-                boardBounds,
-                BoardTraversalRules.Empty,
-                origin,
-                direction,
-                out destination,
-                out rotationKind,
-                out updatedTopology);
-        }
-
-        public static bool TryResolveUnitStep(
-            CubeTopologyState topology,
-            BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
-            SurfaceCell origin,
-            Direction direction,
-            out SurfaceCell destination,
-            out CubeRotationKind rotationKind,
-            out CubeTopologyState updatedTopology)
-        {
             return SurfaceTraversalQueries.TryResolveUnitStep(
                 topology,
                 boardBounds,
-                traversalRules,
                 origin,
                 direction,
                 out destination,
@@ -366,31 +300,9 @@ namespace Game.Feature.Gameplay.BoardState
             out CubeRotationKind rotationKind,
             out CubeTopologyState updatedTopology)
         {
-            return TryResolveUnitStep(
-                topology,
-                boardBounds,
-                BoardTraversalRules.Empty,
-                origin,
-                delta,
-                out destination,
-                out rotationKind,
-                out updatedTopology);
-        }
-
-        public static bool TryResolveUnitStep(
-            CubeTopologyState topology,
-            BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
-            SurfaceCell origin,
-            Vector2Int delta,
-            out SurfaceCell destination,
-            out CubeRotationKind rotationKind,
-            out CubeTopologyState updatedTopology)
-        {
             return SurfaceTraversalQueries.TryResolveUnitStep(
                 topology,
                 boardBounds,
-                traversalRules,
                 origin,
                 delta,
                 out destination,
@@ -427,40 +339,12 @@ namespace Game.Feature.Gameplay.BoardState
             out SurfaceCell destination,
             out SlideStopper stopper)
         {
-            return TryResolveNextSurfaceBoxSlideStep(
-                entitiesById,
-                stackedUnitsByCell,
-                solidOccupancyByCell,
-                topology,
-                boardBounds,
-                BoardTraversalRules.Empty,
-                terrainData,
-                origin,
-                delta,
-                out destination,
-                out stopper);
-        }
-
-        public static bool TryResolveNextSurfaceBoxSlideStep(
-            IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
-            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            CubeTopologyState topology,
-            BoardBounds boardBounds,
-            BoardTraversalRules traversalRules,
-            TerrainData terrainData,
-            SurfaceCell origin,
-            Vector2Int delta,
-            out SurfaceCell destination,
-            out SlideStopper stopper)
-        {
             return SurfaceSlideQueries.TryResolveNextSurfaceBoxSlideStep(
                 entitiesById,
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
-                traversalRules,
                 terrainData,
                 origin,
                 delta,
