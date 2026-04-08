@@ -23,7 +23,8 @@ namespace Game.Feature.Gameplay.Host
             bool startedThisTick,
             bool executedThisTick,
             bool completedThisTick,
-            bool canceledThisTick)
+            bool canceledThisTick,
+            bool isRecoveryPhase = false)
             : this(
                 entityId,
                 tickIndex,
@@ -33,7 +34,8 @@ namespace Game.Feature.Gameplay.Host
                 executedThisTick,
                 completedThisTick,
                 canceledThisTick,
-                shouldPlayWalkLoop: false)
+                shouldPlayWalkLoop: false,
+                isRecoveryPhase: isRecoveryPhase)
         {
         }
 
@@ -46,12 +48,14 @@ namespace Game.Feature.Gameplay.Host
             bool executedThisTick,
             bool completedThisTick,
             bool canceledThisTick,
-            bool shouldPlayWalkLoop)
+            bool shouldPlayWalkLoop,
+            bool isRecoveryPhase = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
             ActiveActionKind = activeActionKind;
             ActiveActionSequence = activeActionSequence;
+            IsRecoveryPhase = isRecoveryPhase;
             StartedThisTick = startedThisTick;
             ExecutedThisTick = executedThisTick;
             CompletedThisTick = completedThisTick;
@@ -66,6 +70,8 @@ namespace Game.Feature.Gameplay.Host
         public PlayerActionKind ActiveActionKind { get; }
 
         public int ActiveActionSequence { get; }
+
+        public bool IsRecoveryPhase { get; }
 
         public bool StartedThisTick { get; }
 
@@ -158,7 +164,8 @@ namespace Game.Feature.Gameplay.Host
                     signal.ExecutedThisTick,
                     signal.CompletedThisTick,
                     signal.CanceledThisTick,
-                    shouldPlayWalkLoop);
+                    shouldPlayWalkLoop,
+                    signal.IsRecoveryPhase);
             }
         }
 
@@ -173,7 +180,8 @@ namespace Game.Feature.Gameplay.Host
                 executedThisTick: false,
                 completedThisTick: false,
                 canceledThisTick: false,
-                shouldPlayWalkLoop: false);
+                shouldPlayWalkLoop: false,
+                isRecoveryPhase: false);
         }
 
         private static bool HasPlayerDriver(IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId, int entityId)

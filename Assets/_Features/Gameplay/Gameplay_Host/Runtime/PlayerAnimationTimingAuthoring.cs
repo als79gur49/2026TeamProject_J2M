@@ -6,28 +6,69 @@ using UnityEngine.Serialization;
 
 namespace Game.Feature.Gameplay.Host
 {
+    public enum PlayerPresentationPhase
+    {
+        None = 0,
+        PushWindup = 1,
+        PushRecovery = 2,
+        FlipWindup = 3,
+        FlipRecovery = 4,
+    }
+
     public readonly struct PlayerAnimationTimingSnapshot
     {
         public PlayerAnimationTimingSnapshot(
-            float pushAnimatorDurationSeconds,
-            float flipAnimatorDurationSeconds)
+            float pushWindupAnimatorDurationSeconds,
+            float pushRecoveryAnimatorDurationSeconds,
+            float flipWindupAnimatorDurationSeconds,
+            float flipRecoveryAnimatorDurationSeconds,
+            float legacyPushAnimatorDurationSeconds,
+            float legacyFlipAnimatorDurationSeconds)
         {
-            PushAnimatorDurationSeconds = pushAnimatorDurationSeconds;
-            FlipAnimatorDurationSeconds = flipAnimatorDurationSeconds;
+            PushWindupAnimatorDurationSeconds = pushWindupAnimatorDurationSeconds;
+            PushRecoveryAnimatorDurationSeconds = pushRecoveryAnimatorDurationSeconds;
+            FlipWindupAnimatorDurationSeconds = flipWindupAnimatorDurationSeconds;
+            FlipRecoveryAnimatorDurationSeconds = flipRecoveryAnimatorDurationSeconds;
+            LegacyPushAnimatorDurationSeconds = legacyPushAnimatorDurationSeconds;
+            LegacyFlipAnimatorDurationSeconds = legacyFlipAnimatorDurationSeconds;
         }
 
-        public float PushAnimatorDurationSeconds { get; }
+        public float PushWindupAnimatorDurationSeconds { get; }
 
-        public float FlipAnimatorDurationSeconds { get; }
+        public float PushRecoveryAnimatorDurationSeconds { get; }
+
+        public float FlipWindupAnimatorDurationSeconds { get; }
+
+        public float FlipRecoveryAnimatorDurationSeconds { get; }
+
+        public float LegacyPushAnimatorDurationSeconds { get; }
+
+        public float LegacyFlipAnimatorDurationSeconds { get; }
 
         public bool TryGetAnimatorDurationOverride(
+            PlayerPresentationPhase phase,
+            out float durationSeconds)
+        {
+            durationSeconds = phase switch
+            {
+                PlayerPresentationPhase.PushWindup => PushWindupAnimatorDurationSeconds,
+                PlayerPresentationPhase.PushRecovery => PushRecoveryAnimatorDurationSeconds,
+                PlayerPresentationPhase.FlipWindup => FlipWindupAnimatorDurationSeconds,
+                PlayerPresentationPhase.FlipRecovery => FlipRecoveryAnimatorDurationSeconds,
+                _ => PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel,
+            };
+
+            return PlayerAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
+
+        public bool TryGetLegacyAnimatorDurationOverride(
             PlayerActionKind actionKind,
             out float durationSeconds)
         {
             durationSeconds = actionKind switch
             {
-                PlayerActionKind.Push => PushAnimatorDurationSeconds,
-                PlayerActionKind.Flip => FlipAnimatorDurationSeconds,
+                PlayerActionKind.Push => LegacyPushAnimatorDurationSeconds,
+                PlayerActionKind.Flip => LegacyFlipAnimatorDurationSeconds,
                 _ => PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel,
             };
 
@@ -42,27 +83,45 @@ namespace Game.Feature.Gameplay.Host
         public const float UseResolvedMotionDurationSentinel = -1f;
         public const float DefaultAnimatorDurationSeconds = UseResolvedMotionDurationSentinel;
 
+        [SerializeField] private float pushWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float pushRecoveryAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float flipWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float flipRecoveryAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [FormerlySerializedAs("pushAnimatorDurationSeconds")]
         [FormerlySerializedAs("pushPresentationDurationSeconds")]
-        [SerializeField] private float pushAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField, HideInInspector] private float legacyPushAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [FormerlySerializedAs("flipAnimatorDurationSeconds")]
         [FormerlySerializedAs("flipPresentationDurationSeconds")]
-        [SerializeField] private float flipAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField, HideInInspector] private float legacyFlipAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
 
-        public float PushAnimatorDurationSeconds => pushAnimatorDurationSeconds;
+        public float PushWindupAnimatorDurationSeconds => pushWindupAnimatorDurationSeconds;
 
-        public float FlipAnimatorDurationSeconds => flipAnimatorDurationSeconds;
+        public float PushRecoveryAnimatorDurationSeconds => pushRecoveryAnimatorDurationSeconds;
+
+        public float FlipWindupAnimatorDurationSeconds => flipWindupAnimatorDurationSeconds;
+
+        public float FlipRecoveryAnimatorDurationSeconds => flipRecoveryAnimatorDurationSeconds;
 
         public void Validate()
         {
-            ValidateAnimatorDuration(pushAnimatorDurationSeconds, nameof(pushAnimatorDurationSeconds));
-            ValidateAnimatorDuration(flipAnimatorDurationSeconds, nameof(flipAnimatorDurationSeconds));
+            ValidateAnimatorDuration(pushWindupAnimatorDurationSeconds, nameof(pushWindupAnimatorDurationSeconds));
+            ValidateAnimatorDuration(pushRecoveryAnimatorDurationSeconds, nameof(pushRecoveryAnimatorDurationSeconds));
+            ValidateAnimatorDuration(flipWindupAnimatorDurationSeconds, nameof(flipWindupAnimatorDurationSeconds));
+            ValidateAnimatorDuration(flipRecoveryAnimatorDurationSeconds, nameof(flipRecoveryAnimatorDurationSeconds));
+            ValidateAnimatorDuration(legacyPushAnimatorDurationSeconds, nameof(legacyPushAnimatorDurationSeconds));
+            ValidateAnimatorDuration(legacyFlipAnimatorDurationSeconds, nameof(legacyFlipAnimatorDurationSeconds));
         }
 
         public PlayerAnimationTimingSnapshot CreateSnapshot()
         {
             Validate();
             return new PlayerAnimationTimingSnapshot(
-                pushAnimatorDurationSeconds,
-                flipAnimatorDurationSeconds);
+                pushWindupAnimatorDurationSeconds,
+                pushRecoveryAnimatorDurationSeconds,
+                flipWindupAnimatorDurationSeconds,
+                flipRecoveryAnimatorDurationSeconds,
+                legacyPushAnimatorDurationSeconds,
+                legacyFlipAnimatorDurationSeconds);
         }
 
         public static bool IsAnimatorDurationOverride(float animatorDurationSeconds)

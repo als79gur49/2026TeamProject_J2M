@@ -78,12 +78,12 @@ namespace Game.Feature.Gameplay.PlayerControl
     [Serializable]
     public sealed class PlayerControlTimingSettings
     {
-        public const int DefaultPushExecuteDelayTicksAtDefaultSimulationRate = 1;
+        public const int DefaultPushExecuteDelayTicksAtDefaultSimulationRate = 11;
         public const int DefaultPushInputLockDurationTicksAtDefaultSimulationRate =
-            DefaultPushExecuteDelayTicksAtDefaultSimulationRate;
-        public const int DefaultFlipExecuteDelayTicksAtDefaultSimulationRate = 1;
+            29;
+        public const int DefaultFlipExecuteDelayTicksAtDefaultSimulationRate = 23;
         public const int DefaultFlipInputLockDurationTicksAtDefaultSimulationRate =
-            DefaultFlipExecuteDelayTicksAtDefaultSimulationRate;
+            57;
         public const float DefaultPushExecuteDelaySeconds =
             DefaultPushExecuteDelayTicksAtDefaultSimulationRate / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         public const float DefaultPushInputLockDurationSeconds =

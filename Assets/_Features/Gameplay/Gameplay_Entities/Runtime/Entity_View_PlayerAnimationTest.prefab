@@ -338,8 +338,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 862dd910f7114661a6f9b0cf732ec497, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.PlayerAnimationTimingAuthoring
-  pushAnimatorDurationSeconds: 0.6
-  flipAnimatorDurationSeconds: 2
+  pushWindupAnimatorDurationSeconds: 0.3
+  pushRecoveryAnimatorDurationSeconds: 0.3
+  flipWindupAnimatorDurationSeconds: 1
+  flipRecoveryAnimatorDurationSeconds: 1
 --- !u!114 &8843883875010402886
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -355,8 +357,10 @@ MonoBehaviour:
   animator: {fileID: 8002113175247343230}
   idleStateName: Idle
   walkStateName: Walk
-  pushStateName: Push
-  flipStateName: Flip
+  pushWindupStateName: Push
+  pushRecoveryStateName: Push
+  flipWindupStateName: Flip
+  flipRecoveryStateName: Flip
   stateTransitionCrossFadeDurationSeconds: 0.1
   animationTimingAuthoring: {fileID: 3345667788990011223}
 --- !u!1 &1555250594893369712

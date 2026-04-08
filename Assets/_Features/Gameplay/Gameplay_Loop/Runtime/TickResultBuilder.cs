@@ -458,7 +458,11 @@ namespace Game.Feature.Gameplay.Loop
                         startedThisTick,
                         completedThisTick,
                         canceledThisTick,
-                        executedThisTick));
+                        executedThisTick,
+                        isRecoveryPhase: activeActionKind != PlayerActionKind.None &&
+                                         context.FinalAuthoritativeSnapshot.TryGetPlayerControlState(entityId, out var finalControlState) &&
+                                         finalControlState.activeAction.IsActive &&
+                                         finalControlState.activeAction.executeTick <= context.CurrentTickIndex));
             }
         }
 
