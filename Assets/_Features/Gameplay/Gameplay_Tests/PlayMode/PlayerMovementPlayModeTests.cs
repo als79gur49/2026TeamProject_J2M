@@ -770,12 +770,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             if (pushPresentationDurationSeconds > 0f)
             {
-                SetSerializedField(playerTimingAuthoring, "pushAnimatorDurationSeconds", pushPresentationDurationSeconds);
+                SetSerializedField(playerTimingAuthoring, "legacyPushAnimatorDurationSeconds", pushPresentationDurationSeconds);
             }
 
             if (flipPresentationDurationSeconds > 0f)
             {
-                SetSerializedField(playerTimingAuthoring, "flipAnimatorDurationSeconds", flipPresentationDurationSeconds);
+                SetSerializedField(playerTimingAuthoring, "legacyFlipAnimatorDurationSeconds", flipPresentationDurationSeconds);
             }
 
             host.Initialize(

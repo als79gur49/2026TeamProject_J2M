@@ -407,13 +407,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var authoring = authoringRoot.GetComponent<PlayerAnimationTimingAuthoring>();
                 Assert.That(authoring, Is.Not.Null);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.25f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.4f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.75f);
 
                 var snapshot = authoring.CreateSnapshot();
 
-                Assert.That(snapshot.PushAnimatorDurationSeconds, Is.EqualTo(0.25f));
-                Assert.That(snapshot.FlipAnimatorDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(snapshot.PushWindupAnimatorDurationSeconds, Is.EqualTo(0.25f));
+                Assert.That(snapshot.PushRecoveryAnimatorDurationSeconds, Is.EqualTo(0.4f));
+                Assert.That(snapshot.FlipWindupAnimatorDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(snapshot.FlipRecoveryAnimatorDurationSeconds, Is.EqualTo(0.75f));
             }
             finally
             {
@@ -430,7 +434,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var authoring = authoringRoot.GetComponent<PlayerAnimationTimingAuthoring>();
                 Assert.That(authoring, Is.Not.Null);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0f);
 
                 Assert.Throws<ArgumentOutOfRangeException>(() => authoring.CreateSnapshot());
             }
@@ -2660,8 +2664,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver, Is.Not.Null);
                 Assert.That(authoring, Is.Not.Null);
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.5f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.3f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.3f);
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -2837,7 +2843,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver, Is.Not.Null);
                 Assert.That(authoring, Is.Not.Null);
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.3f);
 
                 presenter.Present(CreateTickResult(
                     new[]
@@ -2937,9 +2944,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerAnimatorDriver_UsesAuthoringPresentationDurationsAndKeepsExecuteSignalsSeparate()
+        public void PlayerAnimatorDriver_TransitionsBetweenWindupAndRecoveryPhases()
         {
-            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_UsesAuthoringPresentationDurations");
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_TransitionsBetweenWindupAndRecoveryPhases");
 
             try
             {
@@ -2955,15 +2962,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     UnityEngine.Object.DestroyImmediate(animator);
                 }
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.25f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.5f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.75f);
 
                 driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
 
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
                 Assert.That(driver.ActionExecuteSignalCount, Is.Zero);
-                Assert.That(driver.PushPresentationDurationSeconds, Is.EqualTo(0.25f));
+                Assert.That(driver.PushPresentationDurationSeconds, Is.EqualTo(0.75f));
+                Assert.That(driver.GetPresentationDurationSeconds(PlayerPresentationPhase.PushWindup), Is.EqualTo(0.25f));
+                Assert.That(driver.GetPresentationDurationSeconds(PlayerPresentationPhase.PushRecovery), Is.EqualTo(0.5f));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
 
                 driver.Apply(new PlayerViewPresentationState(10, 2, PlayerActionKind.Push, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
@@ -2972,14 +2985,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(1));
                 Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(1));
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
+                Assert.That(driver.LastCrossFadedStateName, Is.Not.EqualTo("Push_Windup"));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
 
                 driver.Apply(new PlayerViewPresentationState(10, 3, PlayerActionKind.Flip, 2, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
 
                 Assert.That(driver.ActionStartSignalCount, Is.EqualTo(2));
-                Assert.That(driver.FlipPresentationDurationSeconds, Is.EqualTo(0.5f));
+                Assert.That(driver.FlipPresentationDurationSeconds, Is.EqualTo(1.25f));
+                Assert.That(driver.GetPresentationDurationSeconds(PlayerPresentationPhase.FlipWindup), Is.EqualTo(0.5f));
+                Assert.That(driver.GetPresentationDurationSeconds(PlayerPresentationPhase.FlipRecovery), Is.EqualTo(0.75f));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Windup"));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
+
+                driver.Apply(new PlayerViewPresentationState(10, 4, PlayerActionKind.Flip, 2, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
+
+                Assert.That(driver.ActionExecuteSignalCount, Is.EqualTo(2));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1.3333334f).Within(0.0001f));
             }
             finally
             {
@@ -3002,11 +3030,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "animator",
                     "idleStateName",
                     "walkStateName",
-                    "pushStateName",
-                    "flipStateName",
+                    "pushWindupStateName",
+                    "pushRecoveryStateName",
+                    "flipWindupStateName",
+                    "flipRecoveryStateName",
                     "walkExitStateName",
-                    "pushExitStateName",
-                    "flipExitStateName",
                     "stateTransitionCrossFadeDurationSeconds",
                     "animationTimingAuthoring",
                 },

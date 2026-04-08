@@ -1,9 +1,11 @@
 using System;
 using System.Reflection;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Timing;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -135,6 +137,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(preset);
             }
+        }
+
+        [Test]
+        public void PlayerControlTimingSettings_CreateDefault_UsesPhaseAlignedExecuteAndRecoveryWindows()
+        {
+            var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                repeatedMoveIntervalSeconds: 0.6f);
+
+            Assert.That(snapshot.PushExecuteDelaySeconds, Is.EqualTo(11f / 60f).Within(0.0001f));
+            Assert.That(snapshot.PushInputLockDurationSeconds, Is.EqualTo(29f / 60f).Within(0.0001f));
+            Assert.That(snapshot.PushWindupTicks, Is.EqualTo(11));
+            Assert.That(snapshot.PushRecoveryTicks, Is.EqualTo(18));
+            Assert.That(snapshot.FlipExecuteDelaySeconds, Is.EqualTo(23f / 60f).Within(0.0001f));
+            Assert.That(snapshot.FlipInputLockDurationSeconds, Is.EqualTo(57f / 60f).Within(0.0001f));
+            Assert.That(snapshot.FlipWindupTicks, Is.EqualTo(23));
+            Assert.That(snapshot.FlipRecoveryTicks, Is.EqualTo(34));
+        }
+
+        [Test]
+        public void GameplaySimulationTimingPreset_DefaultShowcase_UsesPlayerPhaseTimingWindows()
+        {
+            const string presetPath =
+                "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
+
+            var preset = AssetDatabase.LoadAssetAtPath<GameplaySimulationTimingPreset>(presetPath);
+
+            Assert.That(preset, Is.Not.Null, $"Missing preset at '{presetPath}'.");
+
+            var configuration = new GameplaySceneHostConfiguration();
+            preset.ApplyTo(configuration);
+
+            Assert.That(configuration.PlayerControlTiming.PushExecuteDelaySeconds, Is.EqualTo(0.18333334f).Within(0.0000001f));
+            Assert.That(configuration.PlayerControlTiming.PushInputLockDurationSeconds, Is.EqualTo(0.48333335f).Within(0.0000001f));
+            Assert.That(configuration.PlayerControlTiming.FlipExecuteDelaySeconds, Is.EqualTo(0.38333333f).Within(0.0000001f));
+            Assert.That(configuration.PlayerControlTiming.FlipInputLockDurationSeconds, Is.EqualTo(0.95f).Within(0.0000001f));
         }
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(

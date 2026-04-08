@@ -47,8 +47,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(driver, Is.Not.Null);
 
                 var snapshot = authoring.CreateSnapshot();
-                Assert.That(snapshot.TryGetAnimatorDurationOverride(PlayerActionKind.Push, out _), Is.False);
-                Assert.That(snapshot.TryGetAnimatorDurationOverride(PlayerActionKind.Flip, out _), Is.False);
+                Assert.That(snapshot.TryGetAnimatorDurationOverride(PlayerPresentationPhase.PushWindup, out _), Is.False);
+                Assert.That(snapshot.TryGetAnimatorDurationOverride(PlayerPresentationPhase.PushRecovery, out _), Is.False);
+                Assert.That(snapshot.TryGetAnimatorDurationOverride(PlayerPresentationPhase.FlipWindup, out _), Is.False);
+                Assert.That(snapshot.TryGetAnimatorDurationOverride(PlayerPresentationPhase.FlipRecovery, out _), Is.False);
                 Assert.That(
                     driver.GetPresentationDurationSeconds(PlayerActionKind.Push, host.TimingProfile.PushMotionDurationSeconds),
                     Is.EqualTo(host.TimingProfile.PushMotionDurationSeconds));
@@ -99,20 +101,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 PlayerViewPrefabTestUtility.SetSerializedField(
                     authoring,
-                    "pushAnimatorDurationSeconds",
+                    "pushWindupAnimatorDurationSeconds",
                     PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel);
                 PlayerViewPrefabTestUtility.SetSerializedField(
                     authoring,
-                    "flipAnimatorDurationSeconds",
+                    "pushRecoveryAnimatorDurationSeconds",
+                    PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    authoring,
+                    "flipWindupAnimatorDurationSeconds",
+                    PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel);
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    authoring,
+                    "flipRecoveryAnimatorDurationSeconds",
                     PlayerAnimationTimingAuthoring.UseResolvedMotionDurationSentinel);
 
                 Assert.That(driver.GetPresentationDurationSeconds(PlayerActionKind.Push, 0.25f), Is.EqualTo(0.25f));
                 Assert.That(driver.GetPresentationDurationSeconds(PlayerActionKind.Flip, 0.5f), Is.EqualTo(0.5f));
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push, resolvedMotionDurationSeconds: 0.25f);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(4f).Within(0.0001f));
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip, resolvedMotionDurationSeconds: 0.5f);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2f).Within(0.0001f));
             }
             finally
@@ -134,16 +146,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(authoring, Is.Not.Null);
                 Assert.That(driver, Is.Not.Null);
 
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushAnimatorDurationSeconds", 0.4f);
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 0.8f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.4f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.8f);
 
                 Assert.That(driver.GetPresentationDurationSeconds(PlayerActionKind.Push, 0.25f), Is.EqualTo(0.4f));
                 Assert.That(driver.GetPresentationDurationSeconds(PlayerActionKind.Flip, 0.5f), Is.EqualTo(0.8f));
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push, resolvedMotionDurationSeconds: 0.25f);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(2.5f).Within(0.0001f));
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip, resolvedMotionDurationSeconds: 0.5f);
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(1.25f).Within(0.0001f));
             }
             finally
@@ -153,9 +167,188 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerAnimatorDriver_WithCompositeFlipState_UsesExitStateClipLengthForSpeed()
+        public void PlayerAnimatorDriver_PushStart_CrossFadesToWindup()
         {
-            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WithCompositeFlipState_UsesExitStateClipLengthForSpeed");
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PushStart_CrossFadesToWindup");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.25f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_PushExecute_CrossFadesToRecovery()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PushExecute_CrossFadesToRecovery");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.5f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_FlipStart_CrossFadesToWindup()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_FlipStart_CrossFadesToWindup");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipWindupAnimatorDurationSeconds", 0.5f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Flip, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipWindup));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Windup"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_FlipExecute_CrossFadesToRecovery()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_FlipExecute_CrossFadesToRecovery");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 0.75f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Flip, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Flip_Recovery"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_Execute_DoesNotReplayWindup()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_Execute_DoesNotReplayWindup");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.5f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Windup"));
+
+                driver.Apply(new PlayerViewPresentationState(10, 2, PlayerActionKind.Push, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.PushRecovery));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Push_Recovery"));
+                Assert.That(driver.LastCrossFadedStateName, Is.Not.EqualTo("Push_Windup"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_PhaseDurations_DriveDistinctAnimatorSpeeds()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PhaseDurations_DriveDistinctAnimatorSpeeds");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushWindupAnimatorDurationSeconds", 0.25f);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "pushRecoveryAnimatorDurationSeconds", 0.5f);
+
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Push, 1, startedThisTick: true, executedThisTick: false, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+                var windupSpeed = driver.CurrentAnimatorSpeed;
+
+                driver.Apply(new PlayerViewPresentationState(10, 2, PlayerActionKind.Push, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Push);
+                var recoverySpeed = driver.CurrentAnimatorSpeed;
+
+                Assert.That(windupSpeed, Is.EqualTo(4f).Within(0.0001f));
+                Assert.That(recoverySpeed, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(recoverySpeed, Is.LessThan(windupSpeed));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_FlipRecovery_UsesRecoveryClipLengthForSpeed()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_FlipRecovery_UsesRecoveryClipLengthForSpeed");
 
             try
             {
@@ -171,19 +364,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 animator.runtimeAnimatorController = controller;
 
                 PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "flipStateName", "Change_Start");
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "flipExitStateName", "Change_Stop");
-                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipAnimatorDurationSeconds", 2f);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "flipWindupStateName", "Flip_Windup");
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "flipRecoveryStateName", "Flip_Recovery");
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "flipRecoveryAnimatorDurationSeconds", 2f);
 
                 var expectedReferenceLengthSeconds = controller.animationClips
-                    .Where(clip => clip != null &&
-                                   (string.Equals(clip.name, "Change_Start", StringComparison.Ordinal) ||
-                                    string.Equals(clip.name, "Change_Stop", StringComparison.Ordinal)))
-                    .Sum(clip => clip.length);
+                    .Where(clip => clip != null && string.Equals(clip.name, "Flip_Recovery", StringComparison.Ordinal))
+                    .Select(clip => clip.length)
+                    .Single();
 
+                driver.Apply(new PlayerViewPresentationState(10, 1, PlayerActionKind.Flip, 1, startedThisTick: false, executedThisTick: true, completedThisTick: false, canceledThisTick: false));
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Flip);
 
                 Assert.That(expectedReferenceLengthSeconds, Is.GreaterThan(0f));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.FlipRecovery));
                 Assert.That(
                     driver.CurrentAnimatorSpeed,
                     Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
@@ -250,6 +444,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerS1Controller_PlayerActionStates_ArePhaseSplitWithoutAutoTransitions()
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.layers, Has.Length.GreaterThanOrEqualTo(1));
+
+            var stateMachine = controller.layers[0].stateMachine;
+            var pushWindupState = FindState(stateMachine, "Push_Windup");
+            var pushRecoveryState = FindState(stateMachine, "Push_Recovery");
+            var flipWindupState = FindState(stateMachine, "Flip_Windup");
+            var flipRecoveryState = FindState(stateMachine, "Flip_Recovery");
+            var legacyKickState = FindState(stateMachine, "Kick");
+            var legacyChangeStartState = FindState(stateMachine, "Change_Start");
+            var legacyChangeStopState = FindState(stateMachine, "Change_Stop");
+
+            Assert.That(pushWindupState, Is.Not.Null);
+            Assert.That(pushRecoveryState, Is.Not.Null);
+            Assert.That(flipWindupState, Is.Not.Null);
+            Assert.That(flipRecoveryState, Is.Not.Null);
+            Assert.That(pushWindupState.transitions, Is.Empty);
+            Assert.That(pushRecoveryState.transitions, Is.Empty);
+            Assert.That(flipWindupState.transitions, Is.Empty);
+            Assert.That(flipRecoveryState.transitions, Is.Empty);
+            Assert.That(legacyKickState, Is.Null);
+            Assert.That(legacyChangeStartState, Is.Null);
+            Assert.That(legacyChangeStopState, Is.Null);
+        }
+
+        [Test]
         public void PlayerS1Prefab_PlayerAnimatorDriver_MapsWalkSequenceStates()
         {
             var prefabObject = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -258,16 +482,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(prefabObject, Is.Not.Null);
 
             var driver = prefabObject.GetComponent<PlayerAnimatorDriver>();
+            var authoring = prefabObject.GetComponent<PlayerAnimationTimingAuthoring>();
             var view = prefabObject.GetComponent<GameplayEntityView>();
 
             Assert.That(driver, Is.Not.Null);
+            Assert.That(authoring, Is.Not.Null);
             Assert.That(view, Is.Not.Null);
             Assert.That(view.ModelRoot, Is.Not.Null);
             Assert.That(GetPrivateInstanceField<string>(driver, "walkStateName"), Is.EqualTo("Walk_Loop"));
             Assert.That(GetPrivateInstanceField<string>(driver, "walkExitStateName"), Is.Empty);
-            Assert.That(GetPrivateInstanceField<string>(driver, "pushStateName"), Is.EqualTo("Kick"));
-            Assert.That(GetPrivateInstanceField<string>(driver, "flipStateName"), Is.EqualTo("Change_Start"));
-            Assert.That(GetPrivateInstanceField<string>(driver, "flipExitStateName"), Is.EqualTo("Change_Stop"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "pushWindupStateName"), Is.EqualTo("Push_Windup"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "pushRecoveryStateName"), Is.EqualTo("Push_Recovery"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "flipWindupStateName"), Is.EqualTo("Flip_Windup"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "flipRecoveryStateName"), Is.EqualTo("Flip_Recovery"));
+            Assert.That(GetPrivateInstanceField<float>(driver, "stateTransitionCrossFadeDurationSeconds"), Is.EqualTo(0.04f).Within(0.0001f));
+            Assert.That(GetPrivateInstanceField<float>(authoring, "pushWindupAnimatorDurationSeconds"), Is.EqualTo(0.18333334f).Within(0.0000001f));
+            Assert.That(GetPrivateInstanceField<float>(authoring, "pushRecoveryAnimatorDurationSeconds"), Is.EqualTo(0.3f).Within(0.0000001f));
+            Assert.That(GetPrivateInstanceField<float>(authoring, "flipWindupAnimatorDurationSeconds"), Is.EqualTo(0.38333333f).Within(0.0000001f));
+            Assert.That(GetPrivateInstanceField<float>(authoring, "flipRecoveryAnimatorDurationSeconds"), Is.EqualTo(0.56666666f).Within(0.0000001f));
         }
 
         [Test]
