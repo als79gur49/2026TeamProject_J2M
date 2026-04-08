@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using DG.Tweening;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -13,12 +14,12 @@ namespace Game.Feature.Gameplay.Host
     {
         private static readonly bool EnableUnitPresentationPlaneOffsets = false;
         private const float DefaultJumpArcHeightInCells = 0.75f;
+        private const float MinimumTopologyTweenDurationSeconds = 0.0001f;
         private const float UnitPresentationOffsetRadiusInCells = 0.2f;
         private const float UnitPresentationSquareHalfExtentInCells = 0.14f;
 
         private readonly List<int> _completedJumpTrackIds = new();
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
-        private readonly RotationTrack _boardRotationTrack = new();
         private readonly List<int> _completedMotionTrackIds = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
@@ -33,13 +34,16 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
 
         private GameplayBoardRoot _boardRoot;
+        private Tween _boardRotationTween;
         private GameplayBoardSurfaceRenderer _boardSurfaceRenderer;
+        private bool _isBoardRotationTweenActive;
         private bool _isBoardSurfaceTransitionActive;
         private bool _isInitialized;
         private Quaternion _boardSurfaceTransitionStartRotation = Quaternion.identity;
         private Quaternion _presentedBoardRotation = Quaternion.identity;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
+        private TopologyRotationTweenSettings _topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
         private TopologyRotationVisualMapping _topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
         private GameplayEntityViewBinder _viewBinder;
 
@@ -51,7 +55,7 @@ namespace Game.Feature.Gameplay.Host
 
         public Vector3 CubeCenter => _projector != null ? _projector.GetCubeCenter() : Vector3.zero;
 
-        public bool HasBlockingPresentation => _boardRotationTrack.HasClips;
+        public bool HasBlockingPresentation => HasActiveBoardRotationTween();
 
         public bool IsInitialized => _isInitialized;
 
@@ -80,7 +84,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile,
             GameplayBoardRoot boardRoot = null,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
-            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX)
+            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX,
+            TopologyRotationTweenSettings topologyRotationTweenSettings = default)
         {
             if (viewBinder == null)
             {
@@ -93,11 +98,12 @@ namespace Game.Feature.Gameplay.Host
             _projector = new GameplayCubeProjector(boardBounds, cellSize);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _topologyRotationVisualMapping = topologyRotationVisualMapping;
+            _topologyRotationTweenSettings = NormalizeTopologyRotationTweenSettings(topologyRotationTweenSettings);
             _presentedBoardRotation = Quaternion.identity;
             _boardSurfaceTransitionStartRotation = Quaternion.identity;
+            KillBoardRotationTween();
             _isBoardSurfaceTransitionActive = false;
 
-            _boardRotationTrack.Clear();
             _exitOwnedEntityIds.Clear();
             _jumpTracks.Clear();
             _localMotionTracks.Clear();
@@ -149,7 +155,7 @@ namespace Game.Feature.Gameplay.Host
             _localMotionTracks.Clear();
             _exitOwnedEntityIds.Clear();
             _visibilityTracks.Clear();
-            _boardRotationTrack.Clear();
+            KillBoardRotationTween();
             _jumpTracks.Clear();
             _pendingEntityExitSignals.Clear();
             _transientEffectPresenter.Clear();
@@ -183,11 +189,13 @@ namespace Game.Feature.Gameplay.Host
 
             _animationSync.AdvancePlayerPresentation(deltaTime);
 
-            var presentedBoardRotation = _boardRotationTrack.HasClips
-                ? _boardRotationTrack.SampleAndAdvance(deltaTime, Quaternion.identity)
-                : Quaternion.identity;
-            ApplyPresentedBoardRotation(presentedBoardRotation);
-            UpdateBoardSurfaceTransition(presentedBoardRotation);
+            if (_isBoardRotationTweenActive &&
+                _boardRotationTween != null)
+            {
+                _boardRotationTween.ManualUpdate(deltaTime, deltaTime);
+            }
+
+            UpdateBoardSurfaceTransition(_presentedBoardRotation);
             CleanupCompletedBoardSurfaceTransitionState();
             CleanupCompletedTopologyTransitionState();
             _transientEffectPresenter.Update(deltaTime);
@@ -344,7 +352,7 @@ namespace Game.Feature.Gameplay.Host
 
         private void CleanupCompletedTopologyTransitionState()
         {
-            if (_boardRotationTrack.HasClips ||
+            if (HasActiveBoardRotationTween() ||
                 _stateStore.TransitionVisibilityStates.Count == 0)
             {
                 return;
@@ -379,7 +387,7 @@ namespace Game.Feature.Gameplay.Host
         {
             if (!_isBoardSurfaceTransitionActive ||
                 _boardSurfaceRenderer == null ||
-                _boardRotationTrack.HasClips)
+                HasActiveBoardRotationTween())
             {
                 return;
             }
@@ -429,6 +437,12 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return false;
+        }
+
+        private bool HasActiveBoardRotationTween()
+        {
+            return _isBoardRotationTweenActive &&
+                   _boardRotationTween != null;
         }
 
         private bool HasActivePlayerWalkMotion(int entityId)
@@ -548,7 +562,7 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentNullException(nameof(presentationData));
             }
 
-            _boardRotationTrack.Clear();
+            KillBoardRotationTween();
 
             if (!presentationData.TopologyMotion.HasValue ||
                 presentationData.TopologyMotion.Value.RotationKind == CubeRotationKind.None)
@@ -559,12 +573,8 @@ namespace Game.Feature.Gameplay.Host
 
             var topologyMotion = presentationData.TopologyMotion.Value;
             var startRotation = _presentedBoardRotation * ResolveTopologyRotationOffset(topologyMotion.RotationKind);
-            _boardRotationTrack.Append(
-                RotationClip.Create(
-                    startRotation,
-                    Quaternion.identity,
-                    ResolveTopologyMotionDurationSeconds()));
             ApplyPresentedBoardRotation(startRotation, forceApply: true);
+            StartBoardRotationTween(startRotation, ResolveTopologyMotionDurationSeconds());
         }
 
         private void RefreshTransitionVisibilityState(TickPresentationData presentationData)
@@ -828,7 +838,7 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayPresentationPhase ResolveCurrentPresentationPhase()
         {
-            if (_boardRotationTrack.HasClips)
+            if (HasActiveBoardRotationTween())
             {
                 return GameplayPresentationPhase.TopologyTransition;
             }
@@ -1588,6 +1598,85 @@ namespace Game.Feature.Gameplay.Host
 
             localPose = default;
             return false;
+        }
+
+        private static TopologyRotationTweenSettings NormalizeTopologyRotationTweenSettings(
+            TopologyRotationTweenSettings settings)
+        {
+            if (!Enum.IsDefined(typeof(TopologyRotationTweenMode), settings.Mode) ||
+                !Enum.IsDefined(typeof(TopologyRotationTweenEase), settings.Ease))
+            {
+                return TopologyRotationTweenSettings.CreateDefault();
+            }
+
+            return settings;
+        }
+
+        private void KillBoardRotationTween(bool complete = false)
+        {
+            if (_boardRotationTween != null &&
+                _boardRotationTween.IsActive())
+            {
+                _boardRotationTween.Kill(complete);
+            }
+
+            _boardRotationTween = null;
+            _isBoardRotationTweenActive = false;
+        }
+
+        private Ease ResolveTopologyRotationEase()
+        {
+            return Enum.TryParse(_topologyRotationTweenSettings.Ease.ToString(), out Ease ease)
+                ? ease
+                : Ease.OutQuad;
+        }
+
+        private Quaternion ResolveTweenedBoardRotation(Quaternion startRotation, float progress)
+        {
+            return _topologyRotationTweenSettings.Mode switch
+            {
+                TopologyRotationTweenMode.QuaternionSlerp => Quaternion.SlerpUnclamped(
+                    startRotation,
+                    Quaternion.identity,
+                    progress),
+                _ => Quaternion.Euler(
+                    Mathf.LerpUnclamped(
+                        NormalizeSignedAxisAngle(startRotation.eulerAngles.x),
+                        0f,
+                        progress),
+                    0f,
+                    0f),
+            };
+        }
+
+        private void StartBoardRotationTween(Quaternion startRotation, float durationSeconds)
+        {
+            var progress = 0f;
+            _isBoardRotationTweenActive = true;
+            _boardRotationTween = DOTween
+                .To(
+                    () => progress,
+                    value =>
+                    {
+                        progress = value;
+                        ApplyPresentedBoardRotation(ResolveTweenedBoardRotation(startRotation, progress));
+                    },
+                    1f,
+                    Mathf.Max(durationSeconds, MinimumTopologyTweenDurationSeconds))
+                .SetEase(ResolveTopologyRotationEase())
+                .SetUpdate(UpdateType.Manual)
+                .SetAutoKill(true)
+                .OnComplete(() => ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true))
+                .OnKill(() =>
+                {
+                    _boardRotationTween = null;
+                    _isBoardRotationTweenActive = false;
+                });
+        }
+
+        private static float NormalizeSignedAxisAngle(float eulerDegrees)
+        {
+            return Mathf.DeltaAngle(0f, eulerDegrees);
         }
 
         private bool TryResolveJumpTrack(

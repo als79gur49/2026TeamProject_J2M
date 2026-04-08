@@ -63,6 +63,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void CombinedGameplayShowcase_NonAttackingEnemyProfileAndStartisPrefab_ShareMoveCadence()
+        {
+            const string enemyProfilePath =
+                "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/EnemyAi_NonAttacking.asset";
+            const string enemyPrefabPath =
+                "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Startis.prefab";
+
+            var enemyProfile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(enemyProfilePath);
+            var enemyPrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(enemyPrefabPath);
+
+            Assert.That(enemyProfile, Is.Not.Null, $"Missing enemy AI profile at '{enemyProfilePath}'.");
+            Assert.That(enemyPrefab, Is.Not.Null, $"Missing enemy prefab at '{enemyPrefabPath}'.");
+
+            var locomotionAuthoring = enemyPrefab.GetComponent<UnitLocomotionPresentationAuthoring>();
+
+            Assert.That(locomotionAuthoring, Is.Not.Null);
+            Assert.That(
+                locomotionAuthoring.MoveMotionDurationSeconds,
+                Is.EqualTo(enemyProfile.LocomotionTimingSettings.MoveCooldownSeconds).Within(0.0001f));
+        }
+
+        [Test]
         public void PlayerAnimatorDriver_WithoutAnimatorOverride_UsesResolvedMotionDuration()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WithoutAnimatorOverride_UsesResolvedMotionDuration");
