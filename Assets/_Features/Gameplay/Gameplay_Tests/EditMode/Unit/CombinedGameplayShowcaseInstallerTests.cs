@@ -34,41 +34,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string JumpEnemyPresentationId = "Jump_showcase";
 
         [Test]
-        public void CombinedGameplayStage_PopulatesSharedEdgeOpeningsAcrossAllFourFaces()
+        public void CombinedGameplayStage_PreservesTraversalColumnsWithoutAutoPerimeterWalls()
         {
             var buildResult = BuildCombinedStage();
             var boardBounds = buildResult.BoardBounds;
             var entities = buildResult.InitialEntities;
-            var sharedEdgeOpeningColumns = new[] { 1, 3, 7, 9 };
+            var sharedEdgeTraversalColumns = new[] { 1, 3, 7, 9 };
+
+            CollectionAssert.AreEqual(sharedEdgeTraversalColumns, buildResult.TraversalRules.SharedEdgeTraversalColumns);
 
             foreach (var face in new[] { FaceId.Floor, FaceId.Front, FaceId.Ceiling, FaceId.Back })
             {
-                for (var i = 0; i < sharedEdgeOpeningColumns.Length; i++)
+                for (var i = 0; i < sharedEdgeTraversalColumns.Length; i++)
                 {
-                    var column = sharedEdgeOpeningColumns[i];
+                    var column = sharedEdgeTraversalColumns[i];
                     Assert.That(
                         HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MinInclusive.y)),
                         Is.False,
-                        $"{face} bottom shared-edge opening at x={column} should remain open.");
+                        $"{face} bottom edge cell at x={column} should remain traversable.");
                     Assert.That(
                         HasWallAt(entities, new SurfaceCell(face, column, boardBounds.MaxInclusive.y)),
                         Is.False,
-                        $"{face} top shared-edge opening at x={column} should remain open.");
+                        $"{face} top edge cell at x={column} should remain traversable.");
                 }
             }
 
             Assert.That(
                 HasWallAt(entities, new SurfaceCell(FaceId.Floor, 2, boardBounds.MaxInclusive.y)),
-                Is.True,
-                "Columns between the traversal lane and left box lane should stay walled.");
+                Is.False,
+                "Automatic perimeter walls should no longer occupy non-traversal edge cells.");
             Assert.That(
                 HasWallAt(entities, new SurfaceCell(FaceId.Floor, 4, boardBounds.MaxInclusive.y)),
-                Is.True,
-                "Columns outside the designated shared-edge cutouts should stay walled.");
+                Is.False,
+                "Automatic perimeter walls should no longer occupy non-traversal edge cells.");
             Assert.That(
                 HasWallAt(entities, new SurfaceCell(FaceId.Floor, 10, boardBounds.MinInclusive.y)),
-                Is.True,
-                "Only the configured box lanes and traversal lanes should open shared edges.");
+                Is.False,
+                "Automatic perimeter walls should no longer occupy non-traversal edge cells.");
         }
 
         [Test]

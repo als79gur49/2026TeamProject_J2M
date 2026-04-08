@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Stages
@@ -21,52 +22,16 @@ namespace Game.Feature.Stages
             var stageName = GetStageName(stage);
             var board = stage.Board;
             var boardBounds = CreateBoardBounds(stageName, board);
-            var perimeterFaces = NormalizePerimeterFaces(board.PerimeterFaces);
-            var openingColumns = NormalizeOpeningColumns(board.SharedEdgeOpeningColumns);
+            var traversalRules = CreateTraversalRules(stageName, boardBounds, board.SharedEdgeTraversalColumns);
             var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
-
-            if (board.GeneratedPerimeterWallEntityIdStart <= 0)
-            {
-                throw new InvalidOperationException(
-                    $"Stage '{stageName}' requires a positive {nameof(StageBoardDefinition.GeneratedPerimeterWallEntityIdStart)}.");
-            }
-
-            var generatedWalls = BuildGeneratedWalls(
-                boardBounds,
-                perimeterFaces,
-                openingColumns,
-                board.GeneratedPerimeterWallEntityIdStart);
-
-            var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds, generatedWalls);
+            var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
 
             return new ValidatedStageData(
                 boardBounds,
                 new CubeTopologyState(board.InitialBottomFace),
                 ExtractSpawns(spawnEntries),
-                generatedWalls,
+                traversalRules,
                 playerEntityId);
-        }
-
-        internal static GeneratedWallDefinition[] BuildGeneratedWalls(
-            BoardBounds boardBounds,
-            IReadOnlyList<FaceId> perimeterFaces,
-            HashSet<int> openingColumns,
-            int generatedPerimeterWallEntityIdStart)
-        {
-            var generatedWalls = new List<GeneratedWallDefinition>();
-            var nextEntityId = generatedPerimeterWallEntityIdStart;
-
-            for (var i = 0; i < perimeterFaces.Count; i++)
-            {
-                AddFacePerimeterWalls(
-                    generatedWalls,
-                    perimeterFaces[i],
-                    boardBounds,
-                    openingColumns,
-                    ref nextEntityId);
-            }
-
-            return generatedWalls.ToArray();
         }
 
         private static BoardBounds CreateBoardBounds(string stageName, StageBoardDefinition board)
@@ -84,28 +49,9 @@ namespace Game.Feature.Stages
         private static int ValidateEntities(
             string stageName,
             IReadOnlyList<ExplicitSpawnEntry> spawnEntries,
-            BoardBounds boardBounds,
-            IReadOnlyList<GeneratedWallDefinition> generatedWalls)
+            BoardBounds boardBounds)
         {
             var occupiedCells = new HashSet<SurfaceCell>();
-            var generatedWallIds = new HashSet<int>();
-
-            for (var i = 0; i < generatedWalls.Count; i++)
-            {
-                var generatedWall = generatedWalls[i];
-                if (!generatedWallIds.Add(generatedWall.EntityId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' generated duplicate wall entity id {generatedWall.EntityId}.");
-                }
-
-                if (!occupiedCells.Add(generatedWall.Cell))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' generated duplicate occupied cell at {generatedWall.Cell} while building perimeter walls.");
-                }
-            }
-
             var explicitEntityIds = new HashSet<int>();
             var playerCount = 0;
             var playerEntityId = 0;
@@ -132,12 +78,6 @@ namespace Game.Feature.Stages
                 {
                     throw new InvalidOperationException(
                         $"Stage '{stageName}' contains duplicate entity id {spawn.EntityId}.");
-                }
-
-                if (generatedWallIds.Contains(spawn.EntityId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' explicit spawn entity id {spawn.EntityId} collides with a generated perimeter wall entity id.");
                 }
 
                 if (!boardBounds.Contains(spawn.Cell.PlanarPosition))
@@ -225,80 +165,32 @@ namespace Game.Feature.Stages
             return spawns;
         }
 
-        private static FaceId[] NormalizePerimeterFaces(FaceId[] perimeterFaces)
-        {
-            return perimeterFaces ?? Array.Empty<FaceId>();
-        }
-
-        private static HashSet<int> NormalizeOpeningColumns(int[] openingColumns)
-        {
-            return openingColumns == null
-                ? new HashSet<int>()
-                : new HashSet<int>(openingColumns);
-        }
-
-        private static void AddFacePerimeterWalls(
-            List<GeneratedWallDefinition> generatedWalls,
-            FaceId face,
+        private static BoardTraversalRules CreateTraversalRules(
+            string stageName,
             BoardBounds boardBounds,
-            HashSet<int> openingColumns,
-            ref int nextEntityId)
+            int[] sharedEdgeTraversalColumns)
         {
-            for (var x = boardBounds.MinInclusive.x; x <= boardBounds.MaxInclusive.x; x++)
+            if (sharedEdgeTraversalColumns == null || sharedEdgeTraversalColumns.Length == 0)
             {
-                AddGeneratedWallIfNeeded(
-                    generatedWalls,
-                    new SurfaceCell(face, x, boardBounds.MinInclusive.y),
-                    boardBounds,
-                    openingColumns,
-                    ref nextEntityId);
-                AddGeneratedWallIfNeeded(
-                    generatedWalls,
-                    new SurfaceCell(face, x, boardBounds.MaxInclusive.y),
-                    boardBounds,
-                    openingColumns,
-                    ref nextEntityId);
+                return BoardTraversalRules.Empty;
             }
 
-            for (var y = boardBounds.MinInclusive.y + 1; y < boardBounds.MaxInclusive.y; y++)
-            {
-                AddGeneratedWallIfNeeded(
-                    generatedWalls,
-                    new SurfaceCell(face, boardBounds.MinInclusive.x, y),
-                    boardBounds,
-                    openingColumns,
-                    ref nextEntityId);
-                AddGeneratedWallIfNeeded(
-                    generatedWalls,
-                    new SurfaceCell(face, boardBounds.MaxInclusive.x, y),
-                    boardBounds,
-                    openingColumns,
-                    ref nextEntityId);
-            }
-        }
+            var normalizedColumns = sharedEdgeTraversalColumns
+                .Distinct()
+                .OrderBy(column => column)
+                .ToArray();
 
-        private static void AddGeneratedWallIfNeeded(
-            List<GeneratedWallDefinition> generatedWalls,
-            SurfaceCell cell,
-            BoardBounds boardBounds,
-            HashSet<int> openingColumns,
-            ref int nextEntityId)
-        {
-            if (ShouldSkipSharedEdgeOpening(cell, boardBounds, openingColumns))
+            for (var i = 0; i < normalizedColumns.Length; i++)
             {
-                return;
+                var column = normalizedColumns[i];
+                if (column < boardBounds.MinInclusive.x || column > boardBounds.MaxInclusive.x)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' traversal column {column} must be within board X bounds [{boardBounds.MinInclusive.x}, {boardBounds.MaxInclusive.x}].");
+                }
             }
 
-            generatedWalls.Add(new GeneratedWallDefinition(nextEntityId++, cell));
-        }
-
-        private static bool ShouldSkipSharedEdgeOpening(
-            SurfaceCell cell,
-            BoardBounds boardBounds,
-            HashSet<int> openingColumns)
-        {
-            return openingColumns.Contains(cell.x) &&
-                   (cell.y == boardBounds.MinInclusive.y || cell.y == boardBounds.MaxInclusive.y);
+            return new BoardTraversalRules(normalizedColumns);
         }
 
         private static string FormatSpawnLabel(ExplicitSpawnEntry spawnEntry)
@@ -310,19 +202,6 @@ namespace Game.Feature.Stages
         private static string GetStageName(StageDefinition stage)
         {
             return string.IsNullOrWhiteSpace(stage.name) ? "<unnamed stage>" : stage.name;
-        }
-
-        internal readonly struct GeneratedWallDefinition
-        {
-            public GeneratedWallDefinition(int entityId, SurfaceCell cell)
-            {
-                EntityId = entityId;
-                Cell = cell;
-            }
-
-            public int EntityId { get; }
-
-            public SurfaceCell Cell { get; }
         }
 
         internal readonly struct ExplicitSpawnEntry
@@ -354,13 +233,13 @@ namespace Game.Feature.Stages
                 BoardBounds boardBounds,
                 CubeTopologyState initialTopology,
                 StageSpawnDefinition[] spawns,
-                GeneratedWallDefinition[] generatedWalls,
+                BoardTraversalRules traversalRules,
                 int playerEntityId)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 Spawns = spawns ?? Array.Empty<StageSpawnDefinition>();
-                GeneratedWalls = generatedWalls ?? Array.Empty<GeneratedWallDefinition>();
+                TraversalRules = traversalRules ?? BoardTraversalRules.Empty;
                 PlayerEntityId = playerEntityId;
             }
 
@@ -370,7 +249,7 @@ namespace Game.Feature.Stages
 
             public StageSpawnDefinition[] Spawns { get; }
 
-            public GeneratedWallDefinition[] GeneratedWalls { get; }
+            public BoardTraversalRules TraversalRules { get; }
 
             public int PlayerEntityId { get; }
         }

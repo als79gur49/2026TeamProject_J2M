@@ -47,6 +47,22 @@ namespace Game.Feature.Gameplay.Tests
                 boardBounds,
                 terrainData,
                 new CubeTopologyState(FaceId.Floor),
+                BoardTraversalRules.Empty,
+                GameplayTimingProfile.CreateDefault());
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            BoardTraversalRules traversalRules)
+        {
+            return CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                new CubeTopologyState(FaceId.Floor),
+                traversalRules,
                 GameplayTimingProfile.CreateDefault());
         }
 
@@ -61,6 +77,7 @@ namespace Game.Feature.Gameplay.Tests
                 boardBounds,
                 terrainData,
                 new CubeTopologyState(FaceId.Floor),
+                BoardTraversalRules.Empty,
                 timingProfile);
         }
 
@@ -75,6 +92,7 @@ namespace Game.Feature.Gameplay.Tests
                 boardBounds,
                 terrainData,
                 topology,
+                BoardTraversalRules.Empty,
                 GameplayTimingProfile.CreateDefault());
         }
 
@@ -85,6 +103,23 @@ namespace Game.Feature.Gameplay.Tests
             CubeTopologyState topology,
             GameplayTimingProfile timingProfile)
         {
+            return CreateBounded(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                topology,
+                BoardTraversalRules.Empty,
+                timingProfile);
+        }
+
+        public static WorldState CreateBounded(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology,
+            BoardTraversalRules traversalRules,
+            GameplayTimingProfile timingProfile)
+        {
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(
                 initialEntities,
                 timingProfile ?? GameplayTimingProfile.CreateDefault());
@@ -93,7 +128,8 @@ namespace Game.Feature.Gameplay.Tests
                 normalizedInitialEntities,
                 boardBounds,
                 terrainData ?? GameplayTerrainData.Empty,
-                topology);
+                topology,
+                traversalRules ?? BoardTraversalRules.Empty);
         }
     }
 

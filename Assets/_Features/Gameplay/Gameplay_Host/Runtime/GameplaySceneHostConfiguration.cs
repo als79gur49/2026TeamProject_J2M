@@ -43,6 +43,7 @@ namespace Game.Feature.Gameplay.Host
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
+        public BoardTraversalRules InitialTraversalRules = BoardTraversalRules.Empty;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();
         public GameplayTerrainData InitialTerrain = GameplayTerrainData.Empty;

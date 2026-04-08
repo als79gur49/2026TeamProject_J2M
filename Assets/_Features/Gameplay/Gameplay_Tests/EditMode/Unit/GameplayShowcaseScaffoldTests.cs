@@ -352,6 +352,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 return new InitialGameplayState(
                     DefaultBoardBounds,
+                    BoardTraversalRules.Empty,
                     new CubeTopologyState(FaceId.Floor),
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,

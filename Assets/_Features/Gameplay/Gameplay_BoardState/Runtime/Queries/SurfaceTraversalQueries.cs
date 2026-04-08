@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolvePlayerStep(
             CubeTopologyState topology,
             BoardBounds boardBounds,
+            BoardTraversalRules traversalRules,
             SurfaceCell origin,
             Direction direction,
             out SurfaceCell destination,
@@ -17,6 +18,7 @@ namespace Game.Feature.Gameplay.BoardState
             return TryResolvePlayerStep(
                 topology,
                 boardBounds,
+                traversalRules,
                 origin,
                 DirectionToDelta(direction),
                 out destination,
@@ -27,6 +29,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolvePlayerStep(
             CubeTopologyState topology,
             BoardBounds boardBounds,
+            BoardTraversalRules traversalRules,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
@@ -38,7 +41,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            if (TryResolveBottomFaceRotation(topology, boardBounds, origin, delta, out destination, out rotationKind, out updatedTopology))
+            if (TryResolveBottomFaceRotation(topology, boardBounds, traversalRules, origin, delta, out destination, out rotationKind, out updatedTopology))
             {
                 return true;
             }
@@ -49,6 +52,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolveUnitStep(
             CubeTopologyState topology,
             BoardBounds boardBounds,
+            BoardTraversalRules traversalRules,
             SurfaceCell origin,
             Direction direction,
             out SurfaceCell destination,
@@ -58,6 +62,7 @@ namespace Game.Feature.Gameplay.BoardState
             return TryResolveUnitStep(
                 topology,
                 boardBounds,
+                traversalRules,
                 origin,
                 DirectionToDelta(direction),
                 out destination,
@@ -68,6 +73,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool TryResolveUnitStep(
             CubeTopologyState topology,
             BoardBounds boardBounds,
+            BoardTraversalRules traversalRules,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
@@ -159,6 +165,7 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool TryResolveBottomFaceRotation(
             CubeTopologyState topology,
             BoardBounds boardBounds,
+            BoardTraversalRules traversalRules,
             SurfaceCell origin,
             Vector2Int delta,
             out SurfaceCell destination,
@@ -174,7 +181,9 @@ namespace Game.Feature.Gameplay.BoardState
                 return false;
             }
 
-            if (delta == Vector2Int.up && origin.y == boardBounds.MaxInclusive.y)
+            if (delta == Vector2Int.up &&
+                origin.y == boardBounds.MaxInclusive.y &&
+                AllowsSharedEdgeTraversal(traversalRules, origin.x))
             {
                 rotationKind = CubeRotationKind.Forward;
                 updatedTopology = topology.Rotate(rotationKind);
@@ -182,7 +191,9 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            if (delta == Vector2Int.down && origin.y == boardBounds.MinInclusive.y)
+            if (delta == Vector2Int.down &&
+                origin.y == boardBounds.MinInclusive.y &&
+                AllowsSharedEdgeTraversal(traversalRules, origin.x))
             {
                 rotationKind = CubeRotationKind.Backward;
                 updatedTopology = topology.Rotate(rotationKind);
@@ -191,6 +202,11 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return false;
+        }
+
+        private static bool AllowsSharedEdgeTraversal(BoardTraversalRules traversalRules, int column)
+        {
+            return (traversalRules ?? BoardTraversalRules.Empty).AllowsSharedEdgeTraversal(column);
         }
 
         private static Vector2Int DirectionToDelta(Direction direction)

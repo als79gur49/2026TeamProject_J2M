@@ -101,13 +101,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryResolvePlayerStep_RotatesForwardFromBottomTopEdge()
+        public void WorldSnapshot_TryResolvePlayerStep_MovesOntoBottomTopEdgeCellBeforeTraversalGateApplies()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
                     GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolvePlayerStep(
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                Direction.Up,
+                out var destination,
+                out var rotationKind,
+                out var updatedTopology);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(rotationKind, Is.EqualTo(CubeRotationKind.None));
+            Assert.That(updatedTopology, Is.EqualTo(snapshot.Topology));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolvePlayerStep_RotatesForwardFromBottomTopEdgeWhenTraversalColumnAllowed()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                    GameplayTerrainData.Empty,
+                    new BoardTraversalRules(new[] { 1 })));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 1, 1),
@@ -124,13 +147,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryResolvePlayerStep_RotatesBackwardFromBottomBottomEdge()
+        public void WorldSnapshot_TryResolvePlayerStep_RotatesBackwardFromBottomBottomEdgeWhenTraversalColumnAllowed()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
-                    GameplayTerrainData.Empty));
+                    GameplayTerrainData.Empty,
+                    new BoardTraversalRules(new[] { 1 })));
 
             var resolved = snapshot.TryResolvePlayerStep(
                 new SurfaceCell(FaceId.Floor, 1, 0),
@@ -144,6 +168,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Back, 1, 1)));
             Assert.That(updatedTopology, Is.EqualTo(new CubeTopologyState(FaceId.Back)));
             Assert.That(updatedTopology.FrontFace, Is.EqualTo(FaceId.Floor));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolvePlayerStep_DisallowedBottomTopTraversalFromEdgeCellFails()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolvePlayerStep(
+                new SurfaceCell(FaceId.Floor, 1, 1),
+                Direction.Up,
+                out var destination,
+                out var rotationKind,
+                out var updatedTopology);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
+            Assert.That(rotationKind, Is.EqualTo(CubeRotationKind.None));
+            Assert.That(updatedTopology, Is.EqualTo(snapshot.Topology));
         }
 
         [Test]
@@ -291,13 +337,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesBottomFrontSharedEdge()
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_SlidesToEdgeCellBeforeTraversalGateApplies()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
                     new EntityState[0],
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                     GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesBottomFrontSharedEdgeWhenTraversalColumnAllowed()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty,
+                    new BoardTraversalRules(new[] { 0 })));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 0, 1),
@@ -311,7 +378,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesFrontBottomSharedEdgeBackToBottom()
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesFrontBottomSharedEdgeBackToBottomWhenTraversalColumnAllowed()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty,
+                    new BoardTraversalRules(new[] { 0 })));
+
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Front, 0, 0),
+                Vector2Int.down,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtDisallowedBottomFrontSharedEdge()
+        {
+            var snapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    new EntityState[0],
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                    GameplayTerrainData.Empty));
+
+            var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
+                new SurfaceCell(FaceId.Floor, 0, 1),
+                Vector2Int.up,
+                out var destination,
+                out var stopper);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 2)));
+        }
+
+        [Test]
+        public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtDisallowedFrontBottomSharedEdge()
         {
             var snapshot = CreateSnapshot(
                 GameplayWorldStateTestFactory.CreateBounded(
@@ -325,9 +434,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 out var destination,
                 out var stopper);
 
-            Assert.That(resolved, Is.True);
-            Assert.That(destination, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.None));
+            Assert.That(resolved, Is.False);
+            Assert.That(destination, Is.EqualTo(default(SurfaceCell)));
+            Assert.That(stopper.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
+            Assert.That(stopper.Cell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, -1)));
         }
 
         [Test]
@@ -364,7 +474,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             boardPresence: EntityBoardPresence.Detached),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    GameplayTerrainData.Empty,
+                    new BoardTraversalRules(new[] { 1 })));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Floor, 1, 1),
@@ -448,7 +559,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             markedForDeath: true),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                    GameplayTerrainData.Empty,
+                    new BoardTraversalRules(new[] { 1 })));
 
             var resolved = snapshot.TryResolveNextSurfaceBoxSlideStep(
                 new SurfaceCell(FaceId.Front, 1, 0),

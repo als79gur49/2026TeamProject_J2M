@@ -17,6 +17,7 @@ namespace Game.Feature.Stages
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
+                validated.TraversalRules,
                 validated.InitialTopology,
                 initialEntities,
                 TerrainData.Empty,
@@ -27,13 +28,7 @@ namespace Game.Feature.Stages
 
         private static EntityState[] BuildInitialEntities(StageDefinitionValidator.ValidatedStageData validated)
         {
-            var entities = new List<EntityState>(validated.GeneratedWalls.Length + validated.Spawns.Length);
-
-            for (var i = 0; i < validated.GeneratedWalls.Length; i++)
-            {
-                var generatedWall = validated.GeneratedWalls[i];
-                entities.Add(CreateWall(generatedWall.EntityId, generatedWall.Cell));
-            }
+            var entities = new List<EntityState>(validated.Spawns.Length);
 
             for (var i = 0; i < validated.Spawns.Length; i++)
             {

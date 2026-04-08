@@ -56,7 +56,8 @@ namespace Game.Feature.Gameplay.Host
                 normalizedInitialEntities,
                 configuration.InitialBoardBounds,
                 initialTerrain,
-                configuration.InitialTopology);
+                configuration.InitialTopology,
+                configuration.InitialTraversalRules);
             var initialSnapshot = SnapshotBuilder.Create(worldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);

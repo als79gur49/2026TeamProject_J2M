@@ -8,6 +8,7 @@ namespace Game.Feature.Stages
     {
         public StageRuntimeBuildResult(
             BoardBounds boardBounds,
+            BoardTraversalRules traversalRules,
             CubeTopologyState initialTopology,
             EntityState[] initialEntities,
             TerrainData initialTerrain,
@@ -16,6 +17,7 @@ namespace Game.Feature.Stages
             EnemyPresentationBinding[] enemyPresentationBindings)
         {
             BoardBounds = boardBounds;
+            TraversalRules = traversalRules ?? BoardTraversalRules.Empty;
             InitialTopology = initialTopology;
             InitialEntities = initialEntities ?? Array.Empty<EntityState>();
             InitialTerrain = initialTerrain ?? TerrainData.Empty;
@@ -25,6 +27,8 @@ namespace Game.Feature.Stages
         }
 
         public BoardBounds BoardBounds { get; }
+
+        public BoardTraversalRules TraversalRules { get; }
 
         public CubeTopologyState InitialTopology { get; }
 

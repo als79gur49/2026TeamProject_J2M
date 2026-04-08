@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
             var buildResult = StageRuntimeBuilder.Build(stageDefinition);
             return new InitialGameplayState(
                 buildResult.BoardBounds,
+                buildResult.TraversalRules,
                 buildResult.InitialTopology,
                 buildResult.InitialEntities,
                 buildResult.InitialTerrain,

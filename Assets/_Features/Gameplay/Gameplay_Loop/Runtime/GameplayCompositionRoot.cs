@@ -27,7 +27,8 @@ namespace Game.Feature.Gameplay.Loop
                 initialEntities,
                 boardBounds,
                 terrainData,
-                new CubeTopologyState(FaceId.Floor));
+                new CubeTopologyState(FaceId.Floor),
+                BoardTraversalRules.Empty);
         }
 
         public static WorldState CreateWorldState(
@@ -35,6 +36,21 @@ namespace Game.Feature.Gameplay.Loop
             BoardBounds boardBounds,
             TerrainData terrainData,
             CubeTopologyState topology)
+        {
+            return CreateWorldState(
+                initialEntities,
+                boardBounds,
+                terrainData,
+                topology,
+                BoardTraversalRules.Empty);
+        }
+
+        public static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            CubeTopologyState topology,
+            BoardTraversalRules traversalRules)
         {
             if (initialEntities == null)
             {
@@ -51,7 +67,8 @@ namespace Game.Feature.Gameplay.Loop
                 initialEntities,
                 boardBounds,
                 terrainData ?? throw new ArgumentNullException(nameof(terrainData)),
-                topology);
+                topology,
+                traversalRules ?? BoardTraversalRules.Empty);
         }
 
         public static TickPipeline CreateTickPipeline(WorldState worldState)

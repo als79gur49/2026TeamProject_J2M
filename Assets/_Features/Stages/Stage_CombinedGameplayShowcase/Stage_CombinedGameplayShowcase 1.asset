@@ -16,9 +16,7 @@ MonoBehaviour:
     MinInclusive: {x: 0, y: 0}
     MaxInclusive: {x: 15, y: 8}
     InitialBottomFace: 0
-    PerimeterFaces: 00000000010000000200000003000000
-    SharedEdgeOpeningColumns: 01000000030000000700000009000000
-    GeneratedPerimeterWallEntityIdStart: 1000
+    SharedEdgeTraversalColumns: 01000000030000000700000009000000
   playerSpawns:
   - EntityId: 10
     Kind: 0

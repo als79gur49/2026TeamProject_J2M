@@ -29,7 +29,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stage = CreateStage(
                 "DuplicateEntityId",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()),
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
                 CreateSpawn(10, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 2), hp: 1));
 
@@ -41,7 +41,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stage = CreateStage(
                 "DuplicateCell",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()),
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
                 CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 1), hp: 1));
 
@@ -53,7 +53,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stage = CreateStage(
                 "OutOfBounds",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(1, 1), perimeterFaces: Array.Empty<FaceId>()),
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                 CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 3, 3), hp: 3, facing: Direction.Up));
 
             AssertBuildThrows(stage, "outside the configured board bounds");
@@ -64,7 +64,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stage = CreateStage(
                 "ZeroPlayer",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()),
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 1), hp: 1));
 
             AssertBuildThrows(stage, "must contain exactly one player spawn, but found none");
@@ -75,7 +75,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var stage = CreateStage(
                 "MultiplePlayers",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()),
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                 CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Up),
                 CreateSpawn(11, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 2, 2), hp: 3, facing: Direction.Right));
 
@@ -83,15 +83,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageRuntimeBuilder_GeneratedWallIdCollisionRejects()
+        public void StageRuntimeBuilder_TraversalColumnOutsideBoundsRejects()
         {
             var stage = CreateStage(
-                "GeneratedWallCollision",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: new[] { FaceId.Floor }, generatedPerimeterWallEntityIdStart: 100),
-                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up),
-                CreateSpawn(100, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 2), hp: 1));
+                "TraversalColumnOutsideBounds",
+                CreateBoard(
+                    new Vector2Int(0, 0),
+                    new Vector2Int(2, 2),
+                    sharedEdgeTraversalColumns: new[] { 1, 3 }),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 1, 1), hp: 3, facing: Direction.Up));
 
-            AssertBuildThrows(stage, "collides with a generated perimeter wall entity id");
+            AssertBuildThrows(stage, "traversal column 3 must be within board X bounds");
         }
 
         [Test]
@@ -102,7 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 stage.name = "GroupKindMismatch";
-                SetPrivateField(stage, "board", CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()));
+                SetPrivateField(stage, "board", CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)));
                 SetPrivateField(stage, "playerSpawns", new[]
                 {
                     CreateSpawn(10, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 1), hp: 1),
@@ -134,6 +136,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));
+            CollectionAssert.AreEqual(new[] { 1, 3, 7, 9 }, buildResult.TraversalRules.SharedEdgeTraversalColumns);
+            Assert.That(
+                buildResult.InitialEntities.Length,
+                Is.EqualTo(stage.PlayerSpawns.Length + stage.BoxSpawns.Length + stage.EnemySpawns.Length + stage.WallSpawns.Length));
             AssertEntityIdsAreSorted(buildResult.InitialEntities);
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
@@ -148,9 +154,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(frontWall.type, Is.EqualTo(EntityType.None));
             Assert.That(frontWall.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 9, 3)));
 
+            var snapshot = GameplayCompositionRoot.CreateWorldState(
+                    buildResult.InitialEntities,
+                    buildResult.BoardBounds,
+                    buildResult.InitialTerrain,
+                    buildResult.InitialTopology,
+                    buildResult.TraversalRules)
+                .CreateSnapshot();
+            Assert.That(snapshot.IsBlockedForUnit(floorWall.position), Is.True);
+            Assert.That(snapshot.IsBlockedForUnit(frontWall.position), Is.True);
+
             Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
             Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, buildResult.BoardBounds.MaxInclusive.y)), Is.False);
-            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, buildResult.BoardBounds.MaxInclusive.y)), Is.True);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Ceiling, 2, buildResult.BoardBounds.MaxInclusive.y)), Is.False);
+            Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 2, buildResult.BoardBounds.MaxInclusive.y)), Is.False);
 
             Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 9, 6)), Is.True);
             Assert.That(HasPushableBoxAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 3, 1)), Is.True);
@@ -218,7 +235,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var stage = CreateStage(
                     "EnemyPresentationBindings",
-                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2), perimeterFaces: Array.Empty<FaceId>()),
+                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
                     CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Right),
                     CreateSpawn(
                         20,
@@ -279,9 +296,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static StageBoardDefinition CreateBoard(
             Vector2Int minInclusive,
             Vector2Int maxInclusive,
-            FaceId[] perimeterFaces = null,
-            int[] sharedEdgeOpeningColumns = null,
-            int generatedPerimeterWallEntityIdStart = 100,
+            int[] sharedEdgeTraversalColumns = null,
             FaceId initialBottomFace = FaceId.Floor)
         {
             return new StageBoardDefinition
@@ -289,9 +304,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 MinInclusive = minInclusive,
                 MaxInclusive = maxInclusive,
                 InitialBottomFace = initialBottomFace,
-                PerimeterFaces = perimeterFaces,
-                SharedEdgeOpeningColumns = sharedEdgeOpeningColumns,
-                GeneratedPerimeterWallEntityIdStart = generatedPerimeterWallEntityIdStart,
+                SharedEdgeTraversalColumns = sharedEdgeTraversalColumns,
             };
         }
 
