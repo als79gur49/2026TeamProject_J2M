@@ -887,7 +887,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var factory = new EnemyEntityLogicFactory(
                 profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
             var entity = CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right);
-            var logic = (EnemyLogic)factory.Create(entity);
+            var logic = factory.Create(entity);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
@@ -948,6 +948,159 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAiProfileCompiler_HybridAuthoring_CompilesTypedRuntimeAndCapabilities()
+        {
+            var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: true, out var createdAssets);
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.Core.CommonSettings.RecoverTicks, Is.EqualTo(12));
+                Assert.That(definition.Core.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(6));
+                Assert.That(definition.Brain.StateResolver.Kind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+                Assert.That(definition.Brain.Patrol.Kind, Is.EqualTo(PatrolStrategyKind.Forward));
+                Assert.That(definition.Brain.Detection.Kind, Is.EqualTo(DetectionStrategyKind.NearestOpponent));
+                Assert.That(definition.Brain.Chase.Kind, Is.EqualTo(ChaseStrategyKind.AxisPriority));
+                Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.True);
+                Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+                Assert.That(combat.AttackTimingSettings.WindupTicks, Is.EqualTo(9));
+                Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
+                Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+                Assert.That(movementSkill.JumpTimingSettings.WindupTicks, Is.EqualTo(6));
+                Assert.That(movementSkill.JumpTimingSettings.AirborneTicks, Is.EqualTo(12));
+                Assert.That(movementSkill.JumpTimingSettings.CooldownTicks, Is.EqualTo(18));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfileCompiler_HybridAuthoring_WithoutCombatCapability_DoesNotRequireCombatData()
+        {
+            var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: false, out var createdAssets);
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
+                Assert.That(definition.Capabilities.TryGetMovementSkill(out _), Is.False);
+                Assert.That(definition.Brain.Detection.Kind, Is.EqualTo(DetectionStrategyKind.NearestOpponent));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateCombatCapabilities_ThrowsClearException()
+        {
+            var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: false, out var createdAssets);
+            var duplicateCombat = ScriptableObject.CreateInstance<ContactDamageCapabilityAsset>();
+            createdAssets.Add(duplicateCombat);
+            SetSerializedField(
+                profile,
+                "capabilityAssets",
+                new List<EnemyCapabilityAsset>
+                {
+                    (EnemyCapabilityAsset)createdAssets.OfType<MeleeCombatCapabilityAsset>().Single(),
+                    duplicateCombat,
+                });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain("multiple combat capabilities"));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateMovementSkillCapabilities_ThrowsClearException()
+        {
+            var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: true, out var createdAssets);
+            var duplicateJump = ScriptableObject.CreateInstance<JumpToLockedTargetCapabilityAsset>();
+            createdAssets.Add(duplicateJump);
+            SetSerializedField(duplicateJump, "jumpTimingSettings", new EnemyJumpTimingAuthoringSettings(0.1f, 0.2f, 0.3f));
+            SetSerializedField(
+                profile,
+                "capabilityAssets",
+                new List<EnemyCapabilityAsset>
+                {
+                    (EnemyCapabilityAsset)createdAssets.OfType<JumpToLockedTargetCapabilityAsset>().First(),
+                    duplicateJump,
+                });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain("multiple movement skill capabilities"));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfile_CreateRuntimeDefinition_JumpChaserProfile_OnlyCompilesJumpCapability()
+        {
+            var profile = EnemyAiProfile.CreateRuntimeJumpChaser(new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 2, cooldownTicks: 3));
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+                Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
+                Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
+                Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+                Assert.That(movementSkill.JumpTimingSettings.WindupTicks, Is.EqualTo(1));
+                Assert.That(movementSkill.JumpTimingSettings.AirborneTicks, Is.EqualTo(2));
+                Assert.That(movementSkill.JumpTimingSettings.CooldownTicks, Is.EqualTo(3));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
+        public void GameplayEntityLogicProviderFactory_NonAttackingProfile_OmitsCombatLogicsFromEntitySet()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = EnemyAiProfile.CreateRuntimeNonAttacking();
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+                var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+
+                Assert.That(logicSet.AiStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.PreMovementStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
+                Assert.That(logicSet.AttackLogics, Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
+        }
+
+        [Test]
         public void EnemyAi_JumpProfile_InspectorTimings_AreSeconds_AndConvertToTicks()
         {
             var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
@@ -997,20 +1150,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "attackDecisionSettings",
-                    "attackDecisionStrategyKind",
-                    "attackTimingSettings",
-                    "chaseSettings",
-                    "chaseStrategyKind",
-                    "commonSettings",
-                    "detectionSettings",
-                    "detectionStrategyKind",
-                    "jumpTimingSettings",
-                    "locomotionTimingSettings",
-                    "movementSkillStrategyKind",
-                    "patrolSettings",
-                    "patrolStrategyKind",
-                    "stateResolverKind",
+                    "brainAuthoring",
+                    "capabilityAssets",
+                    "coreAuthoring",
                 },
                 serializedFieldNames);
         }
@@ -2018,6 +2160,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 cooldownRemainingTicks = cooldownRemainingTicks,
                 retryCount = 0,
             };
+        }
+
+        private static EnemyAiProfile CreateHybridAuthoringProfile(
+            bool includeCombat,
+            bool includeJump,
+            out List<ScriptableObject> createdAssets)
+        {
+            createdAssets = new List<ScriptableObject>();
+
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+            var core = ScriptableObject.CreateInstance<EnemyCoreAuthoring>();
+            var brain = ScriptableObject.CreateInstance<EnemyBrainAuthoring>();
+            var stateResolver = ScriptableObject.CreateInstance<DefaultEnemyStateResolverAsset>();
+            var patrol = ScriptableObject.CreateInstance<ForwardPatrolAsset>();
+            var detection = ScriptableObject.CreateInstance<NearestOpponentDetectionAsset>();
+            var chase = ScriptableObject.CreateInstance<AxisPriorityChaseAsset>();
+            createdAssets.AddRange(new ScriptableObject[] { core, brain, stateResolver, patrol, detection, chase });
+
+            SetSerializedField(
+                core,
+                "commonSettings",
+                new EnemyAiCommonAuthoringSettings(
+                    movementPriority: 50,
+                    attackPriority: 75,
+                    recoverSeconds: 0.2f));
+            SetSerializedField(
+                core,
+                "locomotionTimingSettings",
+                new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0.1f));
+            SetSerializedField(brain, "stateResolver", stateResolver);
+            SetSerializedField(brain, "patrolStrategy", patrol);
+            SetSerializedField(brain, "detectionStrategy", detection);
+            SetSerializedField(brain, "chaseStrategy", chase);
+            SetSerializedField(detection, "senseRange", 8);
+            SetSerializedField(detection, "requireSameFace", true);
+            SetSerializedField(detection, "canTargetMarkedForDeath", false);
+            SetSerializedField(chase, "axisPriority", ChaseAxisPriorityMode.GreatestDistanceThenFacingTieBreak);
+            SetSerializedField(chase, "trySecondaryAxisWhenBlocked", true);
+            SetSerializedField(chase, "desiredChaseDistance", 0);
+
+            var capabilities = new List<EnemyCapabilityAsset>();
+            if (includeCombat)
+            {
+                var melee = ScriptableObject.CreateInstance<MeleeCombatCapabilityAsset>();
+                SetSerializedField(melee, "attackDecisionSettings", new AttackDecisionSettings(attackRange: 1));
+                SetSerializedField(melee, "attackTimingSettings", new EnemyAttackTimingAuthoringSettings(windupSeconds: 0.15f));
+                capabilities.Add(melee);
+                createdAssets.Add(melee);
+            }
+
+            if (includeJump)
+            {
+                var jump = ScriptableObject.CreateInstance<JumpToLockedTargetCapabilityAsset>();
+                SetSerializedField(jump, "jumpTimingSettings", new EnemyJumpTimingAuthoringSettings(0.1f, 0.2f, 0.3f));
+                capabilities.Add(jump);
+                createdAssets.Add(jump);
+            }
+
+            SetSerializedField(profile, "coreAuthoring", core);
+            SetSerializedField(profile, "brainAuthoring", brain);
+            SetSerializedField(profile, "capabilityAssets", capabilities);
+            return profile;
+        }
+
+        private static void DestroyAuthoringObjects(
+            EnemyAiProfile profile,
+            IEnumerable<ScriptableObject> createdAssets)
+        {
+            if (createdAssets != null)
+            {
+                foreach (var asset in createdAssets)
+                {
+                    if (asset != null)
+                    {
+                        UnityEngine.Object.DestroyImmediate(asset);
+                    }
+                }
+            }
+
+            if (profile != null)
+            {
+                UnityEngine.Object.DestroyImmediate(profile);
+            }
         }
 
         private static void SetSerializedField(object target, string fieldName, object value)

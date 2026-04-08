@@ -1129,20 +1129,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "attackDecisionSettings",
-                    "attackDecisionStrategyKind",
-                    "attackTimingSettings",
-                    "chaseSettings",
-                    "chaseStrategyKind",
-                    "commonSettings",
-                    "detectionSettings",
-                    "detectionStrategyKind",
-                    "jumpTimingSettings",
-                    "locomotionTimingSettings",
-                    "movementSkillStrategyKind",
-                    "patrolSettings",
-                    "patrolStrategyKind",
-                    "stateResolverKind",
+                    "brainAuthoring",
+                    "capabilityAssets",
+                    "coreAuthoring",
                 },
                 serializedFieldNames);
         }
