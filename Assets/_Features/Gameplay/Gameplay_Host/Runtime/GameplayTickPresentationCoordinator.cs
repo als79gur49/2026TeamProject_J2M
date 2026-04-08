@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
         private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
+        private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly GameplayPresentationStateStore _stateStore = new();
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
         private readonly HashSet<int> _visibleEntityIds = new();
@@ -108,6 +109,7 @@ namespace Game.Feature.Gameplay.Host
             _jumpTracks.Clear();
             _localMotionTracks.Clear();
             _pendingEntityExitSignals.Clear();
+            _playerLocomotionSignalsByEntityId.Clear();
             _visibilityTracks.Clear();
             _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _animationSync.Reset();
@@ -131,6 +133,7 @@ namespace Game.Feature.Gameplay.Host
 
             StoreCommittedFrame(result.FinalEntities, result.FinalTopology);
             RefreshEntityExitPlan(result.PresentationData);
+            RefreshPlayerLocomotionSignals(result.PresentationData);
             RefreshTopologyTrack(result.PresentationData);
             RefreshBoardSurfaceTransition(result.PresentationData);
             RefreshMotionClips(result.PresentationData, previousCommittedLocalTargetPoses, previousCommittedTopology);
@@ -158,6 +161,7 @@ namespace Game.Feature.Gameplay.Host
             KillBoardRotationTween();
             _jumpTracks.Clear();
             _pendingEntityExitSignals.Clear();
+            _playerLocomotionSignalsByEntityId.Clear();
             _transientEffectPresenter.Clear();
             _animationSync.Reset();
             _stateStore.ResetSession(topology);
@@ -260,7 +264,10 @@ namespace Game.Feature.Gameplay.Host
 
                 var hasActiveMotion = _localMotionTracks.TryGetValue(entityId, out var activeMotionTrack) &&
                                       activeMotionTrack.HasClips;
-                var resolvedPlayerAnimationState = _animationSync.ResolvePlayerAnimationState(entityId, HasActivePlayerWalkMotion(entityId));
+                var resolvedPlayerAnimationState = _animationSync.ResolvePlayerAnimationState(
+                    entityId,
+                    ShouldPlayPlayerWalkLoop(entityId),
+                    HasActivePlayerWalkMotion(entityId));
                 _animationSync.SyncEnemyRuntimeState(entityId, isVisible, hasActiveMotion, _stateStore.ViewsByEntityId);
                 _animationSync.SyncPlayerRuntimeState(
                     entityId,
@@ -317,7 +324,10 @@ namespace Game.Feature.Gameplay.Host
             _viewBinder.HideViewsExcept(_visibleEntityIds);
             _animationSync.SyncHiddenDrivers(
                 _visibleEntityIds,
-                entityId => _animationSync.ResolvePlayerAnimationState(entityId, hasActiveWalkMotion: false),
+                entityId => _animationSync.ResolvePlayerAnimationState(
+                    entityId,
+                    ShouldPlayPlayerWalkLoop(entityId),
+                    hasActiveWalkMotion: false),
                 ResolvePlayerAnimationStateMotionDurationSeconds,
                 _stateStore.ViewsByEntityId);
         }
@@ -450,6 +460,12 @@ namespace Game.Feature.Gameplay.Host
             return _localMotionTracks.TryGetValue(entityId, out var motionTrack) &&
                    motionTrack.HasClips &&
                    motionTrack.TailMotionKind == TickEntityMotionKind.Move;
+        }
+
+        private bool ShouldPlayPlayerWalkLoop(int entityId)
+        {
+            return _playerLocomotionSignalsByEntityId.TryGetValue(entityId, out var signal) &&
+                   signal.ShouldPlayWalkLoop;
         }
 
         private static int GetVisibilityPriority(TickVisibilityChangeKind changeKind)
@@ -619,6 +635,21 @@ namespace Game.Feature.Gameplay.Host
                     change.Mode,
                     localPose,
                     projectedSlot);
+            }
+        }
+
+        private void RefreshPlayerLocomotionSignals(TickPresentationData presentationData)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            _playerLocomotionSignalsByEntityId.Clear();
+            for (var i = 0; i < presentationData.PlayerLocomotionSignals.Count; i++)
+            {
+                var signal = presentationData.PlayerLocomotionSignals[i];
+                _playerLocomotionSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 

@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -150,7 +151,8 @@ namespace Game.Feature.Gameplay.Loop
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
             int currentTickIndex = 0,
-            WorldSnapshot jumpBaselineSnapshot = null)
+            WorldSnapshot jumpBaselineSnapshot = null,
+            PlayerTickCommand playerCommand = default)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -161,7 +163,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackPhaseResult,
                 cleanupPhaseResult,
                 currentTickIndex,
-                jumpBaselineSnapshot)
+                jumpBaselineSnapshot,
+                playerCommand)
         {
         }
 
@@ -175,7 +178,8 @@ namespace Game.Feature.Gameplay.Loop
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
             int currentTickIndex = 0,
-            WorldSnapshot jumpBaselineSnapshot = null)
+            WorldSnapshot jumpBaselineSnapshot = null,
+            PlayerTickCommand playerCommand = default)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -187,6 +191,7 @@ namespace Game.Feature.Gameplay.Loop
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
             CurrentTickIndex = currentTickIndex;
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
+            PlayerCommand = playerCommand;
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -208,6 +213,8 @@ namespace Game.Feature.Gameplay.Loop
         public int CurrentTickIndex { get; }
 
         public WorldSnapshot JumpBaselineSnapshot { get; }
+
+        public PlayerTickCommand PlayerCommand { get; }
     }
 
     internal sealed class TickPresentationDataBuilder
@@ -219,6 +226,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
+            var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var exitOwnedEntityIds = new HashSet<int>();
@@ -228,6 +236,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildPlayerPresentation(context, playerActionSignals);
+            BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
 
@@ -239,6 +248,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyJumpSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
+                   playerLocomotionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
                    !topologyMotion.HasValue
@@ -249,6 +259,7 @@ namespace Game.Feature.Gameplay.Loop
                     visibilityChanges,
                     transitionVisibilityChanges,
                     playerActionSignals,
+                    playerLocomotionSignals,
                     enemyActionSignals,
                     enemyJumpSignals,
                     entityExitSignals);
@@ -448,6 +459,34 @@ namespace Game.Feature.Gameplay.Loop
                         completedThisTick,
                         canceledThisTick,
                         executedThisTick));
+            }
+        }
+
+        private static void BuildPlayerLocomotionPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals)
+        {
+            var playerControlEntries = new List<PlayerControlSnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumeratePlayerControlStatesOrdered(playerControlEntries);
+
+            for (var i = 0; i < playerControlEntries.Count; i++)
+            {
+                var entry = playerControlEntries[i];
+                var moveMotionGeneratedThisTick = DidGeneratePlayerMoveMotionThisTick(context, entry.EntityId);
+                var waitingForNextMoveCadence = ShouldWaitForNextMoveCadence(context, entry.State);
+                var shouldPlayWalkLoop =
+                    !entry.State.activeAction.IsActive &&
+                    !context.PlayerCommand.FlipPressed &&
+                    (moveMotionGeneratedThisTick || waitingForNextMoveCadence);
+
+                playerLocomotionSignals.Add(
+                    new TickPlayerLocomotionPresentationSignal(
+                        entry.EntityId,
+                        shouldPlayWalkLoop,
+                        moveMotionGeneratedThisTick,
+                        waitingForNextMoveCadence,
+                        context.PlayerCommand.MoveDirection,
+                        context.PlayerCommand.IsMoveBuffered));
             }
         }
 
@@ -932,6 +971,42 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return TickEntityMotionKind.None;
+        }
+
+        private static bool DidGeneratePlayerMoveMotionThisTick(
+            in TickPresentationBuildContext context,
+            int entityId)
+        {
+            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (ResolveMotionKind(group, context.PreMovementSnapshot, context.PostMovementSnapshot) != TickEntityMotionKind.Move)
+                {
+                    continue;
+                }
+
+                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                {
+                    if (group.Moves[moveIndex].EntityId == entityId)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ShouldWaitForNextMoveCadence(
+            in TickPresentationBuildContext context,
+            in PlayerControlState controlState)
+        {
+            return context.PlayerCommand.MoveDirection != Direction.None &&
+                   !context.PlayerCommand.FlipPressed &&
+                   !context.PlayerCommand.IsMoveBuffered &&
+                   !controlState.activeAction.IsActive &&
+                   PlayerControlQueries.IsMoveOnCooldown(controlState, context.CurrentTickIndex);
         }
 
         private static HashSet<int> CollectTransitionVisibilityExcludedEntityIds(

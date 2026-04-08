@@ -185,7 +185,10 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public PlayerViewAnimationState ResolvePlayerAnimationState(int entityId, bool hasActiveWalkMotion)
+        public PlayerViewAnimationState ResolvePlayerAnimationState(
+            int entityId,
+            bool shouldPlayWalkLoop,
+            bool hasActiveWalkMotion)
         {
             if (_playerViewPresentationStates.TryGetValue(entityId, out var state) &&
                 TryResolveActionAnimationState(state.ActiveActionKind, out var authoritativeState))
@@ -193,12 +196,18 @@ namespace Game.Feature.Gameplay.Host
                 return authoritativeState;
             }
 
+            if ((_playerViewPresentationStates.TryGetValue(entityId, out state) && state.ShouldPlayWalkLoop) ||
+                shouldPlayWalkLoop)
+            {
+                _playerVisualHoldStates.Remove(entityId);
+                return PlayerViewAnimationState.WalkLoop;
+            }
+
             if (hasActiveWalkMotion)
             {
-                // Once a new authoritative move presentation takes over, the previous action hold
-                // must not resurface after the walk clip completes.
+                // Active move clips only bridge the tail when the session signal has already ended.
                 _playerVisualHoldStates.Remove(entityId);
-                return PlayerViewAnimationState.Walk;
+                return PlayerViewAnimationState.WalkLoop;
             }
 
             if (_playerVisualHoldStates.TryGetValue(entityId, out var holdState) &&

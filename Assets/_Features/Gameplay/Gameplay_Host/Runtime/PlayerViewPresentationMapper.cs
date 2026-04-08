@@ -8,7 +8,7 @@ namespace Game.Feature.Gameplay.Host
     public enum PlayerViewAnimationState
     {
         Idle = 0,
-        Walk = 1,
+        WalkLoop = 1,
         Push = 2,
         Flip = 3,
     }
@@ -24,6 +24,29 @@ namespace Game.Feature.Gameplay.Host
             bool executedThisTick,
             bool completedThisTick,
             bool canceledThisTick)
+            : this(
+                entityId,
+                tickIndex,
+                activeActionKind,
+                activeActionSequence,
+                startedThisTick,
+                executedThisTick,
+                completedThisTick,
+                canceledThisTick,
+                shouldPlayWalkLoop: false)
+        {
+        }
+
+        public PlayerViewPresentationState(
+            int entityId,
+            int tickIndex,
+            PlayerActionKind activeActionKind,
+            int activeActionSequence,
+            bool startedThisTick,
+            bool executedThisTick,
+            bool completedThisTick,
+            bool canceledThisTick,
+            bool shouldPlayWalkLoop)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -33,6 +56,7 @@ namespace Game.Feature.Gameplay.Host
             ExecutedThisTick = executedThisTick;
             CompletedThisTick = completedThisTick;
             CanceledThisTick = canceledThisTick;
+            ShouldPlayWalkLoop = shouldPlayWalkLoop;
         }
 
         public int EntityId { get; }
@@ -50,12 +74,15 @@ namespace Game.Feature.Gameplay.Host
         public bool CompletedThisTick { get; }
 
         public bool CanceledThisTick { get; }
+
+        public bool ShouldPlayWalkLoop { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
     {
         private readonly HashSet<int> _candidateEntityIds = new();
         private readonly Dictionary<int, TickPlayerActionPresentationSignal> _signalsByEntityId = new();
+        private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
 
         public void Build(
             TickResult result,
@@ -80,6 +107,7 @@ namespace Game.Feature.Gameplay.Host
             buffer.Clear();
             _candidateEntityIds.Clear();
             _signalsByEntityId.Clear();
+            _locomotionSignalsByEntityId.Clear();
 
             foreach (var pair in viewsByEntityId)
             {
@@ -98,6 +126,14 @@ namespace Game.Feature.Gameplay.Host
                 _signalsByEntityId[signal.EntityId] = signal;
             }
 
+            var playerLocomotionSignals = result.PresentationData.PlayerLocomotionSignals;
+            for (var i = 0; i < playerLocomotionSignals.Count; i++)
+            {
+                var signal = playerLocomotionSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _locomotionSignalsByEntityId[signal.EntityId] = signal;
+            }
+
             foreach (var entityId in _candidateEntityIds)
             {
                 if (!HasPlayerDriver(viewsByEntityId, entityId))
@@ -110,6 +146,9 @@ namespace Game.Feature.Gameplay.Host
                     signal = default;
                 }
 
+                var shouldPlayWalkLoop = _locomotionSignalsByEntityId.TryGetValue(entityId, out var locomotionSignal) &&
+                                         locomotionSignal.ShouldPlayWalkLoop;
+
                 buffer[entityId] = new PlayerViewPresentationState(
                     entityId,
                     result.TickIndex,
@@ -118,7 +157,8 @@ namespace Game.Feature.Gameplay.Host
                     signal.StartedThisTick,
                     signal.ExecutedThisTick,
                     signal.CompletedThisTick,
-                    signal.CanceledThisTick);
+                    signal.CanceledThisTick,
+                    shouldPlayWalkLoop);
             }
         }
 
@@ -132,7 +172,8 @@ namespace Game.Feature.Gameplay.Host
                 startedThisTick: false,
                 executedThisTick: false,
                 completedThisTick: false,
-                canceledThisTick: false);
+                canceledThisTick: false,
+                shouldPlayWalkLoop: false);
         }
 
         private static bool HasPlayerDriver(IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId, int entityId)

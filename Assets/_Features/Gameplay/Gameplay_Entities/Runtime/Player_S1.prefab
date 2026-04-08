@@ -1585,10 +1585,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.PlayerAnimatorDriver
   animator: {fileID: 4214203194944636076}
   idleStateName: Idle
-  walkStateName: Walk_Start
+  walkStateName: Walk_Loop
   pushStateName: Kick
   flipStateName: Change_Start
-  walkExitStateName: Walk_Done
+  walkExitStateName: 
   pushExitStateName: 
   flipExitStateName: Change_Stop
   stateTransitionCrossFadeDurationSeconds: 0.1

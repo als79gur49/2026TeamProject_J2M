@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Host
 
         [SerializeField] private Animator animator;
         [SerializeField] private string idleStateName = "Idle";
-        [SerializeField] private string walkStateName = "Walk";
+        [SerializeField] private string walkStateName = "Walk_Loop";
         [SerializeField] private string pushStateName = "Push";
         [SerializeField] private string flipStateName = "Flip";
         [SerializeField] private string walkExitStateName;
@@ -114,18 +114,6 @@ namespace Game.Feature.Gameplay.Host
             ApplyAnimatorSpeed(targetAnimator, resolvedState, resolvedMotionDurationSeconds);
             SyncOptionalStateParameter(targetAnimator, resolvedState);
 
-            if (!restart &&
-                TryResolveWalkExitTransitionStateName(resolvedState, out var walkExitTransitionStateName))
-            {
-                CurrentState = resolvedState;
-                CrossFadeState(
-                    targetAnimator,
-                    walkExitTransitionStateName,
-                    stateTransitionCrossFadeDurationSeconds);
-                ApplyExecuteSignal(targetAnimator, executeActionKind, resolvedState);
-                return;
-            }
-
             if (resolvedState == CurrentState &&
                 !restart)
             {
@@ -142,7 +130,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return state switch
             {
-                PlayerViewAnimationState.Walk => walkStateName,
+                PlayerViewAnimationState.WalkLoop => walkStateName,
                 PlayerViewAnimationState.Push => pushStateName,
                 PlayerViewAnimationState.Flip => flipStateName,
                 _ => idleStateName,
@@ -167,22 +155,6 @@ namespace Game.Feature.Gameplay.Host
                 PlayerActionKind.Flip => flipExitStateName,
                 _ => string.Empty,
             };
-        }
-
-        private bool TryResolveWalkExitTransitionStateName(
-            PlayerViewAnimationState resolvedState,
-            out string stateName)
-        {
-            if (CurrentState == PlayerViewAnimationState.Walk &&
-                resolvedState == PlayerViewAnimationState.Idle &&
-                !string.IsNullOrWhiteSpace(walkExitStateName))
-            {
-                stateName = walkExitStateName;
-                return true;
-            }
-
-            stateName = string.Empty;
-            return false;
         }
 
         private Animator ResolveAnimator()
