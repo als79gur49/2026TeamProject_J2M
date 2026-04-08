@@ -11,6 +11,8 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultBoxSlideStepIntervalSeconds = 0.2f;
         public const float DefaultProjectileStepIntervalSeconds = 0.2f;
         public const float DefaultMoveMotionDurationSeconds = 0.2f;
+        public const float DefaultMoveOccupancyDurationSeconds = DefaultMoveMotionDurationSeconds;
+        private const float UseMoveMotionDurationForOccupancySentinel = -1f;
         public const float DefaultPushMotionDurationSeconds = 0.2f;
         public const float DefaultTopologyMotionDurationSeconds = DefaultPushMotionDurationSeconds;
         public const float DefaultFlipMotionDurationSeconds = 0.2f;
@@ -86,7 +88,8 @@ namespace Game.Feature.Gameplay.Loop
             float flipArcHeightInCells,
             int maxTicksPerFrame,
             float itemConsumeEffectDurationSeconds = DefaultItemConsumeEffectDurationSeconds,
-            float boxDestroyEffectDurationSeconds = DefaultBoxDestroyEffectDurationSeconds)
+            float boxDestroyEffectDurationSeconds = DefaultBoxDestroyEffectDurationSeconds,
+            float moveOccupancyDurationSeconds = UseMoveMotionDurationForOccupancySentinel)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -165,6 +168,17 @@ namespace Game.Feature.Gameplay.Loop
                     "Max ticks per frame must be greater than zero.");
             }
 
+            var resolvedMoveOccupancyDurationSeconds = moveOccupancyDurationSeconds > 0f
+                ? moveOccupancyDurationSeconds
+                : moveMotionDurationSeconds;
+
+            if (resolvedMoveOccupancyDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(moveOccupancyDurationSeconds),
+                    "Move occupancy duration must be greater than zero.");
+            }
+
             if (itemConsumeEffectDurationSeconds <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
@@ -186,6 +200,7 @@ namespace Game.Feature.Gameplay.Loop
             BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
             ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
             MoveMotionDurationSeconds = moveMotionDurationSeconds;
+            MoveOccupancyDurationSeconds = resolvedMoveOccupancyDurationSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
             TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
@@ -197,6 +212,7 @@ namespace Game.Feature.Gameplay.Loop
             RepeatedMoveIntervalTicks = SecondsToTicks(repeatedMoveIntervalSeconds, simulationTicksPerSecond);
             BoxSlideStepIntervalTicks = SecondsToTicks(boxSlideStepIntervalSeconds, simulationTicksPerSecond);
             ProjectileStepIntervalTicks = SecondsToTicks(projectileStepIntervalSeconds, simulationTicksPerSecond);
+            MoveOccupancyTicks = SecondsToCeilTicks(resolvedMoveOccupancyDurationSeconds, simulationTicksPerSecond);
         }
 
         public int SimulationTicksPerSecond { get; }
@@ -212,6 +228,8 @@ namespace Game.Feature.Gameplay.Loop
         public float ProjectileStepIntervalSeconds { get; }
 
         public float MoveMotionDurationSeconds { get; }
+
+        public float MoveOccupancyDurationSeconds { get; }
 
         public float PushMotionDurationSeconds { get; }
 
@@ -235,6 +253,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public int ProjectileStepIntervalTicks { get; }
 
+        public int MoveOccupancyTicks { get; }
+
         public static GameplayTimingProfile CreateDefault()
         {
             return new GameplayTimingProfile(
@@ -250,7 +270,31 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultFlipArcHeightInCells,
                 DefaultMaxTicksPerFrame,
                 DefaultItemConsumeEffectDurationSeconds,
-                DefaultBoxDestroyEffectDurationSeconds);
+                DefaultBoxDestroyEffectDurationSeconds,
+                DefaultMoveOccupancyDurationSeconds);
+        }
+
+        public static int SecondsToCeilTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            if (seconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(seconds), "Seconds must be zero or greater.");
+            }
+
+            if (allowZero && seconds <= 0f)
+            {
+                return 0;
+            }
+
+            var ceilTicks = Mathf.CeilToInt(seconds * simulationTicksPerSecond);
+            return Mathf.Max(1, ceilTicks);
         }
 
         public static int SecondsToTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

@@ -45,17 +45,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 new[]
                 {
                     "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
-                    "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
-                    "DamageCommitted|G=2|I=2|Target=30|Amount=1",
-                    "DestroyMarked|G=2|I=2|Target=30|FinalHp=0|Condition=WhenHpDepleted",
-                    "CleanupRemoved|E=30",
-                    "StateTransitioned|E=10|From=Acting|To=Idle|Timer=0",
                 },
                 result.EventLog);
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (EntityId: 10, Position: new SurfaceCell(FaceId.Floor, 1, 0), Hp: 3, State: EntityPhaseState.Idle),
+                    (EntityId: 30, Position: new SurfaceCell(FaceId.Floor, 2, 0), Hp: 1, State: EntityPhaseState.Idle),
                 },
                 result.FinalEntities
                     .Select(entity => (entity.entityId, entity.position, entity.hp, entity.state))
@@ -63,7 +59,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(result.DeterminismHash, Is.Not.Empty);
             Assert.That(result.Trace.Text, Does.Contain("S0.Entities"));
             Assert.That(result.Trace.Text, Does.Contain("TickResult.EventLog"));
-            Assert.That(result.Trace.Text, Does.Contain("CleanupRemoved|E=30"));
+            Assert.That(result.Trace.Text, Does.Contain("Final.ExecutionLocks"));
+            Assert.That(result.Trace.Text, Does.Contain("E=10|Phase=Move|Sequence=1|UnlockTickExclusive=14"));
         }
 
         [Test]
@@ -264,6 +261,34 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(stackedResult.DeterminismHash, Is.Not.EqualTo(separatedResult.DeterminismHash));
             Assert.That(stackedResult.Trace.Text, Does.Contain("Layer=Unit|Cell=(0,0)|E=10|Face=Floor"));
             Assert.That(stackedResult.Trace.Text, Does.Contain("Layer=Unit|Cell=(0,0)|E=20|Face=Floor"));
+        }
+
+        [Test]
+        public void DeterminismHash_EntityExecutionLockState_IsIncludedInCanonicalState()
+        {
+            var unlockedWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+            });
+            var lockedWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+            });
+            lockedWorldState.CreateWriteContext().SetEntityExecutionLockState(
+                10,
+                new EntityExecutionLockState
+                {
+                    phase = EntityExecutionPhase.Move,
+                    sequence = 7,
+                    unlockTickExclusive = 11,
+                });
+
+            var unlockedResult = GameplayCompositionRoot.CreateTickPipeline(unlockedWorldState).RunTick(new TickInput(1));
+            var lockedResult = GameplayCompositionRoot.CreateTickPipeline(lockedWorldState).RunTick(new TickInput(1));
+
+            Assert.That(unlockedResult.DeterminismHash, Is.Not.EqualTo(lockedResult.DeterminismHash));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("Final.ExecutionLocks"));
+            Assert.That(lockedResult.Trace.Text, Does.Contain("E=10|Phase=Move|Sequence=7|UnlockTickExclusive=11"));
         }
 
         [Test]

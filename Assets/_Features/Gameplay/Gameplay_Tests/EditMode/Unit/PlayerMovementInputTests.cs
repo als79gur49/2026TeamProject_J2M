@@ -480,6 +480,38 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerControlStateLogic_ExecutionLock_BlocksFlipStart()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            worldState.CreateWriteContext().SetEntityExecutionLockState(
+                10,
+                new EntityExecutionLockState
+                {
+                    phase = EntityExecutionPhase.Move,
+                    sequence = 1,
+                    unlockTickExclusive = 3,
+                });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Flip(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+        }
+
+        [Test]
         public void PlayerControlQueries_StartAction_ZeroWindup_MarksExecutionAttemptedImmediately()
         {
             var startedState = PlayerControlQueries.StartAction(

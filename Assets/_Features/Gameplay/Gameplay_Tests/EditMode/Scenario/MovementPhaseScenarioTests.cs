@@ -1878,6 +1878,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         [Test]
         public void MovementCommitter_ProjectileImpact_UsesResolvedGroupTargetWithoutIntentLookup()
         {
+            var timingProfile = CreateTimingProfile();
             var worldState = CreateWorldState(new[]
             {
                 CreateProjectile(entityId: 10, position: new Vector2Int(0, 0), hp: 1),
@@ -1891,7 +1892,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var transientBuffer = new PhaseTransientBuffer();
             var commitEvents = new List<string>();
 
-            new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot()).Commit(
+            new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot(timingProfile), timingProfile).Commit(
                 snapshot,
                 Array.Empty<MoveIntent>(),
                 tickIndex: 1,
@@ -2040,6 +2041,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             TickInput input,
             params IMovementEntityLogic[] entityLogics)
         {
+            var timingProfile = CreateTimingProfile();
             var snapshot = CreateSnapshot(worldState);
             var rawMovementIntents = new List<RawMovementIntent>();
             new MovementIntentCollector().Collect(snapshot, in input, entityLogics, rawMovementIntents);
@@ -2087,7 +2089,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             new MovementResolver().Resolve(snapshot, expandedCandidates, selectedGroups, rejectedReasons);
 
             var commitEvents = new List<string>();
-            new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot()).Commit(
+            new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot(timingProfile), timingProfile).Commit(
                 snapshot,
                 sortedIntents,
                 input.TickIndex,

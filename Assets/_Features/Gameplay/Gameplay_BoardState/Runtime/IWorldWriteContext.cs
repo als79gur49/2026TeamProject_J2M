@@ -50,6 +50,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
 
+        void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);
+
         void SetTopology(CubeTopologyState topology);
     }
 

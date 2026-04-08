@@ -126,8 +126,10 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             var previousAction = nextState.activeAction;
+            var canStartAction = snapshot.CanStartAction(_entityId, input.TickIndex);
 
             if (!previousAction.IsActive &&
+                canStartAction &&
                 input.PlayerCommand.MoveDirection != Direction.None)
             {
                 writeContext.SetFacing(_entityId, input.PlayerCommand.MoveDirection);
@@ -141,7 +143,8 @@ namespace Game.Feature.Gameplay.PlayerControl
             {
                 nextState = PlayerControlQueries.ResetContact(nextState);
 
-                if (PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var flipTarget))
+                if (canStartAction &&
+                    PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var flipTarget))
                 {
                     nextState = PlayerControlQueries.StartAction(
                         nextState,
@@ -154,6 +157,10 @@ namespace Game.Feature.Gameplay.PlayerControl
                 }
             }
             else if (input.PlayerCommand.MoveDirection == Direction.None)
+            {
+                nextState = PlayerControlQueries.ResetContact(nextState);
+            }
+            else if (!canStartAction)
             {
                 nextState = PlayerControlQueries.ResetContact(nextState);
             }

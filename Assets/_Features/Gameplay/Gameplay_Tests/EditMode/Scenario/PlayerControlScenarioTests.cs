@@ -344,6 +344,49 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick()
+        {
+            var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1, moveOccupancyTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerMoveCooldownTicks: 0);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new Vector2Int(2, 0), capabilities: BoxCapabilities.Flip),
+            }, timingProfile);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                timingProfile,
+                playerControlTiming);
+
+            var moveTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var lockedTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Flip(Direction.Right)));
+            var unlockTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Flip(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
+                },
+                moveTick.MovementPhaseResult.CommitEvents);
+            Assert.That(CreateSnapshot(worldState).TryGetEntityExecutionLockState(10, out var executionLockState), Is.True);
+            Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
+            Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));
+            Assert.That(lockedTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
+            Assert.That(lockedTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(unlockTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(unlockTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+        }
+
+        [Test]
         public void PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes()
         {
             var timingProfile = CreateTimingProfile();
@@ -414,7 +457,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static GameplayTimingProfile CreateTimingProfile(
             int simulationTicksPerSecond = 60,
-            int repeatedMoveIntervalTicks = 2)
+            int repeatedMoveIntervalTicks = 2,
+            int moveOccupancyTicks = 12)
         {
             return new GameplayTimingProfile(
                 simulationTicksPerSecond,
@@ -427,7 +471,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 topologyMotionDurationSeconds: 0.2f,
                 flipMotionDurationSeconds: 0.2f,
                 flipArcHeightInCells: 0.65f,
-                maxTicksPerFrame: 8);
+                maxTicksPerFrame: 8,
+                moveOccupancyDurationSeconds: moveOccupancyTicks / (float)simulationTicksPerSecond);
         }
 
         private static PlayerLogic CreatePushThresholdPlayerLogic(int entityId)

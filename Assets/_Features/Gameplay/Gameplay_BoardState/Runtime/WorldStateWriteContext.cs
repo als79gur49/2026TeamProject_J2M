@@ -48,6 +48,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyJumpState(entityId, state);
         }
 
+        public void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state)
+        {
+            _port.SetEntityExecutionLockState(entityId, state);
+        }
+
         public void MoveEnemyJumpEntity(int entityId, SurfaceCell destination)
         {
             _port.MoveEntityTo(entityId, destination);

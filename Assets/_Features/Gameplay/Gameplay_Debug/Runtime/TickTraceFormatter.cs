@@ -82,6 +82,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
@@ -170,6 +171,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Source={entry.State.sourceCell}|Locked={entry.State.lockedTargetCell}|WindupEnd={entry.State.windupEndTick}|Landing={entry.State.landingTick}|Cooldown={entry.State.cooldownRemainingTicks}|Retry={entry.State.retryCount}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetExecutionLockEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EntityExecutionLockSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEntityExecutionLockStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Phase={entry.State.phase}|Sequence={entry.State.sequence}|UnlockTickExclusive={entry.State.unlockTickExclusive}");
             }
 
             return lines;

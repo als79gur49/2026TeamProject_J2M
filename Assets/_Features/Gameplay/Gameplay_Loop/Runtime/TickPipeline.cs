@@ -65,7 +65,7 @@ namespace Game.Feature.Gameplay.Loop
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
             var resolvedGeneralTimingProfile = generalTimingProfile ?? throw new ArgumentNullException(nameof(generalTimingProfile));
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
-            _movementCommitter = new MovementCommitter(playerControlTiming);
+            _movementCommitter = new MovementCommitter(playerControlTiming, resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
         }
 
@@ -302,10 +302,11 @@ namespace Game.Feature.Gameplay.Loop
             phaseTrace.Add("Movement:Enter");
             var rawMovementIntents = new List<RawMovementIntent>();
             _movementIntentCollector.Collect(snapshot, in input, entityLogics, rawMovementIntents);
-            var sortedIntents = BuildMovementIntents(rawMovementIntents);
+            var rejectedReasons = new List<string>();
+            var executableMovementIntents = FilterExecutionLockedMovementIntents(snapshot, input.TickIndex, rawMovementIntents, rejectedReasons);
+            var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogics);
             var expandedCandidates = new List<ActionGroup>();
-            var rejectedReasons = new List<string>();
             _movementExpander.Expand(snapshot, sortedIntents, playerTraversalSourceIds, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
@@ -365,9 +366,10 @@ namespace Game.Feature.Gameplay.Loop
             var rawAttackIntents = new List<RawAttackIntent>();
             _attackIntentCollector.Collect(snapshot, in input, entityLogics, rawAttackIntents);
             var drainedImpactReservations = transientBuffer.DrainImpacts();
-            var sortedInputs = NormalizeAttackInputs(rawAttackIntents, drainedImpactReservations, drainedDelayedAttackEffects);
-            var expandedCandidates = new List<ActionGroup>();
             var rejectedReasons = new List<string>();
+            var executableAttackIntents = FilterExecutionLockedAttackIntents(snapshot, input.TickIndex, rawAttackIntents, rejectedReasons);
+            var sortedInputs = NormalizeAttackInputs(executableAttackIntents, drainedImpactReservations, drainedDelayedAttackEffects);
+            var expandedCandidates = new List<ActionGroup>();
             _attackExpander.Expand(snapshot, sortedInputs, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignAttackGroupIds(expandedCandidates);
@@ -502,6 +504,72 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return events;
+        }
+
+        private static List<RawMovementIntent> FilterExecutionLockedMovementIntents(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IReadOnlyList<RawMovementIntent> rawMovementIntents,
+            List<string> rejectedReasons)
+        {
+            var filteredIntents = new List<RawMovementIntent>(rawMovementIntents.Count);
+
+            for (var i = 0; i < rawMovementIntents.Count; i++)
+            {
+                var rawIntent = rawMovementIntents[i];
+                if (snapshot.CanExecuteIntent(rawIntent.SourceId, tickIndex))
+                {
+                    filteredIntents.Add(rawIntent);
+                    continue;
+                }
+
+                rejectedReasons.Add(
+                    BuildExecutionLockRejectedReason(
+                        "MovementRejected",
+                        rawIntent.SourceId,
+                        tickIndex,
+                        snapshot));
+            }
+
+            return filteredIntents;
+        }
+
+        private static List<RawAttackIntent> FilterExecutionLockedAttackIntents(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IReadOnlyList<RawAttackIntent> rawAttackIntents,
+            List<string> rejectedReasons)
+        {
+            var filteredIntents = new List<RawAttackIntent>(rawAttackIntents.Count);
+
+            for (var i = 0; i < rawAttackIntents.Count; i++)
+            {
+                var rawIntent = rawAttackIntents[i];
+                if (snapshot.CanExecuteIntent(rawIntent.SourceId, tickIndex))
+                {
+                    filteredIntents.Add(rawIntent);
+                    continue;
+                }
+
+                rejectedReasons.Add(
+                    BuildExecutionLockRejectedReason(
+                        "AttackRejected",
+                        rawIntent.SourceId,
+                        tickIndex,
+                        snapshot));
+            }
+
+            return filteredIntents;
+        }
+
+        private static string BuildExecutionLockRejectedReason(
+            string prefix,
+            int sourceId,
+            int tickIndex,
+            WorldSnapshot snapshot)
+        {
+            snapshot.TryGetEntityExecutionLockState(sourceId, out var lockState);
+            return $"{prefix}|Stage=ExecutionLock|Source={sourceId}|Reason=Busy|Phase={lockState.phase}|Sequence={lockState.sequence}|UnlockTickExclusive={lockState.unlockTickExclusive}|Tick={tickIndex}";
         }
 
         private static void AddRange(List<string> destination, IReadOnlyList<string> source)

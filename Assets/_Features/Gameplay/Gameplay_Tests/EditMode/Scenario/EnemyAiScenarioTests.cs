@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
@@ -158,6 +159,68 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(cancelSignal.ExecutedThisTick, Is.False);
             Assert.That(cancelSignal.StartedRecoveryThisTick, Is.False);
             Assert.That(cancelTick.Trace.Text, Does.Contain("LockedTargetLost"));
+        }
+
+        [Test]
+        public void EnemyAi_MoveOccupancy_BlocksAttackStartUntilFirstUnlockedTick()
+        {
+            var timingProfile = new GameplayTimingProfile(
+                simulationTicksPerSecond: 60,
+                initialMoveDelaySeconds: 0f,
+                repeatedMoveIntervalSeconds: 1f / 60f,
+                boxSlideStepIntervalSeconds: 0.2f,
+                projectileStepIntervalSeconds: 0.2f,
+                moveMotionDurationSeconds: 1f / 60f,
+                pushMotionDurationSeconds: 0.2f,
+                topologyMotionDurationSeconds: 0.2f,
+                flipMotionDurationSeconds: 0.2f,
+                flipArcHeightInCells: 0.65f,
+                maxTicksPerFrame: 8,
+                moveOccupancyDurationSeconds: 1f / 60f);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot
+                .CreateDefaultBootstrapper(CreateEnemyProfile(windupTicks: 1))
+                .CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[0],
+                    timingProfile,
+                    PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                        timingProfile.SimulationTicksPerSecond,
+                        timingProfile.RepeatedMoveIntervalSeconds));
+
+            var moveTick = pipeline.RunTick(new TickInput(1));
+            var lockedTick = pipeline.RunTick(new TickInput(2));
+            var unlockTick = pipeline.RunTick(new TickInput(3));
+            var executeTick = pipeline.RunTick(new TickInput(4));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "MoveCommitted|G=1|I=1|E=40|To=(1,0)|Facing=Right",
+                },
+                moveTick.MovementPhaseResult.CommitEvents);
+            Assert.That(worldState.CreateSnapshot().TryGetEntityExecutionLockState(40, out var executionLockState), Is.True);
+            Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
+            Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));
+            Assert.That(moveTick.PresentationData.EnemyActionSignals, Is.Empty);
+            Assert.That(lockedTick.PresentationData.EnemyActionSignals, Is.Empty);
+            Assert.That(lockedTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(unlockTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(unlockTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.False);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 40, TargetId: 10),
+                },
+                executeTick.AttackPhaseResult
+                    .SortedInputs
+                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .ToArray());
+            Assert.That(executeTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.True);
         }
 
         [Test]

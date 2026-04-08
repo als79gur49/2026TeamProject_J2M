@@ -158,6 +158,11 @@ namespace Game.Feature.Gameplay.Entities
                 return EnemyActionQueries.Clear(previousAction);
             }
 
+            if (!snapshot.CanStartAction(_entityId, tickIndex))
+            {
+                return previousAction;
+            }
+
             var nextAction = EnemyActionQueries.StartAction(
                 previousAction,
                 EnemyActionKind.Melee,

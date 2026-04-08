@@ -55,6 +55,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyActions").Append('\n');
             AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
+            builder.Append("ExecutionLocks").Append('\n');
+            AppendExecutionLockLines(builder, GetOrderedExecutionLockStates(finalSnapshot));
+
             builder.Append("EnemyJumps").Append('\n');
             AppendEnemyJumpLines(builder, GetOrderedEnemyJumpStates(finalSnapshot));
 
@@ -131,6 +134,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpEntries = new List<EnemyJumpSnapshotEntry>();
             finalSnapshot.EnumerateEnemyJumpStatesOrdered(enemyJumpEntries);
             return enemyJumpEntries;
+        }
+
+        private static List<EntityExecutionLockSnapshotEntry> GetOrderedExecutionLockStates(WorldSnapshot finalSnapshot)
+        {
+            var executionLockEntries = new List<EntityExecutionLockSnapshotEntry>();
+            finalSnapshot.EnumerateEntityExecutionLockStatesOrdered(executionLockEntries);
+            return executionLockEntries;
         }
 
         private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
@@ -299,6 +309,27 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.landingTick).Append('|')
                     .Append(entry.State.cooldownRemainingTicks).Append('|')
                     .Append(entry.State.retryCount).Append('\n');
+            }
+        }
+
+        private static void AppendExecutionLockLines(
+            StringBuilder builder,
+            IReadOnlyList<EntityExecutionLockSnapshotEntry> executionLockEntries)
+        {
+            if (executionLockEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < executionLockEntries.Count; i++)
+            {
+                var entry = executionLockEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append((int)entry.State.phase).Append('|')
+                    .Append(entry.State.sequence).Append('|')
+                    .Append(entry.State.unlockTickExclusive).Append('\n');
             }
         }
 

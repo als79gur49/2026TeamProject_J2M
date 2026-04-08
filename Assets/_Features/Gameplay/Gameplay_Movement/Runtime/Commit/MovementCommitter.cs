@@ -14,9 +14,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
     internal sealed class MovementCommitter
     {
         private const int ProjectileImpactDamageAmount = 1;
+        private readonly int _moveOccupancyTicks;
         private readonly int _playerMoveCooldownTicks;
 
-        public MovementCommitter(PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+        public MovementCommitter(
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            GameplayTimingProfile timingProfile)
         {
             if (playerControlTiming.MoveCooldownTicks < 0)
             {
@@ -25,7 +28,13 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     "Player move cooldown ticks must be zero or greater.");
             }
 
+            if (timingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(timingProfile));
+            }
+
             _playerMoveCooldownTicks = playerControlTiming.MoveCooldownTicks;
+            _moveOccupancyTicks = timingProfile.MoveOccupancyTicks;
         }
 
         public void Commit(
@@ -125,6 +134,8 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         $"MoveCommitted|G={group.GroupId}|I={group.IntentId}|E={move.EntityId}|To={FormatCell(move.DestinationCell)}|Facing={move.Facing}");
                 }
 
+                ApplyExecutionLockCommit(snapshot, tickIndex, group, writeContext);
+
                 for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
                 {
                     var destroy = group.Destroys[destroyIndex];
@@ -161,6 +172,33 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             writeContext.SetEnemyLocomotionCooldown(group.SourceId, intent.MoveCooldownTicks);
+        }
+
+        private void ApplyExecutionLockCommit(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            ActionGroup group,
+            IMovementCommitContext writeContext)
+        {
+            if (group.GroupKind != ActionGroupKind.Move &&
+                group.GroupKind != ActionGroupKind.Item)
+            {
+                return;
+            }
+
+            for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+            {
+                var move = group.Moves[moveIndex];
+                if (!snapshot.TryGetEntity(move.EntityId, out var movedEntity) ||
+                    movedEntity.type != EntityType.Unit)
+                {
+                    continue;
+                }
+
+                snapshot.TryGetEntityExecutionLockState(move.EntityId, out var previousState);
+                var lockState = EntityExecutionLockQueries.StartMoveLock(previousState, tickIndex, _moveOccupancyTicks);
+                writeContext.SetEntityExecutionLockState(move.EntityId, lockState);
+            }
         }
 
         private void ApplyPlayerControlCommit(

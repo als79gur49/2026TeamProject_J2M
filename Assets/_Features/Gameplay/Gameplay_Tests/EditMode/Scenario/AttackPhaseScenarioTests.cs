@@ -28,21 +28,42 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class AttackPhaseScenarioTests
     {
         [Test]
-        public void Attack_MoveThenAttack_UsesPostMoveSnapshot()
+        public void Attack_MoveCommit_BlocksSameTickAttackUntilExecutionUnlock()
         {
+            var timingProfile = new GameplayTimingProfile(
+                simulationTicksPerSecond: 60,
+                initialMoveDelaySeconds: 0f,
+                repeatedMoveIntervalSeconds: 1f / 60f,
+                boxSlideStepIntervalSeconds: 0.2f,
+                projectileStepIntervalSeconds: 0.2f,
+                moveMotionDurationSeconds: 1f / 60f,
+                pushMotionDurationSeconds: 0.2f,
+                topologyMotionDurationSeconds: 0.2f,
+                flipMotionDurationSeconds: 0.2f,
+                flipArcHeightInCells: 0.65f,
+                maxTicksPerFrame: 8,
+                moveOccupancyDurationSeconds: 1f / 60f);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
-            });
+            }, timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
+                    new TickScriptedMovementLogic(
+                        10,
+                        new Dictionary<int, RawMovementIntent>
+                        {
+                            { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
+                        }),
                     new StubCombatLogic(
-                        movementIntent: new RawMovementIntent(10, 5, new Vector2Int(1, 0)),
+                        controlledEntityId: 10,
                         attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
-                });
+                },
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
             var result = pipeline.RunTick(new TickInput(1));
             var snapshotAfter = CreateSnapshot(worldState);
@@ -50,98 +71,92 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 2, TargetId: 20),
+                    (SourceId: 10, TargetId: 20),
                 },
                 result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (GroupId: 2, IntentId: 2, SourceId: 10, Kind: ActionGroupKind.Attack, DamageTargetId: 20, DestroyTargetId: 20),
-                },
-                result.AttackPhaseResult
-                    .ExpandedCandidates
-                    .Select(group => (
-                        group.GroupId,
-                        group.IntentId,
-                        group.SourceId,
-                        group.GroupKind,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[] { (GroupId: 2, SourceId: 10, DestroyTargetId: 20) },
-                result.AttackPhaseResult
-                    .SelectedGroups
-                    .Select(group => (group.GroupId, group.SourceId, DestroyTargetId: group.Destroys.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
-                    "DamageCommitted|G=2|I=2|Target=20|Amount=1",
-                },
-                result.AttackPhaseResult.CommitEvents);
+            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.AttackPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.RejectedReasons, Has.Some.Contains("Stage=ExecutionLock"));
+            Assert.That(result.PresentationData.EnemyActionSignals, Is.Empty);
+            Assert.That(result.PresentationData.PlayerActionSignals, Is.Empty);
 
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(1));
+            Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(2));
             Assert.That(IsMarkedForDeath(snapshotAfter, 20), Is.False);
+            Assert.That(snapshotAfter.TryGetEntityExecutionLockState(10, out var executionLockState), Is.True);
+            Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
+            Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));
         }
 
         [Test]
-        public void Attack_MoveThenAttack_UsesPostMoveSnapshotForSameCellContact()
+        public void Attack_MoveCommit_AllowsAttackOnFirstTickAfterExecutionUnlock()
         {
+            var timingProfile = new GameplayTimingProfile(
+                simulationTicksPerSecond: 60,
+                initialMoveDelaySeconds: 0f,
+                repeatedMoveIntervalSeconds: 1f / 60f,
+                boxSlideStepIntervalSeconds: 0.2f,
+                projectileStepIntervalSeconds: 0.2f,
+                moveMotionDurationSeconds: 1f / 60f,
+                pushMotionDurationSeconds: 0.2f,
+                topologyMotionDurationSeconds: 0.2f,
+                flipMotionDurationSeconds: 0.2f,
+                flipArcHeightInCells: 0.65f,
+                maxTicksPerFrame: 8,
+                moveOccupancyDurationSeconds: 1f / 60f);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
-                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 2),
-            });
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 2),
+            }, timingProfile);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
                 new IEntityLogic[]
                 {
+                    new TickScriptedMovementLogic(
+                        10,
+                        new Dictionary<int, RawMovementIntent>
+                        {
+                            { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
+                        }),
                     new StubCombatLogic(
-                        movementIntent: new RawMovementIntent(10, 5, new Vector2Int(1, 0)),
+                        controlledEntityId: 10,
                         attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
-                });
+                },
+                timingProfile,
+                CreateDefaultPlayerControlTimingSnapshot(timingProfile));
 
-            var result = pipeline.RunTick(new TickInput(1));
+            var moveTick = pipeline.RunTick(new TickInput(1));
+            var lockedTick = pipeline.RunTick(new TickInput(2));
+            var unlockTick = pipeline.RunTick(new TickInput(3));
             var snapshotAfter = CreateSnapshot(worldState);
-            var stackedUnits = new List<EntityState>();
 
+            Assert.That(moveTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(lockedTick.AttackPhaseResult.SortedInputs, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 2, TargetId: 20),
+                    (SourceId: 10, TargetId: 20),
                 },
-                result.AttackPhaseResult
+                unlockTick.AttackPhaseResult
                     .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (GroupId: 2, SourceId: 10, DamageTargetId: 20),
+                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
+                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
                 },
-                result.AttackPhaseResult
-                    .SelectedGroups
-                    .Select(group => (group.GroupId, group.SourceId, DamageTargetId: group.Damages.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
-                    "DamageCommitted|G=2|I=2|Target=20|Amount=1",
-                },
-                result.AttackPhaseResult.CommitEvents);
+                unlockTick.AttackPhaseResult.CommitEvents);
 
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(1));
-
-            snapshotAfter.EnumerateUnitsAt(new Vector2Int(1, 0), stackedUnits);
-            CollectionAssert.AreEqual(new[] { 10, 20 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+            Assert.That(unlockTick.AttackPhaseResult.RejectedReasons, Is.Empty);
         }
 
         [Test]
@@ -1540,6 +1555,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 if (attackIntent.HasValue)
                 {
                     buffer.Add(attackIntent.Value);
+                }
+            }
+        }
+
+        private sealed class TickScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _entityId;
+            private readonly IReadOnlyDictionary<int, RawMovementIntent> _movementIntentsByTick;
+
+            public TickScriptedMovementLogic(int entityId, IReadOnlyDictionary<int, RawMovementIntent> movementIntentsByTick)
+            {
+                _entityId = entityId;
+                _movementIntentsByTick = movementIntentsByTick ?? throw new ArgumentNullException(nameof(movementIntentsByTick));
+            }
+
+            public int ControlledEntityId => _entityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (_movementIntentsByTick.TryGetValue(input.TickIndex, out var movementIntent))
+                {
+                    buffer.Add(movementIntent);
                 }
             }
         }
