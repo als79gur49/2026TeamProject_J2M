@@ -195,9 +195,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerAnimatorDriver_WalkSequence_UsesWalkStartOnInitialMoveAndWalkDoneWhenMovementStops()
+        public void PlayerAnimatorDriver_WalkLoop_UsesSingleStateForEnterAndExit()
         {
-            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WalkSequence_UsesWalkStartOnInitialMoveAndWalkDoneWhenMovementStops");
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WalkLoop_UsesSingleStateForEnterAndExit");
 
             try
             {
@@ -205,23 +205,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(driver, Is.Not.Null);
 
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "walkStateName", "Walk_Start");
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "walkExitStateName", "Walk_Done");
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "walkStateName", "Walk_Loop");
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "walkExitStateName", string.Empty);
 
-                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Walk);
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.WalkLoop);
 
-                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
-                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Start"));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Loop"));
 
-                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Walk);
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.WalkLoop);
 
-                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
-                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Start"));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Loop"));
 
                 driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Idle);
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
-                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Walk_Done"));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Idle"));
             }
             finally
             {
@@ -230,7 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void PlayerS1Controller_WalkSequence_TransitionsFromStartToLoopAndDoneToIdle()
+        public void PlayerS1Controller_WalkLoopConfiguration_RemovesLegacyStartAndDoneStates()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
 
@@ -239,23 +239,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var stateMachine = controller.layers[0].stateMachine;
             var idleState = FindState(stateMachine, "Idle");
-            var walkStartState = FindState(stateMachine, "Walk_Start");
             var walkLoopState = FindState(stateMachine, "Walk_Loop");
+            var walkStartState = FindState(stateMachine, "Walk_Start");
             var walkDoneState = FindState(stateMachine, "Walk_Done");
 
             Assert.That(idleState, Is.Not.Null);
-            Assert.That(walkStartState, Is.Not.Null);
             Assert.That(walkLoopState, Is.Not.Null);
-            Assert.That(walkDoneState, Is.Not.Null);
-
-            Assert.That(
-                HasTransition(walkStartState, walkLoopState.name),
-                Is.True,
-                "Walk_Start must advance into Walk_Loop for continuous movement.");
-            Assert.That(
-                HasTransition(walkDoneState, idleState.name),
-                Is.True,
-                "Walk_Done must return to Idle after movement stops.");
+            Assert.That(walkStartState, Is.Null);
+            Assert.That(walkDoneState, Is.Null);
         }
 
         [Test]
@@ -272,8 +263,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(driver, Is.Not.Null);
             Assert.That(view, Is.Not.Null);
             Assert.That(view.ModelRoot, Is.Not.Null);
-            Assert.That(GetPrivateInstanceField<string>(driver, "walkStateName"), Is.EqualTo("Walk_Start"));
-            Assert.That(GetPrivateInstanceField<string>(driver, "walkExitStateName"), Is.EqualTo("Walk_Done"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "walkStateName"), Is.EqualTo("Walk_Loop"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "walkExitStateName"), Is.Empty);
             Assert.That(GetPrivateInstanceField<string>(driver, "pushStateName"), Is.EqualTo("Kick"));
             Assert.That(GetPrivateInstanceField<string>(driver, "flipStateName"), Is.EqualTo("Change_Start"));
             Assert.That(GetPrivateInstanceField<string>(driver, "flipExitStateName"), Is.EqualTo("Change_Stop"));

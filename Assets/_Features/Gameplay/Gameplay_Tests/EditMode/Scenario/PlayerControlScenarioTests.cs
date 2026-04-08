@@ -97,6 +97,81 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked()
+        {
+            var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerMoveCooldownTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                    CreateWall(entityId: 90, position: new Vector2Int(2, 0)),
+                },
+                timingProfile);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                timingProfile,
+                playerControlTiming);
+
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var secondTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right)));
+            var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
+
+            var firstSignal = firstTick.PresentationData.PlayerLocomotionSignals.Single();
+            var secondSignal = secondTick.PresentationData.PlayerLocomotionSignals.Single();
+            var thirdSignal = thirdTick.PresentationData.PlayerLocomotionSignals.Single();
+
+            Assert.That(firstSignal.ShouldPlayWalkLoop, Is.True);
+            Assert.That(firstSignal.MoveMotionGeneratedThisTick, Is.True);
+            Assert.That(firstSignal.WaitingForNextMoveCadence, Is.False);
+
+            Assert.That(secondSignal.ShouldPlayWalkLoop, Is.True);
+            Assert.That(secondSignal.MoveMotionGeneratedThisTick, Is.False);
+            Assert.That(secondSignal.WaitingForNextMoveCadence, Is.True);
+
+            Assert.That(thirdSignal.ShouldPlayWalkLoop, Is.False);
+            Assert.That(thirdSignal.MoveMotionGeneratedThisTick, Is.False);
+            Assert.That(thirdSignal.WaitingForNextMoveCadence, Is.False);
+            Assert.That(thirdTick.MovementPhaseResult.CommitEvents, Is.Empty);
+        }
+
+        [Test]
+        public void PlayerControl_LocomotionPresentationSignal_InputReleaseDuringCooldown_DropsWalkLoop()
+        {
+            var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
+            var playerControlTiming = CreatePlayerControlTimingSnapshot(
+                timingProfile,
+                playerMoveCooldownTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                },
+                timingProfile);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                timingProfile,
+                playerControlTiming);
+
+            var moveTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var releaseTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(moveTick.PresentationData.PlayerLocomotionSignals.Single().ShouldPlayWalkLoop, Is.True);
+            Assert.That(releaseTick.PresentationData.PlayerLocomotionSignals.Single().ShouldPlayWalkLoop, Is.False);
+            Assert.That(releaseTick.PresentationData.PlayerLocomotionSignals.Single().WaitingForNextMoveCadence, Is.False);
+        }
+
+        [Test]
         public void PlayerControl_HoldAgainstSameBox_TriggersPushAtThreshold()
         {
             var worldState = CreateWorldState(new[]

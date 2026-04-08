@@ -140,6 +140,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 configuration.TopologyRotationVisualMapping,
                 Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
+            Assert.That(
+                configuration.TopologyRotationTween.Mode,
+                Is.EqualTo(TopologyRotationTweenMode.AxisAngleX));
+            Assert.That(
+                configuration.TopologyRotationTween.Ease,
+                Is.EqualTo(TopologyRotationTweenEase.OutQuad));
         }
 
         [Test]
@@ -2403,10 +2409,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
                         },
                         topologyMotion: null,
-                        Array.Empty<TickVisibilityChange>())));
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true, moveMotionGeneratedThisTick: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
 
                 presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
                 presenter.Present(CreateTickResult(
@@ -2417,6 +2432,196 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     topology,
                     TickPresentationData.Empty));
                 presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_PlayerLocomotionSignal_KeepsWalkLoopAcrossCooldownGap()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerLocomotionSignal_KeepsWalkLoopAcrossCooldownGap");
+
+            try
+            {
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.3f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(registry.transform, attachPlayerAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(new[] { CreateSurfaceUnit(10, sourceCell, facing: Direction.Right) }, topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        new[]
+                        {
+                            new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                        },
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true, moveMotionGeneratedThisTick: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(timingProfile.MoveMotionDurationSeconds);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true, waitingForNextMoveCadence: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_Present_PlayerLocomotionSignal_FalseFallsBackToIdleOnlyAfterMoveTrackEnds()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerLocomotionSignal_FalseFallsBackToIdleOnlyAfterMoveTrackEnds");
+
+            try
+            {
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 1f,
+                    pushMotionDurationSeconds: 0.3f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new TestViewFactory(registry.transform, attachPlayerAnimatorDriver: true));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(new[] { CreateSurfaceUnit(10, sourceCell, facing: Direction.Right) }, topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        new[]
+                        {
+                            new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
+                        },
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true, moveMotionGeneratedThisTick: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0.5f);
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: false),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+
+                presenter.UpdatePresentation(0.5f);
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
             }
@@ -2472,7 +2677,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[]
                         {
                             new TickPlayerActionPresentationSignal(10, PlayerActionKind.Push, 1, startedThisTick: true, completedThisTick: false, canceledThisTick: false),
-                        })));
+                        },
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Push));
@@ -2541,7 +2753,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[]
                         {
                             new TickPlayerActionPresentationSignal(10, PlayerActionKind.Flip, 2, startedThisTick: true, completedThisTick: false, canceledThisTick: false),
-                        })));
+                        },
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Flip));
@@ -2668,13 +2887,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             new TickEntityMotion(10, TickEntityMotionKind.Move, sourceCell, destinationCell),
                         },
                         topologyMotion: null,
-                        Array.Empty<TickVisibilityChange>())));
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: true, moveMotionGeneratedThisTick: true),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
                 presenter.UpdatePresentation(0f);
 
-                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
 
                 presenter.UpdatePresentation(0.5f);
-                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
+
+                presenter.Present(CreateTickResult(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, destinationCell, facing: Direction.Right),
+                    },
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        Array.Empty<TickVisibilityChange>(),
+                        Array.Empty<TickTransitionVisibilityChange>(),
+                        Array.Empty<TickPlayerActionPresentationSignal>(),
+                        new[]
+                        {
+                            CreatePlayerLocomotionSignal(10, shouldPlayWalkLoop: false),
+                        },
+                        Array.Empty<TickEnemyActionPresentationSignal>(),
+                        Array.Empty<TickEnemyJumpPresentationSignal>(),
+                        Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
 
                 presenter.UpdatePresentation(0.5f);
                 Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
@@ -4769,6 +5020,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 presentationData ?? TickPresentationData.Empty,
                 string.Empty,
                 TickTrace.Empty);
+        }
+
+        private static TickPlayerLocomotionPresentationSignal CreatePlayerLocomotionSignal(
+            int entityId,
+            bool shouldPlayWalkLoop,
+            bool moveMotionGeneratedThisTick = false,
+            bool waitingForNextMoveCadence = false,
+            Direction inputDirection = Direction.Right,
+            bool inputIsBuffered = false)
+        {
+            return new TickPlayerLocomotionPresentationSignal(
+                entityId,
+                shouldPlayWalkLoop,
+                moveMotionGeneratedThisTick,
+                waitingForNextMoveCadence,
+                inputDirection,
+                inputIsBuffered);
         }
 
         private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)

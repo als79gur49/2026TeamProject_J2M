@@ -461,10 +461,10 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var snapshot = host.WorldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
-            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
 
             host.Presenter.UpdatePresentation(0.5f);
-            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Walk));
+            Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
 
             yield return DestroyHost(host);
         }
