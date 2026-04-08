@@ -77,6 +77,7 @@ GameObject:
   - component: {fileID: 8723422497058635667}
   - component: {fileID: 1395465871142893710}
   - component: {fileID: 9095932808801300161}
+  - component: {fileID: 3687895322971148645}
   m_Layer: 0
   m_Name: EnemyView_BlackEye
   m_TagString: Untagged
@@ -173,6 +174,27 @@ MonoBehaviour:
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: -3291206362154003629, guid: 4d048268569f7314ca6e0610d38303f9, type: 3}
+--- !u!114 &3687895322971148645
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1253227309742569353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f7762e9bd7a5429284f37c232d37ee85, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EnemyPupilVisualController
+  animatorDriver: {fileID: 1395465871142893710}
+  targetRenderers: []
+  baseBorderOverride: -1
+  windupExpandedBorder: 0.64
+  attackContractedBorder: 0.22
+  windupExpandRatio: 0.82
+  fallbackWindupDurationSeconds: 1
+  fallbackRecoverDurationSeconds: 1
+  attackHoldSeconds: 0.04
 --- !u!1 &2671696761220166410
 GameObject:
   m_ObjectHideFlags: 0

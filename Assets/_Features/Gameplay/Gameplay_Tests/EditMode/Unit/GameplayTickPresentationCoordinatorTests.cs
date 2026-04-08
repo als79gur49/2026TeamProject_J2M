@@ -9,6 +9,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -1271,6 +1272,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                controller.ConfigureLegacyColorFallback(true);
                 var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
                 visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
                 var renderer = visual.GetComponent<Renderer>();
@@ -1283,6 +1285,218 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(controller.CurrentActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
                 Assert.That(controller.CurrentInactiveBlend, Is.EqualTo(1f).Within(0.0001f));
                 Assert.That(propertyBlock.GetFloat("_InactiveBlend"), Is.EqualTo(1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyInactiveVisualController_FrontFaceInactive_DefaultPolicy_DoesNotApplyLegacyBaseColorOverride()
+        {
+            var rootObject = new GameObject("EnemyInactiveVisualController_FrontFaceInactive_DefaultPolicy_DoesNotApplyLegacyBaseColorOverride");
+
+            try
+            {
+                var controller = rootObject.AddComponent<EnemyInactiveVisualController>();
+                var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/3DM/3Startis/Startis.mat");
+                Assert.That(material, Is.Not.Null);
+
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var renderer = visual.GetComponent<Renderer>();
+                renderer.sharedMaterial = material;
+
+                controller.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.FrontFaceInactive));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock);
+                var expectedLegacyColor = ResolveExpectedInactiveColor(
+                    material.GetColor("_BaseColor"),
+                    inactiveTint: new Color(0.62f, 0.64f, 0.68f, 1f),
+                    desaturateStrength: 0.85f,
+                    inactiveBlend: 1f);
+
+                Assert.That(controller.AllowLegacyColorFallback, Is.False);
+                Assert.That(propertyBlock.GetFloat("_InactiveBlend"), Is.EqualTo(1f).Within(0.0001f));
+                Assert.That(propertyBlock.GetColor("_BaseColor"), Is.Not.EqualTo(expectedLegacyColor));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_PrimitiveEnemy_EnablesLegacyColorFallback()
+        {
+            var rootObject = new GameObject("DefaultGameplayEntityViewFactory_PrimitiveEnemy_EnablesLegacyColorFallback");
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10);
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                var view = factory.CreateView(enemy);
+
+                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                Assert.That(controller, Is.Not.Null);
+                Assert.That(controller.AllowLegacyColorFallback, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_StartisPrefabEnemy_KeepsLegacyColorFallbackDisabled()
+        {
+            var rootObject = new GameObject("DefaultGameplayEntityViewFactory_StartisPrefabEnemy_KeepsLegacyColorFallbackDisabled");
+
+            try
+            {
+                var startisPrefab = AssetDatabase.LoadAssetAtPath<GameplayEntityView>(
+                    "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Startis.prefab");
+                Assert.That(startisPrefab, Is.Not.Null);
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10,
+                    enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        [20] = startisPrefab,
+                    });
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0));
+                var view = factory.CreateView(enemy);
+
+                Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
+                Assert.That(controller, Is.Not.Null);
+                Assert.That(controller.AllowLegacyColorFallback, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyPupilVisualController_WindupAttackRecover_AnimatesBorderSequence()
+        {
+            var rootObject = new GameObject("EnemyPupilVisualController_WindupAttackRecover_AnimatesBorderSequence");
+
+            try
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/3DM/2BlackEye/BE_LS_M1.mat");
+                Assert.That(material, Is.Not.Null);
+
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var renderer = visual.GetComponent<Renderer>();
+                renderer.sharedMaterial = material;
+
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                var controller = rootObject.AddComponent<EnemyPupilVisualController>();
+
+                controller.Advance(0f);
+                Assert.That(controller.CurrentBorder, Is.EqualTo(0.44f).Within(0.0001f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Attack,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                controller.Advance(0.5f);
+                Assert.That(controller.CurrentBorder, Is.GreaterThan(0.44f));
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: true,
+                    startedRecoveryThisTick: true,
+                    tookDamage: false,
+                    didDie: false));
+
+                controller.Advance(0f);
+                Assert.That(controller.CurrentBorder, Is.EqualTo(0.22f).Within(0.0001f));
+
+                controller.Advance(0.02f);
+                Assert.That(controller.CurrentBorder, Is.EqualTo(0.22f).Within(0.0001f));
+
+                controller.Advance(0.5f);
+                Assert.That(controller.CurrentBorder, Is.GreaterThan(0.22f));
+                Assert.That(controller.CurrentBorder, Is.LessThan(0.44f));
+
+                controller.Advance(1f);
+                Assert.That(controller.CurrentBorder, Is.EqualTo(0.44f).Within(0.0001f));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock);
+                Assert.That(propertyBlock.GetFloat("_Border"), Is.EqualTo(0.44f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyInactiveVisualController_NormalState_PreservesPupilBorderOverride()
+        {
+            var rootObject = new GameObject("EnemyInactiveVisualController_NormalState_PreservesPupilBorderOverride");
+
+            try
+            {
+                var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/3DM/2BlackEye/BE_LS_M1.mat");
+                Assert.That(material, Is.Not.Null);
+
+                var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visual.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                var renderer = visual.GetComponent<Renderer>();
+                renderer.sharedMaterial = material;
+
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                var pupilController = rootObject.AddComponent<EnemyPupilVisualController>();
+                var inactiveController = rootObject.AddComponent<EnemyInactiveVisualController>();
+
+                pupilController.Advance(0f);
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 20,
+                    tickIndex: 2,
+                    aiMode: EnemyAiMode.Recover,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: true,
+                    startedRecoveryThisTick: true,
+                    tookDamage: false,
+                    didDie: false));
+                pupilController.Advance(0f);
+                inactiveController.Apply(new EnemyVisualSemanticState(EnemyVisualActivityState.Normal));
+
+                var propertyBlock = new MaterialPropertyBlock();
+                renderer.GetPropertyBlock(propertyBlock);
+
+                Assert.That(pupilController.CurrentBorder, Is.EqualTo(0.22f).Within(0.0001f));
+                Assert.That(propertyBlock.GetFloat("_Border"), Is.EqualTo(0.22f).Within(0.0001f));
+                Assert.That(propertyBlock.GetFloat("_InactiveBlend"), Is.EqualTo(0f).Within(0.0001f));
             }
             finally
             {
@@ -1304,6 +1518,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipMotionDurationSeconds: 0.2f,
                 flipArcHeightInCells: 0.65f,
                 maxTicksPerFrame: 8);
+        }
+
+        private static Color ResolveExpectedInactiveColor(
+            Color sourceColor,
+            Color inactiveTint,
+            float desaturateStrength,
+            float inactiveBlend)
+        {
+            var luminance = (sourceColor.r * 0.2126f) + (sourceColor.g * 0.7152f) + (sourceColor.b * 0.0722f);
+            var grayscale = new Color(luminance, luminance, luminance, sourceColor.a);
+            var tinted = Color.Lerp(grayscale, inactiveTint, inactiveBlend * 0.35f);
+            var desaturated = Color.Lerp(sourceColor, tinted, inactiveBlend * desaturateStrength);
+            desaturated.a = sourceColor.a;
+            return desaturated;
         }
 
         private static EntityState CreateEnemyUnit(int entityId, SurfaceCell position)

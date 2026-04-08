@@ -115,7 +115,8 @@ namespace Game.Feature.Gameplay.Host
                      entity.aiMode != EnemyAiMode.None)
             {
                 viewObject.AddComponent<EnemyAnimatorDriver>();
-                viewObject.AddComponent<EnemyInactiveVisualController>();
+                var inactiveVisualController = viewObject.AddComponent<EnemyInactiveVisualController>();
+                inactiveVisualController.ConfigureLegacyColorFallback(true);
             }
 
             AttachPrimitiveVisual(view, entity);

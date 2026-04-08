@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private Color inactiveTint = new(0.62f, 0.64f, 0.68f, 1f);
         [SerializeField] [Range(0f, 1f)] private float desaturateStrength = 0.85f;
         [SerializeField] [Range(0f, 1f)] private float emissionSuppression = 0.85f;
+        [SerializeField] private bool allowLegacyColorFallback;
         [SerializeField] private Renderer[] targetRenderers;
 
         private MaterialPropertyBlock _propertyBlock;
@@ -24,6 +25,8 @@ namespace Game.Feature.Gameplay.Host
         public EnemyVisualActivityState CurrentActivityState { get; private set; }
 
         public float CurrentInactiveBlend { get; private set; }
+
+        internal bool AllowLegacyColorFallback => allowLegacyColorFallback;
 
         private void Awake()
         {
@@ -48,6 +51,11 @@ namespace Game.Feature.Gameplay.Host
             Apply(EnemyVisualActivityState.Normal, 0f);
         }
 
+        internal void ConfigureLegacyColorFallback(bool allow)
+        {
+            allowLegacyColorFallback = allow;
+        }
+
         private void Apply(EnemyVisualActivityState activityState, float inactiveBlend)
         {
             CacheRenderers();
@@ -57,16 +65,6 @@ namespace Game.Feature.Gameplay.Host
 
             if (_rendererEntries.Length == 0)
             {
-                return;
-            }
-
-            if (inactiveBlend <= 0.0001f)
-            {
-                for (var i = 0; i < _rendererEntries.Length; i++)
-                {
-                    _rendererEntries[i].Renderer.SetPropertyBlock(null);
-                }
-
                 return;
             }
 
@@ -88,13 +86,17 @@ namespace Game.Feature.Gameplay.Host
                 _propertyBlock.SetFloat(EmissionSuppressionHash, emissionSuppression);
                 _propertyBlock.SetColor(InactiveTintHash, inactiveTint);
 
-                if (!entry.SupportsInactiveShaderContract && entry.HasBaseColor)
+                if (allowLegacyColorFallback &&
+                    !entry.SupportsInactiveShaderContract &&
+                    entry.HasBaseColor)
                 {
                     var targetColor = ResolveInactiveColor(entry.BaseColor, inactiveBlend);
                     _propertyBlock.SetColor(entry.BaseColorPropertyId, targetColor);
                 }
 
-                if (!entry.SupportsInactiveShaderContract && entry.HasEmissionColor)
+                if (allowLegacyColorFallback &&
+                    !entry.SupportsInactiveShaderContract &&
+                    entry.HasEmissionColor)
                 {
                     var suppressedEmission = Color.Lerp(
                         entry.EmissionColor,
