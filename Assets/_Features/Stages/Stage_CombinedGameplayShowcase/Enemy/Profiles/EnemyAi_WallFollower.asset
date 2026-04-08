@@ -12,38 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_WallFollower
   m_EditorClassIdentifier: 
-  stateResolverKind: 0
-  patrolStrategyKind: 1
-  detectionStrategyKind: 1
-  chaseStrategyKind: 0
-  attackDecisionStrategyKind: 1
-  commonSettings:
-    movementPriority: 50
-    attackPriority: 50
-    recoverSeconds: 0.1666667
-  patrolSettings:
-    blockedMovementResponse: 0
-    turnPreference: 0
-    followWalls: 1
-    followBoxes: 1
-  detectionSettings:
-    senseRange: 8
-    requireSameFace: 1
-    canTargetMarkedForDeath: 0
-  chaseSettings:
-    axisPriority: 0
-    trySecondaryAxisWhenBlocked: 1
-    desiredChaseDistance: 0
-  attackDecisionSettings:
-    attackRange: 1
-  attackTimingSettings:
-    windupSeconds: 0
-  locomotionTimingSettings:
-    moveCooldownSeconds: 0.8
-  serializedVersion: 3
-  legacyCommonSettings:
-    movementPriority: 50
-    attackPriority: 50
-    recoverTicks: 1
-  legacyAttackTimingSettings:
-    windupTicks: 0
+  coreAuthoring: {fileID: 11400000, guid: e89e900ac37341f1a936335bbf8fce1e, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: d34446b82e554da39e7f3b91f8d74641, type: 2}
+  capabilityAssets: []
+  serializedVersion: 5

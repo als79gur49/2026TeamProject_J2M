@@ -12,43 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_JumpChaser
   m_EditorClassIdentifier: 
-  stateResolverKind: 0
-  patrolStrategyKind: 0
-  detectionStrategyKind: 0
-  chaseStrategyKind: 0
-  attackDecisionStrategyKind: 1
-  movementSkillStrategyKind: 1
-  commonSettings:
-    movementPriority: 50
-    attackPriority: 50
-    recoverSeconds: 0.3
-  patrolSettings:
-    blockedMovementResponse: 0
-    turnPreference: 1
-    followWalls: 1
-    followBoxes: 1
-  detectionSettings:
-    senseRange: 8
-    requireSameFace: 1
-    canTargetMarkedForDeath: 0
-  chaseSettings:
-    axisPriority: 0
-    trySecondaryAxisWhenBlocked: 1
-    desiredChaseDistance: 0
-  attackDecisionSettings:
-    attackRange: 1
-  attackTimingSettings:
-    windupSeconds: 0
-  locomotionTimingSettings:
-    moveCooldownSeconds: 0.8
-  jumpTimingSettings:
-    windupSeconds: 0.35
-    airborneSeconds: 1
-    cooldownSeconds: 3
-  serializedVersion: 4
-  legacyCommonSettings:
-    movementPriority: 50
-    attackPriority: 50
-    recoverTicks: 1
-  legacyAttackTimingSettings:
-    windupTicks: 0
+  coreAuthoring: {fileID: 11400000, guid: a57f5fb11c9245dbaf4cf9a8bc65c9b0, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: f52611434cc746c58dcdba0b28f6a24e, type: 2}
+  capabilityAssets:
+  - {fileID: 11400000, guid: 00959a04c68a416b9c754372a38ead07, type: 2}
+  serializedVersion: 5

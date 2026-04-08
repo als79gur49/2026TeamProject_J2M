@@ -12,35 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b8e8443191cf4d54b46f4588ab76f6fe, type: 3}
   m_Name: EnemyAi_WindupMelee
   m_EditorClassIdentifier: 
-  stateResolverKind: 0
-  patrolStrategyKind: 0
-  detectionStrategyKind: 0
-  chaseStrategyKind: 0
-  attackDecisionStrategyKind: 0
-  commonSettings:
-    movementPriority: 50
-    attackPriority: 50
-    recoverSeconds: 1
-  patrolSettings:
-    blockedMovementResponse: 0
-  detectionSettings:
-    senseRange: 8
-    requireSameFace: 1
-    canTargetMarkedForDeath: 0
-  chaseSettings:
-    axisPriority: 0
-    trySecondaryAxisWhenBlocked: 1
-    desiredChaseDistance: 1
-  attackDecisionSettings:
-    attackRange: 1
-  attackTimingSettings:
-    windupSeconds: 1
-  locomotionTimingSettings:
-    moveCooldownSeconds: 1
-  serializedVersion: 2
-  legacyCommonSettings:
-    movementPriority: 50
-    attackPriority: 50
-    recoverTicks: 1
-  legacyAttackTimingSettings:
-    windupTicks: 0
+  coreAuthoring: {fileID: 11400000, guid: 5663db1219a24a0c98bba920233a4e73, type: 2}
+  brainAuthoring: {fileID: 11400000, guid: 39669bb4a84649c29126a6b00711c5a4, type: 2}
+  capabilityAssets:
+  - {fileID: 11400000, guid: c4417764abe24de8859d1e08ea670bf9, type: 2}
+  serializedVersion: 5
