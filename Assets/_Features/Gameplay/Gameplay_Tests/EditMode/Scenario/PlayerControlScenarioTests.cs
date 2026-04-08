@@ -177,6 +177,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void PlayerControl_BufferedMove_DoesNotAccumulatePushContact()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new Vector2Int(4, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreatePushThresholdPlayerLogic(10),
+                });
+
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var bufferedReleaseTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Right, isMoveBuffered: true)));
+            var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
+            var fourthTick = pipeline.RunTick(new TickInput(4, PlayerTickCommand.Move(Direction.Right)));
+
+            Assert.That(firstTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(bufferedReleaseTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(fourthTick.MovementPhaseResult.SortedIntents.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+        }
+
+        [Test]
         public void PlayerControl_DirectionChange_ResetsPushContact()
         {
             var worldState = CreateWorldState(new[]

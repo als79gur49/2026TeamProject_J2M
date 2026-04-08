@@ -120,6 +120,7 @@ namespace Game.Feature.Gameplay.Host
                 presenter,
                 configuration.Actions,
                 generalTimingProfile,
+                configuration.PlayerEntityId,
                 configuration.MoveDeadzone,
                 configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks);

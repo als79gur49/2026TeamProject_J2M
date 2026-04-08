@@ -127,9 +127,11 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var previousAction = nextState.activeAction;
             var canStartAction = snapshot.CanStartAction(_entityId, input.TickIndex);
+            var canUseMoveDirectionForActionState = !input.PlayerCommand.IsMoveBuffered || input.PlayerCommand.FlipPressed;
 
             if (!previousAction.IsActive &&
                 canStartAction &&
+                canUseMoveDirectionForActionState &&
                 input.PlayerCommand.MoveDirection != Direction.None)
             {
                 writeContext.SetFacing(_entityId, input.PlayerCommand.MoveDirection);
@@ -155,6 +157,10 @@ namespace Game.Feature.Gameplay.PlayerControl
                         _flipWindupTicks,
                         _flipRecoveryTicks);
                 }
+            }
+            else if (input.PlayerCommand.IsMoveBuffered)
+            {
+                nextState = PlayerControlQueries.ResetContact(nextState);
             }
             else if (input.PlayerCommand.MoveDirection == Direction.None)
             {

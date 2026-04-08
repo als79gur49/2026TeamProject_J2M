@@ -8,6 +8,8 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayInputHost : MonoBehaviour
     {
+        private const float DefaultMoveBufferDurationSeconds = 0.125f;
+
         private InputActionAsset _actions;
         private float _accumulatedTime;
         private bool _areActionsBound;
@@ -18,7 +20,9 @@ namespace Game.Feature.Gameplay.Host
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
         private InputAction _moveAction;
+        private PlayerMoveIntentBuffer _moveIntentBuffer;
         private float _moveDeadzone;
+        private int _playerEntityId;
         private GameplayTickViewPresenter _presenter;
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
@@ -30,6 +34,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayTickViewPresenter presenter,
             InputActionAsset actions,
             GameplayTimingProfile timingProfile,
+            int playerEntityId,
             float moveDeadzone,
             bool directionChangeConsumesDelay,
             bool autoAdvanceTicks)
@@ -54,16 +59,23 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(moveDeadzone), "Move deadzone must be zero or greater.");
             }
 
+            if (playerEntityId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(playerEntityId), "GameplayInputHost requires a positive player entity ID.");
+            }
+
             UnbindActions();
 
             _inputBuffer = inputBuffer;
             _runner = runner;
             _presenter = presenter;
             _actions = actions;
+            _playerEntityId = playerEntityId;
             _simulationTickIntervalSeconds = (timingProfile ?? throw new ArgumentNullException(nameof(timingProfile)))
                 .SimulationTickIntervalSeconds;
             _maxTicksPerFrame = timingProfile.MaxTicksPerFrame;
             _moveDeadzone = moveDeadzone;
+            _moveIntentBuffer = new PlayerMoveIntentBuffer(DefaultMoveBufferDurationSeconds);
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
             _hasBufferedFlip = false;
@@ -134,12 +146,12 @@ namespace Game.Feature.Gameplay.Host
         private TickResult RunSingleTickUnlocked()
         {
             var tickIndex = _runner.NextTickIndex;
-            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
-            var playerCommand = BuildPlayerCommand(tickIndex, sampledDirection);
+            var playerCommand = BuildPlayerCommand();
 
             _inputBuffer.Record(new TickInput(tickIndex, playerCommand));
 
             var result = _runner.RunNextTick();
+            ApplyAcceptedBufferedInput(result);
             _presenter.Present(result);
             return result;
         }
@@ -152,6 +164,9 @@ namespace Game.Feature.Gameplay.Host
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
             _sampledMoveInput = rawMoveInput;
+            var now = ResolveCurrentInputTime();
+            var sampledDirection = GridMoveInputQuantizer.Quantize(rawMoveInput, _moveDeadzone);
+            _moveIntentBuffer?.UpdateSampledDirection(sampledDirection, now);
         }
 
         public void BufferFlip()
@@ -212,7 +227,7 @@ namespace Game.Feature.Gameplay.Host
             _flipAction.performed += OnFlipPerformed;
 
             _areActionsBound = true;
-            _sampledMoveInput = _moveAction.ReadValue<Vector2>();
+            SetRawMoveInput(_moveAction.ReadValue<Vector2>());
         }
 
         private void EnsureInitialized()
@@ -225,12 +240,12 @@ namespace Game.Feature.Gameplay.Host
 
         private void OnMoveCanceled(InputAction.CallbackContext context)
         {
-            _sampledMoveInput = Vector2.zero;
+            SetRawMoveInput(Vector2.zero);
         }
 
         private void OnMovePerformed(InputAction.CallbackContext context)
         {
-            _sampledMoveInput = context.ReadValue<Vector2>();
+            SetRawMoveInput(context.ReadValue<Vector2>());
         }
 
         private void OnFlipPerformed(InputAction.CallbackContext context)
@@ -267,6 +282,7 @@ namespace Game.Feature.Gameplay.Host
             _areActionsBound = false;
             _hasBufferedFlip = false;
             _sampledMoveInput = Vector2.zero;
+            _moveIntentBuffer?.Reset();
         }
 
         private void AccumulateLockedTime(float deltaTime)
@@ -285,22 +301,147 @@ namespace Game.Feature.Gameplay.Host
             return _presenter != null && _presenter.IsTopologyTransitionActive;
         }
 
-        private PlayerTickCommand BuildPlayerCommand(int tickIndex, Direction sampledDirection)
+        private PlayerTickCommand BuildPlayerCommand()
         {
+            var now = ResolveCurrentInputTime();
+            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
+            _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
+
+            var resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out var usesBufferedDirection);
             var flipPressed = _hasBufferedFlip || (_flipAction != null && _flipAction.IsPressed());
             _hasBufferedFlip = false;
 
-            if (sampledDirection == Direction.None)
+            if (resolvedDirection == Direction.None)
             {
                 return PlayerTickCommand.None;
             }
 
             if (flipPressed)
             {
-                return PlayerTickCommand.Create(sampledDirection, flipPressed: true);
+                return PlayerTickCommand.Create(
+                    resolvedDirection,
+                    flipPressed: true,
+                    isMoveBuffered: usesBufferedDirection);
             }
 
-            return PlayerTickCommand.Move(sampledDirection);
+            return PlayerTickCommand.Move(resolvedDirection, isMoveBuffered: usesBufferedDirection);
+        }
+
+        private void ApplyAcceptedBufferedInput(TickResult result)
+        {
+            if (result == null)
+            {
+                return;
+            }
+
+            var playerActionSignals = result.PresentationData.PlayerActionSignals;
+            for (var i = 0; i < playerActionSignals.Count; i++)
+            {
+                var signal = playerActionSignals[i];
+                if (signal.EntityId != _playerEntityId)
+                {
+                    continue;
+                }
+
+                if (signal.StartedThisTick || signal.CompletedThisTick || signal.CanceledThisTick)
+                {
+                    _moveIntentBuffer.ClearBufferedDirection();
+                    return;
+                }
+            }
+
+            var entityMotions = result.PresentationData.EntityMotions;
+            for (var i = 0; i < entityMotions.Count; i++)
+            {
+                if (entityMotions[i].EntityId == _playerEntityId)
+                {
+                    _moveIntentBuffer.ClearBufferedDirection();
+                    return;
+                }
+            }
+        }
+
+        private static float ResolveCurrentInputTime()
+        {
+            return Time.unscaledTime;
+        }
+    }
+
+    internal sealed class PlayerMoveIntentBuffer
+    {
+        private Direction _bufferedDirection;
+        private float _bufferedUntilTime;
+        private readonly float _bufferDurationSeconds;
+
+        public PlayerMoveIntentBuffer(float bufferDurationSeconds)
+        {
+            if (bufferDurationSeconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(bufferDurationSeconds), "Move intent buffer duration must be zero or greater.");
+            }
+
+            _bufferDurationSeconds = bufferDurationSeconds;
+            Reset();
+        }
+
+        public Direction HeldDirection { get; private set; }
+
+        public void UpdateSampledDirection(Direction direction, float now)
+        {
+            Expire(now);
+            HeldDirection = direction;
+
+            if (direction != Direction.None)
+            {
+                Buffer(direction, now);
+            }
+        }
+
+        public Direction ResolveDirection(float now, out bool usesBufferedDirection)
+        {
+            Expire(now);
+
+            if (HeldDirection != Direction.None)
+            {
+                usesBufferedDirection = false;
+                return HeldDirection;
+            }
+
+            if (_bufferedDirection != Direction.None)
+            {
+                usesBufferedDirection = true;
+                return _bufferedDirection;
+            }
+
+            usesBufferedDirection = false;
+            return Direction.None;
+        }
+
+        public void ClearBufferedDirection()
+        {
+            _bufferedDirection = Direction.None;
+            _bufferedUntilTime = 0f;
+        }
+
+        public void Reset()
+        {
+            HeldDirection = Direction.None;
+            ClearBufferedDirection();
+        }
+
+        private void Buffer(Direction direction, float now)
+        {
+            _bufferedDirection = direction;
+            _bufferedUntilTime = now + _bufferDurationSeconds;
+        }
+
+        private void Expire(float now)
+        {
+            if (_bufferedDirection != Direction.None &&
+                now > _bufferedUntilTime)
+            {
+                ClearBufferedDirection();
+            }
         }
     }
 }

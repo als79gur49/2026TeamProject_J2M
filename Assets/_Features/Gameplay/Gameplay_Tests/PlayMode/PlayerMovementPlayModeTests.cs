@@ -655,6 +655,39 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        public IEnumerator PlayerMove_PlayMode_TapRelease_BuffersAcrossShortCooldown()
+        {
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                },
+                repeatedMoveIntervalSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            AssertViewMatchesProjectedState(host, entityId: 10);
+
+            host.InputHost.SetRawMoveInput(Vector2.right);
+            host.InputHost.SetRawMoveInput(Vector2.zero);
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
+            AssertViewMatchesProjectedState(host, entityId: 10);
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(0f);
+            AssertViewMatchesProjectedState(host, entityId: 10);
+
+            host.InputHost.RunSingleTick();
+            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            AssertViewMatchesProjectedState(host, entityId: 10);
+
+            yield return DestroyHost(host);
+        }
+
+        [UnityTest]
         public IEnumerator PlayerMove_PlayMode_SpawnedEntity_BecomesVisibleAfterTick()
         {
             var host = CreateHost(
