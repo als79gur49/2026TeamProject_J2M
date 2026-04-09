@@ -9,13 +9,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
     public static class GameplayShowcaseSceneBuilder
     {
         private const string ActionsAssetPath = "Assets/InputSystem_Actions.inputactions";
-        private const string TraversalScenePath = "Assets/Scenes/CubeSurfaceTraversalShowcase.unity";
-        private const string BoxScenePath = "Assets/Scenes/BoxInteractionShowcase.unity";
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
-        private const string TraversalStageAssetPath =
-            "Assets/_Features/Stages/Stage_CubeSurfaceTraversalShowcase/Stage_CubeSurfaceTraversalShowcase.asset";
-        private const string BoxStageAssetPath =
-            "Assets/_Features/Stages/Stage_BoxInteractionShowcase/Stage_BoxInteractionShowcase.asset";
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
         private const string DefaultSimulationTimingPresetAssetPath =
@@ -23,37 +17,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         private const string DefaultPresentationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
 
-        [MenuItem("Tools/Gameplay/Build Showcase Scenes")]
-        public static void BuildAllScenes()
-        {
-            BuildTraversalScene();
-            BuildBoxInteractionScene();
-            BuildCombinedGameplayScene();
-            AssetDatabase.SaveAssets();
-            AssetDatabase.Refresh();
-        }
-
-        public static void BuildTraversalScene()
-        {
-            BuildScene<CubeSurfaceTraversalShowcaseInstaller>(
-                TraversalScenePath,
-                "Cube Surface Traversal Showcase",
-                TraversalStageAssetPath,
-                DefaultSimulationTimingPresetAssetPath,
-                DefaultPresentationTimingPresetAssetPath);
-        }
-
-        public static void BuildBoxInteractionScene()
-        {
-            BuildScene<BoxInteractionShowcaseInstaller>(
-                BoxScenePath,
-                "Box Interaction Showcase",
-                BoxStageAssetPath,
-                DefaultSimulationTimingPresetAssetPath,
-                DefaultPresentationTimingPresetAssetPath);
-        }
-
-        public static void BuildCombinedGameplayScene()
+        [MenuItem("Tools/Gameplay/Build Combined Gameplay Showcase Scene")]
+        public static void BuildScene()
         {
             BuildScene<CombinedGameplayShowcaseInstaller>(
                 CombinedScenePath,
