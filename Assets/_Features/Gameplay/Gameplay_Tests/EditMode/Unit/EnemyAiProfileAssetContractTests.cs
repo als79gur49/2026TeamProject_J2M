@@ -38,10 +38,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static readonly string[] RequiredCanonicalAssetPaths =
         {
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/EnemyAi_WindupMelee.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/EnemyAi_NonAttacking.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/EnemyAi_WallFollower.asset",
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/EnemyAi_JumpChaser.asset",
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset",
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset",
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset",
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
         };
 
         [Test]

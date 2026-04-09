@@ -71,7 +71,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void CombinedGameplayShowcase_NonAttackingEnemyProfileAndStartisPrefab_ShareMoveCadence()
         {
             const string enemyProfilePath =
-                "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/EnemyAi_NonAttacking.asset";
+                "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset";
             const string enemyPrefabPath =
                 "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Startis.prefab";
 
