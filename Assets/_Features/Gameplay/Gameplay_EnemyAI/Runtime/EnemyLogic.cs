@@ -25,18 +25,15 @@ namespace Game.Feature.Gameplay.Entities
     {
         private readonly struct GroundLocomotionResolution
         {
-            public GroundLocomotionResolution(bool hasIntent, RawMovementIntent intent, bool canAttemptJumpFallback)
+            public GroundLocomotionResolution(bool hasIntent, RawMovementIntent intent)
             {
                 HasIntent = hasIntent;
                 Intent = intent;
-                CanAttemptJumpFallback = canAttemptJumpFallback;
             }
 
             public bool HasIntent { get; }
 
             public RawMovementIntent Intent { get; }
-
-            public bool CanAttemptJumpFallback { get; }
         }
 
         private readonly int _entityId;
@@ -391,8 +388,12 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!hasPreviousState || previousState.phase == EnemyJumpPhase.None)
             {
-                var locomotion = ResolveBaselineGroundLocomotion(snapshot, source);
-                if (TryResolveJumpStart(snapshot, source, locomotion, input.TickIndex, out nextState))
+                if (TryResolveScheduledJumpStart(
+                        snapshot,
+                        source,
+                        hasPreviousState ? previousState : default,
+                        input.TickIndex,
+                        out nextState))
                 {
                     suppressMovementThisTick = true;
                     AppendJumpUpdate(updates, _entityId, "Start", nextState);
@@ -480,14 +481,10 @@ namespace Game.Feature.Gameplay.Entities
                     {
                         return new GroundLocomotionResolution(
                             hasIntent: true,
-                            patrolIntent,
-                            canAttemptJumpFallback: false);
+                            patrolIntent);
                     }
 
-                    return new GroundLocomotionResolution(
-                        hasIntent: false,
-                        default,
-                        canAttemptJumpFallback: true);
+                    return default;
 
                 case EnemyAiMode.Chase:
                     if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
@@ -505,14 +502,10 @@ namespace Game.Feature.Gameplay.Entities
                     {
                         return new GroundLocomotionResolution(
                             hasIntent: true,
-                            chaseIntent,
-                            canAttemptJumpFallback: false);
+                            chaseIntent);
                     }
 
-                    return new GroundLocomotionResolution(
-                        hasIntent: false,
-                        default,
-                        canAttemptJumpFallback: true);
+                    return default;
 
                 case EnemyAiMode.Charge:
                     var chargeDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
@@ -526,8 +519,7 @@ namespace Game.Feature.Gameplay.Entities
                     {
                         return new GroundLocomotionResolution(
                             hasIntent: true,
-                            chargeIntent,
-                            canAttemptJumpFallback: false);
+                            chargeIntent);
                     }
 
                     return default;
@@ -537,40 +529,7 @@ namespace Game.Feature.Gameplay.Entities
             }
         }
 
-        private bool TryResolveJumpStart(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in GroundLocomotionResolution locomotion,
-            int tickIndex,
-            out EnemyJumpRuntimeState jumpState)
-        {
-            jumpState = default;
-            var hasExistingState = snapshot.TryGetEnemyJumpState(_entityId, out var existingState);
-
-            if (locomotion.HasIntent ||
-                !locomotion.CanAttemptJumpFallback ||
-                source.boardPresence != EntityBoardPresence.Occupying ||
-                (hasExistingState &&
-                 existingState.phase == EnemyJumpPhase.Cooldown &&
-                 existingState.cooldownRemainingTicks > 0))
-            {
-                return false;
-            }
-
-            switch (source.aiMode)
-            {
-                case EnemyAiMode.Patrol:
-                    return TryResolvePatrolJumpStart(snapshot, source, hasExistingState ? existingState : default, tickIndex, out jumpState);
-
-                case EnemyAiMode.Chase:
-                    return TryResolveChaseJumpStart(snapshot, source, hasExistingState ? existingState : default, tickIndex, out jumpState);
-
-                default:
-                    return false;
-            }
-        }
-
-        private bool TryResolvePatrolJumpStart(
+        private bool TryResolveScheduledJumpStart(
             WorldSnapshot snapshot,
             in EntityState source,
             in EnemyJumpRuntimeState previousState,
@@ -578,14 +537,13 @@ namespace Game.Feature.Gameplay.Entities
             out EnemyJumpRuntimeState jumpState)
         {
             jumpState = default;
-
-            var forwardDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
-            if (!forwardDelta.HasValue)
+            if (source.boardPresence != EntityBoardPresence.Occupying ||
+                previousState.phase != EnemyJumpPhase.None ||
+                !TryFindSameFacePlayerTarget(snapshot, source, previousState, tickIndex, out var lockedTargetCell))
             {
                 return false;
             }
 
-            var lockedTargetCell = source.position + (forwardDelta.Value * 2);
             jumpState = EnemyJumpQueries.StartJump(
                 previousState,
                 source.position,
@@ -596,29 +554,49 @@ namespace Game.Feature.Gameplay.Entities
             return TryResolveJumpLanding(snapshot, source, jumpState);
         }
 
-        private bool TryResolveChaseJumpStart(
+        private bool TryFindSameFacePlayerTarget(
             WorldSnapshot snapshot,
             in EntityState source,
             in EnemyJumpRuntimeState previousState,
             int tickIndex,
-            out EnemyJumpRuntimeState jumpState)
+            out SurfaceCell lockedTargetCell)
         {
-            jumpState = default;
-            if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
-                target.position == source.position ||
-                target.position.face != source.position.face)
+            lockedTargetCell = default;
+
+            var orderedEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(orderedEntities);
+
+            var bestDistance = int.MaxValue;
+            for (var i = 0; i < orderedEntities.Count; i++)
             {
-                return false;
+                var candidate = orderedEntities[i];
+                if (!IsValidSameFacePlayerTarget(snapshot, source, candidate))
+                {
+                    continue;
+                }
+
+                var distance = GetPlanarDistance(source.position, candidate.position);
+                if (distance >= bestDistance)
+                {
+                    continue;
+                }
+
+                var jumpState = EnemyJumpQueries.StartJump(
+                    previousState,
+                    source.position,
+                    candidate.position,
+                    tickIndex,
+                    _movementSkillCapability.JumpTimingSettings);
+                if (!TryResolveJumpLanding(snapshot, source, jumpState))
+                {
+                    continue;
+                }
+
+                bestDistance = distance;
+                lockedTargetCell = candidate.position;
             }
 
-            jumpState = EnemyJumpQueries.StartJump(
-                previousState,
-                source.position,
-                target.position,
-                tickIndex,
-                _movementSkillCapability.JumpTimingSettings);
-
-            return TryResolveJumpLanding(snapshot, source, jumpState);
+            return bestDistance != int.MaxValue;
         }
 
         private static bool TryResolveJumpLanding(
@@ -628,6 +606,28 @@ namespace Game.Feature.Gameplay.Entities
         {
             return EnemyJumpQueries.TryResolveLandingCell(snapshot, source, jumpState, out var landingCell, out _) &&
                    landingCell != source.position;
+        }
+
+        private static bool IsValidSameFacePlayerTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EntityState candidate)
+        {
+            return candidate.entityId != source.entityId &&
+                   candidate.type == EntityType.Unit &&
+                   candidate.hp > 0 &&
+                   !candidate.markedForDeath &&
+                   candidate.boardPresence == EntityBoardPresence.Occupying &&
+                   candidate.position != source.position &&
+                   candidate.position.face == source.position.face &&
+                   snapshot.TryGetPlayerControlState(candidate.entityId, out _);
+        }
+
+        private static int GetPlanarDistance(SurfaceCell source, SurfaceCell target)
+        {
+            var sourcePlanar = source.PlanarPosition;
+            var targetPlanar = target.PlanarPosition;
+            return Math.Abs(targetPlanar.x - sourcePlanar.x) + Math.Abs(targetPlanar.y - sourcePlanar.y);
         }
 
         private static bool ShouldWriteJumpState(
