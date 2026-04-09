@@ -78,6 +78,7 @@ GameObject:
   - component: {fileID: 1395465871142893710}
   - component: {fileID: 9095932808801300161}
   - component: {fileID: 3687895322971148645}
+  - component: {fileID: 3687895322971148646}
   m_Layer: 0
   m_Name: EnemyView_BlackEye
   m_TagString: Untagged
@@ -111,7 +112,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5d61d20915b944faabca806869d9edba, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.GameplayEntityView
   entityId: 0
   modelRoot: {fileID: 1730374851651807525}
@@ -125,7 +126,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a1c4a2f7bf37431fa19e2d57c1d803aa, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.UnitLocomotionPresentationAuthoring
   moveMotionDurationSeconds: 1
 --- !u!114 &1395465871142893710
@@ -169,11 +170,13 @@ MonoBehaviour:
   jumpWindupAnimatorDurationSeconds: -1
   jumpAirborneAnimatorDurationSeconds: -1
   recoverAnimatorDurationSeconds: 1
+  deathAnimatorDurationSeconds: -1
   stateTransitionCrossFadeDurationSeconds: 0.001
   attackWindupReferenceClip: {fileID: -998496362607748373, guid: 4d048268569f7314ca6e0610d38303f9, type: 3}
   jumpWindupReferenceClip: {fileID: 0}
   jumpAirborneReferenceClip: {fileID: 0}
   recoverReferenceClip: {fileID: -3291206362154003629, guid: 4d048268569f7314ca6e0610d38303f9, type: 3}
+  deathReferenceClip: {fileID: -1493303027246044120, guid: 4d048268569f7314ca6e0610d38303f9, type: 3}
 --- !u!114 &3687895322971148645
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -195,6 +198,25 @@ MonoBehaviour:
   fallbackWindupDurationSeconds: 1
   fallbackRecoverDurationSeconds: 1
   attackHoldSeconds: 0.04
+--- !u!114 &3687895322971148646
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1253227309742569353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c751b2feb5f4cb9b5bf1a1b799f0684, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.EntityEffectPresentationAuthoring
+  hitEffectDurationSeconds: -1
+  deathEffectDurationSeconds: -1
+  deathViewTailSeconds: -1
+  hitVfxPrefab: {fileID: 0}
+  deathVfxPrefab: {fileID: 0}
+  deathOwnershipMode: 0
+  deathAnchorName: Chest
 --- !u!1 &2671696761220166410
 GameObject:
   m_ObjectHideFlags: 0

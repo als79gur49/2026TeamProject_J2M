@@ -287,7 +287,7 @@ namespace Game.Feature.Gameplay.Host
 
                 _stateStore.RetainedLocalTargetPoses[entityId] = retainedLocalPose;
                 _trackState.VisibilityTracks[entityId] = VisibilityTrack.CreateHide(
-                    _motionTimingResolver.ResolveVisibilityDurationSeconds(entityId, timingProfile));
+                    _motionTimingResolver.ResolveVisibilityDurationSeconds(entityId, change.ChangeKind, timingProfile));
             }
         }
 

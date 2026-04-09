@@ -10,21 +10,25 @@ namespace Game.Feature.Gameplay.Host
             float jumpWindupAnimatorDurationSeconds,
             float jumpAirborneAnimatorDurationSeconds,
             float recoverAnimatorDurationSeconds,
+            float deathAnimatorDurationSeconds,
             float stateTransitionCrossFadeDurationSeconds,
             float attackWindupReferenceClipLengthSeconds,
             float jumpWindupReferenceClipLengthSeconds,
             float jumpAirborneReferenceClipLengthSeconds,
-            float recoverReferenceClipLengthSeconds)
+            float recoverReferenceClipLengthSeconds,
+            float deathReferenceClipLengthSeconds)
         {
             AttackWindupAnimatorDurationSeconds = attackWindupAnimatorDurationSeconds;
             JumpWindupAnimatorDurationSeconds = jumpWindupAnimatorDurationSeconds;
             JumpAirborneAnimatorDurationSeconds = jumpAirborneAnimatorDurationSeconds;
             RecoverAnimatorDurationSeconds = recoverAnimatorDurationSeconds;
+            DeathAnimatorDurationSeconds = deathAnimatorDurationSeconds;
             StateTransitionCrossFadeDurationSeconds = stateTransitionCrossFadeDurationSeconds;
             AttackWindupReferenceClipLengthSeconds = attackWindupReferenceClipLengthSeconds;
             JumpWindupReferenceClipLengthSeconds = jumpWindupReferenceClipLengthSeconds;
             JumpAirborneReferenceClipLengthSeconds = jumpAirborneReferenceClipLengthSeconds;
             RecoverReferenceClipLengthSeconds = recoverReferenceClipLengthSeconds;
+            DeathReferenceClipLengthSeconds = deathReferenceClipLengthSeconds;
         }
 
         public float AttackWindupAnimatorDurationSeconds { get; }
@@ -35,6 +39,8 @@ namespace Game.Feature.Gameplay.Host
 
         public float RecoverAnimatorDurationSeconds { get; }
 
+        public float DeathAnimatorDurationSeconds { get; }
+
         public float StateTransitionCrossFadeDurationSeconds { get; }
 
         internal float AttackWindupReferenceClipLengthSeconds { get; }
@@ -44,6 +50,8 @@ namespace Game.Feature.Gameplay.Host
         internal float JumpAirborneReferenceClipLengthSeconds { get; }
 
         internal float RecoverReferenceClipLengthSeconds { get; }
+
+        internal float DeathReferenceClipLengthSeconds { get; }
 
         public bool TryGetAttackWindupAnimatorDurationOverride(out float durationSeconds)
         {
@@ -66,6 +74,12 @@ namespace Game.Feature.Gameplay.Host
         public bool TryGetRecoverAnimatorDurationOverride(out float durationSeconds)
         {
             durationSeconds = RecoverAnimatorDurationSeconds;
+            return EnemyAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
+
+        public bool TryGetDeathAnimatorDurationOverride(out float durationSeconds)
+        {
+            durationSeconds = DeathAnimatorDurationSeconds;
             return EnemyAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
         }
 
@@ -98,6 +112,12 @@ namespace Game.Feature.Gameplay.Host
             referenceClipLengthSeconds = RecoverReferenceClipLengthSeconds;
             return referenceClipLengthSeconds > 0f;
         }
+
+        internal bool TryGetDeathReferenceClipLengthSeconds(out float referenceClipLengthSeconds)
+        {
+            referenceClipLengthSeconds = DeathReferenceClipLengthSeconds;
+            return referenceClipLengthSeconds > 0f;
+        }
     }
 
     /// <summary>
@@ -116,11 +136,13 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float jumpWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float jumpAirborneAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float recoverAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float deathAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = DefaultStateTransitionCrossFadeDurationSeconds;
         [SerializeField] private AnimationClip attackWindupReferenceClip;
         [SerializeField] private AnimationClip jumpWindupReferenceClip;
         [SerializeField] private AnimationClip jumpAirborneReferenceClip;
         [SerializeField] private AnimationClip recoverReferenceClip;
+        [SerializeField] private AnimationClip deathReferenceClip;
 
         public float AttackWindupAnimatorDurationSeconds => attackWindupAnimatorDurationSeconds;
 
@@ -130,6 +152,8 @@ namespace Game.Feature.Gameplay.Host
 
         public float RecoverAnimatorDurationSeconds => recoverAnimatorDurationSeconds;
 
+        public float DeathAnimatorDurationSeconds => deathAnimatorDurationSeconds;
+
         public float StateTransitionCrossFadeDurationSeconds => stateTransitionCrossFadeDurationSeconds;
 
         public void Validate()
@@ -138,6 +162,7 @@ namespace Game.Feature.Gameplay.Host
             ValidateAnimatorDuration(jumpWindupAnimatorDurationSeconds, nameof(jumpWindupAnimatorDurationSeconds));
             ValidateAnimatorDuration(jumpAirborneAnimatorDurationSeconds, nameof(jumpAirborneAnimatorDurationSeconds));
             ValidateAnimatorDuration(recoverAnimatorDurationSeconds, nameof(recoverAnimatorDurationSeconds));
+            ValidateAnimatorDuration(deathAnimatorDurationSeconds, nameof(deathAnimatorDurationSeconds));
             ValidateCrossFadeDuration(stateTransitionCrossFadeDurationSeconds, nameof(stateTransitionCrossFadeDurationSeconds));
             ResolveReferenceClipLengthSeconds(
                 attackWindupAnimatorDurationSeconds,
@@ -159,6 +184,11 @@ namespace Game.Feature.Gameplay.Host
                 recoverReferenceClip,
                 nameof(recoverReferenceClip),
                 nameof(recoverAnimatorDurationSeconds));
+            ResolveReferenceClipLengthSeconds(
+                deathAnimatorDurationSeconds,
+                deathReferenceClip,
+                nameof(deathReferenceClip),
+                nameof(deathAnimatorDurationSeconds));
         }
 
         public EnemyAnimationTimingSnapshot CreateSnapshot()
@@ -184,16 +214,23 @@ namespace Game.Feature.Gameplay.Host
                 recoverReferenceClip,
                 nameof(recoverReferenceClip),
                 nameof(recoverAnimatorDurationSeconds));
+            var deathReferenceClipLengthSeconds = ResolveReferenceClipLengthSeconds(
+                deathAnimatorDurationSeconds,
+                deathReferenceClip,
+                nameof(deathReferenceClip),
+                nameof(deathAnimatorDurationSeconds));
             return new EnemyAnimationTimingSnapshot(
                 attackWindupAnimatorDurationSeconds,
                 jumpWindupAnimatorDurationSeconds,
                 jumpAirborneAnimatorDurationSeconds,
                 recoverAnimatorDurationSeconds,
+                deathAnimatorDurationSeconds,
                 stateTransitionCrossFadeDurationSeconds,
                 attackWindupReferenceClipLengthSeconds,
                 jumpWindupReferenceClipLengthSeconds,
                 jumpAirborneReferenceClipLengthSeconds,
-                recoverReferenceClipLengthSeconds);
+                recoverReferenceClipLengthSeconds,
+                deathReferenceClipLengthSeconds);
         }
 
         public static bool IsAnimatorDurationOverride(float animatorDurationSeconds)

@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
             float pushRecoveryAnimatorDurationSeconds,
             float flipWindupAnimatorDurationSeconds,
             float flipRecoveryAnimatorDurationSeconds,
+            float deathAnimatorDurationSeconds,
             float legacyPushAnimatorDurationSeconds,
             float legacyFlipAnimatorDurationSeconds)
         {
@@ -29,6 +30,7 @@ namespace Game.Feature.Gameplay.Host
             PushRecoveryAnimatorDurationSeconds = pushRecoveryAnimatorDurationSeconds;
             FlipWindupAnimatorDurationSeconds = flipWindupAnimatorDurationSeconds;
             FlipRecoveryAnimatorDurationSeconds = flipRecoveryAnimatorDurationSeconds;
+            DeathAnimatorDurationSeconds = deathAnimatorDurationSeconds;
             LegacyPushAnimatorDurationSeconds = legacyPushAnimatorDurationSeconds;
             LegacyFlipAnimatorDurationSeconds = legacyFlipAnimatorDurationSeconds;
         }
@@ -40,6 +42,8 @@ namespace Game.Feature.Gameplay.Host
         public float FlipWindupAnimatorDurationSeconds { get; }
 
         public float FlipRecoveryAnimatorDurationSeconds { get; }
+
+        public float DeathAnimatorDurationSeconds { get; }
 
         public float LegacyPushAnimatorDurationSeconds { get; }
 
@@ -74,6 +78,12 @@ namespace Game.Feature.Gameplay.Host
 
             return PlayerAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
         }
+
+        public bool TryGetDeathAnimatorDurationOverride(out float durationSeconds)
+        {
+            durationSeconds = DeathAnimatorDurationSeconds;
+            return PlayerAnimationTimingAuthoring.IsAnimatorDurationOverride(durationSeconds);
+        }
     }
 
     [MovedFrom(false, "Game.Feature.Gameplay.Host", "Game.Feature.Gameplay.Host", "PlayerActionTimingAuthoring")]
@@ -87,6 +97,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private float pushRecoveryAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float flipWindupAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [SerializeField] private float flipRecoveryAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
+        [SerializeField] private float deathAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
         [FormerlySerializedAs("pushAnimatorDurationSeconds")]
         [FormerlySerializedAs("pushPresentationDurationSeconds")]
         [SerializeField, HideInInspector] private float legacyPushAnimatorDurationSeconds = DefaultAnimatorDurationSeconds;
@@ -102,12 +113,15 @@ namespace Game.Feature.Gameplay.Host
 
         public float FlipRecoveryAnimatorDurationSeconds => flipRecoveryAnimatorDurationSeconds;
 
+        public float DeathAnimatorDurationSeconds => deathAnimatorDurationSeconds;
+
         public void Validate()
         {
             ValidateAnimatorDuration(pushWindupAnimatorDurationSeconds, nameof(pushWindupAnimatorDurationSeconds));
             ValidateAnimatorDuration(pushRecoveryAnimatorDurationSeconds, nameof(pushRecoveryAnimatorDurationSeconds));
             ValidateAnimatorDuration(flipWindupAnimatorDurationSeconds, nameof(flipWindupAnimatorDurationSeconds));
             ValidateAnimatorDuration(flipRecoveryAnimatorDurationSeconds, nameof(flipRecoveryAnimatorDurationSeconds));
+            ValidateAnimatorDuration(deathAnimatorDurationSeconds, nameof(deathAnimatorDurationSeconds));
             ValidateAnimatorDuration(legacyPushAnimatorDurationSeconds, nameof(legacyPushAnimatorDurationSeconds));
             ValidateAnimatorDuration(legacyFlipAnimatorDurationSeconds, nameof(legacyFlipAnimatorDurationSeconds));
         }
@@ -120,6 +134,7 @@ namespace Game.Feature.Gameplay.Host
                 pushRecoveryAnimatorDurationSeconds,
                 flipWindupAnimatorDurationSeconds,
                 flipRecoveryAnimatorDurationSeconds,
+                deathAnimatorDurationSeconds,
                 legacyPushAnimatorDurationSeconds,
                 legacyFlipAnimatorDurationSeconds);
         }
@@ -183,6 +198,7 @@ namespace Game.Feature.Gameplay.Host
             GetAnimationTimingAuthoring(playerViewPrefab, ownerDescription);
             UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
             EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
+            EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
         }
 
         public static void ValidatePlayerViewInstance(GameplayEntityView playerViewInstance, string ownerDescription)

@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string flipWindupStateName = "Flip_Windup";
         [FormerlySerializedAs("flipExitStateName")]
         [SerializeField] private string flipRecoveryStateName = "Flip_Recovery";
+        [SerializeField] private string deathStateName = "Death";
         [SerializeField] private string walkExitStateName;
         [FormerlySerializedAs("crossFadeDurationSeconds")]
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = 0.08f;
@@ -52,6 +53,8 @@ namespace Game.Feature.Gameplay.Host
         public float PushPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Push);
 
         public float FlipPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Flip);
+
+        public float DeathPresentationDurationSeconds => GetDeathPresentationDurationSeconds();
 
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
@@ -117,6 +120,16 @@ namespace Game.Feature.Gameplay.Host
                 resolvedMotionDurationSeconds);
         }
 
+        public float GetDeathClipLengthSeconds()
+        {
+            return ResolveStateReferenceClipLengthSeconds(ResolveAnimator(), deathStateName);
+        }
+
+        public float GetDeathPresentationDurationSeconds()
+        {
+            return ResolveDeathPresentationDurationSeconds(ResolveAnimator());
+        }
+
         private void ApplyResolvedState(
             PlayerViewAnimationState resolvedState,
             bool restart,
@@ -133,7 +146,7 @@ namespace Game.Feature.Gameplay.Host
                 previousState,
                 previousPhase);
 
-            ApplyAnimatorSpeed(targetAnimator, targetPhase, resolvedMotionDurationSeconds);
+            ApplyAnimatorSpeed(targetAnimator, resolvedState, targetPhase, resolvedMotionDurationSeconds);
             SyncOptionalStateParameter(targetAnimator, resolvedState);
 
             var stateChanged = resolvedState != previousState;
@@ -157,6 +170,7 @@ namespace Game.Feature.Gameplay.Host
             return state switch
             {
                 PlayerViewAnimationState.WalkLoop => walkStateName,
+                PlayerViewAnimationState.Death => deathStateName,
                 _ => idleStateName,
             };
         }
@@ -335,11 +349,13 @@ namespace Game.Feature.Gameplay.Host
 
         private void ApplyAnimatorSpeed(
             Animator targetAnimator,
+            PlayerViewAnimationState resolvedState,
             PlayerPresentationPhase phase,
             float resolvedMotionDurationSeconds)
         {
             var targetSpeed = ResolveAnimatorSpeed(
                 targetAnimator,
+                resolvedState,
                 phase,
                 resolvedMotionDurationSeconds,
                 out var presentationDurationSeconds);
@@ -354,27 +370,55 @@ namespace Game.Feature.Gameplay.Host
 
         private float ResolveAnimatorSpeed(
             Animator targetAnimator,
+            PlayerViewAnimationState resolvedState,
             PlayerPresentationPhase phase,
             float resolvedMotionDurationSeconds,
             out float presentationDurationSeconds)
         {
-            if (phase == PlayerPresentationPhase.None)
+            float referenceClipLengthSeconds;
+
+            if (resolvedState == PlayerViewAnimationState.Death)
             {
-                presentationDurationSeconds = 0f;
-                return 1f;
+                presentationDurationSeconds = ResolveDeathPresentationDurationSeconds(targetAnimator);
+                referenceClipLengthSeconds = ResolveStateReferenceClipLengthSeconds(targetAnimator, deathStateName);
+            }
+            else
+            {
+                if (phase == PlayerPresentationPhase.None)
+                {
+                    presentationDurationSeconds = 0f;
+                    return 1f;
+                }
+
+                presentationDurationSeconds = ResolvePhasePresentationDurationSeconds(
+                    targetAnimator,
+                    phase,
+                    resolvedMotionDurationSeconds);
+                referenceClipLengthSeconds = ResolvePhaseReferenceClipLengthSeconds(targetAnimator, phase);
             }
 
-            presentationDurationSeconds = ResolvePhasePresentationDurationSeconds(
-                targetAnimator,
-                phase,
-                resolvedMotionDurationSeconds);
             if (presentationDurationSeconds <= 0f)
             {
                 presentationDurationSeconds = 0.01f;
             }
 
-            var referenceClipLengthSeconds = ResolvePhaseReferenceClipLengthSeconds(targetAnimator, phase);
+            if (referenceClipLengthSeconds <= 0f)
+            {
+                referenceClipLengthSeconds = 1f;
+            }
+
             return Mathf.Max(0.01f, referenceClipLengthSeconds / presentationDurationSeconds);
+        }
+
+        private float ResolveDeathPresentationDurationSeconds(Animator targetAnimator)
+        {
+            var animationTiming = ResolveAnimationTiming();
+            if (animationTiming.TryGetDeathAnimatorDurationOverride(out var durationSeconds))
+            {
+                return durationSeconds;
+            }
+
+            return ResolveStateReferenceClipLengthSeconds(targetAnimator, deathStateName);
         }
 
         private float ResolveActionPresentationDurationSeconds(
@@ -478,6 +522,19 @@ namespace Game.Feature.Gameplay.Host
                 return 1f;
             }
 
+            var resolvedLength = ResolveStateReferenceClipLengthSeconds(targetAnimator, stateName);
+            return resolvedLength > 0f ? resolvedLength : 1f;
+        }
+
+        private float ResolveStateReferenceClipLengthSeconds(
+            Animator targetAnimator,
+            string stateName)
+        {
+            if (string.IsNullOrWhiteSpace(stateName))
+            {
+                return 0f;
+            }
+
             var controller = targetAnimator?.runtimeAnimatorController;
             if (_cachedClipLengthController != controller)
             {
@@ -491,11 +548,6 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var resolvedLength = ResolveClipLengthSeconds(controller, stateName);
-            if (resolvedLength <= 0f)
-            {
-                resolvedLength = 1f;
-            }
-
             _clipLengthCache[stateName] = resolvedLength;
             return resolvedLength;
         }
@@ -529,6 +581,11 @@ namespace Game.Feature.Gameplay.Host
             PlayerViewAnimationState previousState,
             PlayerPresentationPhase previousPhase)
         {
+            if (resolvedState == PlayerViewAnimationState.Death)
+            {
+                return PlayerPresentationPhase.None;
+            }
+
             if (executeActionKind == PlayerActionKind.Push ||
                 executeActionKind == PlayerActionKind.Flip)
             {

@@ -54,6 +54,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int DeathSignalCount { get; private set; }
 
+        public float DeathPresentationDurationSeconds => ResolveDeathPresentationDurationSeconds();
+
         public float CurrentAnimatorSpeed { get; private set; } = 1f;
 
         public float CurrentPresentationDurationSeconds { get; private set; }
@@ -275,6 +277,9 @@ namespace Game.Feature.Gameplay.Host
                 case EnemyPresentationPhase.Recovery:
                     return animationTiming.TryGetRecoverAnimatorDurationOverride(out durationSeconds);
 
+                case EnemyPresentationPhase.Death:
+                    return animationTiming.TryGetDeathAnimatorDurationOverride(out durationSeconds);
+
                 default:
                     durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
                     return false;
@@ -320,6 +325,10 @@ namespace Game.Feature.Gameplay.Host
                     return animationTiming.TryGetRecoverReferenceClipLengthSeconds(
                         out referenceClipLengthSeconds);
 
+                case EnemyPresentationPhase.Death:
+                    return animationTiming.TryGetDeathReferenceClipLengthSeconds(
+                        out referenceClipLengthSeconds);
+
                 default:
                     referenceClipLengthSeconds = 0f;
                     return false;
@@ -347,8 +356,19 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private float ResolveDeathPresentationDurationSeconds()
+        {
+            ResolveAnimatorSpeed(EnemyPresentationPhase.Death, out var presentationDurationSeconds);
+            return presentationDurationSeconds;
+        }
+
         private static EnemyPresentationPhase ResolvePresentationPhase(in EnemyViewPresentationState state)
         {
+            if (state.DidDie)
+            {
+                return EnemyPresentationPhase.Death;
+            }
+
             switch (state.JumpPhase)
             {
                 case EnemyJumpPhase.Windup:
@@ -576,6 +596,7 @@ namespace Game.Feature.Gameplay.Host
             Recovery = 2,
             JumpWindup = 3,
             JumpAirborne = 4,
+            Death = 5,
         }
     }
 }

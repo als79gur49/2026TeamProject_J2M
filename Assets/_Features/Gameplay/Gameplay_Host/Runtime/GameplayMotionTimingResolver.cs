@@ -138,7 +138,10 @@ namespace Game.Feature.Gameplay.Host
             return timingProfile.TopologyMotionDurationSeconds;
         }
 
-        public float ResolveVisibilityDurationSeconds(int entityId, GameplayTimingProfile timingProfile)
+        public float ResolveVisibilityDurationSeconds(
+            int entityId,
+            TickVisibilityChangeKind changeKind,
+            GameplayTimingProfile timingProfile)
         {
             if (timingProfile == null)
             {
@@ -156,6 +159,23 @@ namespace Game.Feature.Gameplay.Host
             if (_trackState.JumpTracks.TryGetValue(entityId, out var jumpTrack))
             {
                 durationSeconds = Mathf.Max(durationSeconds, jumpTrack.RemainingSeconds);
+            }
+
+            if (changeKind == TickVisibilityChangeKind.Remove &&
+                _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) &&
+                entityType == EntityType.Unit &&
+                _stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
+                view != null)
+            {
+                if (TryResolveDeathAnimatorDurationSeconds(view, out var deathAnimatorDurationSeconds))
+                {
+                    durationSeconds = Mathf.Max(durationSeconds, deathAnimatorDurationSeconds);
+                }
+
+                if (TryResolveDeathViewTailSeconds(view, out var deathViewTailSeconds))
+                {
+                    durationSeconds = Mathf.Max(durationSeconds, deathViewTailSeconds);
+                }
             }
 
             return durationSeconds;
@@ -183,6 +203,44 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return DefaultJumpArcHeightInCells * projector.CellSize;
+        }
+
+        private static bool TryResolveDeathAnimatorDurationSeconds(
+            GameplayEntityView view,
+            out float durationSeconds)
+        {
+            durationSeconds = 0f;
+
+            if (view.TryGetComponent<PlayerAnimatorDriver>(out var playerDriver) &&
+                playerDriver != null)
+            {
+                durationSeconds = playerDriver.DeathPresentationDurationSeconds;
+                return durationSeconds > 0f;
+            }
+
+            if (view.TryGetComponent<EnemyAnimatorDriver>(out var enemyDriver) &&
+                enemyDriver != null)
+            {
+                durationSeconds = enemyDriver.DeathPresentationDurationSeconds;
+                return durationSeconds > 0f;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveDeathViewTailSeconds(
+            GameplayEntityView view,
+            out float durationSeconds)
+        {
+            durationSeconds = 0f;
+            var authoring = EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(view);
+            if (authoring == null)
+            {
+                return false;
+            }
+
+            durationSeconds = authoring.DeathViewTailSeconds;
+            return EntityEffectPresentationAuthoring.IsOverrideDuration(durationSeconds);
         }
     }
 }

@@ -342,6 +342,7 @@ MonoBehaviour:
   pushRecoveryAnimatorDurationSeconds: 0.3
   flipWindupAnimatorDurationSeconds: 1
   flipRecoveryAnimatorDurationSeconds: 1
+  deathAnimatorDurationSeconds: -1
 --- !u!114 &8843883875010402886
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -361,6 +362,7 @@ MonoBehaviour:
   pushRecoveryStateName: Push
   flipWindupStateName: Flip
   flipRecoveryStateName: Flip
+  deathStateName: Death
   stateTransitionCrossFadeDurationSeconds: 0.1
   animationTimingAuthoring: {fileID: 3345667788990011223}
 --- !u!1 &1555250594893369712
