@@ -237,6 +237,18 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return true;
             }
 
+            if (!snapshot.TryResolveNextSurfaceBoxSlideStep(
+                    snapshot.Topology,
+                    target.position,
+                    delta,
+                    out _,
+                    out var stopper) &&
+                snapshot.TryPickHostileUnitImpactTargetAt(stopper.Cell, player.teamId, out _))
+            {
+                contact = new PlayerActionTarget(target.entityId, inputDirection);
+                return true;
+            }
+
             contact = default;
             return false;
         }
@@ -328,7 +340,68 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return false;
             }
 
-            return !snapshot.TryGetPlacementBlocker(snapshot.Topology, entity.type, landingCell, entity.entityId, out _);
+            return true;
+        }
+
+        public static bool CanPendingActionStillExecute(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            in PlayerActionRuntimeState action)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!action.IsActive ||
+                !TryResolveDelta(action.direction, out var delta))
+            {
+                return false;
+            }
+
+            switch (action.kind)
+            {
+                case PlayerActionKind.Push:
+                    return CanPendingPushStillExecute(snapshot, player, action.targetEntityId, delta);
+
+                case PlayerActionKind.Flip:
+                    return CanPendingFlipStillExecute(snapshot, player, action.targetEntityId, delta);
+
+                default:
+                    return false;
+            }
+        }
+
+        private static bool CanPendingPushStillExecute(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            int targetEntityId,
+            Vector2Int delta)
+        {
+            if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology) ||
+                !snapshot.TryGetBoxAt(movementTopology, targetCell, out var target))
+            {
+                return false;
+            }
+
+            return target.entityId == targetEntityId &&
+                   HasBoxCapability(target, BoxCapabilities.Push);
+        }
+
+        private static bool CanPendingFlipStillExecute(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            int targetEntityId,
+            Vector2Int delta)
+        {
+            if (!snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out _) ||
+                !snapshot.TryGetBoxAt(targetCell, out var target))
+            {
+                return false;
+            }
+
+            return target.entityId == targetEntityId &&
+                   HasBoxCapability(target, BoxCapabilities.Flip);
         }
 
         private static bool TryResolveDelta(Direction direction, out Vector2Int delta)

@@ -269,6 +269,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             if (snapshot.TryGetPlacementBlocker(snapshot.Topology, target.type, landingCell, target.entityId, out var landingBlocker))
             {
+                if (TryExpandBoxImpact(
+                        snapshot,
+                        source,
+                        target,
+                        intent,
+                        landingCell,
+                        stopSliding: false,
+                        assignKineticOwner: true,
+                        buffer))
+                {
+                    return;
+                }
+
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|{FormatStopper(landingBlocker)}");
                 return;
@@ -279,6 +292,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.Flip);
+            actionGroup.AssignBoxKineticOwner(target.entityId, source.entityId, source.teamId);
             actionGroup.Moves.Add(
                 new MoveAction(
                     target.entityId,
@@ -421,6 +435,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 out var stopper);
             if (!destinationResolved)
             {
+                if (TryExpandBoxImpact(
+                        snapshot,
+                        source,
+                        target,
+                        intent,
+                        stopper.Cell,
+                        stopSliding: false,
+                        assignKineticOwner: true,
+                        buffer))
+                {
+                    return;
+                }
+
                 if (HasBoxCapability(target, BoxCapabilities.Destroy))
                 {
                     var destroyGroup = new ActionGroup(
@@ -443,6 +470,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 intent.SourceId,
                 intent.Priority,
                 ActionGroupKind.Push);
+            actionGroup.AssignBoxKineticOwner(target.entityId, source.entityId, source.teamId);
             actionGroup.StateChanges.Add(
                 new StateChangeAction(
                     target.entityId,
@@ -476,6 +504,19 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     out var destination,
                     out var stopper))
             {
+                if (TryExpandBoxImpact(
+                        snapshot,
+                        source,
+                        source,
+                        intent,
+                        stopper.Cell,
+                        stopSliding: true,
+                        assignKineticOwner: false,
+                        buffer))
+                {
+                    return;
+                }
+
                 var stopGroup = new ActionGroup(
                     intent.IntentId,
                     intent.SourceId,
@@ -509,6 +550,49 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             buffer.Add(actionGroup);
         }
 
+        private static bool TryExpandBoxImpact(
+            WorldSnapshot snapshot,
+            EntityState actorSource,
+            EntityState impactSourceBox,
+            MoveIntent intent,
+            SurfaceCell impactCell,
+            bool stopSliding,
+            bool assignKineticOwner,
+            List<ActionGroup> buffer)
+        {
+            if (!TryResolveBoxImpactTeamId(actorSource, impactSourceBox, out var sourceTeamId) ||
+                !snapshot.TryPickHostileUnitImpactTargetAt(impactCell, sourceTeamId, out var target))
+            {
+                return false;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.BoxImpact);
+            actionGroup.AssignImpactReservation(impactSourceBox.entityId, target.entityId);
+
+            if (stopSliding)
+            {
+                actionGroup.StateChanges.Add(
+                    new StateChangeAction(
+                        impactSourceBox.entityId,
+                        EntityPhaseState.Idle,
+                        stateTimer: 0));
+            }
+
+            if (assignKineticOwner &&
+                actorSource.type == EntityType.Unit &&
+                actorSource.teamId > 0)
+            {
+                actionGroup.AssignBoxKineticOwner(impactSourceBox.entityId, actorSource.entityId, actorSource.teamId);
+            }
+
+            buffer.Add(actionGroup);
+            return true;
+        }
+
         private static void AddDetachAndMarkForDestroy(ActionGroup actionGroup, EntityState target)
         {
             actionGroup.BoardPresenceChanges.Add(
@@ -526,6 +610,28 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             return entity.type == EntityType.Box &&
                    entity.state == EntityPhaseState.Sliding &&
                    HasBoxCapability(entity, BoxCapabilities.Push);
+        }
+
+        private static bool TryResolveBoxImpactTeamId(
+            EntityState actorSource,
+            EntityState impactSourceBox,
+            out int sourceTeamId)
+        {
+            if (impactSourceBox.kineticInstigatorTeamId > 0)
+            {
+                sourceTeamId = impactSourceBox.kineticInstigatorTeamId;
+                return true;
+            }
+
+            if (actorSource.type == EntityType.Unit &&
+                actorSource.teamId > 0)
+            {
+                sourceTeamId = actorSource.teamId;
+                return true;
+            }
+
+            sourceTeamId = 0;
+            return false;
         }
 
         private static string FormatStopper(SlideStopper stopper)

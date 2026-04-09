@@ -171,6 +171,11 @@ namespace Game.Feature.Gameplay.Movement.Resolution
                 reservedAffectedEntities.Add(candidate.Destroys[destroyIndex].TargetId);
             }
 
+            for (var stateChangeIndex = 0; stateChangeIndex < candidate.StateChanges.Count; stateChangeIndex++)
+            {
+                reservedAffectedEntities.Add(candidate.StateChanges[stateChangeIndex].EntityId);
+            }
+
             for (var presenceIndex = 0; presenceIndex < candidate.BoardPresenceChanges.Count; presenceIndex++)
             {
                 reservedAffectedEntities.Add(candidate.BoardPresenceChanges[presenceIndex].EntityId);
@@ -259,6 +264,16 @@ namespace Game.Feature.Gameplay.Movement.Resolution
             for (var i = 0; i < candidate.Destroys.Count; i++)
             {
                 var entityId = candidate.Destroys[i].TargetId;
+                if (reservedAffectedEntities.Contains(entityId))
+                {
+                    sharedEntityId = entityId;
+                    return true;
+                }
+            }
+
+            for (var i = 0; i < candidate.StateChanges.Count; i++)
+            {
+                var entityId = candidate.StateChanges[i].EntityId;
                 if (reservedAffectedEntities.Contains(entityId))
                 {
                     sharedEntityId = entityId;

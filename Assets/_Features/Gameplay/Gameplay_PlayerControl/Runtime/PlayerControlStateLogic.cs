@@ -139,7 +139,16 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             if (previousAction.IsActive)
             {
-                nextState = PlayerControlQueries.AdvanceActiveAction(nextState, input.TickIndex);
+                if (!previousAction.executionAttempted &&
+                    !PlayerControlQueries.CanPendingActionStillExecute(snapshot, entity, previousAction))
+                {
+                    nextState = PlayerControlQueries.ResetContact(nextState);
+                    nextState.activeAction = default;
+                }
+                else
+                {
+                    nextState = PlayerControlQueries.AdvanceActiveAction(nextState, input.TickIndex);
+                }
             }
             else if (input.PlayerCommand.FlipPressed)
             {

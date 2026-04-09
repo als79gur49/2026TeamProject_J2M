@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
     internal sealed class MovementCommitter
     {
         private const int ProjectileImpactDamageAmount = 1;
+        private const int BoxImpactDamageAmount = 1;
         private readonly int _moveOccupancyTicks;
         private readonly int _playerMoveCooldownTicks;
 
@@ -85,12 +86,21 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
                 if (group.GroupKind == ActionGroupKind.ProjectileImpact)
                 {
-                    var reservation = CreateProjectileImpactReservation(snapshot, tickIndex, group, reservationSequence);
+                    var reservation = CreateImpactReservation(snapshot, tickIndex, group, reservationSequence);
                     transientBuffer.AddImpact(reservation);
                     commitEvents.Add(
                         $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={reservation.SourceId}|Target={reservation.TargetId}|At={FormatCell(reservation.Position)}|Damage={reservation.Damage}|Sequence={reservation.ReservationSequence}");
                     reservationSequence++;
                     continue;
+                }
+
+                if (group.HasResolvedImpact)
+                {
+                    var reservation = CreateImpactReservation(snapshot, tickIndex, group, reservationSequence);
+                    transientBuffer.AddImpact(reservation);
+                    commitEvents.Add(
+                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={reservation.SourceId}|Target={reservation.TargetId}|At={FormatCell(reservation.Position)}|Damage={reservation.Damage}|Sequence={reservation.ReservationSequence}");
+                    reservationSequence++;
                 }
 
                 for (var stateChangeIndex = 0; stateChangeIndex < group.StateChanges.Count; stateChangeIndex++)
@@ -132,6 +142,14 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     writeContext.SetFacing(move.EntityId, move.Facing);
                     commitEvents.Add(
                         $"MoveCommitted|G={group.GroupId}|I={group.IntentId}|E={move.EntityId}|To={FormatCell(move.DestinationCell)}|Facing={move.Facing}");
+                }
+
+                if (group.BoxKineticTargetId > 0)
+                {
+                    writeContext.SetBoxKineticOwner(
+                        group.BoxKineticTargetId,
+                        group.BoxKineticInstigatorEntityId,
+                        group.BoxKineticInstigatorTeamId);
                 }
 
                 ApplyExecutionLockCommit(snapshot, tickIndex, group, writeContext);
@@ -233,41 +251,44 @@ namespace Game.Feature.Gameplay.Movement.Commit
             writeContext.SetPlayerControlState(group.SourceId, updatedState);
         }
 
-        private static ImpactReservation CreateProjectileImpactReservation(
+        private static ImpactReservation CreateImpactReservation(
             WorldSnapshot snapshot,
             int tickIndex,
             ActionGroup group,
             int reservationSequence)
         {
-            if (!snapshot.TryGetEntity(group.SourceId, out var source))
+            if (!snapshot.TryGetEntity(group.ImpactSourceId, out var source))
             {
                 throw new InvalidOperationException(
-                    $"Projectile impact group references a missing source entity. Source={group.SourceId}, Intent={group.IntentId}");
+                    $"Impact group references a missing source entity. ImpactSource={group.ImpactSourceId}, Intent={group.IntentId}, Group={group.GroupId}");
             }
 
-            if (source.type != EntityType.Projectile)
+            if (group.GroupKind == ActionGroupKind.ProjectileImpact &&
+                source.type != EntityType.Projectile)
             {
                 throw new InvalidOperationException(
                     $"Projectile impact group must reference a projectile source. Source={group.SourceId}, Type={source.type}, Intent={group.IntentId}");
             }
 
-            if (group.ProjectileImpactTargetId <= 0)
+            if (!group.HasResolvedImpact)
             {
                 throw new InvalidOperationException(
-                    $"Projectile impact group is missing its resolved target. Source={group.SourceId}, Intent={group.IntentId}, Group={group.GroupId}");
+                    $"Impact group is missing its resolved target. Source={group.SourceId}, Intent={group.IntentId}, Group={group.GroupId}");
             }
 
-            if (!snapshot.TryGetEntity(group.ProjectileImpactTargetId, out var target))
+            if (!snapshot.TryGetEntity(group.ImpactTargetId, out var target))
             {
                 throw new InvalidOperationException(
-                    $"Projectile impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={group.ProjectileImpactTargetId}");
+                    $"Impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={group.ImpactTargetId}");
             }
 
             return new ImpactReservation(
                 source.entityId,
                 target.entityId,
                 target.position,
-                ProjectileImpactDamageAmount,
+                group.GroupKind == ActionGroupKind.ProjectileImpact
+                    ? ProjectileImpactDamageAmount
+                    : BoxImpactDamageAmount,
                 tickIndex,
                 group.GroupId,
                 reservationSequence);
