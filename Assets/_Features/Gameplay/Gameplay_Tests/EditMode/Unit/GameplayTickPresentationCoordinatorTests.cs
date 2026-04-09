@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -977,15 +978,142 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
 
                 presenter.UpdatePresentation(timingProfile.PushMotionDurationSeconds + 0.01f);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
 
                 presenter.UpdatePresentation(boxDestroyEffectDurationSeconds - timingProfile.PushMotionDurationSeconds);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_PlayerActionHold_KeepsEntityMotionPhaseUntilHoldCompletes()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerActionHold_KeepsEntityMotionPhaseUntilHoldCompletes");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                "GameplayTickViewPresenter_PlayerActionHold_PlayerPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, sourceCell),
+                    },
+                    topology);
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var driver = playerView.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(driver, Is.Not.Null);
+                var holdDurationSeconds = driver.PushPresentationDurationSeconds;
+                Assert.That(holdDurationSeconds, Is.GreaterThan(0.01f));
+
+                presenter.Present(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        CleanupPhaseResult.Empty,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, sourceCell),
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: new[]
+                            {
+                                new TickPlayerActionPresentationSignal(
+                                    10,
+                                    PlayerActionKind.Push,
+                                    1,
+                                    startedThisTick: true,
+                                    completedThisTick: false,
+                                    canceledThisTick: false),
+                            },
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+
+                presenter.Present(
+                    new TickResult(
+                        2,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        CleanupPhaseResult.Empty,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, sourceCell),
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: new[]
+                            {
+                                new TickPlayerActionPresentationSignal(
+                                    10,
+                                    PlayerActionKind.None,
+                                    0,
+                                    startedThisTick: false,
+                                    completedThisTick: true,
+                                    canceledThisTick: false),
+                            },
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.EntityMotion));
+
+                presenter.UpdatePresentation(holdDurationSeconds + 0.05f);
+                Assert.That(presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
