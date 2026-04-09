@@ -89,6 +89,12 @@ namespace Game.Feature.Gameplay.BoardState
                    EntityExecutionLockQueries.CanExecuteIntent(state, tickIndex);
         }
 
+        public bool CanExecuteMovementIntent(int entityId, int tickIndex)
+        {
+            return !TryGetEntityExecutionLockState(entityId, out var state) ||
+                   EntityExecutionLockQueries.CanExecuteMovementIntent(state, tickIndex);
+        }
+
         public bool HasAnyUnitAt(SurfaceCell cell)
         {
             return HasAnyUnitAt(_topology, cell);

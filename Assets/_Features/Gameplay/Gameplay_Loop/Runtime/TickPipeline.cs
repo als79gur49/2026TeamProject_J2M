@@ -518,7 +518,7 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < rawMovementIntents.Count; i++)
             {
                 var rawIntent = rawMovementIntents[i];
-                if (snapshot.CanExecuteIntent(rawIntent.SourceId, tickIndex))
+                if (snapshot.CanExecuteMovementIntent(rawIntent.SourceId, tickIndex))
                 {
                     filteredIntents.Add(rawIntent);
                     continue;

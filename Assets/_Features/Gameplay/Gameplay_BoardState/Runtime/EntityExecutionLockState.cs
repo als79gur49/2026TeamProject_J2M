@@ -63,6 +63,12 @@ namespace Game.Feature.Gameplay.BoardState
             return !IsLocked(state, tickIndex);
         }
 
+        public static bool CanExecuteMovementIntent(in EntityExecutionLockState state, int tickIndex)
+        {
+            return state.phase == EntityExecutionPhase.Move ||
+                   !IsLocked(state, tickIndex);
+        }
+
         public static bool IsLocked(in EntityExecutionLockState state, int tickIndex)
         {
             return state.phase != EntityExecutionPhase.None &&

@@ -693,16 +693,32 @@ namespace Game.Feature.Gameplay.Entities
                 return decision.Facing.Value;
             }
 
-            if (stage != EnemyAiTransitionStage.BeforeMovement ||
-                decision.Mode != EnemyAiMode.Patrol ||
-                source.enemyLocomotionCooldownTicks > 0 ||
-                _patrolStrategy is not IPatrolFacingStrategy patrolFacingStrategy ||
-                !patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
+            if (decision.Mode != EnemyAiMode.Patrol ||
+                source.enemyLocomotionCooldownTicks > 0)
             {
                 return null;
             }
 
-            return patrolFacing;
+            if (stage == EnemyAiTransitionStage.BeforeMovement &&
+                _patrolStrategy is IPatrolFacingStrategy patrolFacingStrategy &&
+                patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
+            {
+                return patrolFacing;
+            }
+
+            if (stage != EnemyAiTransitionStage.BeforeAttack ||
+                _patrolStrategy is not WallFollowPatrolStrategy ||
+                EnemyMovementStrategyShared.TryChooseWallFollowDirection(snapshot, source, _patrolSettings, out _) ||
+                !EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
+                    source.facing,
+                    _patrolSettings.TurnPreference,
+                    out var rotateOnlyFacing) ||
+                rotateOnlyFacing == source.facing)
+            {
+                return null;
+            }
+
+            return rotateOnlyFacing;
         }
     }
 
