@@ -681,6 +681,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        public void Snapshot_BoxKineticOwner_PreservesStoredRuntimeState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 40, position: new Vector2Int(0, 0)),
+            });
+            worldState.CreateWriteContext().SetBoxKineticOwner(40, instigatorEntityId: 10, instigatorTeamId: 1);
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(40, out var box), Is.True);
+            Assert.That(box.kineticInstigatorEntityId, Is.EqualTo(10));
+            Assert.That(box.kineticInstigatorTeamId, Is.EqualTo(1));
+        }
+
+        [Test]
         public void DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState()
         {
             var idlePipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -707,6 +723,32 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(chaseResult.DeterminismHash));
             Assert.That(chaseResult.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase|FromTimer=0|To=Patrol|ToTimer=0|Reason=NoTarget"));
             Assert.That(chaseReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Patrol"));
+        }
+
+        [Test]
+        public void DeterminismHash_BoxKineticOwner_IsIncludedInCanonicalState()
+        {
+            var idleWorldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 40, position: new Vector2Int(0, 0)),
+            });
+            var kineticWorldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 40, position: new Vector2Int(0, 0)),
+            });
+
+            kineticWorldState.CreateWriteContext().SetBoxKineticOwner(40, instigatorEntityId: 10, instigatorTeamId: 1);
+
+            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var kineticResult = GameplayCompositionRoot.CreateTickPipeline(kineticWorldState).RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                kineticWorldState,
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(kineticResult.DeterminismHash));
+            Assert.That(kineticResult.Trace.Text, Does.Contain("KineticInstigator=10|KineticTeam=1"));
+            Assert.That(replay[0].FinalEntitiesDump, Does.Contain("KineticInstigator=10|KineticTeam=1"));
         }
 
         [Test]

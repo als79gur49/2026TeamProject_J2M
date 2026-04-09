@@ -446,6 +446,95 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void FlipImpactFailure_StillEntersRecoveryWithoutReturnTrack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1, facing: Direction.Up),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 30, position: new Vector2Int(-1, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var signal = executeTick.PresentationData.PlayerActionSignals.Single();
+
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(executeTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            Assert.That(signal.ExecutedThisTick, Is.True);
+            Assert.That(signal.CanceledThisTick, Is.False);
+            Assert.That(signal.IsRecoveryPhase, Is.True);
+            Assert.That(executeTick.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+        }
+
+        [Test]
+        public void FlipBlockedFailure_StillEntersRecoveryWithoutReturnTrack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+                CreateWall(entityId: 30, position: new Vector2Int(-1, 0)),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var signal = executeTick.PresentationData.PlayerActionSignals.Single();
+
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(executeTick.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(signal.ExecutedThisTick, Is.True);
+            Assert.That(signal.CanceledThisTick, Is.False);
+            Assert.That(signal.IsRecoveryPhase, Is.True);
+            Assert.That(executeTick.PresentationData.EntityMotions, Is.Empty);
+        }
+
+        [Test]
+        public void FlipPreExecuteInvalidation_CancelsBeforeExecute()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), facing: Direction.Up),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                });
+
+            var startTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Right)));
+            worldState.CreateWriteContext().MoveEntity(20, new SurfaceCell(FaceId.Floor, 2, 0));
+            var cancelTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
+            var signal = cancelTick.PresentationData.PlayerActionSignals.Single();
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(cancelTick.MovementPhaseResult.SortedIntents, Is.Empty);
+            Assert.That(signal.ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(signal.ExecutedThisTick, Is.False);
+            Assert.That(signal.CanceledThisTick, Is.True);
+            Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+        }
+
+        [Test]
         public void PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1, moveOccupancyTicks: 1);
@@ -636,15 +725,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 : -1f;
         }
 
-        private static EntityState CreateUnit(int entityId, Vector2Int position, Direction facing = Direction.Right)
+        private static EntityState CreateUnit(
+            int entityId,
+            Vector2Int position,
+            int hp = 3,
+            int teamId = 1,
+            Direction facing = Direction.Right)
         {
             return new EntityState
             {
                 entityId = entityId,
                 position = SurfaceCell.FromPlanar(position),
-                hp = 3,
-                maxHp = 3,
-                teamId = 1,
+                hp = hp,
+                maxHp = hp,
+                teamId = teamId,
                 type = EntityType.Unit,
                 state = EntityPhaseState.Idle,
                 facing = facing,

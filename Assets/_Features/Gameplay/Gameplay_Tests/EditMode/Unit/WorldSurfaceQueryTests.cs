@@ -101,6 +101,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void WorldSnapshot_TryPickHostileUnitImpactTargetAt_SelectsOnlyHostileUnitsDeterministically()
+        {
+            var contestedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var friendlyOnlyCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var boxCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 40, position: boxCell),
+                    CreateUnit(entityId: 10, position: contestedCell, teamId: 1),
+                    CreateUnit(entityId: 20, position: contestedCell, teamId: 2),
+                    CreateUnit(entityId: 30, position: contestedCell, teamId: 2),
+                    CreateUnit(entityId: 50, position: friendlyOnlyCell, teamId: 1),
+                    CreateUnit(entityId: 60, position: friendlyOnlyCell, teamId: 1),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 0)),
+                GameplayTerrainData.Empty);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(snapshot.TryPickHostileUnitImpactTargetAt(contestedCell, sourceTeamId: 1, out var hostileTarget), Is.True);
+            Assert.That(hostileTarget.entityId, Is.EqualTo(20));
+
+            Assert.That(snapshot.TryPickHostileUnitImpactTargetAt(friendlyOnlyCell, sourceTeamId: 1, out _), Is.False);
+            Assert.That(snapshot.TryPickHostileUnitImpactTargetAt(boxCell, sourceTeamId: 1, out _), Is.False);
+        }
+
+        [Test]
         public void WorldSnapshot_TryResolvePlayerStep_MovesOntoBottomTopEdgeCell()
         {
             var snapshot = CreateSnapshot(

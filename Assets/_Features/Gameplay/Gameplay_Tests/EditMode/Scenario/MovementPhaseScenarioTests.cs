@@ -603,6 +603,127 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Push_BoxNextStepHasHostileUnit_CreatesImpactAndStopsBeforeUnitCell()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.BoxImpact, ImpactSourceId: 20, ImpactTargetId: 30) },
+                result.MovementPhaseResult
+                    .ExpandedCandidates
+                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.ImpactSourceId, group.ImpactTargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=20|Target=30|At=(2,0)|Damage=1|Sequence=1",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(box.kineticInstigatorEntityId, Is.EqualTo(10));
+            Assert.That(box.kineticInstigatorTeamId, Is.EqualTo(1));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var enemy), Is.True);
+            Assert.That(enemy.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void Impact_KillsEnemy_BoxStillDoesNotAdvanceSameTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 1, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 30 }, result.CleanupPhaseResult.RemovedEntityIds);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
+        }
+
+        [Test]
+        public void Impact_TargetCellHasFriendlyOnly_DoesNotDamageFriendly()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 3, teamId: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var friendly), Is.True);
+            Assert.That(friendly.hp, Is.EqualTo(3));
+        }
+
+        [Test]
+        public void Impact_TargetCellHasStackedFriendlyAndHostile_PicksHostileDeterministically()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 3, teamId: 2),
+                CreateUnit(entityId: 40, position: new Vector2Int(2, 0), hp: 3, teamId: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (ImpactSourceId: 20, ImpactTargetId: 30) },
+                result.MovementPhaseResult.SelectedGroups.Select(group => (group.ImpactSourceId, group.ImpactTargetId)).ToArray());
+            Assert.That(snapshotAfter.TryGetEntity(30, out var hostile), Is.True);
+            Assert.That(hostile.hp, Is.EqualTo(2));
+            Assert.That(snapshotAfter.TryGetEntity(40, out var friendly), Is.True);
+            Assert.That(friendly.hp, Is.EqualTo(3));
+        }
+
+        [Test]
         public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenEntityStopperIsAdjacent()
         {
             var worldState = CreateWorldState(new[]
@@ -950,6 +1071,43 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void Flip_LandingHasHostileUnit_CreatesImpactAndBoxRemainsAtSource()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.BoxImpact, ImpactSourceId: 30, ImpactTargetId: 20) },
+                result.MovementPhaseResult
+                    .ExpandedCandidates
+                    .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.ImpactSourceId, group.ImpactTargetId))
+                    .ToArray());
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=30|Target=20|At=(1,0)|Damage=1|Sequence=1",
+                },
+                result.MovementPhaseResult.CommitEvents);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var enemy), Is.True);
+            Assert.That(enemy.hp, Is.EqualTo(2));
+        }
+
+        [Test]
         public void Movement_Flip_FailsWhenTargetIsNotFlippableBox()
         {
             var worldState = CreateWorldState(new[]
@@ -1053,13 +1211,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
-        public void Movement_Flip_FailsWhenLandingCellIsBlocked()
+        public void Flip_LandingHasWallOrBox_IsBlockedWithoutImpact()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new Vector2Int(0, 0)),
                 CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
-                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), teamId: 2),
+                CreateNonUnitBlocker(entityId: 20, position: new Vector2Int(1, 0)),
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 worldState,
@@ -1076,12 +1234,54 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipLandingBlocked|StopperKind=Entity|Stopper=20|StopperType=Unit|Cell=(1,0)",
+                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=FlipLandingBlocked|StopperKind=Entity|Stopper=20|StopperType=None|Cell=(1,0)",
                 },
                 result.MovementPhaseResult.RejectedReasons);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(1, 0)));
+        }
+
+        [Test]
+        public void SlidingPush_BoxHitsHostileUnit_CreatesImpactAndStopsSliding()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
+            var impactTick = pipeline.RunTick(new TickInput(13));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "StateChanged|G=1|I=1|E=30|State=Sliding|Timer=12",
+                    "MoveCommitted|G=1|I=1|E=30|To=(2,0)|Facing=Right",
+                },
+                firstTick.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=30|Target=40|At=(3,0)|Damage=1|Sequence=1",
+                    "StateChanged|G=1|I=1|E=30|State=Idle|Timer=0",
+                },
+                impactTick.MovementPhaseResult.CommitEvents);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(snapshotAfter.TryGetEntity(40, out var enemy), Is.True);
+            Assert.That(enemy.hp, Is.EqualTo(2));
         }
 
         [Test]

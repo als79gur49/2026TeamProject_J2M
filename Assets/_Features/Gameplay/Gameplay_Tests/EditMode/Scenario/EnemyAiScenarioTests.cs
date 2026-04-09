@@ -884,6 +884,78 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        public void JumpWindupEnemy_CanBeHitByBoxImpact()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateSlidingPushBox(entityId: 50, position: new Vector2Int(-1, 1), facing: Direction.Right, kineticInstigatorEntityId: 10, kineticInstigatorTeamId: 1),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                var impactTick = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.hp, Is.EqualTo(2));
+                Assert.That(enemy.position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 1)));
+                Assert.That(GetEntity(worldState, 50).state, Is.EqualTo(EntityPhaseState.Idle));
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Windup));
+                Assert.That(impactTick.MovementPhaseResult.CommitEvents, Has.Member("ImpactReservationCreated|G=1|I=1|Source=50|Target=40|At=(0,1)|Damage=1|Sequence=1"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void JumpAirborneEnemy_IsIgnoredByBoxImpact()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateBox(entityId: 50, position: new Vector2Int(-1, 1), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                var writeContext = (IMovementCommitContext)worldState.CreateWriteContext();
+                writeContext.ApplyStateChange(50, EntityPhaseState.Sliding, stateTimer: 0);
+                writeContext.SetFacing(50, Direction.Right);
+                writeContext.SetBoxKineticOwner(50, 10, 1);
+
+                var airborneTick = pipeline.RunTick(new TickInput(2));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.hp, Is.EqualTo(3));
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(airborneTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         public void EnemyAi_JumpLanding_OnLockedPlayerCell_AllowsUnitStacking()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -912,6 +984,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
                 Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
                 Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void JumpLandingThenBoxImpact_SameTick_UsesLandedOccupancy()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateBox(entityId: 50, position: new Vector2Int(2, 1), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+
+                var writeContext = (IMovementCommitContext)worldState.CreateWriteContext();
+                writeContext.ApplyStateChange(50, EntityPhaseState.Sliding, stateTimer: 0);
+                writeContext.SetFacing(50, Direction.Right);
+                writeContext.SetBoxKineticOwner(50, 10, 1);
+
+                var landingImpactTick = pipeline.RunTick(new TickInput(3));
+                var snapshot = worldState.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetEntity(40, out var enemy), Is.True);
+                Assert.That(enemy.position, Is.EqualTo(targetCell));
+                Assert.That(enemy.hp, Is.EqualTo(2));
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
+                Assert.That(GetEntity(worldState, 50).state, Is.EqualTo(EntityPhaseState.Idle));
+                Assert.That(landingImpactTick.MovementPhaseResult.CommitEvents, Has.Member("ImpactReservationCreated|G=1|I=1|Source=50|Target=40|At=(3,1)|Damage=1|Sequence=1"));
             }
             finally
             {
@@ -1609,7 +1722,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             };
         }
 
-        private static EntityState CreateBox(int entityId, Vector2Int position)
+        private static EntityState CreateBox(
+            int entityId,
+            Vector2Int position,
+            BoxCapabilities capabilities = BoxCapabilities.None,
+            EntityPhaseState state = EntityPhaseState.Idle,
+            int stateTimer = 0,
+            Direction facing = Direction.None,
+            int kineticInstigatorEntityId = 0,
+            int kineticInstigatorTeamId = 0)
         {
             return new EntityState
             {
@@ -1619,16 +1740,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
-                state = EntityPhaseState.Idle,
-                stateTimer = 0,
-                facing = Direction.None,
+                state = state,
+                stateTimer = stateTimer,
+                facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
                 markedForDeath = false,
                 spawnTick = 0,
-                boxCapabilities = BoxCapabilities.None,
+                boxCapabilities = capabilities,
+                kineticInstigatorEntityId = kineticInstigatorEntityId,
+                kineticInstigatorTeamId = kineticInstigatorTeamId,
                 aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };
+        }
+
+        private static EntityState CreateSlidingPushBox(
+            int entityId,
+            Vector2Int position,
+            Direction facing,
+            int kineticInstigatorEntityId,
+            int kineticInstigatorTeamId)
+        {
+            return CreateBox(
+                entityId,
+                position,
+                capabilities: BoxCapabilities.Push,
+                state: EntityPhaseState.Sliding,
+                stateTimer: 0,
+                facing: facing,
+                kineticInstigatorEntityId: kineticInstigatorEntityId,
+                kineticInstigatorTeamId: kineticInstigatorTeamId);
         }
 
         private static EntityState CreateWall(int entityId, Vector2Int position)
