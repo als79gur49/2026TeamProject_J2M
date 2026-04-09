@@ -455,6 +455,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains("UnitLocomotionPresentationAuthoring", prefabText);
             StringAssert.Contains("EntityMotionPresentationAuthoring", prefabText);
             StringAssert.Contains("PlayerAnimationTimingAuthoring", prefabText);
+            StringAssert.Contains("deathAnimatorDurationSeconds:", prefabText);
             StringAssert.DoesNotContain("PlayerActionTimingAuthoring", prefabText);
             StringAssert.DoesNotContain("pushPresentationDurationSeconds", prefabText);
             StringAssert.DoesNotContain("flipPresentationDurationSeconds", prefabText);

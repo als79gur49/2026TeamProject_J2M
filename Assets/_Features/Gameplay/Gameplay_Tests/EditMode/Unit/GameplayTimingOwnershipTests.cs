@@ -1,9 +1,12 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
@@ -389,6 +392,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationOverride()
+        {
+            var rootObject = new GameObject("PlayerAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationOverride");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<PlayerAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathAnimatorDurationSeconds", 1.75f);
+
+                var snapshot = authoring.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetDeathAnimatorDurationOverride(out var durationSeconds), Is.True);
+                Assert.That(durationSeconds, Is.EqualTo(1.75f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_DeathDurationOverride_UsesInspectorValue()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_DeathDurationOverride_UsesInspectorValue");
+
+            try
+            {
+                var authoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var animator = rootObject.AddComponent<Animator>();
+                var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+                Assert.That(authoring, Is.Not.Null);
+                Assert.That(driver, Is.Not.Null);
+                Assert.That(controller, Is.Not.Null);
+
+                animator.runtimeAnimatorController = controller;
+
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathAnimatorDurationSeconds", 2f);
+
+                var expectedReferenceLengthSeconds = controller.animationClips
+                    .Where(clip => clip != null && string.Equals(clip.name, "Death", StringComparison.Ordinal))
+                    .Select(clip => clip.length)
+                    .Single();
+
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Death);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Death));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.None));
+                Assert.That(driver.DeathPresentationDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void PlayerAnimatorDriver_WalkLoop_UsesSingleStateForEnterAndExit()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WalkLoop_UsesSingleStateForEnterAndExit");
@@ -424,6 +489,177 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerViewPresentationMapper_PlayerRemovedThisTick_SetsDidDie()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_PlayerRemovedThisTick_SetsDidDie");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var mapper = new PlayerViewPresentationMapper();
+                var buffer = new Dictionary<int, PlayerViewPresentationState>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                mapper.Build(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Right),
+                            },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    buffer);
+
+                Assert.That(buffer.ContainsKey(10), Is.True);
+                Assert.That(buffer[10].DidDie, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                coordinator.ApplyTickPresentation(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Right),
+                            },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            new[]
+                            {
+                                new TickPlayerActionPresentationSignal(
+                                    10,
+                                    PlayerActionKind.Push,
+                                    1,
+                                    startedThisTick: true,
+                                    completedThisTick: false,
+                                    canceledThisTick: false),
+                            },
+                            new[]
+                            {
+                                new TickPlayerLocomotionPresentationSignal(
+                                    10,
+                                    shouldPlayWalkLoop: true,
+                                    moveMotionGeneratedThisTick: true,
+                                    waitingForNextMoveCadence: false),
+                            },
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    (_, _) => 0.25f);
+
+                Assert.That(
+                    coordinator.ResolvePlayerAnimationState(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true),
+                    Is.EqualTo(PlayerViewAnimationState.Death));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerAnimatorDriver_DeathState_CrossFadesToDeath()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_DeathState_CrossFadesToDeath");
+
+            try
+            {
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+
+                Assert.That(driver, Is.Not.Null);
+
+                driver.Apply(new PlayerViewPresentationState(
+                    10,
+                    1,
+                    PlayerActionKind.None,
+                    0,
+                    startedThisTick: false,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    shouldPlayWalkLoop: false,
+                    isRecoveryPhase: false,
+                    didDie: true));
+                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Death);
+
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Death));
+                Assert.That(driver.CurrentPresentationPhase, Is.EqualTo(PlayerPresentationPhase.None));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Death"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void PlayerDeath_DoesNotRequireNewPlayerActionKind()
+        {
+            CollectionAssert.AreEqual(
+                new[] { "None", "Push", "Flip" },
+                Enum.GetNames(typeof(PlayerActionKind)));
+        }
+
+        [Test]
         public void PlayerS1Controller_WalkLoopConfiguration_RemovesLegacyStartAndDoneStates()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
@@ -441,6 +677,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(walkLoopState, Is.Not.Null);
             Assert.That(walkStartState, Is.Null);
             Assert.That(walkDoneState, Is.Null);
+        }
+
+        [Test]
+        public void PlayerDeath_UsesUnifiedDeathClip_NotSplitRuntimeChain()
+        {
+            var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(controller.layers, Has.Length.GreaterThanOrEqualTo(1));
+
+            var stateMachine = controller.layers[0].stateMachine;
+            var deathState = FindState(stateMachine, "Death");
+            var dieStartState = FindState(stateMachine, "Die_Start");
+            var dieDoneState = FindState(stateMachine, "Die_Done");
+            var deathMotion = deathState?.motion as AnimationClip;
+
+            Assert.That(deathState, Is.Not.Null);
+            Assert.That(dieStartState, Is.Null);
+            Assert.That(dieDoneState, Is.Null);
+            Assert.That(deathState.transitions, Is.Empty);
+            Assert.That(deathMotion, Is.Not.Null);
+            Assert.That(deathMotion.name, Is.EqualTo("Death"));
+            Assert.That(controller.animationClips.Any(clip => clip != null && clip.name == "Death"), Is.True);
         }
 
         [Test]
@@ -495,6 +754,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(GetPrivateInstanceField<string>(driver, "pushRecoveryStateName"), Is.EqualTo("Push_Recovery"));
             Assert.That(GetPrivateInstanceField<string>(driver, "flipWindupStateName"), Is.EqualTo("Flip_Windup"));
             Assert.That(GetPrivateInstanceField<string>(driver, "flipRecoveryStateName"), Is.EqualTo("Flip_Recovery"));
+            Assert.That(GetPrivateInstanceField<string>(driver, "deathStateName"), Is.EqualTo("Death"));
             Assert.That(GetPrivateInstanceField<float>(driver, "stateTransitionCrossFadeDurationSeconds"), Is.EqualTo(0.04f).Within(0.0001f));
             Assert.That(GetPrivateInstanceField<float>(authoring, "pushWindupAnimatorDurationSeconds"), Is.EqualTo(0.18333334f).Within(0.0000001f));
             Assert.That(GetPrivateInstanceField<float>(authoring, "pushRecoveryAnimatorDurationSeconds"), Is.EqualTo(0.3f).Within(0.0000001f));
@@ -556,6 +816,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         out var recoverReferenceClipLengthSeconds),
                     Is.True);
                 Assert.That(recoverReferenceClipLengthSeconds, Is.EqualTo(recoverReferenceClip.length).Within(0.0001f));
+                Assert.That(snapshot.TryGetDeathAnimatorDurationOverride(out _), Is.False);
+                Assert.That(snapshot.TryGetDeathReferenceClipLengthSeconds(out _), Is.False);
                 Assert.That(snapshot.TryGetStateTransitionCrossFadeDurationOverride(out var crossFadeDurationSeconds), Is.True);
                 Assert.That(crossFadeDurationSeconds, Is.EqualTo(0.12f));
             }
@@ -635,6 +897,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationAndReferenceClip()
+        {
+            var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationAndReferenceClip");
+            var deathReferenceClip = CreateReferenceClip("EnemyDeathReference", 0.85f);
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    stateTransitionCrossFadeDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    deathAnimatorDurationSeconds: 1.6f,
+                    deathReferenceClip: deathReferenceClip);
+
+                var snapshot = authoring.CreateSnapshot();
+
+                Assert.That(snapshot.TryGetDeathAnimatorDurationOverride(out var durationSeconds), Is.True);
+                Assert.That(durationSeconds, Is.EqualTo(1.6f));
+                Assert.That(snapshot.TryGetDeathReferenceClipLengthSeconds(out var referenceClipLengthSeconds), Is.True);
+                Assert.That(referenceClipLengthSeconds, Is.EqualTo(deathReferenceClip.length).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(deathReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimationTimingAuthoring_DeathDurationOverrideWithoutReferenceClip_Throws()
+        {
+            var rootObject = new GameObject("EnemyAnimationTimingAuthoring_DeathDurationOverrideWithoutReferenceClip_Throws");
+
+            try
+            {
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(authoring, "deathAnimatorDurationSeconds", 1f);
+
+                var exception = Assert.Throws<InvalidOperationException>(() => authoring.CreateSnapshot());
+                StringAssert.Contains("deathReferenceClip", exception.Message);
+                StringAssert.Contains("deathAnimatorDurationSeconds", exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void EnemyAnimationTimingAuthoring_PublicApi_IsLimitedToTimingSnapshotAndValidation()
         {
             var publicMethodNames = typeof(EnemyAnimationTimingAuthoring)
@@ -649,6 +962,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "CreateSnapshot",
                     "Validate",
                     "get_AttackWindupAnimatorDurationSeconds",
+                    "get_DeathAnimatorDurationSeconds",
                     "get_JumpAirborneAnimatorDurationSeconds",
                     "get_JumpWindupAnimatorDurationSeconds",
                     "get_RecoverAnimatorDurationSeconds",
@@ -877,6 +1191,99 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(windupReferenceClip);
                 UnityEngine.Object.DestroyImmediate(recoverReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimatorDriver_DeathDurationOverride_UsesReferenceClipAndInspectorValue()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_DeathDurationOverride_UsesReferenceClipAndInspectorValue");
+            var deathReferenceClip = CreateReferenceClip("EnemyDeathReference", 0.75f);
+
+            try
+            {
+                var animator = rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    stateTransitionCrossFadeDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    deathAnimatorDurationSeconds: 1.5f,
+                    deathReferenceClip: deathReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 3,
+                    aiMode: EnemyAiMode.Dead,
+                    activeActionKind: EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: true));
+
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
+                Assert.That(driver.DeathPresentationDurationSeconds, Is.EqualTo(1.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(1.5f).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(deathReferenceClip.length / 1.5f).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(deathReferenceClip.length / 1.5f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(deathReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimatorDriver_DeathPhase_PersistsAcrossVisibilityTailWithoutResettingToDefaultSpeed()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_DeathPhase_PersistsAcrossVisibilityTailWithoutResettingToDefaultSpeed");
+            var deathReferenceClip = CreateReferenceClip("EnemyDeathReference", 0.75f);
+
+            try
+            {
+                var animator = rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    stateTransitionCrossFadeDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    deathAnimatorDurationSeconds: 1.5f,
+                    deathReferenceClip: deathReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 3,
+                    aiMode: EnemyAiMode.Dead,
+                    activeActionKind: EnemyActionKind.None,
+                    isMoving: false,
+                    startedWindupThisTick: false,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: true));
+
+                var initialSpeed = driver.CurrentAnimatorSpeed;
+                var initialDuration = driver.CurrentPresentationDurationSeconds;
+
+                driver.SyncRuntimeState(isVisible: true, isMoving: false);
+
+                Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(initialSpeed).Within(0.0001f));
+                Assert.That(driver.CurrentAnimatorSpeed, Is.Not.EqualTo(1f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(initialDuration).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(initialSpeed).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(deathReferenceClip);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -1136,6 +1543,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 serializedFieldNames);
         }
 
+        [Test]
+        public void DeathAnimatorDuration_DoesNotRequireNewActionKinds()
+        {
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    nameof(PlayerActionKind.None),
+                    nameof(PlayerActionKind.Push),
+                    nameof(PlayerActionKind.Flip),
+                },
+                Enum.GetNames(typeof(PlayerActionKind)));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    nameof(EnemyActionKind.None),
+                    nameof(EnemyActionKind.Melee),
+                },
+                Enum.GetNames(typeof(EnemyActionKind)));
+        }
+
         private static EntityState CreatePlayerEntity()
         {
             return new EntityState
@@ -1187,10 +1614,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float stateTransitionCrossFadeDurationSeconds,
             float jumpWindupAnimatorDurationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
             float jumpAirborneAnimatorDurationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+            float deathAnimatorDurationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
             AnimationClip attackWindupReferenceClip = null,
             AnimationClip recoverReferenceClip = null,
             AnimationClip jumpWindupReferenceClip = null,
-            AnimationClip jumpAirborneReferenceClip = null)
+            AnimationClip jumpAirborneReferenceClip = null,
+            AnimationClip deathReferenceClip = null)
         {
             PlayerViewPrefabTestUtility.SetSerializedField(
                 authoring,
@@ -1208,6 +1637,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 authoring,
                 "recoverAnimatorDurationSeconds",
                 recoverAnimatorDurationSeconds);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "deathAnimatorDurationSeconds",
+                deathAnimatorDurationSeconds);
             PlayerViewPrefabTestUtility.SetSerializedField(
                 authoring,
                 "jumpWindupReferenceClip",
@@ -1228,6 +1661,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 authoring,
                 "recoverReferenceClip",
                 recoverReferenceClip);
+            PlayerViewPrefabTestUtility.SetSerializedField(
+                authoring,
+                "deathReferenceClip",
+                deathReferenceClip);
         }
 
         private static AnimationClip CreateReferenceClip(string clipName, float lengthSeconds)
