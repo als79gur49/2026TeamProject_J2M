@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 
@@ -11,6 +12,7 @@ namespace Game.Feature.Gameplay.Host
         WalkLoop = 1,
         Push = 2,
         Flip = 3,
+        Death = 4,
     }
 
     public readonly struct PlayerViewPresentationState
@@ -24,7 +26,8 @@ namespace Game.Feature.Gameplay.Host
             bool executedThisTick,
             bool completedThisTick,
             bool canceledThisTick,
-            bool isRecoveryPhase = false)
+            bool isRecoveryPhase = false,
+            bool didDie = false)
             : this(
                 entityId,
                 tickIndex,
@@ -35,7 +38,8 @@ namespace Game.Feature.Gameplay.Host
                 completedThisTick,
                 canceledThisTick,
                 shouldPlayWalkLoop: false,
-                isRecoveryPhase: isRecoveryPhase)
+                isRecoveryPhase: isRecoveryPhase,
+                didDie: didDie)
         {
         }
 
@@ -49,7 +53,8 @@ namespace Game.Feature.Gameplay.Host
             bool completedThisTick,
             bool canceledThisTick,
             bool shouldPlayWalkLoop,
-            bool isRecoveryPhase = false)
+            bool isRecoveryPhase = false,
+            bool didDie = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -61,6 +66,7 @@ namespace Game.Feature.Gameplay.Host
             CompletedThisTick = completedThisTick;
             CanceledThisTick = canceledThisTick;
             ShouldPlayWalkLoop = shouldPlayWalkLoop;
+            DidDie = didDie;
         }
 
         public int EntityId { get; }
@@ -82,11 +88,15 @@ namespace Game.Feature.Gameplay.Host
         public bool CanceledThisTick { get; }
 
         public bool ShouldPlayWalkLoop { get; }
+
+        public bool DidDie { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
     {
         private readonly HashSet<int> _candidateEntityIds = new();
+        private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
+        private readonly HashSet<int> _removedEntityIds = new();
         private readonly Dictionary<int, TickPlayerActionPresentationSignal> _signalsByEntityId = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
 
@@ -112,8 +122,13 @@ namespace Game.Feature.Gameplay.Host
 
             buffer.Clear();
             _candidateEntityIds.Clear();
+            _finalEntitiesById.Clear();
+            _removedEntityIds.Clear();
             _signalsByEntityId.Clear();
             _locomotionSignalsByEntityId.Clear();
+
+            CacheFinalEntities(result.FinalEntities);
+            CollectRemovalSignals(result.CleanupPhaseResult);
 
             foreach (var pair in viewsByEntityId)
             {
@@ -154,6 +169,9 @@ namespace Game.Feature.Gameplay.Host
 
                 var shouldPlayWalkLoop = _locomotionSignalsByEntityId.TryGetValue(entityId, out var locomotionSignal) &&
                                          locomotionSignal.ShouldPlayWalkLoop;
+                var didDie = _removedEntityIds.Contains(entityId) ||
+                             (_finalEntitiesById.TryGetValue(entityId, out var finalEntity) &&
+                              (finalEntity.hp <= 0 || finalEntity.markedForDeath));
 
                 buffer[entityId] = new PlayerViewPresentationState(
                     entityId,
@@ -165,7 +183,8 @@ namespace Game.Feature.Gameplay.Host
                     signal.CompletedThisTick,
                     signal.CanceledThisTick,
                     shouldPlayWalkLoop,
-                    signal.IsRecoveryPhase);
+                    signal.IsRecoveryPhase,
+                    didDie);
             }
         }
 
@@ -181,7 +200,28 @@ namespace Game.Feature.Gameplay.Host
                 completedThisTick: false,
                 canceledThisTick: false,
                 shouldPlayWalkLoop: false,
-                isRecoveryPhase: false);
+                isRecoveryPhase: false,
+                didDie: false);
+        }
+
+        private void CacheFinalEntities(IReadOnlyList<EntityState> finalEntities)
+        {
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                var entity = finalEntities[i];
+                _finalEntitiesById[entity.entityId] = entity;
+            }
+        }
+
+        private void CollectRemovalSignals(CleanupPhaseResult cleanupPhaseResult)
+        {
+            var removedEntityIds = cleanupPhaseResult.RemovedEntityIds;
+            for (var i = 0; i < removedEntityIds.Count; i++)
+            {
+                var entityId = removedEntityIds[i];
+                _candidateEntityIds.Add(entityId);
+                _removedEntityIds.Add(entityId);
+            }
         }
 
         private static bool HasPlayerDriver(IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId, int entityId)

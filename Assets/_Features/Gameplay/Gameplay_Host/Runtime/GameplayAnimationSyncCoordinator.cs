@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayAnimationSyncCoordinator
     {
         private readonly List<int> _completedPlayerVisualHoldEntityIds = new();
+        private readonly HashSet<int> _playerDeathVisualOverrideEntityIds = new();
         private readonly List<int> _playerVisualHoldEntityIds = new();
         private readonly Dictionary<int, EnemyAnimatorDriver> _enemyAnimatorDriversByEntityId = new();
         private readonly EnemyViewPresentationMapper _enemyViewPresentationMapper = new();
@@ -42,6 +43,7 @@ namespace Game.Feature.Gameplay.Host
         public void ApplyInitialPlayerPresentation(
             IReadOnlyDictionary<int, GameplayEntityPose> committedLocalTargetPoses)
         {
+            _playerDeathVisualOverrideEntityIds.Clear();
             _playerVisualHoldStates.Clear();
 
             foreach (var pair in _playerAnimatorDriversByEntityId)
@@ -74,6 +76,11 @@ namespace Game.Feature.Gameplay.Host
             {
                 if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
                 {
+                    if (pair.Value.DidDie)
+                    {
+                        _playerDeathVisualOverrideEntityIds.Add(pair.Key);
+                    }
+
                     UpdatePlayerVisualHold(pair.Key, pair.Value, driver, resolvePlayerMotionDurationSeconds);
                     driver.Apply(pair.Value);
                 }
@@ -122,6 +129,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyAnimatorDriversByEntityId.Clear();
             _enemyViewPresentationStates.Clear();
             _playerAnimatorDriversByEntityId.Clear();
+            _playerDeathVisualOverrideEntityIds.Clear();
             _playerVisualHoldStates.Clear();
             _playerViewPresentationStates.Clear();
         }
@@ -168,6 +176,7 @@ namespace Game.Feature.Gameplay.Host
                         isVisible: false,
                         resolvedState,
                         resolveHiddenPlayerMotionDurationSeconds(pair.Key, resolvedState));
+                    _playerDeathVisualOverrideEntityIds.Remove(pair.Key);
                 }
             }
         }
@@ -183,6 +192,11 @@ namespace Game.Feature.Gameplay.Host
             {
                 driver.SyncRuntimeState(isVisible, resolvedState, resolvedMotionDurationSeconds);
             }
+
+            if (!isVisible)
+            {
+                _playerDeathVisualOverrideEntityIds.Remove(entityId);
+            }
         }
 
         public PlayerViewAnimationState ResolvePlayerAnimationState(
@@ -190,6 +204,12 @@ namespace Game.Feature.Gameplay.Host
             bool shouldPlayWalkLoop,
             bool hasActiveWalkMotion)
         {
+            if (_playerDeathVisualOverrideEntityIds.Contains(entityId))
+            {
+                _playerVisualHoldStates.Remove(entityId);
+                return PlayerViewAnimationState.Death;
+            }
+
             if (_playerViewPresentationStates.TryGetValue(entityId, out var state) &&
                 TryResolveActionAnimationState(state.ActiveActionKind, out var authoritativeState))
             {
@@ -243,6 +263,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerAnimatorDriversByEntityId.Remove(entityId);
+            _playerDeathVisualOverrideEntityIds.Remove(entityId);
             _playerVisualHoldStates.Remove(entityId);
             _playerViewPresentationStates.Remove(entityId);
         }
@@ -253,6 +274,12 @@ namespace Game.Feature.Gameplay.Host
             PlayerAnimatorDriver driver,
             Func<int, PlayerActionKind, float> resolvePlayerMotionDurationSeconds)
         {
+            if (state.DidDie || _playerDeathVisualOverrideEntityIds.Contains(entityId))
+            {
+                _playerVisualHoldStates.Remove(entityId);
+                return;
+            }
+
             if (state.CanceledThisTick)
             {
                 _playerVisualHoldStates.Remove(entityId);
