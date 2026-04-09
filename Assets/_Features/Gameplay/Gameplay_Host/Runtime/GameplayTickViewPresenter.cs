@@ -48,7 +48,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile,
             GameplayBoardRoot boardRoot = null,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
-            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX)
+            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX,
+            TopologyRotationTweenSettings topologyRotationTweenSettings = default)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -58,7 +59,8 @@ namespace Game.Feature.Gameplay.Host
                 timingProfile,
                 boardRoot,
                 boardSurfaceRenderer,
-                topologyRotationVisualMapping);
+                topologyRotationVisualMapping,
+                topologyRotationTweenSettings);
         }
 
         public void Present(TickResult result)
