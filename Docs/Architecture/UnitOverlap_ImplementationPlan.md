@@ -143,6 +143,7 @@
 - `TryGetBoxAt(SurfaceCell cell, out EntityState entity)`
 - `TryGetSolidOccupantAt(SurfaceCell cell, out EntityState entity)`
 - `TryPickImpactTargetAt(SurfaceCell cell, int sourceTeamId, out EntityState entity)`
+- `TryPickHostileUnitImpactTargetAt(SurfaceCell cell, int sourceTeamId, out EntityState entity)`
 
 작업
 
@@ -157,6 +158,7 @@
 주요 구현 내용
 
 - `WorldSnapshot`/`SnapshotReadQueries`/`WorldQueryService`에 `HasAnyUnitAt`, `EnumerateUnitsAt`, `TryGetPrimaryUnitAt`, `TryGetBoxAt`, `TryGetSolidOccupantAt`, `TryPickImpactTargetAt`를 추가했다.
+- box impact 전용으로 `TryPickHostileUnitImpactTargetAt`를 추가해 `friendly fallback 없음 + hostile unit only + entityId 오름차순` 선택을 고정했다.
 - `TryGetUnitAt`는 삭제하지 않고 `legacy primary non-projectile occupant` 의미로 유지했으며, 새 코드에서는 explicit query API를 사용하도록 주석과 callsite를 정리했다.
 - stacked unit query의 공통 표현을 `IReadOnlyCollection<int>` 기준으로 맞춰 authoritative `SortedSet<int>`와 snapshot `ReadOnlyCollection<int>`를 같은 query 계층에서 읽을 수 있게 정리했다.
 - `MovementExpander`, `PlayerControlState`, `EnemyMovementPolicy`, `MovementCommitter`는 각각 `box 조회`, `solid 조회`, `impact target 선택`에 맞는 전용 snapshot query를 사용하도록 변경했다.

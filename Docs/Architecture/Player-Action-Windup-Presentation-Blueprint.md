@@ -167,6 +167,8 @@ presentation state다.
 - action 시작 후 wind-up: `Push` 또는 `Flip`
 - execute 후 recovery: `Push` 또는 `Flip`
 - action 종료 후 move motion이 없으면 `Idle`
+- execute tick에 `Flip` outcome이 `ImpactNoMove` 또는 `BlockedNoImpact`여도 `ExecutedThisTick = true`이며 recovery로 간다.
+- pre-execute invalidation으로 action 자체가 사라진 경우에만 `CanceledThisTick = true`다.
 
 ## 7. 현재 파이프라인의 시점 문제
 
