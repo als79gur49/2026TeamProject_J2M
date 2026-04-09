@@ -46,6 +46,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetFacing(int entityId, Direction facing);
 
+        void SetBoxKineticOwner(int entityId, int instigatorEntityId, int instigatorTeamId);
+
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);

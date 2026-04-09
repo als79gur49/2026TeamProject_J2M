@@ -42,6 +42,36 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
+            result = left.ImpactSourceId.CompareTo(right.ImpactSourceId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.ImpactTargetId.CompareTo(right.ImpactTargetId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.BoxKineticTargetId.CompareTo(right.BoxKineticTargetId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.BoxKineticInstigatorEntityId.CompareTo(right.BoxKineticInstigatorEntityId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.BoxKineticInstigatorTeamId.CompareTo(right.BoxKineticInstigatorTeamId);
+            if (result != 0)
+            {
+                return result;
+            }
+
             result = CompareLists(left.Moves, right.Moves, CompareMoveActions);
             if (result != 0)
             {
@@ -279,7 +309,19 @@ namespace Game.Feature.Gameplay.Model.Sorting
                 return result;
             }
 
-            return left.spawnTick.CompareTo(right.spawnTick);
+            result = left.spawnTick.CompareTo(right.spawnTick);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.kineticInstigatorEntityId.CompareTo(right.kineticInstigatorEntityId);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            return left.kineticInstigatorTeamId.CompareTo(right.kineticInstigatorTeamId);
         }
 
         private static int CompareLists<T>(

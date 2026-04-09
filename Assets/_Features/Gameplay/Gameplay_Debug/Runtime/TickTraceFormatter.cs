@@ -340,9 +340,19 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Priority=").Append(group.Priority)
                 .Append("|Kind=").Append(group.GroupKind);
 
-            if (group.ProjectileImpactTargetId > 0)
+            if (group.HasResolvedImpact)
             {
-                builder.Append("|ImpactTarget=").Append(group.ProjectileImpactTargetId);
+                builder
+                    .Append("|ImpactSource=").Append(group.ImpactSourceId)
+                    .Append("|ImpactTarget=").Append(group.ImpactTargetId);
+            }
+
+            if (group.BoxKineticTargetId > 0)
+            {
+                builder
+                    .Append("|KineticBox=").Append(group.BoxKineticTargetId)
+                    .Append("|KineticInstigator=").Append(group.BoxKineticInstigatorEntityId)
+                    .Append("|KineticTeam=").Append(group.BoxKineticInstigatorTeamId);
             }
 
             builder
@@ -618,7 +628,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEntityState(EntityState entity)
         {
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|KineticInstigator={entity.kineticInstigatorEntityId}|KineticTeam={entity.kineticInstigatorTeamId}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}";
         }
 
         private static string FormatCell(SurfaceCell cell)

@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Model.Groups
         Attack = 3,
         Cleanup = 4,
         ProjectileImpact = 5,
+        BoxImpact = 6,
         Flip = 7,
         Push = 9,
         Item = 10,

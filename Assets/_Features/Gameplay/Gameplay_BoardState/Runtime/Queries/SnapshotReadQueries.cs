@@ -207,6 +207,55 @@ namespace Game.Feature.Gameplay.BoardState
             return true;
         }
 
+        public static bool TryPickHostileUnitImpactTargetAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            ValidateQueryDictionaries(entitiesById, stackedUnitsByCell, solidOccupancyByCell);
+
+            entity = default;
+
+            if (!topology.IsFaceActive(cell.face) ||
+                sourceTeamId <= 0 ||
+                TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out _) ||
+                !stackedUnitsByCell.TryGetValue(cell, out var entityIds))
+            {
+                return false;
+            }
+
+            var hasHostile = false;
+            var hostile = default(EntityState);
+
+            foreach (var entityId in entityIds)
+            {
+                if (!entitiesById.TryGetValue(entityId, out var candidate) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(candidate, topology) ||
+                    candidate.teamId == sourceTeamId)
+                {
+                    continue;
+                }
+
+                if (!hasHostile || candidate.entityId < hostile.entityId)
+                {
+                    hostile = candidate;
+                    hasHostile = true;
+                }
+            }
+
+            if (!hasHostile)
+            {
+                return false;
+            }
+
+            entity = hostile;
+            return true;
+        }
+
         // Legacy non-projectile lookup keeps solid-first resolution so existing box/wall callers stay stable.
         // Prefer explicit unit/solid/box/impact queries in new code.
         public static bool TryGetPrimaryNonProjectileOccupantAt(

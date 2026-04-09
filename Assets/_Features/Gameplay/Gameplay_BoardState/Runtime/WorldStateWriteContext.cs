@@ -68,6 +68,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetFacing(entityId, facing);
         }
 
+        public void SetBoxKineticOwner(int entityId, int instigatorEntityId, int instigatorTeamId)
+        {
+            _port.SetBoxKineticOwner(entityId, instigatorEntityId, instigatorTeamId);
+        }
+
         public void MarkDestroy(int entityId)
         {
             _port.MarkDestroy(entityId);

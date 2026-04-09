@@ -28,6 +28,8 @@ namespace Game.Feature.Gameplay.BoardState
         public bool markedForDeath;
         public int spawnTick;
         public BoxCapabilities boxCapabilities;
+        public int kineticInstigatorEntityId;
+        public int kineticInstigatorTeamId;
         public EnemyAiMode aiMode;
         public int aiStateTimer;
         public int enemyLocomotionCooldownTicks;

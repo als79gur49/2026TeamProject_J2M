@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);
         void MarkDestroy(int entityId);
         void SetFacing(int entityId, Direction facing);
+        void SetBoxKineticOwner(int entityId, int instigatorEntityId, int instigatorTeamId);
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
         void SetPlayerControlState(int entityId, PlayerControlState state);
         void SetTopology(CubeTopologyState topology);

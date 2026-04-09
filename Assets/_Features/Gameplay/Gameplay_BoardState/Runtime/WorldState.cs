@@ -194,6 +194,19 @@ namespace Game.Feature.Gameplay.BoardState
             UpdateStoredEntity(entity);
         }
 
+        private void SetBoxKineticOwner(int entityId, int instigatorEntityId, int instigatorTeamId)
+        {
+            if (!TryGetEntity(entityId, out var entity) ||
+                entity.type != EntityType.Box)
+            {
+                return;
+            }
+
+            entity.kineticInstigatorEntityId = instigatorEntityId;
+            entity.kineticInstigatorTeamId = instigatorTeamId;
+            UpdateStoredEntity(entity);
+        }
+
         private void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)
         {
             if (!TryGetEntity(entityId, out var entity))
@@ -529,6 +542,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetFacing(int entityId, Direction facing)
         {
             SetFacing(entityId, facing);
+        }
+
+        void IWorldStateMutationPort.SetBoxKineticOwner(int entityId, int instigatorEntityId, int instigatorTeamId)
+        {
+            SetBoxKineticOwner(entityId, instigatorEntityId, instigatorTeamId);
         }
 
         void IWorldStateMutationPort.SetBoardPresence(int entityId, EntityBoardPresence boardPresence)

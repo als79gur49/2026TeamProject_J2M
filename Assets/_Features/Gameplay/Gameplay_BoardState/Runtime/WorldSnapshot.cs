@@ -144,9 +144,19 @@ namespace Game.Feature.Gameplay.BoardState
             return TryPickImpactTargetAt(_topology, cell, sourceTeamId, out entity);
         }
 
+        public bool TryPickHostileUnitImpactTargetAt(SurfaceCell cell, int sourceTeamId, out EntityState entity)
+        {
+            return TryPickHostileUnitImpactTargetAt(_topology, cell, sourceTeamId, out entity);
+        }
+
         public bool TryPickImpactTargetAt(Vector2Int cell, int sourceTeamId, out EntityState entity)
         {
             return TryPickImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
+        }
+
+        public bool TryPickHostileUnitImpactTargetAt(Vector2Int cell, int sourceTeamId, out EntityState entity)
+        {
+            return TryPickHostileUnitImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
         }
 
         // Cell queries always resolve against committed authoritative occupancy, not render-time motion tracks.
@@ -503,6 +513,22 @@ namespace Game.Feature.Gameplay.BoardState
             out EntityState entity)
         {
             return SnapshotReadQueries.TryPickImpactTargetAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                topology,
+                cell,
+                sourceTeamId,
+                out entity);
+        }
+
+        internal bool TryPickHostileUnitImpactTargetAt(
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            int sourceTeamId,
+            out EntityState entity)
+        {
+            return SnapshotReadQueries.TryPickHostileUnitImpactTargetAt(
                 _entitiesById,
                 _stackedUnitsByCell,
                 _solidOccupancy,
