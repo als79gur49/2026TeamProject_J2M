@@ -156,6 +156,12 @@ presentation에서는 아래 outcome을 render-only metadata로 해석할 수 �
 
 이 값은 authoritative action kind를 늘리기 위한 근거가 아니다.
 
+### 6-4. Player Death 분리
+
+- player death는 `Push / Flip` action 체계의 일부가 아니다.
+- death는 cleanup remove tick 기반 player presentation override로 처리한다.
+- 따라서 `PlayerActionKind`는 계속 `None / Push / Flip`만 유지한다.
+
 ## 7. 데이터 및 소유권 규칙
 
 box impact는 projectile impact와 동일한 철학으로 다룬다.

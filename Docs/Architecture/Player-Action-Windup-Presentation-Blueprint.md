@@ -137,6 +137,12 @@ presentation state다.
 이 값은 `PlayerControlState`에 저장하지 않는다.
 이 값은 `GameplayTickViewPresenter`가 action signal과 motion 결과를 합쳐 해석한다.
 
+별도 규칙:
+
+- `Death`는 `PlayerActionKind`가 아니라 player presentation override다.
+- death 감지는 cleanup remove tick을 기준으로 한다.
+- death가 참이면 `Push / Flip / Walk / Idle`보다 우선한다.
+
 ## 6. 최종 동작 규칙
 
 ### 6-1. Idle
@@ -169,6 +175,13 @@ presentation state다.
 - action 종료 후 move motion이 없으면 `Idle`
 - execute tick에 `Flip` outcome이 `ImpactNoMove` 또는 `BlockedNoImpact`여도 `ExecutedThisTick = true`이며 recovery로 간다.
 - pre-execute invalidation으로 action 자체가 사라진 경우에만 `CanceledThisTick = true`다.
+
+### 6-4. Death
+
+- death는 `PlayerActionKind.None / Push / Flip` 체계에 섞지 않는다.
+- death tick에는 cleanup remove를 기반으로 `DidDie` presentation fact를 만든다.
+- 최종 animation state 해석 우선순위는 `Death -> Push / Flip -> Walk -> Idle`이다.
+- player view hide tail은 death clip이 끝나기 전에는 꺼지지 않아야 한다.
 
 ## 7. 현재 파이프라인의 시점 문제
 
