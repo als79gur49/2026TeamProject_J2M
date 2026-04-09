@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -146,7 +147,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -176,7 +177,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -223,7 +224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -280,7 +281,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -332,7 +333,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -735,7 +736,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(entityId: 92, position: new Vector2Int(0, 1)),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
             });
-            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
 
             try
@@ -750,7 +751,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -762,7 +763,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Left);
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
 
             try
@@ -777,7 +778,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -878,54 +879,67 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void EnemyEntityLogicFactory_ProfileDrivenAssembly_UsesInjectedProfileSettings()
         {
-            var profile = EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                new DetectionSettings(senseRange: 2, requireSameFace: true, canTargetMarkedForDeath: false),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee());
-            var factory = new EnemyEntityLogicFactory(
-                profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
-            var entity = CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right);
-            var logic = factory.Create(entity);
-            var worldState = CreateWorldState(new[]
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
-                entity,
+                DetectionSettings = new DetectionSettings(senseRange: 2, requireSameFace: true, canTargetMarkedForDeath: false),
             });
-            var transitions = new List<string>();
 
-            ((IEnemyAiStateLogic)logic).CommitAiTransitions(
-                worldState.CreateSnapshot(),
-                new TickInput(1),
-                EnemyAiTransitionStage.BeforeMovement,
-                worldState.CreateWriteContext(),
-                transitions);
+            try
+            {
+                var factory = new EnemyEntityLogicFactory(
+                    profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond));
+                var entity = CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right);
+                var logic = factory.Create(entity);
+                var worldState = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
+                    entity,
+                });
+                var transitions = new List<string>();
 
-            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
-            Assert.That(transitions, Has.Count.EqualTo(0));
+                ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    EnemyAiTransitionStage.BeforeMovement,
+                    worldState.CreateWriteContext(),
+                    transitions);
+
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(transitions, Has.Count.EqualTo(0));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
         public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindupAndMoveCooldown()
         {
-            var profile = EnemyAiProfile.CreateRuntimeDefault();
+            var profile = EnemyAiProfileTestFactory.CreateDefaultMelee();
 
-            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
-            Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
+                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.Zero);
+                Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
-        public void EnemyAiProfile_RuntimeFactoryHelpers_UseDefaultZeroMoveCooldown()
+        public void EnemyAiProfile_CanonicalFactoryProfiles_UseDefaultZeroMoveCooldown()
         {
             var profiles = new[]
             {
-                EnemyAiProfile.CreateRuntimeDefault(),
-                EnemyAiProfile.CreateRuntimeNonAttacking(),
-                EnemyAiProfile.CreateRuntimeCharging(),
-                EnemyAiProfile.CreateRuntimeWallFollower(),
+                EnemyAiProfileTestFactory.CreateDefaultMelee(),
+                EnemyAiProfileTestFactory.CreateNonAttacking(),
+                EnemyAiProfileTestFactory.CreateCharging(),
+                EnemyAiProfileTestFactory.CreateWallFollower(),
             };
 
             try
@@ -942,7 +956,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 foreach (var profile in profiles)
                 {
-                    UnityEngine.Object.DestroyImmediate(profile);
+                    DestroyProfile(profile);
                 }
             }
         }
@@ -989,6 +1003,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
                 Assert.That(definition.Capabilities.TryGetMovementSkill(out _), Is.False);
                 Assert.That(definition.Brain.Detection.Kind, Is.EqualTo(DetectionStrategyKind.NearestOpponent));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfileCompiler_MissingCoreAuthoring_ThrowsClearException()
+        {
+            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain(nameof(EnemyCoreAuthoring)));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfileCompiler_MissingBrainAuthoring_ThrowsClearException()
+        {
+            var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: false, out var createdAssets);
+            SetSerializedField(profile, "brainAuthoring", null);
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain(nameof(EnemyBrainAuthoring)));
             }
             finally
             {
@@ -1054,7 +1103,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void EnemyAiProfile_CreateRuntimeDefinition_JumpChaserProfile_OnlyCompilesJumpCapability()
         {
-            var profile = EnemyAiProfile.CreateRuntimeJumpChaser(new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 2, cooldownTicks: 3));
+            var profile = EnemyAiProfileTestFactory.CreateJumpChaser(
+                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 2, cooldownTicks: 3));
 
             try
             {
@@ -1069,7 +1119,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1081,7 +1131,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var profile = EnemyAiProfile.CreateRuntimeNonAttacking();
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
 
             try
             {
@@ -1096,29 +1146,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
+        }
+
+        [Test]
+        public void GameplayEntityLogicProviderFactory_NullProfile_UsesDefaultMeleeRuntimeDefinition()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var provider = GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null);
+            var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+
+            Assert.That(logicSet.AiStateLogics, Has.Count.EqualTo(1));
+            Assert.That(logicSet.PreMovementStateLogics, Has.Count.EqualTo(1));
+            Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
+            Assert.That(logicSet.EnemyActionStateLogics, Has.Count.EqualTo(1));
+            Assert.That(logicSet.AttackLogics, Has.Count.EqualTo(1));
         }
 
         [Test]
         public void EnemyAi_JumpProfile_InspectorTimings_AreSeconds_AndConvertToTicks()
         {
-            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f),
+                MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
+                JumpTimingSettings = new EnemyJumpTimingAuthoringSettings(
+                    windupSeconds: 0.1f,
+                    airborneSeconds: 0.2f,
+                    cooldownSeconds: 0.3f),
+            });
 
             try
             {
-                profile.ApplyConfiguration(
-                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
-                    PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
-                    ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
-                    new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f),
-                    new EnemyJumpTimingAuthoringSettings(windupSeconds: 0.1f, airborneSeconds: 0.2f, cooldownSeconds: 0.3f),
-                    attackDecisionStrategyKind: AttackDecisionStrategyKind.None,
-                    movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
-
                 var definition = profile.CreateRuntimeDefinition(60);
 
                 Assert.That(profile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
@@ -1131,7 +1198,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1182,79 +1249,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
         [Test]
-        public void EnemyAiProfile_CreateRuntimeDefinition_AtDefaultSimulationRate_PreservesLegacyTickSemantics()
+        public void EnemyAiProfile_CreateRuntimeDefinition_AtDefaultSimulationRate_PreservesAuthoringSecondsSemantics()
         {
-            var profile = EnemyAiProfile.CreateRuntimeInstance(
-                new EnemyAiCommonSettings(
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(
                     movementPriority: 50,
                     attackPriority: 50,
-                    recoverTicks: 1),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks: 3),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks: 4));
+                    recoverSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
+                    windupSeconds: 3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds: 4f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+            });
 
-            var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
 
-            Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(1));
-            Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
-            Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(4));
+                Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(1));
+                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
+                Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
         public void EnemyAiProfile_CreateRuntimeDefinition_ChangingSimulationTicksPerSecond_PreservesAuthoringTimeMeaning()
         {
-            var profile = EnemyAiProfile.CreateRuntimeInstance(
-                new EnemyAiCommonSettings(
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(
                     movementPriority: 50,
                     attackPriority: 50,
-                    recoverTicks: 2),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks: 2),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks: 2));
+                    recoverSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
+                    windupSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+            });
 
-            var sixtyTpsDefinition = profile.CreateRuntimeDefinition(60);
-            var thirtyTpsDefinition = profile.CreateRuntimeDefinition(30);
+            try
+            {
+                var sixtyTpsDefinition = profile.CreateRuntimeDefinition(60);
+                var thirtyTpsDefinition = profile.CreateRuntimeDefinition(30);
 
-            Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(2));
-            Assert.That(thirtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
-            Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
-            Assert.That(thirtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
-            Assert.That(sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
-            Assert.That(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
-            Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks / 60f, Is.EqualTo(thirtyTpsDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
-            Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks / 60f, Is.EqualTo(thirtyTpsDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
-            Assert.That(
-                sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks / 60f,
-                Is.EqualTo(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks / 30f).Within(0.0001f));
+                Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
+                Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
+                Assert.That(sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
+                Assert.That(sixtyTpsDefinition.CommonSettings.RecoverTicks / 60f, Is.EqualTo(thirtyTpsDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
+                Assert.That(sixtyTpsDefinition.AttackTimingSettings.WindupTicks / 60f, Is.EqualTo(thirtyTpsDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
+                Assert.That(
+                    sixtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks / 60f,
+                    Is.EqualTo(thirtyTpsDefinition.LocomotionTimingSettings.MoveCooldownTicks / 30f).Within(0.0001f));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
         public void EnemyAiProfile_CreateRuntimeDefinition_ZeroSeconds_AllowsZeroWindupRecoverAndMoveCooldownTicks()
         {
-            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f),
+            });
 
             try
             {
-                profile.ApplyConfiguration(
-                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
-                    PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
-                    ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
-                    new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 0f));
-
                 var definition = profile.CreateRuntimeDefinition(30);
 
                 Assert.That(definition.CommonSettings.RecoverTicks, Is.Zero);
@@ -1263,94 +1340,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
         [Test]
         public void EnemyAiProfile_CreateRuntimeDefinition_NegativeSeconds_ThrowsArgumentException()
         {
-            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: -0.1f),
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+            });
 
             try
             {
-                profile.ApplyConfiguration(
-                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: -0.1f),
-                    PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
-                    ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f));
-
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
                 Assert.That(exception.ParamName, Is.EqualTo("EnemyAiCommonAuthoringSettings"));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
         [Test]
         public void EnemyAiProfile_CreateRuntimeDefinition_NegativeMoveCooldownSeconds_ThrowsArgumentException()
         {
-            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: -0.1f),
+            });
 
             try
             {
-                profile.ApplyConfiguration(
-                    new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
-                    PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
-                    ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f),
-                    new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: -0.1f));
-
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
                 Assert.That(exception.ParamName, Is.EqualTo("EnemyLocomotionTimingAuthoringSettings"));
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
-            }
-        }
-
-        [Test]
-        public void EnemyAiProfile_OnAfterDeserialize_MigratesLegacyTickTimingToSecondsUsingDefaultSimulationRate()
-        {
-            var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
-
-            try
-            {
-                SetSerializedField(profile, "serializedVersion", 0);
-                SetSerializedField(
-                    profile,
-                    "legacyCommonSettings",
-                    new EnemyAiCommonSettings(
-                        movementPriority: 50,
-                        attackPriority: 75,
-                        recoverTicks: 2));
-                SetSerializedField(
-                    profile,
-                    "legacyAttackTimingSettings",
-                    new EnemyAttackTimingSettings(windupTicks: 3));
-
-                ((ISerializationCallbackReceiver)profile).OnAfterDeserialize();
-                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
-
-                Assert.That(profile.CommonSettings.RecoverSeconds, Is.EqualTo(2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
-                Assert.That(profile.AttackTimingSettings.WindupSeconds, Is.EqualTo(3f / GameplayTimingProfile.DefaultSimulationTicksPerSecond));
-                Assert.That(profile.LocomotionTimingSettings.MoveCooldownSeconds, Is.Zero);
-                Assert.That(definition.CommonSettings.RecoverTicks, Is.EqualTo(2));
-                Assert.That(definition.AttackTimingSettings.WindupTicks, Is.EqualTo(3));
-                Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.Zero);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1773,16 +1806,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeNonAttacking());
+            var profile = CreateNonAttackingEnemyProfile();
 
-            var result = pipeline.RunTick(new TickInput(1));
-            var enemy = GetEntity(worldState, 40);
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var result = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
 
-            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
-            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+                Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -1794,7 +1835,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
             });
-            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
 
             try
@@ -1806,7 +1847,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1819,7 +1860,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), aiMode: EnemyAiMode.None),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
             });
-            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
 
             try
@@ -1833,7 +1874,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1848,21 +1889,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeCharging());
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
 
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var thirdTick = pipeline.RunTick(new TickInput(3));
-            var fourthTick = pipeline.RunTick(new TickInput(4));
-            var enemy = GetEntity(worldState, 40);
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var fourthTick = pipeline.RunTick(new TickInput(4));
+                var enemy = GetEntity(worldState, 40);
 
-            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(3));
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(3));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -2014,7 +2063,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
                 },
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)));
-            var profile = EnemyAiProfile.CreateRuntimeWallFollower(WallFollowTurnPreference.Right);
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
 
             try
@@ -2028,7 +2077,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -2086,60 +2135,48 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks, int moveCooldownTicks = 0)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks));
+            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks),
-                stateResolverKind: EnemyAiStateResolverKind.Charge,
-                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+            return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0)
+        {
+            return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateWallFollowerProfile(
+            WallFollowTurnPreference turnPreference,
+            int moveCooldownTicks = 0)
+        {
+            return EnemyAiProfileTestFactory.CreateWallFollower(turnPreference, moveCooldownTicks);
         }
 
         private static EnemyAiProfile CreateJumpPatrolProfile()
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
-                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
-                detectionStrategyKind: DetectionStrategyKind.None,
-                attackDecisionStrategyKind: AttackDecisionStrategyKind.None,
-                movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+            return EnemyAiProfileTestFactory.CreateJumpPatrol(
+                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1));
         }
 
         private static EnemyAiProfile CreateJumpEnemyProfile(
             AttackDecisionStrategyKind attackDecisionStrategyKind = AttackDecisionStrategyKind.Melee)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
-                new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
-                attackDecisionStrategyKind: attackDecisionStrategyKind,
-                movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = attackDecisionStrategyKind,
+                MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
+                JumpTimingSettings = EnemyJumpTimingAuthoringSettings.FromRuntimeSettings(
+                    new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+            });
+        }
+
+        private static void DestroyProfile(EnemyAiProfile profile)
+        {
+            EnemyAiProfileTestFactory.Destroy(profile);
         }
 
         private static EnemyJumpRuntimeState CreateEnemyJumpState(

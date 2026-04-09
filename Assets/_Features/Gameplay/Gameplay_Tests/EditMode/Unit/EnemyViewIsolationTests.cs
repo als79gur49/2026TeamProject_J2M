@@ -216,8 +216,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(baselineProfile);
-                UnityEngine.Object.DestroyImmediate(presentedProfile);
+                EnemyAiProfileTestFactory.Destroy(baselineProfile);
+                EnemyAiProfileTestFactory.Destroy(presentedProfile);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -263,27 +263,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks));
+            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks),
-                stateResolverKind: EnemyAiStateResolverKind.Charge,
-                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+            return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
         }
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory

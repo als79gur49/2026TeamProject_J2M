@@ -390,7 +390,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -480,7 +480,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -531,7 +531,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -581,7 +581,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -593,25 +593,34 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                new IEntityLogic[]
-                {
-                    new EnemyLogic(40, EnemyAiProfile.CreateRuntimeNonAttacking()),
-                });
+            var profile = CreateNonAttackingEnemyProfile();
 
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var thirdTick = pipeline.RunTick(new TickInput(3));
-            var enemy = GetEntity(worldState, 40);
-            var player = GetEntity(worldState, 10);
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    });
 
-            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(player.hp, Is.EqualTo(3));
-            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var enemy = GetEntity(worldState, 40);
+                var player = GetEntity(worldState, 10);
+
+                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(player.hp, Is.EqualTo(3));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -639,7 +648,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -665,7 +674,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -694,7 +703,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -722,7 +731,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -750,7 +759,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -782,7 +791,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -836,7 +845,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -870,7 +879,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -906,7 +915,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -943,7 +952,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -990,7 +999,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1044,7 +1053,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1074,7 +1083,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1111,7 +1120,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1149,7 +1158,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1185,7 +1194,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1222,7 +1231,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1234,32 +1243,40 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeContactDamage());
+            var profile = CreateContactDamageProfile();
 
-            var result = pipeline.RunTick(new TickInput(1));
-            var snapshotAfter = worldState.CreateSnapshot();
-            var stackedUnits = new List<EntityState>();
-            var enemy = GetEntity(worldState, 40);
-            var player = GetEntity(worldState, 10);
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshotAfter = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+                var enemy = GetEntity(worldState, 40);
+                var player = GetEntity(worldState, 10);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
-                    .ToArray());
-            Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
-            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(player.hp, Is.EqualTo(2));
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-            Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10),
+                    },
+                    result.AttackPhaseResult
+                        .SortedInputs
+                        .Select(intent => (intent.SourceId, intent.TargetId))
+                        .ToArray());
+                Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+                Assert.That(player.hp, Is.EqualTo(2));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
 
-            snapshotAfter.EnumerateUnitsAt(new Vector2Int(0, 0), stackedUnits);
-            CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-            Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+                snapshotAfter.EnumerateUnitsAt(new Vector2Int(0, 0), stackedUnits);
+                CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -1271,33 +1288,41 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CreateUnit(entityId: 10, teamId: 1, position: stackedCell, hp: 3),
                 CreateUnit(entityId: 40, teamId: 2, position: stackedCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
             });
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, EnemyAiProfile.CreateRuntimeContactDamage());
+            var profile = CreateContactDamageProfile();
 
-            var result = pipeline.RunTick(new TickInput(1));
-            var snapshotAfter = worldState.CreateSnapshot();
-            var stackedUnits = new List<EntityState>();
-            var enemy = GetEntity(worldState, 40);
-            var player = GetEntity(worldState, 10);
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var result = pipeline.RunTick(new TickInput(1));
+                var snapshotAfter = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+                var enemy = GetEntity(worldState, 40);
+                var player = GetEntity(worldState, 10);
 
-            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
-                    .ToArray());
-            Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
-            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(stackedCell));
-            Assert.That(player.hp, Is.EqualTo(2));
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-            Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+                Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10),
+                    },
+                    result.AttackPhaseResult
+                        .SortedInputs
+                        .Select(intent => (intent.SourceId, intent.TargetId))
+                        .ToArray());
+                Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(stackedCell));
+                Assert.That(player.hp, Is.EqualTo(2));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
 
-            snapshotAfter.EnumerateUnitsAt(stackedCell, stackedUnits);
-            CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-            Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+                snapshotAfter.EnumerateUnitsAt(stackedCell, stackedUnits);
+                CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -1311,30 +1336,39 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                new IEntityLogic[]
-                {
-                    new EnemyLogic(40, EnemyAiProfile.CreateRuntimeCharging()),
-                });
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
 
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var thirdTick = pipeline.RunTick(new TickInput(3));
-            var fourthTick = pipeline.RunTick(new TickInput(4));
-            var enemy = GetEntity(worldState, 40);
-            var player = GetEntity(worldState, 10);
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    });
 
-            Assert.That(GetEntityAfterTick(firstTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-            Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-            Assert.That(GetEntityAfterTick(thirdTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-            Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(player.hp, Is.EqualTo(3));
-            Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
-            Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var fourthTick = pipeline.RunTick(new TickInput(4));
+                var enemy = GetEntity(worldState, 40);
+                var player = GetEntity(worldState, 10);
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(thirdTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(player.hp, Is.EqualTo(3));
+                Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
+                Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -1406,7 +1440,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
             finally
             {
-                UnityEngine.Object.DestroyImmediate(profile);
+                DestroyProfile(profile);
             }
         }
 
@@ -1467,27 +1501,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks));
+            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks),
-                stateResolverKind: EnemyAiStateResolverKind.Charge,
-                attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
+            return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0)
+        {
+            return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0)
+        {
+            return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks);
         }
 
         private static EnemyAiProfile CreateJumpChaserProfile(
@@ -1495,7 +1524,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int airborneTicks,
             int cooldownTicks)
         {
-            return EnemyAiProfile.CreateRuntimeJumpChaser(
+            return EnemyAiProfileTestFactory.CreateJumpChaser(
                 new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks));
         }
 
@@ -1504,25 +1533,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int airborneTicks,
             int cooldownTicks)
         {
-            return EnemyAiProfile.CreateRuntimeInstance(
-                EnemyAiCommonSettings.CreateDefaultMelee(),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                EnemyAttackTimingSettings.CreateDefaultMelee(),
-                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
-                new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks),
-                detectionStrategyKind: DetectionStrategyKind.None,
-                attackDecisionStrategyKind: AttackDecisionStrategyKind.None,
-                movementSkillStrategyKind: MovementSkillStrategyKind.JumpToLockedTarget);
+            return EnemyAiProfileTestFactory.CreateJumpPatrol(
+                new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks));
         }
 
         private static EnemyAiProfile CreateWallFollowerProfile(
             WallFollowTurnPreference turnPreference,
             int moveCooldownTicks = 0)
         {
-            return EnemyAiProfile.CreateRuntimeWallFollower(turnPreference, moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateWallFollower(turnPreference, moveCooldownTicks);
+        }
+
+        private static void DestroyProfile(EnemyAiProfile profile)
+        {
+            EnemyAiProfileTestFactory.Destroy(profile);
         }
 
         private static EntityState CreateUnit(
