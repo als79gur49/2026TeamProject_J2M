@@ -12,8 +12,9 @@ namespace Game.Feature.Gameplay.Entities
 
         public static ISnapshotEntityLogicProvider CreateDefault(EnemyAiProfile enemyAiProfile)
         {
-            var defaultDefinition = (enemyAiProfile ?? EnemyAiProfile.CreateRuntimeDefault())
-                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var defaultDefinition = enemyAiProfile != null
+                ? enemyAiProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                : EnemyAiRuntimeDefinition.CreateDefaultMelee();
             return CreateDefault(defaultDefinition);
         }
 

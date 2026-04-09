@@ -113,7 +113,7 @@ namespace Game.Feature.Gameplay.Host
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
         {
             return new EnemyAiRuntimeCollectionSnapshot(
-                ResolveDefaultEnemyAiProfile().CreateRuntimeDefinition(SimulationTicksPerSecond),
+                ResolveDefaultEnemyAiRuntimeDefinition(),
                 CreateEnemyAiDefinitionOverrides());
         }
 
@@ -195,11 +195,11 @@ namespace Game.Feature.Gameplay.Host
                 repeatedMoveIntervalSeconds);
         }
 
-        private EnemyAiProfile ResolveDefaultEnemyAiProfile()
+        private EnemyAiRuntimeDefinition ResolveDefaultEnemyAiRuntimeDefinition()
         {
             return DefaultEnemyAiProfile != null
-                ? DefaultEnemyAiProfile
-                : EnemyAiProfile.CreateRuntimeDefault();
+                ? DefaultEnemyAiProfile.CreateRuntimeDefinition(SimulationTicksPerSecond)
+                : EnemyAiRuntimeDefinition.CreateDefaultMelee();
         }
 
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()

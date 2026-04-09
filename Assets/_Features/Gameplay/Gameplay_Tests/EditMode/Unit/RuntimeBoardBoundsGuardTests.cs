@@ -15,6 +15,7 @@ using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEngine;
@@ -257,44 +258,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Test]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_ChangingSimulationTicksPerSecondPreservesEnemyTimeMeaning()
         {
-            var profile = EnemyAiProfile.CreateRuntimeInstance(
-                new EnemyAiCommonSettings(
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(
                     movementPriority: 50,
                     attackPriority: 50,
-                    recoverTicks: 2),
-                PatrolSettings.CreateDefault(),
-                DetectionSettings.CreateDefaultMelee(),
-                ChaseSettings.CreateDefault(),
-                AttackDecisionSettings.CreateDefaultMelee(),
-                new EnemyAttackTimingSettings(windupTicks: 2),
-                new EnemyLocomotionTimingSettings(moveCooldownTicks: 2));
+                    recoverSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                AttackTimingSettings = new EnemyAttackTimingAuthoringSettings(
+                    windupSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(
+                    moveCooldownSeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond),
+            });
 
-            var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
+            try
             {
-                SimulationTicksPerSecond = 60,
-                DefaultEnemyAiProfile = profile,
-            }.CreateEnemyAiRuntimeSnapshot();
-            var thirtyTpsSnapshot = new GameplaySceneHostConfiguration
+                var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
+                {
+                    SimulationTicksPerSecond = 60,
+                    DefaultEnemyAiProfile = profile,
+                }.CreateEnemyAiRuntimeSnapshot();
+                var thirtyTpsSnapshot = new GameplaySceneHostConfiguration
+                {
+                    SimulationTicksPerSecond = 30,
+                    DefaultEnemyAiProfile = profile,
+                }.CreateEnemyAiRuntimeSnapshot();
+
+                Assert.That(sixtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
+                Assert.That(sixtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
+                Assert.That(sixtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
+                Assert.That(thirtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
+                Assert.That(
+                    sixtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks / 60f,
+                    Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
+                Assert.That(
+                    sixtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks / 60f,
+                    Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
+                Assert.That(
+                    sixtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks / 60f,
+                    Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks / 30f).Within(0.0001f));
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_UsesDefaultMeleeDefinition()
+        {
+            var snapshot = new GameplaySceneHostConfiguration
             {
                 SimulationTicksPerSecond = 30,
-                DefaultEnemyAiProfile = profile,
             }.CreateEnemyAiRuntimeSnapshot();
+            var expected = EnemyAiRuntimeDefinition.CreateDefaultMelee();
 
-            Assert.That(sixtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(2));
-            Assert.That(thirtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(1));
-            Assert.That(sixtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(2));
-            Assert.That(thirtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(1));
-            Assert.That(sixtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
-            Assert.That(thirtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(1));
-            Assert.That(
-                sixtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks / 60f,
-                Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.CommonSettings.RecoverTicks / 30f).Within(0.0001f));
-            Assert.That(
-                sixtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks / 60f,
-                Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.AttackTimingSettings.WindupTicks / 30f).Within(0.0001f));
-            Assert.That(
-                sixtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks / 60f,
-                Is.EqualTo(thirtyTpsSnapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks / 30f).Within(0.0001f));
+            Assert.That(snapshot.DefaultDefinition.CommonSettings.RecoverTicks, Is.EqualTo(expected.CommonSettings.RecoverTicks));
+            Assert.That(snapshot.DefaultDefinition.AttackTimingSettings.WindupTicks, Is.EqualTo(expected.AttackTimingSettings.WindupTicks));
+            Assert.That(snapshot.DefaultDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(expected.LocomotionTimingSettings.MoveCooldownTicks));
+            Assert.That(snapshot.DefaultDefinition.MovementSkillStrategyKind, Is.EqualTo(expected.MovementSkillStrategyKind));
+            Assert.That(snapshot.DefaultDefinition.DetectionStrategy, Is.SameAs(expected.DetectionStrategy));
+            Assert.That(snapshot.DefaultDefinition.AttackDecisionStrategy, Is.SameAs(expected.AttackDecisionStrategy));
+            Assert.That(snapshot.DefinitionsByEntityId, Is.Null);
         }
 
         [Test]
@@ -305,63 +331,64 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var host = hostObject.AddComponent<GameplaySceneHost>();
-                var profile = EnemyAiProfile.CreateRuntimeInstance(
-                    EnemyAiCommonSettings.CreateDefaultMelee(),
-                    PatrolSettings.CreateDefault(),
-                    DetectionSettings.CreateDefaultMelee(),
-                    ChaseSettings.CreateDefault(),
-                    AttackDecisionSettings.CreateDefaultMelee(),
-                    new EnemyAttackTimingSettings(windupTicks: 2));
+                var profile = EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks: 2);
 
-                host.Initialize(
-                    new GameplaySceneHostConfiguration
-                    {
-                        AutoAdvanceTicks = false,
-                        AutoCreateViews = false,
-                        DefaultEnemyAiProfile = profile,
-                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)),
-                        InitialEntities = new[]
+                try
+                {
+                    host.Initialize(
+                        new GameplaySceneHostConfiguration
                         {
-                            new EntityState
+                            AutoAdvanceTicks = false,
+                            AutoCreateViews = false,
+                            DefaultEnemyAiProfile = profile,
+                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)),
+                            InitialEntities = new[]
                             {
-                                entityId = 10,
-                                position = new SurfaceCell(FaceId.Floor, 1, 0),
-                                hp = 3,
-                                maxHp = 3,
-                                teamId = 1,
-                                type = EntityType.Unit,
-                                state = EntityPhaseState.Idle,
-                                facing = Direction.Left,
-                                boardPresence = EntityBoardPresence.Occupying,
+                                new EntityState
+                                {
+                                    entityId = 10,
+                                    position = new SurfaceCell(FaceId.Floor, 1, 0),
+                                    hp = 3,
+                                    maxHp = 3,
+                                    teamId = 1,
+                                    type = EntityType.Unit,
+                                    state = EntityPhaseState.Idle,
+                                    facing = Direction.Left,
+                                    boardPresence = EntityBoardPresence.Occupying,
+                                },
+                                new EntityState
+                                {
+                                    entityId = 40,
+                                    position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                    hp = 3,
+                                    maxHp = 3,
+                                    teamId = 2,
+                                    type = EntityType.Unit,
+                                    state = EntityPhaseState.Idle,
+                                    facing = Direction.Up,
+                                    boardPresence = EntityBoardPresence.Occupying,
+                                    aiMode = EnemyAiMode.Attack,
+                                },
                             },
-                            new EntityState
-                            {
-                                entityId = 40,
-                                position = new SurfaceCell(FaceId.Floor, 0, 0),
-                                hp = 3,
-                                maxHp = 3,
-                                teamId = 2,
-                                type = EntityType.Unit,
-                                state = EntityPhaseState.Idle,
-                                facing = Direction.Up,
-                                boardPresence = EntityBoardPresence.Occupying,
-                                aiMode = EnemyAiMode.Attack,
-                            },
-                        },
-                        InitialTopology = new CubeTopologyState(FaceId.Floor),
-                        PlayerEntityId = 10,
-                        SimulationTicksPerSecond = 30,
-                    });
+                            InitialTopology = new CubeTopologyState(FaceId.Floor),
+                            PlayerEntityId = 10,
+                            SimulationTicksPerSecond = 30,
+                        });
 
-                var firstTick = host.InputHost.RunSingleTick();
-                Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var firstTickPlayer), Is.True);
-                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(firstTickPlayer.hp, Is.EqualTo(3));
+                    var firstTick = host.InputHost.RunSingleTick();
+                    Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var firstTickPlayer), Is.True);
+                    Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                    Assert.That(firstTickPlayer.hp, Is.EqualTo(3));
 
-                var secondTick = host.InputHost.RunSingleTick();
-                Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var secondTickPlayer), Is.True);
-                Assert.That(secondTick.AttackPhaseResult.SortedInputs.Count, Is.EqualTo(1));
-                Assert.That(secondTickPlayer.hp, Is.EqualTo(2));
+                    var secondTick = host.InputHost.RunSingleTick();
+                    Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var secondTickPlayer), Is.True);
+                    Assert.That(secondTick.AttackPhaseResult.SortedInputs.Count, Is.EqualTo(1));
+                    Assert.That(secondTickPlayer.hp, Is.EqualTo(2));
+                }
+                finally
+                {
+                    EnemyAiProfileTestFactory.Destroy(profile);
+                }
             }
             finally
             {
