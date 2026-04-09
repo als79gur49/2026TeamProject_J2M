@@ -21,7 +21,8 @@ namespace Game.Feature.Gameplay.Host
             float cellSize,
             int playerEntityId,
             GameplayEntityView playerViewPrefab = null,
-            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null)
+            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null,
+            IReadOnlyDictionary<int, GameplayEntityView> staticViewPrefabsByEntityId = null)
         {
             _cellSize = cellSize;
             _defaultFactory = new DefaultGameplayEntityViewFactory(
@@ -29,7 +30,8 @@ namespace Game.Feature.Gameplay.Host
                 cellSize,
                 playerEntityId,
                 playerViewPrefab,
-                enemyViewPrefabsByEntityId: enemyViewPrefabsByEntityId);
+                enemyViewPrefabsByEntityId: enemyViewPrefabsByEntityId,
+                staticViewPrefabsByEntityId: staticViewPrefabsByEntityId);
         }
 
         public GameplayEntityView CreateView(in EntityState entity)

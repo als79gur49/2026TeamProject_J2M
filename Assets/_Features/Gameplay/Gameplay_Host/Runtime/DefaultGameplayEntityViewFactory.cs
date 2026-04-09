@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Transform _parent;
         private readonly int _playerEntityId;
         private readonly IReadOnlyDictionary<int, GameplayEntityView> _enemyViewPrefabsByEntityId;
+        private readonly IReadOnlyDictionary<int, GameplayEntityView> _staticViewPrefabsByEntityId;
         private readonly Material _unitMaterial;
         private readonly Material _wallMaterial;
 
@@ -24,13 +25,15 @@ namespace Game.Feature.Gameplay.Host
             float cellSize,
             int playerEntityId,
             GameplayEntityView playerViewPrefab = null,
-            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null)
+            IReadOnlyDictionary<int, GameplayEntityView> enemyViewPrefabsByEntityId = null,
+            IReadOnlyDictionary<int, GameplayEntityView> staticViewPrefabsByEntityId = null)
         {
             _parent = parent;
             _cellSize = cellSize;
             _playerEntityId = playerEntityId;
             _playerViewPrefab = playerViewPrefab;
             _enemyViewPrefabsByEntityId = enemyViewPrefabsByEntityId;
+            _staticViewPrefabsByEntityId = staticViewPrefabsByEntityId;
             var shader = Shader.Find("Universal Render Pipeline/Unlit");
 
             if (shader == null)
@@ -59,6 +62,11 @@ namespace Game.Feature.Gameplay.Host
                 return enemyView;
             }
 
+            if (TryCreateStaticPrefabView(entity, out var staticView))
+            {
+                return staticView;
+            }
+
             return CreatePrimitiveView(entity);
         }
 
@@ -69,6 +77,7 @@ namespace Game.Feature.Gameplay.Host
             PlayerViewPrefabRequirements.ValidatePlayerViewPrefab(_playerViewPrefab, nameof(DefaultGameplayEntityViewFactory));
             var instance = UnityEngine.Object.Instantiate(_playerViewPrefab, _parent);
             ResetViewTransform(instance, entity.entityId);
+            SanitizePrefabPhysics(instance);
             PlayerViewPrefabRequirements.ValidatePlayerViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
             return instance;
         }
@@ -88,8 +97,29 @@ namespace Game.Feature.Gameplay.Host
 
             var instance = UnityEngine.Object.Instantiate(prefab, _parent);
             ResetViewTransform(instance, entity.entityId);
+            SanitizePrefabPhysics(instance);
             EnemyViewPrefabRequirements.ValidateEnemyViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
             EnsureEnemyInactiveVisualController(instance, entity);
+            EnsureRenderableVisual(instance, entity);
+            view = instance;
+            return true;
+        }
+
+        private bool TryCreateStaticPrefabView(in EntityState entity, out GameplayEntityView view)
+        {
+            view = null;
+
+            if (!IsStaticPresentationCandidate(entity) ||
+                _staticViewPrefabsByEntityId == null ||
+                !_staticViewPrefabsByEntityId.TryGetValue(entity.entityId, out var prefab) ||
+                prefab == null)
+            {
+                return false;
+            }
+
+            var instance = UnityEngine.Object.Instantiate(prefab, _parent);
+            ResetViewTransform(instance, entity.entityId);
+            SanitizePrefabPhysics(instance);
             EnsureRenderableVisual(instance, entity);
             view = instance;
             return true;
@@ -156,6 +186,50 @@ namespace Game.Feature.Gameplay.Host
             view.gameObject.AddComponent<EnemyInactiveVisualController>();
         }
 
+        private static bool IsStaticPresentationCandidate(in EntityState entity)
+        {
+            return entity.type == EntityType.Box ||
+                   entity.type == EntityType.None;
+        }
+
+        private static void SanitizePrefabPhysics(GameplayEntityView view)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            // Runtime entity views are driven by the authoritative board simulation, not Unity physics.
+            // Disable physics components immediately to prevent interference, then destroy them so authored
+            // prefabs remain presentation-only shells around simulation entities.
+            var colliders = view.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (var i = 0; i < colliders.Length; i++)
+            {
+                var collider = colliders[i];
+                if (collider == null)
+                {
+                    continue;
+                }
+
+                collider.enabled = false;
+                DestroyComponent(collider);
+            }
+
+            var rigidbodies = view.GetComponentsInChildren<Rigidbody>(includeInactive: true);
+            for (var i = 0; i < rigidbodies.Length; i++)
+            {
+                var rigidbody = rigidbodies[i];
+                if (rigidbody == null)
+                {
+                    continue;
+                }
+
+                rigidbody.detectCollisions = false;
+                rigidbody.isKinematic = true;
+                DestroyComponent(rigidbody);
+            }
+        }
+
         private void AttachPrimitiveVisual(GameplayEntityView view, in EntityState entity)
         {
             var visualProfile = GameplayEntityVisualProfile.Create(entity.type, _cellSize);
@@ -185,6 +259,23 @@ namespace Game.Feature.Gameplay.Host
             if (renderer != null)
             {
                 renderer.sharedMaterial = ResolveMaterial(entity);
+            }
+        }
+
+        private static void DestroyComponent(Component component)
+        {
+            if (component == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                UnityEngine.Object.Destroy(component);
+            }
+            else
+            {
+                UnityEngine.Object.DestroyImmediate(component);
             }
         }
 

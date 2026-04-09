@@ -20,7 +20,8 @@ namespace Game.Feature.Gameplay.Host
                 buildResult.InitialTerrain,
                 buildResult.PlayerEntityId,
                 buildResult.EnemyAiProfileOverrides,
-                buildResult.EnemyPresentationBindings);
+                buildResult.EnemyPresentationBindings,
+                buildResult.StaticEntityPresentationBindings);
         }
     }
 }

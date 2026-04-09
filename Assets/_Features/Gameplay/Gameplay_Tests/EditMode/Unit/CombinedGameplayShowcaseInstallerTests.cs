@@ -357,6 +357,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator()
+        {
+            var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator");
+            var prefabObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab");
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                new GameObject("PrefabMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
+
+                var factory = new GameplayBoxCapabilityLabelViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 30, prefabView },
+                    });
+
+                var boxView = factory.CreateView(
+                    new EntityState
+                    {
+                        entityId = 30,
+                        position = new SurfaceCell(FaceId.Floor, 0, 0),
+                        hp = 1,
+                        maxHp = 1,
+                        teamId = 0,
+                        type = EntityType.Box,
+                        state = EntityPhaseState.Idle,
+                        facing = Direction.Right,
+                        boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Item,
+                    });
+
+                Assert.That(boxView.transform.Find("PrefabMarker"), Is.Not.Null);
+                var label = boxView.transform.Find("CapabilityLabel");
+                Assert.That(label, Is.Not.Null);
+                Assert.That(label.GetComponent<TextMesh>().text, Is.EqualTo("Push\nItem"));
+            }
+            finally
+            {
+                Object.DestroyImmediate(prefabObject);
+                Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
         public void CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy");

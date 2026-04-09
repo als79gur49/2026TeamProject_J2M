@@ -1522,6 +1522,139 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHost_Initialize_WithStaticPresentationBindingButMissingCatalog_Throws()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithStaticPresentationBindingButMissingCatalog_Throws");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                var exception = Assert.Throws<InvalidOperationException>(
+                    () => host.Initialize(
+                        new GameplaySceneHostConfiguration
+                        {
+                            AutoAdvanceTicks = false,
+                            AutoCreateViews = true,
+                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
+                            InitialEntities = new[]
+                            {
+                                CreatePlayerEntity(),
+                                CreateBoxEntity(),
+                            },
+                            InitialTopology = new CubeTopologyState(FaceId.Floor),
+                            PlayerEntityId = 10,
+                            StaticEntityPresentationBindings = new[]
+                            {
+                                new StaticEntityPresentationBinding
+                                {
+                                    EntityId = 20,
+                                    PresentationId = "crate",
+                                },
+                            },
+                        }));
+
+                StringAssert.Contains(nameof(StaticEntityPresentationCatalog), exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks");
+            var boxPrefabObject = new GameObject("StaticBoxPresentationPrefab");
+            var wallPrefabObject = new GameObject("StaticWallPresentationPrefab");
+            var staticCatalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
+
+            try
+            {
+                var boxPrefabView = boxPrefabObject.AddComponent<GameplayEntityView>();
+                boxPrefabObject.AddComponent<BoxCollider>();
+                boxPrefabObject.AddComponent<Rigidbody>();
+                new GameObject("BoxPrefabMarker").transform.SetParent(boxPrefabObject.transform, worldPositionStays: false);
+
+                var wallPrefabView = wallPrefabObject.AddComponent<GameplayEntityView>();
+                wallPrefabObject.AddComponent<BoxCollider>();
+                wallPrefabObject.AddComponent<Rigidbody>();
+                new GameObject("WallPrefabMarker").transform.SetParent(wallPrefabObject.transform, worldPositionStays: false);
+
+                PlayerViewPrefabTestUtility.SetSerializedField(
+                    staticCatalog,
+                    "entries",
+                    new[]
+                    {
+                        new StaticEntityPresentationCatalogEntry
+                        {
+                            PresentationId = "crate",
+                            ViewPrefab = boxPrefabView,
+                        },
+                        new StaticEntityPresentationCatalogEntry
+                        {
+                            PresentationId = "wall_block",
+                            ViewPrefab = wallPrefabView,
+                        },
+                    });
+
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = true,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreatePlayerEntity(),
+                            CreateBoxEntity(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0)),
+                            CreateWallEntity(entityId: 30, position: new SurfaceCell(FaceId.Floor, 2, 0)),
+                            CreateBoxEntity(entityId: 21, position: new SurfaceCell(FaceId.Floor, 3, 0)),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        StaticEntityPresentationCatalog = staticCatalog,
+                        StaticEntityPresentationBindings = new[]
+                        {
+                            new StaticEntityPresentationBinding
+                            {
+                                EntityId = 20,
+                                PresentationId = "crate",
+                            },
+                            new StaticEntityPresentationBinding
+                            {
+                                EntityId = 30,
+                                PresentationId = "wall_block",
+                            },
+                        },
+                    });
+
+                Assert.That(host.ViewRegistry.TryGetView(20, out var boundBoxView), Is.True);
+                Assert.That(boundBoxView.transform.Find("BoxPrefabMarker"), Is.Not.Null);
+                Assert.That(boundBoxView.GetComponentsInChildren<Collider>(includeInactive: true), Is.Empty);
+                Assert.That(boundBoxView.GetComponentsInChildren<Rigidbody>(includeInactive: true), Is.Empty);
+
+                Assert.That(host.ViewRegistry.TryGetView(30, out var boundWallView), Is.True);
+                Assert.That(boundWallView.transform.Find("WallPrefabMarker"), Is.Not.Null);
+                Assert.That(boundWallView.GetComponentsInChildren<Collider>(includeInactive: true), Is.Empty);
+                Assert.That(boundWallView.GetComponentsInChildren<Rigidbody>(includeInactive: true), Is.Empty);
+
+                Assert.That(host.ViewRegistry.TryGetView(21, out var fallbackBoxView), Is.True);
+                Assert.That(fallbackBoxView.transform.Find("BoxPrefabMarker"), Is.Null);
+                Assert.That(fallbackBoxView.ModelRoot.Find("Visual"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(staticCatalog);
+                UnityEngine.Object.DestroyImmediate(wallPrefabObject);
+                UnityEngine.Object.DestroyImmediate(boxPrefabObject);
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
         public void EnemyAiProfile_SerializedFields_RemainLogicOnlyContract()
         {
             var serializedFieldNames = typeof(EnemyAiProfile)
@@ -1597,6 +1730,43 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = EnemyAiMode.Patrol,
                 aiStateTimer = 0,
+            };
+        }
+
+        private static EntityState CreateBoxEntity(
+            int entityId = 20,
+            SurfaceCell? position = null)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position ?? new SurfaceCell(FaceId.Floor, 1, 0),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.Box,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Right,
+                boardPresence = EntityBoardPresence.Occupying,
+                boxCapabilities = BoxCapabilities.Push,
+            };
+        }
+
+        private static EntityState CreateWallEntity(
+            int entityId = 30,
+            SurfaceCell? position = null)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position ?? new SurfaceCell(FaceId.Floor, 2, 0),
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+                boardPresence = EntityBoardPresence.Occupying,
             };
         }
 

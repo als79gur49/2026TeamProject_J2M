@@ -228,7 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp: 2,
                         enemyAiMode: EnemyAiMode.Patrol,
                         enemyAiProfile: enemyProfile,
-                        enemyPresentationId: $"  {WindupEnemyPresentationId}  "),
+                        presentationId: $"  {WindupEnemyPresentationId}  "),
                     CreateSpawn(
                         21,
                         StageSpawnKind.Enemy,
@@ -236,13 +236,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         hp: 2,
                         enemyAiMode: EnemyAiMode.Patrol,
                         enemyAiProfile: enemyProfile,
-                        enemyPresentationId: " "),
+                        presentationId: " "),
                     CreateSpawn(
                         30,
                         StageSpawnKind.Box,
                         new SurfaceCell(FaceId.Floor, 1, 2),
                         hp: 1,
-                        enemyPresentationId: "ignored_box_presentation"));
+                        presentationId: "ignored_box_presentation"));
 
                 try
                 {
@@ -259,6 +259,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(enemyProfile);
+            }
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_BuildsStaticPresentationBindingsOnlyForBoxAndWallSpawnsWithIds()
+        {
+            var stage = CreateStage(
+                "StaticPresentationBindings",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Right),
+                CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 1), hp: 1, presentationId: "  box_variant  "),
+                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Front, 2, 1), hp: 1, facing: Direction.None, presentationId: "wall_variant"),
+                CreateSpawn(50, StageSpawnKind.Box, new SurfaceCell(FaceId.Ceiling, 1, 2), hp: 1, presentationId: " "),
+                CreateSpawn(60, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 2, 2), hp: 2, enemyAiMode: EnemyAiMode.Patrol, presentationId: "enemy_variant"));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+
+                Assert.That(buildResult.StaticEntityPresentationBindings.Length, Is.EqualTo(2));
+                Assert.That(buildResult.StaticEntityPresentationBindings[0].EntityId, Is.EqualTo(30));
+                Assert.That(buildResult.StaticEntityPresentationBindings[0].PresentationId, Is.EqualTo("box_variant"));
+                Assert.That(buildResult.StaticEntityPresentationBindings[1].EntityId, Is.EqualTo(40));
+                Assert.That(buildResult.StaticEntityPresentationBindings[1].PresentationId, Is.EqualTo("wall_variant"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
             }
         }
 
@@ -300,7 +328,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiMode enemyAiMode = EnemyAiMode.None,
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
-            string enemyPresentationId = null)
+            string presentationId = null)
         {
             return new StageSpawnDefinition
             {
@@ -313,7 +341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAiMode = enemyAiMode,
                 EnemyAiStateTimer = enemyAiStateTimer,
                 EnemyAiProfile = enemyAiProfile,
-                EnemyPresentationId = enemyPresentationId,
+                PresentationId = presentationId,
             };
         }
 

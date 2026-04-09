@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
@@ -9,6 +8,7 @@ namespace Game.Feature.Gameplay.Host
     {
         [SerializeField] private GameplayEntityView playerViewPrefab;
         [SerializeField] private EnemyPresentationCatalog enemyPresentationCatalog;
+        [SerializeField] private StaticEntityPresentationCatalog staticEntityPresentationCatalog;
 
         protected override IGameplayEntityViewFactory CreateViewFactory(
             GameplayBoardRoot boardRoot,
@@ -24,7 +24,8 @@ namespace Game.Feature.Gameplay.Host
                 CellSize,
                 initialState.PlayerEntityId,
                 playerViewPrefab,
-                ResolveEnemyViewPrefabs(initialState.EnemyPresentationBindings));
+                ResolveEnemyViewPrefabs(initialState.EnemyPresentationBindings),
+                ResolveStaticEntityViewPrefabs(initialState.StaticEntityPresentationBindings));
         }
 
         protected override GameplayEntityView ResolvePlayerViewPrefab()
@@ -35,6 +36,11 @@ namespace Game.Feature.Gameplay.Host
         protected override EnemyPresentationCatalog ResolveEnemyPresentationCatalog()
         {
             return enemyPresentationCatalog;
+        }
+
+        protected override StaticEntityPresentationCatalog ResolveStaticEntityPresentationCatalog()
+        {
+            return staticEntityPresentationCatalog;
         }
 
         protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()
@@ -50,15 +56,6 @@ namespace Game.Feature.Gameplay.Host
                     "Far floor jumper uses a jump-to-locked-target movement skill so detached airborne relanding can be inspected without adding a new attack type.",
                     "Elevated floor scout circles the nearby push box with a wall-follow patrol profile and never enters chase or attack.",
                 });
-        }
-
-        private IReadOnlyDictionary<int, GameplayEntityView> ResolveEnemyViewPrefabs(
-            EnemyPresentationBinding[] enemyPresentationBindings)
-        {
-            return EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
-                ResolveEnemyPresentationCatalog(),
-                enemyPresentationBindings,
-                nameof(CombinedGameplayShowcaseInstaller));
         }
     }
 }

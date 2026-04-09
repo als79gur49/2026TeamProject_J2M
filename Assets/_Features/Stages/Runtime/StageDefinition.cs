@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
+using UnityEngine.Serialization;
 
 namespace Game.Feature.Stages
 {
@@ -34,7 +35,8 @@ namespace Game.Feature.Stages
         public EnemyAiMode EnemyAiMode;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfile;
-        public string EnemyPresentationId;
+        [FormerlySerializedAs("EnemyPresentationId")]
+        public string PresentationId;
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Definition", fileName = "StageDefinition")]

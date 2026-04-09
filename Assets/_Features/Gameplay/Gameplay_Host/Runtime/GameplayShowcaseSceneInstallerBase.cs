@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Timing;
@@ -20,7 +21,8 @@ namespace Game.Feature.Gameplay.Host
                 GameplayTerrainData initialTerrain,
                 int playerEntityId,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
-                EnemyPresentationBinding[] enemyPresentationBindings)
+                EnemyPresentationBinding[] enemyPresentationBindings,
+                StaticEntityPresentationBinding[] staticEntityPresentationBindings)
             {
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
@@ -29,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = playerEntityId;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
+                StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
             }
 
             public BoardBounds BoardBounds { get; }
@@ -44,6 +47,8 @@ namespace Game.Feature.Gameplay.Host
             public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
 
             public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
+
+            public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
         }
 
         [Header("Bootstrap")]
@@ -113,7 +118,9 @@ namespace Game.Feature.Gameplay.Host
                 boardRoot.EntityRoot,
                 cellSize,
                 initialState.PlayerEntityId,
-                ResolvePlayerViewPrefab());
+                ResolvePlayerViewPrefab(),
+                ResolveEnemyViewPrefabs(initialState.EnemyPresentationBindings),
+                ResolveStaticEntityViewPrefabs(initialState.StaticEntityPresentationBindings));
         }
 
         protected virtual EnemyAiProfile ResolveDefaultEnemyAiProfile()
@@ -127,6 +134,11 @@ namespace Game.Feature.Gameplay.Host
         }
 
         protected virtual EnemyPresentationCatalog ResolveEnemyPresentationCatalog()
+        {
+            return null;
+        }
+
+        protected virtual StaticEntityPresentationCatalog ResolveStaticEntityPresentationCatalog()
         {
             return null;
         }
@@ -180,6 +192,8 @@ namespace Game.Feature.Gameplay.Host
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = ResolveEnemyPresentationCatalog(),
+                StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
+                StaticEntityPresentationCatalog = ResolveStaticEntityPresentationCatalog(),
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
@@ -197,6 +211,24 @@ namespace Game.Feature.Gameplay.Host
             ResolveSimulationTimingPreset().ApplyTo(configuration);
             ResolvePresentationTimingPreset().ApplyTo(configuration);
             return configuration;
+        }
+
+        protected IReadOnlyDictionary<int, GameplayEntityView> ResolveEnemyViewPrefabs(
+            EnemyPresentationBinding[] enemyPresentationBindings)
+        {
+            return EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
+                ResolveEnemyPresentationCatalog(),
+                enemyPresentationBindings,
+                GetType().Name);
+        }
+
+        protected IReadOnlyDictionary<int, GameplayEntityView> ResolveStaticEntityViewPrefabs(
+            StaticEntityPresentationBinding[] staticEntityPresentationBindings)
+        {
+            return StaticEntityPresentationCatalogResolver.BuildStaticViewPrefabs(
+                ResolveStaticEntityPresentationCatalog(),
+                staticEntityPresentationBindings,
+                GetType().Name);
         }
 
         private IGameplayEntityViewFactory ResolveViewFactory(in InitialGameplayState initialState)

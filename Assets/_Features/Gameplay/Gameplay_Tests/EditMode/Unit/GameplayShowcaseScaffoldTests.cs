@@ -371,7 +371,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     playerEntityId: 10,
                     Array.Empty<EnemyAiProfileOverride>(),
-                    Array.Empty<EnemyPresentationBinding>());
+                    Array.Empty<EnemyPresentationBinding>(),
+                    Array.Empty<StaticEntityPresentationBinding>());
             }
 
             protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()

@@ -42,6 +42,8 @@ namespace Game.Feature.Gameplay.Host
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
+        public StaticEntityPresentationCatalog StaticEntityPresentationCatalog;
+        public StaticEntityPresentationBinding[] StaticEntityPresentationBindings = Array.Empty<StaticEntityPresentationBinding>();
         public BoardBounds InitialBoardBounds = BoardBounds.Unbounded;
         public float InitialMoveDelaySeconds = -1f;
         public EntityState[] InitialEntities = Array.Empty<EntityState>();

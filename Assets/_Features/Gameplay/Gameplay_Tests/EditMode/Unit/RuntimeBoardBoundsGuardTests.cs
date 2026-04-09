@@ -18,6 +18,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -944,6 +945,79 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_StaticBoxBinding_UsesPrefabAndSanitizesPhysics()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxBinding_UsesPrefabAndSanitizesPhysics");
+            var prefabObject = new GameObject("StaticBoxPrefab");
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                prefabObject.AddComponent<BoxCollider>();
+                prefabObject.AddComponent<Rigidbody>();
+                var marker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                marker.name = "PrefabMarker";
+                marker.transform.SetParent(prefabObject.transform, worldPositionStays: false);
+                marker.AddComponent<BoxCollider>();
+                marker.AddComponent<Rigidbody>();
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 20, prefabView },
+                    });
+
+                var view = factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right));
+
+                Assert.That(view.transform.Find("PrefabMarker"), Is.Not.Null);
+                Assert.That(view.transform.Find("Visual"), Is.Null);
+                Assert.That(view.GetComponentsInChildren<Collider>(includeInactive: true), Is.Empty);
+                Assert.That(view.GetComponentsInChildren<Rigidbody>(includeInactive: true), Is.Empty);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual");
+            var prefabObject = new GameObject("UnusedStaticBoxPrefab");
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                new GameObject("PrefabMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 99, prefabView },
+                    });
+
+                var view = factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right));
+
+                Assert.That(view.transform.Find("PrefabMarker"), Is.Null);
+                Assert.That(view.transform.Find("Visual"), Is.Null);
+                Assert.That(view.ModelRoot.Find("Visual"), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
                 UnityEngine.Object.DestroyImmediate(parentObject);
             }
         }
@@ -2390,6 +2464,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerDeathVisibilityTail_DoesNotHideBeforeDeathClipCompletes()
+        {
+            var rootObject = new GameObject("PlayerDeathVisibilityTail_DoesNotHideBeforeDeathClipCompletes");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("PlayerDeathVisibilityTail_PlayerPrefab");
+
+            try
+            {
+                var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
+                Assert.That(controller, Is.Not.Null);
+
+                var driver = playerViewPrefab.GetComponent<PlayerAnimatorDriver>();
+                var animator = playerViewPrefab.gameObject.AddComponent<Animator>();
+                var deathClipLengthSeconds = controller.animationClips
+                    .Where(clip => clip != null && string.Equals(clip.name, "Death", StringComparison.Ordinal))
+                    .Select(clip => clip.length)
+                    .Single();
+
+                animator.runtimeAnimatorController = controller;
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
+                PlayerViewPrefabTestUtility.SetSerializedField(driver, "deathStateName", "Death");
+
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.2f,
+                    boxSlideStepIntervalSeconds: 0.1f,
+                    projectileStepIntervalSeconds: 0.1f,
+                    moveMotionDurationSeconds: 0.05f,
+                    pushMotionDurationSeconds: 0.05f,
+                    flipMotionDurationSeconds: 0.05f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(new[] { CreateSurfaceUnit(10, sourceCell, facing: Direction.Right) }, topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var runtimeDriver = playerView.GetComponent<PlayerAnimatorDriver>();
+                Assert.That(runtimeDriver, Is.Not.Null);
+
+                presenter.Present(CreateTickResult(
+                    Array.Empty<EntityState>(),
+                    topology,
+                    new TickPresentationData(
+                        Array.Empty<TickEntityMotion>(),
+                        topologyMotion: null,
+                        new[]
+                        {
+                            new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Right),
+                        }),
+                    cleanupPhaseResult: new CleanupPhaseResult(
+                        new[] { 10 },
+                        Array.Empty<string>(),
+                        Array.Empty<string>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(runtimeDriver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Death));
+                Assert.That(playerView.gameObject.activeSelf, Is.True);
+
+                presenter.UpdatePresentation(deathClipLengthSeconds * 0.5f);
+                Assert.That(playerView.gameObject.activeSelf, Is.True);
+
+                presenter.UpdatePresentation((deathClipLengthSeconds * 0.5f) + 0.02f);
+                Assert.That(playerView.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_Present_PlayerMoveMotion_ResolvesWalkThenIdleAfterTrackCompletes()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerMoveMotion_ResolvesWalkThenIdleAfterTrackCompletes");
@@ -3061,6 +3224,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "pushRecoveryStateName",
                     "flipWindupStateName",
                     "flipRecoveryStateName",
+                    "deathStateName",
                     "walkExitStateName",
                     "stateTransitionCrossFadeDurationSeconds",
                     "animationTimingAuthoring",
