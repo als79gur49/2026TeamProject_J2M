@@ -62,12 +62,6 @@ namespace Game.Feature.Gameplay.Entities
         {
         }
 
-        [Obsolete("Use EnemyAiProfile or EnemyAiRuntimeDefinition instead.")]
-        public EnemyLogic(int entityId, EnemyAiConfig config)
-            : this(entityId, config.ToRuntimeDefinition())
-        {
-        }
-
         public EnemyLogic(int entityId, in EnemyAiRuntimeDefinition aiDefinition)
         {
             if (entityId <= 0)
