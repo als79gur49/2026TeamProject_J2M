@@ -15,6 +15,6 @@ MonoBehaviour:
   moveMotionDurationSeconds: 0.5
   pushMotionDurationSeconds: 1
   flipMotionDurationSeconds: 1
-  topologyMotionDurationSeconds: 2
+  topologyMotionDurationSeconds: 0.7
   itemConsumeEffectDurationSeconds: 0.18
   boxDestroyEffectDurationSeconds: 0.14
