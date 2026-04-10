@@ -1575,12 +1575,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boxPrefabView = boxPrefabObject.AddComponent<GameplayEntityView>();
                 boxPrefabObject.AddComponent<BoxCollider>();
                 boxPrefabObject.AddComponent<Rigidbody>();
-                new GameObject("BoxPrefabMarker").transform.SetParent(boxPrefabObject.transform, worldPositionStays: false);
+                var boxMarker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                boxMarker.name = "BoxPrefabMarker";
+                boxMarker.transform.SetParent(boxPrefabObject.transform, worldPositionStays: false);
 
                 var wallPrefabView = wallPrefabObject.AddComponent<GameplayEntityView>();
                 wallPrefabObject.AddComponent<BoxCollider>();
                 wallPrefabObject.AddComponent<Rigidbody>();
-                new GameObject("WallPrefabMarker").transform.SetParent(wallPrefabObject.transform, worldPositionStays: false);
+                var wallMarker = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wallMarker.name = "WallPrefabMarker";
+                wallMarker.transform.SetParent(wallPrefabObject.transform, worldPositionStays: false);
 
                 PlayerViewPrefabTestUtility.SetSerializedField(
                     staticCatalog,

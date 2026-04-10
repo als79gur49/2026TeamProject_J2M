@@ -119,7 +119,7 @@ namespace Game.Feature.Gameplay.Host
             var instance = UnityEngine.Object.Instantiate(prefab, _parent);
             ResetViewTransform(instance, entity.entityId);
             SanitizePrefabPhysics(instance);
-            EnsureRenderableVisual(instance, entity);
+            ValidateStaticPrefabVisual(instance, entity);
             view = instance;
             return true;
         }
@@ -170,6 +170,22 @@ namespace Game.Feature.Gameplay.Host
             }
 
             AttachPrimitiveVisual(view, entity);
+        }
+
+        private static void ValidateStaticPrefabVisual(GameplayEntityView view, in EntityState entity)
+        {
+            if (view == null)
+            {
+                throw new InvalidOperationException("Static presentation prefab instance cannot be null.");
+            }
+
+            if (view.GetComponentInChildren<Renderer>(includeInactive: false) != null)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                $"Static presentation prefab for entity {entity.entityId} ({entity.type}) must provide an active Renderer and cannot rely on primitive fallback injection.");
         }
 
         private static void EnsureEnemyInactiveVisualController(GameplayEntityView view, in EntityState entity)

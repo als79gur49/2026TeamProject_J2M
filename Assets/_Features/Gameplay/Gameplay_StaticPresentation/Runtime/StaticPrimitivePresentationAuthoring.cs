@@ -34,13 +34,9 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var visual = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            visual.name = VisualObjectName;
-            visual.transform.SetParent(view.ModelRoot, worldPositionStays: false);
-            visual.transform.localPosition = Vector3.zero;
-            visual.transform.localRotation = Quaternion.identity;
-            visual.transform.localScale = modelLocalScale;
-            ConfigureVisual(visual);
+            UnityEngine.Debug.LogWarning(
+                $"{nameof(StaticPrimitivePresentationAuthoring)} on '{name}' requires a child visual named '{VisualObjectName}' under '{view.ModelRoot.name}'.",
+                this);
         }
 
         private void ConfigureVisual(GameObject visual)
