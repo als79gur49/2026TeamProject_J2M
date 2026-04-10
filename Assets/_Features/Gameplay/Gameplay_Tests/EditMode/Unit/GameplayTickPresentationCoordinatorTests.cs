@@ -1119,6 +1119,205 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayTickViewPresenter_PlayerRespawn_SpawnVisibilityShowsExistingPlayerViewAgain()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerRespawn_SpawnVisibilityShowsExistingPlayerViewAgain");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                "GameplayTickViewPresenter_PlayerRespawn_PlayerPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var spawnCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, spawnCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                Assert.That(playerView.gameObject.activeSelf, Is.True);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        Array.Empty<EntityState>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, spawnCell, topology, Direction.Right),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(10f);
+
+                Assert.That(playerView.gameObject.activeSelf, Is.False);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, spawnCell),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Spawn, spawnCell, topology, Direction.Right),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(playerView.gameObject.activeSelf, Is.True);
+                Assert.That(registry.TryGetView(10, out var respawnedView), Is.True);
+                Assert.That(respawnedView, Is.SameAs(playerView));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_PlayerRespawnBeforeDeathHide_Completes_ClearsDeathAnimationState()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_PlayerRespawnBeforeDeathHide_Completes_ClearsDeathAnimationState");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                "GameplayTickViewPresenter_PlayerRespawnBeforeDeathHide_PlayerPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var spawnCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 0)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, spawnCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                Assert.That(playerView.TryGetComponent<PlayerAnimatorDriver>(out var driver), Is.True);
+
+                presenter.Present(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, spawnCell, topology, Direction.Right),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty));
+
+                Assert.That(playerView.gameObject.activeSelf, Is.True);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Death));
+
+                presenter.Present(
+                    new TickResult(
+                        2,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        CleanupPhaseResult.Empty,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, spawnCell),
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Spawn, spawnCell, topology, Direction.Right),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty));
+
+                Assert.That(playerView.gameObject.activeSelf, Is.True);
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Idle"));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_PresentInitialStackedUnits_UsesSharedCenterPoseWhenOffsetsDisabled()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PresentInitialStackedUnits_UsesSharedCenterPoseWhenOffsetsDisabled");

@@ -72,6 +72,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerViewPresentationMapper.Build(result, viewsByEntityId, _playerViewPresentationStates);
+            ReleasePlayerDeathOverridesForRespawnSpawns(result.PresentationData, viewsByEntityId);
             foreach (var pair in _playerViewPresentationStates)
             {
                 if (TryGetPlayerAnimatorDriver(pair.Key, viewsByEntityId, out var driver))
@@ -375,6 +376,30 @@ namespace Game.Feature.Gameplay.Host
 
             driver = null;
             return false;
+        }
+
+        private void ReleasePlayerDeathOverridesForRespawnSpawns(
+            TickPresentationData presentationData,
+            IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            var visibilityChanges = presentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.ChangeKind != TickVisibilityChangeKind.Spawn ||
+                    !TryGetPlayerAnimatorDriver(change.EntityId, viewsByEntityId, out _))
+                {
+                    continue;
+                }
+
+                _playerDeathVisualOverrideEntityIds.Remove(change.EntityId);
+                _playerVisualHoldStates.Remove(change.EntityId);
+            }
         }
 
         private readonly struct PlayerVisualPresentationHoldState
