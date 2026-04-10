@@ -120,6 +120,17 @@ namespace Game.Feature.Gameplay.Host
                 presenter.VisibleCubeBounds);
             presenter.AttachCameraRuntime(viewCameraRig, outputCameraBrain);
 
+            var topologyTransitionPostFxController =
+                hostObject.GetComponent<TopologyTransitionPostFxController>() ??
+                hostObject.AddComponent<TopologyTransitionPostFxController>();
+            topologyTransitionPostFxController.Initialize(configuration.TopologyTransitionPostFxProfile, outputCamera);
+            presenter.AttachTopologyTransitionPostFxController(topologyTransitionPostFxController);
+
+            var topologyTransitionPostFxDebugOverlay =
+                hostObject.GetComponent<TopologyTransitionPostFxDebugOverlay>() ??
+                hostObject.AddComponent<TopologyTransitionPostFxDebugOverlay>();
+            topologyTransitionPostFxDebugOverlay.Initialize(presenter, topologyTransitionPostFxController);
+
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
             inputHost.Initialize(
                 inputBuffer,

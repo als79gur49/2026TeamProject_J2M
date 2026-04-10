@@ -70,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
         private readonly GameplayTickPresentationCoordinator _presentationCoordinator = new();
+        private TopologyTransitionPostFxController _topologyTransitionPostFxController;
         private CinemachineBrain _viewCameraBrain;
         private GameplayCameraRig _viewCameraRig;
 
@@ -146,23 +147,35 @@ namespace Game.Feature.Gameplay.Host
             _viewCameraRig = viewCameraRig;
             _viewCameraBrain = viewCameraBrain;
 
-            if (null != _viewCameraBrain)
+            if (_viewCameraBrain != null)
             {
                 _viewCameraBrain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
             }
+        }
+
+        public void AttachTopologyTransitionPostFxController(TopologyTransitionPostFxController topologyTransitionPostFxController)
+        {
+            _topologyTransitionPostFxController = topologyTransitionPostFxController;
+            RefreshTopologyTransitionPostFx();
         }
 
         public void UpdatePresentation(float deltaTime)
         {
             _presentationCoordinator.UpdatePresentation(deltaTime);
             SyncViewCameraRuntime();
+            RefreshTopologyTransitionPostFx();
+        }
+
+        private void RefreshTopologyTransitionPostFx()
+        {
+            _topologyTransitionPostFxController?.Apply(_presentationCoordinator.CurrentTopologyTransitionVisualState);
         }
 
         private void SyncViewCameraRuntime()
         {
             _viewCameraRig?.SnapToTarget();
 
-            if (null != _viewCameraBrain &&
+            if (_viewCameraBrain != null &&
                 _viewCameraBrain.isActiveAndEnabled)
             {
                 _viewCameraBrain.ManualUpdate();

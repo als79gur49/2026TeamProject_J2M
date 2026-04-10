@@ -12,6 +12,8 @@ using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
+using UnityEngine.Rendering.Universal;
 using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.PlayMode
@@ -80,6 +82,65 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.WorldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
 
             yield return DestroyHost(host);
+        }
+
+        [UnityTest]
+        public IEnumerator GameplayInputHost_TopologyTransition_CameraMotionBlurActivatesThenResets()
+        {
+            var outputCameraObject = new GameObject("PlayModeTopologyTransitionOutputCamera");
+            var sourceProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+            sourceProfile.Add<MotionBlur>(overrides: true);
+            var outputCamera = outputCameraObject.AddComponent<Camera>();
+            var postFxProfile = TopologyTransitionPostFxProfile.Create(sourceProfile, maxBlurIntensity: 0.5f);
+
+            var host = CreateHost(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 8)),
+                },
+                topologyTransitionPostFxProfile: postFxProfile,
+                viewCamera: outputCamera);
+
+            var controller = host.GetComponent<TopologyTransitionPostFxController>();
+            var debugOverlay = host.GetComponent<TopologyTransitionPostFxDebugOverlay>();
+            Assert.That(controller, Is.Not.Null);
+            Assert.That(debugOverlay, Is.Not.Null);
+            Assert.That(controller.MotionBlurOverride, Is.Not.Null);
+            Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
+
+            host.InputHost.SetRawMoveInput(Vector2.up);
+            Assert.That(
+                host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds),
+                Is.EqualTo(1));
+
+            Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
+            debugOverlay.RefreshSnapshot();
+            StringAssert.Contains("Phase: TopologyTransition", debugOverlay.CurrentDebugText);
+            StringAssert.Contains("Transition Active: On", debugOverlay.CurrentDebugText);
+            StringAssert.Contains("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
+            Assert.That(controller.MotionBlurOverride.intensity.value, Is.GreaterThan(0f));
+            debugOverlay.RefreshSnapshot();
+            StringAssert.Contains("Transition Active: On", debugOverlay.CurrentDebugText);
+            StringAssert.Contains("Post Processing: On", debugOverlay.CurrentDebugText);
+            StringAssert.DoesNotContain("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
+            debugOverlay.RefreshSnapshot();
+            StringAssert.Contains("Phase: Idle", debugOverlay.CurrentDebugText);
+            StringAssert.Contains("Transition Active: Off", debugOverlay.CurrentDebugText);
+            StringAssert.Contains("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
+            Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
+
+            yield return DestroyHost(host);
+            Object.Destroy(outputCameraObject);
+            Object.Destroy(sourceProfile);
+            yield return null;
         }
 
         [UnityTest]
@@ -768,7 +829,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float itemConsumeEffectDurationSeconds = -1f,
             float boxDestroyEffectDurationSeconds = -1f,
             float pushPresentationDurationSeconds = -1f,
-            float flipPresentationDurationSeconds = -1f)
+            float flipPresentationDurationSeconds = -1f,
+            TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
+            Camera viewCamera = null)
         {
             var hostObject = new GameObject("PlayModeGameplaySceneHost");
             var host = hostObject.AddComponent<GameplaySceneHost>();
@@ -818,6 +881,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
                     SimulationTicksPerSecond = 60,
                     StaticEntityLogics = staticEntityLogics ?? System.Array.Empty<IEntityLogic>(),
+                    SnapViewCameraToTarget = viewCamera != null,
+                    TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile ?? TopologyTransitionPostFxProfile.CreateDefault(),
+                    ViewCamera = viewCamera,
                 });
 
             return host;

@@ -67,6 +67,7 @@ namespace Game.Feature.Gameplay.Host
         public float RepeatedMoveIntervalSeconds = -1f;
         public int SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         public GameplayCameraSettings CameraSettings = GameplayCameraSettings.CreateRuntimeDefault();
+        public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
