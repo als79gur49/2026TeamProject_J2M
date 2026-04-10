@@ -68,10 +68,14 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
         [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
         [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
+        [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
+        [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
 
         protected float CellSize => cellSize;
+
+        protected float FaceSeamGap => ResolveFaceSeamGap();
 
         protected virtual void Awake()
         {
@@ -199,6 +203,7 @@ namespace Game.Feature.Gameplay.Host
                 AutoCreateViews = autoCreateViews,
                 CameraSettings = cameraSettings,
                 CellSize = cellSize,
+                FaceSeamGap = ResolveFaceSeamGap(),
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
@@ -214,6 +219,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 SnapViewCameraToTarget = configureMainCamera,
+                TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault(),
                 TopologyRotationVisualMapping = topologyRotationVisualMapping,
                 TopologyRotationTween = topologyRotationTweenSettings,
                 ViewCamera = configureMainCamera ? Camera.main : null,
@@ -262,7 +268,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
-            var projector = new GameplayCubeProjector(initialState.BoardBounds, cellSize);
+            var projector = new GameplayCubeProjector(initialState.BoardBounds, cellSize, ResolveFaceSeamGap());
             var cubeCenterLocal = projector.GetCubeCenter();
             var cubeCenterWorld = boardRoot != null
                 ? boardRoot.transform.TransformPoint(cubeCenterLocal)
@@ -308,12 +314,22 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            var projector = new GameplayCubeProjector(boardBounds, cellSize);
+            var projector = new GameplayCubeProjector(boardBounds, cellSize, ResolveFaceSeamGap());
             GameplayShowcaseSceneScaffold.ConfigureDefaultSceneCamera(
                 camera,
                 cameraSettings,
                 Vector3.zero,
                 projector.GetVisibleCubeBounds(topology));
+        }
+
+        private float ResolveFaceSeamGap()
+        {
+            if (cellSize <= 0f)
+            {
+                throw new InvalidOperationException($"{GetType().Name} requires a positive cell size.");
+            }
+
+            return faceSeamGap >= 0f ? faceSeamGap : cellSize;
         }
     }
 }

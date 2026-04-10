@@ -110,7 +110,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayBoardRoot boardRoot = null,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
-            TopologyRotationTweenSettings topologyRotationTweenSettings = default)
+            TopologyRotationTweenSettings topologyRotationTweenSettings = default,
+            float faceSeamGap = -1f)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -121,7 +122,8 @@ namespace Game.Feature.Gameplay.Host
                 boardRoot,
                 boardSurfaceRenderer,
                 topologyRotationVisualMapping,
-                topologyRotationTweenSettings);
+                topologyRotationTweenSettings,
+                faceSeamGap);
         }
 
         public void Present(TickResult result)

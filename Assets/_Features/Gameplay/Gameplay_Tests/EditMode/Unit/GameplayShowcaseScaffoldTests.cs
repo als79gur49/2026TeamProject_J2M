@@ -344,6 +344,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayShowcaseInstaller_CreateConfiguration_PropagatesExplicitFaceSeamGap()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
+                SetBaseInstallerField(installer, "faceSeamGap", 0.35f);
+
+                var configuration = installer.BuildConfigurationForTests();
+
+                Assert.That(configuration.CellSize, Is.EqualTo(1.15f).Within(0.0001f));
+                Assert.That(configuration.FaceSeamGap, Is.EqualTo(0.35f).Within(0.0001f));
+                Assert.That(configuration.ResolveFaceSeamGap(), Is.EqualTo(0.35f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
         public void GameplayCameraRig_InitializeWithoutDirectCamera_DrivesOrbitHierarchyPose()
         {
             var scene = CreateIsolatedTestScene();

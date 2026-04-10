@@ -76,7 +76,8 @@ namespace Game.Feature.Gameplay.Host
         public void Initialize(
             BoardBounds boardBounds,
             float cellSize,
-            CubeTopologyState topology)
+            CubeTopologyState topology,
+            float faceSeamGap = -1f)
         {
             if (!boardBounds.IsBounded)
             {
@@ -90,7 +91,8 @@ namespace Game.Feature.Gameplay.Host
 
             _boardBounds = boardBounds;
             _cellSize = cellSize;
-            _projector = new GameplayCubeProjector(boardBounds, cellSize);
+            var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
+            _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             EnsureVisibleTilePoolRoot();
             EnsureTransitionTilePoolRoot();
             EnsureMaterials();

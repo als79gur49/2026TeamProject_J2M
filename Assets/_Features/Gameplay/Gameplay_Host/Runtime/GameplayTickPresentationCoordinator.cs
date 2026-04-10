@@ -107,7 +107,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayBoardRoot boardRoot = null,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
-            TopologyRotationTweenSettings topologyRotationTweenSettings = default)
+            TopologyRotationTweenSettings topologyRotationTweenSettings = default,
+            float faceSeamGap = -1f)
         {
             if (viewBinder == null)
             {
@@ -115,7 +116,8 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _viewBinder = viewBinder;
-            _projector = new GameplayCubeProjector(boardBounds, cellSize);
+            var resolvedFaceSeamGap = faceSeamGap >= 0f ? faceSeamGap : cellSize;
+            _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
             _topologyTransitionController.Configure(
                 boardRoot,

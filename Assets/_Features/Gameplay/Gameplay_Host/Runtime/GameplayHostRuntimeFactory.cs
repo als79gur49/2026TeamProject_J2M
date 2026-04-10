@@ -50,6 +50,7 @@ namespace Game.Feature.Gameplay.Host
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
+            var faceSeamGap = configuration.ResolveFaceSeamGap();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, generalTimingProfile);
 
@@ -100,12 +101,14 @@ namespace Game.Feature.Gameplay.Host
                 boardRoot,
                 boardSurfaceRenderer,
                 configuration.TopologyRotationVisualMapping,
-                configuration.TopologyRotationTween);
+                configuration.TopologyRotationTween,
+                faceSeamGap);
 
             boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,
                 configuration.CellSize,
-                configuration.InitialTopology);
+                configuration.InitialTopology,
+                faceSeamGap);
 
             var viewCamera = ResolveViewCamera(configuration);
             var outputCamera = ResolveOutputCamera(configuration);

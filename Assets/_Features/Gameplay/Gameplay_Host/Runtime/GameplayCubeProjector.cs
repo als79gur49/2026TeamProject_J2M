@@ -7,16 +7,20 @@ namespace Game.Feature.Gameplay.Host
 {
     public sealed class GameplayCubeProjector
     {
-        private const float ActiveFaceSeamGapMultiplier = 1f;
-
         private readonly BoardBounds _boardBounds;
         private readonly float _cellSize;
+        private readonly float _faceSeamGap;
         private readonly float _faceSeamHalfGap;
         private readonly float _halfDepth;
         private readonly float _halfHeight;
         private readonly float _halfWidth;
 
         public GameplayCubeProjector(BoardBounds boardBounds, float cellSize)
+            : this(boardBounds, cellSize, cellSize)
+        {
+        }
+
+        public GameplayCubeProjector(BoardBounds boardBounds, float cellSize, float faceSeamGap)
         {
             if (!boardBounds.IsBounded)
             {
@@ -28,9 +32,15 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(cellSize), "Cell size must be greater than zero.");
             }
 
+            if (faceSeamGap < 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(faceSeamGap), "Face seam gap must be zero or greater.");
+            }
+
             _boardBounds = boardBounds;
             _cellSize = cellSize;
-            _faceSeamHalfGap = _cellSize * ActiveFaceSeamGapMultiplier * 0.5f;
+            _faceSeamGap = faceSeamGap;
+            _faceSeamHalfGap = _faceSeamGap * 0.5f;
             _halfWidth = Width * _cellSize * 0.5f;
             _halfHeight = Height * _cellSize * 0.5f;
             _halfDepth = Height * _cellSize * 0.5f;
@@ -39,6 +49,8 @@ namespace Game.Feature.Gameplay.Host
         public BoardBounds BoardBounds => _boardBounds;
 
         public float CellSize => _cellSize;
+
+        public float FaceSeamGap => _faceSeamGap;
 
         public Vector3 CubeCenter => Vector3.zero;
 

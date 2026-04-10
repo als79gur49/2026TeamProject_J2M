@@ -37,6 +37,7 @@ namespace Game.Feature.Gameplay.Host
         public bool AutoAdvanceTicks = true;
         public bool AutoCreateViews = true;
         public float CellSize = 1f;
+        public float FaceSeamGap = -1f;
         public bool DirectionChangeConsumesDelay;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
@@ -118,6 +119,21 @@ namespace Game.Feature.Gameplay.Host
             return new EnemyAiRuntimeCollectionSnapshot(
                 ResolveDefaultEnemyAiRuntimeDefinition(),
                 CreateEnemyAiDefinitionOverrides());
+        }
+
+        public float ResolveFaceSeamGap()
+        {
+            if (CellSize <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(nameof(CellSize), "Cell size must be greater than zero.");
+            }
+
+            if (FaceSeamGap < 0f)
+            {
+                return CellSize;
+            }
+
+            return FaceSeamGap;
         }
 
         private float ResolveInitialMoveDelaySeconds()

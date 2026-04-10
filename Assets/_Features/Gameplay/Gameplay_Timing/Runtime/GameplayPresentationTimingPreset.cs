@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Timing
         [SerializeField] private float moveMotionDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float pushMotionDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float flipMotionDurationSeconds = UseConfigurationFallbackSentinel;
+        [Tooltip("Presentation-only topology rotation duration. Use -1 to fall back to push motion duration.")]
         [SerializeField] private float topologyMotionDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float itemConsumeEffectDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float boxDestroyEffectDurationSeconds = UseConfigurationFallbackSentinel;

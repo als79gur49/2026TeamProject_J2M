@@ -149,6 +149,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHostConfiguration_ResolveFaceSeamGap_DefaultsToCellSizeAndAllowsOverride()
+        {
+            var configuration = new GameplaySceneHostConfiguration
+            {
+                CellSize = 1.25f,
+            };
+
+            Assert.That(configuration.ResolveFaceSeamGap(), Is.EqualTo(1.25f).Within(0.0001f));
+
+            configuration.FaceSeamGap = 0.4f;
+
+            Assert.That(configuration.ResolveFaceSeamGap(), Is.EqualTo(0.4f).Within(0.0001f));
+        }
+
+        [Test]
         public void GameplayTimingProfile_CreateDefault_PreservesDefaultTimeMeaningAtSixtyTps()
         {
             var profile = GameplayTimingProfile.CreateDefault();
@@ -1422,6 +1437,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(floorTopRowPose.LocalPosition.z, Is.EqualTo(0.5f).Within(0.001f));
             Assert.That(frontBottomRowPose.LocalPosition.y, Is.EqualTo(-0.5f).Within(0.001f));
             Assert.That(frontBottomRowPose.LocalPosition.z, Is.EqualTo(1.5f).Within(0.001f));
+        }
+
+        [Test]
+        public void GameplayCubeProjector_UsesExplicitFaceSeamGapIndependentOfCellSize()
+        {
+            var projector = new GameplayCubeProjector(
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                2f,
+                0.5f);
+            var topology = new CubeTopologyState(FaceId.Floor);
+
+            Assert.That(
+                projector.TryProjectSurfaceCell(
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    topology,
+                    out var floorTopRowPose),
+                Is.True);
+            Assert.That(
+                projector.TryProjectSurfaceCell(
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                    topology,
+                    out var frontBottomRowPose),
+                Is.True);
+
+            Assert.That(projector.FaceSeamGap, Is.EqualTo(0.5f).Within(0.0001f));
+            Assert.That(floorTopRowPose.LocalPosition.y, Is.EqualTo(-2.25f).Within(0.001f));
+            Assert.That(frontBottomRowPose.LocalPosition.z, Is.EqualTo(2.25f).Within(0.001f));
         }
 
         [Test]
