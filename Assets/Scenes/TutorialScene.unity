@@ -992,6 +992,7 @@ MonoBehaviour:
   stageDefinition: {fileID: 11400000, guid: 17f422e552184a24d8a666d77d93ab18, type: 2}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
+  staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0
