@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Tests
         public AttackDecisionStrategyKind AttackDecisionStrategyKind = AttackDecisionStrategyKind.Melee;
         public AttackDecisionSettings AttackDecisionSettings = AttackDecisionSettings.CreateDefaultMelee();
         public EnemyAttackTimingAuthoringSettings AttackTimingSettings = EnemyAttackTimingAuthoringSettings.CreateDefaultMelee();
+        public bool IncludePassiveContact;
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
     }
@@ -59,7 +60,11 @@ namespace Game.Feature.Gameplay.Tests
             return profile;
         }
 
-        public static EnemyAiProfile CreateDefaultMelee(int windupTicks = 0, int moveCooldownTicks = 0, int recoverTicks = 1)
+        public static EnemyAiProfile CreateDefaultMelee(
+            int windupTicks = 0,
+            int moveCooldownTicks = 0,
+            int recoverTicks = 1,
+            bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
             {
@@ -69,31 +74,35 @@ namespace Game.Feature.Gameplay.Tests
                     recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
+                IncludePassiveContact = includePassiveContact,
             });
         }
 
-        public static EnemyAiProfile CreateNonAttacking(int moveCooldownTicks = 0)
+        public static EnemyAiProfile CreateNonAttacking(int moveCooldownTicks = 0, bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = includePassiveContact,
             });
         }
 
-        public static EnemyAiProfile CreateCharging(int moveCooldownTicks = 0)
+        public static EnemyAiProfile CreateCharging(int moveCooldownTicks = 0, bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 StateResolverKind = EnemyAiStateResolverKind.Charge,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = includePassiveContact,
             });
         }
 
         public static EnemyAiProfile CreateWallFollower(
             WallFollowTurnPreference turnPreference = WallFollowTurnPreference.Right,
-            int moveCooldownTicks = 0)
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
             {
@@ -106,10 +115,14 @@ namespace Game.Feature.Gameplay.Tests
                     followBoxes: true),
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = includePassiveContact,
             });
         }
 
-        public static EnemyAiProfile CreateJumpChaser(EnemyJumpTimingSettings jumpTimingSettings, int moveCooldownTicks = 0)
+        public static EnemyAiProfile CreateJumpChaser(
+            EnemyJumpTimingSettings jumpTimingSettings,
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
             {
@@ -117,10 +130,14 @@ namespace Game.Feature.Gameplay.Tests
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
                 JumpTimingSettings = ToAuthoring(jumpTimingSettings),
+                IncludePassiveContact = includePassiveContact,
             });
         }
 
-        public static EnemyAiProfile CreateJumpPatrol(EnemyJumpTimingSettings jumpTimingSettings, int moveCooldownTicks = 0)
+        public static EnemyAiProfile CreateJumpPatrol(
+            EnemyJumpTimingSettings jumpTimingSettings,
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
         {
             return Create(new EnemyAiTestProfileSpec
             {
@@ -129,6 +146,7 @@ namespace Game.Feature.Gameplay.Tests
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 MovementSkillStrategyKind = MovementSkillStrategyKind.JumpToLockedTarget,
                 JumpTimingSettings = ToAuthoring(jumpTimingSettings),
+                IncludePassiveContact = includePassiveContact,
             });
         }
 
@@ -141,7 +159,8 @@ namespace Game.Feature.Gameplay.Tests
                     attackPriority: 50,
                     recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
-                AttackDecisionStrategyKind = AttackDecisionStrategyKind.ContactSameCell,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = true,
             });
         }
 
@@ -284,15 +303,16 @@ namespace Game.Feature.Gameplay.Tests
                     break;
                 }
 
-                case AttackDecisionStrategyKind.ContactSameCell:
-                    yield return CreateHiddenAsset<ContactDamageCapabilityAsset>("Test_ContactDamageCapability");
-                    break;
-
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(spec.AttackDecisionStrategyKind),
                         spec.AttackDecisionStrategyKind,
                         "Unsupported combat capability kind for tests.");
+            }
+
+            if (spec.IncludePassiveContact)
+            {
+                yield return CreateHiddenAsset<EnemyPassiveContactCapabilityAsset>("Test_EnemyPassiveContactCapability");
             }
 
             switch (spec.MovementSkillStrategyKind)

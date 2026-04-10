@@ -48,6 +48,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             EnemyCombatCapabilityRuntime combat = null;
             EnemyMovementSkillCapabilityRuntime movementSkill = null;
+            EnemyPassiveContactCapabilityRuntime passiveContact = null;
             var capabilityCount = capabilityAssets?.Count ?? 0;
 
             for (var i = 0; i < capabilityCount; i++)
@@ -91,12 +92,26 @@ namespace Game.Feature.Gameplay.Entities
                                 nameof(capabilityAssets));
                         break;
 
+                    case EnemyCapabilityFamily.PassiveContact:
+                        if (passiveContact != null)
+                        {
+                            throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' declares multiple passive contact capabilities ('{passiveContact.Kind}' and '{capabilityAsset.name}').",
+                                nameof(capabilityAssets));
+                        }
+
+                        passiveContact = runtime as EnemyPassiveContactCapabilityRuntime
+                            ?? throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' compiled an invalid passive contact capability runtime from '{capabilityAsset.name}'.",
+                                nameof(capabilityAssets));
+                        break;
+
                     default:
                         throw new ArgumentOutOfRangeException(nameof(runtime), runtime.Family, "Unknown enemy capability family.");
                 }
             }
 
-            return new EnemyCapabilityRuntimeSet(combat, movementSkill);
+            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact);
         }
     }
 }

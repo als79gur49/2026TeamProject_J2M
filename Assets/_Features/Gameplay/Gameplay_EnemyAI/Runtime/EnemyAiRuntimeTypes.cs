@@ -6,6 +6,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         Combat = 0,
         MovementSkill = 1,
+        PassiveContact = 2,
     }
 
     public readonly struct EnemyCoreRuntime
@@ -173,6 +174,13 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Combat capability runtime requires a concrete combat kind.", nameof(kind));
             }
 
+            if (kind == AttackDecisionStrategyKind.ContactSameCell)
+            {
+                throw new ArgumentException(
+                    "ContactSameCell must compile as passive contact, not as a combat capability.",
+                    nameof(kind));
+            }
+
             Kind = kind;
             AttackDecisionSettings = attackDecisionSettings;
             AttackTimingSettings = attackTimingSettings;
@@ -225,20 +233,58 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public sealed class EnemyPassiveContactCapabilityRuntime : EnemyCapabilityRuntime
+    {
+        public EnemyPassiveContactCapabilityRuntime(
+            AttackDecisionStrategyKind kind,
+            AttackDecisionSettings attackDecisionSettings,
+            IAttackDecisionStrategy attackDecisionStrategy)
+        {
+            if (kind != AttackDecisionStrategyKind.ContactSameCell)
+            {
+                throw new ArgumentException(
+                    "Passive contact runtime requires ContactSameCell semantics.",
+                    nameof(kind));
+            }
+
+            Kind = kind;
+            AttackDecisionSettings = attackDecisionSettings;
+            AttackDecisionStrategy = attackDecisionStrategy ?? throw new ArgumentNullException(nameof(attackDecisionStrategy));
+            Validate(nameof(EnemyPassiveContactCapabilityRuntime));
+        }
+
+        public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.PassiveContact;
+
+        public AttackDecisionStrategyKind Kind { get; }
+
+        public AttackDecisionSettings AttackDecisionSettings { get; }
+
+        public IAttackDecisionStrategy AttackDecisionStrategy { get; }
+
+        public override void Validate(string paramName)
+        {
+            AttackDecisionSettings.Validate(paramName);
+        }
+    }
+
     public readonly struct EnemyCapabilityRuntimeSet
     {
         public EnemyCapabilityRuntimeSet(
             EnemyCombatCapabilityRuntime combat,
-            EnemyMovementSkillCapabilityRuntime movementSkill)
+            EnemyMovementSkillCapabilityRuntime movementSkill,
+            EnemyPassiveContactCapabilityRuntime passiveContact)
         {
             Combat = combat;
             MovementSkill = movementSkill;
+            PassiveContact = passiveContact;
             Validate(nameof(EnemyCapabilityRuntimeSet));
         }
 
         public EnemyCombatCapabilityRuntime Combat { get; }
 
         public EnemyMovementSkillCapabilityRuntime MovementSkill { get; }
+
+        public EnemyPassiveContactCapabilityRuntime PassiveContact { get; }
 
         public bool TryGetCombat(out EnemyCombatCapabilityRuntime combat)
         {
@@ -252,10 +298,17 @@ namespace Game.Feature.Gameplay.Entities
             return movementSkill != null;
         }
 
+        public bool TryGetPassiveContact(out EnemyPassiveContactCapabilityRuntime passiveContact)
+        {
+            passiveContact = PassiveContact;
+            return passiveContact != null;
+        }
+
         public void Validate(string paramName)
         {
             Combat?.Validate(paramName);
             MovementSkill?.Validate(paramName);
+            PassiveContact?.Validate(paramName);
         }
     }
 }

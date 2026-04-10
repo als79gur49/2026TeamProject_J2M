@@ -992,6 +992,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyAiProfileCompiler_HybridAuthoring_CompilesPassiveContactAlongsideCombatAndJump()
+        {
+            var profile = CreateHybridAuthoringProfile(
+                includeCombat: true,
+                includeJump: true,
+                out var createdAssets,
+                includePassiveContact: true);
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.Capabilities.TryGetCombat(out var combat), Is.True);
+                Assert.That(combat.Kind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+                Assert.That(definition.Capabilities.TryGetMovementSkill(out var movementSkill), Is.True);
+                Assert.That(movementSkill.Kind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
+                Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+                Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
         public void EnemyAiProfileCompiler_HybridAuthoring_WithoutCombatCapability_DoesNotRequireCombatData()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: false, out var createdAssets);
@@ -1049,14 +1075,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateCombatCapabilities_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: false, out var createdAssets);
-            var duplicateCombat = ScriptableObject.CreateInstance<ContactDamageCapabilityAsset>();
+            var duplicateCombat = ScriptableObject.CreateInstance<MeleeCombatCapabilityAsset>();
             createdAssets.Add(duplicateCombat);
+            SetSerializedField(duplicateCombat, "attackDecisionSettings", new AttackDecisionSettings(attackRange: 1));
+            SetSerializedField(duplicateCombat, "attackTimingSettings", new EnemyAttackTimingAuthoringSettings(windupSeconds: 0f));
             SetSerializedField(
                 profile,
                 "capabilityAssets",
                 new List<EnemyCapabilityAsset>
                 {
-                    (EnemyCapabilityAsset)createdAssets.OfType<MeleeCombatCapabilityAsset>().Single(),
+                    (EnemyCapabilityAsset)createdAssets.OfType<MeleeCombatCapabilityAsset>().First(),
                     duplicateCombat,
                 });
 
@@ -1065,6 +1093,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
                 Assert.That(exception.Message, Does.Contain("multiple combat capabilities"));
+            }
+            finally
+            {
+                DestroyAuthoringObjects(profile, createdAssets);
+            }
+        }
+
+        [Test]
+        public void EnemyAiProfileCompiler_HybridAuthoring_DuplicatePassiveContactCapabilities_ThrowsClearException()
+        {
+            var profile = CreateHybridAuthoringProfile(
+                includeCombat: false,
+                includeJump: false,
+                out var createdAssets,
+                includePassiveContact: true);
+            var duplicatePassiveContact = ScriptableObject.CreateInstance<EnemyPassiveContactCapabilityAsset>();
+            createdAssets.Add(duplicatePassiveContact);
+            SetSerializedField(
+                profile,
+                "capabilityAssets",
+                new List<EnemyCapabilityAsset>
+                {
+                    (EnemyCapabilityAsset)createdAssets.OfType<EnemyPassiveContactCapabilityAsset>().First(),
+                    duplicatePassiveContact,
+                });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.Message, Does.Contain("multiple passive contact capabilities"));
             }
             finally
             {
@@ -1143,6 +1202,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
                 Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
                 Assert.That(logicSet.AttackLogics, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void GameplayEntityLogicProviderFactory_PassiveContactOnlyProfile_ArmsAttackLogicWithoutEnemyActionState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking(includePassiveContact: true);
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+                var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+
+                Assert.That(logicSet.AiStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.PreMovementStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
+                Assert.That(logicSet.AttackLogics, Has.Count.EqualTo(1));
             }
             finally
             {
@@ -2257,7 +2343,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyAiProfile CreateHybridAuthoringProfile(
             bool includeCombat,
             bool includeJump,
-            out List<ScriptableObject> createdAssets)
+            out List<ScriptableObject> createdAssets,
+            bool includePassiveContact = false)
         {
             createdAssets = new List<ScriptableObject>();
 
@@ -2308,6 +2395,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetSerializedField(jump, "jumpTimingSettings", new EnemyJumpTimingAuthoringSettings(0.1f, 0.2f, 0.3f));
                 capabilities.Add(jump);
                 createdAssets.Add(jump);
+            }
+
+            if (includePassiveContact)
+            {
+                var passiveContact = ScriptableObject.CreateInstance<EnemyPassiveContactCapabilityAsset>();
+                capabilities.Add(passiveContact);
+                createdAssets.Add(passiveContact);
             }
 
             SetSerializedField(profile, "coreAuthoring", core);

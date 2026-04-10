@@ -76,7 +76,8 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var definition = _enemyLogicFactory.ResolveDefinition(entity);
-            return definition.Capabilities.TryGetCombat(out _);
+            return definition.Capabilities.TryGetCombat(out _) ||
+                   definition.Capabilities.TryGetPassiveContact(out _);
         }
 
         public IEntityLogic Create(in EntityState entity)
