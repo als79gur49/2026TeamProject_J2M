@@ -531,7 +531,6 @@ MonoBehaviour:
   presentationTimingPreset: {fileID: 11400000, guid: e74a2114beb347ca87939f8446ed7f5c, type: 2}
   topologyRotationVisualMapping: 1
   topologyRotationTweenSettings:
-    Mode: 0
     Ease: 9
   cameraSettings:
     UseAuthoredSceneCameraPose: 1
@@ -546,6 +545,15 @@ MonoBehaviour:
     FarClipPlane: 100
     ClearFlags: 2
     BackgroundColor: {r: 0.93, g: 0.95, b: 0.98, a: 1}
+  topologyTransitionPostFxProfile:
+    authoritativeVolumeProfile: {fileID: 11400000, guid: 34b03bafcc38d5143b72f2184dc129e7, type: 2}
+    motionBlurMode: 0
+    motionBlurQuality: 0
+    maxBlurIntensity: 0.3
+    cameraClamp: 0.05
+    angularVelocityResponseExponent: 0.65
+    landingFadeStart01: 0.82
+    landingFadeExponent: 3
   stageDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
