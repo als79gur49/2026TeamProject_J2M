@@ -142,6 +142,11 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController.AttachCameraRig(viewCameraRig);
         }
 
+        public void AttachOutputCamera(Camera outputCamera)
+        {
+            _transientEffectPresenter.ConfigureOutputCamera(outputCamera);
+        }
+
         public void Present(TickResult result)
         {
             if (result == null)

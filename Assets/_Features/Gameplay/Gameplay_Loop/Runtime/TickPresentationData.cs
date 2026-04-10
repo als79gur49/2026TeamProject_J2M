@@ -354,6 +354,7 @@ namespace Game.Feature.Gameplay.Loop
         None = 0,
         ItemConsume = 1,
         BoxDestroy = 2,
+        EnemyDeath = 3,
     }
 
     // Exit signals transfer visual ownership away from the authoritative entity view.
@@ -369,7 +370,8 @@ namespace Game.Feature.Gameplay.Loop
             Direction facing,
             EntityType entityType,
             int? sourceActorEntityId = null,
-            int? anchorEntityId = null)
+            int? anchorEntityId = null,
+            int presentationSeed = 0)
         {
             ExitedEntityId = exitedEntityId;
             ExitCause = exitCause;
@@ -379,6 +381,7 @@ namespace Game.Feature.Gameplay.Loop
             EntityType = entityType;
             SourceActorEntityId = sourceActorEntityId;
             AnchorEntityId = anchorEntityId;
+            PresentationSeed = presentationSeed;
         }
 
         public int ExitedEntityId { get; }
@@ -396,6 +399,8 @@ namespace Game.Feature.Gameplay.Loop
         public int? SourceActorEntityId { get; }
 
         public int? AnchorEntityId { get; }
+
+        public int PresentationSeed { get; }
     }
 
     public sealed class TickPresentationData

@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Timing
         [SerializeField] private float topologyMotionDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float itemConsumeEffectDurationSeconds = UseConfigurationFallbackSentinel;
         [SerializeField] private float boxDestroyEffectDurationSeconds = UseConfigurationFallbackSentinel;
+        [SerializeField] private float enemyDeathEffectDurationSeconds = UseConfigurationFallbackSentinel;
 
         public void ApplyTo(GameplaySceneHostConfiguration configuration)
         {
@@ -34,6 +35,7 @@ namespace Game.Feature.Gameplay.Timing
             configuration.TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
             configuration.ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds;
             configuration.BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds;
+            configuration.EnemyDeathEffectDurationSeconds = enemyDeathEffectDurationSeconds;
         }
 
         public void Validate()
@@ -44,6 +46,7 @@ namespace Game.Feature.Gameplay.Timing
             ValidateDuration(topologyMotionDurationSeconds, nameof(topologyMotionDurationSeconds));
             ValidateDuration(itemConsumeEffectDurationSeconds, nameof(itemConsumeEffectDurationSeconds));
             ValidateDuration(boxDestroyEffectDurationSeconds, nameof(boxDestroyEffectDurationSeconds));
+            ValidateDuration(enemyDeathEffectDurationSeconds, nameof(enemyDeathEffectDurationSeconds));
         }
 
         private static void ValidateDuration(float value, string paramName)

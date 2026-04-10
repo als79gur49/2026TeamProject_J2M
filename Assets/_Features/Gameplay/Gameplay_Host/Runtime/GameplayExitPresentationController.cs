@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host
@@ -78,10 +79,12 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 _stateStore.ViewsByEntityId.TryGetValue(signal.ExitedEntityId, out var sourceView);
+                var hasTargetLocalPose = TryResolveExitEffectTargetLocalPose(signal, out var targetLocalPose);
                 _transientEffectPresenter.PlayExitEffect(
                     signal,
                     sourceView,
                     localPose,
+                    hasTargetLocalPose ? targetLocalPose : (GameplayEntityPose?)null,
                     ResolveEntityExitEffectDurationSeconds(signal.ExitCause));
             }
         }
@@ -121,8 +124,52 @@ namespace Game.Feature.Gameplay.Host
             {
                 TickEntityExitCause.ItemConsume => _timingProfile.ItemConsumeEffectDurationSeconds,
                 TickEntityExitCause.BoxDestroy => _timingProfile.BoxDestroyEffectDurationSeconds,
+                TickEntityExitCause.EnemyDeath => _timingProfile.EnemyDeathEffectDurationSeconds,
                 _ => _timingProfile.ItemConsumeEffectDurationSeconds,
             };
+        }
+
+        private bool TryResolveExitEffectTargetLocalPose(
+            TickEntityExitPresentationSignal signal,
+            out GameplayEntityPose localPose)
+        {
+            if (signal.ExitCause == TickEntityExitCause.EnemyDeath)
+            {
+                if (TryResolvePlayerLocalPose(out localPose))
+                {
+                    return true;
+                }
+
+                if (signal.SourceActorEntityId.HasValue &&
+                    _stateStore.CommittedLocalTargetPoses.TryGetValue(signal.SourceActorEntityId.Value, out localPose))
+                {
+                    return true;
+                }
+            }
+
+            localPose = default;
+            return false;
+        }
+
+        private bool TryResolvePlayerLocalPose(out GameplayEntityPose localPose)
+        {
+            var bestPlayerEntityId = int.MaxValue;
+            localPose = default;
+
+            foreach (var pair in _stateStore.UnitRolesByEntityId)
+            {
+                if (pair.Value != UnitRole.Player ||
+                    !_stateStore.CommittedLocalTargetPoses.TryGetValue(pair.Key, out var candidateLocalPose) ||
+                    pair.Key >= bestPlayerEntityId)
+                {
+                    continue;
+                }
+
+                bestPlayerEntityId = pair.Key;
+                localPose = candidateLocalPose;
+            }
+
+            return bestPlayerEntityId != int.MaxValue;
         }
     }
 }

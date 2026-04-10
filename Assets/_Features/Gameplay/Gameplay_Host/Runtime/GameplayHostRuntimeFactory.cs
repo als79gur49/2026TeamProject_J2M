@@ -116,6 +116,7 @@ namespace Game.Feature.Gameplay.Host
             var viewCamera = ResolveViewCamera(configuration);
             var outputCamera = ResolveOutputCamera(configuration);
             var outputCameraBrain = ResolveOutputCameraBrain(outputCamera);
+            presenter.AttachOutputCamera(outputCamera);
             var viewCameraTarget = boardRoot.CameraTargetRoot;
             var viewCameraRig = ConfigureViewCameraRig(
                 hostObject,

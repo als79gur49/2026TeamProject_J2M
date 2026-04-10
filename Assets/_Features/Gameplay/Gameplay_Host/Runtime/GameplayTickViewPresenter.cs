@@ -143,6 +143,11 @@ namespace Game.Feature.Gameplay.Host
             _viewCameraBrain = null;
         }
 
+        public void AttachOutputCamera(Camera outputCamera)
+        {
+            _presentationCoordinator.AttachOutputCamera(outputCamera);
+        }
+
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
             _presentationCoordinator.AttachCameraRig(viewCameraRig);

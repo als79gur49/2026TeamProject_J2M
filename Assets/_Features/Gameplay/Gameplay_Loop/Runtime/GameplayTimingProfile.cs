@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultFlipMotionDurationSeconds = 0.2f;
         public const float DefaultItemConsumeEffectDurationSeconds = 0.18f;
         public const float DefaultBoxDestroyEffectDurationSeconds = 0.14f;
+        public const float DefaultEnemyDeathEffectDurationSeconds = 0.2f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
         public const int DefaultPlayerPushContactThresholdTicks = 12;
@@ -89,7 +90,8 @@ namespace Game.Feature.Gameplay.Loop
             int maxTicksPerFrame,
             float itemConsumeEffectDurationSeconds = DefaultItemConsumeEffectDurationSeconds,
             float boxDestroyEffectDurationSeconds = DefaultBoxDestroyEffectDurationSeconds,
-            float moveOccupancyDurationSeconds = UseMoveMotionDurationForOccupancySentinel)
+            float moveOccupancyDurationSeconds = UseMoveMotionDurationForOccupancySentinel,
+            float enemyDeathEffectDurationSeconds = DefaultEnemyDeathEffectDurationSeconds)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -193,6 +195,13 @@ namespace Game.Feature.Gameplay.Loop
                     "Box destroy effect duration must be greater than zero.");
             }
 
+            if (enemyDeathEffectDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(enemyDeathEffectDurationSeconds),
+                    "Enemy death effect duration must be greater than zero.");
+            }
+
             SimulationTicksPerSecond = simulationTicksPerSecond;
             SimulationTickIntervalSeconds = 1f / simulationTicksPerSecond;
             InitialMoveDelaySeconds = initialMoveDelaySeconds;
@@ -206,6 +215,7 @@ namespace Game.Feature.Gameplay.Loop
             FlipMotionDurationSeconds = flipMotionDurationSeconds;
             ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds;
             BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds;
+            EnemyDeathEffectDurationSeconds = enemyDeathEffectDurationSeconds;
             FlipArcHeightInCells = flipArcHeightInCells;
             MaxTicksPerFrame = maxTicksPerFrame;
             InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
@@ -241,6 +251,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public float BoxDestroyEffectDurationSeconds { get; }
 
+        public float EnemyDeathEffectDurationSeconds { get; }
+
         public float FlipArcHeightInCells { get; }
 
         public int MaxTicksPerFrame { get; }
@@ -271,7 +283,8 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultMaxTicksPerFrame,
                 DefaultItemConsumeEffectDurationSeconds,
                 DefaultBoxDestroyEffectDurationSeconds,
-                DefaultMoveOccupancyDurationSeconds);
+                DefaultMoveOccupancyDurationSeconds,
+                DefaultEnemyDeathEffectDurationSeconds);
         }
 
         public static int SecondsToCeilTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

@@ -426,8 +426,26 @@ namespace Game.Feature.Gameplay.Loop
         {
             // Exit-owned removals bypass generic detach/remove visibility tracks. The
             // authoritative entity view disappears immediately; only transient echoes linger.
-            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
             var signaledEntityIds = new HashSet<int>();
+            BuildMovementOwnedExitPresentation(
+                context,
+                entityExitSignals,
+                exitOwnedEntityIds,
+                signaledEntityIds);
+            BuildAttackOwnedExitPresentation(
+                context,
+                entityExitSignals,
+                exitOwnedEntityIds,
+                signaledEntityIds);
+        }
+
+        private static void BuildMovementOwnedExitPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEntityExitPresentationSignal> entityExitSignals,
+            ISet<int> exitOwnedEntityIds,
+            ISet<int> signaledEntityIds)
+        {
+            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
             var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
@@ -459,9 +477,54 @@ namespace Game.Feature.Gameplay.Loop
                             context.PreMovementSnapshot.Topology,
                             sourceEntity.facing,
                             sourceEntity.type,
-                            sourceActorEntityId: group.SourceId));
+                            sourceActorEntityId: group.SourceId,
+                            presentationSeed: BuildStablePresentationSeed(
+                                context.CurrentTickIndex,
+                                boardPresenceChange.EntityId,
+                                group.SourceId,
+                                exitCause)));
                     exitOwnedEntityIds.Add(boardPresenceChange.EntityId);
                 }
+            }
+        }
+
+        private static void BuildAttackOwnedExitPresentation(
+            in TickPresentationBuildContext context,
+            List<TickEntityExitPresentationSignal> entityExitSignals,
+            ISet<int> exitOwnedEntityIds,
+            ISet<int> signaledEntityIds)
+        {
+            var removedEntityIds = context.CleanupPhaseResult.RemovedEntityIds;
+            var selectedGroups = context.AttackPhaseResult.SelectedGroups;
+
+            for (var i = 0; i < removedEntityIds.Count; i++)
+            {
+                var entityId = removedEntityIds[i];
+                if (exitOwnedEntityIds.Contains(entityId) ||
+                    !signaledEntityIds.Add(entityId) ||
+                    !context.PostAttackSnapshot.TryGetEntity(entityId, out var removedEntity) ||
+                    !EntityRolePolicy.IsEnemyUnit(removedEntity) ||
+                    !TryResolveDestroyingAttackGroup(selectedGroups, entityId, out var destroyingGroup))
+                {
+                    continue;
+                }
+
+                const TickEntityExitCause exitCause = TickEntityExitCause.EnemyDeath;
+                entityExitSignals.Add(
+                    new TickEntityExitPresentationSignal(
+                        entityId,
+                        exitCause,
+                        removedEntity.position,
+                        context.PostAttackSnapshot.Topology,
+                        removedEntity.facing,
+                        removedEntity.type,
+                        sourceActorEntityId: destroyingGroup.SourceId,
+                        presentationSeed: BuildStablePresentationSeed(
+                            context.CurrentTickIndex,
+                            entityId,
+                            destroyingGroup.SourceId,
+                            exitCause)));
+                exitOwnedEntityIds.Add(entityId);
             }
         }
 
@@ -1175,6 +1238,30 @@ namespace Game.Feature.Gameplay.Loop
             return destroyTargets;
         }
 
+        private static bool TryResolveDestroyingAttackGroup(
+            IReadOnlyList<ActionGroup> selectedGroups,
+            int targetEntityId,
+            out ActionGroup destroyingGroup)
+        {
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
+                {
+                    if (group.Destroys[destroyIndex].TargetId != targetEntityId)
+                    {
+                        continue;
+                    }
+
+                    destroyingGroup = group;
+                    return true;
+                }
+            }
+
+            destroyingGroup = null;
+            return false;
+        }
+
         private static TickEntityExitCause ResolveEntityExitCause(
             ActionGroup group,
             ISet<int> destroyTargets,
@@ -1192,6 +1279,31 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return TickEntityExitCause.None;
+        }
+
+        private static int BuildStablePresentationSeed(
+            int currentTickIndex,
+            int exitedEntityId,
+            int sourceActorEntityId,
+            TickEntityExitCause exitCause)
+        {
+            unchecked
+            {
+                var hash = 2166136261u;
+                hash = MixStableSeed(hash, currentTickIndex);
+                hash = MixStableSeed(hash, exitedEntityId);
+                hash = MixStableSeed(hash, sourceActorEntityId);
+                hash = MixStableSeed(hash, (int)exitCause);
+                return (int)(hash & 0x7FFFFFFF);
+            }
+        }
+
+        private static uint MixStableSeed(uint hash, int value)
+        {
+            unchecked
+            {
+                return (hash ^ (uint)value) * 16777619u;
+            }
         }
 
         private static bool TryResolveEntityType(

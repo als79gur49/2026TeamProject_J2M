@@ -129,6 +129,7 @@ namespace Game.Feature.Gameplay.Host
         public float FlipMotionDurationSeconds = -1f;
         public float ItemConsumeEffectDurationSeconds = -1f;
         public float BoxDestroyEffectDurationSeconds = -1f;
+        public float EnemyDeathEffectDurationSeconds = -1f;
         public float FlipArcHeightInCells = GameplayTimingProfile.DefaultFlipArcHeightInCells;
         public float BoxSlideStepIntervalSeconds = -1f;
         public float ProjectileStepIntervalSeconds = -1f;
@@ -157,6 +158,7 @@ namespace Game.Feature.Gameplay.Host
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
             var itemConsumeEffectDurationSeconds = ResolveItemConsumeEffectDurationSeconds();
             var boxDestroyEffectDurationSeconds = ResolveBoxDestroyEffectDurationSeconds();
+            var enemyDeathEffectDurationSeconds = ResolveEnemyDeathEffectDurationSeconds();
 
             return new GameplayTimingProfile(
                 SimulationTicksPerSecond,
@@ -175,7 +177,8 @@ namespace Game.Feature.Gameplay.Host
                     ? MaxTicksPerFrame
                     : GameplayTimingProfile.DefaultMaxTicksPerFrame,
                 itemConsumeEffectDurationSeconds,
-                boxDestroyEffectDurationSeconds);
+                boxDestroyEffectDurationSeconds,
+                enemyDeathEffectDurationSeconds: enemyDeathEffectDurationSeconds);
         }
 
         public PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot()
@@ -278,6 +281,13 @@ namespace Game.Feature.Gameplay.Host
             return BoxDestroyEffectDurationSeconds > 0f
                 ? BoxDestroyEffectDurationSeconds
                 : GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds;
+        }
+
+        private float ResolveEnemyDeathEffectDurationSeconds()
+        {
+            return EnemyDeathEffectDurationSeconds > 0f
+                ? EnemyDeathEffectDurationSeconds
+                : GameplayTimingProfile.DefaultEnemyDeathEffectDurationSeconds;
         }
 
         private PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot(
