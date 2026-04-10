@@ -14,6 +14,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.StaticEntityPresentationCatalog
   entries:
   - PresentationId: box_tutorial
-    ViewPrefab: {fileID: 1140000000000000000, guid: 4e2740ff1d0645f29c6e70f6d0efaf01, type: 3}
+    ViewPrefab: {fileID: 1140000000000000010, guid: 27c1fb8855a36e44b9ba1860d41c7f69, type: 3}
   - PresentationId: wall_tutorial
     ViewPrefab: {fileID: 1140000000000000010, guid: d88a1ebaf3e2422e9fe1cb9c438a0bc4, type: 3}
