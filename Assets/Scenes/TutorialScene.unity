@@ -1231,6 +1231,17 @@ MonoBehaviour:
     FarClipPlane: 100
     ClearFlags: 2
     BackgroundColor: {r: 0.93, g: 0.95, b: 0.98, a: 1}
+  topologyTransitionCameraShakeProfile:
+    ImpactStart01: 0.02
+    ImpactDuration01: 0.18
+    ImpactOscillationCycles: 2
+    ImpactLocalPositionAmplitude: {x: 0.012, y: 0.008, z: 0.018}
+    ImpactLocalRotationAmplitudeDegrees: {x: 0.45, y: 0.28, z: 0.12}
+    LandingStart01: 0.76
+    LandingDuration01: 0.18
+    LandingOscillationCycles: 1
+    LandingLocalPositionAmplitude: {x: 0.006, y: 0.004, z: 0.01}
+    LandingLocalRotationAmplitudeDegrees: {x: 0.24, y: 0.14, z: 0.08}
   topologyTransitionPostFxProfile:
     authoritativeVolumeProfile: {fileID: 11400000, guid: 34b03bafcc38d5143b72f2184dc129e7, type: 2}
     motionBlurMode: 0
