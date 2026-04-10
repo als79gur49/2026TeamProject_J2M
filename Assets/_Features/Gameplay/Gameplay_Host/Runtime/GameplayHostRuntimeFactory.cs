@@ -114,6 +114,7 @@ namespace Game.Feature.Gameplay.Host
                 viewCamera,
                 viewCameraTarget,
                 presenter.VisibleCubeBounds);
+            presenter.AttachCameraRig(viewCameraRig);
 
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
             inputHost.Initialize(
@@ -202,7 +203,7 @@ namespace Game.Feature.Gameplay.Host
             Transform viewCameraTarget,
             Bounds visibleCubeBounds)
         {
-            if (!configuration.SnapViewCameraToTarget || viewCamera == null || viewCameraTarget == null)
+            if (viewCameraTarget == null)
             {
                 var existingRig = hostObject.GetComponent<GameplayCameraRig>();
                 if (existingRig != null)
@@ -215,7 +216,12 @@ namespace Game.Feature.Gameplay.Host
 
             var cameraRig = hostObject.GetComponent<GameplayCameraRig>() ?? hostObject.AddComponent<GameplayCameraRig>();
             cameraRig.enabled = true;
-            cameraRig.ApplySettings(configuration.CameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault());
+            var resolvedCameraSettings = cameraRig.ResolveConfiguredSettings(
+                configuration.CameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault(),
+                viewCameraTarget.position,
+                configuration.InitialTopology,
+                configuration.TopologyRotationVisualMapping);
+            cameraRig.ApplySettings(resolvedCameraSettings);
             cameraRig.Initialize(viewCamera, viewCameraTarget, visibleCubeBounds);
             return cameraRig;
         }

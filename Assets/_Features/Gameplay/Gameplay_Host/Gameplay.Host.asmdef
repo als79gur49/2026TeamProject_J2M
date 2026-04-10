@@ -4,6 +4,7 @@
   "references": [
     "Game.Feature.Gameplay",
     "Game.Feature.Stages",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.Cinemachine"
   ]
 }

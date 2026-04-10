@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.Timing;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
@@ -28,6 +29,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var installerObject = new GameObject("GameplayShowcaseInstaller");
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
+                var mainCameraObject = new GameObject("Main Camera");
+                mainCameraObject.AddComponent<Camera>();
+                var brain = mainCameraObject.AddComponent<CinemachineBrain>();
+                SceneManager.MoveGameObjectToScene(mainCameraObject, scene);
+
+                var expectedCameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
+                var cinemachineCameraObject = new GameObject("CinemachineCamera");
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                var cinemachineLens = cinemachineCamera.Lens;
+                cinemachineLens.FieldOfView = expectedCameraSettings.PerspectiveFieldOfView;
+                cinemachineLens.NearClipPlane = expectedCameraSettings.NearClipPlane;
+                cinemachineLens.FarClipPlane = expectedCameraSettings.FarClipPlane;
+                cinemachineCamera.Lens = cinemachineLens;
+                SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
+
                 var legacyLabel = new GameObject("Label_LegacyTraversal");
                 legacyLabel.AddComponent<TextMesh>();
                 SceneManager.MoveGameObjectToScene(legacyLabel, scene);
@@ -41,7 +57,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[] { "First highlight", "Second highlight" }));
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
-                var expectedCameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
                 Assert.That(rig, Is.Not.Null);
                 AssertCameraSettings(rig, expectedCameraSettings);
                 Assert.That(installerObject.GetComponent<GameplayShowcaseOverlay>(), Is.Not.Null);
@@ -58,8 +73,105 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(boardRoot.BoardSurfaceRoot, Is.Not.Null);
                 Assert.That(boardRoot.EntityRoot, Is.Not.Null);
                 Assert.That(boardRoot.CameraTargetRoot, Is.Not.Null);
+                Assert.That(boardRoot.CameraOrbitPivot, Is.Not.Null);
+                Assert.That(boardRoot.CameraPoseRoot, Is.Not.Null);
+
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraPoseRoot));
+                Assert.That(cinemachineCamera.transform.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(cinemachineCamera.transform.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(cinemachineCamera.Target.TrackingTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
+                Assert.That(cinemachineCamera.Target.LookAtTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
+                Assert.That(cinemachineCamera.Target.CustomLookAtTarget, Is.True);
+                Assert.That(
+                    cinemachineCamera.Lens.FieldOfView,
+                    Is.EqualTo(expectedCameraSettings.PerspectiveFieldOfView).Within(0.0001f));
+                Assert.That(
+                    cinemachineCamera.Lens.NearClipPlane,
+                    Is.EqualTo(expectedCameraSettings.NearClipPlane).Within(0.0001f));
+                Assert.That(
+                    cinemachineCamera.Lens.FarClipPlane,
+                    Is.EqualTo(expectedCameraSettings.FarClipPlane).Within(0.0001f));
+                Assert.That(brain.DefaultBlend.Style, Is.EqualTo(CinemachineBlendDefinition.Styles.Cut));
+                Assert.That(brain.DefaultBlend.BlendTime, Is.EqualTo(0f).Within(0.0001f));
 
                 Assert.That(legacyLabel == null, Is.True);
+            }
+            finally
+            {
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_CapturesAuthoredCinemachinePoseAsCameraBaseline()
+        {
+            var scene = CreateIsolatedTestScene();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var mainCameraObject = new GameObject("Main Camera");
+                mainCameraObject.AddComponent<Camera>();
+                mainCameraObject.AddComponent<CinemachineBrain>();
+                SceneManager.MoveGameObjectToScene(mainCameraObject, scene);
+
+                var cinemachineCameraObject = new GameObject("CinemachineCamera");
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                var lens = cinemachineCamera.Lens;
+                lens.FieldOfView = 44f;
+                lens.NearClipPlane = 0.2f;
+                lens.FarClipPlane = 90f;
+                cinemachineCamera.Lens = lens;
+                cinemachineCamera.transform.SetPositionAndRotation(
+                    new Vector3(3f, 4f, -8f),
+                    Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up));
+                SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
+
+                var baseCameraSettings = new GameplayCameraSettings
+                {
+                    UseAuthoredSceneCameraPose = true,
+                    UseAuthoredSceneCameraLens = true,
+                    PitchDegrees = 10f,
+                    YawDegrees = 15f,
+                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                    ManualDistance = 2f,
+                    FramingPadding = 1.2f,
+                    PerspectiveFieldOfView = 60f,
+                    NearClipPlane = 0.03f,
+                    FarClipPlane = 100f,
+                };
+
+                GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
+                    installerObject,
+                    new GameplayShowcaseOverlayContent("Traversal", "Summary", "Move", Array.Empty<string>()),
+                    baseCameraSettings);
+
+                var rig = installerObject.GetComponent<GameplayCameraRig>();
+                Assert.That(rig, Is.Not.Null);
+                var resolvedCameraSettings = rig.ResolveConfiguredSettings(
+                    baseCameraSettings,
+                    Vector3.zero,
+                    new CubeTopologyState(FaceId.Floor),
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
+                var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
+                rig.ApplySettings(resolvedCameraSettings);
+                rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                Assert.That(resolvedCameraSettings.PerspectiveFieldOfView, Is.EqualTo(44f).Within(0.0001f));
+                Assert.That(resolvedCameraSettings.NearClipPlane, Is.EqualTo(0.2f).Within(0.0001f));
+                Assert.That(resolvedCameraSettings.FarClipPlane, Is.EqualTo(90f).Within(0.0001f));
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraPoseRoot));
+                Assert.That(cinemachineCamera.transform.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraPoseRoot.position, new Vector3(3f, 4f, -8f)),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(
+                        boardRoot.CameraPoseRoot.rotation,
+                        Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up)),
+                    Is.LessThan(0.001f));
             }
             finally
             {
@@ -235,6 +347,60 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayCameraRig_InitializeWithoutDirectCamera_DrivesOrbitHierarchyPose()
+        {
+            var scene = CreateIsolatedTestScene();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var boardRootObject = new GameObject("GameplayBoardRoot");
+                boardRootObject.transform.SetParent(installerObject.transform, worldPositionStays: false);
+                var boardRoot = boardRootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                boardRoot.CameraTargetRoot.position = new Vector3(2f, 3f, -4f);
+
+                var rig = installerObject.AddComponent<GameplayCameraRig>();
+                var cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
+                rig.ApplySettings(cameraSettings);
+                rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                var orbitRotation = Quaternion.Euler(90f, 0f, 0f);
+                rig.SetPresentedTopologyOrbit(orbitRotation);
+
+                var expectedLocalRotation = Quaternion.Euler(
+                    cameraSettings.PitchDegrees,
+                    cameraSettings.YawDegrees,
+                    0f);
+                var expectedWorldRotation = orbitRotation * expectedLocalRotation;
+                var expectedWorldPosition =
+                    boardRoot.CameraTargetRoot.position + (expectedWorldRotation * (Vector3.back * cameraSettings.ManualDistance));
+
+                Assert.That(Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, orbitRotation), Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraPoseRoot.localRotation, expectedLocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(
+                        boardRoot.CameraPoseRoot.localPosition,
+                        Vector3.back * cameraSettings.ManualDistance),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraPoseRoot.rotation, expectedWorldRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraPoseRoot.position, expectedWorldPosition),
+                    Is.LessThan(0.0001f));
+            }
+            finally
+            {
+                ResetIsolatedTestScene();
+            }
+        }
+
         private static void SetBaseInstallerField(object target, string fieldName, object value)
         {
             SetPrivateField(typeof(GameplayShowcaseSceneInstallerBase), target, fieldName, value);
@@ -315,6 +481,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertCameraSettings(GameplayCameraSettings actual, GameplayCameraSettings expected)
         {
+            Assert.That(actual.UseAuthoredSceneCameraPose, Is.EqualTo(expected.UseAuthoredSceneCameraPose));
+            Assert.That(actual.UseAuthoredSceneCameraLens, Is.EqualTo(expected.UseAuthoredSceneCameraLens));
             Assert.That(actual.DistanceMode, Is.EqualTo(expected.DistanceMode));
             Assert.That(actual.PitchDegrees, Is.EqualTo(expected.PitchDegrees).Within(0.0001f));
             Assert.That(actual.YawDegrees, Is.EqualTo(expected.YawDegrees).Within(0.0001f));
@@ -404,6 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayShowcaseAssetMigrationTests
     {
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
+        private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string CombinedSceneInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string CombinedStageAssetPath =
@@ -462,6 +631,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.DoesNotContain("flipPresentationDurationSeconds", prefabText);
         }
 
+        [Test]
+        public void ShowcaseScenes_SerializeCinemachineBootstrapWithoutExtraBlendDamping()
+        {
+            AssertShowcaseSceneUsesCutBrainBlend(CombinedScenePath);
+            AssertShowcaseSceneUsesCutBrainBlend(TutorialScenePath);
+        }
+
         private static string ReadNormalizedText(string assetPath)
         {
             var projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? string.Empty;
@@ -504,6 +680,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains(
                 $"presentationTimingPreset: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(presentationTimingPresetAssetPath)}, type: 2}}",
                 installerBlock);
+        }
+
+        private static void AssertShowcaseSceneUsesCutBrainBlend(string assetPath)
+        {
+            var sceneText = ReadNormalizedText(assetPath);
+            StringAssert.Contains("DefaultBlend:\n    Style: 0\n    Time: 0", sceneText);
+            StringAssert.Contains("FieldOfView: 50", sceneText);
+            StringAssert.Contains("NearClipPlane: 0.03", sceneText);
+            StringAssert.Contains("FarClipPlane: 100", sceneText);
         }
     }
 }

@@ -65,8 +65,9 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayPresentationTimingPreset presentationTimingPreset;
 
         [Header("Presentation")]
-        [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
+        [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
         [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
+        [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
 
         protected bool AutoCreateViews => autoCreateViews;
 
@@ -80,19 +81,22 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var initialState = BuildInitialGameplayState();
-            var cameraSettings = CreateCameraSettings();
+            var baseCameraSettings = CreateCameraSettings();
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 gameObject,
                 GetShowcaseOverlayContent(),
-                cameraSettings);
+                baseCameraSettings);
+            var resolvedCameraSettings = ResolveEffectiveCameraSettings(initialState, baseCameraSettings);
+            var rig = GetComponent<GameplayCameraRig>();
+            rig?.ApplySettings(resolvedCameraSettings);
 
             if (configureMainCamera)
             {
-                ConfigureCamera(initialState);
+                ConfigureCamera(initialState, resolvedCameraSettings);
             }
 
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
-            host.Initialize(CreateConfiguration(initialState, cameraSettings));
+            host.Initialize(CreateConfiguration(initialState, resolvedCameraSettings));
         }
 
         public GameplayShowcaseOverlayContent GetShowcaseOverlayContent()
@@ -102,7 +106,9 @@ namespace Game.Feature.Gameplay.Host
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
         {
-            return GameplayCameraSettings.CreateShowcaseDefault();
+            return cameraSettings != null
+                ? cameraSettings.Clone()
+                : GameplayCameraSettings.CreateShowcaseDefault();
         }
 
         protected virtual IGameplayEntityViewFactory CreateViewFactory(
@@ -155,16 +161,22 @@ namespace Game.Feature.Gameplay.Host
         public void ConfigureBootstrapCamera(Camera camera)
         {
             var initialState = BuildInitialGameplayState();
-            ConfigureSceneCamera(camera, initialState.BoardBounds, CreateCameraSettings(), initialState.InitialTopology);
+            ConfigureSceneCamera(
+                camera,
+                initialState.BoardBounds,
+                ResolveEffectiveCameraSettings(initialState, CreateCameraSettings()),
+                initialState.InitialTopology);
         }
 
-        private void ConfigureCamera(InitialGameplayState initialState)
+        private void ConfigureCamera(
+            InitialGameplayState initialState,
+            GameplayCameraSettings resolvedCameraSettings)
         {
             var camera = Camera.main;
             ConfigureSceneCamera(
                 camera,
                 initialState.BoardBounds,
-                CreateCameraSettings(),
+                resolvedCameraSettings,
                 initialState.InitialTopology);
         }
 
@@ -235,6 +247,32 @@ namespace Game.Feature.Gameplay.Host
         {
             var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
             return CreateViewFactory(boardRoot, initialState);
+        }
+
+        private GameplayCameraSettings ResolveEffectiveCameraSettings(
+            InitialGameplayState initialState,
+            GameplayCameraSettings baseCameraSettings)
+        {
+            var rig = GetComponent<GameplayCameraRig>();
+            if (rig == null)
+            {
+                return baseCameraSettings != null
+                    ? baseCameraSettings.Clone()
+                    : GameplayCameraSettings.CreateShowcaseDefault();
+            }
+
+            var boardRoot = GetComponentInChildren<GameplayBoardRoot>(includeInactive: true);
+            var projector = new GameplayCubeProjector(initialState.BoardBounds, cellSize);
+            var cubeCenterLocal = projector.GetCubeCenter();
+            var cubeCenterWorld = boardRoot != null
+                ? boardRoot.transform.TransformPoint(cubeCenterLocal)
+                : transform.TransformPoint(cubeCenterLocal);
+
+            return rig.ResolveConfiguredSettings(
+                baseCameraSettings,
+                cubeCenterWorld,
+                initialState.InitialTopology,
+                topologyRotationVisualMapping);
         }
 
         private GameplaySimulationTimingPreset ResolveSimulationTimingPreset()

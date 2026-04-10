@@ -5,7 +5,8 @@
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Stages",
-    "Unity.InputSystem"
+    "Unity.InputSystem",
+    "Unity.Cinemachine"
   ],
   "includePlatforms": [
     "Editor"

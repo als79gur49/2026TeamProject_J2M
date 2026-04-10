@@ -6,6 +6,10 @@ namespace Game.Feature.Gameplay.Host
     [Serializable]
     public sealed class GameplayCameraSettings
     {
+        [Tooltip("Use the initially authored scene or Cinemachine camera pose as the runtime camera baseline.")]
+        public bool UseAuthoredSceneCameraPose;
+        [Tooltip("When using the authored camera baseline, also copy its lens settings.")]
+        public bool UseAuthoredSceneCameraLens = true;
         public float PitchDegrees = 35f;
         public float YawDegrees = 0f;
         public GameplayCameraRig.DistanceMode DistanceMode = GameplayCameraRig.DistanceMode.AutoFit;
@@ -21,6 +25,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return new GameplayCameraSettings
             {
+                UseAuthoredSceneCameraPose = UseAuthoredSceneCameraPose,
+                UseAuthoredSceneCameraLens = UseAuthoredSceneCameraLens,
                 PitchDegrees = PitchDegrees,
                 YawDegrees = YawDegrees,
                 DistanceMode = DistanceMode,
@@ -38,6 +44,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return new GameplayCameraSettings
             {
+                UseAuthoredSceneCameraPose = false,
+                UseAuthoredSceneCameraLens = true,
                 PitchDegrees = 18f,
                 YawDegrees = 0f,
                 DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
@@ -55,6 +63,8 @@ namespace Game.Feature.Gameplay.Host
         {
             return new GameplayCameraSettings
             {
+                UseAuthoredSceneCameraPose = true,
+                UseAuthoredSceneCameraLens = true,
                 PitchDegrees = 35f,
                 YawDegrees = 0f,
                 DistanceMode = GameplayCameraRig.DistanceMode.Manual,

@@ -1,4 +1,5 @@
 using System;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -28,8 +29,9 @@ namespace Game.Feature.Gameplay.Host
             }
 
             DestroyLegacyWorldLabels(installerRoot.scene);
-            EnsureBoardRoot(installerRoot.transform);
-            EnsureCameraRig(installerRoot, cameraSettings);
+            var boardRoot = EnsureBoardRoot(installerRoot.transform);
+            var rig = EnsureCameraRig(installerRoot, cameraSettings);
+            ConfigureSceneCinemachinePath(installerRoot.scene, boardRoot, rig, cameraSettings);
             EnsureOverlay(installerRoot, overlayContent);
         }
 
@@ -106,6 +108,84 @@ namespace Game.Feature.Gameplay.Host
             var rig = installerRoot.GetComponent<GameplayCameraRig>() ?? installerRoot.AddComponent<GameplayCameraRig>();
             rig.ApplySettings(cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault());
             return rig;
+        }
+
+        private static void ConfigureSceneCinemachinePath(
+            Scene scene,
+            GameplayBoardRoot boardRoot,
+            GameplayCameraRig rig,
+            GameplayCameraSettings cameraSettings)
+        {
+            if (!scene.IsValid() || boardRoot == null)
+            {
+                return;
+            }
+
+            var resolvedCameraSettings = cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault();
+            var rootObjects = scene.GetRootGameObjects();
+            for (var i = 0; i < rootObjects.Length; i++)
+            {
+                var rootObject = rootObjects[i];
+                if (rootObject == null)
+                {
+                    continue;
+                }
+
+                var cinemachineCameras = rootObject.GetComponentsInChildren<CinemachineCamera>(includeInactive: true);
+                for (var j = 0; j < cinemachineCameras.Length; j++)
+                {
+                    ConfigureCinemachineCamera(cinemachineCameras[j], boardRoot, rig, resolvedCameraSettings);
+                }
+
+                var brains = rootObject.GetComponentsInChildren<CinemachineBrain>(includeInactive: true);
+                for (var j = 0; j < brains.Length; j++)
+                {
+                    brains[j].DefaultBlend =
+                        new CinemachineBlendDefinition(CinemachineBlendDefinition.Styles.Cut, 0f);
+                }
+            }
+        }
+
+        private static void ConfigureCinemachineCamera(
+            CinemachineCamera cinemachineCamera,
+            GameplayBoardRoot boardRoot,
+            GameplayCameraRig rig,
+            GameplayCameraSettings cameraSettings)
+        {
+            if (cinemachineCamera == null ||
+                boardRoot?.CameraPoseRoot == null ||
+                boardRoot.CameraTargetRoot == null)
+            {
+                return;
+            }
+
+            var cameraTransform = cinemachineCamera.transform;
+            var lens = cinemachineCamera.Lens;
+            rig?.CaptureAuthoredSceneCameraPose(
+                cameraTransform,
+                lens.FieldOfView,
+                lens.NearClipPlane,
+                lens.FarClipPlane);
+            cameraTransform.SetParent(boardRoot.CameraPoseRoot, worldPositionStays: false);
+            cameraTransform.localPosition = Vector3.zero;
+            cameraTransform.localRotation = Quaternion.identity;
+            cameraTransform.localScale = Vector3.one;
+
+            cinemachineCamera.Target = new CameraTarget
+            {
+                TrackingTarget = boardRoot.CameraTargetRoot,
+                LookAtTarget = boardRoot.CameraTargetRoot,
+                CustomLookAtTarget = true,
+            };
+
+            if (!cameraSettings.UseAuthoredSceneCameraLens)
+            {
+                lens.FieldOfView = cameraSettings.PerspectiveFieldOfView;
+                lens.NearClipPlane = cameraSettings.NearClipPlane;
+                lens.FarClipPlane = cameraSettings.FarClipPlane;
+                cinemachineCamera.Lens = lens;
+            }
+            cinemachineCamera.BlendHint = 0;
         }
 
         private static GameplayShowcaseOverlay EnsureOverlay(GameObject installerRoot, GameplayShowcaseOverlayContent overlayContent)

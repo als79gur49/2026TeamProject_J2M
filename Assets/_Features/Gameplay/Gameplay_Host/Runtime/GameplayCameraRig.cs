@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.BoardState;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -7,6 +8,8 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayCameraRig : MonoBehaviour
     {
         private static readonly GameplayCameraSettings DefaultSettings = GameplayCameraSettings.CreateRuntimeDefault();
+        private const string CameraOrbitPivotObjectName = "CameraOrbitPivot";
+        private const string CameraPoseRootObjectName = "CameraPoseRoot";
 
         public enum DistanceMode
         {
@@ -25,10 +28,23 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private CameraClearFlags clearFlags = DefaultSettings.ClearFlags;
         [SerializeField] private Color backgroundColor = DefaultSettings.BackgroundColor;
 
-        private Camera _viewCamera;
-        private Bounds _visibleCubeBounds;
+        private Transform _cameraPoseRoot;
         private bool _isInitialized;
+        private Transform _orbitPivot;
+        private Quaternion _presentedTopologyOrbit = Quaternion.identity;
+        private float _presentedTopologyOrbitXDegrees;
         private Transform _target;
+        private Bounds _visibleCubeBounds;
+        private Camera _viewCamera;
+        private bool _hasAuthoredSceneCameraPose;
+        private Vector3 _authoredSceneCameraWorldPosition;
+        private Quaternion _authoredSceneCameraWorldRotation = Quaternion.identity;
+        private float _authoredSceneCameraFieldOfView = DefaultSettings.PerspectiveFieldOfView;
+        private float _authoredSceneCameraNearClipPlane = DefaultSettings.NearClipPlane;
+        private float _authoredSceneCameraFarClipPlane = DefaultSettings.FarClipPlane;
+        private bool _useAuthoredSceneCameraPoseAsBaseline;
+        private Vector3 _authoredSceneCameraBaselineLocalPosition;
+        private Quaternion _authoredSceneCameraBaselineLocalRotation = Quaternion.identity;
 
         public DistanceMode CurrentDistanceMode => distanceMode;
 
@@ -50,15 +66,74 @@ namespace Game.Feature.Gameplay.Host
 
         public Color BackgroundColor => backgroundColor;
 
+        public Quaternion PresentedTopologyOrbit => _presentedTopologyOrbit;
+
+        internal float PresentedTopologyOrbitXDegrees => _presentedTopologyOrbitXDegrees;
+
+        public void CaptureAuthoredSceneCameraPose(
+            Transform cameraTransform,
+            float fieldOfView,
+            float nearClipPlane,
+            float farClipPlane)
+        {
+            if (cameraTransform == null || _hasAuthoredSceneCameraPose)
+            {
+                return;
+            }
+
+            _hasAuthoredSceneCameraPose = true;
+            _authoredSceneCameraWorldPosition = cameraTransform.position;
+            _authoredSceneCameraWorldRotation = cameraTransform.rotation;
+            _authoredSceneCameraFieldOfView = Mathf.Max(1f, fieldOfView);
+            _authoredSceneCameraNearClipPlane = Mathf.Max(0.001f, nearClipPlane);
+            _authoredSceneCameraFarClipPlane = Mathf.Max(_authoredSceneCameraNearClipPlane + 0.01f, farClipPlane);
+        }
+
+        internal GameplayCameraSettings ResolveConfiguredSettings(
+            GameplayCameraSettings baseSettings,
+            Vector3 targetWorldPosition,
+            CubeTopologyState topology,
+            TopologyRotationVisualMapping topologyRotationVisualMapping)
+        {
+            var resolvedSettings = baseSettings?.Clone() ?? GameplayCameraSettings.CreateRuntimeDefault();
+            _useAuthoredSceneCameraPoseAsBaseline = false;
+            if (!_hasAuthoredSceneCameraPose ||
+                (!resolvedSettings.UseAuthoredSceneCameraPose &&
+                 !resolvedSettings.UseAuthoredSceneCameraLens))
+            {
+                return resolvedSettings;
+            }
+
+            if (resolvedSettings.UseAuthoredSceneCameraPose)
+            {
+                var topologyOrbit = GameplayTopologyVisualRotationUtility.ResolveCameraOrbitRotation(
+                    topology,
+                    topologyRotationVisualMapping);
+                _authoredSceneCameraBaselineLocalPosition =
+                    Quaternion.Inverse(topologyOrbit) * (_authoredSceneCameraWorldPosition - targetWorldPosition);
+                _authoredSceneCameraBaselineLocalRotation =
+                    Quaternion.Inverse(topologyOrbit) * _authoredSceneCameraWorldRotation;
+                _useAuthoredSceneCameraPoseAsBaseline = true;
+            }
+
+            if (resolvedSettings.UseAuthoredSceneCameraLens)
+            {
+                resolvedSettings.PerspectiveFieldOfView = _authoredSceneCameraFieldOfView;
+                resolvedSettings.NearClipPlane = _authoredSceneCameraNearClipPlane;
+                resolvedSettings.FarClipPlane = _authoredSceneCameraFarClipPlane;
+            }
+
+            return resolvedSettings;
+        }
+
         public void Initialize(Camera viewCamera, Transform target, Bounds visibleCubeBounds)
         {
-            _viewCamera = viewCamera != null
-                ? viewCamera
-                : throw new ArgumentNullException(nameof(viewCamera));
+            _viewCamera = viewCamera;
             _target = target != null
                 ? target
                 : throw new ArgumentNullException(nameof(target));
             _visibleCubeBounds = visibleCubeBounds;
+            ResolvePoseHierarchy();
             _isInitialized = true;
             SnapToTarget();
         }
@@ -101,6 +176,29 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void SetPresentedTopologyOrbit(Quaternion orbitRotation)
+        {
+            SetPresentedTopologyOrbit(
+                orbitRotation,
+                ResolveNearestEquivalentAngleXDegrees(_presentedTopologyOrbitXDegrees, orbitRotation));
+        }
+
+        internal void SetPresentedTopologyOrbit(Quaternion orbitRotation, float orbitRotationXDegrees)
+        {
+            if (Quaternion.Angle(_presentedTopologyOrbit, orbitRotation) <= 0.001f &&
+                Mathf.Abs(_presentedTopologyOrbitXDegrees - orbitRotationXDegrees) <= 0.001f)
+            {
+                return;
+            }
+
+            _presentedTopologyOrbit = orbitRotation;
+            _presentedTopologyOrbitXDegrees = orbitRotationXDegrees;
+            if (_isInitialized)
+            {
+                SnapToTarget();
+            }
+        }
+
         public static void ApplySettingsToCamera(
             Camera viewCamera,
             GameplayCameraSettings settings,
@@ -135,7 +233,8 @@ namespace Game.Feature.Gameplay.Host
                 settings.NearClipPlane,
                 settings.FarClipPlane,
                 settings.ClearFlags,
-                settings.BackgroundColor);
+                settings.BackgroundColor,
+                Quaternion.identity);
         }
 
         public void SnapToTarget()
@@ -158,36 +257,102 @@ namespace Game.Feature.Gameplay.Host
 
         private void ApplyCameraPose()
         {
-            if (_viewCamera == null || _target == null)
+            if (_target == null)
             {
                 return;
             }
 
-            ApplyResolvedCameraPose(
-                _viewCamera,
-                _target.position,
+            ResolvePoseHierarchy();
+
+            var (cameraLocalPosition, cameraLocalRotation, worldPosition, worldRotation) = ResolveCameraPose();
+
+            ApplyPoseHierarchy(cameraLocalPosition, cameraLocalRotation);
+
+            if (_viewCamera != null)
+            {
+                ApplyResolvedCameraPose(
+                    _viewCamera,
+                    worldPosition,
+                    worldRotation,
+                    perspectiveFieldOfView,
+                    nearClipPlane,
+                    farClipPlane,
+                    clearFlags,
+                    backgroundColor);
+            }
+        }
+
+        private void ResolvePoseHierarchy()
+        {
+            _orbitPivot = _target != null ? _target.Find(CameraOrbitPivotObjectName) : null;
+            _cameraPoseRoot = _orbitPivot != null ? _orbitPivot.Find(CameraPoseRootObjectName) : null;
+        }
+
+        private (Vector3 localPosition, Quaternion localRotation, Vector3 worldPosition, Quaternion worldRotation) ResolveCameraPose()
+        {
+            if (_useAuthoredSceneCameraPoseAsBaseline)
+            {
+                var worldRotation = _presentedTopologyOrbit * _authoredSceneCameraBaselineLocalRotation;
+                var worldPosition = _target.position + (_presentedTopologyOrbit * _authoredSceneCameraBaselineLocalPosition);
+                return (
+                    _authoredSceneCameraBaselineLocalPosition,
+                    _authoredSceneCameraBaselineLocalRotation,
+                    worldPosition,
+                    worldRotation);
+            }
+
+            var lookRotation = Quaternion.Euler(pitchDegrees, yawDegrees, 0f);
+            var distance = ResolveCameraDistance(
+                ResolveCameraAspect(),
                 _visibleCubeBounds,
-                pitchDegrees,
-                yawDegrees,
                 distanceMode,
                 manualDistance,
                 framingPadding,
-                perspectiveFieldOfView,
-                nearClipPlane,
-                farClipPlane,
-                clearFlags,
-                backgroundColor);
+                perspectiveFieldOfView);
+            var worldRotationLegacy = _presentedTopologyOrbit * lookRotation;
+            var worldPositionLegacy = _target.position + (worldRotationLegacy * (Vector3.back * distance));
+            return (
+                Vector3.back * distance,
+                lookRotation,
+                worldPositionLegacy,
+                worldRotationLegacy);
+        }
+
+        private void ApplyPoseHierarchy(Vector3 localPosition, Quaternion localRotation)
+        {
+            if (_orbitPivot != null)
+            {
+                _orbitPivot.SetLocalPositionAndRotation(Vector3.zero, _presentedTopologyOrbit);
+                _orbitPivot.localScale = Vector3.one;
+            }
+
+            if (_cameraPoseRoot != null)
+            {
+                _cameraPoseRoot.SetLocalPositionAndRotation(localPosition, localRotation);
+                _cameraPoseRoot.localScale = Vector3.one;
+            }
+        }
+
+        private float ResolveCameraAspect()
+        {
+            if (_viewCamera != null)
+            {
+                return Mathf.Max(_viewCamera.aspect, 0.01f);
+            }
+
+            return Mathf.Max((float)Screen.width / Mathf.Max(Screen.height, 1), 0.01f);
+        }
+
+        private static float ResolveNearestEquivalentAngleXDegrees(float currentAngleXDegrees, Quaternion rotation)
+        {
+            var candidateAngleXDegrees = Mathf.DeltaAngle(0f, rotation.eulerAngles.x);
+            return currentAngleXDegrees + Mathf.DeltaAngle(currentAngleXDegrees, candidateAngleXDegrees);
         }
 
         private static void ApplyResolvedCameraPose(
             Camera viewCamera,
-            Vector3 targetPosition,
-            Bounds visibleCubeBounds,
-            float pitchDegrees,
-            float yawDegrees,
-            DistanceMode distanceMode,
-            float manualDistance,
-            float framingPadding,
+            Vector3 worldPosition,
+            Quaternion worldRotation,
             float perspectiveFieldOfView,
             float nearClipPlane,
             float farClipPlane,
@@ -203,37 +368,72 @@ namespace Game.Feature.Gameplay.Host
             viewCamera.farClipPlane = sanitizedFarClipPlane;
             viewCamera.clearFlags = clearFlags;
             viewCamera.backgroundColor = backgroundColor;
+            viewCamera.transform.SetPositionAndRotation(worldPosition, worldRotation);
+        }
 
+        private static void ApplyResolvedCameraPose(
+            Camera viewCamera,
+            Vector3 targetPosition,
+            Bounds visibleCubeBounds,
+            float pitchDegrees,
+            float yawDegrees,
+            DistanceMode distanceMode,
+            float manualDistance,
+            float framingPadding,
+            float perspectiveFieldOfView,
+            float nearClipPlane,
+            float farClipPlane,
+            CameraClearFlags clearFlags,
+            Color backgroundColor,
+            Quaternion orbitRotation)
+        {
             var lookRotation = Quaternion.Euler(pitchDegrees, yawDegrees, 0f);
             var distance = ResolveCameraDistance(
-                viewCamera,
+                Mathf.Max(viewCamera.aspect, 0.01f),
                 visibleCubeBounds,
                 distanceMode,
                 manualDistance,
-                framingPadding);
-            var forward = lookRotation * Vector3.forward;
+                framingPadding,
+                perspectiveFieldOfView);
+            var worldRotation = orbitRotation * lookRotation;
+            var worldPosition = targetPosition + (worldRotation * (Vector3.back * distance));
 
-            viewCamera.transform.SetPositionAndRotation(
-                targetPosition - (forward * distance),
-                lookRotation);
+            ApplyResolvedCameraPose(
+                viewCamera,
+                worldPosition,
+                worldRotation,
+                perspectiveFieldOfView,
+                nearClipPlane,
+                farClipPlane,
+                clearFlags,
+                backgroundColor);
         }
 
         private static float ResolveCameraDistance(
-            Camera viewCamera,
+            float aspect,
             Bounds visibleCubeBounds,
             DistanceMode distanceMode,
             float manualDistance,
-            float framingPadding)
+            float framingPadding,
+            float perspectiveFieldOfView)
         {
             return distanceMode == DistanceMode.Manual
                 ? Mathf.Max(0.01f, manualDistance)
-                : ResolveAutoFitDistance(viewCamera, visibleCubeBounds.extents.magnitude, framingPadding);
+                : ResolveAutoFitDistance(
+                    aspect,
+                    perspectiveFieldOfView,
+                    visibleCubeBounds.extents.magnitude,
+                    framingPadding);
         }
 
-        private static float ResolveAutoFitDistance(Camera viewCamera, float boundingRadius, float framingPadding)
+        private static float ResolveAutoFitDistance(
+            float aspect,
+            float perspectiveFieldOfView,
+            float boundingRadius,
+            float framingPadding)
         {
-            var verticalHalfFovRadians = Mathf.Deg2Rad * Mathf.Clamp(viewCamera.fieldOfView, 1f, 179f) * 0.5f;
-            var horizontalHalfFovRadians = Mathf.Atan(Mathf.Tan(verticalHalfFovRadians) * Mathf.Max(viewCamera.aspect, 0.01f));
+            var verticalHalfFovRadians = Mathf.Deg2Rad * Mathf.Clamp(perspectiveFieldOfView, 1f, 179f) * 0.5f;
+            var horizontalHalfFovRadians = Mathf.Atan(Mathf.Tan(verticalHalfFovRadians) * Mathf.Max(aspect, 0.01f));
             var limitingHalfFov = Mathf.Min(verticalHalfFovRadians, horizontalHalfFovRadians);
             var safeRadius = Mathf.Max(0.01f, boundingRadius * Mathf.Max(1f, framingPadding));
             return safeRadius / Mathf.Tan(Mathf.Max(0.01f, limitingHalfFov));

@@ -14,15 +14,25 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private GameplayBoardRoot _boardRoot;
         private Tween _boardRotationTween;
+        private GameplayCameraRig _cameraRig;
         private GameplayBoardSurfaceRenderer _boardSurfaceRenderer;
+        private TickTopologyMotion? _activeTopologyMotion;
+        private float _activeTopologyMotionDurationSeconds;
+        private TopologyTransitionVisualState _currentVisualState =
+            TopologyTransitionVisualState.Inactive(default, Quaternion.identity);
         private bool _isBoardRotationTweenActive;
         private bool _isBoardSurfaceTransitionActive;
+        private CubeTopologyState _lastCommittedTopology;
         private Quaternion _boardSurfaceTransitionStartRotation = Quaternion.identity;
+        private Quaternion _boardSurfaceTransitionDestinationRotation = Quaternion.identity;
+        // This is a topology presentation reference rotation used to drive the camera orbit.
+        // Physical board geometry remains fixed in the camera-only topology model.
         private Quaternion _presentedBoardRotation = Quaternion.identity;
+        private float _presentedBoardRotationXDegrees;
         private Func<Vector3> _resolveCubeCenter;
         private GameplayTimingProfile _timingProfile;
         private TopologyRotationTweenSettings _topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
-        private TopologyRotationVisualMapping _topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX;
+        private TopologyRotationVisualMapping _topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
 
         public GameplayTopologyTransitionController(GameplayMotionTimingResolver motionTimingResolver)
         {
@@ -32,7 +42,11 @@ namespace Game.Feature.Gameplay.Host
         public bool HasActiveBoardRotationTween => _isBoardRotationTweenActive &&
                                                    _boardRotationTween != null;
 
+        // Despite the historical name, this is not a physical board transform rotation.
+        // It is the currently presented topology reference rotation consumed by the camera.
         public Quaternion PresentedBoardRotation => _presentedBoardRotation;
+
+        public TopologyTransitionVisualState CurrentVisualState => _currentVisualState;
 
         public void Configure(
             GameplayBoardRoot boardRoot,
@@ -50,20 +64,41 @@ namespace Game.Feature.Gameplay.Host
             _resolveCubeCenter = resolveCubeCenter ?? throw new ArgumentNullException(nameof(resolveCubeCenter));
         }
 
+        public void AttachCameraRig(GameplayCameraRig cameraRig)
+        {
+            _cameraRig = cameraRig;
+            ApplyPresentedBoardRotation(_presentedBoardRotationXDegrees, forceApply: true);
+        }
+
         public void Reset()
         {
+            _activeTopologyMotion = null;
+            _activeTopologyMotionDurationSeconds = 0f;
+            _lastCommittedTopology = default;
             _boardSurfaceTransitionStartRotation = Quaternion.identity;
+            _boardSurfaceTransitionDestinationRotation = Quaternion.identity;
             KillBoardRotationTween();
             _isBoardSurfaceTransitionActive = false;
-            ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
+            ApplyPresentedBoardRotation(0f, forceApply: true);
+            UpdateInactiveVisualState();
         }
 
         public void CompleteInitialTopology(CubeTopologyState topology)
         {
+            _lastCommittedTopology = topology;
+            var restReferenceRotationXDegrees =
+                ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, topology);
+            var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
+            _boardSurfaceTransitionStartRotation = restReferenceRotation;
+            _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
+            ApplyPresentedBoardRotation(restReferenceRotationXDegrees, forceApply: true);
             _boardSurfaceRenderer?.CompleteTopologyTransition(topology);
+            UpdateInactiveVisualState();
         }
 
-        public void RefreshTopologyTrack(TickPresentationData presentationData)
+        public void RefreshTopologyTrack(
+            TickPresentationData presentationData,
+            CubeTopologyState committedTopology)
         {
             if (presentationData == null)
             {
@@ -75,16 +110,38 @@ namespace Game.Feature.Gameplay.Host
             if (!presentationData.TopologyMotion.HasValue ||
                 presentationData.TopologyMotion.Value.RotationKind == CubeRotationKind.None)
             {
-                ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true);
+                _activeTopologyMotion = null;
+                _activeTopologyMotionDurationSeconds = 0f;
+                _lastCommittedTopology = committedTopology;
+                var restReferenceRotationXDegrees =
+                    ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, committedTopology);
+                var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
+                _boardSurfaceTransitionStartRotation = restReferenceRotation;
+                _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
+                ApplyPresentedBoardRotation(restReferenceRotationXDegrees, forceApply: true);
+                UpdateInactiveVisualState();
                 return;
             }
 
             var topologyMotion = presentationData.TopologyMotion.Value;
-            var startRotation = _presentedBoardRotation * ResolveTopologyRotationOffset(topologyMotion.RotationKind);
-            ApplyPresentedBoardRotation(startRotation, forceApply: true);
+            var durationSeconds = Mathf.Max(
+                _motionTimingResolver.ResolveTopologyMotionDurationSeconds(_timingProfile),
+                MinimumTopologyTweenDurationSeconds);
+            _activeTopologyMotion = topologyMotion;
+            _activeTopologyMotionDurationSeconds = durationSeconds;
+            var startRotationXDegrees = _presentedBoardRotationXDegrees;
+            var destinationRotationXDegrees =
+                ResolveNearestRestReferenceAngleXDegrees(startRotationXDegrees, topologyMotion.DestinationTopology);
+            var startRotation = ResolveRotationFromXDegrees(startRotationXDegrees);
+            var destinationRotation = ResolveRotationFromXDegrees(destinationRotationXDegrees);
+            _boardSurfaceTransitionStartRotation = startRotation;
+            _boardSurfaceTransitionDestinationRotation = destinationRotation;
+            ApplyPresentedBoardRotation(startRotationXDegrees, forceApply: true);
+            RecalculateVisualState(startRotation, deltaTime: 0f);
             StartBoardRotationTween(
-                startRotation,
-                _motionTimingResolver.ResolveTopologyMotionDurationSeconds(_timingProfile));
+                startRotationXDegrees,
+                destinationRotationXDegrees,
+                durationSeconds);
         }
 
         public void RefreshBoardSurfaceTransition(
@@ -103,57 +160,88 @@ namespace Game.Feature.Gameplay.Host
 
             if (!IsTopologyTransitionPresentation(presentationData.TopologyMotion))
             {
+                var restReferenceRotationXDegrees =
+                    ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, committedTopology);
+                var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
                 _boardSurfaceRenderer.CompleteTopologyTransition(committedTopology);
-                _boardSurfaceTransitionStartRotation = Quaternion.identity;
+                _lastCommittedTopology = committedTopology;
+                _boardSurfaceTransitionStartRotation = restReferenceRotation;
+                _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
                 _isBoardSurfaceTransitionActive = false;
+                if (!HasActiveBoardRotationTween)
+                {
+                    UpdateInactiveVisualState();
+                }
+
                 return;
             }
 
             var topologyMotion = presentationData.TopologyMotion.Value;
             _boardSurfaceTransitionStartRotation = _presentedBoardRotation;
+            _boardSurfaceTransitionDestinationRotation =
+                ResolveRotationFromXDegrees(
+                    ResolveNearestRestReferenceAngleXDegrees(
+                        _presentedBoardRotationXDegrees,
+                        topologyMotion.DestinationTopology));
             _boardSurfaceRenderer.BeginTopologyTransition(
                 topologyMotion.SourceTopology,
-                topologyMotion.DestinationTopology,
-                _boardSurfaceTransitionStartRotation);
+                topologyMotion.DestinationTopology);
             _isBoardSurfaceTransitionActive = true;
         }
 
         public void UpdatePresentation(float deltaTime, CubeTopologyState committedTopology)
         {
+            var previousPresentedBoardRotation = _presentedBoardRotation;
             if (_isBoardRotationTweenActive &&
                 _boardRotationTween != null)
             {
                 _boardRotationTween.ManualUpdate(deltaTime, deltaTime);
             }
 
+            if (!HasActiveBoardRotationTween)
+            {
+                _lastCommittedTopology = committedTopology;
+                var restReferenceRotationXDegrees =
+                    ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, committedTopology);
+                var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
+                _boardSurfaceTransitionStartRotation = restReferenceRotation;
+                _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
+                ApplyPresentedBoardRotation(restReferenceRotationXDegrees);
+            }
+
             UpdateBoardSurfaceTransition(_presentedBoardRotation);
             CleanupCompletedBoardSurfaceTransitionState(committedTopology);
+            RecalculateVisualState(previousPresentedBoardRotation, deltaTime);
         }
 
-        public Quaternion ResolveTopologyRotationOffset(CubeRotationKind rotationKind)
+        private float ResolveRestReferenceAngleXDegrees(CubeTopologyState topology)
         {
-            var forwardDegrees = _topologyRotationVisualMapping == TopologyRotationVisualMapping.ForwardUsesPositiveX
-                ? 90f
-                : -90f;
-
-            return rotationKind switch
-            {
-                CubeRotationKind.Forward => Quaternion.Euler(forwardDegrees, 0f, 0f),
-                CubeRotationKind.Backward => Quaternion.Euler(-forwardDegrees, 0f, 0f),
-                _ => Quaternion.identity,
-            };
+            return GameplayTopologyVisualRotationUtility.ResolveRestReferenceAngleXDegrees(
+                topology,
+                _topologyRotationVisualMapping);
         }
 
-        private void ApplyPresentedBoardRotation(Quaternion boardRotation, bool forceApply = false)
+        private float ResolveNearestRestReferenceAngleXDegrees(float currentAngleXDegrees, CubeTopologyState topology)
         {
+            var desiredAngleXDegrees = ResolveRestReferenceAngleXDegrees(topology);
+            return currentAngleXDegrees + Mathf.DeltaAngle(currentAngleXDegrees, desiredAngleXDegrees);
+        }
+        private void ApplyPresentedBoardRotation(float visualReferenceRotationXDegrees, bool forceApply = false)
+        {
+            var visualReferenceRotation = ResolveRotationFromXDegrees(visualReferenceRotationXDegrees);
             if (!forceApply &&
-                Quaternion.Angle(_presentedBoardRotation, boardRotation) <= 0.001f)
+                Quaternion.Angle(_presentedBoardRotation, visualReferenceRotation) <= 0.001f &&
+                Mathf.Abs(_presentedBoardRotationXDegrees - visualReferenceRotationXDegrees) <= 0.001f)
             {
                 return;
             }
 
-            _presentedBoardRotation = boardRotation;
-            _boardRoot?.ApplyPresentationRotation(boardRotation, _resolveCubeCenter());
+            _presentedBoardRotation = visualReferenceRotation;
+            _presentedBoardRotationXDegrees = visualReferenceRotationXDegrees;
+            _boardRoot?.ApplyPresentationRotation(visualReferenceRotation, _resolveCubeCenter());
+            _cameraRig?.SetPresentedTopologyOrbit(
+                Quaternion.Inverse(visualReferenceRotation),
+                -visualReferenceRotationXDegrees);
         }
 
         private void CleanupCompletedBoardSurfaceTransitionState(CubeTopologyState committedTopology)
@@ -166,7 +254,12 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _boardSurfaceRenderer.CompleteTopologyTransition(committedTopology);
-            _boardSurfaceTransitionStartRotation = Quaternion.identity;
+            _lastCommittedTopology = committedTopology;
+            var restReferenceRotationXDegrees =
+                ResolveNearestRestReferenceAngleXDegrees(_presentedBoardRotationXDegrees, committedTopology);
+            var restReferenceRotation = ResolveRotationFromXDegrees(restReferenceRotationXDegrees);
+            _boardSurfaceTransitionStartRotation = restReferenceRotation;
+            _boardSurfaceTransitionDestinationRotation = restReferenceRotation;
             _isBoardSurfaceTransitionActive = false;
         }
 
@@ -207,25 +300,26 @@ namespace Game.Feature.Gameplay.Host
                 : Ease.OutQuad;
         }
 
-        private Quaternion ResolveTweenedBoardRotation(Quaternion startRotation, float progress)
+        private Quaternion ResolveTweenedBoardRotation(
+            float startRotationXDegrees,
+            float destinationRotationXDegrees,
+            float progress)
         {
             return _topologyRotationTweenSettings.Mode switch
             {
                 TopologyRotationTweenMode.QuaternionSlerp => Quaternion.SlerpUnclamped(
-                    startRotation,
-                    Quaternion.identity,
+                    ResolveRotationFromXDegrees(startRotationXDegrees),
+                    ResolveRotationFromXDegrees(destinationRotationXDegrees),
                     progress),
-                _ => Quaternion.Euler(
-                    Mathf.LerpUnclamped(
-                        NormalizeSignedAxisAngle(startRotation.eulerAngles.x),
-                        0f,
-                        progress),
-                    0f,
-                    0f),
+                _ => ResolveRotationFromXDegrees(
+                    Mathf.LerpUnclamped(startRotationXDegrees, destinationRotationXDegrees, progress)),
             };
         }
 
-        private void StartBoardRotationTween(Quaternion startRotation, float durationSeconds)
+        private void StartBoardRotationTween(
+            float startRotationXDegrees,
+            float destinationRotationXDegrees,
+            float durationSeconds)
         {
             var progress = 0f;
             _isBoardRotationTweenActive = true;
@@ -235,14 +329,26 @@ namespace Game.Feature.Gameplay.Host
                     value =>
                     {
                         progress = value;
-                        ApplyPresentedBoardRotation(ResolveTweenedBoardRotation(startRotation, progress));
+                        var tweenedRotation = ResolveTweenedBoardRotation(
+                            startRotationXDegrees,
+                            destinationRotationXDegrees,
+                            progress);
+                        var tweenedRotationXDegrees =
+                            Mathf.LerpUnclamped(startRotationXDegrees, destinationRotationXDegrees, progress);
+
+                        _presentedBoardRotation = tweenedRotation;
+                        _presentedBoardRotationXDegrees = tweenedRotationXDegrees;
+                        _boardRoot?.ApplyPresentationRotation(tweenedRotation, _resolveCubeCenter());
+                        _cameraRig?.SetPresentedTopologyOrbit(
+                            Quaternion.Inverse(tweenedRotation),
+                            -tweenedRotationXDegrees);
                     },
                     1f,
-                    Mathf.Max(durationSeconds, MinimumTopologyTweenDurationSeconds))
+                    durationSeconds)
                 .SetEase(ResolveTopologyRotationEase())
                 .SetUpdate(UpdateType.Manual)
                 .SetAutoKill(true)
-                .OnComplete(() => ApplyPresentedBoardRotation(Quaternion.identity, forceApply: true))
+                .OnComplete(() => ApplyPresentedBoardRotation(destinationRotationXDegrees, forceApply: true))
                 .OnKill(() =>
                 {
                     _boardRotationTween = null;
@@ -264,19 +370,82 @@ namespace Game.Feature.Gameplay.Host
 
         private float ResolveBoardSurfaceTransitionProgress(Quaternion presentedBoardRotation)
         {
-            var totalAngle = Quaternion.Angle(_boardSurfaceTransitionStartRotation, Quaternion.identity);
+            var totalAngle = Quaternion.Angle(
+                _boardSurfaceTransitionStartRotation,
+                _boardSurfaceTransitionDestinationRotation);
             if (totalAngle <= 0.001f)
             {
                 return 1f;
             }
 
-            var remainingAngle = Quaternion.Angle(presentedBoardRotation, Quaternion.identity);
+            var remainingAngle = Quaternion.Angle(
+                presentedBoardRotation,
+                _boardSurfaceTransitionDestinationRotation);
             return Mathf.Clamp01(1f - (remainingAngle / totalAngle));
         }
 
-        private static float NormalizeSignedAxisAngle(float eulerDegrees)
+        private void RecalculateVisualState(Quaternion previousPresentedBoardRotation, float deltaTime)
         {
-            return Mathf.DeltaAngle(0f, eulerDegrees);
+            if (!HasActiveBoardRotationTween ||
+                !_activeTopologyMotion.HasValue)
+            {
+                UpdateInactiveVisualState();
+                return;
+            }
+
+            var topologyMotion = _activeTopologyMotion.Value;
+            _currentVisualState = new TopologyTransitionVisualState(
+                isActive: true,
+                progress01: ResolveBoardSurfaceTransitionProgress(_presentedBoardRotation),
+                sourceTopology: topologyMotion.SourceTopology,
+                destinationTopology: topologyMotion.DestinationTopology,
+                rotationKind: topologyMotion.RotationKind,
+                durationSeconds: _activeTopologyMotionDurationSeconds,
+                presentedVisualRotation: _presentedBoardRotation,
+                angularVelocityNormalized: ResolveAngularVelocityNormalized(
+                    previousPresentedBoardRotation,
+                    deltaTime));
+        }
+
+        private float ResolveAngularVelocityNormalized(
+            Quaternion previousPresentedBoardRotation,
+            float deltaTime)
+        {
+            if (deltaTime <= 0f ||
+                _activeTopologyMotionDurationSeconds <= 0f)
+            {
+                return 0f;
+            }
+
+            var totalAngle = Quaternion.Angle(
+                _boardSurfaceTransitionStartRotation,
+                _boardSurfaceTransitionDestinationRotation);
+            if (totalAngle <= 0.001f)
+            {
+                return 0f;
+            }
+
+            var baselineDegreesPerSecond = totalAngle / _activeTopologyMotionDurationSeconds;
+            if (baselineDegreesPerSecond <= 0.001f)
+            {
+                return 0f;
+            }
+
+            var actualDegreesPerSecond =
+                Quaternion.Angle(previousPresentedBoardRotation, _presentedBoardRotation) / deltaTime;
+            return Mathf.Max(0f, actualDegreesPerSecond / baselineDegreesPerSecond);
+        }
+
+        private void UpdateInactiveVisualState()
+        {
+            _currentVisualState = TopologyTransitionVisualState.Inactive(
+                _lastCommittedTopology,
+                _presentedBoardRotation);
+        }
+
+        private static Quaternion ResolveRotationFromXDegrees(float xDegrees)
+        {
+            return Quaternion.Euler(xDegrees, 0f, 0f);
         }
     }
 }
