@@ -118,7 +118,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = StageRuntimeBuilder.Build(stage);
 
             Assert.That(buildResult.BoardBounds.MinInclusive, Is.EqualTo(new Vector2Int(0, 0)));
-            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(15, 8)));
+            Assert.That(buildResult.BoardBounds.MaxInclusive, Is.EqualTo(new Vector2Int(14, 7)));
             Assert.That(buildResult.InitialTopology.BottomFace, Is.EqualTo(FaceId.Floor));
             Assert.That(buildResult.PlayerEntityId, Is.EqualTo(10));
             Assert.That(buildResult.InitialTerrain, Is.SameAs(Game.Feature.Gameplay.BoardState.TerrainData.Empty));

@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   board:
     MinInclusive: {x: 0, y: 0}
-    MaxInclusive: {x: 15, y: 8}
+    MaxInclusive: {x: 14, y: 7}
     InitialBottomFace: 0
   playerSpawns:
   - EntityId: 10
