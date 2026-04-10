@@ -118,7 +118,13 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     ShouldPlayPlayerWalkLoop(entityId),
                     HasActivePlayerWalkMotion(entityId));
-                _animationSync.SyncEnemyRuntimeState(entityId, isVisible, hasActiveMotion, _stateStore.ViewsByEntityId);
+                var enemySemanticState = UpdateEnemyVisualPresentationState(entityId, isVisible, hasActiveMotion, view);
+                _animationSync.SyncEnemyRuntimeState(
+                    entityId,
+                    isVisible,
+                    hasActiveMotion,
+                    enemySemanticState.ShouldPauseAnimatorPlayback,
+                    _stateStore.ViewsByEntityId);
                 _animationSync.SyncPlayerRuntimeState(
                     entityId,
                     isVisible,
@@ -128,8 +134,6 @@ namespace Game.Feature.Gameplay.Host
                         resolvedPlayerAnimationState,
                         timingProfile),
                     _stateStore.ViewsByEntityId);
-                UpdateEnemyVisualPresentationState(entityId, isVisible, hasActiveMotion, view);
-
                 if (!isVisible)
                 {
                     continue;
@@ -235,10 +239,12 @@ namespace Game.Feature.Gameplay.Host
         private void ClearEntityPresentationMetadataIfFullyHidden(int entityId)
         {
             _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
+            _stateStore.CommittedFacesByEntityId.Remove(entityId);
             _stateStore.EnemyAiModesByEntityId.Remove(entityId);
             _stateStore.EnemyVisualFactsByEntityId.Remove(entityId);
             _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
             _stateStore.EntityTypesByEntityId.Remove(entityId);
+            _stateStore.UnitRolesByEntityId.Remove(entityId);
         }
 
         private bool HasActivePlayerWalkMotion(int entityId)
@@ -254,7 +260,7 @@ namespace Game.Feature.Gameplay.Host
                    signal.ShouldPlayWalkLoop;
         }
 
-        private void UpdateEnemyVisualPresentationState(
+        private EnemyVisualSemanticState UpdateEnemyVisualPresentationState(
             int entityId,
             bool isVisible,
             bool hasActiveMotion,
@@ -272,6 +278,8 @@ namespace Game.Feature.Gameplay.Host
             {
                 controller.Apply(semanticState);
             }
+
+            return semanticState;
         }
 
         private EnemyVisualPresentationFacts BuildEnemyVisualPresentationFacts(
@@ -286,11 +294,25 @@ namespace Game.Feature.Gameplay.Host
             var isJumpDetachedVisible = _stateStore.JumpDetachedVisibilityStates.ContainsKey(entityId);
             var isTransitionOnlyVisible = isTransitionVisible && !isCommittedVisible;
             var hasEntityType = _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType);
+            var hasUnitRole = _stateStore.UnitRolesByEntityId.TryGetValue(entityId, out var unitRole);
             var hasEnemyAiMode = _stateStore.EnemyAiModesByEntityId.TryGetValue(entityId, out var aiMode);
             var isEnemy = hasEntityType &&
-                          entityType == EntityType.Unit &&
-                          hasEnemyAiMode &&
-                          aiMode != EnemyAiMode.None;
+                          hasUnitRole &&
+                          EntityRolePolicy.IsEnemyUnit(entityType, unitRole);
+            FaceId? authoritativeFace = null;
+            if (isCommittedVisible &&
+                _stateStore.CommittedFacesByEntityId.TryGetValue(entityId, out var committedFace))
+            {
+                authoritativeFace = committedFace;
+            }
+            else if (isTransitionVisible)
+            {
+                authoritativeFace = transitionVisibilityState.SurfaceFace;
+            }
+
+            var isGameplayAutonomySuppressed = isEnemy &&
+                                               authoritativeFace.HasValue &&
+                                               authoritativeFace.Value != _stateStore.CommittedTopology.BottomFace;
 
             return new EnemyVisualPresentationFacts(
                 entityId,
@@ -305,6 +327,7 @@ namespace Game.Feature.Gameplay.Host
                     isCommittedVisible,
                     isTransitionVisible,
                     transitionVisibilityState),
+                isGameplayAutonomySuppressed,
                 isEnemy ? aiMode : EnemyAiMode.None,
                 hasActiveMotion);
         }

@@ -971,6 +971,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                prefabObject.AddComponent<EnemyAnimatorDriver>();
                 new GameObject("PrefabMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
 
                 var factory = new DefaultGameplayEntityViewFactory(
@@ -982,11 +983,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         { 20, prefabView },
                     });
 
-                var view = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.None));
+                var view = factory.CreateView(
+                    CreateSurfaceUnit(
+                        20,
+                        new SurfaceCell(FaceId.Floor, 0, 0),
+                        aiMode: EnemyAiMode.None,
+                        unitRole: UnitRole.Enemy));
 
                 Assert.That(view.transform.Find("PrefabMarker"), Is.Not.Null);
                 Assert.That(view.ModelRoot.Find("Visual"), Is.Null);
-                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyInactiveVisualController>(), Is.Not.Null);
             }
             finally
             {
@@ -6238,16 +6245,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EntityBoardPresence boardPresence = EntityBoardPresence.Occupying,
             bool markedForDeath = false,
             EnemyAiMode aiMode = EnemyAiMode.None,
-            Direction facing = Direction.Up)
+            Direction facing = Direction.Up,
+            UnitRole unitRole = UnitRole.None)
         {
+            var resolvedUnitRole = unitRole != UnitRole.None
+                ? unitRole
+                : entityId == 10
+                    ? UnitRole.Player
+                    : aiMode != EnemyAiMode.None
+                        ? UnitRole.Enemy
+                        : UnitRole.None;
+            var resolvedTeamId = resolvedUnitRole switch
+            {
+                UnitRole.Player => 1,
+                UnitRole.Enemy => 2,
+                _ => 0,
+            };
+
             return new EntityState
             {
                 entityId = entityId,
                 position = position,
                 hp = 3,
                 maxHp = 3,
-                teamId = 1,
+                teamId = resolvedTeamId,
                 type = EntityType.Unit,
+                unitRole = resolvedUnitRole,
                 state = EntityPhaseState.Idle,
                 facing = facing,
                 boardPresence = boardPresence,
@@ -6266,6 +6289,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = facing,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
@@ -6282,6 +6306,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 1,
                 type = EntityType.Projectile,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = facing,
                 boardPresence = EntityBoardPresence.Occupying,
@@ -6298,6 +6323,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.None,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,
@@ -6614,14 +6640,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 view.Initialize(entity.entityId);
 
                 if (_attachEnemyAnimatorDriver &&
-                    entity.aiMode != EnemyAiMode.None)
+                    EntityRolePolicy.IsEnemyUnit(entity))
                 {
                     viewObject.AddComponent<EnemyAnimatorDriver>();
                 }
 
                 if (_attachPlayerAnimatorDriver &&
-                    entity.aiMode == EnemyAiMode.None &&
-                    entity.type == EntityType.Unit)
+                    EntityRolePolicy.IsPlayerUnit(entity))
                 {
                     viewObject.AddComponent<PlayerAnimatorDriver>();
                     viewObject.AddComponent<PlayerAnimationTimingAuthoring>();

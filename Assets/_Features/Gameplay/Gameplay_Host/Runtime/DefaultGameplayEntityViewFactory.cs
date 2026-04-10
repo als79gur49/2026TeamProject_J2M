@@ -141,7 +141,7 @@ namespace Game.Feature.Gameplay.Host
                 viewObject.AddComponent<PlayerAnimationTimingAuthoring>();
             }
             else if (entity.type == EntityType.Unit &&
-                     entity.aiMode != EnemyAiMode.None)
+                     EntityRolePolicy.IsEnemyUnit(entity))
             {
                 viewObject.AddComponent<EnemyAnimatorDriver>();
                 var inactiveVisualController = viewObject.AddComponent<EnemyInactiveVisualController>();
@@ -191,8 +191,7 @@ namespace Game.Feature.Gameplay.Host
         private static void EnsureEnemyInactiveVisualController(GameplayEntityView view, in EntityState entity)
         {
             if (view == null ||
-                entity.type != EntityType.Unit ||
-                entity.aiMode == EnemyAiMode.None ||
+                !EntityRolePolicy.IsEnemyUnit(entity) ||
                 view.GetComponent<EnemyInactiveVisualController>() != null)
             {
                 return;

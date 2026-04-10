@@ -242,6 +242,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiMode aiMode = EnemyAiMode.None,
             Direction facing = Direction.Right)
         {
+            var unitRole = teamId switch
+            {
+                1 => UnitRole.Player,
+                2 => UnitRole.Enemy,
+                _ => UnitRole.None,
+            };
+
             return new EntityState
             {
                 entityId = entityId,
@@ -250,6 +257,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitRole = unitRole,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
@@ -296,7 +304,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 view.Initialize(entity.entityId);
 
                 if (_attachEnemyAnimatorDriver &&
-                    entity.aiMode != EnemyAiMode.None)
+                    EntityRolePolicy.IsEnemyUnit(entity))
                 {
                     viewObject.AddComponent<EnemyAnimatorDriver>();
 

@@ -15,10 +15,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string TutorialStageAssetPath =
+            "Assets/_Features/Stages/Stage_TutorialScene/Stage_TutorialSecne.asset";
         private const int ConfiguredShowcaseEnemyId = 54;
         private const int NonAttackingShowcaseEnemyId = 55;
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 57;
+        private const int TutorialEnemyId = 101;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
         private const string JumpEnemyPresentationId = "Jump_showcase";
@@ -130,14 +133,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(TryGetEntity(buildResult.InitialEntities, 10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
             Assert.That(player.facing, Is.EqualTo(Direction.Right));
+            Assert.That(player.unitRole, Is.EqualTo(UnitRole.Player));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, 196, out var floorWall), Is.True);
             Assert.That(floorWall.type, Is.EqualTo(EntityType.None));
             Assert.That(floorWall.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 5, 1)));
+            Assert.That(floorWall.unitRole, Is.EqualTo(UnitRole.None));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, 200, out var frontWall), Is.True);
             Assert.That(frontWall.type, Is.EqualTo(EntityType.None));
             Assert.That(frontWall.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 9, 3)));
+            Assert.That(frontWall.unitRole, Is.EqualTo(UnitRole.None));
 
             var snapshot = GameplayCompositionRoot.CreateWorldState(
                     buildResult.InitialEntities,
@@ -162,20 +168,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(showcaseEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 6, 2)));
             Assert.That(showcaseEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(showcaseEnemy.hp, Is.EqualTo(3));
+            Assert.That(showcaseEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, NonAttackingShowcaseEnemyId, out var nonAttackingEnemy), Is.True);
             Assert.That(nonAttackingEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 2)));
             Assert.That(nonAttackingEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(nonAttackingEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, WallFollowerShowcaseEnemyId, out var wallFollowerEnemy), Is.True);
             Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 8)));
             Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
             Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(wallFollowerEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, JumpShowcaseEnemyId, out var jumpEnemy), Is.True);
             Assert.That(jumpEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 10, 2)));
             Assert.That(jumpEnemy.facing, Is.EqualTo(Direction.Left));
             Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(jumpEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
 
             Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(4));
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
@@ -288,6 +298,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(stage);
             }
+        }
+
+        [Test]
+        public void StageRuntimeBuilder_TutorialEnemySpawnWithNoneAiMode_AssignsEnemyRoleWithoutAiProfileFallback()
+        {
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(TutorialStageAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{TutorialStageAssetPath}'.");
+            Assert.That(stage.EnemySpawns.Length, Is.GreaterThan(0));
+
+            var buildResult = StageRuntimeBuilder.Build(stage);
+
+            Assert.That(TryGetEntity(buildResult.InitialEntities, TutorialEnemyId, out var tutorialEnemy), Is.True);
+            Assert.That(tutorialEnemy.type, Is.EqualTo(EntityType.Unit));
+            Assert.That(tutorialEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+            Assert.That(tutorialEnemy.aiMode, Is.EqualTo(EnemyAiMode.None));
+            Assert.That(TryGetProfileOverride(buildResult, TutorialEnemyId, out _), Is.False);
         }
 
         private static StageDefinition CreateStage(

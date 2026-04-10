@@ -324,8 +324,7 @@ namespace Game.Feature.Gameplay.Host
 
         private static bool ShouldMap(in EntityState entity)
         {
-            return entity.type == EntityType.Unit &&
-                   entity.aiMode != EnemyAiMode.None;
+            return EntityRolePolicy.IsEnemyUnit(entity);
         }
     }
 }

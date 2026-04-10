@@ -1273,7 +1273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var initialSpeed = driver.CurrentAnimatorSpeed;
                 var initialDuration = driver.CurrentPresentationDurationSeconds;
 
-                driver.SyncRuntimeState(isVisible: true, isMoving: false);
+                driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
 
                 Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
                 Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(initialSpeed).Within(0.0001f));
@@ -1284,6 +1284,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(deathReferenceClip);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void EnemyAnimatorDriver_PlaybackSuppression_OverridesAnimatorSpeedWithoutResettingPresentationState()
+        {
+            var rootObject = new GameObject("EnemyAnimatorDriver_PlaybackSuppression_OverridesAnimatorSpeedWithoutResettingPresentationState");
+            var windupReferenceClip = CreateReferenceClip("WindupReference", 0.2f);
+
+            try
+            {
+                var animator = rootObject.AddComponent<Animator>();
+                var authoring = rootObject.AddComponent<EnemyAnimationTimingAuthoring>();
+                var driver = rootObject.AddComponent<EnemyAnimatorDriver>();
+                ConfigureEnemyAnimationTimingAuthoring(
+                    authoring,
+                    attackWindupAnimatorDurationSeconds: 0.4f,
+                    recoverAnimatorDurationSeconds: EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel,
+                    stateTransitionCrossFadeDurationSeconds: 0.08f,
+                    attackWindupReferenceClip: windupReferenceClip);
+
+                driver.Apply(new EnemyViewPresentationState(
+                    entityId: 40,
+                    tickIndex: 1,
+                    aiMode: EnemyAiMode.Attack,
+                    activeActionKind: EnemyActionKind.Melee,
+                    isMoving: false,
+                    startedWindupThisTick: true,
+                    executedThisTick: false,
+                    startedRecoveryThisTick: false,
+                    tookDamage: false,
+                    didDie: false));
+
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+
+                driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: true);
+
+                Assert.That(driver.IsPlaybackSuppressed, Is.True);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(animator.speed, Is.Zero);
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(driver.LastPresentationState.TickIndex, Is.EqualTo(1));
+
+                driver.SyncRuntimeState(isVisible: true, isMoving: false, playbackSuppressed: false);
+
+                Assert.That(driver.IsPlaybackSuppressed, Is.False);
+                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(0.4f).Within(0.0001f));
+                Assert.That(animator.speed, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(driver.WindupSignalCount, Is.EqualTo(1));
+                Assert.That(driver.LastCrossFadedStateName, Is.EqualTo("Windup"));
+                Assert.That(driver.LastPresentationState.TickIndex, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(windupReferenceClip);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
@@ -1710,6 +1773,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
+                unitRole = UnitRole.Player,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
@@ -1729,6 +1793,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 2,
                 type = EntityType.Unit,
+                unitRole = UnitRole.Enemy,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Left,
                 boardPresence = EntityBoardPresence.Occupying,
@@ -1749,6 +1814,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
@@ -1768,6 +1834,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.None,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
                 boardPresence = EntityBoardPresence.Occupying,

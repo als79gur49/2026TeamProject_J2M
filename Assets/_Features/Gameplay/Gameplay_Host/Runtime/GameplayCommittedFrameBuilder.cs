@@ -84,6 +84,7 @@ namespace Game.Feature.Gameplay.Host
             {
                 var entity = entities[i];
                 _stateStore.EntityTypesByEntityId[entity.entityId] = entity.type;
+                _stateStore.UnitRolesByEntityId[entity.entityId] = entity.unitRole;
                 _stateStore.EnemyAiModesByEntityId[entity.entityId] = entity.aiMode;
 
                 if (!ShouldPresent(entity, topology) ||
@@ -147,6 +148,7 @@ namespace Game.Feature.Gameplay.Host
                     target.ProjectedPose,
                     target.Entity.facing,
                     presentationPlaneOffset);
+                _stateStore.CommittedFacesByEntityId[target.Entity.entityId] = target.Entity.position.face;
 
                 if (projector.TryGetProjectedEntitySlot(target.Entity.position, topology, out var projectedSlot))
                 {

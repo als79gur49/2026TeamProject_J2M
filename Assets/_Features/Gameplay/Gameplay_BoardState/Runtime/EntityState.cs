@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
         public int maxHp;
         public int teamId;
         public EntityType type;
+        public UnitRole unitRole;
         public EntityPhaseState state;
         public int stateTimer;
         public Direction facing;

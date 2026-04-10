@@ -47,7 +47,9 @@ namespace Game.Feature.Stages
             for (var i = 0; i < spawns.Count; i++)
             {
                 var spawn = spawns[i];
-                if (spawn.Kind != StageSpawnKind.Enemy || spawn.EnemyAiProfile == null)
+                if (spawn.Kind != StageSpawnKind.Enemy ||
+                    spawn.EnemyAiMode == EnemyAiMode.None ||
+                    spawn.EnemyAiProfile == null)
                 {
                     continue;
                 }
@@ -136,6 +138,7 @@ namespace Game.Feature.Stages
                         maxHp = spawn.Hp,
                         teamId = 1,
                         type = EntityType.Unit,
+                        unitRole = UnitRole.Player,
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Up),
                     };
@@ -149,6 +152,7 @@ namespace Game.Feature.Stages
                         maxHp = spawn.Hp,
                         teamId = 2,
                         type = EntityType.Unit,
+                        unitRole = UnitRole.Enemy,
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Left),
                         aiMode = spawn.EnemyAiMode,
@@ -164,6 +168,7 @@ namespace Game.Feature.Stages
                         maxHp = spawn.Hp,
                         teamId = 0,
                         type = EntityType.Box,
+                        unitRole = UnitRole.None,
                         state = EntityPhaseState.Idle,
                         facing = ResolveFacing(spawn.Facing, Direction.Right),
                         boxCapabilities = spawn.BoxCapabilities,
@@ -201,6 +206,7 @@ namespace Game.Feature.Stages
                 maxHp = hp,
                 teamId = 0,
                 type = EntityType.None,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.None,
             };

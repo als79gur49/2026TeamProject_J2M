@@ -1316,12 +1316,153 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(facts.IsCommittedVisible, Is.True);
                 Assert.That(facts.IsTransitionOnlyVisible, Is.False);
                 Assert.That(facts.ProjectedSlot, Is.EqualTo(GameplayProjectedFaceSlot.Front));
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
 
                 Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
                 Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
 
                 Assert.That(registry.TryGetView(20, out var view), Is.True);
                 Assert.That(view.GetComponent<EnemyInactiveVisualController>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickPresentationCoordinator_CommittedBottomEnemy_StoresUnsuppressedFactsWithoutPauseSemantic()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedBottomEnemy_StoresUnsuppressedFactsWithoutPauseSemantic");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var bottomCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, bottomCell) }, topology);
+
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
+                Assert.That(facts.IsEnemy, Is.True);
+                Assert.That(facts.IsVisible, Is.True);
+                Assert.That(facts.IsCommittedVisible, Is.True);
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickPresentationCoordinator_CommittedFrontRoleEnemyWithNoneAiMode_StoresInactiveEnemyFacts()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedFrontRoleEnemyWithNoneAiMode_StoresInactiveEnemyFacts");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var frontCell = new SurfaceCell(FaceId.Front, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, frontCell, EnemyAiMode.None) }, topology);
+
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
+                Assert.That(facts.IsEnemy, Is.True);
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.True);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickPresentationCoordinator_CommittedBottomRoleEnemyWithNoneAiMode_StoresUnsuppressedEnemyFacts()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_CommittedBottomRoleEnemyWithNoneAiMode_StoresUnsuppressedEnemyFacts");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var bottomCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    CreateTimingProfile());
+                presenter.PresentInitial(new[] { CreateEnemyUnit(20, bottomCell, EnemyAiMode.None) }, topology);
+
+                var stateStore = GetPresentationStateStore(presenter);
+
+                Assert.That(stateStore.EnemyVisualFactsByEntityId.TryGetValue(20, out var facts), Is.True);
+                Assert.That(facts.IsEnemy, Is.True);
+                Assert.That(facts.IsGameplayAutonomySuppressed, Is.False);
+
+                Assert.That(stateStore.EnemyVisualSemanticStatesByEntityId.TryGetValue(20, out var semantic), Is.True);
+                Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
+                Assert.That(registry.TryGetView(20, out var view), Is.True);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>().IsPlaybackSuppressed, Is.False);
             }
             finally
             {
@@ -1342,12 +1483,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isTransitionOnlyVisible: false,
                 isJumpDetachedVisible: false,
                 projectedSlot: GameplayProjectedFaceSlot.Front,
+                isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
                 hasActiveMotion: false);
 
             var semantic = resolver.Resolve(facts);
 
             Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+            Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
         }
 
         [Test]
@@ -1363,12 +1506,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isTransitionOnlyVisible: true,
                 isJumpDetachedVisible: false,
                 projectedSlot: GameplayProjectedFaceSlot.Front,
+                isGameplayAutonomySuppressed: true,
                 aiMode: EnemyAiMode.Patrol,
                 hasActiveMotion: false);
 
             var semantic = resolver.Resolve(facts);
 
             Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.FrontFaceInactive));
+            Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.True);
         }
 
         [Test]
@@ -1384,12 +1529,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 isTransitionOnlyVisible: false,
                 isJumpDetachedVisible: false,
                 projectedSlot: GameplayProjectedFaceSlot.Top,
+                isGameplayAutonomySuppressed: false,
                 aiMode: EnemyAiMode.Patrol,
                 hasActiveMotion: false);
 
             var semantic = resolver.Resolve(facts);
 
             Assert.That(semantic.ActivityState, Is.EqualTo(EnemyVisualActivityState.Normal));
+            Assert.That(semantic.ShouldPauseAnimatorPlayback, Is.False);
         }
 
         [Test]
@@ -1474,6 +1621,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(view.TryGetComponent<EnemyInactiveVisualController>(out var controller), Is.True);
                 Assert.That(controller, Is.Not.Null);
                 Assert.That(controller.AllowLegacyColorFallback, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void DefaultGameplayEntityViewFactory_PrimitiveRoleEnemyWithNoneAiMode_AddsEnemyPresentationComponents()
+        {
+            var rootObject = new GameObject("DefaultGameplayEntityViewFactory_PrimitiveRoleEnemyWithNoneAiMode_AddsEnemyPresentationComponents");
+
+            try
+            {
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    cellSize: 1f,
+                    playerEntityId: 10);
+
+                var enemy = CreateEnemyUnit(20, new SurfaceCell(FaceId.Floor, 0, 0), EnemyAiMode.None);
+                var view = factory.CreateView(enemy);
+
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
+                Assert.That(view.GetComponent<EnemyInactiveVisualController>(), Is.Not.Null);
             }
             finally
             {
@@ -1662,7 +1833,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return desaturated;
         }
 
-        private static EntityState CreateEnemyUnit(int entityId, SurfaceCell position)
+        private static EntityState CreateEnemyUnit(int entityId, SurfaceCell position, EnemyAiMode aiMode = EnemyAiMode.Patrol)
         {
             return new EntityState
             {
@@ -1672,10 +1843,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 2,
                 type = EntityType.Unit,
+                unitRole = UnitRole.Enemy,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
-                aiMode = EnemyAiMode.Patrol,
+                aiMode = aiMode,
             };
         }
 
@@ -1695,6 +1867,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,
+                unitRole = UnitRole.Player,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,
@@ -1712,6 +1885,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,

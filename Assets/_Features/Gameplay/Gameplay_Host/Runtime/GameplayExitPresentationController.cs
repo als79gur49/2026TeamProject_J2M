@@ -96,6 +96,7 @@ namespace Game.Feature.Gameplay.Host
                 _trackState.LocalMotionTracks.Remove(entityId);
                 _trackState.VisibilityTracks.Remove(entityId);
                 _stateStore.CommittedLocalTargetPoses.Remove(entityId);
+                _stateStore.CommittedFacesByEntityId.Remove(entityId);
                 _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
                 _stateStore.EnemyAiModesByEntityId.Remove(entityId);
                 _stateStore.EnemyVisualFactsByEntityId.Remove(entityId);
@@ -104,6 +105,7 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore.RetainedLocalTargetPoses.Remove(entityId);
                 _stateStore.TransitionVisibilityStates.Remove(entityId);
                 _stateStore.EntityTypesByEntityId.Remove(entityId);
+                _stateStore.UnitRolesByEntityId.Remove(entityId);
 
                 if (_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
                     view != null)

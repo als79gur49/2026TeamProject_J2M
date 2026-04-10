@@ -70,6 +70,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(airborneState.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
         }
 
+        [Test]
+        public void EnemyViewPresentationMapper_TryMapInitial_RoleEnemyWithNoneAiMode_StillMapsEnemyViewState()
+        {
+            var mapper = new EnemyViewPresentationMapper();
+            var enemy = CreateEnemy(entityId: 40, EnemyAiMode.None);
+
+            var mapped = mapper.TryMapInitial(enemy, out var state);
+
+            Assert.That(mapped, Is.True);
+            Assert.That(state.EntityId, Is.EqualTo(40));
+            Assert.That(state.AiMode, Is.EqualTo(EnemyAiMode.None));
+            Assert.That(state.DidDie, Is.False);
+        }
+
         private static TickResult CreateResult(
             int tickIndex,
             EntityState enemy,
@@ -108,6 +122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 2,
                 type = EntityType.Unit,
+                unitRole = UnitRole.Enemy,
                 state = EntityPhaseState.Idle,
                 facing = Direction.Right,
                 boardPresence = EntityBoardPresence.Occupying,

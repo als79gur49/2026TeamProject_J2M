@@ -1169,6 +1169,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void EnemyEntityLogicFactory_RoleEnemyWithNoneAiMode_DoesNotCreateLogicOrAdvanceState()
+        {
+            var passiveTutorialEnemy = CreateUnit(
+                entityId: 40,
+                teamId: 2,
+                position: new Vector2Int(0, 0),
+                aiMode: EnemyAiMode.None,
+                facing: Direction.Right,
+                aiStateTimer: 2,
+                enemyLocomotionCooldownTicks: 3,
+                unitRole: UnitRole.Enemy);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                passiveTutorialEnemy,
+            });
+            var factory = new EnemyEntityLogicFactory();
+            var provider = GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null);
+            var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 7,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 2,
+                });
+
+            Assert.That(factory.CanCreate(passiveTutorialEnemy), Is.False);
+            Assert.That(EnemyParticipationPolicy.IsEnemyLogicEntity(passiveTutorialEnemy), Is.False);
+            Assert.That(logicSet.AiStateLogics, Is.Empty);
+            Assert.That(logicSet.PreMovementStateLogics, Is.Empty);
+            Assert.That(logicSet.MovementLogics, Is.Empty);
+            Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
+            Assert.That(logicSet.AttackLogics, Is.Empty);
+
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.None));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(2));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(3));
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState), Is.True);
+            Assert.That(actionState.sequence, Is.EqualTo(7));
+            Assert.That(actionState.lockedTargetEntityId, Is.EqualTo(10));
+        }
+
+        [Test]
         public void EnemyAi_JumpProfile_InspectorTimings_AreSeconds_AndConvertToTicks()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -2297,8 +2352,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Direction facing = Direction.Right,
             int hp = 3,
             int aiStateTimer = 0,
-            int enemyLocomotionCooldownTicks = 0)
+            int enemyLocomotionCooldownTicks = 0,
+            UnitRole unitRole = UnitRole.None)
         {
+            var resolvedUnitRole = unitRole != UnitRole.None
+                ? unitRole
+                : teamId switch
+                {
+                    1 => UnitRole.Player,
+                    2 => UnitRole.Enemy,
+                    _ => UnitRole.None,
+                };
+
             return new EntityState
             {
                 entityId = entityId,
@@ -2307,6 +2372,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitRole = resolvedUnitRole,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
@@ -2327,8 +2393,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Direction facing = Direction.Right,
             int hp = 3,
             int aiStateTimer = 0,
-            int enemyLocomotionCooldownTicks = 0)
+            int enemyLocomotionCooldownTicks = 0,
+            UnitRole unitRole = UnitRole.None)
         {
+            var resolvedUnitRole = unitRole != UnitRole.None
+                ? unitRole
+                : teamId switch
+                {
+                    1 => UnitRole.Player,
+                    2 => UnitRole.Enemy,
+                    _ => UnitRole.None,
+                };
+
             return new EntityState
             {
                 entityId = entityId,
@@ -2337,6 +2413,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitRole = resolvedUnitRole,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
@@ -2359,6 +2436,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.Box,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = Direction.None,
@@ -2386,6 +2464,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 maxHp = 1,
                 teamId = 0,
                 type = EntityType.None,
+                unitRole = UnitRole.None,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = Direction.None,
