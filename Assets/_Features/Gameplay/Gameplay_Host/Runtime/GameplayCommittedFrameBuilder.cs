@@ -150,6 +150,7 @@ namespace Game.Feature.Gameplay.Host
 
                 if (projector.TryGetProjectedEntitySlot(target.Entity.position, topology, out var projectedSlot))
                 {
+                    // Projected slots now describe the entity's physical face slot after topology visibility gating.
                     _stateStore.CommittedProjectedSlotsByEntityId[target.Entity.entityId] = projectedSlot;
                 }
             }

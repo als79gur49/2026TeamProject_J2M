@@ -109,8 +109,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void BeginTopologyTransition(
             CubeTopologyState sourceTopology,
-            CubeTopologyState destinationTopology,
-            Quaternion transitionStartRotation)
+            CubeTopologyState destinationTopology)
         {
             EnsureInitialized();
 
@@ -131,29 +130,25 @@ namespace Game.Feature.Gameplay.Host
                 sourceTopology,
                 destinationTopology,
                 tileScale,
-                tileIndex,
-                transitionStartRotation);
+                tileIndex);
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Front,
                 sourceTopology,
                 destinationTopology,
                 tileScale,
-                tileIndex,
-                transitionStartRotation);
+                tileIndex);
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Ceiling,
                 sourceTopology,
                 destinationTopology,
                 tileScale,
-                tileIndex,
-                transitionStartRotation);
+                tileIndex);
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Back,
                 sourceTopology,
                 destinationTopology,
                 tileScale,
-                tileIndex,
-                transitionStartRotation);
+                tileIndex);
 
             TransitionTileCount = tileIndex;
             for (var i = tileIndex; i < _transitionTilePool.Count; i++)
@@ -173,6 +168,8 @@ namespace Game.Feature.Gameplay.Host
 
             _ = Mathf.Clamp01(progress);
 
+            // Transition tiles stay pinned to their physical-face local pose.
+            // Camera orbit supplies the visual topology motion, so progress does not remap geometry here.
             var tileScale = ResolveTileScale();
             for (var i = 0; i < TransitionTileCount; i++)
             {
@@ -407,8 +404,7 @@ namespace Game.Feature.Gameplay.Host
             CubeTopologyState sourceTopology,
             CubeTopologyState destinationTopology,
             Vector3 tileScale,
-            int tileIndex,
-            Quaternion transitionStartRotation)
+            int tileIndex)
         {
             if (!IsFaceVisibleInTopology(face, sourceTopology) &&
                 !IsFaceVisibleInTopology(face, destinationTopology))
@@ -426,7 +422,7 @@ namespace Game.Feature.Gameplay.Host
                     if (!TryResolveTransitionTileLocalPose(
                             cell,
                             sourceTopology,
-                            transitionStartRotation,
+                            destinationTopology,
                             out var localPose))
                     {
                         throw new InvalidOperationException(
@@ -598,26 +594,21 @@ namespace Game.Feature.Gameplay.Host
         private bool TryResolveTransitionTileLocalPose(
             SurfaceCell cell,
             CubeTopologyState sourceTopology,
-            Quaternion transitionStartRotation,
+            CubeTopologyState destinationTopology,
             out GameplayEntityPose localPose)
         {
-            if (!_projector.TryProjectSurfaceCell(
+            if (!_projector.TryProjectTransitionSurfaceCell(
                     cell,
                     sourceTopology,
-                    out var sourceProjectedPose))
+                    destinationTopology,
+                    out var projectedPose))
             {
                 localPose = default;
                 return false;
             }
 
             var tileScale = ResolveTileScale();
-            var inverseTransitionStartRotation = Quaternion.Inverse(transitionStartRotation);
-            localPose = ResolveTileLocalPose(
-                new ProjectedCellPose(
-                    inverseTransitionStartRotation * sourceProjectedPose.LocalPosition,
-                    inverseTransitionStartRotation * sourceProjectedPose.LocalRotation,
-                    inverseTransitionStartRotation * sourceProjectedPose.Normal),
-                tileScale);
+            localPose = ResolveTileLocalPose(projectedPose, tileScale);
             return true;
         }
 

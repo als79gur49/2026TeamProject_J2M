@@ -52,6 +52,11 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
             Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
             Assert.That(host.Presenter.IsPresentationActive, Is.True);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(
+                host.Presenter.CurrentTopologyTransitionVisualState.DestinationTopology,
+                Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
 
             Assert.That(host.InputHost.RunSingleTick(), Is.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
@@ -61,8 +66,14 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 Is.EqualTo(0));
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(2));
 
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+
+            host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
             Assert.That(host.Presenter.IsPresentationActive, Is.False);
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(Quaternion.Angle(host.BoardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
 
             Assert.That(host.InputHost.AdvanceTime(0f), Is.EqualTo(1));
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));

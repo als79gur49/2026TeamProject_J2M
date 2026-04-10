@@ -39,8 +39,7 @@ namespace Game.Feature.Gameplay.Host
             _topologyTransitionController = new GameplayTopologyTransitionController(_motionTimingResolver);
             _poseResolver = new GameplayPoseResolver(
                 _stateStore,
-                _trackState,
-                _topologyTransitionController.ResolveTopologyRotationOffset);
+                _trackState);
             _committedFrameBuilder = new GameplayCommittedFrameBuilder(
                 _stateStore,
                 _poseResolver,
@@ -85,6 +84,9 @@ namespace Game.Feature.Gameplay.Host
 
         public int ActiveTransientEffectCount => _transientEffectPresenter.ActiveEffectCount;
 
+        public TopologyTransitionVisualState CurrentTopologyTransitionVisualState =>
+            _topologyTransitionController.CurrentVisualState;
+
         public Quaternion PresentedBoardRotation => _topologyTransitionController.PresentedBoardRotation;
 
         public Bounds VisibleCubeBounds
@@ -104,7 +106,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayTimingProfile timingProfile,
             GameplayBoardRoot boardRoot = null,
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
-            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesNegativeX,
+            TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
             TopologyRotationTweenSettings topologyRotationTweenSettings = default)
         {
             if (viewBinder == null)
@@ -133,6 +135,11 @@ namespace Game.Feature.Gameplay.Host
             _isInitialized = true;
         }
 
+        public void AttachCameraRig(GameplayCameraRig viewCameraRig)
+        {
+            _topologyTransitionController.AttachCameraRig(viewCameraRig);
+        }
+
         public void Present(TickResult result)
         {
             if (result == null)
@@ -154,7 +161,9 @@ namespace Game.Feature.Gameplay.Host
                 TopologyCommitted);
             _exitPresentationController.RefreshEntityExitPlan(result.PresentationData);
             _planner.RefreshPlayerLocomotionSignals(result.PresentationData);
-            _topologyTransitionController.RefreshTopologyTrack(result.PresentationData);
+            _topologyTransitionController.RefreshTopologyTrack(
+                result.PresentationData,
+                _stateStore.CommittedTopology);
             _topologyTransitionController.RefreshBoardSurfaceTransition(
                 result.PresentationData,
                 _stateStore.CommittedTopology);

@@ -222,6 +222,7 @@ namespace Game.Feature.Gameplay.Host
                     change.Topology,
                     topologyMotion.DestinationTopology,
                     out var resolvedProjectedSlot)
+                    // Transition visibility keeps the physical face slot while topology only gates visibility.
                     ? (GameplayProjectedFaceSlot?)resolvedProjectedSlot
                     : null;
                 _stateStore.TransitionVisibilityStates[change.EntityId] = new TransitionVisibilityState(

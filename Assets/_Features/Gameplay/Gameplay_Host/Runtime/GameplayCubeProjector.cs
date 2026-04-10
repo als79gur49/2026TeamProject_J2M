@@ -61,7 +61,7 @@ namespace Game.Feature.Gameplay.Host
             out ProjectedCellPose projectedPose)
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
-                !TryResolveEntitySlot(cell.face, topology, out var slot))
+                !TryResolveEntityProjectionSlot(cell.face, topology, out var slot))
             {
                 projectedPose = default;
                 return false;
@@ -82,7 +82,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            return TryResolveEntitySlot(cell.face, topology, out slot);
+            return TryResolveEntityProjectionSlot(cell.face, topology, out slot);
         }
 
         public bool TryProjectTransitionEntityCell(
@@ -107,7 +107,7 @@ namespace Game.Feature.Gameplay.Host
             out ProjectedCellPose projectedPose)
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
-                !TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out var slot))
+                !TryResolveTransitionEntityProjectionSlot(cell.face, sourceTopology, destinationTopology, out var slot))
             {
                 projectedPose = default;
                 return false;
@@ -129,7 +129,7 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            return TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out slot);
+            return TryResolveTransitionEntityProjectionSlot(cell.face, sourceTopology, destinationTopology, out slot);
         }
 
         public bool TryProjectSurfaceCell(
@@ -138,7 +138,7 @@ namespace Game.Feature.Gameplay.Host
             out ProjectedCellPose projectedPose)
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
-                !TryResolveSurfaceSlot(cell.face, topology, out var slot))
+                !TryResolveSurfaceProjectionSlot(cell.face, topology, out var slot))
             {
                 projectedPose = default;
                 return false;
@@ -155,7 +155,11 @@ namespace Game.Feature.Gameplay.Host
             out ProjectedCellPose projectedPose)
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
-                !TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out var slot))
+                !TryResolveTransitionSurfaceProjectionSlot(
+                    cell.face,
+                    sourceTopology,
+                    destinationTopology,
+                    out var slot))
             {
                 projectedPose = default;
                 return false;
@@ -172,7 +176,7 @@ namespace Game.Feature.Gameplay.Host
             out Quaternion rotation)
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
-                !TryResolveEntitySlot(cell.face, topology, out var slot))
+                !TryResolveEntityProjectionSlot(cell.face, topology, out var slot))
             {
                 rotation = default;
                 return false;
@@ -190,7 +194,7 @@ namespace Game.Feature.Gameplay.Host
             out Quaternion rotation)
         {
             if (!_boardBounds.Contains(cell.PlanarPosition) ||
-                !TryResolveTransitionSurfaceSlot(cell.face, sourceTopology, destinationTopology, out var slot))
+                !TryResolveTransitionEntityProjectionSlot(cell.face, sourceTopology, destinationTopology, out var slot))
             {
                 rotation = default;
                 return false;
@@ -215,48 +219,35 @@ namespace Game.Feature.Gameplay.Host
             return Vector3.zero;
         }
 
-        private bool TryResolveEntitySlot(FaceId face, CubeTopologyState topology, out GameplayProjectedFaceSlot slot)
+        private bool TryResolveEntityProjectionSlot(
+            FaceId face,
+            CubeTopologyState topology,
+            out GameplayProjectedFaceSlot slot)
         {
-            if (face == topology.BottomFace)
+            if (!topology.IsFaceActive(face))
             {
-                slot = GameplayProjectedFaceSlot.Bottom;
-                return true;
+                slot = default;
+                return false;
             }
 
-            if (face == topology.FrontFace)
-            {
-                slot = GameplayProjectedFaceSlot.Front;
-                return true;
-            }
-
-            slot = default;
-            return false;
+            return TryResolvePhysicalSlot(face, out slot);
         }
 
-        private bool TryResolveSurfaceSlot(FaceId face, CubeTopologyState topology, out GameplayProjectedFaceSlot slot)
+        private bool TryResolveSurfaceProjectionSlot(
+            FaceId face,
+            CubeTopologyState topology,
+            out GameplayProjectedFaceSlot slot)
         {
-            if (TryResolveEntitySlot(face, topology, out slot))
+            if (!IsFaceVisibleInTopology(face, topology))
             {
-                return true;
+                slot = default;
+                return false;
             }
 
-            if (face == FaceIdUtility.GetNext(topology.FrontFace))
-            {
-                slot = GameplayProjectedFaceSlot.Top;
-                return true;
-            }
-
-            if (face == FaceIdUtility.GetPrevious(topology.BottomFace))
-            {
-                slot = GameplayProjectedFaceSlot.Back;
-                return true;
-            }
-
-            slot = default;
-            return false;
+            return TryResolvePhysicalSlot(face, out slot);
         }
 
-        private bool TryResolveTransitionSurfaceSlot(
+        private bool TryResolveTransitionEntityProjectionSlot(
             FaceId face,
             CubeTopologyState sourceTopology,
             CubeTopologyState destinationTopology,
@@ -269,7 +260,53 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            return TryResolveSurfaceSlot(face, destinationTopology, out slot);
+            return TryResolvePhysicalSlot(face, out slot);
+        }
+
+        private bool TryResolveTransitionSurfaceProjectionSlot(
+            FaceId face,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            out GameplayProjectedFaceSlot slot)
+        {
+            if (!IsFaceVisibleInTopology(face, sourceTopology) &&
+                !IsFaceVisibleInTopology(face, destinationTopology))
+            {
+                slot = default;
+                return false;
+            }
+
+            return TryResolvePhysicalSlot(face, out slot);
+        }
+
+        private static bool IsFaceVisibleInTopology(FaceId face, CubeTopologyState topology)
+        {
+            return face == topology.BottomFace ||
+                   face == topology.FrontFace ||
+                   face == FaceIdUtility.GetNext(topology.FrontFace) ||
+                   face == FaceIdUtility.GetPrevious(topology.BottomFace);
+        }
+
+        private static bool TryResolvePhysicalSlot(FaceId face, out GameplayProjectedFaceSlot slot)
+        {
+            switch (face)
+            {
+                case FaceId.Floor:
+                    slot = GameplayProjectedFaceSlot.Bottom;
+                    return true;
+                case FaceId.Front:
+                    slot = GameplayProjectedFaceSlot.Front;
+                    return true;
+                case FaceId.Ceiling:
+                    slot = GameplayProjectedFaceSlot.Top;
+                    return true;
+                case FaceId.Back:
+                    slot = GameplayProjectedFaceSlot.Back;
+                    return true;
+                default:
+                    slot = default;
+                    return false;
+            }
         }
 
         private ProjectedCellPose ProjectCell(GameplayProjectedFaceSlot slot, SurfaceCell cell, float surfaceOffset)

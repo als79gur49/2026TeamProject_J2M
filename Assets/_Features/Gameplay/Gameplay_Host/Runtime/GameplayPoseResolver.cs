@@ -10,18 +10,15 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class GameplayPoseResolver
     {
-        private readonly Func<CubeRotationKind, Quaternion> _resolveTopologyRotationOffset;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
 
         public GameplayPoseResolver(
             GameplayPresentationStateStore stateStore,
-            GameplayPresentationTrackState trackState,
-            Func<CubeRotationKind, Quaternion> resolveTopologyRotationOffset)
+            GameplayPresentationTrackState trackState)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _trackState = trackState ?? throw new ArgumentNullException(nameof(trackState));
-            _resolveTopologyRotationOffset = resolveTopologyRotationOffset ?? throw new ArgumentNullException(nameof(resolveTopologyRotationOffset));
         }
 
         public GameplayEntityPose CreateEntityPose(
@@ -106,41 +103,23 @@ namespace Game.Feature.Gameplay.Host
             var entityType = _stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var knownEntityType)
                 ? knownEntityType
                 : EntityType.Unit;
-            if (!TryResolveTransitionStartRotation(sourceTopology, destinationTopology, out var transitionStartRotation))
-            {
-                return TryResolveLegacyTransitionLocalPose(
-                    projector,
-                    cell,
-                    sourceTopology,
-                    destinationTopology,
-                    entityType,
-                    facing,
-                    out pose);
-            }
-
             if (!projector.TryProjectTransitionEntityCell(
                     cell,
-                    destinationTopology,
                     sourceTopology,
+                    destinationTopology,
                     entityType,
                     out var projectedPose))
             {
                 return false;
             }
 
-            var localRotation = projector.TryResolveTransitionEntityRotation(
+            pose = CreateTransitionEntityPose(
+                projector,
                 cell,
-                destinationTopology,
                 sourceTopology,
-                facing,
-                out var resolvedRotation)
-                ? resolvedRotation
-                : projectedPose.LocalRotation;
-            var inverseTransitionStartRotation = Quaternion.Inverse(transitionStartRotation);
-
-            pose = new GameplayEntityPose(
-                inverseTransitionStartRotation * projectedPose.LocalPosition,
-                inverseTransitionStartRotation * localRotation);
+                destinationTopology,
+                projectedPose,
+                facing);
             return true;
         }
 
@@ -169,45 +148,14 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var localRotation = projector.TryResolveTransitionEntityRotation(
+            pose = CreateTransitionEntityPose(
+                projector,
                 cell,
                 sourceTopology,
                 destinationTopology,
-                facing,
-                out var resolvedRotation)
-                ? resolvedRotation
-                : projectedPose.LocalRotation;
-
-            pose = new GameplayEntityPose(
-                projectedPose.LocalPosition,
-                localRotation);
+                projectedPose,
+                facing);
             return true;
-        }
-
-        public bool TryResolveTransitionStartRotation(
-            CubeTopologyState sourceTopology,
-            CubeTopologyState destinationTopology,
-            out Quaternion transitionStartRotation)
-        {
-            transitionStartRotation = Quaternion.identity;
-            if (sourceTopology.Equals(destinationTopology))
-            {
-                return true;
-            }
-
-            if (destinationTopology.Equals(sourceTopology.Rotate(CubeRotationKind.Forward)))
-            {
-                transitionStartRotation = _resolveTopologyRotationOffset(CubeRotationKind.Forward);
-                return true;
-            }
-
-            if (destinationTopology.Equals(sourceTopology.Rotate(CubeRotationKind.Backward)))
-            {
-                transitionStartRotation = _resolveTopologyRotationOffset(CubeRotationKind.Backward);
-                return true;
-            }
-
-            return false;
         }
 
         public bool TryResolveEntityExitSignalLocalPose(
@@ -301,6 +249,28 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return _stateStore.RetainedLocalTargetPoses.TryGetValue(entityId, out localPose);
+        }
+
+        private static GameplayEntityPose CreateTransitionEntityPose(
+            GameplayCubeProjector projector,
+            SurfaceCell cell,
+            CubeTopologyState sourceTopology,
+            CubeTopologyState destinationTopology,
+            ProjectedCellPose projectedPose,
+            Direction facing)
+        {
+            var localRotation = projector.TryResolveTransitionEntityRotation(
+                cell,
+                sourceTopology,
+                destinationTopology,
+                facing,
+                out var resolvedRotation)
+                ? resolvedRotation
+                : projectedPose.LocalRotation;
+
+            return new GameplayEntityPose(
+                projectedPose.LocalPosition,
+                localRotation);
         }
     }
 }
