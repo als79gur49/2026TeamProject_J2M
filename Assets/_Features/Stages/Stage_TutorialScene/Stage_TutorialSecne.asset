@@ -21,8 +21,8 @@ MonoBehaviour:
     Kind: 0
     Cell:
       face: 0
-      x: 1
-      y: 1
+      x: 5
+      y: 3
     Facing: 2
     Hp: 3
     BoxCapabilities: 0

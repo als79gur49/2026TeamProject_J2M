@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 1
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: 8ffcf1f9830ce4f56a7a52aa93f579ef, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -94,7 +94,7 @@ LightmapSettings:
     m_TrainingDataDestination: TrainingData
     m_LightProbeSampleCountMultiplier: 4
   m_LightingDataAsset: {fileID: 20201, guid: 0000000000000000f000000000000000, type: 0}
-  m_LightingSettings: {fileID: 0}
+  m_LightingSettings: {fileID: 4890085278179872738, guid: dc59ee979c8d573489709b4b61038e3d, type: 2}
 --- !u!196 &4
 NavMeshSettings:
   serializedVersion: 2
@@ -268,9 +268,9 @@ Camera:
     y: 0
     width: 1
     height: 1
-  near clip plane: 0.3
-  far clip plane: 1000
-  field of view: 60.000004
+  near clip plane: 0.03
+  far clip plane: 100
+  field of view: 50
   orthographic: 0
   orthographic size: 5
   m_Depth: -1
@@ -370,8 +370,8 @@ MonoBehaviour:
     Enabled: 0
     DefaultMode: 2
   DefaultBlend:
-    Style: 1
-    Time: 2
+    Style: 0
+    Time: 0
     CustomCurve:
       serializedVersion: 2
       m_Curve: []
@@ -465,7 +465,7 @@ Transform:
   m_GameObject: {fileID: 389953874}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: -0, z: 0.7071068, w: 0}
-  m_LocalPosition: {x: 1.5, y: 0, z: 0}
+  m_LocalPosition: {x: 2, y: 0.5, z: 0}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -491,7 +491,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!108 &612939156
 Light:
   m_ObjectHideFlags: 0
@@ -822,10 +822,10 @@ MonoBehaviour:
     LookAtTarget: {fileID: 0}
     CustomLookAtTarget: 0
   Lens:
-    FieldOfView: 60.000004
+    FieldOfView: 50
     OrthographicSize: 5
-    NearClipPlane: 0.3
-    FarClipPlane: 1000
+    NearClipPlane: 0.03
+    FarClipPlane: 100
     Dutch: 0
     ModeOverride: 0
     PhysicalProperties:
@@ -985,10 +985,23 @@ MonoBehaviour:
   directionChangeConsumesDelay: 0
   simulationTimingPreset: {fileID: 11400000, guid: 55db288ec57e4824b15be63c9a662c90, type: 2}
   presentationTimingPreset: {fileID: 11400000, guid: e74a2114beb347ca87939f8446ed7f5c, type: 2}
-  topologyRotationVisualMapping: 0
+  topologyRotationVisualMapping: 1
   topologyRotationTweenSettings:
     Mode: 0
     Ease: 9
+  cameraSettings:
+    UseAuthoredSceneCameraPose: 1
+    UseAuthoredSceneCameraLens: 1
+    PitchDegrees: 35
+    YawDegrees: 0
+    DistanceMode: 1
+    ManualDistance: 16
+    FramingPadding: 1.2
+    PerspectiveFieldOfView: 50
+    NearClipPlane: 0.03
+    FarClipPlane: 100
+    ClearFlags: 2
+    BackgroundColor: {r: 0.93, g: 0.95, b: 0.98, a: 1}
   stageDefinition: {fileID: 11400000, guid: 17f422e552184a24d8a666d77d93ab18, type: 2}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
@@ -1035,7 +1048,7 @@ Transform:
   m_GameObject: {fileID: 1255821668}
   serializedVersion: 2
   m_LocalRotation: {x: 0.000000015454312, y: -0.7071068, z: 0.000000015454312, w: 0.7071068}
-  m_LocalPosition: {x: -1.5, y: 0, z: 0}
+  m_LocalPosition: {x: -2, y: 0.5, z: 0}
   m_LocalScale: {x: 10, y: 10, z: 10}
   m_ConstrainProportionsScale: 0
   m_Children:
