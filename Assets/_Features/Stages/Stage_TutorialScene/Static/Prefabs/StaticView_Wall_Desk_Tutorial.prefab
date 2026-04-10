@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 4000000000000000010}
   - component: {fileID: 1140000000000000010}
   m_Layer: 0
-  m_Name: StaticView_Wall_Tutorial
+  m_Name: StaticView_Wall_Desk_Tutorial
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
