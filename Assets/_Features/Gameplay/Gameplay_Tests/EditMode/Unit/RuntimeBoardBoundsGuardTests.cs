@@ -950,6 +950,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultGameplayEntityViewFactory_StaticEnemyBindingWithNoneAiMode_UsesEnemyPrefab()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticEnemyBindingWithNoneAiMode_UsesEnemyPrefab");
+            var prefabObject = new GameObject("StaticEnemyPrefab");
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                new GameObject("PrefabMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    enemyViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 20, prefabView },
+                    });
+
+                var view = factory.CreateView(CreateSurfaceUnit(20, new SurfaceCell(FaceId.Floor, 0, 0), aiMode: EnemyAiMode.None));
+
+                Assert.That(view.transform.Find("PrefabMarker"), Is.Not.Null);
+                Assert.That(view.ModelRoot.Find("Visual"), Is.Null);
+                Assert.That(view.GetComponent<EnemyAnimatorDriver>(), Is.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
         public void DefaultGameplayEntityViewFactory_StaticBoxBinding_UsesPrefabAndSanitizesPhysics()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxBinding_UsesPrefabAndSanitizesPhysics");

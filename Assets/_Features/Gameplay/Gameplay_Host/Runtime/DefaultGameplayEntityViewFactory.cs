@@ -87,7 +87,6 @@ namespace Game.Feature.Gameplay.Host
             view = null;
 
             if (entity.type != EntityType.Unit ||
-                entity.aiMode == EnemyAiMode.None ||
                 _enemyViewPrefabsByEntityId == null ||
                 !_enemyViewPrefabsByEntityId.TryGetValue(entity.entityId, out var prefab) ||
                 prefab == null)
