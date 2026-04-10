@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6e0d464562c74d819f361d4e3e7e59d0, type: 3}
+  m_Name: EnemyBrain_TutorialPassiveContact
+  m_EditorClassIdentifier:
+  stateResolver: {fileID: 11400000, guid: 1c331aa8897d4100ac3f31c93cb2ceb2, type: 2}
+  patrolStrategy: {fileID: 11400000, guid: e7f7f26ee0cb45d4a4c47670d7ebb208, type: 2}
+  detectionStrategy: {fileID: 11400000, guid: df98fa20e4eb454da625652a1e41d70d, type: 2}
+  chaseStrategy: {fileID: 11400000, guid: 3d5d7eb642324ce6babb68ac5115316a, type: 2}

@@ -17,6 +17,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
         private const string TutorialStageAssetPath =
             "Assets/_Features/Stages/Stage_TutorialScene/Stage_TutorialSecne.asset";
+        private const string TutorialEnemyProfileAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
         private const int ConfiguredShowcaseEnemyId = 54;
         private const int NonAttackingShowcaseEnemyId = 55;
         private const int WallFollowerShowcaseEnemyId = 56;
@@ -301,19 +303,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageRuntimeBuilder_TutorialEnemySpawnWithNoneAiMode_AssignsEnemyRoleWithoutAiProfileFallback()
+        public void StageRuntimeBuilder_TutorialEnemySpawnWithPassiveContactProfile_BuildsOverridesAndKeepsPatrolMode()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(TutorialStageAssetPath);
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{TutorialStageAssetPath}'.");
             Assert.That(stage.EnemySpawns.Length, Is.GreaterThan(0));
+            var tutorialEnemyProfile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(TutorialEnemyProfileAssetPath);
+            Assert.That(tutorialEnemyProfile, Is.Not.Null, $"Missing tutorial enemy profile asset at '{TutorialEnemyProfileAssetPath}'.");
+
+            for (var i = 0; i < stage.EnemySpawns.Length; i++)
+            {
+                Assert.That(
+                    stage.EnemySpawns[i].EnemyAiProfile,
+                    Is.SameAs(tutorialEnemyProfile),
+                    $"Tutorial enemy spawn {stage.EnemySpawns[i].EntityId} should reference the tutorial passive contact profile.");
+                Assert.That(stage.EnemySpawns[i].EnemyAiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
 
             var buildResult = StageRuntimeBuilder.Build(stage);
 
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(stage.EnemySpawns.Length));
             Assert.That(TryGetEntity(buildResult.InitialEntities, TutorialEnemyId, out var tutorialEnemy), Is.True);
             Assert.That(tutorialEnemy.type, Is.EqualTo(EntityType.Unit));
             Assert.That(tutorialEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
-            Assert.That(tutorialEnemy.aiMode, Is.EqualTo(EnemyAiMode.None));
-            Assert.That(TryGetProfileOverride(buildResult, TutorialEnemyId, out _), Is.False);
+            Assert.That(tutorialEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(TryGetProfileOverride(buildResult, TutorialEnemyId, out var tutorialOverride), Is.True);
+            Assert.That(tutorialOverride, Is.SameAs(tutorialEnemyProfile));
         }
 
         private static StageDefinition CreateStage(
