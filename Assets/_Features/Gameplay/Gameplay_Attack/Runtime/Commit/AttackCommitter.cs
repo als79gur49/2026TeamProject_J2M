@@ -115,14 +115,16 @@ namespace Game.Feature.Gameplay.Attack.Commit
 
                     if (!resolution.Accepted)
                     {
+                        var sourceKindSuffix = BuildSourceKindSuffix(group.AttackSourceKind);
                         commitEvents.Add(
-                            $"DamageRejected|G={group.GroupId}|I={group.IntentId}|Source={group.SourceId}|Target={damage.TargetId}|Amount={damage.Amount}|Reason={resolution.RejectReason}");
+                            $"DamageRejected|G={group.GroupId}|I={group.IntentId}|Source={group.SourceId}{sourceKindSuffix}|Target={damage.TargetId}|Amount={damage.Amount}|Reason={resolution.RejectReason}");
                         continue;
                     }
 
                     writeContext.ApplyDamage(damage.TargetId, damage.Amount);
+                    var committedSourceKindSuffix = BuildSourceKindSuffix(group.AttackSourceKind);
                     commitEvents.Add(
-                        $"DamageCommitted|G={group.GroupId}|I={group.IntentId}|Target={damage.TargetId}|Amount={damage.Amount}");
+                        $"DamageCommitted|G={group.GroupId}|I={group.IntentId}{committedSourceKindSuffix}|Target={damage.TargetId}|Amount={damage.Amount}");
 
                     var accumulatedDamage = damage.Amount;
                     if (accumulatedDamageByTarget.TryGetValue(damage.TargetId, out var existingDamage))
@@ -224,6 +226,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
                     group.GroupId,
                     group.IntentId,
                     group.SourceId,
+                    group.AttackSourceKind,
                     damage.TargetId,
                     damage.Amount,
                     accepted: true,
@@ -244,6 +247,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
                     group.GroupId,
                     group.IntentId,
                     group.SourceId,
+                    group.AttackSourceKind,
                     damage.TargetId,
                     damage.Amount,
                     accepted: false,
@@ -261,10 +265,18 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 group.GroupId,
                 group.IntentId,
                 group.SourceId,
+                group.AttackSourceKind,
                 damage.TargetId,
                 damage.Amount,
                 accepted: true,
                 DamageRejectReason.None);
+        }
+
+        private static string BuildSourceKindSuffix(AttackSourceKind sourceKind)
+        {
+            return sourceKind == AttackSourceKind.PassiveContact
+                ? $"|SourceKind={sourceKind}"
+                : string.Empty;
         }
     }
 }

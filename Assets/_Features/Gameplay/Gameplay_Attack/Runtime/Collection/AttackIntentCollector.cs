@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
             }
 
             FilterDeadSources(snapshot, buffer);
-            ValidateSinglePrimaryIntentPerSource(buffer);
+            ValidateUniqueIntentKeysPerSource(buffer);
         }
 
         private static void FilterDeadSources(WorldSnapshot snapshot, List<RawAttackIntent> buffer)
@@ -65,15 +65,17 @@ namespace Game.Feature.Gameplay.Attack.Collection
             }
         }
 
-        private static void ValidateSinglePrimaryIntentPerSource(List<RawAttackIntent> buffer)
+        private static void ValidateUniqueIntentKeysPerSource(List<RawAttackIntent> buffer)
         {
-            var seenSourceIds = new HashSet<int>();
+            var seenKeys = new HashSet<(int SourceId, int LocalSequence)>();
 
             for (var i = 0; i < buffer.Count; i++)
             {
-                if (!seenSourceIds.Add(buffer[i].SourceId))
+                var key = (buffer[i].SourceId, buffer[i].LocalSequence);
+                if (!seenKeys.Add(key))
                 {
-                    throw new InvalidOperationException("Each source may emit at most one attack intent per phase.");
+                    throw new InvalidOperationException(
+                        $"Each source must emit unique attack intent local sequences per phase. Source={key.SourceId}|LocalSequence={key.LocalSequence}");
                 }
             }
         }

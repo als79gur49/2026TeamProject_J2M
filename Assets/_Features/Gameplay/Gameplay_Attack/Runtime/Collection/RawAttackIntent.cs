@@ -6,7 +6,33 @@ namespace Game.Feature.Gameplay.Attack.Collection
     public readonly struct RawAttackIntent
     {
         public RawAttackIntent(int sourceId, int priority, int targetId)
-            : this(sourceId, priority, targetId, AttackCommandKind.Attack, default, hasTargetCell: false, localSequence: 0)
+            : this(
+                sourceId,
+                priority,
+                targetId,
+                AttackCommandKind.Attack,
+                AttackSourceKind.Combat,
+                default,
+                hasTargetCell: false,
+                localSequence: 0)
+        {
+        }
+
+        public RawAttackIntent(
+            int sourceId,
+            int priority,
+            int targetId,
+            AttackSourceKind sourceKind,
+            int localSequence)
+            : this(
+                sourceId,
+                priority,
+                targetId,
+                AttackCommandKind.Attack,
+                sourceKind,
+                default,
+                hasTargetCell: false,
+                localSequence)
         {
         }
 
@@ -15,6 +41,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
             int priority,
             int targetId,
             AttackCommandKind commandKind,
+            AttackSourceKind sourceKind,
             Vector2Int targetCell,
             bool hasTargetCell,
             int localSequence)
@@ -25,6 +52,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
             Priority = priority;
             TargetId = targetId;
             CommandKind = commandKind;
+            SourceKind = sourceKind;
             TargetCell = targetCell;
             HasTargetCell = hasTargetCell;
             LocalSequence = localSequence;
@@ -37,6 +65,8 @@ namespace Game.Feature.Gameplay.Attack.Collection
         public int TargetId { get; }
 
         public AttackCommandKind CommandKind { get; }
+
+        public AttackSourceKind SourceKind { get; }
 
         public Vector2Int TargetCell { get; }
 
@@ -51,6 +81,7 @@ namespace Game.Feature.Gameplay.Attack.Collection
                 priority,
                 0,
                 AttackCommandKind.FireProjectile,
+                AttackSourceKind.Combat,
                 default,
                 hasTargetCell: false,
                 localSequence: 0);

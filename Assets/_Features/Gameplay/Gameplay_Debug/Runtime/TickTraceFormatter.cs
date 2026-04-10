@@ -280,7 +280,7 @@ namespace Game.Feature.Gameplay.Debug
 
         private static string FormatDamageResolutionRecord(DamageResolutionRecord record)
         {
-            return $"G={record.GroupId}|I={record.IntentId}|Source={record.SourceId}|Target={record.TargetId}|Amount={record.Amount}|Accepted={(record.Accepted ? 1 : 0)}|RejectReason={record.RejectReason}";
+            return $"G={record.GroupId}|I={record.IntentId}|Source={record.SourceId}|SourceKind={record.SourceKind}|Target={record.TargetId}|Amount={record.Amount}|Accepted={(record.Accepted ? 1 : 0)}|RejectReason={record.RejectReason}";
         }
 
         private static string FormatBoardBounds(BoardBounds boardBounds)
@@ -307,10 +307,10 @@ namespace Game.Feature.Gameplay.Debug
         {
             if (rawIntent.HasTargetCell)
             {
-                return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|TargetCell=({rawIntent.TargetCell.x},{rawIntent.TargetCell.y})|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
+                return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|SourceKind={rawIntent.SourceKind}|TargetCell=({rawIntent.TargetCell.x},{rawIntent.TargetCell.y})|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
             }
 
-            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|Target={rawIntent.TargetId}|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
+            return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|SourceKind={rawIntent.SourceKind}|Target={rawIntent.TargetId}|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
         }
 
         private static string FormatAttackIntent(AttackIntent intent)
@@ -322,6 +322,7 @@ namespace Game.Feature.Gameplay.Debug
                 .Append("|Priority=").Append(intent.Priority)
                 .Append("|Target=").Append(intent.TargetId)
                 .Append("|Command=").Append(intent.CommandKind)
+                .Append("|SourceKind=").Append(intent.SourceKind)
                 .Append("|Kind=").Append(intent.InputKind)
                 .Append("|LocalSequence=").Append(intent.LocalSequence);
 

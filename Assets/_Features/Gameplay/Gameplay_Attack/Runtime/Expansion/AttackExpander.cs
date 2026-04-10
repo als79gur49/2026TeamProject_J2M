@@ -106,10 +106,12 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                     continue;
                 }
 
-                if (!IsSameCellOrOrthogonallyAdjacent(source.position, target.position))
+                var requiresSameCell = intent.SourceKind == AttackSourceKind.PassiveContact;
+                if ((!requiresSameCell && !IsSameCellOrOrthogonallyAdjacent(source.position, target.position)) ||
+                    (requiresSameCell && !IsExactSameCell(source.position, target.position)))
                 {
                     rejectedReasons.Add(
-                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason=NotSameCellOrAdjacent|SourceCell=({source.position.x},{source.position.y})|TargetCell=({target.position.x},{target.position.y})");
+                        $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={(requiresSameCell ? "NotExactSameCell" : "NotSameCellOrAdjacent")}|SourceCell=({source.position.x},{source.position.y})|TargetCell=({target.position.x},{target.position.y})|SourceKind={intent.SourceKind}");
                     continue;
                 }
 
@@ -124,12 +126,17 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                     intent.IntentId,
                     intent.SourceId,
                     intent.Priority,
-                    ActionGroupKind.Attack);
-                actionGroup.StateChanges.Add(
-                    new StateChangeAction(
-                        intent.SourceId,
-                        EntityPhaseState.Acting,
-                        0));
+                    ActionGroupKind.Attack,
+                    intent.SourceKind);
+                if (intent.SourceKind != AttackSourceKind.PassiveContact)
+                {
+                    actionGroup.StateChanges.Add(
+                        new StateChangeAction(
+                            intent.SourceId,
+                            EntityPhaseState.Acting,
+                            0));
+                }
+
                 actionGroup.Damages.Add(new DamageAction(intent.TargetId, StageThreeDamageAmount));
                 // Stage3 keeps DestroyMark in the selected group chain; Commit decides whether it applies after accumulated damage.
                 actionGroup.Destroys.Add(new DestroyAction(intent.TargetId));
@@ -177,7 +184,8 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 intent.IntentId,
                 intent.SourceId,
                 intent.Priority,
-                ActionGroupKind.Attack);
+                ActionGroupKind.Attack,
+                intent.SourceKind);
             actionGroup.Damages.Add(new DamageAction(target.entityId, reservation.Damage));
             actionGroup.Destroys.Add(new DestroyAction(target.entityId));
 
@@ -230,7 +238,8 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 intent.IntentId,
                 intent.SourceId,
                 intent.Priority,
-                ActionGroupKind.Attack);
+                ActionGroupKind.Attack,
+                intent.SourceKind);
             actionGroup.Damages.Add(new DamageAction(target.entityId, effectRecord.Damage));
             actionGroup.Destroys.Add(new DestroyAction(target.entityId));
             buffer.Add(actionGroup);
@@ -270,7 +279,8 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 intent.IntentId,
                 intent.SourceId,
                 intent.Priority,
-                ActionGroupKind.Attack);
+                ActionGroupKind.Attack,
+                intent.SourceKind);
             actionGroup.StateChanges.Add(
                 new StateChangeAction(
                     intent.SourceId,
@@ -316,6 +326,12 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                 default:
                     return "SpawnDestinationBlocked";
             }
+        }
+
+        private static bool IsExactSameCell(SurfaceCell source, SurfaceCell target)
+        {
+            return source.face == target.face &&
+                   source.PlanarPosition == target.PlanarPosition;
         }
 
         private static string FormatPlacementBlocker(SlideStopper blocker)

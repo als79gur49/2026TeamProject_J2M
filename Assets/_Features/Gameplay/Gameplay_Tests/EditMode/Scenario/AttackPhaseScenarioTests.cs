@@ -1191,16 +1191,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var playerTiming = CreatePlayerControlTimingSnapshot(damageCooldownTicks: 1);
             var attackLogic = new StubCombatLogic(
                 controlledEntityId: 40,
-                attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 10, 5));
+                attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, 5));
 
             var firstTick = RunAttackPhaseOnly(worldState, new[] { attackLogic }, tickIndex: 1, playerControlTiming: playerTiming);
             var secondTick = RunAttackPhaseOnly(worldState, new[] { attackLogic }, tickIndex: 2, playerControlTiming: playerTiming);
             var thirdTick = RunAttackPhaseOnly(worldState, new[] { attackLogic }, tickIndex: 3, playerControlTiming: playerTiming);
 
             Assert.That(firstTick.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(firstTick.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
             Assert.That(secondTick.DamageResolutions.Single().Accepted, Is.False);
+            Assert.That(secondTick.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
             Assert.That(secondTick.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
             Assert.That(thirdTick.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(thirdTick.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
             Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(3));
         }
 
@@ -1219,8 +1222,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IAttackEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 10, 5)),
-                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 50, 10, 5)),
+                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, 5)),
+                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 50, 10, 5)),
                 },
                 tickIndex: 1,
                 playerControlTiming: playerTiming);
@@ -1231,8 +1234,49 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(accepted.Length, Is.EqualTo(1));
             Assert.That(rejected.Length, Is.EqualTo(1));
             Assert.That(accepted[0].SourceId, Is.EqualTo(40));
+            Assert.That(accepted[0].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
             Assert.That(rejected[0].SourceId, Is.EqualTo(50));
+            Assert.That(rejected[0].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
             Assert.That(rejected[0].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+        }
+
+        [Test]
+        public void PassiveContact_AndCombat_FromSameSource_ShareOrderingButPassiveSkipsActingStateChange()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
+            });
+            var playerTiming = CreatePlayerControlTimingSnapshot(damageCooldownTicks: 1);
+            var result = RunAttackPhaseOnly(
+                worldState,
+                new IAttackEntityLogic[]
+                {
+                    new MultiAttackIntentLogic(
+                        controlledEntityId: 40,
+                        attackIntentFactories: new Func<WorldSnapshot, RawAttackIntent?>[]
+                        {
+                            snapshot => TryCreateContactRangeAttack(snapshot, 40, 10, 5),
+                            snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, 5),
+                        }),
+                },
+                tickIndex: 1,
+                playerControlTiming: playerTiming);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    AttackSourceKind.Combat,
+                    AttackSourceKind.PassiveContact,
+                },
+                result.SortedInputs.Select(intent => intent.SourceKind).ToArray());
+            Assert.That(result.ExpandedCandidates[0].StateChanges, Has.Count.EqualTo(1));
+            Assert.That(result.ExpandedCandidates[1].StateChanges, Is.Empty);
+            Assert.That(result.DamageResolutions[0].Accepted, Is.True);
+            Assert.That(result.DamageResolutions[0].SourceKind, Is.EqualTo(AttackSourceKind.Combat));
+            Assert.That(result.DamageResolutions[1].Accepted, Is.False);
+            Assert.That(result.DamageResolutions[1].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
         }
 
         private static (TickResult Result, WorldSnapshot SnapshotAfter, string OccupancyAfter) RunFatalAttackTick()
@@ -1365,6 +1409,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
 
             return new RawAttackIntent(sourceId, priority, targetId);
+        }
+
+        private static RawAttackIntent? TryCreatePassiveContactAttack(
+            WorldSnapshot snapshot,
+            int sourceId,
+            int targetId,
+            int priority)
+        {
+            if (!snapshot.TryGetEntity(sourceId, out var source))
+            {
+                return null;
+            }
+
+            if (!snapshot.TryGetEntity(targetId, out var target))
+            {
+                return null;
+            }
+
+            if (source.position.face != target.position.face ||
+                source.position.PlanarPosition != target.position.PlanarPosition)
+            {
+                return null;
+            }
+
+            return new RawAttackIntent(
+                sourceId,
+                priority,
+                targetId,
+                AttackSourceKind.PassiveContact,
+                localSequence: 1);
         }
 
         private static EntityState CreateUnit(
@@ -1633,6 +1707,38 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 if (attackIntent.HasValue)
                 {
                     buffer.Add(attackIntent.Value);
+                }
+            }
+        }
+
+        private sealed class MultiAttackIntentLogic : IAttackEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly Func<WorldSnapshot, RawAttackIntent?>[] _attackIntentFactories;
+            private readonly int _controlledEntityId;
+
+            public MultiAttackIntentLogic(
+                int controlledEntityId,
+                IReadOnlyList<Func<WorldSnapshot, RawAttackIntent?>> attackIntentFactories)
+            {
+                _controlledEntityId = controlledEntityId;
+                _attackIntentFactories = attackIntentFactories?.ToArray()
+                    ?? throw new ArgumentNullException(nameof(attackIntentFactories));
+            }
+
+            public int ControlledEntityId => _controlledEntityId;
+
+            public void CollectAttackIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawAttackIntent> buffer)
+            {
+                for (var i = 0; i < _attackIntentFactories.Length; i++)
+                {
+                    var attackIntent = _attackIntentFactories[i](snapshot);
+                    if (attackIntent.HasValue)
+                    {
+                        buffer.Add(attackIntent.Value);
+                    }
                 }
             }
         }

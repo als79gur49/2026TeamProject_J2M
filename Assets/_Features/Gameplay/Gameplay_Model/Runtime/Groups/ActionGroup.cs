@@ -1,12 +1,18 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Model.Actions;
 
 namespace Game.Feature.Gameplay.Model.Groups
 {
     public sealed class ActionGroup
     {
-        public ActionGroup(int intentId, int sourceId, int priority, ActionGroupKind groupKind)
+        public ActionGroup(
+            int intentId,
+            int sourceId,
+            int priority,
+            ActionGroupKind groupKind,
+            AttackSourceKind attackSourceKind = AttackSourceKind.Combat)
         {
             if (intentId <= 0)
             {
@@ -17,6 +23,7 @@ namespace Game.Feature.Gameplay.Model.Groups
             SourceId = sourceId;
             Priority = priority;
             GroupKind = groupKind;
+            AttackSourceKind = attackSourceKind;
             Moves = new List<MoveAction>();
             Damages = new List<DamageAction>();
             Spawns = new List<SpawnAction>();
@@ -36,6 +43,8 @@ namespace Game.Feature.Gameplay.Model.Groups
         public int Priority { get; }
 
         public ActionGroupKind GroupKind { get; }
+
+        public AttackSourceKind AttackSourceKind { get; }
 
         public int ImpactSourceId { get; private set; }
 

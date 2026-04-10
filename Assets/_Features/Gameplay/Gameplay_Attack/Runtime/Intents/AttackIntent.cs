@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 priority,
                 targetId,
                 AttackCommandKind.Attack,
+                AttackSourceKind.Combat,
                 AttackInputKind.EntityIntent,
                 0,
                 default,
@@ -29,6 +30,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
             int priority,
             int targetId,
             AttackCommandKind commandKind,
+            AttackSourceKind sourceKind,
             AttackInputKind inputKind,
             int localSequence,
             Vector2Int targetCell,
@@ -40,6 +42,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
             ValidateContract(
                 targetId,
                 commandKind,
+                sourceKind,
                 inputKind,
                 targetCell,
                 hasTargetCell,
@@ -48,6 +51,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
 
             TargetId = targetId;
             CommandKind = commandKind;
+            SourceKind = sourceKind;
             InputKind = inputKind;
             LocalSequence = localSequence;
             TargetCell = targetCell;
@@ -59,6 +63,8 @@ namespace Game.Feature.Gameplay.Attack.Intents
         public int TargetId { get; }
 
         public AttackCommandKind CommandKind { get; }
+
+        public AttackSourceKind SourceKind { get; }
 
         public AttackInputKind InputKind { get; }
 
@@ -101,6 +107,12 @@ namespace Game.Feature.Gameplay.Attack.Intents
             }
 
             result = LocalSequence.CompareTo(otherAttack.LocalSequence);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ((int)SourceKind).CompareTo((int)otherAttack.SourceKind);
             if (result != 0)
             {
                 return result;
@@ -163,6 +175,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 0,
                 reservation.TargetId,
                 AttackCommandKind.ImpactReservation,
+                AttackSourceKind.ImpactReservation,
                 AttackInputKind.ImpactReservation,
                 reservation.ReservationSequence,
                 default,
@@ -178,6 +191,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 effectRecord.Priority,
                 effectRecord.TargetId,
                 AttackCommandKind.DelayedEffect,
+                AttackSourceKind.DelayedEffect,
                 AttackInputKind.DelayedEffect,
                 effectRecord.EffectSequence,
                 default,
@@ -191,10 +205,21 @@ namespace Game.Feature.Gameplay.Attack.Intents
             switch (rawIntent.CommandKind)
             {
                 case AttackCommandKind.Attack:
-                    return new AttackIntent(rawIntent.SourceId, rawIntent.Priority, rawIntent.TargetId);
+                    return new AttackIntent(
+                        rawIntent.SourceId,
+                        rawIntent.Priority,
+                        rawIntent.TargetId,
+                        AttackCommandKind.Attack,
+                        rawIntent.SourceKind,
+                        AttackInputKind.EntityIntent,
+                        rawIntent.LocalSequence,
+                        default,
+                        hasTargetCell: false,
+                        null,
+                        null);
 
                 case AttackCommandKind.FireProjectile:
-                    return CreateFireProjectile(rawIntent.SourceId, rawIntent.Priority);
+                    return CreateFireProjectile(rawIntent.SourceId, rawIntent.Priority, rawIntent.LocalSequence);
 
                 default:
                     throw new ArgumentOutOfRangeException(
@@ -204,15 +229,16 @@ namespace Game.Feature.Gameplay.Attack.Intents
             }
         }
 
-        public static AttackIntent CreateFireProjectile(int sourceId, int priority)
+        public static AttackIntent CreateFireProjectile(int sourceId, int priority, int localSequence = 0)
         {
             return new AttackIntent(
                 sourceId,
                 priority,
                 0,
                 AttackCommandKind.FireProjectile,
+                AttackSourceKind.Combat,
                 AttackInputKind.EntityIntent,
-                0,
+                localSequence,
                 default,
                 hasTargetCell: false,
                 null,
@@ -222,6 +248,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
         private static void ValidateContract(
             int targetId,
             AttackCommandKind commandKind,
+            AttackSourceKind sourceKind,
             AttackInputKind inputKind,
             Vector2Int targetCell,
             bool hasTargetCell,
@@ -234,6 +261,12 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     if (inputKind != AttackInputKind.EntityIntent)
                     {
                         throw new ArgumentException("Direct attack commands must be entity-generated inputs.", nameof(inputKind));
+                    }
+
+                    if (sourceKind == AttackSourceKind.ImpactReservation ||
+                        sourceKind == AttackSourceKind.DelayedEffect)
+                    {
+                        throw new ArgumentException("Direct attack commands require a direct attack source kind.", nameof(sourceKind));
                     }
 
                     if (impactReservation.HasValue)
@@ -259,6 +292,11 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     return;
 
                 case AttackCommandKind.FireProjectile:
+                    if (sourceKind != AttackSourceKind.Combat)
+                    {
+                        throw new ArgumentException("FireProjectile commands must use combat source kind.", nameof(sourceKind));
+                    }
+
                     if (inputKind != AttackInputKind.EntityIntent)
                     {
                         throw new ArgumentException("FireProjectile commands must be entity-generated inputs.", nameof(inputKind));
@@ -287,6 +325,11 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     return;
 
                 case AttackCommandKind.ImpactReservation:
+                    if (sourceKind != AttackSourceKind.ImpactReservation)
+                    {
+                        throw new ArgumentException("ImpactReservation commands must use impact reservation source kind.", nameof(sourceKind));
+                    }
+
                     if (inputKind != AttackInputKind.ImpactReservation)
                     {
                         throw new ArgumentException("ImpactReservation commands must use the synthetic input kind.", nameof(inputKind));
@@ -315,6 +358,11 @@ namespace Game.Feature.Gameplay.Attack.Intents
                     return;
 
                 case AttackCommandKind.DelayedEffect:
+                    if (sourceKind != AttackSourceKind.DelayedEffect)
+                    {
+                        throw new ArgumentException("DelayedEffect commands must use delayed effect source kind.", nameof(sourceKind));
+                    }
+
                     if (inputKind != AttackInputKind.DelayedEffect)
                     {
                         throw new ArgumentException("DelayedEffect commands must use the delayed synthetic input kind.", nameof(inputKind));

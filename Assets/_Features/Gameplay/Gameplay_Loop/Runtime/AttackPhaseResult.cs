@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Loop
             int groupId,
             int intentId,
             int sourceId,
+            AttackSourceKind sourceKind,
             int targetId,
             int amount,
             bool accepted,
@@ -23,6 +24,7 @@ namespace Game.Feature.Gameplay.Loop
             GroupId = groupId;
             IntentId = intentId;
             SourceId = sourceId;
+            SourceKind = sourceKind;
             TargetId = targetId;
             Amount = amount;
             Accepted = accepted;
@@ -34,6 +36,8 @@ namespace Game.Feature.Gameplay.Loop
         public int IntentId { get; }
 
         public int SourceId { get; }
+
+        public AttackSourceKind SourceKind { get; }
 
         public int TargetId { get; }
 

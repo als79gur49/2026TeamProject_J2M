@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -1380,12 +1381,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
                 Assert.That(player.hp, Is.EqualTo(2));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
                 Assert.That(enemy.aiStateTimer, Is.EqualTo(0));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
 
                 snapshotAfter.EnumerateUnitsAt(new Vector2Int(0, 0), stackedUnits);
                 CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-                Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
                 Assert.That(result.Trace.Text, Does.Contain("Attack.DamageResolutions"));
             }
             finally
@@ -1427,12 +1428,128 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(stackedCell));
                 Assert.That(player.hp, Is.EqualTo(2));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
                 Assert.That(enemy.aiStateTimer, Is.EqualTo(0));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
 
                 snapshotAfter.EnumerateUnitsAt(stackedCell, stackedUnits);
                 CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
-                Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_MeleeProfile_WithPassiveContact_SameCellProducesCombatAndPassiveCandidates()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Attack, facing: Direction.Left),
+            });
+            PrimeEnemyActionState(worldState, 40, targetId: 10, executeTick: 1);
+            var profile = CreateDefaultMeleeProfile(includePassiveContact: true);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var result = pipeline.RunTick(new TickInput(1));
+                var resolutions = result.AttackPhaseResult.DamageResolutions;
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        AttackSourceKind.Combat,
+                        AttackSourceKind.PassiveContact,
+                    },
+                    result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray());
+                Assert.That(resolutions.Count, Is.EqualTo(2));
+                Assert.That(resolutions[0].Accepted, Is.True);
+                Assert.That(resolutions[0].SourceKind, Is.EqualTo(AttackSourceKind.Combat));
+                Assert.That(resolutions[1].Accepted, Is.False);
+                Assert.That(resolutions[1].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
+                Assert.That(resolutions[1].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_JumpChaserProfile_WithPassiveContact_SameCellDealsDamage()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1, includePassiveContact: true);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_NonAttackingProfile_WithPassiveContact_SameCellDealsDamage()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateNonAttackingEnemyProfile(includePassiveContact: true);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_WallFollowerProfile_WithPassiveContact_SameCellDealsDamage()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left, includePassiveContact: true);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var result = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
             }
             finally
             {
@@ -1497,7 +1614,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(accepted.Length, Is.EqualTo(1));
                 Assert.That(rejected.Length, Is.EqualTo(1));
                 Assert.That(accepted[0].SourceId, Is.EqualTo(40));
+                Assert.That(accepted[0].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(rejected[0].SourceId, Is.EqualTo(50));
+                Assert.That(rejected[0].SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(rejected[0].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
                 Assert.That(result.PresentationData.PlayerDamageSignals.Count, Is.EqualTo(1));
             }
@@ -1782,17 +1901,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
         }
 
-        private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0)
+        private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0, bool includePassiveContact = false)
         {
-            return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks, includePassiveContact);
         }
 
-        private static EnemyAiProfile CreateDefaultMeleeProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
+        private static EnemyAiProfile CreateDefaultMeleeProfile(
+            int moveCooldownTicks = 0,
+            int recoverTicks = 1,
+            bool includePassiveContact = false)
         {
             return EnemyAiProfileTestFactory.CreateDefaultMelee(
                 windupTicks: 0,
                 moveCooldownTicks: moveCooldownTicks,
-                recoverTicks: recoverTicks);
+                recoverTicks: recoverTicks,
+                includePassiveContact: includePassiveContact);
         }
 
         private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
@@ -1823,10 +1946,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EnemyAiProfile CreateJumpChaserProfile(
             int windupTicks,
             int airborneTicks,
-            int cooldownTicks)
+            int cooldownTicks,
+            bool includePassiveContact = false)
         {
             return EnemyAiProfileTestFactory.CreateJumpChaser(
-                new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks));
+                new EnemyJumpTimingSettings(windupTicks, airborneTicks, cooldownTicks),
+                includePassiveContact: includePassiveContact);
         }
 
         private static EnemyAiProfile CreateJumpPatrolProfile(
@@ -1840,9 +1965,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         private static EnemyAiProfile CreateWallFollowerProfile(
             WallFollowTurnPreference turnPreference,
-            int moveCooldownTicks = 0)
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
         {
-            return EnemyAiProfileTestFactory.CreateWallFollower(turnPreference, moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateWallFollower(turnPreference, moveCooldownTicks, includePassiveContact);
+        }
+
+        private static void PrimeEnemyActionState(
+            WorldState worldState,
+            int entityId,
+            int targetId,
+            int executeTick)
+        {
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetEnemyActionState(
+                entityId,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = targetId,
+                    direction = Direction.Left,
+                    startTick = Math.Max(0, executeTick - 1),
+                    executeTick = executeTick,
+                    executionAttempted = false,
+                });
         }
 
         private static void DestroyProfile(EnemyAiProfile profile)

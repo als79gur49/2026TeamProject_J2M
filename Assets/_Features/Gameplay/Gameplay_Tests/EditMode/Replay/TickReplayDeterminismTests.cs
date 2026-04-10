@@ -912,6 +912,29 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("AiTimer=0"));
         }
 
+        [Test]
+        public void Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage()
+        {
+            var firstReplay = RunPassiveContactReplaySequence();
+            var secondReplay = RunPassiveContactReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.PlayerDamageDump).ToArray(),
+                secondReplay.Select(frame => frame.PlayerDamageDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("SourceKind=PassiveContact"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("DamageCommitted|G=1|I=1|SourceKind=PassiveContact|Target=10|Amount=1"));
+            Assert.That(firstReplay[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed="));
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -963,6 +986,28 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new TickInput(1),
                     new TickInput(2),
                     new TickInput(3),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunPassiveContactReplaySequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
+            });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new ScriptedCombatLogic(
+                        sourceId: 40,
+                        attackIntent: new RawAttackIntent(40, 5, 10, AttackSourceKind.PassiveContact, localSequence: 1)),
+                },
+                new[]
+                {
+                    new TickInput(1),
                 });
         }
 

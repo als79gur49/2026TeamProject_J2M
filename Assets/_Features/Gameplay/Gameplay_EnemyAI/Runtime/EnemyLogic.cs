@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
@@ -47,7 +48,9 @@ namespace Game.Feature.Gameplay.Entities
         private readonly IChaseStrategy _chaseStrategy;
         private readonly EnemyCombatCapabilityRuntime _combatCapability;
         private readonly EnemyMovementSkillCapabilityRuntime _movementSkillCapability;
+        private readonly EnemyPassiveContactCapabilityRuntime _passiveContactCapability;
         private readonly IEnemyAiStateResolver _stateResolver;
+        private readonly List<EntityState> _sharedCellUnits = new();
 
         public EnemyLogic(int entityId)
             : this(entityId, EnemyAiRuntimeDefinition.CreateDefaultMelee())
@@ -83,6 +86,7 @@ namespace Game.Feature.Gameplay.Entities
             _stateResolver = aiDefinition.StateResolver;
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
+            aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
         }
 
         public int ControlledEntityId => _entityId;
@@ -250,40 +254,56 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentNullException(nameof(buffer));
             }
 
-            if (ShouldSuppressAttackForJump(snapshot))
+            if (!TryGetControllableEnemy(snapshot, out var source))
             {
                 return;
             }
 
-            if (_combatCapability == null)
-            {
-                return;
-            }
-
-            RawAttackIntent attackIntent;
-            if (!TryGetControllableEnemy(snapshot, out var source) ||
-                !snapshot.TryGetEnemyActionState(_entityId, out var actionState) ||
-                !EnemyActionQueries.CanExecute(actionState, input.TickIndex) ||
-                !EnemyActionStateTargeting.TryResolveLockedTarget(
+            if (_combatCapability != null &&
+                !ShouldSuppressCombatAttackForJump(snapshot) &&
+                snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
+                EnemyActionQueries.CanExecute(actionState, input.TickIndex) &&
+                EnemyActionStateTargeting.TryResolveLockedTarget(
                     snapshot,
                     source,
                     actionState,
                     _combatCapability.AttackDecisionStrategy,
                     _detectionSettings,
                     _combatCapability.AttackDecisionSettings,
-                    out var target) ||
-                !_combatCapability.AttackDecisionStrategy.TryBuildAttackIntent(
+                    out var combatTarget) &&
+                _combatCapability.AttackDecisionStrategy.TryBuildAttackIntent(
                     snapshot,
                     source,
-                    target,
+                    combatTarget,
                     _commonSettings,
                     _combatCapability.AttackDecisionSettings,
-                    out attackIntent))
+                    out var combatIntent))
             {
-                return;
+                buffer.Add(new RawAttackIntent(
+                    combatIntent.SourceId,
+                    combatIntent.Priority,
+                    combatIntent.TargetId,
+                    AttackSourceKind.Combat,
+                    localSequence: 0));
             }
 
-            buffer.Add(attackIntent);
+            if (_passiveContactCapability != null &&
+                TryResolvePassiveContactTarget(snapshot, source, out var passiveContactTarget) &&
+                _passiveContactCapability.AttackDecisionStrategy.TryBuildAttackIntent(
+                    snapshot,
+                    source,
+                    passiveContactTarget,
+                    _commonSettings,
+                    _passiveContactCapability.AttackDecisionSettings,
+                    out var passiveContactIntent))
+            {
+                buffer.Add(new RawAttackIntent(
+                    passiveContactIntent.SourceId,
+                    passiveContactIntent.Priority,
+                    passiveContactIntent.TargetId,
+                    AttackSourceKind.PassiveContact,
+                    localSequence: 1));
+            }
         }
 
         private bool TryGetAiControlledEnemy(WorldSnapshot snapshot, out EntityState source)
@@ -309,7 +329,7 @@ namespace Game.Feature.Gameplay.Entities
                     jumpState.landingTick == tickIndex);
         }
 
-        private bool ShouldSuppressAttackForJump(WorldSnapshot snapshot)
+        private bool ShouldSuppressCombatAttackForJump(WorldSnapshot snapshot)
         {
             if (!TryGetJumpState(snapshot, out var jumpState))
             {
@@ -331,6 +351,34 @@ namespace Game.Feature.Gameplay.Entities
         {
             return _movementSkillCapability != null &&
                    _movementSkillCapability.Kind == MovementSkillStrategyKind.JumpToLockedTarget;
+        }
+
+        private bool TryResolvePassiveContactTarget(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            out EntityState target)
+        {
+            target = default;
+            _sharedCellUnits.Clear();
+            snapshot.EnumerateUnitsAt(source.position, _sharedCellUnits);
+
+            for (var i = 0; i < _sharedCellUnits.Count; i++)
+            {
+                var candidate = _sharedCellUnits[i];
+                if (candidate.entityId == source.entityId ||
+                    candidate.teamId == source.teamId ||
+                    !EntityRolePolicy.IsPlayerUnit(candidate) ||
+                    candidate.hp <= 0 ||
+                    candidate.markedForDeath)
+                {
+                    continue;
+                }
+
+                target = candidate;
+                return true;
+            }
+
+            return false;
         }
 
         private bool TryGetControllableEnemy(WorldSnapshot snapshot, out EntityState source)
