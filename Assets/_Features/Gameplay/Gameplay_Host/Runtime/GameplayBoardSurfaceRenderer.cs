@@ -77,7 +77,8 @@ namespace Game.Feature.Gameplay.Host
             BoardBounds boardBounds,
             float cellSize,
             CubeTopologyState topology,
-            float faceSeamGap = -1f)
+            float faceSeamGap = -1f,
+            Texture2D sharedTileTexture = null)
         {
             if (!boardBounds.IsBounded)
             {
@@ -95,7 +96,7 @@ namespace Game.Feature.Gameplay.Host
             _projector = new GameplayCubeProjector(boardBounds, cellSize, resolvedFaceSeamGap);
             EnsureVisibleTilePoolRoot();
             EnsureTransitionTilePoolRoot();
-            EnsureMaterials();
+            EnsureMaterials(sharedTileTexture);
             EnsureTilePool(_steadyTilePool, VisibleTilePoolRoot, GetRequiredTileCount());
             EnsureTilePool(_transitionTilePool, TransitionTilePoolRoot, GetRequiredTransitionTileCount());
             _isInitialized = true;
@@ -305,12 +306,25 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void EnsureMaterials()
+        private void EnsureMaterials(Texture2D sharedTileTexture)
         {
+            if (sharedTileTexture != null)
+            {
+                var sharedTileMaterial = CreateTexturedMaterial(
+                    "BoardSurface_SharedTexture",
+                    sharedTileTexture);
+                _activeBottomFaceMaterial = sharedTileMaterial;
+                _activeFrontFaceMaterial = sharedTileMaterial;
+                _decorativeTopFaceMaterial = sharedTileMaterial;
+                _decorativeBackFaceMaterial = sharedTileMaterial;
+                return;
+            }
+
             if (_activeBottomFaceMaterial != null &&
                 _activeFrontFaceMaterial != null &&
                 _decorativeTopFaceMaterial != null &&
-                _decorativeBackFaceMaterial != null)
+                _decorativeBackFaceMaterial != null &&
+                _ownedMaterials.Count > 0)
             {
                 return;
             }
@@ -335,6 +349,31 @@ namespace Game.Feature.Gameplay.Host
                 name = materialName,
                 color = color,
             };
+
+            _ownedMaterials.Add(material);
+            return material;
+        }
+
+        private Material CreateTexturedMaterial(string materialName, Texture2D texture)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null)
+            {
+                throw new InvalidOperationException(
+                    "GameplayBoardSurfaceRenderer requires the 'Universal Render Pipeline/Unlit' shader.");
+            }
+
+            var material = new Material(shader)
+            {
+                name = materialName,
+                color = Color.white,
+                mainTexture = texture,
+            };
+
+            if (material.HasProperty("_BaseMap"))
+            {
+                material.SetTexture("_BaseMap", texture);
+            }
 
             _ownedMaterials.Add(material);
             return material;

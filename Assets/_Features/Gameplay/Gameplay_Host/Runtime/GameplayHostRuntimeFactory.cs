@@ -108,7 +108,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialBoardBounds,
                 configuration.CellSize,
                 configuration.InitialTopology,
-                faceSeamGap);
+                faceSeamGap,
+                configuration.BoardSurfaceTexture);
 
             var viewCamera = ResolveViewCamera(configuration);
             var outputCamera = ResolveOutputCamera(configuration);

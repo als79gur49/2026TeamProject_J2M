@@ -70,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
         [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
         [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
+        [SerializeField] private Texture2D boardSurfaceTexture;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
@@ -205,6 +206,7 @@ namespace Game.Feature.Gameplay.Host
                 Actions = actions,
                 AutoAdvanceTicks = autoAdvanceTicks,
                 AutoCreateViews = autoCreateViews,
+                BoardSurfaceTexture = boardSurfaceTexture,
                 CameraSettings = cameraSettings,
                 CellSize = cellSize,
                 FaceSeamGap = ResolveFaceSeamGap(),

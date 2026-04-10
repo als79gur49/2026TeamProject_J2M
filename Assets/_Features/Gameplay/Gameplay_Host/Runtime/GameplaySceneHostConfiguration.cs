@@ -70,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
         public GameplayCameraSettings CameraSettings = GameplayCameraSettings.CreateRuntimeDefault();
         public TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
         public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
+        public Texture2D BoardSurfaceTexture;
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();

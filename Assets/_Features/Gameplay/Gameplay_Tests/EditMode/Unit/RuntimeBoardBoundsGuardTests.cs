@@ -1036,6 +1036,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void DefaultGameplayEntityViewFactory_StaticBoxBinding_WithoutRenderer_Throws()
+        {
+            var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxBinding_WithoutRenderer_Throws");
+            var prefabObject = new GameObject("StaticBoxPrefabWithoutRenderer");
+
+            try
+            {
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+
+                var factory = new DefaultGameplayEntityViewFactory(
+                    parentObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    staticViewPrefabsByEntityId: new Dictionary<int, GameplayEntityView>
+                    {
+                        { 20, prefabView },
+                    });
+
+                var exception = Assert.Throws<InvalidOperationException>(
+                    () => factory.CreateView(CreateSurfaceBox(20, new SurfaceCell(FaceId.Floor, 0, 0), Direction.Right)));
+
+                StringAssert.Contains("must provide an active Renderer", exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
+        [Test]
         public void DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual");
@@ -1741,6 +1772,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_UsesConfiguredBoardSurfaceTextureForAllTiles()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredBoardSurfaceTextureForAllTiles");
+            Texture2D sharedTileTexture = null;
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                sharedTileTexture = new Texture2D(2, 2, TextureFormat.RGBA32, mipChain: false)
+                {
+                    name = "SharedBoardSurfaceTexture",
+                };
+                sharedTileTexture.SetPixel(0, 0, new Color(0.15f, 0.35f, 0.65f, 1f));
+                sharedTileTexture.SetPixel(1, 0, new Color(0.2f, 0.45f, 0.75f, 1f));
+                sharedTileTexture.SetPixel(0, 1, new Color(0.1f, 0.25f, 0.55f, 1f));
+                sharedTileTexture.SetPixel(1, 1, new Color(0.25f, 0.5f, 0.8f, 1f));
+                sharedTileTexture.Apply();
+
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                state = EntityPhaseState.Idle,
+                                facing = Direction.Up,
+                            },
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        PlayerEntityId = 10,
+                        BoardSurfaceTexture = sharedTileTexture,
+                        AutoCreateViews = false,
+                    });
+
+                var bottomTile = FindSurfaceTile(host.BoardSurfaceRenderer, "ActiveBottom_Floor_0_0");
+                var frontTile = FindSurfaceTile(host.BoardSurfaceRenderer, "ActiveFront_Front_1_1");
+                var bottomRenderer = bottomTile.GetComponent<MeshRenderer>();
+                var frontRenderer = frontTile.GetComponent<MeshRenderer>();
+
+                Assert.That(bottomRenderer, Is.Not.Null);
+                Assert.That(frontRenderer, Is.Not.Null);
+                Assert.That(bottomRenderer.sharedMaterial, Is.SameAs(frontRenderer.sharedMaterial));
+                Assert.That(bottomRenderer.sharedMaterial.mainTexture, Is.SameAs(sharedTileTexture));
+            }
+            finally
+            {
+                if (sharedTileTexture != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(sharedTileTexture);
+                }
+
+                UnityEngine.Object.DestroyImmediate(hostObject);
             }
         }
 
