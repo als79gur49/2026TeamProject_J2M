@@ -13,6 +13,7 @@ using UnityEditor.SceneManagement;
 using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -48,24 +49,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 legacyLabel.AddComponent<TextMesh>();
                 SceneManager.MoveGameObjectToScene(legacyLabel, scene);
 
-                GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
-                    installerObject,
-                    new GameplayShowcaseOverlayContent(
-                        "Traversal",
-                        "Summary",
-                        "Move: WASD",
-                        new[] { "First highlight", "Second highlight" }));
+                GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(installerObject);
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
                 AssertCameraSettings(rig, expectedCameraSettings);
-                Assert.That(installerObject.GetComponent<GameplayShowcaseOverlay>(), Is.Not.Null);
-
-                var overlay = installerObject.GetComponent<GameplayShowcaseOverlay>();
-                Assert.That(overlay.Title, Is.EqualTo("Traversal"));
-                Assert.That(overlay.Summary, Is.EqualTo("Summary"));
-                Assert.That(overlay.ControlsText, Is.EqualTo("Move: WASD"));
-                Assert.That(overlay.HighlightsText, Does.Contain("- First highlight"));
 
                 var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
                 Assert.That(boardRoot, Is.Not.Null);
@@ -146,7 +134,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installerObject,
-                    new GameplayShowcaseOverlayContent("Traversal", "Summary", "Move", Array.Empty<string>()),
                     baseCameraSettings);
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
@@ -198,7 +185,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installerObject,
-                    new GameplayShowcaseOverlayContent("Traversal", "Summary", "Move", Array.Empty<string>()),
                     GameplayCameraSettings.CreateShowcaseDefault(),
                     shakeProfile);
 
@@ -625,6 +611,80 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void GameplayShowcaseInstaller_CreateConfiguration_ClonesTopologyTransitionPostFxProfile()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
+            var authoritativeProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var authoredPostFxProfile = TopologyTransitionPostFxProfile.Create(
+                    authoritativeProfile,
+                    maxBlurIntensity: 0.42f,
+                    cameraClamp: 0.08f,
+                    angularVelocityResponseExponent: 0.71f,
+                    landingFadeStart01: 0.81f,
+                    landingFadeExponent: 2.5f,
+                    distortionProfile: TopologyTransitionDistortionProfile.Create(
+                        impactStart01: 0.06f,
+                        impactDuration01: 0.14f,
+                        impactIntensity: -0.28f,
+                        landingStart01: 0.7f,
+                        landingDuration01: 0.2f,
+                        landingIntensity: 0.18f,
+                        xMultiplier: 0.75f,
+                        yMultiplier: 0.55f,
+                        center: new Vector2(0.47f, 0.53f),
+                        scale: 1.1f));
+
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
+                SetBaseInstallerField(installer, "topologyTransitionPostFxProfile", authoredPostFxProfile);
+
+                var configuration = installer.BuildConfigurationForTests();
+
+                Assert.That(configuration.TopologyTransitionPostFxProfile, Is.Not.Null);
+                Assert.That(configuration.TopologyTransitionPostFxProfile, Is.Not.SameAs(authoredPostFxProfile));
+                Assert.That(configuration.TopologyTransitionPostFxProfile.AuthoritativeVolumeProfile, Is.SameAs(authoritativeProfile));
+                Assert.That(configuration.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.42f).Within(0.0001f));
+                Assert.That(configuration.TopologyTransitionPostFxProfile.CameraClamp, Is.EqualTo(0.08f).Within(0.0001f));
+                Assert.That(
+                    configuration.TopologyTransitionPostFxProfile.AngularVelocityResponseExponent,
+                    Is.EqualTo(0.71f).Within(0.0001f));
+                Assert.That(configuration.TopologyTransitionPostFxProfile.LandingFadeStart01, Is.EqualTo(0.81f).Within(0.0001f));
+                Assert.That(configuration.TopologyTransitionPostFxProfile.LandingFadeExponent, Is.EqualTo(2.5f).Within(0.0001f));
+                Assert.That(
+                    configuration.TopologyTransitionPostFxProfile.DistortionProfile.ImpactIntensity,
+                    Is.EqualTo(-0.28f).Within(0.0001f));
+                Assert.That(
+                    configuration.TopologyTransitionPostFxProfile.DistortionProfile.LandingIntensity,
+                    Is.EqualTo(0.18f).Within(0.0001f));
+                Assert.That(
+                    configuration.TopologyTransitionPostFxProfile.DistortionProfile.Center,
+                    Is.EqualTo(new Vector2(0.47f, 0.53f)));
+                Assert.That(
+                    configuration.TopologyTransitionPostFxProfile.DistortionProfile.Scale,
+                    Is.EqualTo(1.1f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(authoritativeProfile);
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
         private sealed class TestGameplayShowcaseInstaller : GameplayShowcaseSceneInstallerBase
         {
             internal static readonly BoardBounds DefaultBoardBounds = new(new Vector2Int(0, 0), new Vector2Int(4, 4));
@@ -673,14 +733,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<StaticEntityPresentationBinding>());
             }
 
-            protected override GameplayShowcaseOverlayContent CreateShowcaseOverlayContent()
-            {
-                return new GameplayShowcaseOverlayContent(
-                    "Test Showcase",
-                    "Summary",
-                    "Move: WASD",
-                    new[] { "Highlight" });
-            }
         }
 
         private sealed class TestPlayerPrefabSourceViewFactory : IGameplayEntityViewFactory, IPlayerViewPrefabSource

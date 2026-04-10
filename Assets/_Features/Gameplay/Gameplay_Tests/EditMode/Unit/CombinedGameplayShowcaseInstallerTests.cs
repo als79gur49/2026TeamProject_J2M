@@ -564,27 +564,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        public void CombinedGameplayShowcaseInstaller_OverlayMentionsWallFollowerDemoLane()
-        {
-            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_OverlayMentionsWallFollowerDemoLane");
-
-            try
-            {
-                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
-                var overlay = installer.GetShowcaseOverlayContent();
-
-                Assert.That(overlay.Title, Is.EqualTo("Combined Gameplay Showcase"));
-                Assert.That(overlay.Highlights, Has.Some.Contains("brief wind-up melee profile"));
-                Assert.That(overlay.Highlights, Has.Some.Contains("jump-to-locked-target movement skill"));
-                Assert.That(overlay.Highlights, Has.Some.Contains("wall-follow patrol profile"));
-            }
-            finally
-            {
-                Object.DestroyImmediate(installerObject);
-            }
-        }
-
         private static StageRuntimeBuildResult BuildCombinedStage()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);

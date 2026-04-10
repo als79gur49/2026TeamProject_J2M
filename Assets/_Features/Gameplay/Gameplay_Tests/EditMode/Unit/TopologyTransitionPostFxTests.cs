@@ -34,6 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(authoritativeProfile, Is.Not.Null);
                 Assert.That(authoritativeProfile.TryGet(out MotionBlur authoritativeMotionBlur), Is.True);
+                Assert.That(authoritativeProfile.TryGet(out LensDistortion authoritativeLensDistortion), Is.True);
 
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -76,20 +77,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(controller.RuntimeVolume.HasInstantiatedProfile(), Is.True);
                 Assert.That(controller.RuntimeVolume.profile, Is.SameAs(controller.RuntimeVolumeProfile));
                 Assert.That(controller.MotionBlurOverride, Is.Not.Null);
+                Assert.That(controller.LensDistortionOverride, Is.Not.Null);
                 Assert.That(controller.MotionBlurOverride.mode.value, Is.EqualTo(MotionBlurMode.CameraOnly));
                 Assert.That(controller.MotionBlurOverride.quality.value, Is.EqualTo(MotionBlurQuality.Low));
                 Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
+                Assert.That(controller.LensDistortionOverride.intensity.value, Is.EqualTo(0f));
+                Assert.That(controller.LensDistortionOverride.scale.value, Is.EqualTo(1.05f).Within(0.0001f));
                 Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
-                var debugOverlay = host.GetComponent<TopologyTransitionPostFxDebugOverlay>();
-                Assert.That(debugOverlay, Is.Not.Null);
-                debugOverlay.RefreshSnapshot();
-                StringAssert.Contains("Phase: Idle", debugOverlay.CurrentDebugText);
-                StringAssert.Contains("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
-                StringAssert.Contains("Post Processing: On", debugOverlay.CurrentDebugText);
 
                 Assert.That(authoritativeMotionBlur.mode.value, Is.EqualTo(MotionBlurMode.CameraOnly));
                 Assert.That(authoritativeMotionBlur.quality.value, Is.EqualTo(MotionBlurQuality.Low));
                 Assert.That(authoritativeMotionBlur.intensity.value, Is.EqualTo(0f));
+                Assert.That(authoritativeLensDistortion.intensity.value, Is.EqualTo(0f));
+                Assert.That(authoritativeLensDistortion.scale.value, Is.EqualTo(1f));
             }
             finally
             {
@@ -178,6 +178,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void TopologyTransitionPostFxController_UsesConfiguredDistortionImpactAndLandingPulses()
+        {
+            var controllerObject = new GameObject("TopologyTransitionPostFxController_Distortion");
+            var cameraObject = new GameObject("TopologyTransitionPostFxOutputCamera_Distortion");
+            var sourceProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+
+            try
+            {
+                var controller = controllerObject.AddComponent<TopologyTransitionPostFxController>();
+                var outputCamera = cameraObject.AddComponent<Camera>();
+                sourceProfile.Add<MotionBlur>(overrides: true);
+                sourceProfile.Add<LensDistortion>(overrides: true);
+
+                controller.Initialize(
+                    TopologyTransitionPostFxProfile.Create(
+                        sourceProfile,
+                        distortionProfile: TopologyTransitionDistortionProfile.Create(
+                            impactStart01: 0.1f,
+                            impactDuration01: 0.2f,
+                            impactIntensity: -0.3f,
+                            landingStart01: 0.7f,
+                            landingDuration01: 0.2f,
+                            landingIntensity: 0.15f,
+                            xMultiplier: 0.8f,
+                            yMultiplier: 0.6f,
+                            center: new Vector2(0.45f, 0.55f),
+                            scale: 1.08f)),
+                    outputCamera);
+
+                Assert.That(controller.LensDistortionOverride, Is.Not.Null);
+                Assert.That(controller.LensDistortionOverride.xMultiplier.value, Is.EqualTo(0.8f).Within(0.0001f));
+                Assert.That(controller.LensDistortionOverride.yMultiplier.value, Is.EqualTo(0.6f).Within(0.0001f));
+                Assert.That(controller.LensDistortionOverride.center.value, Is.EqualTo(new Vector2(0.45f, 0.55f)));
+                Assert.That(controller.LensDistortionOverride.scale.value, Is.EqualTo(1.08f).Within(0.0001f));
+
+                controller.Apply(
+                    new TopologyTransitionVisualState(
+                        isActive: true,
+                        progress01: 0.2f,
+                        sourceTopology: new CubeTopologyState(FaceId.Floor),
+                        destinationTopology: new CubeTopologyState(FaceId.Front),
+                        rotationKind: CubeRotationKind.Forward,
+                        durationSeconds: 0.4f,
+                        presentedVisualRotation: Quaternion.identity,
+                        angularVelocityNormalized: 1f));
+                var impactIntensity = controller.LensDistortionOverride.intensity.value;
+
+                controller.Apply(
+                    new TopologyTransitionVisualState(
+                        isActive: true,
+                        progress01: 0.8f,
+                        sourceTopology: new CubeTopologyState(FaceId.Floor),
+                        destinationTopology: new CubeTopologyState(FaceId.Front),
+                        rotationKind: CubeRotationKind.Forward,
+                        durationSeconds: 0.4f,
+                        presentedVisualRotation: Quaternion.identity,
+                        angularVelocityNormalized: 1f));
+                var landingIntensity = controller.LensDistortionOverride.intensity.value;
+
+                controller.Apply(TopologyTransitionVisualState.Inactive(new CubeTopologyState(FaceId.Front), Quaternion.identity));
+                var inactiveIntensity = controller.LensDistortionOverride.intensity.value;
+
+                Assert.That(impactIntensity, Is.EqualTo(-0.3f).Within(0.0001f));
+                Assert.That(landingIntensity, Is.EqualTo(0.15f).Within(0.0001f));
+                Assert.That(inactiveIntensity, Is.EqualTo(0f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(controllerObject);
+                Object.DestroyImmediate(cameraObject);
+                Object.DestroyImmediate(sourceProfile);
+            }
+        }
+
+        [Test]
         public void ShowcaseScenes_InstallerSerialization_UsesAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
             var combinedSceneText = ReadNormalizedText(CombinedScenePath);
@@ -188,6 +263,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialSceneText);
             StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedSceneText);
             StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialSceneText);
+            StringAssert.Contains("distortionProfile:", combinedSceneText);
+            StringAssert.Contains("ImpactIntensity: -0.2", combinedSceneText);
+            StringAssert.Contains("distortionProfile:", tutorialSceneText);
+            StringAssert.Contains("ImpactIntensity: -0.2", tutorialSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialSceneText);
         }
@@ -210,7 +289,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installer.gameObject,
-                    installer.GetShowcaseOverlayContent(),
                     installer.GetCameraSettings(),
                     installer.GetTopologyTransitionCameraShakeProfile());
 

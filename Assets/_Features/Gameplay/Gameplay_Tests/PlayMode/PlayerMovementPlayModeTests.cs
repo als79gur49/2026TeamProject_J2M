@@ -103,10 +103,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 viewCamera: outputCamera);
 
             var controller = host.GetComponent<TopologyTransitionPostFxController>();
-            var debugOverlay = host.GetComponent<TopologyTransitionPostFxDebugOverlay>();
             Assert.That(controller, Is.Not.Null);
-            Assert.That(debugOverlay, Is.Not.Null);
             Assert.That(controller.MotionBlurOverride, Is.Not.Null);
+            Assert.That(controller.LensDistortionOverride, Is.Not.Null);
             Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
 
             host.InputHost.SetRawMoveInput(Vector2.up);
@@ -114,29 +113,26 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 host.InputHost.AdvanceTime(host.TimingProfile.SimulationTickIntervalSeconds),
                 Is.EqualTo(1));
 
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.TopologyTransition));
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
             Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
-            debugOverlay.RefreshSnapshot();
-            StringAssert.Contains("Phase: TopologyTransition", debugOverlay.CurrentDebugText);
-            StringAssert.Contains("Transition Active: On", debugOverlay.CurrentDebugText);
-            StringAssert.Contains("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
+            Assert.That(controller.LensDistortionOverride.intensity.value, Is.EqualTo(0f));
 
             host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
             Assert.That(controller.MotionBlurOverride.intensity.value, Is.GreaterThan(0f));
-            debugOverlay.RefreshSnapshot();
-            StringAssert.Contains("Transition Active: On", debugOverlay.CurrentDebugText);
-            StringAssert.Contains("Post Processing: On", debugOverlay.CurrentDebugText);
-            StringAssert.DoesNotContain("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
+            Assert.That(Mathf.Abs(controller.LensDistortionOverride.intensity.value), Is.GreaterThan(0f));
+            Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.True);
+            Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
 
             host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
             Assert.That(host.Presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+            Assert.That(host.Presenter.CurrentPresentationPhase, Is.EqualTo(GameplayPresentationPhase.Idle));
             Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
-            debugOverlay.RefreshSnapshot();
-            StringAssert.Contains("Phase: Idle", debugOverlay.CurrentDebugText);
-            StringAssert.Contains("Transition Active: Off", debugOverlay.CurrentDebugText);
-            StringAssert.Contains("Blur Intensity: 0.000", debugOverlay.CurrentDebugText);
+            Assert.That(controller.LensDistortionOverride.intensity.value, Is.EqualTo(0f));
 
             host.Presenter.UpdatePresentation(host.TimingProfile.TopologyMotionDurationSeconds * 0.5f);
             Assert.That(controller.MotionBlurOverride.intensity.value, Is.EqualTo(0f));
+            Assert.That(controller.LensDistortionOverride.intensity.value, Is.EqualTo(0f));
 
             yield return DestroyHost(host);
             Object.Destroy(outputCameraObject);

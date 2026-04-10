@@ -52,7 +52,6 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 presentationTimingPresetAssetPath);
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 installerObject,
-                installer.GetShowcaseOverlayContent(),
                 installer.GetCameraSettings(),
                 installer.GetTopologyTransitionCameraShakeProfile());
             installer.ConfigureBootstrapCamera(Camera.main);

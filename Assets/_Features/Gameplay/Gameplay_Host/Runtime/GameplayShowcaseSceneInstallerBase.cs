@@ -89,7 +89,6 @@ namespace Game.Feature.Gameplay.Host
             var baseCameraSettings = CreateCameraSettings();
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 gameObject,
-                GetShowcaseOverlayContent(),
                 baseCameraSettings,
                 GetTopologyTransitionCameraShakeProfile());
             var resolvedCameraSettings = ResolveEffectiveCameraSettings(initialState, baseCameraSettings);
@@ -103,11 +102,6 @@ namespace Game.Feature.Gameplay.Host
 
             var host = GetComponent<GameplaySceneHost>() ?? gameObject.AddComponent<GameplaySceneHost>();
             host.Initialize(CreateConfiguration(initialState, resolvedCameraSettings));
-        }
-
-        public GameplayShowcaseOverlayContent GetShowcaseOverlayContent()
-        {
-            return CreateShowcaseOverlayContent();
         }
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
@@ -157,8 +151,6 @@ namespace Game.Feature.Gameplay.Host
 
         protected abstract InitialGameplayState BuildInitialGameplayState();
 
-        protected abstract GameplayShowcaseOverlayContent CreateShowcaseOverlayContent();
-
         public GameplayCameraSettings GetCameraSettings()
         {
             return CreateCameraSettings();
@@ -167,6 +159,11 @@ namespace Game.Feature.Gameplay.Host
         public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()
         {
             return topologyTransitionCameraShakeProfile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
+        }
+
+        public TopologyTransitionPostFxProfile GetTopologyTransitionPostFxProfile()
+        {
+            return topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault();
         }
 
         public void ConfigureBootstrapCamera(Camera camera)
@@ -226,9 +223,8 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 SnapViewCameraToTarget = configureMainCamera,
-                TopologyTransitionCameraShakeProfile =
-                    topologyTransitionCameraShakeProfile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault(),
-                TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault(),
+                TopologyTransitionCameraShakeProfile = GetTopologyTransitionCameraShakeProfile(),
+                TopologyTransitionPostFxProfile = GetTopologyTransitionPostFxProfile(),
                 TopologyRotationVisualMapping = topologyRotationVisualMapping,
                 TopologyRotationTween = topologyRotationTweenSettings,
                 ViewCamera = configureMainCamera ? Camera.main : null,

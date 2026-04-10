@@ -11,30 +11,26 @@ namespace Game.Feature.Gameplay.Host
         private const string BoardRootObjectName = "GameplayBoardRoot";
         private const string LegacyLabelRootPrefix = "Label_";
 
-        public static void EnsureInstallerScaffold(GameObject installerRoot, GameplayShowcaseOverlayContent overlayContent)
+        public static void EnsureInstallerScaffold(GameObject installerRoot)
         {
             EnsureInstallerScaffold(
                 installerRoot,
-                overlayContent,
                 GameplayCameraSettings.CreateShowcaseDefault(),
                 TopologyTransitionCameraShakeProfile.CreateDefault());
         }
 
         public static void EnsureInstallerScaffold(
             GameObject installerRoot,
-            GameplayShowcaseOverlayContent overlayContent,
             GameplayCameraSettings cameraSettings)
         {
             EnsureInstallerScaffold(
                 installerRoot,
-                overlayContent,
                 cameraSettings,
                 TopologyTransitionCameraShakeProfile.CreateDefault());
         }
 
         public static void EnsureInstallerScaffold(
             GameObject installerRoot,
-            GameplayShowcaseOverlayContent overlayContent,
             GameplayCameraSettings cameraSettings,
             TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
         {
@@ -48,7 +44,6 @@ namespace Game.Feature.Gameplay.Host
             var rig = EnsureCameraRig(installerRoot, cameraSettings, topologyTransitionCameraShakeProfile);
             ConfigureSceneOutputCameras(installerRoot.scene);
             ConfigureSceneCinemachinePath(installerRoot.scene, boardRoot, rig, cameraSettings);
-            EnsureOverlay(installerRoot, overlayContent);
         }
 
         public static void ConfigureDefaultSceneCamera(Camera camera)
@@ -239,14 +234,6 @@ namespace Game.Feature.Gameplay.Host
                 cinemachineCamera.Lens = lens;
             }
             cinemachineCamera.BlendHint = 0;
-        }
-
-        private static GameplayShowcaseOverlay EnsureOverlay(GameObject installerRoot, GameplayShowcaseOverlayContent overlayContent)
-        {
-            var overlay = installerRoot.GetComponent<GameplayShowcaseOverlay>() ??
-                          installerRoot.AddComponent<GameplayShowcaseOverlay>();
-            overlay.Configure(overlayContent);
-            return overlay;
         }
 
         private static void DestroyLegacyWorldLabels(Scene scene)

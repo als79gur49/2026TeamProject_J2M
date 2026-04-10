@@ -129,11 +129,6 @@ namespace Game.Feature.Gameplay.Host
             topologyTransitionPostFxController.Initialize(configuration.TopologyTransitionPostFxProfile, outputCamera);
             presenter.AttachTopologyTransitionPostFxController(topologyTransitionPostFxController);
 
-            var topologyTransitionPostFxDebugOverlay =
-                hostObject.GetComponent<TopologyTransitionPostFxDebugOverlay>() ??
-                hostObject.AddComponent<TopologyTransitionPostFxDebugOverlay>();
-            topologyTransitionPostFxDebugOverlay.Initialize(presenter, topologyTransitionPostFxController);
-
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
             inputHost.Initialize(
                 inputBuffer,
