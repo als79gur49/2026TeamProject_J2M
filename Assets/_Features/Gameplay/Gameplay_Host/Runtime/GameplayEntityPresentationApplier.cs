@@ -180,8 +180,7 @@ namespace Game.Feature.Gameplay.Host
             foreach (var pair in _stateStore.TransitionVisibilityStates)
             {
                 _trackState.CompletedTransitionVisibilityStateIds.Add(pair.Key);
-                if (pair.Value.Mode != TickTransitionVisibilityMode.RetainUntilTransitionComplete ||
-                    _stateStore.CommittedLocalTargetPoses.ContainsKey(pair.Key) ||
+                if (_stateStore.CommittedLocalTargetPoses.ContainsKey(pair.Key) ||
                     _stateStore.RetainedLocalTargetPoses.ContainsKey(pair.Key) ||
                     _stateStore.JumpDetachedVisibilityStates.ContainsKey(pair.Key))
                 {

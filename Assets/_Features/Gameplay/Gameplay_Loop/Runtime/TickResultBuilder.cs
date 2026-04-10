@@ -806,33 +806,6 @@ namespace Game.Feature.Gameplay.Loop
                 context.MovementPhaseResult.SelectedGroups,
                 visibilityChanges,
                 entityExitSignals);
-            var preMovementEntities = new List<EntityState>();
-            context.PreMovementSnapshot.EnumerateEntitiesOrdered(preMovementEntities);
-
-            for (var i = 0; i < preMovementEntities.Count; i++)
-            {
-                var entity = preMovementEntities[i];
-                if (excludedEntityIds.Contains(entity.entityId) ||
-                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, sourceTopology))
-                {
-                    continue;
-                }
-
-                if (context.FinalAuthoritativeSnapshot.TryGetEntity(entity.entityId, out var destinationEntity) &&
-                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(destinationEntity, destinationTopology))
-                {
-                    continue;
-                }
-
-                transitionVisibilityChanges.Add(
-                    new TickTransitionVisibilityChange(
-                        entity.entityId,
-                        TickTransitionVisibilityMode.RetainUntilTransitionComplete,
-                        entity.position,
-                        sourceTopology,
-                        entity.facing));
-            }
-
             var finalEntities = new List<EntityState>();
             context.FinalAuthoritativeSnapshot.EnumerateEntitiesOrdered(finalEntities);
 

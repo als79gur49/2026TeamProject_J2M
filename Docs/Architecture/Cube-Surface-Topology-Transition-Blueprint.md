@@ -135,7 +135,7 @@ ordinary move, push, flip의 local motion clip이 남아 있는 상태에서 top
 2. topology-changing tick이 실행된다.
 3. authoritative state는 즉시 destination topology로 commit된다.
 4. presenter는 source orientation에서 destination orientation으로 board root를 회전시킨다.
-5. 회전 중 필요한 엔티티만 보여 주면서 시각 전환을 유지한다.
+5. 회전 시작 프레임부터 destination topology 기준 visible set만 보여 주면서 시각 전환을 유지한다.
 6. transition 종료 후 destination topology 기준 visible set만 남긴다.
 7. 그 다음 tick부터 새 topology 기준 이동을 재개한다.
 
@@ -230,7 +230,8 @@ topology-changing tick은 해당 tick의 독점 그룹으로 처리한다.
 
 - local motion clip을 만들지 않는다.
 - board rotation에만 탑승한다.
-- transition visibility 정책에 따라 retain 또는 show 처리한다.
+- destination topology 기준 visible set에 들어오면 즉시 show 처리한다.
+- source-only가 되면 transition 시작 프레임부터 숨긴다.
 
 예:
 
@@ -249,7 +250,7 @@ source active faces와 destination active faces 어디에도 속하지 않는 �
 
 transition 중 렌더 대상은 원칙적으로 아래 집합이다.
 
-- `Source Active Faces ∪ Destination Active Faces`
+- `Destination Active Faces`
 
 이를 엔티티 단위로 나누면 다음 세 경우가 생긴다.
 
@@ -259,8 +260,7 @@ source topology에서는 보이지만 destination topology에서는 보이지 �
 
 정책:
 
-- transition 종료 전까지 유지한다.
-- 종료 시점에 hide한다.
+- transition 시작 시점에 즉시 hide한다.
 
 ### 13-2. destination-only visible
 
@@ -268,8 +268,7 @@ destination topology에서만 보이는 엔티티다.
 
 정책:
 
-- transition 시작 시점부터 노출 가능하다.
-- 1차 구현에서는 즉시 노출을 채택한다.
+- transition 시작 시점부터 즉시 노출한다.
 - 필요하면 이후 threshold reveal로 미세 조정한다.
 
 ### 13-3. both visible
@@ -278,7 +277,8 @@ source와 destination 모두에서 보이는 엔티티다.
 
 정책:
 
-- transition 내내 유지한다.
+- transition 시작 시점부터 destination topology 기준 의미를 따른다.
+- face/entity role, material, visibility semantics 모두 destination 기준이다.
 
 ## 14. projection 정책
 
@@ -306,11 +306,10 @@ topology transition 설계를 위해 여기에 전환용 visibility 메타데이
 필요한 정보는 다음과 같다.
 
 - entity id
-- transition 동안 retain할지 여부
 - transition 시작 시 보여 줄지 여부
-- source topology 기준 pose 복원에 필요한 정보
+- destination topology 기준 transition-space pose 복원에 필요한 정보
 
-설계상 `Spawn`, `Detach`, `Remove`와 topology transition retain/show는 의미가 다르므로, 별도 전용 struct를 추가하는 쪽을 우선 채택한다.
+설계상 `Spawn`, `Detach`, `Remove`와 topology transition start-show는 의미가 다르므로, 별도 전용 struct를 추가하는 쪽을 우선 채택한다.
 
 ## 16. TickResultBuilder 정책
 
@@ -318,7 +317,6 @@ topology transition 설계를 위해 여기에 전환용 visibility 메타데이
 
 생성 규칙은 다음과 같다.
 
-- pre-movement snapshot에서는 visible이었고 post-movement committed set에서는 사라지는 엔티티는 `retain-until-transition-complete`
 - post-movement committed set에 새로 나타나는 엔티티는 `show-at-transition-start`
 - 직접 이동 엔티티는 기존 entity motion 처리 우선
 - `Spawn`, `Detach`, `Remove`와 transition visibility가 충돌하면 기존 visibility 우선순위를 유지
@@ -343,7 +341,7 @@ presenter는 아래 책임을 추가로 가진다.
 
 - committed local target poses
 - retained local target poses
-- transition retain 대상
+- transition start show 대상
 
 ### 17-3. stationary passenger 처리
 
@@ -359,7 +357,6 @@ presenter는 아래 책임을 추가로 가진다.
 
 transition이 끝나면 아래를 정리해야 한다.
 
-- source-only retained pose 제거
 - transition visibility 상태 제거
 - destination topology 기준 visible set만 유지
 
@@ -456,7 +453,7 @@ transition이 끝나면 아래를 정리해야 한다.
 
 완료 기준:
 
-- retain/show 데이터 생성 테스트 통과
+- destination-start show 데이터 생성 테스트 통과
 
 ### 20-7. 7단계: projector transition projection 추가
 
@@ -472,8 +469,7 @@ transition이 끝나면 아래를 정리해야 한다.
 
 목표:
 
-- source-only retain
-- destination-only show
+- destination topology visible set 즉시 적용
 - stationary passenger board-tether 처리
 
 완료 기준:
@@ -499,9 +495,9 @@ transition이 끝나면 아래를 정리해야 한다.
 
 - presenter state API 정확성
 - topology rotation 중 board root orientation 변화
-- source-only visible 엔티티 retain
+- source-only visible 엔티티 immediate hide
 - stationary passenger의 board rotation 탑승
-- transition 종료 후 retained state 정리
+- transition 종료 후 destination-only visible set 유지
 
 ### 21-2. PlayMode 검증 항목
 
@@ -545,6 +541,6 @@ transition이 끝나면 아래를 정리해야 한다.
 
 - 직접 움직인 엔티티만 local motion을 가진다.
 - 나머지는 board rotation에 탑승한다.
-- source-only visible 엔티티만 transition 종료 전까지 retain하면 된다.
+- visible set 해석은 transition 시작 프레임부터 destination topology를 따른다.
 
 즉, 논리와 연출의 경계가 명확해지고, 테스트 가능한 계약으로 정리된다.

@@ -1538,12 +1538,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[]
                 {
                     (
-                        EntityId: 20,
-                        Mode: TickTransitionVisibilityMode.RetainUntilTransitionComplete,
-                        Cell: retainedCell,
-                        Topology: initialTopology,
-                        Facing: Direction.Left),
-                    (
                         EntityId: 30,
                         Mode: TickTransitionVisibilityMode.ShowAtTransitionStart,
                         Cell: shownCell,

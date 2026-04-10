@@ -203,7 +203,9 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < presentationData.TransitionVisibilityChanges.Count; i++)
             {
                 var change = presentationData.TransitionVisibilityChanges[i];
-                if (change.Mode == TickTransitionVisibilityMode.None ||
+                // Topology transition presentation now treats destination topology as the only authoritative
+                // visible set. Runtime transition cache is reserved for destination-only shows.
+                if (change.Mode != TickTransitionVisibilityMode.ShowAtTransitionStart ||
                     _exitPresentationController.IsExitOwned(change.EntityId) ||
                     !_poseResolver.TryResolveTransitionLocalPose(
                         projector,
@@ -228,7 +230,8 @@ namespace Game.Feature.Gameplay.Host
                 _stateStore.TransitionVisibilityStates[change.EntityId] = new TransitionVisibilityState(
                     change.Mode,
                     localPose,
-                    projectedSlot);
+                    projectedSlot,
+                    change.Cell.face);
             }
         }
 

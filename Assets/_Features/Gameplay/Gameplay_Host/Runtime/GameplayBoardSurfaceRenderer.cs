@@ -130,25 +130,21 @@ namespace Game.Feature.Gameplay.Host
 
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Floor,
-                sourceTopology,
                 destinationTopology,
                 tileScale,
                 tileIndex);
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Front,
-                sourceTopology,
                 destinationTopology,
                 tileScale,
                 tileIndex);
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Ceiling,
-                sourceTopology,
                 destinationTopology,
                 tileScale,
                 tileIndex);
             tileIndex = PopulateTransitionFaceTilesIfNeeded(
                 FaceId.Back,
-                sourceTopology,
                 destinationTopology,
                 tileScale,
                 tileIndex);
@@ -442,18 +438,20 @@ namespace Game.Feature.Gameplay.Host
 
         private int PopulateTransitionFaceTilesIfNeeded(
             FaceId face,
-            CubeTopologyState sourceTopology,
             CubeTopologyState destinationTopology,
             Vector3 tileScale,
             int tileIndex)
         {
-            if (!IsFaceVisibleInTopology(face, sourceTopology) &&
-                !IsFaceVisibleInTopology(face, destinationTopology))
+            if (!IsFaceVisibleInTopology(face, destinationTopology))
             {
                 return tileIndex;
             }
 
-            var tileRole = ResolveTransitionTileRole(face, sourceTopology, destinationTopology);
+            if (!TryResolveTileRole(face, destinationTopology, out var tileRole))
+            {
+                throw new InvalidOperationException(
+                    $"Face '{face}' is not visible in destination topology '{destinationTopology}'.");
+            }
 
             for (var y = _boardBounds.MinInclusive.y; y <= _boardBounds.MaxInclusive.y; y++)
             {
@@ -462,12 +460,12 @@ namespace Game.Feature.Gameplay.Host
                     var cell = new SurfaceCell(face, x, y);
                     if (!TryResolveTransitionTileLocalPose(
                             cell,
-                            sourceTopology,
+                            _steadyTopology,
                             destinationTopology,
                             out var localPose))
                     {
                         throw new InvalidOperationException(
-                            $"Failed to project board surface transition cell '{cell}' from '{sourceTopology}' to '{destinationTopology}'.");
+                            $"Failed to project board surface transition cell '{cell}' from '{_steadyTopology}' to '{destinationTopology}'.");
                     }
 
                     var tileView = _transitionTilePool[tileIndex++];
@@ -566,24 +564,6 @@ namespace Game.Feature.Gameplay.Host
 
             return face == FaceIdUtility.GetNext(topology.FrontFace) ||
                    face == FaceIdUtility.GetPrevious(topology.BottomFace);
-        }
-
-        private SurfaceTileRole ResolveTransitionTileRole(
-            FaceId face,
-            CubeTopologyState sourceTopology,
-            CubeTopologyState destinationTopology)
-        {
-            if (TryResolveTileRole(face, sourceTopology, out var sourceTileRole))
-            {
-                return sourceTileRole;
-            }
-
-            if (TryResolveTileRole(face, destinationTopology, out var destinationTileRole))
-            {
-                return destinationTileRole;
-            }
-
-            throw new InvalidOperationException($"Face '{face}' is not visible in either transition topology.");
         }
 
         private bool TryResolveTileRole(FaceId face, CubeTopologyState topology, out SurfaceTileRole tileRole)

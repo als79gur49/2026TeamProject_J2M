@@ -30,7 +30,7 @@
 현재 남아 있는 핵심 결손은 다음과 같다.
 
 - `GameplayCubeProjector`는 gameplay-visible 2면만 projection하며 transition 전용 projection 경로가 없다.
-- `GameplayTickViewPresenter`가 transition retain/show metadata를 아직 소비하지 않아 source-only retain, destination-only show, stationary passenger board-tether를 최종 렌더링에 반영하지 않는다.
+- `GameplayTickViewPresenter`가 destination-topology-only transition visibility metadata를 아직 소비하지 않아 destination-only show와 stationary passenger board-tether를 최종 렌더링에 반영하지 않는다.
 
 ## 4. 구현 원칙
 
@@ -159,7 +159,7 @@
 
 목표:
 
-- topology transition 중 source-only retain / destination-only show를 표현할 수 있게 만든다.
+- topology transition 중 destination-only show metadata를 표현할 수 있게 만든다.
 
 대상 파일:
 
@@ -175,9 +175,7 @@
   - `Cell`
   - `Topology`
   - `Facing`
-- `Mode`는 아래 두 경우를 우선 지원
-  - `RetainUntilTransitionComplete`
-  - `ShowAtTransitionStart`
+- `Mode`는 우선 `ShowAtTransitionStart`를 지원
 - 직접 이동 엔티티는 기존 `TickEntityMotion` 처리 우선
 
 완료 조건:
@@ -200,16 +198,15 @@
 
 - topology change가 있는 tick에서 pre/post visible set을 비교
 - 생성 규칙:
-  - pre visible, post invisible -> retain
   - pre invisible, post visible -> show
   - pre visible, post visible -> 별도 전환 metadata 불필요
 - ordinary visibility와 충돌 시 우선순위 고정
   - `Remove > Detach > Spawn > TransitionVisibility`
-- cleanup/remove 대상과 transition retain이 동시에 걸리는 경우 ordinary visibility 우선
+- cleanup/remove 대상과 transition show가 동시에 걸리는 경우 ordinary visibility 우선
 
 완료 조건:
 
-- topology-changing tick에서 retain/show metadata 생성
+- topology-changing tick에서 destination-only show metadata 생성
 - ordinary visibility와 충돌 시 일관된 결과 유지
 
 ### 5-7. 7단계: transition projection 경로 추가
@@ -242,7 +239,7 @@
 
 목표:
 
-- source-only retain, destination-only show, stationary passenger board-tether를 실제 렌더링에 반영한다.
+- destination topology visible set 즉시 적용, destination-only show, stationary passenger board-tether를 실제 렌더링에 반영한다.
 
 대상 파일:
 
@@ -255,7 +252,7 @@
 - processing entity set을 아래 집합의 union으로 확장
   - committed local target poses
   - retained local target poses
-  - transition retain/show 대상
+  - transition start show 대상
 - directly moved entity:
   - 기존 local motion clip 유지
   - start pose는 source topology 기준
@@ -265,13 +262,12 @@
   - fallback local pose만 유지
   - board rotation에만 탑승
 - transition 종료 시 정리:
-  - source-only retained state 제거
   - transition visibility state 제거
   - committed visible set만 남김
 
 완료 조건:
 
-- 회전 시작 시 source entity pop-out 없음
+- 회전 시작 시 source-only entity/face immediate hide
 - stationary passenger가 local drift 없이 보드와 함께 회전함
 - transition 종료 후 destination topology 기준 visible set만 남음
 
@@ -295,7 +291,7 @@
 - EditMode
   - presenter phase API 검증
   - topology rotation 중 board root rotation 검증
-  - source-only retain 검증
+  - source-only immediate hide 검증
   - stationary passenger board-tether 검증
   - transition 종료 후 cleanup 검증
 - PlayMode
@@ -328,7 +324,7 @@
 - `TickPresentationData`
   - transition visibility metadata 추가
 - `TickResultBuilder`
-  - retain/show metadata 생성
+  - destination-start show metadata 생성
 - `GameplayCubeProjector`
   - transition 전용 projection 추가
 - `GameplayTimingProfile`
@@ -340,10 +336,10 @@
 
 ### 7-1. EditMode
 
-- topology-changing tick의 presentation data가 기대한 retain/show metadata를 생성하는지 검증
+- topology-changing tick의 presentation data가 기대한 destination-start show metadata를 생성하는지 검증
 - presenter phase가 `Idle -> EntityMotion -> TopologyTransition -> Idle`로 변하는지 검증
 - transition 중 board root rotation과 entity local pose가 충돌하지 않는지 검증
-- transition 종료 시 retained entity state가 정리되는지 검증
+- transition 종료 시 transition visibility state가 정리되는지 검증
 
 ### 7-2. PlayMode
 
@@ -395,9 +391,9 @@
 - `GameplaySceneHostConfiguration`에 `TopologyMotionDurationSeconds` 설정을 노출하고, 미지정 시 push duration으로 fallback되도록 고정했다.
 - `GameplayTickViewPresenter`의 board rotation clip은 이제 `PushMotionDurationSeconds`가 아니라 `TopologyMotionDurationSeconds`를 사용한다.
 - `TickPresentationData`에 `TickTransitionVisibilityChange`, `TickTransitionVisibilityMode`, `TransitionVisibilityChanges`를 추가해 ordinary visibility와 분리된 topology transition metadata를 담을 수 있게 했다.
-- `TickResultBuilder`는 topology-changing tick에서 `PreMovementSnapshot`과 `FinalAuthoritativeSnapshot`의 gameplay-visible set을 비교해 `RetainUntilTransitionComplete` / `ShowAtTransitionStart` metadata를 자동 생성한다.
+- `TickResultBuilder`는 topology-changing tick에서 `PreMovementSnapshot`과 `FinalAuthoritativeSnapshot`의 gameplay-visible set을 비교해 destination-only `ShowAtTransitionStart` metadata만 자동 생성한다.
 - directly moved entity와 ordinary visibility(`Remove`, `Detach`, `Spawn`) 대상은 transition visibility 생성에서 제외해 `Remove > Detach > Spawn > TransitionVisibility` 우선순위를 코드로 고정했다.
-- unit/runtime test를 추가해 topology passenger retain/show 생성, ordinary visibility 우선순위, topology 전용 duration override와 default fallback을 검증했다.
+- unit/runtime test를 추가해 topology passenger destination-show 생성, ordinary visibility 우선순위, topology 전용 duration override와 default fallback을 검증했다.
 
 ### PR 3
 
@@ -412,11 +408,12 @@
 구현 메모:
 
 - `GameplayCubeProjector`에 `TryProjectTransitionEntityCell(...)`, `TryResolveTransitionEntityRotation(...)`를 추가해 topology-changing tick 동안 `Source Active Faces + Destination Active Faces` union만 presentation 전용으로 투영할 수 있게 했다.
+- visible set 해석은 transition 시작 프레임부터 destination topology를 authoritative로 사용하고, projector의 face-union projection은 directly moved entity와 ordinary visibility pose 계산용으로만 남긴다.
 - transition projection은 destination topology local space를 기준으로 계산하고, ordinary frame에서 `sourceTopology == destinationTopology`이면 기존 `TryProjectEntityCell(...)` / `TryResolveEntityRotation(...)`과 동일한 결과를 반환하도록 고정했다.
-- `GameplayTickViewPresenter`는 `transition visibility state cache`를 추가해 `TransitionVisibilityChanges`를 실제 렌더링에 반영하고, processing entity set을 `committed + retained + transition visibility` union으로 확장했다.
-- topology-changing motion의 source/destination pose와 ordinary visibility retain pose도 transition projection 경로를 사용하도록 바꿔, 회전 시작 프레임의 local pose pop과 source-only retain 누락을 줄였다.
-- topology transition 종료 프레임에는 source-only retained transition state를 정리해 destination topology 기준 visible set만 남도록 cleanup을 고정했다.
-- `RuntimeBoardBoundsGuardTests`에 transition projection face-union/ordinary-equivalence, source-only retain cleanup, topology-changing motion start pose projection 계약을 추가했다.
+- `GameplayTickViewPresenter`는 `transition visibility state cache`를 destination-start show 용도로만 유지하고, processing entity set을 `committed + retained + transition visibility` union으로 확장했다.
+- topology-changing motion의 source/destination pose와 ordinary visibility retain pose도 transition projection 경로를 사용하도록 바꿔, 회전 시작 프레임의 local pose pop을 줄였다.
+- topology transition 중 source-only transition state는 생성하지 않고, destination topology 기준 visible set만 렌더되도록 cleanup contract를 고정했다.
+- `RuntimeBoardBoundsGuardTests`에 transition projection face-union/ordinary-equivalence, source-only immediate hide, topology-changing motion start pose projection 계약을 추가했다.
 - `Game.Feature.Gameplay.Tests.csproj`는 Windows MSBuild로 빌드 통과를 확인했다. Unity batch `-runTests`는 이 환경에서 스크립트 리컴파일까지만 수행하고 result XML을 남기지 않아, 수동 showcase 검증은 별도 실행이 필요하다.
 
 ## 9. 완료 정의
@@ -426,7 +423,7 @@
 - topology transition 중 다음 tick이 실행되지 않는다.
 - unlock 직후 tick burst가 발생하지 않는다.
 - topology-changing tick은 ordinary movement tick과 공존하지 않는다.
-- source-only visible entity가 회전 시작 시 바로 사라지지 않는다.
+- source-only visible entity가 회전 시작 시 바로 사라진다.
 - stationary passenger가 local motion 없이 board rotation에만 탑승한다.
 - transition 종료 후 destination topology 기준 visible set만 남는다.
 - edit/play mode 테스트가 모두 통과한다.
