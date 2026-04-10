@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack;
@@ -90,6 +91,59 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
+        }
+
+        [Test]
+        public void DeterminismHash_EnemyDeathPresentationData_DoesNotAffectCanonicalStateOrHash()
+        {
+            var finalEntities = new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+            };
+            var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
+            var eventLog = new[]
+            {
+                "CleanupRemoved|E=40",
+            };
+            var enemyDeathPresentation = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: new[]
+                {
+                    new TickEntityExitPresentationSignal(
+                        40,
+                        TickEntityExitCause.EnemyDeath,
+                        SurfaceCell.FromPlanar(new Vector2Int(2, 0)),
+                        finalSnapshot.Topology,
+                        Direction.Left,
+                        EntityType.Unit,
+                        sourceActorEntityId: 10,
+                        presentationSeed: 987654321),
+                });
+            var baselineData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                TickPresentationData.Empty);
+            var enemyDeathData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                enemyDeathPresentation);
+            var hashBuilder = new DeterminismHashBuilder();
+
+            CollectionAssert.AreEqual(baselineData.FinalEntities, enemyDeathData.FinalEntities);
+            CollectionAssert.AreEqual(baselineData.EventLog, enemyDeathData.EventLog);
+            Assert.That(
+                hashBuilder.Build(11, finalSnapshot, baselineData),
+                Is.EqualTo(hashBuilder.Build(11, finalSnapshot, enemyDeathData)));
         }
 
         [Test]

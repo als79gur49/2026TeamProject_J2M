@@ -2157,6 +2157,69 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void EnemyDeathExitEffectPlanBuilder_Build_UsesStableSeededResult()
+        {
+            var parentObject = new GameObject("EnemyDeathExitEffectPlanBuilder_Build_UsesStableSeededResult");
+            var cameraObject = new GameObject("EnemyDeathExitEffectPlanBuilder_Build_OutputCamera");
+
+            try
+            {
+                var outputCamera = cameraObject.AddComponent<Camera>();
+                outputCamera.transform.position = new Vector3(0.5f, 0.25f, -10f);
+                outputCamera.transform.rotation = Quaternion.identity;
+                outputCamera.orthographic = true;
+                outputCamera.orthographicSize = 3f;
+                outputCamera.nearClipPlane = 0.1f;
+                outputCamera.farClipPlane = 50f;
+
+                var sourcePose = new GameplayEntityPose(new Vector3(0f, 0f, 0f), Quaternion.identity);
+                var targetPose = new GameplayEntityPose(new Vector3(1.25f, 0.5f, 0f), Quaternion.identity);
+                var firstPlan = EnemyDeathExitEffectPlanBuilder.Build(
+                    parentObject.transform,
+                    sourcePose,
+                    targetPose,
+                    outputCamera,
+                    1f,
+                    12345);
+                var secondPlan = EnemyDeathExitEffectPlanBuilder.Build(
+                    parentObject.transform,
+                    sourcePose,
+                    targetPose,
+                    outputCamera,
+                    1f,
+                    12345);
+                var differentSeedPlan = EnemyDeathExitEffectPlanBuilder.Build(
+                    parentObject.transform,
+                    sourcePose,
+                    targetPose,
+                    outputCamera,
+                    1f,
+                    54321);
+                var startCameraLocalPosition = outputCamera.transform.InverseTransformPoint(
+                    parentObject.transform.TransformPoint(sourcePose.Position));
+                var targetCameraLocalPosition = outputCamera.transform.InverseTransformPoint(
+                    parentObject.transform.TransformPoint(firstPlan.TargetLocalPosition));
+
+                AssertPositionApproximately(firstPlan.TargetLocalPosition, secondPlan.TargetLocalPosition);
+                Assert.That(firstPlan.ArcHeight, Is.EqualTo(secondPlan.ArcHeight).Within(0.0001f));
+                Assert.That(firstPlan.SpinDegrees, Is.EqualTo(secondPlan.SpinDegrees).Within(0.0001f));
+                Assert.That(targetCameraLocalPosition.z, Is.LessThan(startCameraLocalPosition.z));
+                Assert.That(targetCameraLocalPosition.z, Is.GreaterThan(outputCamera.nearClipPlane));
+                Assert.That(targetCameraLocalPosition.z, Is.LessThan(outputCamera.nearClipPlane + 0.25f));
+
+                var hasDifferentTarget = Vector3.Distance(firstPlan.TargetLocalPosition, differentSeedPlan.TargetLocalPosition) > 0.001f;
+                var hasDifferentArc = Mathf.Abs(firstPlan.ArcHeight - differentSeedPlan.ArcHeight) > 0.001f;
+                var hasDifferentSpin = Mathf.Abs(firstPlan.SpinDegrees - differentSeedPlan.SpinDegrees) > 0.001f;
+                Assert.That(hasDifferentTarget || hasDifferentArc || hasDifferentSpin, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(parentObject);
+            }
+        }
+
         private static GameplayTimingProfile CreateTimingProfile()
         {
             return new GameplayTimingProfile(

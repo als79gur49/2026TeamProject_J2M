@@ -92,7 +92,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipMotionDurationSeconds: 0.2f,
                 topologyMotionDurationSeconds: -1f,
                 itemConsumeEffectDurationSeconds: -1f,
-                boxDestroyEffectDurationSeconds: -1f);
+                boxDestroyEffectDurationSeconds: -1f,
+                enemyDeathEffectDurationSeconds: -1f);
 
             try
             {
@@ -104,6 +105,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TopologyMotionDurationSeconds = -1f,
                     ItemConsumeEffectDurationSeconds = -1f,
                     BoxDestroyEffectDurationSeconds = -1f,
+                    EnemyDeathEffectDurationSeconds = -1f,
                 };
                 var presetConfiguration = new GameplaySceneHostConfiguration();
 
@@ -117,6 +119,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(presetTimingProfile.TopologyMotionDurationSeconds, Is.EqualTo(legacyTimingProfile.TopologyMotionDurationSeconds));
                 Assert.That(presetTimingProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(legacyTimingProfile.ItemConsumeEffectDurationSeconds));
                 Assert.That(presetTimingProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(legacyTimingProfile.BoxDestroyEffectDurationSeconds));
+                Assert.That(presetTimingProfile.EnemyDeathEffectDurationSeconds, Is.EqualTo(legacyTimingProfile.EnemyDeathEffectDurationSeconds));
             }
             finally
             {
@@ -216,7 +219,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float flipMotionDurationSeconds = 1f,
             float topologyMotionDurationSeconds = -1f,
             float itemConsumeEffectDurationSeconds = -1f,
-            float boxDestroyEffectDurationSeconds = -1f)
+            float boxDestroyEffectDurationSeconds = -1f,
+            float enemyDeathEffectDurationSeconds = -1f)
         {
             var preset = ScriptableObject.CreateInstance<GameplayPresentationTimingPreset>();
             SetPrivateField(preset, "moveMotionDurationSeconds", moveMotionDurationSeconds);
@@ -225,6 +229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(preset, "topologyMotionDurationSeconds", topologyMotionDurationSeconds);
             SetPrivateField(preset, "itemConsumeEffectDurationSeconds", itemConsumeEffectDurationSeconds);
             SetPrivateField(preset, "boxDestroyEffectDurationSeconds", boxDestroyEffectDurationSeconds);
+            SetPrivateField(preset, "enemyDeathEffectDurationSeconds", enemyDeathEffectDurationSeconds);
             return preset;
         }
 

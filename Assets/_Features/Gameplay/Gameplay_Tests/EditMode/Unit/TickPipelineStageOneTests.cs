@@ -1551,6 +1551,86 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void TickPresentationDataBuilder_BuildsEnemyDeathExitSignalForAttackKilledEnemy_WithoutGenericCleanupRemove()
+        {
+            const int tickIndex = 17;
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 2));
+            var playerCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var enemyCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var player = CreateEntity(10, EntityType.Unit, playerCell, Direction.Right);
+            player.unitRole = UnitRole.Player;
+            var enemyAlive = CreateEnemyEntity(40, enemyCell, EnemyAiMode.Attack, Direction.Left);
+            enemyAlive.unitRole = UnitRole.Enemy;
+            var enemyDead = enemyAlive;
+            enemyDead.hp = 0;
+            enemyDead.markedForDeath = true;
+            enemyDead.aiMode = EnemyAiMode.Recover;
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    player,
+                    enemyAlive,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    player,
+                    enemyAlive,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    player,
+                    enemyDead,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    player,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+
+            var attackGroup = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.Attack);
+            attackGroup.AssignGroupId(1);
+            attackGroup.Destroys.Add(new DestroyAction(40));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(),
+                    CreateAttackPhaseResult(attackGroup),
+                    new CleanupPhaseResult(new[] { 40 }, Array.Empty<string>(), Array.Empty<string>()),
+                    currentTickIndex: tickIndex));
+
+            Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.EntityExitSignals[0];
+            Assert.That(signal.ExitedEntityId, Is.EqualTo(40));
+            Assert.That(signal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));
+            Assert.That(signal.SourceActorEntityId, Is.EqualTo(10));
+            Assert.That(signal.EntityType, Is.EqualTo(EntityType.Unit));
+            Assert.That(signal.SourceCell, Is.EqualTo(enemyCell));
+            Assert.That(signal.Topology, Is.EqualTo(topology));
+            Assert.That(signal.PresentationSeed, Is.EqualTo(BuildExpectedPresentationSeed(tickIndex, 40, 10, TickEntityExitCause.EnemyDeath)));
+            Assert.That(presentationData.VisibilityChanges.Any(change => change.EntityId == 40 && change.ChangeKind == TickVisibilityChangeKind.Remove), Is.False);
+        }
+
+        [Test]
         public void TickPresentationDataBuilder_BuildsEnemyActionSignalForOngoingWindup()
         {
             const int enemyId = 40;
@@ -2160,6 +2240,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = boardPresence,
                 markedForDeath = markedForDeath,
             };
+        }
+
+        private static int BuildExpectedPresentationSeed(
+            int currentTickIndex,
+            int exitedEntityId,
+            int sourceActorEntityId,
+            TickEntityExitCause exitCause)
+        {
+            unchecked
+            {
+                var hash = 2166136261u;
+                hash = (hash ^ (uint)currentTickIndex) * 16777619u;
+                hash = (hash ^ (uint)exitedEntityId) * 16777619u;
+                hash = (hash ^ (uint)sourceActorEntityId) * 16777619u;
+                hash = (hash ^ (uint)exitCause) * 16777619u;
+                return (int)(hash & 0x7FFFFFFF);
+            }
         }
 
         private readonly struct EnemyActionStateSeed

@@ -120,11 +120,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(defaultProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.25f));
             Assert.That(defaultProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds));
             Assert.That(defaultProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds));
+            Assert.That(defaultProfile.EnemyDeathEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultEnemyDeathEffectDurationSeconds));
 
             configuration.MoveMotionDurationSeconds = 0.1f;
             configuration.TopologyMotionDurationSeconds = 0.45f;
             configuration.ItemConsumeEffectDurationSeconds = 0.6f;
             configuration.BoxDestroyEffectDurationSeconds = 0.3f;
+            configuration.EnemyDeathEffectDurationSeconds = 0.35f;
 
             var overriddenProfile = configuration.CreateTimingProfile();
 
@@ -133,6 +135,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(overriddenProfile.TopologyMotionDurationSeconds, Is.EqualTo(0.45f));
             Assert.That(overriddenProfile.ItemConsumeEffectDurationSeconds, Is.EqualTo(0.6f));
             Assert.That(overriddenProfile.BoxDestroyEffectDurationSeconds, Is.EqualTo(0.3f));
+            Assert.That(overriddenProfile.EnemyDeathEffectDurationSeconds, Is.EqualTo(0.35f));
         }
 
         [Test]
@@ -183,6 +186,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(profile.FlipMotionDurationSeconds, Is.EqualTo(0.2f));
             Assert.That(profile.ItemConsumeEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultItemConsumeEffectDurationSeconds));
             Assert.That(profile.BoxDestroyEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultBoxDestroyEffectDurationSeconds));
+            Assert.That(profile.EnemyDeathEffectDurationSeconds, Is.EqualTo(GameplayTimingProfile.DefaultEnemyDeathEffectDurationSeconds));
         }
 
         [Test]
@@ -5588,6 +5592,104 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndTransientCompletesAfterDedicatedDuration()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndTransientCompletesAfterDedicatedDuration");
+            var cameraObject = new GameObject("GameplayTickViewPresenter_EnemyDeathExitSignal_OutputCamera");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform));
+                var outputCamera = cameraObject.AddComponent<Camera>();
+                outputCamera.transform.position = new Vector3(2f, 1f, -10f);
+                outputCamera.transform.rotation = Quaternion.identity;
+                outputCamera.orthographic = true;
+                outputCamera.orthographicSize = 2.5f;
+                outputCamera.nearClipPlane = 0.1f;
+                outputCamera.farClipPlane = 50f;
+
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.05f,
+                    topologyMotionDurationSeconds: 0.05f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8,
+                    itemConsumeEffectDurationSeconds: 0.25f,
+                    boxDestroyEffectDurationSeconds: 0.22f,
+                    enemyDeathEffectDurationSeconds: 0.28f);
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var playerCell = new SurfaceCell(FaceId.Floor, 1, 1);
+                var enemyCell = new SurfaceCell(FaceId.Floor, 3, 1);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 2)),
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.AttachOutputCamera(outputCamera);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, playerCell, facing: Direction.Right),
+                        CreateSurfaceUnit(40, enemyCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left, unitRole: UnitRole.Enemy),
+                    },
+                    topology);
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, playerCell, facing: Direction.Right),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    40,
+                                    TickEntityExitCause.EnemyDeath,
+                                    enemyCell,
+                                    topology,
+                                    Direction.Left,
+                                    EntityType.Unit,
+                                    sourceActorEntityId: 10,
+                                    presentationSeed: 123456789),
+                            })));
+
+                Assert.That(registry.TryGetView(40, out var enemyView), Is.True);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(timingProfile.EnemyDeathEffectDurationSeconds * 0.5f);
+                Assert.That(enemyView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(timingProfile.EnemyDeathEffectDurationSeconds * 0.5f);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cameraObject);
                 UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
