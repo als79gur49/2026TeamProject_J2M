@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -76,6 +77,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
 
             Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        public void EnemyLogic_StationaryPassiveContactProfile_DoesNotMove_AndProducesSameCellContactIntent()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateStationaryPassiveContact();
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var movementBuffer = new List<RawMovementIntent>();
+            var attackBuffer = new List<RawAttackIntent>();
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), movementBuffer);
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), attackBuffer);
+
+                Assert.That(movementBuffer, Is.Empty);
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10, SourceKind: AttackSourceKind.PassiveContact),
+                    },
+                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId, intent.SourceKind)).ToArray());
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]

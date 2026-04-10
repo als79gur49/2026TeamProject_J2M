@@ -164,6 +164,18 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
+        public static EnemyAiProfile CreateStationaryPassiveContact()
+        {
+            return Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                IncludePassiveContact = true,
+                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks: 0)),
+            });
+        }
+
         public static void Destroy(EnemyAiProfile profile)
         {
             if (profile == null)
@@ -251,6 +263,9 @@ namespace Game.Feature.Gameplay.Tests
                     SetSerializedField(patrol, "followBoxes", settings.FollowBoxes);
                     return patrol;
                 }
+
+                case PatrolStrategyKind.Stationary:
+                    return CreateHiddenAsset<StationaryPatrolAsset>("Test_StationaryPatrol");
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported patrol strategy kind for tests.");

@@ -233,6 +233,27 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public sealed class StationaryPatrolStrategy : IPatrolStrategy
+    {
+        public static readonly StationaryPatrolStrategy Instance = new();
+
+        public bool TryBuildMovementIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            in PatrolSettings settings,
+            out RawMovementIntent intent)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            intent = default;
+            return false;
+        }
+    }
+
     public sealed class AxisPriorityChaseStrategy : IChaseStrategy
     {
         public static readonly AxisPriorityChaseStrategy Instance = new();
