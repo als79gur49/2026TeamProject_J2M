@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   board:
     MinInclusive: {x: 0, y: 0}
-    MaxInclusive: {x: 15, y: 8}
+    MaxInclusive: {x: 14, y: 7}
     InitialBottomFace: 0
   playerSpawns:
   - EntityId: 10
@@ -29,22 +29,9 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   boxSpawns:
   - EntityId: 31
-    Kind: 2
-    Cell:
-      face: 0
-      x: 3
-      y: 4
-    Facing: 0
-    Hp: 1
-    BoxCapabilities: 1
-    EnemyAiMode: 0
-    EnemyAiStateTimer: 0
-    EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
-  - EntityId: 32
     Kind: 2
     Cell:
       face: 0
@@ -52,36 +39,2649 @@ MonoBehaviour:
       y: 5
     Facing: 0
     Hp: 1
-    BoxCapabilities: 3
+    BoxCapabilities: 9
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
-  - EntityId: 33
+    PresentationId: box_tutorial
+  - EntityId: 32
     Kind: 2
     Cell:
       face: 0
-      x: 3
-      y: 7
+      x: 7
+      y: 5
     Facing: 0
     Hp: 1
     BoxCapabilities: 9
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: box_tutorial
+  - EntityId: 33
+    Kind: 2
+    Cell:
+      face: 0
+      x: 9
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
   - EntityId: 34
     Kind: 2
     Cell:
       face: 0
+      x: 13
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 35
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 36
+    Kind: 2
+    Cell:
+      face: 0
+      x: 12
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 37
+    Kind: 2
+    Cell:
+      face: 0
+      x: 13
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 38
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 39
+    Kind: 2
+    Cell:
+      face: 0
+      x: 10
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 40
+    Kind: 2
+    Cell:
+      face: 0
+      x: 3
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 41
+    Kind: 2
+    Cell:
+      face: 0
+      x: 6
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 42
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 43
+    Kind: 2
+    Cell:
+      face: 0
+      x: 8
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 44
+    Kind: 2
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 45
+    Kind: 2
+    Cell:
+      face: 0
+      x: 7
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 46
+    Kind: 2
+    Cell:
+      face: 1
+      x: 10
+      y: 6
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 47
+    Kind: 2
+    Cell:
+      face: 1
+      x: 4
+      y: 5
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 48
+    Kind: 2
+    Cell:
+      face: 1
+      x: 5
+      y: 5
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 49
+    Kind: 2
+    Cell:
+      face: 1
+      x: 6
+      y: 5
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 50
+    Kind: 2
+    Cell:
+      face: 1
+      x: 8
+      y: 5
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 51
+    Kind: 2
+    Cell:
+      face: 1
+      x: 9
+      y: 5
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 52
+    Kind: 2
+    Cell:
+      face: 1
+      x: 10
+      y: 5
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 53
+    Kind: 2
+    Cell:
+      face: 1
+      x: 7
+      y: 3
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 54
+    Kind: 2
+    Cell:
+      face: 1
+      x: 3
+      y: 2
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 55
+    Kind: 2
+    Cell:
+      face: 1
+      x: 4
+      y: 2
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 56
+    Kind: 2
+    Cell:
+      face: 1
+      x: 7
+      y: 2
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 57
+    Kind: 2
+    Cell:
+      face: 1
+      x: 8
+      y: 2
+    Facing: 1
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 58
+    Kind: 2
+    Cell:
+      face: 2
+      x: 4
+      y: 6
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 59
+    Kind: 2
+    Cell:
+      face: 2
+      x: 6
+      y: 6
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 60
+    Kind: 2
+    Cell:
+      face: 2
+      x: 1
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 61
+    Kind: 2
+    Cell:
+      face: 2
+      x: 2
+      y: 3
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 1
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 62
+    Kind: 2
+    Cell:
+      face: 2
+      x: 4
+      y: 2
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 2
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 63
+    Kind: 2
+    Cell:
+      face: 2
+      x: 11
+      y: 2
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 2
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 64
+    Kind: 2
+    Cell:
+      face: 2
+      x: 5
+      y: 1
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 2
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  - EntityId: 65
+    Kind: 2
+    Cell:
+      face: 2
+      x: 11
+      y: 1
+    Facing: 2
+    Hp: 1
+    BoxCapabilities: 9
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: box_tutorial
+  enemySpawns:
+  - EntityId: 101
+    Kind: 1
+    Cell:
+      face: 0
+      x: 11
+      y: 4
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 102
+    Kind: 1
+    Cell:
+      face: 0
+      x: 8
+      y: 1
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 103
+    Kind: 1
+    Cell:
+      face: 1
+      x: 3
+      y: 6
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 104
+    Kind: 1
+    Cell:
+      face: 1
+      x: 7
+      y: 6
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 105
+    Kind: 1
+    Cell:
+      face: 1
+      x: 4
+      y: 4
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 106
+    Kind: 1
+    Cell:
+      face: 1
+      x: 8
+      y: 4
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 107
+    Kind: 1
+    Cell:
+      face: 1
+      x: 13
+      y: 2
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 108
+    Kind: 1
+    Cell:
+      face: 1
+      x: 13
+      y: 1
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 109
+    Kind: 1
+    Cell:
+      face: 2
+      x: 11
+      y: 5
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 110
+    Kind: 1
+    Cell:
+      face: 2
+      x: 6
+      y: 4
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  - EntityId: 111
+    Kind: 1
+    Cell:
+      face: 2
+      x: 8
+      y: 1
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: nonAttacking_showcase
+  wallSpawns:
+  - EntityId: 201
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 202
+    Kind: 3
+    Cell:
+      face: 0
+      x: 3
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 203
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 204
+    Kind: 3
+    Cell:
+      face: 0
+      x: 8
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 205
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 206
+    Kind: 3
+    Cell:
+      face: 0
+      x: 14
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 207
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 208
+    Kind: 3
+    Cell:
+      face: 0
+      x: 3
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 209
+    Kind: 3
+    Cell:
+      face: 0
+      x: 4
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 210
+    Kind: 3
+    Cell:
+      face: 0
+      x: 5
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 211
+    Kind: 3
+    Cell:
+      face: 0
+      x: 6
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 212
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 213
+    Kind: 3
+    Cell:
+      face: 0
+      x: 8
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 214
+    Kind: 3
+    Cell:
+      face: 0
+      x: 9
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 215
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 216
+    Kind: 3
+    Cell:
+      face: 0
+      x: 11
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 217
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 218
+    Kind: 3
+    Cell:
+      face: 0
+      x: 14
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 219
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 220
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 221
+    Kind: 3
+    Cell:
+      face: 0
+      x: 11
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 222
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 223
+    Kind: 3
+    Cell:
+      face: 0
+      x: 14
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 224
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 225
+    Kind: 3
+    Cell:
+      face: 0
+      x: 5
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 226
+    Kind: 3
+    Cell:
+      face: 0
+      x: 6
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 227
+    Kind: 3
+    Cell:
+      face: 0
+      x: 14
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 228
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 229
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 230
+    Kind: 3
+    Cell:
+      face: 0
+      x: 13
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 231
+    Kind: 3
+    Cell:
+      face: 0
+      x: 14
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 232
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 233
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 234
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 235
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 236
+    Kind: 3
+    Cell:
+      face: 0
+      x: 2
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 237
+    Kind: 3
+    Cell:
+      face: 0
+      x: 3
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 238
+    Kind: 3
+    Cell:
+      face: 0
+      x: 4
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 239
+    Kind: 3
+    Cell:
+      face: 0
+      x: 5
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 240
+    Kind: 3
+    Cell:
+      face: 0
+      x: 6
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 241
+    Kind: 3
+    Cell:
+      face: 0
+      x: 7
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 242
+    Kind: 3
+    Cell:
+      face: 0
+      x: 8
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 243
+    Kind: 3
+    Cell:
+      face: 0
+      x: 9
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 244
+    Kind: 3
+    Cell:
+      face: 0
+      x: 10
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 245
+    Kind: 3
+    Cell:
+      face: 0
+      x: 11
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 246
+    Kind: 3
+    Cell:
+      face: 0
+      x: 12
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 247
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 248
+    Kind: 3
+    Cell:
+      face: 1
+      x: 4
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 249
+    Kind: 3
+    Cell:
+      face: 1
       x: 5
       y: 7
     Facing: 0
     Hp: 1
-    BoxCapabilities: 10
+    BoxCapabilities: 0
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
-  enemySpawns: []
-  wallSpawns: []
+    PresentationId: wall_tutorial
+  - EntityId: 250
+    Kind: 3
+    Cell:
+      face: 1
+      x: 6
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 251
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 252
+    Kind: 3
+    Cell:
+      face: 1
+      x: 8
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 253
+    Kind: 3
+    Cell:
+      face: 1
+      x: 9
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 254
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 255
+    Kind: 3
+    Cell:
+      face: 1
+      x: 11
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 256
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 257
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 258
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 259
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 260
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 261
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 262
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 263
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 264
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 265
+    Kind: 3
+    Cell:
+      face: 1
+      x: 13
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 266
+    Kind: 3
+    Cell:
+      face: 1
+      x: 14
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 267
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 268
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 269
+    Kind: 3
+    Cell:
+      face: 1
+      x: 11
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 270
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 271
+    Kind: 3
+    Cell:
+      face: 1
+      x: 14
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 272
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 273
+    Kind: 3
+    Cell:
+      face: 1
+      x: 5
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 274
+    Kind: 3
+    Cell:
+      face: 1
+      x: 6
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 275
+    Kind: 3
+    Cell:
+      face: 1
+      x: 9
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 276
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 277
+    Kind: 3
+    Cell:
+      face: 1
+      x: 14
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 278
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 279
+    Kind: 3
+    Cell:
+      face: 1
+      x: 5
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 280
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 281
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 282
+    Kind: 3
+    Cell:
+      face: 1
+      x: 14
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 283
+    Kind: 3
+    Cell:
+      face: 1
+      x: 2
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 284
+    Kind: 3
+    Cell:
+      face: 1
+      x: 3
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 285
+    Kind: 3
+    Cell:
+      face: 1
+      x: 5
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 286
+    Kind: 3
+    Cell:
+      face: 1
+      x: 7
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 287
+    Kind: 3
+    Cell:
+      face: 1
+      x: 8
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 288
+    Kind: 3
+    Cell:
+      face: 1
+      x: 10
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 289
+    Kind: 3
+    Cell:
+      face: 1
+      x: 12
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 290
+    Kind: 3
+    Cell:
+      face: 1
+      x: 14
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 291
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 292
+    Kind: 3
+    Cell:
+      face: 2
+      x: 3
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 293
+    Kind: 3
+    Cell:
+      face: 2
+      x: 4
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 294
+    Kind: 3
+    Cell:
+      face: 2
+      x: 5
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 295
+    Kind: 3
+    Cell:
+      face: 2
+      x: 6
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 296
+    Kind: 3
+    Cell:
+      face: 2
+      x: 8
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 297
+    Kind: 3
+    Cell:
+      face: 2
+      x: 9
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 298
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 299
+    Kind: 3
+    Cell:
+      face: 2
+      x: 11
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 300
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 301
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 302
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 303
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 304
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 305
+    Kind: 3
+    Cell:
+      face: 2
+      x: 5
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 306
+    Kind: 3
+    Cell:
+      face: 2
+      x: 6
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 307
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 308
+    Kind: 3
+    Cell:
+      face: 2
+      x: 8
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 309
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 310
+    Kind: 3
+    Cell:
+      face: 2
+      x: 0
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 311
+    Kind: 3
+    Cell:
+      face: 2
+      x: 1
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 312
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 313
+    Kind: 3
+    Cell:
+      face: 2
+      x: 8
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 314
+    Kind: 3
+    Cell:
+      face: 2
+      x: 9
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 315
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 316
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 317
+    Kind: 3
+    Cell:
+      face: 2
+      x: 5
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 318
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 319
+    Kind: 3
+    Cell:
+      face: 2
+      x: 8
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 320
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 321
+    Kind: 3
+    Cell:
+      face: 2
+      x: 0
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 322
+    Kind: 3
+    Cell:
+      face: 2
+      x: 1
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 323
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 324
+    Kind: 3
+    Cell:
+      face: 2
+      x: 5
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 325
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 326
+    Kind: 3
+    Cell:
+      face: 2
+      x: 8
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 327
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 328
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 329
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 330
+    Kind: 3
+    Cell:
+      face: 2
+      x: 4
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 331
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 332
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 333
+    Kind: 3
+    Cell:
+      face: 2
+      x: 2
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 334
+    Kind: 3
+    Cell:
+      face: 2
+      x: 4
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 335
+    Kind: 3
+    Cell:
+      face: 2
+      x: 5
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 336
+    Kind: 3
+    Cell:
+      face: 2
+      x: 6
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 337
+    Kind: 3
+    Cell:
+      face: 2
+      x: 7
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 338
+    Kind: 3
+    Cell:
+      face: 2
+      x: 8
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 339
+    Kind: 3
+    Cell:
+      face: 2
+      x: 9
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 340
+    Kind: 3
+    Cell:
+      face: 2
+      x: 10
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 341
+    Kind: 3
+    Cell:
+      face: 2
+      x: 11
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 342
+    Kind: 3
+    Cell:
+      face: 2
+      x: 12
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 343
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 344
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 7
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 345
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 346
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 6
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 347
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 348
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 5
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 349
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 350
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 4
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 351
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 352
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 3
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 353
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 354
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 2
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 355
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 356
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 1
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 357
+    Kind: 3
+    Cell:
+      face: 3
+      x: 6
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial
+  - EntityId: 358
+    Kind: 3
+    Cell:
+      face: 3
+      x: 8
+      y: 0
+    Facing: 0
+    Hp: 1
+    BoxCapabilities: 0
+    EnemyAiMode: 0
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 0}
+    PresentationId: wall_tutorial

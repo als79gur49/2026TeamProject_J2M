@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44d7d8cbbd6d9e64f86fa0dfb85c7bd2, type: 3}
+  m_Name: StaticPresentationCatalog_TutorialScene
+  m_EditorClassIdentifier: Game.Feature.Gameplay::Game.Feature.Gameplay.Host.StaticEntityPresentationCatalog
+  entries:
+  - PresentationId: box_tutorial
+    ViewPrefab: {fileID: 1140000000000000000, guid: 4e2740ff1d0645f29c6e70f6d0efaf01, type: 3}
+  - PresentationId: wall_tutorial
+    ViewPrefab: {fileID: 1140000000000000010, guid: d88a1ebaf3e2422e9fe1cb9c438a0bc4, type: 3}
