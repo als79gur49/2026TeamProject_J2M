@@ -1093,6 +1093,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             group.DelayedAttacks.Add(new DelayedAttackAction(30, 1));
 
             var queue = new DelayedAttackEffectQueue();
+            var damageResolutions = new List<DamageResolutionRecord>();
             var commitEvents = new List<string>();
             var delayedAttackEnqueueEvents = new List<string>();
 
@@ -1102,6 +1103,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 7,
                 queue,
                 new[] { group },
+                damageResolutions,
                 commitEvents,
                 delayedAttackEnqueueEvents);
 
@@ -1150,6 +1152,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             group.DelayedAttacks.Add(new DelayedAttackAction(30, 1));
 
             var queue = new DelayedAttackEffectQueue();
+            var damageResolutions = new List<DamageResolutionRecord> { default };
             var commitEvents = new List<string> { "StaleCommitEvent" };
             var delayedAttackEnqueueEvents = new List<string> { "StaleDelayedEvent" };
 
@@ -1159,6 +1162,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 tickIndex: 7,
                 queue,
                 new[] { group },
+                damageResolutions,
                 commitEvents,
                 delayedAttackEnqueueEvents);
 
@@ -1174,6 +1178,61 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "DelayedAttackEnqueued|G=1|I=1|Source=10|Target=30|Damage=1|ExecuteTick=8|Sequence=1",
                 },
                 delayedAttackEnqueueEvents);
+        }
+
+        [Test]
+        public void ContactDamage_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
+            });
+            var playerTiming = CreatePlayerControlTimingSnapshot(damageCooldownTicks: 1);
+            var attackLogic = new StubCombatLogic(
+                controlledEntityId: 40,
+                attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 10, 5));
+
+            var firstTick = RunAttackPhaseOnly(worldState, new[] { attackLogic }, tickIndex: 1, playerControlTiming: playerTiming);
+            var secondTick = RunAttackPhaseOnly(worldState, new[] { attackLogic }, tickIndex: 2, playerControlTiming: playerTiming);
+            var thirdTick = RunAttackPhaseOnly(worldState, new[] { attackLogic }, tickIndex: 3, playerControlTiming: playerTiming);
+
+            Assert.That(firstTick.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(secondTick.DamageResolutions.Single().Accepted, Is.False);
+            Assert.That(secondTick.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+            Assert.That(thirdTick.DamageResolutions.Single().Accepted, Is.True);
+            Assert.That(GetEntityHp(CreateSnapshot(worldState), 10), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
+            });
+            var playerTiming = CreatePlayerControlTimingSnapshot(damageCooldownTicks: 1);
+
+            var result = RunAttackPhaseOnly(
+                worldState,
+                new IAttackEntityLogic[]
+                {
+                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 10, 5)),
+                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 50, 10, 5)),
+                },
+                tickIndex: 1,
+                playerControlTiming: playerTiming);
+
+            var accepted = result.DamageResolutions.Where(record => record.Accepted).ToArray();
+            var rejected = result.DamageResolutions.Where(record => !record.Accepted).ToArray();
+
+            Assert.That(accepted.Length, Is.EqualTo(1));
+            Assert.That(rejected.Length, Is.EqualTo(1));
+            Assert.That(accepted[0].SourceId, Is.EqualTo(40));
+            Assert.That(rejected[0].SourceId, Is.EqualTo(50));
+            Assert.That(rejected[0].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
         }
 
         private static (TickResult Result, WorldSnapshot SnapshotAfter, string OccupancyAfter) RunFatalAttackTick()
@@ -1201,7 +1260,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             WorldState worldState,
             IReadOnlyList<IAttackEntityLogic> entityLogics,
             int tickIndex,
-            TickInput input = default)
+            TickInput input = default,
+            PlayerControlTimingAuthoritativeSnapshot? playerControlTiming = null)
         {
             var snapshot = SnapshotBuilder.Create(worldState);
             var rawAttackIntents = new List<RawAttackIntent>();
@@ -1233,23 +1293,28 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             new AttackResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
             FinalizeAttackSpawns(selectedGroups, idAllocator, entityIdAllocator);
 
+            var damageResolutions = new List<DamageResolutionRecord>();
             var commitEvents = new List<string>();
             var delayedAttackEnqueueEvents = new List<string>();
-            new AttackCommitter().Commit(
+            new AttackCommitter(playerControlTiming ?? CreateDefaultPlayerControlTimingSnapshot()).Commit(
                 snapshot,
                 worldState.CreateWriteContext(),
                 tickIndex,
                 new DelayedAttackEffectQueue(),
                 selectedGroups,
+                damageResolutions,
                 commitEvents,
                 delayedAttackEnqueueEvents);
 
             return new AttackPhaseResult(
                 rawAttackIntents,
                 drainedImpactReservations,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                damageResolutions,
                 sortedInputs,
                 expandedCandidates,
                 selectedGroups,
+                commitEvents,
                 commitEvents,
                 rejectedReasons);
         }
@@ -1449,6 +1514,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var generalTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
             return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                generalTimingProfile.SimulationTicksPerSecond,
+                generalTimingProfile.RepeatedMoveIntervalSeconds);
+        }
+
+        private static PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot(
+            int damageCooldownTicks,
+            GameplayTimingProfile timingProfile = null)
+        {
+            var generalTimingProfile = timingProfile ?? GameplayTimingProfile.CreateDefault();
+            return new PlayerControlTimingSettings
+            {
+                DamageCooldownSeconds = damageCooldownTicks / (float)generalTimingProfile.SimulationTicksPerSecond,
+            }.CreateAuthoritativeSnapshot(
                 generalTimingProfile.SimulationTicksPerSecond,
                 generalTimingProfile.RepeatedMoveIntervalSeconds);
         }

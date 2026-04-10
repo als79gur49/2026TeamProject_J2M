@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         result.Trace.Text,
                         BuildFinalEntitiesDump(result.FinalEntities),
                         BuildPlayerControlDump(result.Trace.Text),
+                        BuildPlayerDamageDump(result.Trace.Text),
                         BuildEnemyActionDump(result.Trace.Text),
                         BuildOccupancyDump(result.Trace.Text),
                         BuildMarkedForDeathDump(result.FinalEntities),
@@ -115,6 +116,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private static string BuildEnemyActionDump(string trace)
         {
             return ExtractSection(trace, "Final.EnemyActions");
+        }
+
+        private static string BuildPlayerDamageDump(string trace)
+        {
+            return ExtractSection(trace, "Final.PlayerDamage");
         }
 
         private static string BuildMarkedForDeathDump(IReadOnlyList<EntityState> finalEntities)
@@ -222,6 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             string trace,
             string finalEntitiesDump,
             string playerControlDump,
+            string playerDamageDump,
             string enemyActionDump,
             string occupancyDump,
             string markedForDeathDump,
@@ -232,6 +239,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Trace = trace;
             FinalEntitiesDump = finalEntitiesDump;
             PlayerControlDump = playerControlDump;
+            PlayerDamageDump = playerDamageDump;
             EnemyActionDump = enemyActionDump;
             OccupancyDump = occupancyDump;
             MarkedForDeathDump = markedForDeathDump;
@@ -247,6 +255,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public string FinalEntitiesDump { get; }
 
         public string PlayerControlDump { get; }
+
+        public string PlayerDamageDump { get; }
 
         public string EnemyActionDump { get; }
 

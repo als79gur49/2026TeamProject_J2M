@@ -995,6 +995,161 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplayTickPresentationCoordinator_PlayerAcceptedHit_WithHitVfxPrefab_SpawnsTransientHitEffect()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerAcceptedHit_WithHitVfxPrefab_SpawnsTransientHitEffect");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayTickPresentationCoordinator_PlayerAcceptedHit_PlayerPrefab");
+            var hitVfxPrefab = new GameObject("GameplayTickPresentationCoordinator_PlayerAcceptedHit_HitVfxPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitVfxPrefab", hitVfxPrefab);
+                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
+
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab: playerViewPrefab));
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, playerCell),
+                    },
+                    topology);
+
+                presenter.Present(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        CleanupPhaseResult.Empty,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, playerCell, hp: 2),
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                            },
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty));
+
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(0.21f);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hitVfxPrefab);
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathTick_SuppressesHitVfx");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("GameplayTickPresentationCoordinator_PlayerDeathTick_PlayerPrefab");
+            var hitVfxPrefab = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathTick_HitVfxPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = GameplayTimingProfile.CreateDefault();
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var effectAuthoring = playerViewPrefab.gameObject.AddComponent<EntityEffectPresentationAuthoring>();
+                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitVfxPrefab", hitVfxPrefab);
+                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "hitEffectDurationSeconds", 0.2f);
+
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab: playerViewPrefab));
+
+                presenter.Initialize(binder, boardBounds, topology, 1f, timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, playerCell),
+                    },
+                    topology);
+
+                presenter.Present(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, playerCell, topology, Direction.Right),
+                            },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                            },
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty));
+
+                Assert.That(presenter.ActiveTransientEffectCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hitVfxPrefab);
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayTickViewPresenter_PlayerActionHold_KeepsEntityMotionPhaseUntilHoldCompletes()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PlayerActionHold_KeepsEntityMotionPhaseUntilHoldCompletes");
@@ -2056,13 +2211,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return entity;
         }
 
-        private static EntityState CreatePlayerUnit(int entityId, SurfaceCell position)
+        private static EntityState CreatePlayerUnit(int entityId, SurfaceCell position, int hp = 3)
         {
             return new EntityState
             {
                 entityId = entityId,
                 position = position,
-                hp = 3,
+                hp = hp,
                 maxHp = 3,
                 teamId = 1,
                 type = EntityType.Unit,

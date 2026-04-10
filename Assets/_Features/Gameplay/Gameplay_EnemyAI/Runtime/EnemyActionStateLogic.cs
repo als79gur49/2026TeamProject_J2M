@@ -117,39 +117,47 @@ namespace Game.Feature.Gameplay.Entities
             IEnemyActionCommitContext writeContext,
             int tickIndex)
         {
+            var workingAction = previousAction;
+            if (UsesReceiverOwnedContactCadence() &&
+                workingAction.IsActive &&
+                workingAction.executionAttempted)
+            {
+                workingAction = EnemyActionQueries.Clear(workingAction);
+            }
+
             if (source.hp <= 0 ||
                 source.markedForDeath ||
                 source.aiMode == EnemyAiMode.Dead)
             {
-                return EnemyActionQueries.Clear(previousAction);
+                return EnemyActionQueries.Clear(workingAction);
             }
 
             if (source.aiMode != EnemyAiMode.Attack)
             {
-                return EnemyActionQueries.Clear(previousAction);
+                return EnemyActionQueries.Clear(workingAction);
             }
 
-            if (previousAction.IsActive)
+            if (workingAction.IsActive)
             {
                 if (EnemyActionStateTargeting.TryResolveLockedTarget(
                         snapshot,
                         source,
-                        previousAction,
+                        workingAction,
                         _combatCapability.AttackDecisionStrategy,
                         _detectionSettings,
                         _combatCapability.AttackDecisionSettings,
                         out _))
                 {
-                    if (source.facing != previousAction.direction)
+                    if (source.facing != workingAction.direction)
                     {
-                        writeContext.SetFacing(_entityId, previousAction.direction);
+                        writeContext.SetFacing(_entityId, workingAction.direction);
                     }
 
-                    return previousAction;
+                    return workingAction;
                 }
 
                 ApplyCancelFallback(snapshot, source, writeContext);
-                return EnemyActionQueries.Clear(previousAction);
+                return EnemyActionQueries.Clear(workingAction);
             }
 
             if (!EnemyActionStateTargeting.TryResolveStartAction(
@@ -168,11 +176,11 @@ namespace Game.Feature.Gameplay.Entities
 
             if (!snapshot.CanStartAction(_entityId, tickIndex))
             {
-                return previousAction;
+                return workingAction;
             }
 
             var nextAction = EnemyActionQueries.StartAction(
-                previousAction,
+                workingAction,
                 EnemyActionKind.Melee,
                 target.entityId,
                 direction,
@@ -221,6 +229,13 @@ namespace Game.Feature.Gameplay.Entities
                 writeContext.ApplyEnemyAiState(_entityId, fallbackMode, 0);
             }
         }
+
+        private bool UsesReceiverOwnedContactCadence()
+        {
+            return _combatCapability != null &&
+                   _combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
+        }
+
         private static bool ShouldWriteActionState(
             bool hadPreviousAction,
             in EnemyActionRuntimeState previousAction,

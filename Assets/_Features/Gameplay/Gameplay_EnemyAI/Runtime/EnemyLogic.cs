@@ -759,7 +759,7 @@ namespace Game.Feature.Gameplay.Entities
                     return ResolveBeforeAttack(snapshot, source, detectionStrategy, combatCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
-                    return ResolveAfterAttack(snapshot, source, commonSettings);
+                    return ResolveAfterAttack(snapshot, source, combatCapability, commonSettings);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage.");
@@ -840,6 +840,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveAfterAttack(
             WorldSnapshot snapshot,
             in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings)
         {
             if (source.aiMode != EnemyAiMode.Attack)
@@ -852,6 +853,11 @@ namespace Game.Feature.Gameplay.Entities
                 !actionState.executionAttempted)
             {
                 return Keep(source, "NoAfterAttackTransition");
+            }
+
+            if (UsesReceiverOwnedContactCadence(combatCapability))
+            {
+                return Keep(source, "ReceiverOwnedContactCadence");
             }
 
             return new EnemyAiTransitionDecision(
@@ -909,6 +915,12 @@ namespace Game.Feature.Gameplay.Entities
         {
             return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, reason);
         }
+
+        private static bool UsesReceiverOwnedContactCadence(EnemyCombatCapabilityRuntime combatCapability)
+        {
+            return combatCapability != null &&
+                   combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
+        }
     }
 
     public sealed class ChargingEnemyAiStateResolver : IEnemyAiStateResolver
@@ -955,7 +967,7 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability,
                     commonSettings,
                     detectionSettings),
-                EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, commonSettings),
+                EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, combatCapability, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
             };
         }
@@ -963,6 +975,7 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveAfterAttack(
             WorldSnapshot snapshot,
             in EntityState source,
+            EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings)
         {
             if (source.aiMode != EnemyAiMode.Attack)
@@ -977,7 +990,18 @@ namespace Game.Feature.Gameplay.Entities
                 return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoAfterAttackTransition");
             }
 
+            if (UsesReceiverOwnedContactCadence(combatCapability))
+            {
+                return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "ReceiverOwnedContactCadence");
+            }
+
             return new EnemyAiTransitionDecision(EnemyAiMode.Recover, commonSettings.RecoverTicks, "AttackCommitted");
+        }
+
+        private static bool UsesReceiverOwnedContactCadence(EnemyCombatCapabilityRuntime combatCapability)
+        {
+            return combatCapability != null &&
+                   combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
         }
 
         private static EnemyAiTransitionDecision ResolveBeforeMovement(

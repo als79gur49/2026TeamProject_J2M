@@ -544,6 +544,77 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void PlayerViewPresentationMapper_AcceptedDamageSignal_SetsTookDamageThisTick()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_AcceptedDamageSignal_SetsTookDamageThisTick");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var mapper = new PlayerViewPresentationMapper();
+                var buffer = new Dictionary<int, PlayerViewPresentationState>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                mapper.Build(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        CleanupPhaseResult.Empty,
+                        new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = sourceCell,
+                                hp = 2,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                unitRole = UnitRole.Player,
+                                facing = Direction.Right,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                            },
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    buffer);
+
+                Assert.That(buffer.ContainsKey(10), Is.True);
+                Assert.That(buffer[10].DidDie, Is.False);
+                Assert.That(buffer[10].TookDamageThisTick, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk");
@@ -551,6 +622,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
                 var topology = new CubeTopologyState(FaceId.Floor);
                 var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
                 var viewsByEntityId = new Dictionary<int, GameplayEntityView>
@@ -598,6 +670,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     moveMotionGeneratedThisTick: true,
                                     waitingForNextMoveCadence: false),
                             },
+                            new[]
+                            {
+                                new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                            },
                             Array.Empty<TickEnemyActionPresentationSignal>(),
                             Array.Empty<TickEnemyJumpPresentationSignal>(),
                             Array.Empty<TickEntityExitPresentationSignal>()),
@@ -609,6 +685,82 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     coordinator.ResolvePlayerAnimationState(10, shouldPlayWalkLoop: true, hasActiveWalkMotion: true),
                     Is.EqualTo(PlayerViewAnimationState.Death));
+                Assert.That(driver.HitSignalCount, Is.Zero);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayAnimationSyncCoordinator_PlayerHitSignal_TriggersAnimatorWithoutChangingBaseState()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerHitSignal_TriggersAnimatorWithoutChangingBaseState");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                coordinator.ApplyTickPresentation(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        CleanupPhaseResult.Empty,
+                        new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = sourceCell,
+                                hp = 2,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                unitRole = UnitRole.Player,
+                                facing = Direction.Right,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerDamagePresentationSignal(10, tookDamageThisTick: true, damageAmount: 1),
+                            },
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    (_, _) => 0f);
+
+                var resolvedState = coordinator.ResolvePlayerAnimationState(10, shouldPlayWalkLoop: false, hasActiveWalkMotion: false);
+                coordinator.SyncPlayerRuntimeState(10, isVisible: true, resolvedState, 0f, viewsByEntityId);
+
+                Assert.That(driver.HitSignalCount, Is.EqualTo(1));
+                Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Idle));
             }
             finally
             {

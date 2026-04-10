@@ -48,6 +48,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_final_entities.txt"), BuildFinalEntitiesDump(artifact, firstRun: false));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_player_control.txt"), BuildPlayerControlDump(artifact, firstRun: true));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_player_control.txt"), BuildPlayerControlDump(artifact, firstRun: false));
+            File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_player_damage.txt"), BuildPlayerDamageDump(artifact, firstRun: true));
+            File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_player_damage.txt"), BuildPlayerDamageDump(artifact, firstRun: false));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_enemy_actions.txt"), BuildEnemyActionDump(artifact, firstRun: true));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "second_run_enemy_actions.txt"), BuildEnemyActionDump(artifact, firstRun: false));
             File.WriteAllText(Path.Combine(artifactDirectoryPath, "first_run_occupancy.txt"), BuildOccupancyDump(artifact, firstRun: true));
@@ -195,6 +197,20 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
 
             return artifact.TryGetSecondRunDivergentFrame(out var secondFrame)
                 ? EnsureTextDump(secondFrame.PlayerControlDump)
+                : "<missing>\n";
+        }
+
+        private static string BuildPlayerDamageDump(ReplayDivergenceArtifact artifact, bool firstRun)
+        {
+            if (firstRun)
+            {
+                return artifact.TryGetFirstRunDivergentFrame(out var frame)
+                    ? EnsureTextDump(frame.PlayerDamageDump)
+                    : "<missing>\n";
+            }
+
+            return artifact.TryGetSecondRunDivergentFrame(out var secondFrame)
+                ? EnsureTextDump(secondFrame.PlayerDamageDump)
                 : "<missing>\n";
         }
 

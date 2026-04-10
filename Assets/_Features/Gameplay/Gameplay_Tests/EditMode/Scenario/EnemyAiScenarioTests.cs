@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.Attack.Collection;
@@ -1376,15 +1377,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         .SortedInputs
                         .Select(intent => (intent.SourceId, intent.TargetId))
                         .ToArray());
-                Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
                 Assert.That(player.hp, Is.EqualTo(2));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-                Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+                Assert.That(enemy.aiStateTimer, Is.EqualTo(0));
 
                 snapshotAfter.EnumerateUnitsAt(new Vector2Int(0, 0), stackedUnits);
                 CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
                 Assert.That(result.Trace.Text, Does.Contain("Reason=TargetInRange"));
+                Assert.That(result.Trace.Text, Does.Contain("Attack.DamageResolutions"));
             }
             finally
             {
@@ -1422,11 +1424,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         .SortedInputs
                         .Select(intent => (intent.SourceId, intent.TargetId))
                         .ToArray());
-                Assert.That(result.AttackPhaseResult.CommitEvents.Count(evt => evt.Contains("DamageCommitted")), Is.EqualTo(1));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(stackedCell));
                 Assert.That(player.hp, Is.EqualTo(2));
-                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));
-                Assert.That(enemy.aiStateTimer, Is.EqualTo(1));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));
+                Assert.That(enemy.aiStateTimer, Is.EqualTo(0));
 
                 snapshotAfter.EnumerateUnitsAt(stackedCell, stackedUnits);
                 CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
@@ -1435,6 +1437,164 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             finally
             {
                 DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_ContactDamageProfile_PlayerOwnedCooldownWhileStacked_OnlyAcceptsAtReceiverCadence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var fourthTick = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+                Assert.That(firstTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+                Assert.That(thirdTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(fourthTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
+                Assert.That(firstTick.PresentationData.PlayerDamageSignals.Count, Is.EqualTo(1));
+                Assert.That(secondTick.PresentationData.PlayerDamageSignals, Is.Empty);
+                Assert.That(thirdTick.PresentationData.PlayerDamageSignals.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_ContactDamageProfile_TwoEnemiesSameCellSameTick_OnlyFirstDeterministicHitIsAccepted()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var result = pipeline.RunTick(new TickInput(1));
+                var accepted = result.AttackPhaseResult.DamageResolutions.Where(record => record.Accepted).ToArray();
+                var rejected = result.AttackPhaseResult.DamageResolutions.Where(record => !record.Accepted).ToArray();
+
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
+                Assert.That(accepted.Length, Is.EqualTo(1));
+                Assert.That(rejected.Length, Is.EqualTo(1));
+                Assert.That(accepted[0].SourceId, Is.EqualTo(40));
+                Assert.That(rejected[0].SourceId, Is.EqualTo(50));
+                Assert.That(rejected[0].RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+                Assert.That(result.PresentationData.PlayerDamageSignals.Count, Is.EqualTo(1));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_ContactDamageProfile_CooldownExpiryWhileStillStacked_ReacceptsExactlyOneHit()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+            });
+            var profile = CreateContactDamageProfile();
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+
+                pipeline.RunTick(new TickInput(1));
+                var cooldownTick = pipeline.RunTick(new TickInput(2));
+                var expiryTick = pipeline.RunTick(new TickInput(3));
+
+                Assert.That(cooldownTick.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(0));
+                Assert.That(expiryTick.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
+                Assert.That(expiryTick.AttackPhaseResult.DamageResolutions.Count(record => !record.Accepted), Is.EqualTo(1));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        public void EnemyAi_ContactDamageProfile_RecoverTicks_NoLongerControlContactCadence_ButRegularMeleeStillUsesRecover()
+        {
+            var fastContactProfile = CreateContactDamageProfile(recoverTicks: 0);
+            var slowContactProfile = CreateContactDamageProfile(recoverTicks: 5);
+            var fastMeleeProfile = CreateDefaultMeleeProfile(recoverTicks: 0);
+            var slowMeleeProfile = CreateDefaultMeleeProfile(recoverTicks: 5);
+
+            try
+            {
+                var contactFastWorld = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                });
+                var contactSlowWorld = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                });
+                var fastContactPipeline = CreateEnemyPipeline(contactFastWorld, fastContactProfile, playerDamageCooldownTicks: 1);
+                var slowContactPipeline = CreateEnemyPipeline(contactSlowWorld, slowContactProfile, playerDamageCooldownTicks: 1);
+
+                for (var tick = 1; tick <= 3; tick++)
+                {
+                    fastContactPipeline.RunTick(new TickInput(tick));
+                    slowContactPipeline.RunTick(new TickInput(tick));
+                }
+
+                Assert.That(GetEntity(contactFastWorld, 10).hp, Is.EqualTo(GetEntity(contactSlowWorld, 10).hp));
+
+                var fastMeleeWorld = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                });
+                var slowMeleeWorld = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                });
+                var fastMeleePipeline = GameplayCompositionRoot.CreateTickPipeline(fastMeleeWorld, fastMeleeProfile);
+                var slowMeleePipeline = GameplayCompositionRoot.CreateTickPipeline(slowMeleeWorld, slowMeleeProfile);
+
+                for (var tick = 1; tick <= 3; tick++)
+                {
+                    fastMeleePipeline.RunTick(new TickInput(tick));
+                    slowMeleePipeline.RunTick(new TickInput(tick));
+                }
+
+                Assert.That(GetEntity(fastMeleeWorld, 10).hp, Is.LessThan(GetEntity(slowMeleeWorld, 10).hp));
+            }
+            finally
+            {
+                DestroyProfile(fastContactProfile);
+                DestroyProfile(slowContactProfile);
+                DestroyProfile(fastMeleeProfile);
+                DestroyProfile(slowMeleeProfile);
             }
         }
 
@@ -1627,9 +1787,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
         }
 
-        private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0)
+        private static EnemyAiProfile CreateDefaultMeleeProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
-            return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateDefaultMelee(
+                windupTicks: 0,
+                moveCooldownTicks: moveCooldownTicks,
+                recoverTicks: recoverTicks);
+        }
+
+        private static EnemyAiProfile CreateContactDamageProfile(int moveCooldownTicks = 0, int recoverTicks = 1)
+        {
+            return EnemyAiProfileTestFactory.CreateContactDamage(moveCooldownTicks, recoverTicks);
+        }
+
+        private static TickPipeline CreateEnemyPipeline(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            int playerDamageCooldownTicks)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = new PlayerControlTimingSettings
+            {
+                DamageCooldownSeconds = playerDamageCooldownTicks / (float)timingProfile.SimulationTicksPerSecond,
+            }.CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerTiming);
         }
 
         private static EnemyAiProfile CreateJumpChaserProfile(

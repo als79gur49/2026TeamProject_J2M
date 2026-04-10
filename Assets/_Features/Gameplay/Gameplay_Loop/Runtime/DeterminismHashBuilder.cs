@@ -52,6 +52,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("PlayerControl").Append('\n');
             AppendPlayerControlLines(builder, GetOrderedPlayerControlStates(finalSnapshot));
 
+            builder.Append("PlayerDamage").Append('\n');
+            AppendPlayerDamageLines(builder, GetOrderedPlayerDamageStates(finalSnapshot));
+
             builder.Append("EnemyActions").Append('\n');
             AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
@@ -150,6 +153,13 @@ namespace Game.Feature.Gameplay.Loop
             var playerControlEntries = new List<PlayerControlSnapshotEntry>();
             finalSnapshot.EnumeratePlayerControlStatesOrdered(playerControlEntries);
             return playerControlEntries;
+        }
+
+        private static List<PlayerDamageSnapshotEntry> GetOrderedPlayerDamageStates(WorldSnapshot finalSnapshot)
+        {
+            var playerDamageEntries = new List<PlayerDamageSnapshotEntry>();
+            finalSnapshot.EnumeratePlayerDamageStatesOrdered(playerDamageEntries);
+            return playerDamageEntries;
         }
 
         private static List<EnemyActionSnapshotEntry> GetOrderedEnemyActionStates(WorldSnapshot finalSnapshot)
@@ -256,6 +266,25 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.activeAction.executeTick).Append('|')
                     .Append(entry.State.activeAction.recoveryEndTick).Append('|')
                     .Append(entry.State.activeAction.executionAttempted ? 1 : 0).Append('\n');
+            }
+        }
+
+        private static void AppendPlayerDamageLines(
+            StringBuilder builder,
+            IReadOnlyList<PlayerDamageSnapshotEntry> playerDamageEntries)
+        {
+            if (playerDamageEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < playerDamageEntries.Count; i++)
+            {
+                var entry = playerDamageEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(entry.State.nextDamageAllowedTick).Append('\n');
             }
         }
 

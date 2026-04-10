@@ -98,6 +98,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetPlayerControlState(entityId, state);
         }
 
+        public void SetPlayerDamageState(int entityId, PlayerDamageState state)
+        {
+            _port.SetPlayerDamageState(entityId, state);
+        }
+
         public void SetTopology(CubeTopologyState topology)
         {
             _port.SetTopology(topology);

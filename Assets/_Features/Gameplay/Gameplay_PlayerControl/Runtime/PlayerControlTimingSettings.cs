@@ -9,6 +9,8 @@ namespace Game.Feature.Gameplay.PlayerControl
         public PlayerControlTimingAuthoritativeSnapshot(
             float moveCooldownSeconds,
             int moveCooldownTicks,
+            float damageCooldownSeconds,
+            int damageCooldownTicks,
             float pushContactThresholdSeconds,
             int pushContactThresholdTicks,
             float pushExecuteDelaySeconds,
@@ -26,6 +28,8 @@ namespace Game.Feature.Gameplay.PlayerControl
         {
             MoveCooldownSeconds = moveCooldownSeconds;
             MoveCooldownTicks = moveCooldownTicks;
+            DamageCooldownSeconds = damageCooldownSeconds;
+            DamageCooldownTicks = damageCooldownTicks;
             PushContactThresholdSeconds = pushContactThresholdSeconds;
             PushContactThresholdTicks = pushContactThresholdTicks;
             PushExecuteDelaySeconds = pushExecuteDelaySeconds;
@@ -45,6 +49,10 @@ namespace Game.Feature.Gameplay.PlayerControl
         public float MoveCooldownSeconds { get; }
 
         public int MoveCooldownTicks { get; }
+
+        public float DamageCooldownSeconds { get; }
+
+        public int DamageCooldownTicks { get; }
 
         public float PushContactThresholdSeconds { get; }
 
@@ -92,8 +100,11 @@ namespace Game.Feature.Gameplay.PlayerControl
             DefaultFlipExecuteDelayTicksAtDefaultSimulationRate / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         public const float DefaultFlipInputLockDurationSeconds =
             DefaultFlipInputLockDurationTicksAtDefaultSimulationRate / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
+        public const float DefaultDamageCooldownSeconds =
+            1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond;
 
         public float MoveCooldownSeconds = -1f;
+        public float DamageCooldownSeconds = DefaultDamageCooldownSeconds;
         public float PushContactThresholdSeconds = -1f;
         public float PushExecuteDelaySeconds = DefaultPushExecuteDelaySeconds;
         public float PushInputLockDurationSeconds = DefaultPushInputLockDurationSeconds;
@@ -110,6 +121,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             return new PlayerControlTimingSettings
             {
                 MoveCooldownSeconds = MoveCooldownSeconds,
+                DamageCooldownSeconds = DamageCooldownSeconds,
                 PushContactThresholdSeconds = PushContactThresholdSeconds,
                 PushExecuteDelaySeconds = PushExecuteDelaySeconds,
                 PushInputLockDurationSeconds = PushInputLockDurationSeconds,
@@ -128,6 +140,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             var moveCooldownSeconds = ResolveMoveCooldownSeconds(repeatedMoveIntervalSeconds);
+            var damageCooldownSeconds = ResolveDamageCooldownSeconds();
             var pushContactThresholdSeconds = ResolvePushContactThresholdSeconds();
 
             if (moveCooldownSeconds < 0f)
@@ -135,6 +148,13 @@ namespace Game.Feature.Gameplay.PlayerControl
                 throw new ArgumentOutOfRangeException(
                     nameof(MoveCooldownSeconds),
                     "Move cooldown must be zero or greater.");
+            }
+
+            if (damageCooldownSeconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(DamageCooldownSeconds),
+                    "Damage cooldown must be zero or greater.");
             }
 
             if (pushContactThresholdSeconds < 0f)
@@ -170,9 +190,14 @@ namespace Game.Feature.Gameplay.PlayerControl
             Validate(repeatedMoveIntervalSeconds);
 
             var moveCooldownSeconds = ResolveMoveCooldownSeconds(repeatedMoveIntervalSeconds);
+            var damageCooldownSeconds = ResolveDamageCooldownSeconds();
             var pushContactThresholdSeconds = ResolvePushContactThresholdSeconds();
             var moveCooldownTicks = GameplayTimingProfile.SecondsToTicks(
                 moveCooldownSeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
+            var damageCooldownTicks = GameplayTimingProfile.SecondsToTicks(
+                damageCooldownSeconds,
                 simulationTicksPerSecond,
                 allowZero: true);
             var pushContactThresholdTicks = GameplayTimingProfile.SecondsToTicks(
@@ -196,6 +221,8 @@ namespace Game.Feature.Gameplay.PlayerControl
             return new PlayerControlTimingAuthoritativeSnapshot(
                 moveCooldownSeconds,
                 moveCooldownTicks,
+                damageCooldownSeconds,
+                damageCooldownTicks,
                 pushContactThresholdSeconds,
                 pushContactThresholdTicks,
                 PushExecuteDelaySeconds,
@@ -217,6 +244,13 @@ namespace Game.Feature.Gameplay.PlayerControl
             return MoveCooldownSeconds >= 0f
                 ? MoveCooldownSeconds
                 : repeatedMoveIntervalSeconds;
+        }
+
+        private float ResolveDamageCooldownSeconds()
+        {
+            return DamageCooldownSeconds >= 0f
+                ? DamageCooldownSeconds
+                : 0f;
         }
 
         private float ResolvePushContactThresholdSeconds()

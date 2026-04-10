@@ -20,6 +20,11 @@ namespace Game.Feature.Gameplay.BoardState
         void SetPlayerControlState(int entityId, PlayerControlState state);
     }
 
+    public interface IPlayerDamageCommitContext
+    {
+        void SetPlayerDamageState(int entityId, PlayerDamageState state);
+    }
+
     public interface IPreMovementStateCommitContext : IPlayerControlCommitContext
     {
         void SetFacing(int entityId, Direction facing);
@@ -57,7 +62,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetTopology(CubeTopologyState topology);
     }
 
-    internal interface IAttackCommitContext
+    internal interface IAttackCommitContext : IPlayerDamageCommitContext
     {
         void ApplyDamage(int entityId, int amount);
 

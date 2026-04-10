@@ -2077,6 +2077,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<RawAttackIntent>(),
                 Array.Empty<ImpactReservation>(),
                 Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<DamageResolutionRecord>(),
                 Array.Empty<AttackIntent>(),
                 selectedGroups,
                 selectedGroups,

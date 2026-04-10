@@ -106,6 +106,19 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                         secondFrame.DeterminismHash);
                 }
 
+                if (!string.Equals(firstFrame.PlayerDamageDump, secondFrame.PlayerDamageDump, StringComparison.Ordinal))
+                {
+                    return CreateMismatch(
+                        scenario,
+                        firstRunFrames,
+                        secondRunFrames,
+                        i,
+                        firstFrame.TickIndex,
+                        "PlayerDamageDumpMismatch",
+                        firstFrame.DeterminismHash,
+                        secondFrame.DeterminismHash);
+                }
+
                 if (!string.Equals(firstFrame.OccupancyDump, secondFrame.OccupancyDump, StringComparison.Ordinal))
                 {
                     return CreateMismatch(

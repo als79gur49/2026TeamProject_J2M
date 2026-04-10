@@ -217,6 +217,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         executionAttempted = true,
                     },
                 });
+            worldState.CreateWriteContext().SetPlayerDamageState(
+                10,
+                new PlayerDamageState
+                {
+                    nextDamageAllowedTick = 99,
+                });
 
             worldState.CreateWriteContext().ApplyDamage(10, amount: 3);
             pipeline.RunTick(new TickInput(40));
@@ -239,6 +245,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(controlState.activeAction.executeTick, Is.Zero);
             Assert.That(controlState.activeAction.recoveryEndTick, Is.Zero);
             Assert.That(controlState.activeAction.executionAttempted, Is.False);
+            Assert.That(snapshotAfterRespawn.TryGetPlayerDamageState(10, out var damageState), Is.True);
+            Assert.That(damageState.nextDamageAllowedTick, Is.Zero);
         }
 
         [Test]

@@ -38,7 +38,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly AttackExpander _attackExpander;
         private readonly AttackResolver _attackResolver = new();
         private readonly MovementCommitter _movementCommitter;
-        private readonly AttackCommitter _attackCommitter = new();
+        private readonly AttackCommitter _attackCommitter;
         private readonly CleanupProcessor _cleanupProcessor = new();
         private readonly RespawnProcessor _respawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
@@ -78,6 +78,7 @@ namespace Game.Feature.Gameplay.Loop
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
             _movementCommitter = new MovementCommitter(playerControlTiming, resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
+            _attackCommitter = new AttackCommitter(playerControlTiming);
             _playerRespawnDelayTicks = playerRespawnDelayTicks;
             _playerRespawnTemplates = BuildPlayerRespawnTemplates(
                 SnapshotBuilder.Create(_worldState),
@@ -406,6 +407,7 @@ namespace Game.Feature.Gameplay.Loop
             _attackResolver.Resolve(expandedCandidates, selectedGroups, rejectedReasons);
             FinalizeAttackSpawns(selectedGroups);
 
+            var damageResolutions = new List<DamageResolutionRecord>();
             var commitEvents = new List<string>();
             var delayedAttackDrainEvents = BuildDelayedAttackDrainEvents(tickIndex, drainedDelayedAttackEffects);
             var delayedAttackEnqueueEvents = new List<string>();
@@ -415,6 +417,7 @@ namespace Game.Feature.Gameplay.Loop
                 tickIndex,
                 _delayedAttackEffectQueue,
                 selectedGroups,
+                damageResolutions,
                 commitEvents,
                 delayedAttackEnqueueEvents);
             phaseTrace.Add("Attack:Exit");
@@ -429,6 +432,7 @@ namespace Game.Feature.Gameplay.Loop
                 rawAttackIntents,
                 drainedImpactReservations,
                 drainedDelayedAttackEffects,
+                damageResolutions,
                 sortedInputs,
                 expandedCandidates,
                 selectedGroups,
@@ -790,6 +794,7 @@ namespace Game.Feature.Gameplay.Loop
 
                 writeContext.SpawnEntity(respawnEntity);
                 writeContext.SetPlayerControlState(respawnEntity.entityId, default);
+                writeContext.SetPlayerDamageState(respawnEntity.entityId, default);
                 respawnedEntities.Add(respawnEntity);
                 _eligibleRespawnTicksByEntityId.Remove(entityId);
                 eventLogEntries.Add(

@@ -58,6 +58,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Attack.Candidates", attackPhaseResult.ExpandedCandidates, FormatActionGroup);
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Attack.SelectedGroups", attackPhaseResult.SelectedGroups, FormatActionGroup);
+            AppendSection(builder, "Attack.DamageResolutions", attackPhaseResult.DamageResolutions, FormatDamageResolutionRecord);
             AppendSection(builder, "Attack.CommitEvents", attackPhaseResult.CommitEvents, FormatString);
             AppendSection(builder, "EnemyAction.AfterAttackTransitions", enemyActionPhaseResult.AfterAttackTransitions, FormatEnemyActionTransition);
             AppendSection(builder, "EnemyAi.AfterAttackTransitions", enemyAiPhaseResult.AfterAttackTransitions, FormatString);
@@ -84,6 +85,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.PlayerDamage", GetPlayerDamageEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
@@ -142,6 +144,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Cooldown={entry.State.moveCooldownTicks}|NextMoveAllowed={entry.State.nextMoveAllowedTick}|PushTicks={entry.State.pushContactTicks}|Target={entry.State.pushTargetEntityId}|Direction={entry.State.pushDirection}|Action={entry.State.activeAction.kind}|ActionSeq={entry.State.activeAction.sequence}|ActionDirection={entry.State.activeAction.direction}|ActionTarget={entry.State.activeAction.targetEntityId}|Start={entry.State.activeAction.startTick}|Execute={entry.State.activeAction.executeTick}|Recovery={entry.State.activeAction.recoveryEndTick}|Attempted={(entry.State.activeAction.executionAttempted ? 1 : 0)}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetPlayerDamageEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<PlayerDamageSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumeratePlayerDamageStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|NextDamageAllowed={entry.State.nextDamageAllowedTick}");
             }
 
             return lines;
@@ -258,6 +276,11 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatEnemyActionTransition(EnemyActionTransition transition)
         {
             return $"E={transition.EntityId}|Prev={transition.PreviousKind}|Curr={transition.CurrentKind}|PrevSeq={transition.PreviousSequence}|CurrSeq={transition.CurrentSequence}|Started={transition.StartedThisTick}|Canceled={transition.CanceledThisTick}";
+        }
+
+        private static string FormatDamageResolutionRecord(DamageResolutionRecord record)
+        {
+            return $"G={record.GroupId}|I={record.IntentId}|Source={record.SourceId}|Target={record.TargetId}|Amount={record.Amount}|Accepted={(record.Accepted ? 1 : 0)}|RejectReason={record.RejectReason}";
         }
 
         private static string FormatBoardBounds(BoardBounds boardBounds)

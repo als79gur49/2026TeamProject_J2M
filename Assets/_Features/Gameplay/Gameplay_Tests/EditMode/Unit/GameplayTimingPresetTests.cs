@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var sourceTiming = new PlayerControlTimingSettings
             {
                 MoveCooldownSeconds = 0.5f,
+                DamageCooldownSeconds = 0.25f,
                 PushContactThresholdSeconds = 0.2f,
                 PushExecuteDelaySeconds = 0.1f,
                 PushInputLockDurationSeconds = 0.15f,
@@ -53,6 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(presetConfiguration.PlayerControlTiming, Is.Not.SameAs(sourceTiming));
                 Assert.That(presetConfiguration.PlayerControlTiming.MoveCooldownSeconds, Is.EqualTo(sourceTiming.MoveCooldownSeconds));
+                Assert.That(presetConfiguration.PlayerControlTiming.DamageCooldownSeconds, Is.EqualTo(sourceTiming.DamageCooldownSeconds));
                 Assert.That(presetConfiguration.PlayerRespawnTiming, Is.Not.SameAs(sourceRespawnTiming));
                 Assert.That(presetConfiguration.PlayerRespawnTiming.RespawnDelaySeconds, Is.EqualTo(sourceRespawnTiming.RespawnDelaySeconds));
 
@@ -163,6 +165,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.PushInputLockDurationSeconds, Is.EqualTo(29f / 60f).Within(0.0001f));
             Assert.That(snapshot.PushWindupTicks, Is.EqualTo(11));
             Assert.That(snapshot.PushRecoveryTicks, Is.EqualTo(18));
+            Assert.That(snapshot.DamageCooldownSeconds, Is.EqualTo(1f / 60f).Within(0.0001f));
+            Assert.That(snapshot.DamageCooldownTicks, Is.EqualTo(1));
             Assert.That(snapshot.FlipExecuteDelaySeconds, Is.EqualTo(23f / 60f).Within(0.0001f));
             Assert.That(snapshot.FlipInputLockDurationSeconds, Is.EqualTo(57f / 60f).Within(0.0001f));
             Assert.That(snapshot.FlipWindupTicks, Is.EqualTo(23));
@@ -237,6 +241,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(actual.MoveCooldownSeconds, Is.EqualTo(expected.MoveCooldownSeconds));
             Assert.That(actual.MoveCooldownTicks, Is.EqualTo(expected.MoveCooldownTicks));
+            Assert.That(actual.DamageCooldownSeconds, Is.EqualTo(expected.DamageCooldownSeconds));
+            Assert.That(actual.DamageCooldownTicks, Is.EqualTo(expected.DamageCooldownTicks));
             Assert.That(actual.PushContactThresholdSeconds, Is.EqualTo(expected.PushContactThresholdSeconds));
             Assert.That(actual.PushContactThresholdTicks, Is.EqualTo(expected.PushContactThresholdTicks));
             Assert.That(actual.PushExecuteDelaySeconds, Is.EqualTo(expected.PushExecuteDelaySeconds));

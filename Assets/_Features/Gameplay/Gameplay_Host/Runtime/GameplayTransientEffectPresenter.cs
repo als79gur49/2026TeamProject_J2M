@@ -45,6 +45,23 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        public void PlayHitEffect(
+            int entityId,
+            GameplayEntityPose localPose,
+            EntityEffectPresentationSnapshot effectSnapshot,
+            float fallbackDurationSeconds)
+        {
+            var track = _effectFactory.CreateHitEffect(
+                entityId,
+                localPose,
+                effectSnapshot,
+                fallbackDurationSeconds);
+            if (track != null)
+            {
+                _activeTracks.Add(track);
+            }
+        }
+
         public void Update(float deltaTime)
         {
             for (var i = _activeTracks.Count - 1; i >= 0; i--)
@@ -241,6 +258,46 @@ namespace Game.Feature.Gameplay.Host
         }
     }
 
+    internal sealed class TimedGameObjectEffectTrack : IGameplayTransientEffectTrack
+    {
+        private readonly float _durationSeconds;
+        private readonly GameObject _root;
+        private float _elapsedSeconds;
+
+        public TimedGameObjectEffectTrack(GameObject root, float durationSeconds)
+        {
+            _root = root != null ? root : throw new ArgumentNullException(nameof(root));
+            _durationSeconds = Mathf.Max(0.0001f, durationSeconds);
+        }
+
+        public bool IsComplete => _elapsedSeconds >= _durationSeconds - 0.0001f;
+
+        public void Advance(float deltaTime)
+        {
+            if (deltaTime > 0f)
+            {
+                _elapsedSeconds = Mathf.Min(_durationSeconds, _elapsedSeconds + deltaTime);
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_root == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Object.Destroy(_root);
+            }
+            else
+            {
+                Object.DestroyImmediate(_root);
+            }
+        }
+    }
+
     public sealed class GameplayPresentationEffectFactory
     {
         private readonly Dictionary<EntityType, Material> _fallbackMaterialsByEntityType = new();
@@ -295,6 +352,31 @@ namespace Game.Feature.Gameplay.Host
                 renderers,
                 CreateInstancedMaterials(renderers),
                 durationSeconds);
+        }
+
+        internal IGameplayTransientEffectTrack CreateHitEffect(
+            int entityId,
+            GameplayEntityPose localPose,
+            EntityEffectPresentationSnapshot effectSnapshot,
+            float fallbackDurationSeconds)
+        {
+            if (_parent == null ||
+                !effectSnapshot.HasHitVfxPrefab)
+            {
+                return null;
+            }
+
+            var effectInstance = Object.Instantiate(effectSnapshot.HitVfxPrefab, _parent, worldPositionStays: false);
+            effectInstance.name = $"TransientPlayerHitEffect_{entityId}";
+            effectInstance.transform.localPosition = localPose.Position;
+            effectInstance.transform.localRotation = localPose.Rotation;
+            effectInstance.transform.localScale = Vector3.one;
+            effectInstance.SetActive(true);
+
+            var durationSeconds = effectSnapshot.HasHitEffectDurationOverride
+                ? effectSnapshot.HitEffectDurationSeconds
+                : Mathf.Max(0.0001f, fallbackDurationSeconds);
+            return new TimedGameObjectEffectTrack(effectInstance, durationSeconds);
         }
 
         private Transform CreateFallbackVisualRoot(Transform effectRoot, EntityType entityType)

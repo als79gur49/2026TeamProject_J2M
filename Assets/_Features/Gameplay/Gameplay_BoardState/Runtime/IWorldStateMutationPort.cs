@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetBoxKineticOwner(int entityId, int instigatorEntityId, int instigatorTeamId);
         void SetBoardPresence(int entityId, EntityBoardPresence boardPresence);
         void SetPlayerControlState(int entityId, PlayerControlState state);
+        void SetPlayerDamageState(int entityId, PlayerDamageState state);
         void SetTopology(CubeTopologyState topology);
     }
 }

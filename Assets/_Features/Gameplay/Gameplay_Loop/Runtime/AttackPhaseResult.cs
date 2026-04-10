@@ -5,15 +5,52 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
+    internal readonly struct DamageResolutionRecord
+    {
+        public DamageResolutionRecord(
+            int groupId,
+            int intentId,
+            int sourceId,
+            int targetId,
+            int amount,
+            bool accepted,
+            DamageRejectReason rejectReason)
+        {
+            GroupId = groupId;
+            IntentId = intentId;
+            SourceId = sourceId;
+            TargetId = targetId;
+            Amount = amount;
+            Accepted = accepted;
+            RejectReason = rejectReason;
+        }
+
+        public int GroupId { get; }
+
+        public int IntentId { get; }
+
+        public int SourceId { get; }
+
+        public int TargetId { get; }
+
+        public int Amount { get; }
+
+        public bool Accepted { get; }
+
+        public DamageRejectReason RejectReason { get; }
+    }
+
     internal sealed class AttackPhaseResult
     {
         public static readonly AttackPhaseResult Empty = new(
             Array.Empty<RawAttackIntent>(),
             Array.Empty<ImpactReservation>(),
             Array.Empty<DelayedAttackEffectRecord>(),
+            Array.Empty<DamageResolutionRecord>(),
             Array.Empty<AttackIntent>(),
             Array.Empty<ActionGroup>(),
             Array.Empty<ActionGroup>(),
@@ -22,6 +59,7 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<string>());
 
         private readonly ReadOnlyCollection<string> _commitEvents;
+        private readonly ReadOnlyCollection<DamageResolutionRecord> _damageResolutions;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _drainedDelayedAttackEffects;
         private readonly ReadOnlyCollection<ImpactReservation> _drainedImpactReservations;
         private readonly ReadOnlyCollection<string> _eventLogEntries;
@@ -43,6 +81,7 @@ namespace Game.Feature.Gameplay.Loop
                 rawIntents,
                 drainedImpactReservations,
                 Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<DamageResolutionRecord>(),
                 sortedInputs,
                 expandedCandidates,
                 selectedGroups,
@@ -56,6 +95,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<RawAttackIntent> rawIntents,
             IEnumerable<ImpactReservation> drainedImpactReservations,
             IEnumerable<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
+            IEnumerable<DamageResolutionRecord> damageResolutions,
             IEnumerable<AttackIntent> sortedInputs,
             IEnumerable<ActionGroup> expandedCandidates,
             IEnumerable<ActionGroup> selectedGroups,
@@ -76,6 +116,11 @@ namespace Game.Feature.Gameplay.Loop
             if (drainedDelayedAttackEffects == null)
             {
                 throw new ArgumentNullException(nameof(drainedDelayedAttackEffects));
+            }
+
+            if (damageResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(damageResolutions));
             }
 
             if (sortedInputs == null)
@@ -111,6 +156,7 @@ namespace Game.Feature.Gameplay.Loop
             _rawIntents = new ReadOnlyCollection<RawAttackIntent>(new List<RawAttackIntent>(rawIntents));
             _drainedImpactReservations = new ReadOnlyCollection<ImpactReservation>(new List<ImpactReservation>(drainedImpactReservations));
             _drainedDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(drainedDelayedAttackEffects));
+            _damageResolutions = new ReadOnlyCollection<DamageResolutionRecord>(new List<DamageResolutionRecord>(damageResolutions));
             _sortedInputs = new ReadOnlyCollection<AttackIntent>(new List<AttackIntent>(sortedInputs));
             _expandedCandidates = new ReadOnlyCollection<ActionGroup>(new List<ActionGroup>(expandedCandidates));
             _selectedGroups = new ReadOnlyCollection<ActionGroup>(new List<ActionGroup>(selectedGroups));
@@ -124,6 +170,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<ImpactReservation> DrainedImpactReservations => _drainedImpactReservations;
 
         public IReadOnlyList<DelayedAttackEffectRecord> DrainedDelayedAttackEffects => _drainedDelayedAttackEffects;
+
+        public IReadOnlyList<DamageResolutionRecord> DamageResolutions => _damageResolutions;
 
         public IReadOnlyList<AttackIntent> SortedInputs => _sortedInputs;
 

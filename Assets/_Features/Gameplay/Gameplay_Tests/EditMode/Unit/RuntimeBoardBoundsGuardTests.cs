@@ -3499,6 +3499,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "flipWindupStateName",
                     "flipRecoveryStateName",
                     "deathStateName",
+                    "hitTriggerName",
                     "walkExitStateName",
                     "stateTransitionCrossFadeDurationSeconds",
                     "animationTimingAuthoring",

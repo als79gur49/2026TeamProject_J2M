@@ -2,20 +2,38 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Attack.Commit
 {
     internal sealed class AttackCommitter
     {
+        private readonly int _playerDamageCooldownTicks;
+
+        public AttackCommitter()
+            : this(
+                PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                    GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                    GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds))
+        {
+        }
+
+        public AttackCommitter(PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+        {
+            _playerDamageCooldownTicks = Math.Max(0, playerControlTiming.DamageCooldownTicks);
+        }
+
         public void Commit(
             WorldSnapshot snapshot,
             IAttackCommitContext writeContext,
             int tickIndex,
             IDelayedAttackEffectSink delayedAttackEffectSink,
             IReadOnlyList<ActionGroup> selectedGroups,
+            List<DamageResolutionRecord> damageResolutions,
             List<string> commitEvents,
             List<string> delayedAttackEnqueueEvents)
         {
@@ -44,6 +62,11 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 throw new ArgumentNullException(nameof(selectedGroups));
             }
 
+            if (damageResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(damageResolutions));
+            }
+
             if (commitEvents == null)
             {
                 throw new ArgumentNullException(nameof(commitEvents));
@@ -56,6 +79,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
 
             commitEvents.Clear();
             delayedAttackEnqueueEvents.Clear();
+            damageResolutions.Clear();
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
@@ -71,6 +95,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
             }
 
             var accumulatedDamageByTarget = new Dictionary<int, int>();
+            var playerDamageStatesByEntityId = new Dictionary<int, PlayerDamageState>();
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
@@ -79,6 +104,22 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 for (var damageIndex = 0; damageIndex < group.Damages.Count; damageIndex++)
                 {
                     var damage = group.Damages[damageIndex];
+                    var resolution = ResolveDamage(
+                        snapshot,
+                        writeContext,
+                        tickIndex,
+                        group,
+                        damage,
+                        playerDamageStatesByEntityId);
+                    damageResolutions.Add(resolution);
+
+                    if (!resolution.Accepted)
+                    {
+                        commitEvents.Add(
+                            $"DamageRejected|G={group.GroupId}|I={group.IntentId}|Source={group.SourceId}|Target={damage.TargetId}|Amount={damage.Amount}|Reason={resolution.RejectReason}");
+                        continue;
+                    }
+
                     writeContext.ApplyDamage(damage.TargetId, damage.Amount);
                     commitEvents.Add(
                         $"DamageCommitted|G={group.GroupId}|I={group.IntentId}|Target={damage.TargetId}|Amount={damage.Amount}");
@@ -166,6 +207,64 @@ namespace Game.Feature.Gameplay.Attack.Commit
                     delayedAttackSequence++;
                 }
             }
+        }
+
+        private DamageResolutionRecord ResolveDamage(
+            WorldSnapshot snapshot,
+            IAttackCommitContext writeContext,
+            int tickIndex,
+            ActionGroup group,
+            in DamageAction damage,
+            Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId)
+        {
+            if (!snapshot.TryGetEntity(damage.TargetId, out var target) ||
+                !EntityRolePolicy.IsPlayerUnit(target))
+            {
+                return new DamageResolutionRecord(
+                    group.GroupId,
+                    group.IntentId,
+                    group.SourceId,
+                    damage.TargetId,
+                    damage.Amount,
+                    accepted: true,
+                    DamageRejectReason.None);
+            }
+
+            if (!playerDamageStatesByEntityId.TryGetValue(damage.TargetId, out var damageState))
+            {
+                damageState = snapshot.TryGetPlayerDamageState(damage.TargetId, out var storedState)
+                    ? storedState
+                    : default;
+            }
+
+            if (!PlayerDamageQueries.CanAcceptDamage(damageState, tickIndex))
+            {
+                playerDamageStatesByEntityId[damage.TargetId] = damageState;
+                return new DamageResolutionRecord(
+                    group.GroupId,
+                    group.IntentId,
+                    group.SourceId,
+                    damage.TargetId,
+                    damage.Amount,
+                    accepted: false,
+                    DamageRejectReason.ReceiverCooldown);
+            }
+
+            var updatedState = PlayerDamageQueries.AcceptDamage(
+                damageState,
+                tickIndex,
+                _playerDamageCooldownTicks);
+            playerDamageStatesByEntityId[damage.TargetId] = updatedState;
+            writeContext.SetPlayerDamageState(damage.TargetId, updatedState);
+
+            return new DamageResolutionRecord(
+                group.GroupId,
+                group.IntentId,
+                group.SourceId,
+                damage.TargetId,
+                damage.Amount,
+                accepted: true,
+                DamageRejectReason.None);
         }
     }
 }

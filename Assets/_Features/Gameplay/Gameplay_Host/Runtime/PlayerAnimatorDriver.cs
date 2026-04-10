@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Host
         [FormerlySerializedAs("flipExitStateName")]
         [SerializeField] private string flipRecoveryStateName = "Flip_Recovery";
         [SerializeField] private string deathStateName = "Death";
+        [SerializeField] private string hitTriggerName = "Hit";
         [SerializeField] private string walkExitStateName;
         [FormerlySerializedAs("crossFadeDurationSeconds")]
         [SerializeField] private float stateTransitionCrossFadeDurationSeconds = 0.08f;
@@ -29,6 +30,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private PlayerAnimationTimingAuthoring animationTimingAuthoring;
 
         private bool _pendingRestart;
+        private bool _pendingHitTrigger;
         private PlayerActionKind _pendingExecuteActionKind;
         private readonly Dictionary<string, float> _clipLengthCache = new();
         private RuntimeAnimatorController _cachedClipLengthController;
@@ -49,6 +51,8 @@ namespace Game.Feature.Gameplay.Host
         public int ActionStartSignalCount { get; private set; }
 
         public int ActionExecuteSignalCount { get; private set; }
+
+        public int HitSignalCount { get; private set; }
 
         public float PushPresentationDurationSeconds => GetPresentationDurationSeconds(PlayerActionKind.Push);
 
@@ -84,6 +88,12 @@ namespace Game.Feature.Gameplay.Host
                 ActionExecuteSignalCount++;
                 _pendingExecuteActionKind = state.ActiveActionKind;
             }
+
+            if (state.TookDamageThisTick && !state.DidDie)
+            {
+                HitSignalCount++;
+                _pendingHitTrigger = true;
+            }
         }
 
         public void SyncRuntimeState(
@@ -95,9 +105,15 @@ namespace Game.Feature.Gameplay.Host
 
             var restart = _pendingRestart;
             _pendingRestart = false;
+            var shouldTriggerHit = _pendingHitTrigger;
+            _pendingHitTrigger = false;
             var executeActionKind = _pendingExecuteActionKind;
             _pendingExecuteActionKind = PlayerActionKind.None;
             ApplyResolvedState(resolvedState, restart, executeActionKind, resolvedMotionDurationSeconds);
+            if (shouldTriggerHit)
+            {
+                FireHitTrigger(ResolveAnimator());
+            }
         }
 
         public float GetPresentationDurationSeconds(
@@ -310,6 +326,42 @@ namespace Game.Feature.Gameplay.Host
             }
 
             targetAnimator.SetInteger(Animator.StringToHash(OptionalStateParameterName), (int)resolvedState);
+        }
+
+        private void FireHitTrigger(Animator targetAnimator)
+        {
+            if (targetAnimator == null ||
+                string.IsNullOrWhiteSpace(hitTriggerName) ||
+                !HasAnimatorParameter(targetAnimator, hitTriggerName, AnimatorControllerParameterType.Trigger))
+            {
+                return;
+            }
+
+            targetAnimator.SetTrigger(hitTriggerName);
+        }
+
+        private static bool HasAnimatorParameter(
+            Animator targetAnimator,
+            string parameterName,
+            AnimatorControllerParameterType parameterType)
+        {
+            if (targetAnimator == null ||
+                string.IsNullOrWhiteSpace(parameterName))
+            {
+                return false;
+            }
+
+            var parameters = targetAnimator.parameters;
+            for (var i = 0; i < parameters.Length; i++)
+            {
+                if (parameters[i].type == parameterType &&
+                    string.Equals(parameters[i].name, parameterName, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool SupportsOptionalStateParameter(Animator targetAnimator)

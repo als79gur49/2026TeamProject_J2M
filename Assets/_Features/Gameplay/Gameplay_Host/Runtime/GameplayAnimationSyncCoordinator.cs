@@ -36,7 +36,10 @@ namespace Game.Feature.Gameplay.Host
                 }
 
                 driver.Apply(state);
-                driver.SyncRuntimeState(committedLocalTargetPoses.ContainsKey(state.EntityId), isMoving: false);
+                driver.SyncRuntimeState(
+                    committedLocalTargetPoses.ContainsKey(state.EntityId),
+                    isMoving: false,
+                    playbackSuppressed: false);
             }
         }
 
@@ -139,11 +142,12 @@ namespace Game.Feature.Gameplay.Host
             int entityId,
             bool isVisible,
             bool isMoving,
+            bool playbackSuppressed,
             IReadOnlyDictionary<int, GameplayEntityView> viewsByEntityId)
         {
             if (TryGetEnemyAnimatorDriver(entityId, viewsByEntityId, out var driver))
             {
-                driver.SyncRuntimeState(isVisible, isMoving);
+                driver.SyncRuntimeState(isVisible, isMoving, playbackSuppressed);
             }
         }
 
@@ -160,7 +164,10 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                pair.Value.SyncRuntimeState(isVisible: false, isMoving: false);
+                pair.Value.SyncRuntimeState(
+                    isVisible: false,
+                    isMoving: false,
+                    playbackSuppressed: false);
             }
 
             foreach (var pair in _playerAnimatorDriversByEntityId)

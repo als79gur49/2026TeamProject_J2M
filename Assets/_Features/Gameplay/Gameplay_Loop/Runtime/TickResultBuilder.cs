@@ -326,6 +326,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
+            var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
@@ -337,6 +338,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
             BuildRespawnPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
+            BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
@@ -349,6 +351,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyJumpSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
+                   playerDamageSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
@@ -361,6 +364,7 @@ namespace Game.Feature.Gameplay.Loop
                     transitionVisibilityChanges,
                     playerActionSignals,
                     playerLocomotionSignals,
+                    playerDamageSignals,
                     enemyActionSignals,
                     enemyJumpSignals,
                     entityExitSignals);
@@ -611,6 +615,31 @@ namespace Game.Feature.Gameplay.Loop
                         waitingForNextMoveCadence,
                         context.PlayerCommand.MoveDirection,
                         context.PlayerCommand.IsMoveBuffered));
+            }
+        }
+
+        private static void BuildPlayerDamagePresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerDamagePresentationSignal> playerDamageSignals)
+        {
+            var signaledPlayerIds = new HashSet<int>();
+
+            for (var i = 0; i < context.AttackPhaseResult.DamageResolutions.Count; i++)
+            {
+                var resolution = context.AttackPhaseResult.DamageResolutions[i];
+                if (!resolution.Accepted ||
+                    !signaledPlayerIds.Add(resolution.TargetId) ||
+                    !context.PostAttackSnapshot.TryGetEntity(resolution.TargetId, out var target) ||
+                    !EntityRolePolicy.IsPlayerUnit(target))
+                {
+                    continue;
+                }
+
+                playerDamageSignals.Add(
+                    new TickPlayerDamagePresentationSignal(
+                        resolution.TargetId,
+                        tookDamageThisTick: true,
+                        resolution.Amount));
             }
         }
 

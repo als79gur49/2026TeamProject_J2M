@@ -184,6 +184,7 @@ namespace Game.Feature.Gameplay.Host
                     entityId,
                     actionKind,
                     _timingProfile));
+            PlayPlayerHitEffects(result);
             UpdatePresentation(0f);
         }
 
@@ -267,6 +268,62 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return GameplayPresentationPhase.Idle;
+        }
+
+        private void PlayPlayerHitEffects(TickResult result)
+        {
+            var playerDamageSignals = result.PresentationData.PlayerDamageSignals;
+            for (var i = 0; i < playerDamageSignals.Count; i++)
+            {
+                var signal = playerDamageSignals[i];
+                if (!signal.TookDamageThisTick ||
+                    !TryResolveSurvivingFinalEntity(result.FinalEntities, signal.EntityId, out _) ||
+                    !_stateStore.ViewsByEntityId.TryGetValue(signal.EntityId, out var view) ||
+                    view == null ||
+                    !view.gameObject.activeInHierarchy ||
+                    !_stateStore.CommittedLocalTargetPoses.TryGetValue(signal.EntityId, out var localPose))
+                {
+                    continue;
+                }
+
+                var authoring = EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(view);
+                if (authoring == null)
+                {
+                    continue;
+                }
+
+                var effectSnapshot = authoring.CreateSnapshot();
+                if (!effectSnapshot.HasHitVfxPrefab)
+                {
+                    continue;
+                }
+
+                _transientEffectPresenter.PlayHitEffect(
+                    signal.EntityId,
+                    localPose,
+                    effectSnapshot,
+                _timingProfile.PushMotionDurationSeconds);
+            }
+        }
+
+        private static bool TryResolveSurvivingFinalEntity(
+            IReadOnlyList<EntityState> finalEntities,
+            int entityId,
+            out EntityState entity)
+        {
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                if (finalEntities[i].entityId != entityId)
+                {
+                    continue;
+                }
+
+                entity = finalEntities[i];
+                return entity.hp > 0 && !entity.markedForDeath;
+            }
+
+            entity = default;
+            return false;
         }
     }
 }

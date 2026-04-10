@@ -82,6 +82,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.PlayerControlDump).ToArray(),
                 secondReplay.Select(frame => frame.PlayerControlDump).ToArray());
             CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.PlayerDamageDump).ToArray(),
+                secondReplay.Select(frame => frame.PlayerDamageDump).ToArray());
+            CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EnemyActionDump).ToArray(),
                 secondReplay.Select(frame => frame.EnemyActionDump).ToArray());
             CollectionAssert.AreEqual(
@@ -131,8 +134,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstRun.Select(frame => frame.PlayerControlDump).ToArray(),
                 secondRun.Select(frame => frame.PlayerControlDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstRun.Select(frame => frame.PlayerDamageDump).ToArray(),
+                secondRun.Select(frame => frame.PlayerDamageDump).ToArray());
             Assert.That(firstRun[0].Trace, Does.Contain("Final.PlayerControl"));
+            Assert.That(firstRun[0].Trace, Does.Contain("Final.PlayerDamage"));
             Assert.That(firstRun[0].PlayerControlDump, Does.Contain("E=10|Cooldown=0|NextMoveAllowed=0|PushTicks=1|Target=30|Direction=Right"));
+            Assert.That(firstRun[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed=0"));
             Assert.That(firstRun[1].PlayerControlDump, Does.Contain("E=10|Cooldown=0|NextMoveAllowed=0|PushTicks=0|Target=0|Direction=None"));
             Assert.That(firstRun[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=2|Execute=3|Recovery=3|Attempted=0"));
         }
@@ -169,7 +177,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
 
             Assert.That(frames[0].Trace, Does.Contain("Final.PlayerControl"));
+            Assert.That(frames[0].Trace, Does.Contain("Final.PlayerDamage"));
             Assert.That(frames[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
+            Assert.That(frames[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed=0"));
             Assert.That(frames[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
         }
 

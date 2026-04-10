@@ -59,10 +59,14 @@ namespace Game.Feature.Gameplay.Tests
             return profile;
         }
 
-        public static EnemyAiProfile CreateDefaultMelee(int windupTicks = 0, int moveCooldownTicks = 0)
+        public static EnemyAiProfile CreateDefaultMelee(int windupTicks = 0, int moveCooldownTicks = 0, int recoverTicks = 1)
         {
             return Create(new EnemyAiTestProfileSpec
             {
+                CommonSettings = ToAuthoring(new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
             });
@@ -128,10 +132,14 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
-        public static EnemyAiProfile CreateContactDamage(int moveCooldownTicks = 0)
+        public static EnemyAiProfile CreateContactDamage(int moveCooldownTicks = 0, int recoverTicks = 1)
         {
             return Create(new EnemyAiTestProfileSpec
             {
+                CommonSettings = ToAuthoring(new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: recoverTicks)),
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.ContactSameCell,
             });

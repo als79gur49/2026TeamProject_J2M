@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
+        private readonly Dictionary<int, PlayerDamageState> _playerDamageStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
@@ -70,6 +71,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
+                new Dictionary<int, PlayerDamageState>(_playerDamageStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 _topology,
                 _boardBounds,
@@ -91,6 +93,10 @@ namespace Game.Feature.Gameplay.BoardState
             entity.enemyLocomotionCooldownTicks = Mathf.Max(0, entity.enemyLocomotionCooldownTicks);
             EnsurePlacementIsLegal(entity, entity.position, ignoredEntityId: 0);
             _entitiesById.Add(entity.entityId, entity);
+            if (EntityRolePolicy.IsPlayerUnit(entity))
+            {
+                _playerDamageStatesByEntityId[entity.entityId] = default;
+            }
             SetOccupancyForEntity(entity);
         }
 
@@ -123,6 +129,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyActionStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
+            _playerDamageStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
         }
 
@@ -244,6 +251,17 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _playerControlStatesByEntityId[entityId] = state;
+        }
+
+        private void SetPlayerDamageState(int entityId, PlayerDamageState state)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity) ||
+                !EntityRolePolicy.IsPlayerUnit(entity))
+            {
+                return;
+            }
+
+            _playerDamageStatesByEntityId[entityId] = state;
         }
 
         private void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
@@ -557,6 +575,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetPlayerControlState(int entityId, PlayerControlState state)
         {
             SetPlayerControlState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetPlayerDamageState(int entityId, PlayerDamageState state)
+        {
+            SetPlayerDamageState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetTopology(CubeTopologyState topology)

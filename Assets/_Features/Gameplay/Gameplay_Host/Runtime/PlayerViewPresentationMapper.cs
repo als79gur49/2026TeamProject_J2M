@@ -27,7 +27,8 @@ namespace Game.Feature.Gameplay.Host
             bool completedThisTick,
             bool canceledThisTick,
             bool isRecoveryPhase = false,
-            bool didDie = false)
+            bool didDie = false,
+            bool tookDamageThisTick = false)
             : this(
                 entityId,
                 tickIndex,
@@ -39,7 +40,8 @@ namespace Game.Feature.Gameplay.Host
                 canceledThisTick,
                 shouldPlayWalkLoop: false,
                 isRecoveryPhase: isRecoveryPhase,
-                didDie: didDie)
+                didDie: didDie,
+                tookDamageThisTick: tookDamageThisTick)
         {
         }
 
@@ -54,7 +56,8 @@ namespace Game.Feature.Gameplay.Host
             bool canceledThisTick,
             bool shouldPlayWalkLoop,
             bool isRecoveryPhase = false,
-            bool didDie = false)
+            bool didDie = false,
+            bool tookDamageThisTick = false)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -67,6 +70,7 @@ namespace Game.Feature.Gameplay.Host
             CanceledThisTick = canceledThisTick;
             ShouldPlayWalkLoop = shouldPlayWalkLoop;
             DidDie = didDie;
+            TookDamageThisTick = tookDamageThisTick;
         }
 
         public int EntityId { get; }
@@ -90,6 +94,8 @@ namespace Game.Feature.Gameplay.Host
         public bool ShouldPlayWalkLoop { get; }
 
         public bool DidDie { get; }
+
+        public bool TookDamageThisTick { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
@@ -98,6 +104,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _removedEntityIds = new();
         private readonly Dictionary<int, TickPlayerActionPresentationSignal> _signalsByEntityId = new();
+        private readonly Dictionary<int, TickPlayerDamagePresentationSignal> _damageSignalsByEntityId = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
 
         public void Build(
@@ -125,6 +132,7 @@ namespace Game.Feature.Gameplay.Host
             _finalEntitiesById.Clear();
             _removedEntityIds.Clear();
             _signalsByEntityId.Clear();
+            _damageSignalsByEntityId.Clear();
             _locomotionSignalsByEntityId.Clear();
 
             CacheFinalEntities(result.FinalEntities);
@@ -155,6 +163,14 @@ namespace Game.Feature.Gameplay.Host
                 _locomotionSignalsByEntityId[signal.EntityId] = signal;
             }
 
+            var playerDamageSignals = result.PresentationData.PlayerDamageSignals;
+            for (var i = 0; i < playerDamageSignals.Count; i++)
+            {
+                var signal = playerDamageSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _damageSignalsByEntityId[signal.EntityId] = signal;
+            }
+
             foreach (var entityId in _candidateEntityIds)
             {
                 if (!HasPlayerDriver(viewsByEntityId, entityId))
@@ -172,6 +188,9 @@ namespace Game.Feature.Gameplay.Host
                 var didDie = _removedEntityIds.Contains(entityId) ||
                              (_finalEntitiesById.TryGetValue(entityId, out var finalEntity) &&
                               (finalEntity.hp <= 0 || finalEntity.markedForDeath));
+                var tookDamageThisTick = !didDie &&
+                                         _damageSignalsByEntityId.TryGetValue(entityId, out var damageSignal) &&
+                                         damageSignal.TookDamageThisTick;
 
                 buffer[entityId] = new PlayerViewPresentationState(
                     entityId,
@@ -184,7 +203,8 @@ namespace Game.Feature.Gameplay.Host
                     signal.CanceledThisTick,
                     shouldPlayWalkLoop,
                     signal.IsRecoveryPhase,
-                    didDie);
+                    didDie,
+                    tookDamageThisTick);
             }
         }
 
@@ -201,7 +221,8 @@ namespace Game.Feature.Gameplay.Host
                 canceledThisTick: false,
                 shouldPlayWalkLoop: false,
                 isRecoveryPhase: false,
-                didDie: false);
+                didDie: false,
+                tookDamageThisTick: false);
         }
 
         private void CacheFinalEntities(IReadOnlyList<EntityState> finalEntities)
