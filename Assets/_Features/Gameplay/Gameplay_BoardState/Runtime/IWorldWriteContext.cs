@@ -75,7 +75,11 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
     }
 
-    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IEnemyActionCommitContext
+    internal interface IRespawnCommitContext : IAttackCommitContext, IPlayerControlCommitContext
+    {
+    }
+
+    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IRespawnCommitContext, IEnemyActionCommitContext
     {
     }
 }

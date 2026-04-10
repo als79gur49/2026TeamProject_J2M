@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class TickPipelineStructureTests
     {
         [Test]
-        public void RunTick_CompletesMovementAttackCleanup()
+        public void RunTick_CompletesMovementAttackCleanupRespawn()
         {
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()));
@@ -35,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     TickPhase.Movement,
                     TickPhase.Attack,
                     TickPhase.Cleanup,
+                    TickPhase.Respawn,
                 },
                 result.CompletedPhases);
             CollectionAssert.AreEqual(
@@ -46,6 +47,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "Attack:Exit",
                     "Cleanup:Enter",
                     "Cleanup:Exit",
+                    "Respawn:Enter",
+                    "Respawn:Exit",
                 },
                 result.PhaseTrace);
         }
@@ -78,6 +81,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(exportedTypes, Does.Not.Contain(typeof(IMovementCommitContext).FullName));
             Assert.That(exportedTypes, Does.Not.Contain(typeof(IAttackCommitContext).FullName));
             Assert.That(exportedTypes, Does.Not.Contain(typeof(ICleanupCommitContext).FullName));
+            Assert.That(exportedTypes, Does.Not.Contain(typeof(IRespawnCommitContext).FullName));
         }
 
         [Test]
@@ -194,6 +198,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(typeof(IMovementCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
             Assert.That(typeof(IAttackCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
             Assert.That(typeof(ICleanupCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
+            Assert.That(typeof(IRespawnCommitContext).IsAssignableFrom(typeof(WorldStateWriteContext)), Is.True);
             Assert.That(createWriteContextMethod, Is.Not.Null);
             Assert.That(createWriteContextMethod.IsAssembly, Is.True);
             Assert.That(createWriteContextMethod.ReturnType, Is.EqualTo(typeof(IWorldWriteContext)));

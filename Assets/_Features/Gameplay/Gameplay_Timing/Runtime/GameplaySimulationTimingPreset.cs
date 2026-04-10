@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Timing
     {
         [SerializeField] private float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds;
         [SerializeField] private PlayerControlTimingSettings playerControlTiming = PlayerControlTimingSettings.CreateDefault();
+        [SerializeField] private PlayerRespawnTimingSettings playerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         [SerializeField] private float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds;
         [SerializeField] private float boxSlideStepIntervalSeconds = GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds;
         [SerializeField] private float projectileStepIntervalSeconds = GameplayTimingProfile.DefaultProjectileStepIntervalSeconds;
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.Timing
 
             configuration.InitialMoveDelaySeconds = initialMoveDelaySeconds;
             configuration.PlayerControlTiming = playerControlTiming.Clone();
+            configuration.PlayerRespawnTiming = playerRespawnTiming.Clone();
             configuration.RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds;
             configuration.BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
             configuration.ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
@@ -52,7 +54,14 @@ namespace Game.Feature.Gameplay.Timing
                     $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(playerControlTiming)}.");
             }
 
+            if (playerRespawnTiming == null)
+            {
+                throw new InvalidOperationException(
+                    $"{nameof(GameplaySimulationTimingPreset)} '{name}' requires {nameof(playerRespawnTiming)}.");
+            }
+
             playerControlTiming.Validate(repeatedMoveIntervalSeconds);
+            playerRespawnTiming.Validate();
         }
 
         private static void ValidatePositiveInterval(float value, string paramName)

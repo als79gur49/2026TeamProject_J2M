@@ -270,6 +270,50 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_ChangingSimulationTicksPerSecondPreservesTimeMeaning()
+        {
+            var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 60,
+                PlayerRespawnTiming = new PlayerRespawnTimingSettings
+                {
+                    RespawnDelaySeconds = 0.25f,
+                },
+            }.CreatePlayerRespawnTimingSnapshot();
+            var oneTwentyTpsSnapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 120,
+                PlayerRespawnTiming = new PlayerRespawnTimingSettings
+                {
+                    RespawnDelaySeconds = 0.25f,
+                },
+            }.CreatePlayerRespawnTimingSnapshot();
+
+            Assert.That(sixtyTpsSnapshot.RespawnDelaySeconds, Is.EqualTo(oneTwentyTpsSnapshot.RespawnDelaySeconds));
+            Assert.That(sixtyTpsSnapshot.RespawnDelayTicks, Is.EqualTo(15));
+            Assert.That(oneTwentyTpsSnapshot.RespawnDelayTicks, Is.EqualTo(30));
+            Assert.That(
+                sixtyTpsSnapshot.RespawnDelayTicks / 60f,
+                Is.EqualTo(oneTwentyTpsSnapshot.RespawnDelayTicks / 120f).Within(0.0001f));
+        }
+
+        [Test]
+        public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_ZeroSecondsStillRespectsNextTickRule()
+        {
+            var snapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = 120,
+                PlayerRespawnTiming = new PlayerRespawnTimingSettings
+                {
+                    RespawnDelaySeconds = 0f,
+                },
+            }.CreatePlayerRespawnTimingSnapshot();
+
+            Assert.That(snapshot.RespawnDelaySeconds, Is.Zero);
+            Assert.That(snapshot.RespawnDelayTicks, Is.EqualTo(1));
+        }
+
+        [Test]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_ChangingSimulationTicksPerSecondPreservesEnemyTimeMeaning()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec

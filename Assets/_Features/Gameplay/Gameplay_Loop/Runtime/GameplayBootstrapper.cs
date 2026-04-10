@@ -26,25 +26,29 @@ namespace Game.Feature.Gameplay.Loop
         {
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
+            var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
             return CreateTickPipeline(
                 worldState,
                 entityLogics,
                 generalTimingProfile,
-                playerControlTiming);
+                playerControlTiming,
+                playerRespawnDelayTicks);
         }
 
         public TickPipeline CreateTickPipeline(
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             GameplayTimingProfile generalTimingProfile,
-            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks = 1)
         {
             return new TickPipeline(
                 worldState,
                 entityLogics,
                 _entityLogicProvider,
                 generalTimingProfile,
-                playerControlTiming);
+                playerControlTiming,
+                playerRespawnDelayTicks);
         }
 
         public TickRunner CreateTickRunner(
@@ -62,12 +66,14 @@ namespace Game.Feature.Gameplay.Loop
         {
             var generalTimingProfile = GameplayTimingProfile.CreateDefault();
             var playerControlTiming = CreateDefaultPlayerControlTimingSnapshot(generalTimingProfile);
+            var playerRespawnDelayTicks = CreateDefaultPlayerRespawnDelayTicks(generalTimingProfile);
             return CreateTickRunner(
                 worldState,
                 entityLogics,
                 inputBuffer,
                 generalTimingProfile,
                 playerControlTiming,
+                playerRespawnDelayTicks,
                 startTickIndex);
         }
 
@@ -77,6 +83,7 @@ namespace Game.Feature.Gameplay.Loop
             TickInputBuffer inputBuffer,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks = 1,
             int startTickIndex = 1)
         {
             if (inputBuffer == null)
@@ -85,7 +92,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return new TickRunner(
-                CreateTickPipeline(worldState, entityLogics, generalTimingProfile, playerControlTiming),
+                CreateTickPipeline(worldState, entityLogics, generalTimingProfile, playerControlTiming, playerRespawnDelayTicks),
                 inputBuffer,
                 startTickIndex);
         }
@@ -101,6 +108,17 @@ namespace Game.Feature.Gameplay.Loop
             return PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 generalTimingProfile.SimulationTicksPerSecond,
                 generalTimingProfile.RepeatedMoveIntervalSeconds);
+        }
+
+        private static int CreateDefaultPlayerRespawnDelayTicks(
+            GameplayTimingProfile generalTimingProfile)
+        {
+            if (generalTimingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(generalTimingProfile));
+            }
+
+            return 1;
         }
     }
 }

@@ -77,13 +77,15 @@ namespace Game.Feature.Gameplay.Loop
             WorldState worldState,
             IEnumerable<IEntityLogic> entityLogics,
             GameplayTimingProfile generalTimingProfile,
-            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks = 1)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 entityLogics,
                 generalTimingProfile,
-                playerControlTiming);
+                playerControlTiming,
+                playerRespawnDelayTicks);
         }
 
         public static TickRunner CreateTickRunner(
@@ -108,6 +110,7 @@ namespace Game.Feature.Gameplay.Loop
             TickInputBuffer inputBuffer,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks = 1,
             int startTickIndex = 1)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
@@ -116,6 +119,7 @@ namespace Game.Feature.Gameplay.Loop
                 inputBuffer,
                 generalTimingProfile,
                 playerControlTiming,
+                playerRespawnDelayTicks,
                 startTickIndex);
         }
     }

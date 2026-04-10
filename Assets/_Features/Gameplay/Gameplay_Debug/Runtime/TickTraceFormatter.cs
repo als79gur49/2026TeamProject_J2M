@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.Debug
             WorldSnapshot s1Snapshot,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
+            RespawnPhaseResult respawnPhaseResult,
             WorldSnapshot finalSnapshot,
             TickResultData tickResultData,
             string determinismHash)
@@ -64,6 +65,8 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Cleanup.RemovedIds", cleanupPhaseResult.RemovedEntityIds, value => value.ToString());
             AppendSection(builder, "Cleanup.TimerChanges", cleanupPhaseResult.TimerChanges, FormatString);
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
+            AppendSection(builder, "Respawn.Events", respawnPhaseResult.EventLogEntries, FormatString);
+            AppendSection(builder, "Respawn.Entities", respawnPhaseResult.RespawnedEntities, FormatEntityState);
 
             AppendSnapshotSections(builder, "Final", finalSnapshot);
             AppendSection(builder, "Final.PendingDelayedEffects", tickResultData.PendingDelayedAttackEffects, FormatDelayedAttackEffectRecord);

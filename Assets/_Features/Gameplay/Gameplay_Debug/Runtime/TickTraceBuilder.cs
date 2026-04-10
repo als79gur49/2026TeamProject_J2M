@@ -22,6 +22,37 @@ namespace Game.Feature.Gameplay.Debug
             TickResultData tickResultData,
             string determinismHash)
         {
+            return Build(
+                tickIndex,
+                s0Snapshot,
+                enemyAiPhaseResult,
+                enemyActionPhaseResult,
+                preMovementStatePhaseResult,
+                movementPhaseResult,
+                s1Snapshot,
+                attackPhaseResult,
+                cleanupPhaseResult,
+                RespawnPhaseResult.Empty,
+                finalSnapshot,
+                tickResultData,
+                determinismHash);
+        }
+
+        public TickTrace Build(
+            int tickIndex,
+            WorldSnapshot s0Snapshot,
+            EnemyAiPhaseResult enemyAiPhaseResult,
+            EnemyActionPhaseResult enemyActionPhaseResult,
+            PreMovementStatePhaseResult preMovementStatePhaseResult,
+            MovementPhaseResult movementPhaseResult,
+            WorldSnapshot s1Snapshot,
+            AttackPhaseResult attackPhaseResult,
+            CleanupPhaseResult cleanupPhaseResult,
+            RespawnPhaseResult respawnPhaseResult,
+            WorldSnapshot finalSnapshot,
+            TickResultData tickResultData,
+            string determinismHash)
+        {
             if (s0Snapshot == null)
             {
                 throw new ArgumentNullException(nameof(s0Snapshot));
@@ -62,6 +93,11 @@ namespace Game.Feature.Gameplay.Debug
                 throw new ArgumentNullException(nameof(cleanupPhaseResult));
             }
 
+            if (respawnPhaseResult == null)
+            {
+                throw new ArgumentNullException(nameof(respawnPhaseResult));
+            }
+
             if (finalSnapshot == null)
             {
                 throw new ArgumentNullException(nameof(finalSnapshot));
@@ -88,6 +124,7 @@ namespace Game.Feature.Gameplay.Debug
                     s1Snapshot,
                     attackPhaseResult,
                     cleanupPhaseResult,
+                    respawnPhaseResult,
                     finalSnapshot,
                     tickResultData,
                     determinismHash));

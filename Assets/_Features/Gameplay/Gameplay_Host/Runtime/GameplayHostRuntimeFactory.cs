@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Host
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
             var generalTimingProfile = configuration.CreateTimingProfile();
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
+            var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var faceSeamGap = configuration.ResolveFaceSeamGap();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
@@ -74,6 +75,7 @@ namespace Game.Feature.Gameplay.Host
                 inputBuffer,
                 generalTimingProfile,
                 playerControlTiming,
+                playerRespawnTiming.RespawnDelayTicks,
                 startTickIndex: 1);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);

@@ -40,10 +40,13 @@ namespace Game.Feature.Gameplay.Loop
         private readonly MovementCommitter _movementCommitter;
         private readonly AttackCommitter _attackCommitter = new();
         private readonly CleanupProcessor _cleanupProcessor = new();
+        private readonly RespawnProcessor _respawnProcessor = new();
         private readonly TickResultBuilder _tickResultBuilder = new();
         private readonly DeterminismHashBuilder _determinismHashBuilder = new();
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
+        private readonly List<EntityState> _playerRespawnTemplates;
+        private readonly int _playerRespawnDelayTicks;
         private readonly WorldState _worldState;
 
         public TickPipeline(
@@ -51,7 +54,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<IEntityLogic> entityLogics,
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
-            PlayerControlTimingAuthoritativeSnapshot playerControlTiming)
+            PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
+            int playerRespawnDelayTicks = 1)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -64,17 +68,28 @@ namespace Game.Feature.Gameplay.Loop
             _staticEntityLogics = new List<IEntityLogic>(entityLogics).AsReadOnly();
             _entityIdAllocator = EntityIdAllocator.Create(SnapshotBuilder.Create(_worldState));
             var resolvedGeneralTimingProfile = generalTimingProfile ?? throw new ArgumentNullException(nameof(generalTimingProfile));
+            if (playerRespawnDelayTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(playerRespawnDelayTicks),
+                    "Player respawn delay ticks must be greater than zero.");
+            }
+
             _movementExpander = new MovementExpander(resolvedGeneralTimingProfile);
             _movementCommitter = new MovementCommitter(playerControlTiming, resolvedGeneralTimingProfile);
             _attackExpander = new AttackExpander(resolvedGeneralTimingProfile);
+            _playerRespawnDelayTicks = playerRespawnDelayTicks;
+            _playerRespawnTemplates = BuildPlayerRespawnTemplates(
+                SnapshotBuilder.Create(_worldState),
+                _staticEntityLogics);
         }
 
         public TickResult RunTick(in TickInput input)
         {
             _idAllocator.ResetForTick(input.TickIndex);
 
-            var completedPhases = new List<TickPhase>(3);
-            var phaseTrace = new List<string>(6);
+            var completedPhases = new List<TickPhase>(4);
+            var phaseTrace = new List<string>(8);
             var transientBuffer = new PhaseTransientBuffer();
             var writeContext = _worldState.CreateWriteContext();
             var drainedDelayedAttackEffects = _delayedAttackEffectQueue.Drain(input.TickIndex);
@@ -149,6 +164,15 @@ namespace Game.Feature.Gameplay.Loop
                 writeContext,
                 completedPhases,
                 phaseTrace);
+            var postCleanupSnapshot = SnapshotBuilder.Create(_worldState);
+            var respawnPhaseResult = RunRespawnPhase(
+                initialSnapshot,
+                postCleanupSnapshot,
+                cleanupPhaseResult,
+                input.TickIndex,
+                writeContext,
+                completedPhases,
+                phaseTrace);
 
             var finalAuthoritativeSnapshot = SnapshotBuilder.Create(_worldState);
             var presentationBuildContext = new TickPresentationBuildContext(
@@ -160,6 +184,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
+                respawnPhaseResult,
                 input.TickIndex,
                 snapshotAfterEnemyAi,
                 input.PlayerCommand);
@@ -170,6 +195,7 @@ namespace Game.Feature.Gameplay.Loop
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
+                respawnPhaseResult,
                 presentationBuildContext);
             var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData);
             var tickTrace = _tickTraceBuilder.Build(
@@ -182,6 +208,7 @@ namespace Game.Feature.Gameplay.Loop
                 postMovementSnapshot,
                 attackPhaseResult,
                 cleanupPhaseResult,
+                respawnPhaseResult,
                 finalAuthoritativeSnapshot,
                 tickResultData,
                 determinismHash);
@@ -425,6 +452,59 @@ namespace Game.Feature.Gameplay.Loop
             return cleanupPhaseResult;
         }
 
+        private RespawnPhaseResult RunRespawnPhase(
+            WorldSnapshot tickStartSnapshot,
+            WorldSnapshot postCleanupSnapshot,
+            CleanupPhaseResult cleanupPhaseResult,
+            int tickIndex,
+            IRespawnCommitContext writeContext,
+            List<TickPhase> completedPhases,
+            List<string> phaseTrace)
+        {
+            phaseTrace.Add("Respawn:Enter");
+            var respawnPhaseResult = _respawnProcessor.Process(
+                tickStartSnapshot,
+                postCleanupSnapshot,
+                cleanupPhaseResult,
+                _playerRespawnTemplates,
+                tickIndex,
+                _playerRespawnDelayTicks,
+                writeContext);
+            phaseTrace.Add("Respawn:Exit");
+            completedPhases.Add(TickPhase.Respawn);
+            return respawnPhaseResult;
+        }
+
+        private static List<EntityState> BuildPlayerRespawnTemplates(
+            WorldSnapshot snapshot,
+            IReadOnlyList<IEntityLogic> entityLogics)
+        {
+            var playerEntityIds = new HashSet<int>();
+            for (var i = 0; i < entityLogics.Count; i++)
+            {
+                if (entityLogics[i] is PlayerLogic &&
+                    entityLogics[i] is IEntityLogicSourceBinding binding)
+                {
+                    playerEntityIds.Add(binding.ControlledEntityId);
+                }
+            }
+
+            var templates = new List<EntityState>();
+            var entities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(entities);
+
+            for (var i = 0; i < entities.Count; i++)
+            {
+                if (entities[i].unitRole == UnitRole.Player ||
+                    playerEntityIds.Contains(entities[i].entityId))
+                {
+                    templates.Add(entities[i]);
+                }
+            }
+
+            return templates;
+        }
+
         private List<MoveIntent> BuildMovementIntents(List<RawMovementIntent> rawMovementIntents)
         {
             rawMovementIntents.Sort(RawMovementIntentComparer.Instance);
@@ -610,6 +690,144 @@ namespace Game.Feature.Gameplay.Loop
             return new SpawnAction(_idAllocator.AllocateSpawnId(), entity);
         }
 
+    }
+
+    internal sealed class RespawnProcessor
+    {
+        private readonly Dictionary<int, int> _eligibleRespawnTicksByEntityId = new();
+
+        public RespawnPhaseResult Process(
+            WorldSnapshot tickStartSnapshot,
+            WorldSnapshot postCleanupSnapshot,
+            CleanupPhaseResult cleanupPhaseResult,
+            IReadOnlyList<EntityState> respawnTemplates,
+            int tickIndex,
+            int respawnDelayTicks,
+            IRespawnCommitContext writeContext)
+        {
+            if (tickStartSnapshot == null)
+            {
+                throw new ArgumentNullException(nameof(tickStartSnapshot));
+            }
+
+            if (postCleanupSnapshot == null)
+            {
+                throw new ArgumentNullException(nameof(postCleanupSnapshot));
+            }
+
+            if (cleanupPhaseResult == null)
+            {
+                throw new ArgumentNullException(nameof(cleanupPhaseResult));
+            }
+
+            if (respawnTemplates == null)
+            {
+                throw new ArgumentNullException(nameof(respawnTemplates));
+            }
+
+            if (respawnDelayTicks <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(respawnDelayTicks),
+                    "Respawn delay ticks must be greater than zero.");
+            }
+
+            if (writeContext == null)
+            {
+                throw new ArgumentNullException(nameof(writeContext));
+            }
+
+            var respawnedEntities = new List<EntityState>();
+            var eventLogEntries = new List<string>();
+            var removedEntityIdsThisTick = cleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(cleanupPhaseResult.RemovedEntityIds)
+                : null;
+
+            for (var i = 0; i < respawnTemplates.Count; i++)
+            {
+                var template = respawnTemplates[i];
+                var entityId = template.entityId;
+                var existedAtTickStart = tickStartSnapshot.TryGetEntity(entityId, out _);
+                var existsAfterCleanup = postCleanupSnapshot.TryGetEntity(entityId, out _);
+                var removedThisTick = removedEntityIdsThisTick != null &&
+                    removedEntityIdsThisTick.Contains(entityId);
+
+                if (existsAfterCleanup)
+                {
+                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    continue;
+                }
+
+                if (removedThisTick)
+                {
+                    _eligibleRespawnTicksByEntityId[entityId] = tickIndex + respawnDelayTicks;
+                }
+                else if (existedAtTickStart)
+                {
+                    _eligibleRespawnTicksByEntityId.Remove(entityId);
+                    continue;
+                }
+                else if (!_eligibleRespawnTicksByEntityId.ContainsKey(entityId))
+                {
+                    _eligibleRespawnTicksByEntityId[entityId] = tickIndex;
+                }
+
+                if (tickIndex < _eligibleRespawnTicksByEntityId[entityId])
+                {
+                    continue;
+                }
+
+                var respawnEntity = BuildRespawnEntity(template, tickIndex);
+                if (postCleanupSnapshot.TryGetPlacementBlocker(
+                        respawnEntity.type,
+                        respawnEntity.position,
+                        ignoredEntityId: 0,
+                        out var blocker))
+                {
+                    eventLogEntries.Add(FormatRespawnSkippedEvent(respawnEntity, blocker, tickIndex));
+                    continue;
+                }
+
+                writeContext.SpawnEntity(respawnEntity);
+                writeContext.SetPlayerControlState(respawnEntity.entityId, default);
+                respawnedEntities.Add(respawnEntity);
+                _eligibleRespawnTicksByEntityId.Remove(entityId);
+                eventLogEntries.Add(
+                    $"RespawnCommitted|E={respawnEntity.entityId}|Pos=({respawnEntity.position.x},{respawnEntity.position.y})|Face={respawnEntity.position.face}|Facing={respawnEntity.facing}|Tick={tickIndex}");
+            }
+
+            return new RespawnPhaseResult(respawnedEntities, eventLogEntries);
+        }
+
+        private static EntityState BuildRespawnEntity(EntityState template, int tickIndex)
+        {
+            var maxHp = template.maxHp > 0 ? template.maxHp : template.hp;
+            var respawnEntity = template;
+            respawnEntity.hp = maxHp;
+            respawnEntity.maxHp = maxHp;
+            respawnEntity.state = EntityPhaseState.Idle;
+            respawnEntity.stateTimer = 0;
+            respawnEntity.boardPresence = EntityBoardPresence.Occupying;
+            respawnEntity.markedForDeath = false;
+            respawnEntity.spawnTick = tickIndex;
+            respawnEntity.kineticInstigatorEntityId = 0;
+            respawnEntity.kineticInstigatorTeamId = 0;
+            respawnEntity.aiStateTimer = 0;
+            respawnEntity.enemyLocomotionCooldownTicks = 0;
+            return respawnEntity;
+        }
+
+        private static string FormatRespawnSkippedEvent(
+            EntityState entity,
+            SlideStopper blocker,
+            int tickIndex)
+        {
+            var prefix =
+                $"RespawnSkipped|E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Face={entity.position.face}|Tick={tickIndex}|Reason={blocker.Kind}";
+            return blocker.Kind == SlideStopperKind.Entity
+                ? $"{prefix}|BlockerEntity={blocker.EntityId}|BlockerType={blocker.EntityType}"
+                : prefix;
+        }
     }
 
     internal sealed class EnemyAiPhaseResult

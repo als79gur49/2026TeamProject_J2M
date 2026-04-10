@@ -142,9 +142,10 @@ namespace Game.Feature.Gameplay.Loop
         public TickTrace Trace { get; }
 
         public bool CompletedAllPhases =>
-            _completedPhases.Count == 3 &&
+            _completedPhases.Count == 4 &&
             _completedPhases[0] == TickPhase.Movement &&
             _completedPhases[1] == TickPhase.Attack &&
-            _completedPhases[2] == TickPhase.Cleanup;
+            _completedPhases[2] == TickPhase.Cleanup &&
+            _completedPhases[3] == TickPhase.Respawn;
     }
 }

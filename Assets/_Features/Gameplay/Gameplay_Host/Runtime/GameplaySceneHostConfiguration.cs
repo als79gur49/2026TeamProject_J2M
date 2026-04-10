@@ -31,6 +31,72 @@ namespace Game.Feature.Gameplay.Host
         ForwardUsesPositiveX = 1,
     }
 
+    public readonly struct PlayerRespawnTimingAuthoritativeSnapshot
+    {
+        public PlayerRespawnTimingAuthoritativeSnapshot(
+            float respawnDelaySeconds,
+            int respawnDelayTicks)
+        {
+            RespawnDelaySeconds = respawnDelaySeconds;
+            RespawnDelayTicks = respawnDelayTicks;
+        }
+
+        public float RespawnDelaySeconds { get; }
+
+        public int RespawnDelayTicks { get; }
+    }
+
+    [Serializable]
+    public sealed class PlayerRespawnTimingSettings
+    {
+        public float RespawnDelaySeconds;
+
+        public static PlayerRespawnTimingSettings CreateDefault()
+        {
+            return new PlayerRespawnTimingSettings();
+        }
+
+        public PlayerRespawnTimingSettings Clone()
+        {
+            return new PlayerRespawnTimingSettings
+            {
+                RespawnDelaySeconds = RespawnDelaySeconds,
+            };
+        }
+
+        public void Validate()
+        {
+            if (RespawnDelaySeconds < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(RespawnDelaySeconds),
+                    "Respawn delay must be zero or greater.");
+            }
+        }
+
+        public PlayerRespawnTimingAuthoritativeSnapshot CreateAuthoritativeSnapshot(
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            Validate();
+
+            var configuredDelayTicks = GameplayTimingProfile.SecondsToCeilTicks(
+                RespawnDelaySeconds,
+                simulationTicksPerSecond,
+                allowZero: true);
+
+            return new PlayerRespawnTimingAuthoritativeSnapshot(
+                RespawnDelaySeconds,
+                Mathf.Max(1, configuredDelayTicks));
+        }
+    }
+
     [Serializable]
     public sealed class GameplaySceneHostConfiguration
     {
@@ -54,6 +120,7 @@ namespace Game.Feature.Gameplay.Host
         public float MoveDeadzone = 0.5f;
         public int PlayerEntityId = 1;
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
+        public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
@@ -114,6 +181,11 @@ namespace Game.Feature.Gameplay.Host
         public PlayerControlTimingAuthoritativeSnapshot CreatePlayerControlTimingSnapshot()
         {
             return CreatePlayerControlTimingSnapshot(ResolveRepeatedMoveIntervalSeconds());
+        }
+
+        public PlayerRespawnTimingAuthoritativeSnapshot CreatePlayerRespawnTimingSnapshot()
+        {
+            return ResolvePlayerRespawnTimingSettings().CreateAuthoritativeSnapshot(SimulationTicksPerSecond);
         }
 
         public EnemyAiRuntimeCollectionSnapshot CreateEnemyAiRuntimeSnapshot()
@@ -226,6 +298,11 @@ namespace Game.Feature.Gameplay.Host
         private PlayerControlTimingSettings ResolvePlayerControlTimingSettings()
         {
             return PlayerControlTiming?.Clone() ?? PlayerControlTimingSettings.CreateDefault();
+        }
+
+        private PlayerRespawnTimingSettings ResolvePlayerRespawnTimingSettings()
+        {
+            return PlayerRespawnTiming?.Clone() ?? PlayerRespawnTimingSettings.CreateDefault();
         }
 
         private IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> CreateEnemyAiDefinitionOverrides()

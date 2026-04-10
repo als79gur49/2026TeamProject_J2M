@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
+            RespawnPhaseResult respawnPhaseResult,
             in TickPresentationBuildContext presentationBuildContext)
         {
             if (finalSnapshot == null)
@@ -48,6 +49,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(cleanupPhaseResult));
             }
 
+            if (respawnPhaseResult == null)
+            {
+                throw new ArgumentNullException(nameof(respawnPhaseResult));
+            }
+
             var finalEntities = new List<EntityState>();
             finalSnapshot.EnumerateEntitiesOrdered(finalEntities);
 
@@ -56,7 +62,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackPhaseResult.EventLogEntries.Count +
                 cleanupPhaseResult.RemovedEntityIds.Count +
                 cleanupPhaseResult.TimerChanges.Count +
-                cleanupPhaseResult.StateTransitions.Count);
+                cleanupPhaseResult.StateTransitions.Count +
+                respawnPhaseResult.EventLogEntries.Count);
 
             AddRange(eventLog, movementPhaseResult.CommitEvents);
             AddRange(eventLog, attackPhaseResult.EventLogEntries);
@@ -68,6 +75,7 @@ namespace Game.Feature.Gameplay.Loop
 
             AddRange(eventLog, cleanupPhaseResult.TimerChanges);
             AddRange(eventLog, cleanupPhaseResult.StateTransitions);
+            AddRange(eventLog, respawnPhaseResult.EventLogEntries);
 
             return new TickResultData(
                 finalEntities,
@@ -140,6 +148,38 @@ namespace Game.Feature.Gameplay.Loop
         public TickPresentationData PresentationData => _presentationData;
     }
 
+    internal sealed class RespawnPhaseResult
+    {
+        public static readonly RespawnPhaseResult Empty = new(
+            Array.Empty<EntityState>(),
+            Array.Empty<string>());
+
+        private readonly ReadOnlyCollection<string> _eventLogEntries;
+        private readonly ReadOnlyCollection<EntityState> _respawnedEntities;
+
+        public RespawnPhaseResult(
+            IEnumerable<EntityState> respawnedEntities,
+            IEnumerable<string> eventLogEntries)
+        {
+            if (respawnedEntities == null)
+            {
+                throw new ArgumentNullException(nameof(respawnedEntities));
+            }
+
+            if (eventLogEntries == null)
+            {
+                throw new ArgumentNullException(nameof(eventLogEntries));
+            }
+
+            _respawnedEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(respawnedEntities));
+            _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
+        }
+
+        public IReadOnlyList<EntityState> RespawnedEntities => _respawnedEntities;
+
+        public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
+    }
+
     internal readonly struct TickPresentationBuildContext
     {
         public TickPresentationBuildContext(
@@ -158,10 +198,38 @@ namespace Game.Feature.Gameplay.Loop
                 postMovementSnapshot,
                 postAttackSnapshot,
                 finalAuthoritativeSnapshot,
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult,
+                RespawnPhaseResult.Empty,
+                currentTickIndex,
+                jumpBaselineSnapshot,
+                playerCommand)
+        {
+        }
+
+        public TickPresentationBuildContext(
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot,
+            WorldSnapshot postAttackSnapshot,
+            WorldSnapshot finalAuthoritativeSnapshot,
+            MovementPhaseResult movementPhaseResult,
+            AttackPhaseResult attackPhaseResult,
+            CleanupPhaseResult cleanupPhaseResult,
+            RespawnPhaseResult respawnPhaseResult,
+            int currentTickIndex = 0,
+            WorldSnapshot jumpBaselineSnapshot = null,
+            PlayerTickCommand playerCommand = default)
+            : this(
+                preMovementSnapshot,
+                postMovementSnapshot,
+                postAttackSnapshot,
+                finalAuthoritativeSnapshot,
                 new PreMovementStatePhaseResult(new List<string>(), new List<PlayerActionTransition>()),
                 movementPhaseResult,
                 attackPhaseResult,
                 cleanupPhaseResult,
+                respawnPhaseResult,
                 currentTickIndex,
                 jumpBaselineSnapshot,
                 playerCommand)
@@ -180,6 +248,35 @@ namespace Game.Feature.Gameplay.Loop
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
             PlayerTickCommand playerCommand = default)
+            : this(
+                preMovementSnapshot,
+                postMovementSnapshot,
+                postAttackSnapshot,
+                finalAuthoritativeSnapshot,
+                preMovementStatePhaseResult,
+                movementPhaseResult,
+                attackPhaseResult,
+                cleanupPhaseResult,
+                RespawnPhaseResult.Empty,
+                currentTickIndex,
+                jumpBaselineSnapshot,
+                playerCommand)
+        {
+        }
+
+        public TickPresentationBuildContext(
+            WorldSnapshot preMovementSnapshot,
+            WorldSnapshot postMovementSnapshot,
+            WorldSnapshot postAttackSnapshot,
+            WorldSnapshot finalAuthoritativeSnapshot,
+            PreMovementStatePhaseResult preMovementStatePhaseResult,
+            MovementPhaseResult movementPhaseResult,
+            AttackPhaseResult attackPhaseResult,
+            CleanupPhaseResult cleanupPhaseResult,
+            RespawnPhaseResult respawnPhaseResult,
+            int currentTickIndex = 0,
+            WorldSnapshot jumpBaselineSnapshot = null,
+            PlayerTickCommand playerCommand = default)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -189,6 +286,7 @@ namespace Game.Feature.Gameplay.Loop
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
+            RespawnPhaseResult = respawnPhaseResult ?? throw new ArgumentNullException(nameof(respawnPhaseResult));
             CurrentTickIndex = currentTickIndex;
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
             PlayerCommand = playerCommand;
@@ -209,6 +307,8 @@ namespace Game.Feature.Gameplay.Loop
         public AttackPhaseResult AttackPhaseResult { get; }
 
         public CleanupPhaseResult CleanupPhaseResult { get; }
+
+        public RespawnPhaseResult RespawnPhaseResult { get; }
 
         public int CurrentTickIndex { get; }
 
@@ -235,6 +335,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
+            BuildRespawnPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
@@ -387,6 +488,25 @@ namespace Game.Feature.Gameplay.Loop
                     removedEntity.position,
                     context.PostAttackSnapshot.Topology,
                     removedEntity.facing));
+            }
+        }
+
+        private static void BuildRespawnPresentation(
+            in TickPresentationBuildContext context,
+            List<TickVisibilityChange> visibilityChanges)
+        {
+            var respawnedEntities = context.RespawnPhaseResult.RespawnedEntities;
+
+            for (var i = 0; i < respawnedEntities.Count; i++)
+            {
+                var entity = respawnedEntities[i];
+                visibilityChanges.Add(
+                    new TickVisibilityChange(
+                        entity.entityId,
+                        TickVisibilityChangeKind.Spawn,
+                        entity.position,
+                        context.FinalAuthoritativeSnapshot.Topology,
+                        entity.facing));
             }
         }
 
