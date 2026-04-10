@@ -9,12 +9,15 @@ namespace Game.Feature.Gameplay.Host
     {
         private const string RuntimeVolumeObjectName = "TopologyTransitionRuntimeVolume";
 
+        private LensDistortion _lensDistortion;
         private MotionBlur _motionBlur;
         private Camera _outputCamera;
         private UniversalAdditionalCameraData _outputCameraData;
         private TopologyTransitionPostFxProfile _profile = TopologyTransitionPostFxProfile.CreateDefault();
         private Volume _runtimeVolume;
         private VolumeProfile _runtimeVolumeProfile;
+
+        public LensDistortion LensDistortionOverride => _lensDistortion;
 
         public MotionBlur MotionBlurOverride => _motionBlur;
 
@@ -35,19 +38,38 @@ namespace Game.Feature.Gameplay.Host
 
         public void Apply(in TopologyTransitionVisualState visualState)
         {
-            if (_motionBlur == null)
+            if (_motionBlur == null &&
+                _lensDistortion == null)
             {
                 return;
             }
 
-            var intensity = _profile.EvaluateIntensity(visualState);
-            if (Mathf.Approximately(_motionBlur.intensity.value, intensity))
+            var hasChanged = false;
+
+            if (_motionBlur != null)
             {
-                return;
+                var blurIntensity = _profile.EvaluateMotionBlurIntensity(visualState);
+                if (!Mathf.Approximately(_motionBlur.intensity.value, blurIntensity))
+                {
+                    _motionBlur.intensity.value = blurIntensity;
+                    hasChanged = true;
+                }
             }
 
-            _motionBlur.intensity.value = intensity;
-            NotifyRuntimeProfileChanged();
+            if (_lensDistortion != null)
+            {
+                var distortionIntensity = _profile.EvaluateDistortionIntensity(visualState);
+                if (!Mathf.Approximately(_lensDistortion.intensity.value, distortionIntensity))
+                {
+                    _lensDistortion.intensity.value = distortionIntensity;
+                    hasChanged = true;
+                }
+            }
+
+            if (hasChanged)
+            {
+                NotifyRuntimeProfileChanged();
+            }
         }
 
         private void OnDestroy()
@@ -84,6 +106,7 @@ namespace Game.Feature.Gameplay.Host
                 _runtimeVolume.enabled = false;
                 _runtimeVolume.sharedProfile = null;
                 _runtimeVolume.profile = null;
+                _lensDistortion = null;
                 _motionBlur = null;
                 return;
             }
@@ -99,7 +122,13 @@ namespace Game.Feature.Gameplay.Host
                 _motionBlur = _runtimeVolumeProfile.Add<MotionBlur>(overrides: true);
             }
 
-            _profile.ApplyDefaults(_motionBlur);
+            if (!_runtimeVolumeProfile.TryGet(out _lensDistortion) || _lensDistortion == null)
+            {
+                _lensDistortion = _runtimeVolumeProfile.Add<LensDistortion>(overrides: true);
+            }
+
+            _profile.ApplyMotionBlurDefaults(_motionBlur);
+            _profile.ApplyDistortionDefaults(_lensDistortion);
             NotifyRuntimeProfileChanged();
         }
 
@@ -118,9 +147,22 @@ namespace Game.Feature.Gameplay.Host
 
         private void ResetIntensity()
         {
+            var hasChanged = false;
+
             if (_motionBlur != null)
             {
                 _motionBlur.intensity.value = 0f;
+                hasChanged = true;
+            }
+
+            if (_lensDistortion != null)
+            {
+                _lensDistortion.intensity.value = 0f;
+                hasChanged = true;
+            }
+
+            if (hasChanged)
+            {
                 NotifyRuntimeProfileChanged();
             }
         }
@@ -135,6 +177,7 @@ namespace Game.Feature.Gameplay.Host
 
             if (_runtimeVolumeProfile == null)
             {
+                _lensDistortion = null;
                 _motionBlur = null;
                 return;
             }
@@ -149,6 +192,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _runtimeVolumeProfile = null;
+            _lensDistortion = null;
             _motionBlur = null;
         }
 

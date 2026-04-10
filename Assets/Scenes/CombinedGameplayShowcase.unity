@@ -554,6 +554,17 @@ MonoBehaviour:
     angularVelocityResponseExponent: 0.65
     landingFadeStart01: 0.82
     landingFadeExponent: 3
+    distortionProfile:
+      ImpactStart01: 0.04
+      ImpactDuration01: 0.16
+      ImpactIntensity: -0.2
+      LandingStart01: 0.72
+      LandingDuration01: 0.18
+      LandingIntensity: 0.12
+      XMultiplier: 1
+      YMultiplier: 1
+      Center: {x: 0.5, y: 0.5}
+      Scale: 1.05
   stageDefinition: {fileID: 11400000, guid: 768e58af510a487eafd9bf00b45b4ca0, type: 2}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
   enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
