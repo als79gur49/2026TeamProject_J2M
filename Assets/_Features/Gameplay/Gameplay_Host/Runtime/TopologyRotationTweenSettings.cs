@@ -2,12 +2,6 @@ using System;
 
 namespace Game.Feature.Gameplay.Host
 {
-    public enum TopologyRotationTweenMode
-    {
-        AxisAngleX = 0,
-        QuaternionSlerp = 1,
-    }
-
     public enum TopologyRotationTweenEase
     {
         Linear = 0,
@@ -46,14 +40,12 @@ namespace Game.Feature.Gameplay.Host
     [Serializable]
     public struct TopologyRotationTweenSettings
     {
-        public TopologyRotationTweenMode Mode;
         public TopologyRotationTweenEase Ease;
 
         public static TopologyRotationTweenSettings CreateDefault()
         {
             return new TopologyRotationTweenSettings
             {
-                Mode = TopologyRotationTweenMode.AxisAngleX,
                 Ease = TopologyRotationTweenEase.OutQuad,
             };
         }

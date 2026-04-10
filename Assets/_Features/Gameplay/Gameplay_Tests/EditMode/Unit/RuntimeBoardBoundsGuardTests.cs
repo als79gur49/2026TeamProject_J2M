@@ -19,6 +19,7 @@ using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
 using UnityEditor;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -142,9 +143,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(
                 configuration.TopologyRotationVisualMapping,
                 Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
-            Assert.That(
-                configuration.TopologyRotationTween.Mode,
-                Is.EqualTo(TopologyRotationTweenMode.AxisAngleX));
             Assert.That(
                 configuration.TopologyRotationTween.Ease,
                 Is.EqualTo(TopologyRotationTweenEase.OutQuad));
@@ -3524,7 +3522,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     maxTicksPerFrame: 8);
                 var tweenSettings = new TopologyRotationTweenSettings
                 {
-                    Mode = TopologyRotationTweenMode.AxisAngleX,
                     Ease = TopologyRotationTweenEase.Linear,
                 };
                 var initialTopology = new CubeTopologyState(FaceId.Front);
@@ -3620,7 +3617,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     maxTicksPerFrame: 8);
                 var tweenSettings = new TopologyRotationTweenSettings
                 {
-                    Mode = TopologyRotationTweenMode.AxisAngleX,
                     Ease = TopologyRotationTweenEase.Linear,
                 };
                 var initialTopology = new CubeTopologyState(FaceId.Ceiling);
@@ -3800,7 +3796,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     maxTicksPerFrame: 8);
                 var tweenSettings = new TopologyRotationTweenSettings
                 {
-                    Mode = TopologyRotationTweenMode.AxisAngleX,
                     Ease = TopologyRotationTweenEase.Linear,
                 };
                 var initialTopology = new CubeTopologyState(FaceId.Back);
@@ -3854,6 +3849,130 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_TopologyMotion_WithCinemachineBrain_SyncsOutputCameraSameCall()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_WithCinemachineBrain_SyncsOutputCameraSameCall");
+            var outputCameraObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_WithCinemachineBrain_OutputCamera");
+            var cinemachineCameraObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_WithCinemachineBrain_CinemachineCamera");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                registry.ConfigureSearchRoot(boardRoot.EntityRoot);
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(boardRoot.EntityRoot));
+
+                var rig = rootObject.AddComponent<GameplayCameraRig>();
+                rig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                var outputCamera = outputCameraObject.AddComponent<Camera>();
+                var brain = outputCameraObject.AddComponent<CinemachineBrain>();
+                brain.UpdateMethod = CinemachineBrain.UpdateMethods.SmartUpdate;
+
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                cinemachineCameraObject.transform.SetParent(boardRoot.CameraPoseRoot, worldPositionStays: false);
+                cinemachineCameraObject.transform.localPosition = Vector3.zero;
+                cinemachineCameraObject.transform.localRotation = Quaternion.identity;
+                cinemachineCamera.Target = new CameraTarget
+                {
+                    TrackingTarget = boardRoot.CameraTargetRoot,
+                    LookAtTarget = boardRoot.CameraTargetRoot,
+                    CustomLookAtTarget = true,
+                };
+
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.2f,
+                    topologyMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var tweenSettings = new TopologyRotationTweenSettings
+                {
+                    Ease = TopologyRotationTweenEase.Linear,
+                };
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var rotatedTopology = new CubeTopologyState(FaceId.Front);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    initialTopology,
+                    1f,
+                    timingProfile,
+                    boardRoot,
+                    topologyRotationVisualMapping: TopologyRotationVisualMapping.ForwardUsesPositiveX,
+                    topologyRotationTweenSettings: tweenSettings);
+                presenter.AttachCameraRuntime(rig, brain);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    },
+                    initialTopology);
+
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(brain.UpdateMethod, Is.EqualTo(CinemachineBrain.UpdateMethods.ManualUpdate));
+                Assert.That(
+                    Vector3.Distance(outputCamera.transform.position, cinemachineCamera.transform.position),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(outputCamera.transform.rotation, cinemachineCamera.transform.rotation),
+                    Is.LessThan(0.001f));
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                        },
+                        rotatedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>())));
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+
+                Assert.That(
+                    Vector3.Distance(outputCamera.transform.position, cinemachineCamera.transform.position),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(outputCamera.transform.rotation, cinemachineCamera.transform.rotation),
+                    Is.LessThan(0.001f));
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.5f);
+
+                Assert.That(
+                    Quaternion.Angle(
+                        presenter.PresentedBoardRotation,
+                        ResolveRestTopologyReferenceRotation(rotatedTopology)),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(outputCamera.transform.position, cinemachineCamera.transform.position),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(outputCamera.transform.rotation, cinemachineCamera.transform.rotation),
+                    Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(outputCameraObject);
+                UnityEngine.Object.DestroyImmediate(cinemachineCameraObject);
             }
         }
 

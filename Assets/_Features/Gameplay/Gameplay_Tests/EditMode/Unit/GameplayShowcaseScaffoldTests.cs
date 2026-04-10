@@ -205,7 +205,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "topologyRotationTweenSettings",
                     new TopologyRotationTweenSettings
                     {
-                        Mode = TopologyRotationTweenMode.QuaternionSlerp,
                         Ease = TopologyRotationTweenEase.InOutBounce,
                     });
 
@@ -222,9 +221,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     configuration.TopologyRotationVisualMapping,
                     Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesPositiveX));
-                Assert.That(
-                    configuration.TopologyRotationTween.Mode,
-                    Is.EqualTo(TopologyRotationTweenMode.QuaternionSlerp));
                 Assert.That(
                     configuration.TopologyRotationTween.Ease,
                     Is.EqualTo(TopologyRotationTweenEase.InOutBounce));
@@ -606,6 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             StringAssert.DoesNotContain("itemConsumeEffectDurationSeconds:", installerBlock);
             StringAssert.DoesNotContain("boxDestroyEffectDurationSeconds:", installerBlock);
             StringAssert.DoesNotContain("playerMoveCooldownSeconds:", installerBlock);
+            StringAssert.DoesNotContain("topologyRotationTweenSettings:\n    Mode:", installerBlock);
         }
 
         [Test]

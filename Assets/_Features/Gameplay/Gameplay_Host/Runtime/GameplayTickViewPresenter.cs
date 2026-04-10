@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -69,6 +70,8 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
         private readonly GameplayTickPresentationCoordinator _presentationCoordinator = new();
+        private CinemachineBrain _viewCameraBrain;
+        private GameplayCameraRig _viewCameraRig;
 
         public event System.Action<CubeTopologyState> TopologyCommitted
         {
@@ -133,11 +136,37 @@ namespace Game.Feature.Gameplay.Host
         public void AttachCameraRig(GameplayCameraRig viewCameraRig)
         {
             _presentationCoordinator.AttachCameraRig(viewCameraRig);
+            _viewCameraRig = viewCameraRig;
+            _viewCameraBrain = null;
+        }
+
+        public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
+        {
+            _presentationCoordinator.AttachCameraRig(viewCameraRig);
+            _viewCameraRig = viewCameraRig;
+            _viewCameraBrain = viewCameraBrain;
+
+            if (null != _viewCameraBrain)
+            {
+                _viewCameraBrain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
+            }
         }
 
         public void UpdatePresentation(float deltaTime)
         {
             _presentationCoordinator.UpdatePresentation(deltaTime);
+            SyncViewCameraRuntime();
+        }
+
+        private void SyncViewCameraRuntime()
+        {
+            _viewCameraRig?.SnapToTarget();
+
+            if (null != _viewCameraBrain &&
+                _viewCameraBrain.isActiveAndEnabled)
+            {
+                _viewCameraBrain.ManualUpdate();
+            }
         }
 
         private void LateUpdate()

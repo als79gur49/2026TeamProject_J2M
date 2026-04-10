@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
+using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -107,14 +108,17 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialTopology);
 
             var viewCamera = ResolveViewCamera(configuration);
+            var outputCamera = ResolveOutputCamera(configuration);
+            var outputCameraBrain = ResolveOutputCameraBrain(outputCamera);
             var viewCameraTarget = boardRoot.CameraTargetRoot;
             var viewCameraRig = ConfigureViewCameraRig(
                 hostObject,
                 configuration,
                 viewCamera,
+                outputCameraBrain,
                 viewCameraTarget,
                 presenter.VisibleCubeBounds);
-            presenter.AttachCameraRig(viewCameraRig);
+            presenter.AttachCameraRuntime(viewCameraRig, outputCameraBrain);
 
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
             inputHost.Initialize(
@@ -200,6 +204,7 @@ namespace Game.Feature.Gameplay.Host
             GameObject hostObject,
             GameplaySceneHostConfiguration configuration,
             Camera viewCamera,
+            CinemachineBrain outputCameraBrain,
             Transform viewCameraTarget,
             Bounds visibleCubeBounds)
         {
@@ -222,7 +227,10 @@ namespace Game.Feature.Gameplay.Host
                 configuration.InitialTopology,
                 configuration.TopologyRotationVisualMapping);
             cameraRig.ApplySettings(resolvedCameraSettings);
-            cameraRig.Initialize(viewCamera, viewCameraTarget, visibleCubeBounds);
+            cameraRig.Initialize(
+                outputCameraBrain == null ? viewCamera : null,
+                viewCameraTarget,
+                visibleCubeBounds);
             return cameraRig;
         }
 
@@ -269,6 +277,18 @@ namespace Game.Feature.Gameplay.Host
         private static Camera ResolveViewCamera(GameplaySceneHostConfiguration configuration)
         {
             return configuration.ViewCamera ?? (configuration.SnapViewCameraToTarget ? Camera.main : null);
+        }
+
+        private static Camera ResolveOutputCamera(GameplaySceneHostConfiguration configuration)
+        {
+            return configuration.ViewCamera ?? Camera.main;
+        }
+
+        private static CinemachineBrain ResolveOutputCameraBrain(Camera outputCamera)
+        {
+            return outputCamera != null
+                ? outputCamera.GetComponent<CinemachineBrain>()
+                : null;
         }
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)

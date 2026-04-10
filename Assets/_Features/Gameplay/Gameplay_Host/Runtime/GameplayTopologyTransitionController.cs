@@ -272,8 +272,7 @@ namespace Game.Feature.Gameplay.Host
         private static TopologyRotationTweenSettings NormalizeTopologyRotationTweenSettings(
             TopologyRotationTweenSettings settings)
         {
-            if (!Enum.IsDefined(typeof(TopologyRotationTweenMode), settings.Mode) ||
-                !Enum.IsDefined(typeof(TopologyRotationTweenEase), settings.Ease))
+            if (!Enum.IsDefined(typeof(TopologyRotationTweenEase), settings.Ease))
             {
                 return TopologyRotationTweenSettings.CreateDefault();
             }
@@ -300,22 +299,6 @@ namespace Game.Feature.Gameplay.Host
                 : Ease.OutQuad;
         }
 
-        private Quaternion ResolveTweenedBoardRotation(
-            float startRotationXDegrees,
-            float destinationRotationXDegrees,
-            float progress)
-        {
-            return _topologyRotationTweenSettings.Mode switch
-            {
-                TopologyRotationTweenMode.QuaternionSlerp => Quaternion.SlerpUnclamped(
-                    ResolveRotationFromXDegrees(startRotationXDegrees),
-                    ResolveRotationFromXDegrees(destinationRotationXDegrees),
-                    progress),
-                _ => ResolveRotationFromXDegrees(
-                    Mathf.LerpUnclamped(startRotationXDegrees, destinationRotationXDegrees, progress)),
-            };
-        }
-
         private void StartBoardRotationTween(
             float startRotationXDegrees,
             float destinationRotationXDegrees,
@@ -329,12 +312,9 @@ namespace Game.Feature.Gameplay.Host
                     value =>
                     {
                         progress = value;
-                        var tweenedRotation = ResolveTweenedBoardRotation(
-                            startRotationXDegrees,
-                            destinationRotationXDegrees,
-                            progress);
                         var tweenedRotationXDegrees =
                             Mathf.LerpUnclamped(startRotationXDegrees, destinationRotationXDegrees, progress);
+                        var tweenedRotation = ResolveRotationFromXDegrees(tweenedRotationXDegrees);
 
                         _presentedBoardRotation = tweenedRotation;
                         _presentedBoardRotationXDegrees = tweenedRotationXDegrees;
