@@ -18,3 +18,4 @@ MonoBehaviour:
   topologyMotionDurationSeconds: 0.7
   itemConsumeEffectDurationSeconds: 0.18
   boxDestroyEffectDurationSeconds: 0.14
+  enemyDeathEffectDurationSeconds: 2
