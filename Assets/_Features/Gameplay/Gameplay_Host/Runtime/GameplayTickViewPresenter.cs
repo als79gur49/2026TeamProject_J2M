@@ -175,7 +175,11 @@ namespace Game.Feature.Gameplay.Host
 
         private void SyncViewCameraRuntime()
         {
-            _viewCameraRig?.SnapToTarget();
+            if (_viewCameraRig != null)
+            {
+                _viewCameraRig.ApplyTopologyTransitionVisualState(_presentationCoordinator.CurrentTopologyTransitionVisualState);
+                _viewCameraRig.SnapToTarget();
+            }
 
             if (_viewCameraBrain != null &&
                 _viewCameraBrain.isActiveAndEnabled)

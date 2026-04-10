@@ -211,7 +211,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installer.gameObject,
                     installer.GetShowcaseOverlayContent(),
-                    installer.GetCameraSettings());
+                    installer.GetCameraSettings(),
+                    installer.GetTopologyTransitionCameraShakeProfile());
 
                 var outputCamera = Camera.main;
                 Assert.That(outputCamera, Is.Not.Null, $"Missing Main Camera in '{scenePath}'.");

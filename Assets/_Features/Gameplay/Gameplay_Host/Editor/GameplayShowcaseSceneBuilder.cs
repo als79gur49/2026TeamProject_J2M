@@ -53,7 +53,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 installerObject,
                 installer.GetShowcaseOverlayContent(),
-                installer.GetCameraSettings());
+                installer.GetCameraSettings(),
+                installer.GetTopologyTransitionCameraShakeProfile());
             installer.ConfigureBootstrapCamera(Camera.main);
 
             EditorSceneManager.SaveScene(scene, scenePath);

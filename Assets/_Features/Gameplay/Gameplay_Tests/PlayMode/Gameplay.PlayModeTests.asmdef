@@ -4,6 +4,7 @@
   "references": [
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
+    "Unity.Cinemachine",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",
     "Unity.RenderPipelines.Core.Runtime",

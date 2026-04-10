@@ -10,12 +10,14 @@ namespace Game.Feature.Gameplay.Host
         private const string CameraTargetRootObjectName = "CameraTargetRoot";
         private const string CameraOrbitPivotObjectName = "CameraOrbitPivot";
         private const string CameraPoseRootObjectName = "CameraPoseRoot";
+        private const string CameraEffectsRootObjectName = "CameraEffectsRoot";
 
         [SerializeField] private Transform boardSurfaceRoot;
         [SerializeField] private Transform entityRoot;
         [SerializeField] private Transform cameraTargetRoot;
         [SerializeField] private Transform cameraOrbitPivot;
         [SerializeField] private Transform cameraPoseRoot;
+        [SerializeField] private Transform cameraEffectsRoot;
         [SerializeField] private Vector3 presentationPivotLocalPoint;
 
         public Transform BoardSurfaceRoot => boardSurfaceRoot;
@@ -27,6 +29,8 @@ namespace Game.Feature.Gameplay.Host
         public Transform CameraOrbitPivot => cameraOrbitPivot;
 
         public Transform CameraPoseRoot => cameraPoseRoot;
+
+        public Transform CameraEffectsRoot => cameraEffectsRoot;
 
         public Vector3 PresentationPivotLocalPoint => presentationPivotLocalPoint;
 
@@ -45,6 +49,7 @@ namespace Game.Feature.Gameplay.Host
             cameraTargetRoot = EnsureChild(cameraTargetRoot, CameraTargetRootObjectName);
             cameraOrbitPivot = EnsureChild(cameraTargetRoot, cameraOrbitPivot, CameraOrbitPivotObjectName);
             cameraPoseRoot = EnsureChild(cameraOrbitPivot, cameraPoseRoot, CameraPoseRootObjectName);
+            cameraEffectsRoot = EnsureChild(cameraPoseRoot, cameraEffectsRoot, CameraEffectsRootObjectName);
             ApplyPresentationRotation(Quaternion.identity, presentationPivotLocalPoint);
         }
 
@@ -77,6 +82,11 @@ namespace Game.Feature.Gameplay.Host
             if (cameraPoseRoot != null)
             {
                 cameraPoseRoot.localScale = Vector3.one;
+            }
+
+            if (cameraEffectsRoot != null)
+            {
+                cameraEffectsRoot.localScale = Vector3.one;
             }
         }
 

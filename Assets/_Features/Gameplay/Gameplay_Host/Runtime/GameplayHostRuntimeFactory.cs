@@ -235,6 +235,7 @@ namespace Game.Feature.Gameplay.Host
 
             var cameraRig = hostObject.GetComponent<GameplayCameraRig>() ?? hostObject.AddComponent<GameplayCameraRig>();
             cameraRig.enabled = true;
+            cameraRig.ConfigureTopologyTransitionCameraShake(configuration.TopologyTransitionCameraShakeProfile);
             var resolvedCameraSettings = cameraRig.ResolveConfiguredSettings(
                 configuration.CameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault(),
                 viewCameraTarget.position,

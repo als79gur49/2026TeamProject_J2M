@@ -10,6 +10,7 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
+using Unity.Cinemachine;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
@@ -140,6 +141,150 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             yield return DestroyHost(host);
             Object.Destroy(outputCameraObject);
             Object.Destroy(sourceProfile);
+            yield return null;
+        }
+
+        [UnityTest]
+        public IEnumerator TopologyTransitionCameraShake_PlayMode_DirectAndCinemachinePaths_SharePulseTimingAndReset()
+        {
+            var directRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectRoot");
+            var cinemachineRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_CinemachineRoot");
+            var directCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectCamera");
+            var outputCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_OutputCamera");
+            var cinemachineCameraObject = new GameObject("PlayModeTopologyTransitionCameraShake_CinemachineCamera");
+
+            try
+            {
+                var directBoardRoot = directRootObject.AddComponent<GameplayBoardRoot>();
+                directBoardRoot.EnsureHierarchy();
+                var cinemachineBoardRoot = cinemachineRootObject.AddComponent<GameplayBoardRoot>();
+                cinemachineBoardRoot.EnsureHierarchy();
+
+                var directRig = directRootObject.AddComponent<GameplayCameraRig>();
+                directRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                directRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                directRig.Initialize(
+                    directCameraObject.AddComponent<Camera>(),
+                    directBoardRoot.CameraTargetRoot,
+                    new Bounds(Vector3.zero, Vector3.one));
+
+                var cinemachineRig = cinemachineRootObject.AddComponent<GameplayCameraRig>();
+                cinemachineRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                cinemachineRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                cinemachineRig.Initialize(
+                    null,
+                    cinemachineBoardRoot.CameraTargetRoot,
+                    new Bounds(Vector3.zero, Vector3.one));
+
+                var outputCamera = outputCameraObject.AddComponent<Camera>();
+                var brain = outputCameraObject.AddComponent<CinemachineBrain>();
+                brain.UpdateMethod = CinemachineBrain.UpdateMethods.ManualUpdate;
+
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                cinemachineCameraObject.transform.SetParent(cinemachineBoardRoot.CameraEffectsRoot, worldPositionStays: false);
+                cinemachineCameraObject.transform.localPosition = Vector3.zero;
+                cinemachineCameraObject.transform.localRotation = Quaternion.identity;
+                cinemachineCamera.Target = new CameraTarget
+                {
+                    TrackingTarget = cinemachineBoardRoot.CameraTargetRoot,
+                    LookAtTarget = cinemachineBoardRoot.CameraTargetRoot,
+                    CustomLookAtTarget = true,
+                };
+
+                var orbit = Quaternion.Euler(90f, 0f, 0f);
+                directRig.SetPresentedTopologyOrbit(orbit);
+                cinemachineRig.SetPresentedTopologyOrbit(orbit);
+                brain.ManualUpdate();
+
+                var impactState = new TopologyTransitionVisualState(
+                    isActive: true,
+                    progress01: 0.12f,
+                    sourceTopology: new CubeTopologyState(FaceId.Floor),
+                    destinationTopology: new CubeTopologyState(FaceId.Front),
+                    rotationKind: CubeRotationKind.Forward,
+                    durationSeconds: 0.2f,
+                    presentedVisualRotation: Quaternion.Euler(12f, 0f, 0f),
+                    angularVelocityNormalized: 1f);
+                directRig.ApplyTopologyTransitionVisualState(impactState);
+                directRig.SnapToTarget();
+                cinemachineRig.ApplyTopologyTransitionVisualState(impactState);
+                cinemachineRig.SnapToTarget();
+                brain.ManualUpdate();
+
+                Assert.That(
+                    Vector3.Distance(directRig.TopologyTransitionShakeLocalPosition, cinemachineRig.TopologyTransitionShakeLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, cinemachineRig.TopologyTransitionShakeLocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    directRig.TopologyTransitionShakeLocalPosition.sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, Quaternion.identity) > 0.001f,
+                    Is.True);
+                Assert.That(
+                    Vector3.Distance(cinemachineBoardRoot.CameraEffectsRoot.localPosition, cinemachineRig.TopologyTransitionShakeLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(cinemachineBoardRoot.CameraEffectsRoot.localRotation, cinemachineRig.TopologyTransitionShakeLocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(outputCamera.transform.position, cinemachineCamera.transform.position),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(outputCamera.transform.rotation, cinemachineCamera.transform.rotation),
+                    Is.LessThan(0.001f));
+
+                var landingState = new TopologyTransitionVisualState(
+                    isActive: true,
+                    progress01: 0.84f,
+                    sourceTopology: new CubeTopologyState(FaceId.Floor),
+                    destinationTopology: new CubeTopologyState(FaceId.Front),
+                    rotationKind: CubeRotationKind.Forward,
+                    durationSeconds: 0.2f,
+                    presentedVisualRotation: Quaternion.Euler(78f, 0f, 0f),
+                    angularVelocityNormalized: 0.45f);
+                directRig.ApplyTopologyTransitionVisualState(landingState);
+                directRig.SnapToTarget();
+                cinemachineRig.ApplyTopologyTransitionVisualState(landingState);
+                cinemachineRig.SnapToTarget();
+                brain.ManualUpdate();
+
+                Assert.That(
+                    Vector3.Distance(directRig.TopologyTransitionShakeLocalPosition, cinemachineRig.TopologyTransitionShakeLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, cinemachineRig.TopologyTransitionShakeLocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    directRig.TopologyTransitionShakeLocalPosition.sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, Quaternion.identity) > 0.001f,
+                    Is.True);
+
+                var inactiveState = TopologyTransitionVisualState.Inactive(
+                    new CubeTopologyState(FaceId.Front),
+                    Quaternion.Euler(90f, 0f, 0f));
+                directRig.ApplyTopologyTransitionVisualState(inactiveState);
+                directRig.SnapToTarget();
+                cinemachineRig.ApplyTopologyTransitionVisualState(inactiveState);
+                cinemachineRig.SnapToTarget();
+                brain.ManualUpdate();
+
+                Assert.That(directRig.TopologyTransitionShakeLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(directRig.TopologyTransitionShakeLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(cinemachineRig.TopologyTransitionShakeLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(cinemachineRig.TopologyTransitionShakeLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+            }
+            finally
+            {
+                Object.Destroy(directRootObject);
+                Object.Destroy(cinemachineRootObject);
+                Object.Destroy(directCameraObject);
+                Object.Destroy(outputCameraObject);
+                Object.Destroy(cinemachineCameraObject);
+            }
+
             yield return null;
         }
 

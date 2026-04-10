@@ -16,13 +16,27 @@ namespace Game.Feature.Gameplay.Host
             EnsureInstallerScaffold(
                 installerRoot,
                 overlayContent,
-                GameplayCameraSettings.CreateShowcaseDefault());
+                GameplayCameraSettings.CreateShowcaseDefault(),
+                TopologyTransitionCameraShakeProfile.CreateDefault());
         }
 
         public static void EnsureInstallerScaffold(
             GameObject installerRoot,
             GameplayShowcaseOverlayContent overlayContent,
             GameplayCameraSettings cameraSettings)
+        {
+            EnsureInstallerScaffold(
+                installerRoot,
+                overlayContent,
+                cameraSettings,
+                TopologyTransitionCameraShakeProfile.CreateDefault());
+        }
+
+        public static void EnsureInstallerScaffold(
+            GameObject installerRoot,
+            GameplayShowcaseOverlayContent overlayContent,
+            GameplayCameraSettings cameraSettings,
+            TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
         {
             if (installerRoot == null)
             {
@@ -31,7 +45,7 @@ namespace Game.Feature.Gameplay.Host
 
             DestroyLegacyWorldLabels(installerRoot.scene);
             var boardRoot = EnsureBoardRoot(installerRoot.transform);
-            var rig = EnsureCameraRig(installerRoot, cameraSettings);
+            var rig = EnsureCameraRig(installerRoot, cameraSettings, topologyTransitionCameraShakeProfile);
             ConfigureSceneOutputCameras(installerRoot.scene);
             ConfigureSceneCinemachinePath(installerRoot.scene, boardRoot, rig, cameraSettings);
             EnsureOverlay(installerRoot, overlayContent);
@@ -105,10 +119,15 @@ namespace Game.Feature.Gameplay.Host
                    namedChild.gameObject.AddComponent<GameplayBoardRoot>();
         }
 
-        private static GameplayCameraRig EnsureCameraRig(GameObject installerRoot, GameplayCameraSettings cameraSettings)
+        private static GameplayCameraRig EnsureCameraRig(
+            GameObject installerRoot,
+            GameplayCameraSettings cameraSettings,
+            TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
         {
             var rig = installerRoot.GetComponent<GameplayCameraRig>() ?? installerRoot.AddComponent<GameplayCameraRig>();
             rig.ApplySettings(cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault());
+            rig.ConfigureTopologyTransitionCameraShake(
+                topologyTransitionCameraShakeProfile ?? TopologyTransitionCameraShakeProfile.CreateDefault());
             return rig;
         }
 
@@ -187,7 +206,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayCameraSettings cameraSettings)
         {
             if (cinemachineCamera == null ||
-                boardRoot?.CameraPoseRoot == null ||
+                boardRoot?.CameraEffectsRoot == null ||
                 boardRoot.CameraTargetRoot == null)
             {
                 return;
@@ -200,7 +219,7 @@ namespace Game.Feature.Gameplay.Host
                 lens.FieldOfView,
                 lens.NearClipPlane,
                 lens.FarClipPlane);
-            cameraTransform.SetParent(boardRoot.CameraPoseRoot, worldPositionStays: false);
+            cameraTransform.SetParent(boardRoot.CameraEffectsRoot, worldPositionStays: false);
             cameraTransform.localPosition = Vector3.zero;
             cameraTransform.localRotation = Quaternion.identity;
             cameraTransform.localScale = Vector3.one;

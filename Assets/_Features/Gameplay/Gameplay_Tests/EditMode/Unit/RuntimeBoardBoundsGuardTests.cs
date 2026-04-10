@@ -3919,7 +3919,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 brain.UpdateMethod = CinemachineBrain.UpdateMethods.SmartUpdate;
 
                 var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
-                cinemachineCameraObject.transform.SetParent(boardRoot.CameraPoseRoot, worldPositionStays: false);
+                cinemachineCameraObject.transform.SetParent(boardRoot.CameraEffectsRoot, worldPositionStays: false);
                 cinemachineCameraObject.transform.localPosition = Vector3.zero;
                 cinemachineCameraObject.transform.localRotation = Quaternion.identity;
                 cinemachineCamera.Target = new CameraTarget
@@ -4015,6 +4015,107 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(rootObject);
                 UnityEngine.Object.DestroyImmediate(outputCameraObject);
                 UnityEngine.Object.DestroyImmediate(cinemachineCameraObject);
+            }
+        }
+
+        [Test]
+        public void GameplayTickViewPresenter_TopologyTransition_CameraShake_OnlyCameraEffectsRootMovesAndResets()
+        {
+            var rootObject = new GameObject("GameplayTickViewPresenter_TopologyTransition_CameraShake_OnlyCameraEffectsRootMovesAndResets");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                registry.ConfigureSearchRoot(boardRoot.EntityRoot);
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(boardRoot.EntityRoot));
+                var rig = rootObject.AddComponent<GameplayCameraRig>();
+                rig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
+                rig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.2f,
+                    topologyMotionDurationSeconds: 0.2f,
+                    flipMotionDurationSeconds: 0.2f,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8);
+                var initialTopology = new CubeTopologyState(FaceId.Floor);
+                var rotatedTopology = new CubeTopologyState(FaceId.Front);
+
+                presenter.Initialize(
+                    binder,
+                    new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                    initialTopology,
+                    1f,
+                    timingProfile,
+                    boardRoot,
+                    topologyRotationVisualMapping: TopologyRotationVisualMapping.ForwardUsesPositiveX,
+                    topologyRotationTweenSettings: new TopologyRotationTweenSettings
+                    {
+                        Ease = TopologyRotationTweenEase.Linear,
+                    });
+                presenter.AttachCameraRig(rig);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateSurfaceUnit(10, new SurfaceCell(FaceId.Floor, 0, 1)),
+                    },
+                    initialTopology);
+
+                Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+
+                presenter.Present(
+                    CreateTickResult(
+                        new[]
+                        {
+                            CreateSurfaceUnit(10, new SurfaceCell(FaceId.Front, 0, 0)),
+                        },
+                        rotatedTopology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            new TickTopologyMotion(initialTopology, rotatedTopology, CubeRotationKind.Forward),
+                            Array.Empty<TickVisibilityChange>())));
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.12f);
+
+                Assert.That(Quaternion.Angle(boardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, rig.PresentedTopologyOrbit),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.localPosition, rig.TopologyTransitionShakeLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, rig.TopologyTransitionShakeLocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    boardRoot.CameraEffectsRoot.localPosition.sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, Quaternion.identity) > 0.001f,
+                    Is.True);
+
+                presenter.UpdatePresentation(timingProfile.TopologyMotionDurationSeconds * 0.88f);
+
+                Assert.That(presenter.CurrentTopologyTransitionVisualState.IsActive, Is.False);
+                Assert.That(Quaternion.Angle(boardRoot.transform.localRotation, Quaternion.identity), Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, rig.PresentedTopologyOrbit),
+                    Is.LessThan(0.001f));
+                Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 

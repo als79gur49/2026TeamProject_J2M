@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
         private static readonly GameplayCameraSettings DefaultSettings = GameplayCameraSettings.CreateRuntimeDefault();
         private const string CameraOrbitPivotObjectName = "CameraOrbitPivot";
         private const string CameraPoseRootObjectName = "CameraPoseRoot";
+        private const string CameraEffectsRootObjectName = "CameraEffectsRoot";
 
         public enum DistanceMode
         {
@@ -28,12 +29,16 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private CameraClearFlags clearFlags = DefaultSettings.ClearFlags;
         [SerializeField] private Color backgroundColor = DefaultSettings.BackgroundColor;
 
+        private Transform _cameraEffectsRoot;
         private Transform _cameraPoseRoot;
         private bool _isInitialized;
         private Transform _orbitPivot;
         private Quaternion _presentedTopologyOrbit = Quaternion.identity;
         private float _presentedTopologyOrbitXDegrees;
+        private readonly TopologyTransitionCameraShakeController _topologyTransitionCameraShakeController = new();
         private Transform _target;
+        private Vector3 _topologyTransitionShakeLocalPosition;
+        private Quaternion _topologyTransitionShakeLocalRotation = Quaternion.identity;
         private Bounds _visibleCubeBounds;
         private Camera _viewCamera;
         private bool _hasAuthoredSceneCameraPose;
@@ -69,6 +74,10 @@ namespace Game.Feature.Gameplay.Host
         public Quaternion PresentedTopologyOrbit => _presentedTopologyOrbit;
 
         internal float PresentedTopologyOrbitXDegrees => _presentedTopologyOrbitXDegrees;
+
+        internal Vector3 TopologyTransitionShakeLocalPosition => _topologyTransitionShakeLocalPosition;
+
+        internal Quaternion TopologyTransitionShakeLocalRotation => _topologyTransitionShakeLocalRotation;
 
         public void CaptureAuthoredSceneCameraPose(
             Transform cameraTransform,
@@ -136,6 +145,18 @@ namespace Game.Feature.Gameplay.Host
             ResolvePoseHierarchy();
             _isInitialized = true;
             SnapToTarget();
+        }
+
+        internal void ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile profile)
+        {
+            _topologyTransitionCameraShakeController.Initialize(profile);
+            _topologyTransitionShakeLocalPosition = Vector3.zero;
+            _topologyTransitionShakeLocalRotation = Quaternion.identity;
+
+            if (_isInitialized)
+            {
+                SnapToTarget();
+            }
         }
 
         public void RefreshVisibleCubeBounds(Bounds visibleCubeBounds)
@@ -247,6 +268,13 @@ namespace Game.Feature.Gameplay.Host
             ApplyCameraPose();
         }
 
+        internal void ApplyTopologyTransitionVisualState(in TopologyTransitionVisualState visualState)
+        {
+            _topologyTransitionCameraShakeController.Apply(visualState);
+            _topologyTransitionShakeLocalPosition = _topologyTransitionCameraShakeController.LocalPosition;
+            _topologyTransitionShakeLocalRotation = _topologyTransitionCameraShakeController.LocalRotation;
+        }
+
         private void LateUpdate()
         {
             if (_isInitialized)
@@ -270,10 +298,12 @@ namespace Game.Feature.Gameplay.Host
 
             if (_viewCamera != null)
             {
+                var resolvedWorldPosition = worldPosition + (worldRotation * _topologyTransitionShakeLocalPosition);
+                var resolvedWorldRotation = worldRotation * _topologyTransitionShakeLocalRotation;
                 ApplyResolvedCameraPose(
                     _viewCamera,
-                    worldPosition,
-                    worldRotation,
+                    resolvedWorldPosition,
+                    resolvedWorldRotation,
                     perspectiveFieldOfView,
                     nearClipPlane,
                     farClipPlane,
@@ -286,6 +316,7 @@ namespace Game.Feature.Gameplay.Host
         {
             _orbitPivot = _target != null ? _target.Find(CameraOrbitPivotObjectName) : null;
             _cameraPoseRoot = _orbitPivot != null ? _orbitPivot.Find(CameraPoseRootObjectName) : null;
+            _cameraEffectsRoot = _cameraPoseRoot != null ? _cameraPoseRoot.Find(CameraEffectsRootObjectName) : null;
         }
 
         private (Vector3 localPosition, Quaternion localRotation, Vector3 worldPosition, Quaternion worldRotation) ResolveCameraPose()
@@ -330,6 +361,14 @@ namespace Game.Feature.Gameplay.Host
             {
                 _cameraPoseRoot.SetLocalPositionAndRotation(localPosition, localRotation);
                 _cameraPoseRoot.localScale = Vector3.one;
+            }
+
+            if (_cameraEffectsRoot != null)
+            {
+                _cameraEffectsRoot.SetLocalPositionAndRotation(
+                    _topologyTransitionShakeLocalPosition,
+                    _topologyTransitionShakeLocalRotation);
+                _cameraEffectsRoot.localScale = Vector3.one;
             }
         }
 

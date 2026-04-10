@@ -75,8 +75,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(boardRoot.CameraTargetRoot, Is.Not.Null);
                 Assert.That(boardRoot.CameraOrbitPivot, Is.Not.Null);
                 Assert.That(boardRoot.CameraPoseRoot, Is.Not.Null);
+                Assert.That(boardRoot.CameraEffectsRoot, Is.Not.Null);
 
-                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraPoseRoot));
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraEffectsRoot));
                 Assert.That(cinemachineCamera.transform.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(cinemachineCamera.transform.localRotation, Is.EqualTo(Quaternion.identity));
                 Assert.That(cinemachineCamera.Target.TrackingTarget, Is.EqualTo(boardRoot.CameraTargetRoot));
@@ -162,16 +163,61 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(resolvedCameraSettings.PerspectiveFieldOfView, Is.EqualTo(44f).Within(0.0001f));
                 Assert.That(resolvedCameraSettings.NearClipPlane, Is.EqualTo(0.2f).Within(0.0001f));
                 Assert.That(resolvedCameraSettings.FarClipPlane, Is.EqualTo(90f).Within(0.0001f));
-                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraPoseRoot));
+                Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraEffectsRoot));
                 Assert.That(cinemachineCamera.transform.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(
-                    Vector3.Distance(boardRoot.CameraPoseRoot.position, new Vector3(3f, 4f, -8f)),
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.position, new Vector3(3f, 4f, -8f)),
                     Is.LessThan(0.001f));
                 Assert.That(
                     Quaternion.Angle(
-                        boardRoot.CameraPoseRoot.rotation,
+                        boardRoot.CameraEffectsRoot.rotation,
                         Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up)),
                     Is.LessThan(0.001f));
+            }
+            finally
+            {
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_AppliesProvidedShakeProfileToRig()
+        {
+            var scene = CreateIsolatedTestScene();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var shakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
+                shakeProfile.ImpactLocalPositionAmplitude = Vector3.zero;
+                shakeProfile.ImpactLocalRotationAmplitudeDegrees = Vector3.zero;
+                shakeProfile.LandingLocalPositionAmplitude = Vector3.zero;
+                shakeProfile.LandingLocalRotationAmplitudeDegrees = Vector3.zero;
+
+                GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
+                    installerObject,
+                    new GameplayShowcaseOverlayContent("Traversal", "Summary", "Move", Array.Empty<string>()),
+                    GameplayCameraSettings.CreateShowcaseDefault(),
+                    shakeProfile);
+
+                var rig = installerObject.GetComponent<GameplayCameraRig>();
+                Assert.That(rig, Is.Not.Null);
+
+                rig.ApplyTopologyTransitionVisualState(
+                    new TopologyTransitionVisualState(
+                        isActive: true,
+                        progress01: 0.12f,
+                        sourceTopology: new CubeTopologyState(FaceId.Floor),
+                        destinationTopology: new CubeTopologyState(FaceId.Front),
+                        rotationKind: CubeRotationKind.Forward,
+                        durationSeconds: 0.2f,
+                        presentedVisualRotation: Quaternion.Euler(12f, 0f, 0f),
+                        angularVelocityNormalized: 1f));
+
+                Assert.That(rig.TopologyTransitionShakeLocalPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(rig.TopologyTransitionShakeLocalRotation, Is.EqualTo(Quaternion.identity));
             }
             finally
             {
@@ -214,6 +260,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 Assert.That(configuration.InitialBoardBounds, Is.EqualTo(boardBounds));
                 Assert.That(configuration.CameraSettings, Is.Not.Null);
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile, Is.Not.Null);
                 AssertCameraSettings(configuration.CameraSettings, expectedCameraSettings);
                 Assert.That(configuration.PlayerControlTiming, Is.Not.Null);
                 Assert.That(configuration.PlayerControlTiming.MoveCooldownSeconds, Is.EqualTo(0.35f));
@@ -413,6 +460,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     Quaternion.Angle(boardRoot.CameraPoseRoot.localRotation, expectedLocalRotation),
                     Is.LessThan(0.001f));
+                Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
                 Assert.That(
                     Vector3.Distance(
                         boardRoot.CameraPoseRoot.localPosition,
@@ -523,6 +572,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.FarClipPlane, Is.EqualTo(expected.FarClipPlane).Within(0.0001f));
             Assert.That(actual.ClearFlags, Is.EqualTo(expected.ClearFlags));
             Assert.That(actual.BackgroundColor, Is.EqualTo(expected.BackgroundColor));
+        }
+
+        [Test]
+        public void GameplayShowcaseInstaller_CreateConfiguration_ClonesTopologyTransitionCameraShakeProfile()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var authoredShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
+                authoredShakeProfile.ImpactStart01 = 0.05f;
+                authoredShakeProfile.ImpactDuration01 = 0.11f;
+                authoredShakeProfile.ImpactLocalPositionAmplitude = new Vector3(0.031f, 0.017f, 0.021f);
+                authoredShakeProfile.LandingStart01 = 0.73f;
+                authoredShakeProfile.LandingDuration01 = 0.14f;
+                authoredShakeProfile.LandingLocalRotationAmplitudeDegrees = new Vector3(0.11f, 0.22f, 0.33f);
+
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
+                SetBaseInstallerField(installer, "topologyTransitionCameraShakeProfile", authoredShakeProfile);
+
+                var configuration = installer.BuildConfigurationForTests();
+
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile, Is.Not.Null);
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile, Is.Not.SameAs(authoredShakeProfile));
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile.ImpactStart01, Is.EqualTo(0.05f).Within(0.0001f));
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile.ImpactDuration01, Is.EqualTo(0.11f).Within(0.0001f));
+                Assert.That(
+                    configuration.TopologyTransitionCameraShakeProfile.ImpactLocalPositionAmplitude,
+                    Is.EqualTo(new Vector3(0.031f, 0.017f, 0.021f)));
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile.LandingStart01, Is.EqualTo(0.73f).Within(0.0001f));
+                Assert.That(configuration.TopologyTransitionCameraShakeProfile.LandingDuration01, Is.EqualTo(0.14f).Within(0.0001f));
+                Assert.That(
+                    configuration.TopologyTransitionCameraShakeProfile.LandingLocalRotationAmplitudeDegrees,
+                    Is.EqualTo(new Vector3(0.11f, 0.22f, 0.33f)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
         }
 
         private sealed class TestGameplayShowcaseInstaller : GameplayShowcaseSceneInstallerBase
