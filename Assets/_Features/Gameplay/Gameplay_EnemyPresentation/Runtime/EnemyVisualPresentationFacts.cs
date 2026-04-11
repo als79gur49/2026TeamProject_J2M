@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
             bool isTransitionOnlyVisible,
             bool isJumpDetachedVisible,
             GameplayProjectedFaceSlot? projectedSlot,
+            bool isGameplayAutonomySuppressed,
             EnemyAiMode aiMode,
             bool hasActiveMotion)
         {
@@ -25,6 +26,7 @@ namespace Game.Feature.Gameplay.Host
             IsTransitionOnlyVisible = isTransitionOnlyVisible;
             IsJumpDetachedVisible = isJumpDetachedVisible;
             ProjectedSlot = projectedSlot;
+            IsGameplayAutonomySuppressed = isGameplayAutonomySuppressed;
             AiMode = aiMode;
             HasActiveMotion = hasActiveMotion;
         }
@@ -44,6 +46,8 @@ namespace Game.Feature.Gameplay.Host
         public bool IsJumpDetachedVisible { get; }
 
         public GameplayProjectedFaceSlot? ProjectedSlot { get; }
+
+        public bool IsGameplayAutonomySuppressed { get; }
 
         public EnemyAiMode AiMode { get; }
 

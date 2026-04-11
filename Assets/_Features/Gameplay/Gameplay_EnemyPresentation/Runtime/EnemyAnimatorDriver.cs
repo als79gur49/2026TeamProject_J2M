@@ -40,6 +40,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool IsVisible { get; private set; }
 
+        public bool IsPlaybackSuppressed { get; private set; }
+
         public int WindupSignalCount { get; private set; }
 
         public int AttackSignalCount { get; private set; }
@@ -154,10 +156,11 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        public void SyncRuntimeState(bool isVisible, bool isMoving)
+        public void SyncRuntimeState(bool isVisible, bool isMoving, bool playbackSuppressed = false)
         {
             IsVisible = isVisible;
             IsMoving = isMoving;
+            IsPlaybackSuppressed = playbackSuppressed;
 
             var targetAnimator = ResolveAnimator();
             SyncOptionalMovingParameter(targetAnimator, isMoving);
@@ -206,9 +209,12 @@ namespace Game.Feature.Gameplay.Host
 
         private void ApplyAnimatorTiming(Animator targetAnimator, EnemyPresentationPhase phase)
         {
-            var targetSpeed = ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
-            CurrentAnimatorSpeed = targetSpeed;
+            var resolvedSpeed = ResolveAnimatorSpeed(phase, out var presentationDurationSeconds);
+            CurrentAnimatorSpeed = resolvedSpeed;
             CurrentPresentationDurationSeconds = presentationDurationSeconds;
+            var targetSpeed = IsPlaybackSuppressed
+                ? 0f
+                : resolvedSpeed;
 
             if (targetAnimator != null)
             {

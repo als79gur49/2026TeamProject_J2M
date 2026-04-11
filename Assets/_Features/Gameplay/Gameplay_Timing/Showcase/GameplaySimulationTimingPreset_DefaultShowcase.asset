@@ -15,11 +15,14 @@ MonoBehaviour:
   initialMoveDelaySeconds: 0
   playerControlTiming:
     MoveCooldownSeconds: 0.5
+    DamageCooldownSeconds: 2
     PushContactThresholdSeconds: -1
     PushExecuteDelaySeconds: 0.18333334
     PushInputLockDurationSeconds: 0.48333335
     FlipExecuteDelaySeconds: 0.38333333
     FlipInputLockDurationSeconds: 0.95
+  playerRespawnTiming:
+    RespawnDelaySeconds: 1
   repeatedMoveIntervalSeconds: 0.6
   boxSlideStepIntervalSeconds: 0.2
   projectileStepIntervalSeconds: 0.2

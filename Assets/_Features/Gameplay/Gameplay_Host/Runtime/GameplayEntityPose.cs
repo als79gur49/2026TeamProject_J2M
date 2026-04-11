@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Entities;
 using UnityEngine;
@@ -31,11 +32,13 @@ namespace Game.Feature.Gameplay.Host
         public TransitionVisibilityState(
             TickTransitionVisibilityMode mode,
             GameplayEntityPose localPose,
-            GameplayProjectedFaceSlot? projectedSlot)
+            GameplayProjectedFaceSlot? projectedSlot,
+            FaceId? surfaceFace)
         {
             Mode = mode;
             LocalPose = localPose;
             ProjectedSlot = projectedSlot;
+            SurfaceFace = surfaceFace;
         }
 
         public TickTransitionVisibilityMode Mode { get; }
@@ -43,6 +46,8 @@ namespace Game.Feature.Gameplay.Host
         public GameplayEntityPose LocalPose { get; }
 
         public GameplayProjectedFaceSlot? ProjectedSlot { get; }
+
+        public FaceId? SurfaceFace { get; }
     }
 
     public readonly struct JumpDetachedVisibilityState

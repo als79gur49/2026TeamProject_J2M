@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   moveMotionDurationSeconds: 0.5
   pushMotionDurationSeconds: 1
-  flipMotionDurationSeconds: 1
+  flipMotionDurationSeconds: 0.6
   topologyMotionDurationSeconds: 0.7
   itemConsumeEffectDurationSeconds: 0.18
   boxDestroyEffectDurationSeconds: 0.14
