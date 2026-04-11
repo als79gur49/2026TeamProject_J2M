@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Movement.Intents
             MovementCommandKind commandKind,
             int localSequence,
             int moveCooldownTicks)
-            : base(sourceId, priority, TickPhase.Movement)
+            : base(sourceId, priority, TickPhase.Plan)
         {
             Destination = destination;
             CommandKind = commandKind;

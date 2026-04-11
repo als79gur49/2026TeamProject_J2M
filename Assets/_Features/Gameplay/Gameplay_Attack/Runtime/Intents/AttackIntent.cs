@@ -37,7 +37,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
             bool hasTargetCell,
             ImpactReservation? impactReservation,
             DelayedAttackEffectRecord? delayedAttackEffect)
-            : base(sourceId, priority, TickPhase.Attack)
+            : base(sourceId, priority, TickPhase.Resolve)
         {
             ValidateContract(
                 targetId,

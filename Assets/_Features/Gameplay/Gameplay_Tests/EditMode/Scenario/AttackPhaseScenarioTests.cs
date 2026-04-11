@@ -936,17 +936,21 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(attackLogic, Is.Not.InstanceOf<IMovementEntityLogic>());
             Assert.That(attackLogic.AttackCollectCallCount, Is.EqualTo(1));
             CollectionAssert.AreEqual(
-                new[] { TickPhase.Movement, TickPhase.Attack, TickPhase.Cleanup },
+                new[] { TickPhase.Plan, TickPhase.Resolve, TickPhase.Finalize, TickPhase.Cleanup, TickPhase.Respawn },
                 result.CompletedPhases);
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "Movement:Enter",
-                    "Movement:Exit",
-                    "Attack:Enter",
-                    "Attack:Exit",
+                    "Plan:Enter",
+                    "Plan:Exit",
+                    "Resolve:Enter",
+                    "Resolve:Exit",
+                    "Finalize:Enter",
+                    "Finalize:Exit",
                     "Cleanup:Enter",
                     "Cleanup:Exit",
+                    "Respawn:Enter",
+                    "Respawn:Exit",
                 },
                 result.PhaseTrace);
             CollectionAssert.AreEqual(

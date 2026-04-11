@@ -2386,7 +2386,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             private readonly int _tieBreak;
 
             public SyntheticMovementIntent(int sourceId, int priority, int tieBreak)
-                : base(sourceId, priority, TickPhase.Movement)
+                : base(sourceId, priority, TickPhase.Plan)
             {
                 _tieBreak = tieBreak;
             }

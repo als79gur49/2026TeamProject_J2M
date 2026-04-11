@@ -55,6 +55,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         public CubeTopologyState Topology => _topology;
 
+        internal TerrainData TerrainData => _terrainData;
+
         public bool TryGetEntity(int entityId, out EntityState entity)
         {
             return _entitiesById.TryGetValue(entityId, out entity);

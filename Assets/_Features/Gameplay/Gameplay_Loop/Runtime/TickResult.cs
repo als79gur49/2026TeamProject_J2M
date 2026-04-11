@@ -150,10 +150,11 @@ namespace Game.Feature.Gameplay.Loop
         public StageObjectiveTickResult ObjectiveResult { get; }
 
         public bool CompletedAllPhases =>
-            _completedPhases.Count == 4 &&
-            _completedPhases[0] == TickPhase.Movement &&
-            _completedPhases[1] == TickPhase.Attack &&
-            _completedPhases[2] == TickPhase.Cleanup &&
-            _completedPhases[3] == TickPhase.Respawn;
+            _completedPhases.Count == 5 &&
+            _completedPhases[0] == TickPhase.Plan &&
+            _completedPhases[1] == TickPhase.Resolve &&
+            _completedPhases[2] == TickPhase.Finalize &&
+            _completedPhases[3] == TickPhase.Cleanup &&
+            _completedPhases[4] == TickPhase.Respawn;
     }
 }

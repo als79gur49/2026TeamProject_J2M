@@ -757,7 +757,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new TickResult(
                 tickIndex,
-                new[] { TickPhase.Movement, TickPhase.Attack, TickPhase.Cleanup },
+                new[] { TickPhase.Plan, TickPhase.Resolve, TickPhase.Finalize, TickPhase.Cleanup, TickPhase.Respawn },
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,

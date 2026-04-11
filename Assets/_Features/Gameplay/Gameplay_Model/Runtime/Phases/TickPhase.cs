@@ -2,9 +2,10 @@ namespace Game.Feature.Gameplay.Model.Phases
 {
     public enum TickPhase
     {
-        Movement = 0,
-        Attack = 1,
-        Cleanup = 2,
-        Respawn = 3,
+        Plan = 0,
+        Resolve = 1,
+        Finalize = 2,
+        Cleanup = 3,
+        Respawn = 4,
     }
 }

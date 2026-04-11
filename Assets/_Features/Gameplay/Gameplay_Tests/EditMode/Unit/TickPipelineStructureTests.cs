@@ -20,7 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class TickPipelineStructureTests
     {
         [Test]
-        public void RunTick_CompletesMovementAttackCleanupRespawn()
+        public void RunTick_CompletesPlanResolveFinalizeCleanupRespawn()
         {
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(
                 GameplayWorldStateTestFactory.CreateBounded(Array.Empty<EntityState>()));
@@ -32,8 +32,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    TickPhase.Movement,
-                    TickPhase.Attack,
+                    TickPhase.Plan,
+                    TickPhase.Resolve,
+                    TickPhase.Finalize,
                     TickPhase.Cleanup,
                     TickPhase.Respawn,
                 },
@@ -41,10 +42,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "Movement:Enter",
-                    "Movement:Exit",
-                    "Attack:Enter",
-                    "Attack:Exit",
+                    "Plan:Enter",
+                    "Plan:Exit",
+                    "Resolve:Enter",
+                    "Resolve:Exit",
+                    "Finalize:Enter",
+                    "Finalize:Exit",
                     "Cleanup:Enter",
                     "Cleanup:Exit",
                     "Respawn:Enter",
