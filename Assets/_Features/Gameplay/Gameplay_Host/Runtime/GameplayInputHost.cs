@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -27,6 +28,12 @@ namespace Game.Feature.Gameplay.Host
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
+
+        public event Action<TickResult> TickCompleted;
+
+        public event Action<StageObjectiveTickResult> ObjectiveResultUpdated;
+
+        public event Action StageCleared;
 
         public void Initialize(
             TickInputBuffer inputBuffer,
@@ -153,6 +160,14 @@ namespace Game.Feature.Gameplay.Host
             var result = _runner.RunNextTick();
             ApplyAcceptedBufferedInput(result);
             _presenter.Present(result);
+            TickCompleted?.Invoke(result);
+            ObjectiveResultUpdated?.Invoke(result.ObjectiveResult);
+
+            if (result.ObjectiveResult.ClearedThisTick)
+            {
+                StageCleared?.Invoke();
+            }
+
             return result;
         }
 

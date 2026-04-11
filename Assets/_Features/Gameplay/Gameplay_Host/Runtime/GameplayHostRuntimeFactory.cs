@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Host
             var inputHost = hostObject.GetComponent<GameplayInputHost>() ?? hostObject.AddComponent<GameplayInputHost>();
             var presenter = hostObject.GetComponent<GameplayTickViewPresenter>() ?? hostObject.AddComponent<GameplayTickViewPresenter>();
             var viewRegistry = hostObject.GetComponent<GameplayEntityViewRegistry>() ?? hostObject.AddComponent<GameplayEntityViewRegistry>();
+            var clearOverlay = hostObject.GetComponent<GameplayStageClearOverlay>() ?? hostObject.AddComponent<GameplayStageClearOverlay>();
 
             var initialEntities = configuration.InitialEntities ?? Array.Empty<EntityState>();
             var initialTerrain = configuration.InitialTerrain ?? GameplayTerrainData.Empty;
@@ -146,6 +147,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.MoveDeadzone,
                 configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks);
+            clearOverlay.Initialize(host, inputHost);
 
             return new GameplayHostRuntimeContext(
                 boardRoot,
