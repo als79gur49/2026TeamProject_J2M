@@ -21,7 +21,7 @@ MonoBehaviour:
     Kind: 0
     Cell:
       face: 0
-      x: 1
+      x: 6
       y: 3
     Facing: 2
     Hp: 3
@@ -955,7 +955,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 226
     Kind: 3
     Cell:
@@ -968,7 +968,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    PresentationId: wall_tutorial
+    PresentationId: wall_bed_tutorial
   - EntityId: 227
     Kind: 3
     Cell:
@@ -2685,3 +2685,14 @@ MonoBehaviour:
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
     PresentationId: wall_tutorial
+  zones:
+  - ZoneId: 3000
+    FaceId: 0
+    Regions:
+    - MinInclusive: {x: 7, y: 5}
+      MaxInclusive: {x: 7, y: 5}
+  objective:
+    CompletionPolicy: 1
+    GoalZoneIds:
+    - 3000
+    RequiredConditions: []
