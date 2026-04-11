@@ -69,6 +69,44 @@ namespace Game.Feature.Gameplay.Host
             };
         }
 
+        public float ResolvePlayerPresentationPhaseDurationSeconds(
+            int entityId,
+            PlayerPresentationPhase phase,
+            GameplayTimingProfile timingProfile)
+        {
+            if (timingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(timingProfile));
+            }
+
+            var actionKind = ResolvePlayerActionKind(phase);
+            var resolvedActionDurationSeconds = ResolvePlayerMotionDurationSeconds(entityId, actionKind, timingProfile);
+            if (_stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
+                view != null &&
+                view.TryGetComponent<PlayerAnimationTimingAuthoring>(out var authoring) &&
+                authoring != null)
+            {
+                var snapshot = authoring.CreateSnapshot();
+                if (snapshot.TryGetAnimatorDurationOverride(phase, out var phaseDurationSeconds))
+                {
+                    return phaseDurationSeconds;
+                }
+
+                if (actionKind != PlayerActionKind.None &&
+                    snapshot.TryGetLegacyAnimatorDurationOverride(actionKind, out var legacyActionDurationSeconds))
+                {
+                    return Mathf.Max(0.0001f, legacyActionDurationSeconds * 0.5f);
+                }
+            }
+
+            if (resolvedActionDurationSeconds > 0f)
+            {
+                return Mathf.Max(0.0001f, resolvedActionDurationSeconds * 0.5f);
+            }
+
+            return timingProfile.SimulationTickIntervalSeconds;
+        }
+
         public float ResolveGlobalMotionDurationSeconds(
             TickEntityMotionKind motionKind,
             GameplayTimingProfile timingProfile)
@@ -241,6 +279,18 @@ namespace Game.Feature.Gameplay.Host
 
             durationSeconds = authoring.DeathViewTailSeconds;
             return EntityEffectPresentationAuthoring.IsOverrideDuration(durationSeconds);
+        }
+
+        private static PlayerActionKind ResolvePlayerActionKind(PlayerPresentationPhase phase)
+        {
+            return phase switch
+            {
+                PlayerPresentationPhase.PushWindup => PlayerActionKind.Push,
+                PlayerPresentationPhase.PushRecovery => PlayerActionKind.Push,
+                PlayerPresentationPhase.FlipWindup => PlayerActionKind.Flip,
+                PlayerPresentationPhase.FlipRecovery => PlayerActionKind.Flip,
+                _ => PlayerActionKind.None,
+            };
         }
     }
 }

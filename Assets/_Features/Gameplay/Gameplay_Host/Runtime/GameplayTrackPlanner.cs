@@ -4,6 +4,7 @@ using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -89,6 +90,7 @@ namespace Game.Feature.Gameplay.Host
                 projector,
                 timingProfile);
             RefreshTransitionVisibilityState(presentationData, projector);
+            RefreshFlipInteractionTracks(presentationData, timingProfile);
         }
 
         private void RefreshMotionClips(
@@ -627,6 +629,138 @@ namespace Game.Feature.Gameplay.Host
         {
             return topologyMotion.HasValue &&
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
+        }
+
+        private void RefreshFlipInteractionTracks(
+            TickPresentationData presentationData,
+            GameplayTimingProfile timingProfile)
+        {
+            if (presentationData == null)
+            {
+                throw new ArgumentNullException(nameof(presentationData));
+            }
+
+            if (timingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(timingProfile));
+            }
+
+            var signalsByEntityId = new Dictionary<int, TickPlayerActionPresentationSignal>();
+            var playerActionSignals = presentationData.PlayerActionSignals;
+            for (var i = 0; i < playerActionSignals.Count; i++)
+            {
+                var signal = playerActionSignals[i];
+                signalsByEntityId[signal.EntityId] = signal;
+            }
+
+            _trackState.CompletedFlipInteractionTrackIds.Clear();
+            foreach (var pair in _trackState.FlipInteractionTracks)
+            {
+                var track = pair.Value;
+                if (!HasInteractionView(track.PlayerEntityId) ||
+                    !HasInteractionView(track.BoxEntityId))
+                {
+                    QueueFlipInteractionReset(track);
+                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                    continue;
+                }
+
+                if (!signalsByEntityId.TryGetValue(pair.Key, out var signal))
+                {
+                    continue;
+                }
+
+                if (signal.CompletedThisTick ||
+                    signal.CanceledThisTick)
+                {
+                    QueueFlipInteractionReset(track);
+                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _trackState.CompletedFlipInteractionTrackIds.Count; i++)
+            {
+                _trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]);
+            }
+
+            for (var i = 0; i < playerActionSignals.Count; i++)
+            {
+                var signal = playerActionSignals[i];
+                if (signal.ActiveActionKind != PlayerActionKind.Flip &&
+                    !signal.CompletedThisTick &&
+                    !signal.CanceledThisTick)
+                {
+                    continue;
+                }
+
+                if (signal.ActiveActionKind == PlayerActionKind.Flip &&
+                    signal.StartedThisTick &&
+                    signal.TargetEntityId > 0)
+                {
+                    ReplaceFlipInteractionTrack(signal, timingProfile);
+                }
+
+                if (!_trackState.FlipInteractionTracks.TryGetValue(signal.EntityId, out var track))
+                {
+                    continue;
+                }
+
+                if (signal.ExecutedThisTick)
+                {
+                    track.SetPhase(FlipInteractionPhase.AirborneFollow);
+                    continue;
+                }
+
+                if (signal.IsRecoveryPhase &&
+                    track.Phase == FlipInteractionPhase.AirborneFollow)
+                {
+                    track.SetPhase(FlipInteractionPhase.Recovery);
+                }
+            }
+        }
+
+        private void ReplaceFlipInteractionTrack(
+            in TickPlayerActionPresentationSignal signal,
+            GameplayTimingProfile timingProfile)
+        {
+            if (_trackState.FlipInteractionTracks.TryGetValue(signal.EntityId, out var existingTrack))
+            {
+                QueueFlipInteractionReset(existingTrack);
+            }
+
+            var track = new FlipInteractionTrack(
+                signal.EntityId,
+                signal.TargetEntityId,
+                signal.ActiveActionSequence,
+                signal.Direction,
+                _motionTimingResolver.ResolvePlayerPresentationPhaseDurationSeconds(
+                    signal.EntityId,
+                    PlayerPresentationPhase.FlipWindup,
+                    timingProfile),
+                _motionTimingResolver.ResolveMotionDurationSeconds(
+                    signal.TargetEntityId,
+                    TickEntityMotionKind.Flip,
+                    timingProfile),
+                _motionTimingResolver.ResolvePlayerPresentationPhaseDurationSeconds(
+                    signal.EntityId,
+                    PlayerPresentationPhase.FlipRecovery,
+                    timingProfile),
+                signal.ExecutedThisTick
+                    ? FlipInteractionPhase.AirborneFollow
+                    : FlipInteractionPhase.Windup);
+            _trackState.FlipInteractionTracks[signal.EntityId] = track;
+        }
+
+        private bool HasInteractionView(int entityId)
+        {
+            return _stateStore.ViewsByEntityId.TryGetValue(entityId, out var view) &&
+                   view != null;
+        }
+
+        private void QueueFlipInteractionReset(FlipInteractionTrack track)
+        {
+            _trackState.FlipInteractionResetRequests.Add(
+                new FlipInteractionResetRequest(track.PlayerEntityId, track.BoxEntityId));
         }
     }
 }

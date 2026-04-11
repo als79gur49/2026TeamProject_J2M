@@ -43,6 +43,19 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            foreach (var pair in _trackState.FlipInteractionTracks)
+            {
+                if (!pair.Value.IsComplete)
+                {
+                    return true;
+                }
+            }
+
+            if (_trackState.FlipInteractionResetRequests.Count > 0)
+            {
+                return true;
+            }
+
             return _transientEffectPresenter.HasActiveEffects;
         }
     }

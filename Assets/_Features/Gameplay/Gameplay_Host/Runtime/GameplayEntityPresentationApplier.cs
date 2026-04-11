@@ -3,6 +3,7 @@ using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -147,6 +148,8 @@ namespace Game.Feature.Gameplay.Host
             CleanupCompletedMotionTracks();
             CleanupCompletedJumpTracks();
             CleanupCompletedVisibilityTracks();
+            ApplyPendingFlipInteractionResets();
+            ApplyFlipInteractionTracks(deltaTime);
 
             viewBinder.HideViewsExcept(_trackState.VisibleEntityIds);
             _animationSync.SyncHiddenDrivers(
@@ -235,6 +238,79 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void ApplyPendingFlipInteractionResets()
+        {
+            for (var i = 0; i < _trackState.FlipInteractionResetRequests.Count; i++)
+            {
+                var request = _trackState.FlipInteractionResetRequests[i];
+                ResetFlipInteraction(request.PlayerEntityId, request.BoxEntityId);
+            }
+
+            _trackState.FlipInteractionResetRequests.Clear();
+        }
+
+        private void ApplyFlipInteractionTracks(float deltaTime)
+        {
+            _trackState.CompletedFlipInteractionTrackIds.Clear();
+
+            foreach (var pair in _trackState.FlipInteractionTracks)
+            {
+                var track = pair.Value;
+                if (track.IsComplete)
+                {
+                    ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId);
+                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                    continue;
+                }
+
+                var hasPlayerView = _stateStore.ViewsByEntityId.TryGetValue(track.PlayerEntityId, out var playerView) &&
+                                    playerView != null;
+                var hasBoxView = _stateStore.ViewsByEntityId.TryGetValue(track.BoxEntityId, out var boxView) &&
+                                 boxView != null;
+                if (!hasPlayerView || !hasBoxView)
+                {
+                    ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId);
+                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                    continue;
+                }
+
+                var playerDriver = playerView.GetComponent<PlayerFlipInteractionDriver>();
+                var boxDriver = boxView.GetComponent<BoxFlipInteractionDriver>();
+                var handRestWorldPose = playerDriver != null
+                    ? playerDriver.GetHandRestWorldPose()
+                    : new Pose(playerView.transform.position, playerView.transform.rotation);
+                var boxGripWorldPose = boxDriver != null
+                    ? boxDriver.GetGripWorldPose()
+                    : ResolveFallbackGripPose(boxView);
+                var sample = track.Sample(handRestWorldPose, boxGripWorldPose);
+
+                if (boxDriver != null)
+                {
+                    boxDriver.ApplyInteraction(
+                        sample.BoxLocalPositionOffset,
+                        sample.BoxLocalRotationOffset,
+                        sample.BoxWeight);
+                }
+
+                if (playerDriver != null)
+                {
+                    playerDriver.ApplyInteraction(sample.HandTargetWorldPose, sample.HandWeight);
+                }
+
+                track.Advance(deltaTime);
+                if (track.IsComplete)
+                {
+                    ResetFlipInteraction(track.PlayerEntityId, track.BoxEntityId);
+                    _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                }
+            }
+
+            for (var i = 0; i < _trackState.CompletedFlipInteractionTrackIds.Count; i++)
+            {
+                _trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]);
+            }
+        }
+
         private void ClearEntityPresentationMetadataIfFullyHidden(int entityId)
         {
             _stateStore.CommittedProjectedSlotsByEntityId.Remove(entityId);
@@ -244,6 +320,37 @@ namespace Game.Feature.Gameplay.Host
             _stateStore.EnemyVisualSemanticStatesByEntityId.Remove(entityId);
             _stateStore.EntityTypesByEntityId.Remove(entityId);
             _stateStore.UnitRolesByEntityId.Remove(entityId);
+        }
+
+        private void ResetFlipInteraction(int playerEntityId, int boxEntityId)
+        {
+            if (_stateStore.ViewsByEntityId.TryGetValue(playerEntityId, out var playerView) &&
+                playerView != null &&
+                playerView.TryGetComponent<PlayerFlipInteractionDriver>(out var playerDriver) &&
+                playerDriver != null)
+            {
+                playerDriver.ResetInteraction();
+            }
+
+            if (_stateStore.ViewsByEntityId.TryGetValue(boxEntityId, out var boxView) &&
+                boxView != null &&
+                boxView.TryGetComponent<BoxFlipInteractionDriver>(out var boxDriver) &&
+                boxDriver != null)
+            {
+                boxDriver.ResetInteraction();
+            }
+        }
+
+        private static Pose ResolveFallbackGripPose(GameplayEntityView boxView)
+        {
+            var target = boxView != null && boxView.ModelRoot != null
+                ? boxView.ModelRoot
+                : boxView != null
+                    ? boxView.transform
+                    : null;
+            return target != null
+                ? new Pose(target.position, target.rotation)
+                : new Pose(Vector3.zero, Quaternion.identity);
         }
 
         private bool HasActivePlayerWalkMotion(int entityId)

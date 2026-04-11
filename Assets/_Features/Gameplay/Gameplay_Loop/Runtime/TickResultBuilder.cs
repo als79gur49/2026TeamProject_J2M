@@ -619,6 +619,8 @@ namespace Game.Feature.Gameplay.Loop
                 var executedThisTick = false;
                 var completedThisTick = false;
                 var canceledThisTick = false;
+                var targetEntityId = 0;
+                var direction = Direction.None;
 
                 if (transitionsByEntityId.TryGetValue(entityId, out var transition))
                 {
@@ -635,6 +637,8 @@ namespace Game.Feature.Gameplay.Loop
                     activeActionSequence = controlState.activeAction.sequence;
                     executedThisTick = controlState.activeAction.IsActive &&
                                        controlState.activeAction.executeTick == context.CurrentTickIndex;
+                    targetEntityId = controlState.activeAction.targetEntityId;
+                    direction = controlState.activeAction.direction;
                 }
 
                 playerActionSignals.Add(
@@ -649,7 +653,9 @@ namespace Game.Feature.Gameplay.Loop
                         isRecoveryPhase: activeActionKind != PlayerActionKind.None &&
                                          context.FinalAuthoritativeSnapshot.TryGetPlayerControlState(entityId, out var finalControlState) &&
                                          finalControlState.activeAction.IsActive &&
-                                         finalControlState.activeAction.executeTick <= context.CurrentTickIndex));
+                                         finalControlState.activeAction.executeTick <= context.CurrentTickIndex,
+                        targetEntityId,
+                        direction));
             }
         }
 

@@ -5,8 +5,11 @@ namespace Game.Feature.Gameplay.Host
 {
     internal sealed class GameplayPresentationTrackState
     {
+        private readonly List<int> _completedFlipInteractionTrackIds = new();
         private readonly List<int> _completedJumpTrackIds = new();
         private readonly List<int> _completedMotionTrackIds = new();
+        private readonly List<FlipInteractionResetRequest> _flipInteractionResetRequests = new();
+        private readonly Dictionary<int, FlipInteractionTrack> _flipInteractionTracks = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
@@ -15,6 +18,8 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
 
+        public List<int> CompletedFlipInteractionTrackIds => _completedFlipInteractionTrackIds;
+
         public List<int> CompletedJumpTrackIds => _completedJumpTrackIds;
 
         public List<int> CompletedMotionTrackIds => _completedMotionTrackIds;
@@ -22,6 +27,10 @@ namespace Game.Feature.Gameplay.Host
         public List<int> CompletedTransitionVisibilityStateIds => _completedTransitionVisibilityStateIds;
 
         public List<int> CompletedVisibilityTrackIds => _completedVisibilityTrackIds;
+
+        public List<FlipInteractionResetRequest> FlipInteractionResetRequests => _flipInteractionResetRequests;
+
+        public Dictionary<int, FlipInteractionTrack> FlipInteractionTracks => _flipInteractionTracks;
 
         public Dictionary<int, JumpTrack> JumpTracks => _jumpTracks;
 
@@ -36,8 +45,11 @@ namespace Game.Feature.Gameplay.Host
 
         public void ResetSession()
         {
+            _completedFlipInteractionTrackIds.Clear();
             _completedJumpTrackIds.Clear();
             _completedMotionTrackIds.Clear();
+            _flipInteractionResetRequests.Clear();
+            _flipInteractionTracks.Clear();
             _completedTransitionVisibilityStateIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();

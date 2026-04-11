@@ -93,6 +93,7 @@ namespace Game.Feature.Gameplay.Host
         {
             foreach (var entityId in _exitOwnedEntityIds)
             {
+                QueueFlipInteractionReset(entityId);
                 // Exit ownership removes the authoritative entity view from presentation
                 // state immediately. Any lingering visual is transient-effect-only.
                 _trackState.JumpTracks.Remove(entityId);
@@ -115,6 +116,30 @@ namespace Game.Feature.Gameplay.Host
                 {
                     view.SetVisible(false);
                 }
+            }
+        }
+
+        private void QueueFlipInteractionReset(int exitedEntityId)
+        {
+            _trackState.CompletedFlipInteractionTrackIds.Clear();
+
+            foreach (var pair in _trackState.FlipInteractionTracks)
+            {
+                var track = pair.Value;
+                if (track.PlayerEntityId != exitedEntityId &&
+                    track.BoxEntityId != exitedEntityId)
+                {
+                    continue;
+                }
+
+                _trackState.CompletedFlipInteractionTrackIds.Add(pair.Key);
+                _trackState.FlipInteractionResetRequests.Add(
+                    new FlipInteractionResetRequest(track.PlayerEntityId, track.BoxEntityId));
+            }
+
+            for (var i = 0; i < _trackState.CompletedFlipInteractionTrackIds.Count; i++)
+            {
+                _trackState.FlipInteractionTracks.Remove(_trackState.CompletedFlipInteractionTrackIds[i]);
             }
         }
 
