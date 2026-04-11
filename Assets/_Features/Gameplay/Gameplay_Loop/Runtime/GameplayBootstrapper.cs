@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -40,7 +41,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<IEntityLogic> entityLogics,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1)
+            int playerRespawnDelayTicks = 1,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null)
         {
             return new TickPipeline(
                 worldState,
@@ -48,7 +50,8 @@ namespace Game.Feature.Gameplay.Loop
                 _entityLogicProvider,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks);
+                playerRespawnDelayTicks,
+                objectiveDefinition);
         }
 
         public TickRunner CreateTickRunner(
@@ -74,6 +77,7 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile,
                 playerControlTiming,
                 playerRespawnDelayTicks,
+                objectiveDefinition: null,
                 startTickIndex);
         }
 
@@ -84,6 +88,7 @@ namespace Game.Feature.Gameplay.Loop
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1)
         {
             if (inputBuffer == null)
@@ -92,7 +97,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return new TickRunner(
-                CreateTickPipeline(worldState, entityLogics, generalTimingProfile, playerControlTiming, playerRespawnDelayTicks),
+                CreateTickPipeline(worldState, entityLogics, generalTimingProfile, playerControlTiming, playerRespawnDelayTicks, objectiveDefinition),
                 inputBuffer,
                 startTickIndex);
         }

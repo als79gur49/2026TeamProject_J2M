@@ -20,6 +20,7 @@ using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Resolution;
 using Game.Feature.Gameplay.Movement.Sorting;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -46,6 +47,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly TickTraceBuilder _tickTraceBuilder = new();
         private readonly DelayedAttackEffectQueue _delayedAttackEffectQueue = new();
         private readonly List<EntityState> _playerRespawnTemplates;
+        private readonly StageObjectiveTracker _objectiveTracker;
         private readonly int _playerRespawnDelayTicks;
         private readonly WorldState _worldState;
 
@@ -55,7 +57,8 @@ namespace Game.Feature.Gameplay.Loop
             ISnapshotEntityLogicProvider entityLogicProvider,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1)
+            int playerRespawnDelayTicks = 1,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null)
         {
             _worldState = worldState ?? throw new ArgumentNullException(nameof(worldState));
 
@@ -83,7 +86,12 @@ namespace Game.Feature.Gameplay.Loop
             _playerRespawnTemplates = BuildPlayerRespawnTemplates(
                 SnapshotBuilder.Create(_worldState),
                 _staticEntityLogics);
+            _objectiveTracker = (objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled).CreateTracker();
         }
+
+        public StageObjectiveRuntimeDefinition ObjectiveDefinition => _objectiveTracker.ObjectiveDefinition;
+
+        public StageObjectiveTickResult CurrentObjectiveResult => _objectiveTracker.CurrentResult;
 
         public TickResult RunTick(in TickInput input)
         {
@@ -176,6 +184,18 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace);
 
             var finalAuthoritativeSnapshot = SnapshotBuilder.Create(_worldState);
+            var objectiveExtensions = new Dictionary<Type, object>
+            {
+                { typeof(CleanupPhaseResult), cleanupPhaseResult },
+                { typeof(AttackPhaseResult), attackPhaseResult },
+            };
+            var objectiveTickFacts = new StageObjectiveTickFacts(
+                input.TickIndex,
+                input.PlayerCommand,
+                cleanupPhaseResult.RemovedEntityIds,
+                attackPhaseResult.DamageResolutions,
+                objectiveExtensions);
+            var objectiveResult = _objectiveTracker.Advance(finalAuthoritativeSnapshot, in objectiveTickFacts);
             var presentationBuildContext = new TickPresentationBuildContext(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -197,6 +217,7 @@ namespace Game.Feature.Gameplay.Loop
                 attackPhaseResult,
                 cleanupPhaseResult,
                 respawnPhaseResult,
+                objectiveResult,
                 presentationBuildContext);
             var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData);
             var tickTrace = _tickTraceBuilder.Build(
@@ -226,7 +247,8 @@ namespace Game.Feature.Gameplay.Loop
                 finalAuthoritativeSnapshot.Topology,
                 tickResultData.PresentationData,
                 determinismHash,
-                tickTrace);
+                tickTrace,
+                objectiveResult);
         }
 
         private EnemyAiPhaseResult RunEnemyAiPhase(

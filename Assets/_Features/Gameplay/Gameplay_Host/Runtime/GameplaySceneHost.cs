@@ -1,5 +1,6 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -27,6 +28,10 @@ namespace Game.Feature.Gameplay.Host
         public Transform ViewCameraTarget => _runtime?.ViewCameraTarget;
 
         public WorldState WorldState => _runtime?.WorldState;
+
+        public StageObjectiveRuntimeDefinition ObjectiveDefinition => _runtime?.ObjectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
+
+        public StageObjectiveTickResult CurrentObjectiveResult => TickRunner?.CurrentObjectiveResult ?? StageObjectiveTickResult.NoObjective;
 
         public void Initialize(GameplaySceneHostConfiguration configuration)
         {

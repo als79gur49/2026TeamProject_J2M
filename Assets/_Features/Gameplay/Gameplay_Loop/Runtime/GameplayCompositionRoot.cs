@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -78,14 +79,16 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<IEntityLogic> entityLogics,
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
-            int playerRespawnDelayTicks = 1)
+            int playerRespawnDelayTicks = 1,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(
                 worldState,
                 entityLogics,
                 generalTimingProfile,
                 playerControlTiming,
-                playerRespawnDelayTicks);
+                playerRespawnDelayTicks,
+                objectiveDefinition);
         }
 
         public static TickRunner CreateTickRunner(
@@ -111,6 +114,7 @@ namespace Game.Feature.Gameplay.Loop
             GameplayTimingProfile generalTimingProfile,
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
             int playerRespawnDelayTicks = 1,
+            StageObjectiveRuntimeDefinition objectiveDefinition = null,
             int startTickIndex = 1)
         {
             return CreateDefaultBootstrapper().CreateTickRunner(
@@ -120,6 +124,7 @@ namespace Game.Feature.Gameplay.Loop
                 generalTimingProfile,
                 playerControlTiming,
                 playerRespawnDelayTicks,
+                objectiveDefinition,
                 startTickIndex);
         }
     }

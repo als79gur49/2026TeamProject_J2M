@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -18,6 +19,7 @@ namespace Game.Feature.Gameplay.Host
             GameplayEntityViewRegistry viewRegistry,
             Transform viewCameraTarget,
             WorldState worldState,
+            StageObjectiveRuntimeDefinition objectiveDefinition,
             Camera viewCamera,
             GameplayCameraRig viewCameraRig,
             IReadOnlyList<EntityState> presentedInitialEntities)
@@ -32,6 +34,7 @@ namespace Game.Feature.Gameplay.Host
             ViewRegistry = viewRegistry;
             ViewCameraTarget = viewCameraTarget;
             WorldState = worldState;
+            ObjectiveDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             ViewCamera = viewCamera;
             ViewCameraRig = viewCameraRig;
             PresentedInitialEntities = presentedInitialEntities;
@@ -62,5 +65,7 @@ namespace Game.Feature.Gameplay.Host
         public GameplayEntityViewRegistry ViewRegistry { get; }
 
         public WorldState WorldState { get; }
+
+        public StageObjectiveRuntimeDefinition ObjectiveDefinition { get; }
     }
 }

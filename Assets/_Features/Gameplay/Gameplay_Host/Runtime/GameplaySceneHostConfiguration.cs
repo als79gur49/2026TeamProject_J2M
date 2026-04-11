@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
@@ -118,6 +119,7 @@ namespace Game.Feature.Gameplay.Host
         public CubeTopologyState InitialTopology = new(FaceId.Floor);
         public int MaxTicksPerFrame = GameplayTimingProfile.DefaultMaxTicksPerFrame;
         public float MoveDeadzone = 0.5f;
+        public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition = StageObjectiveRuntimeDefinition.Disabled;
         public int PlayerEntityId = 1;
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();

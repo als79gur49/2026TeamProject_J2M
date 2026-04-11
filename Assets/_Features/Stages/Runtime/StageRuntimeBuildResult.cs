@@ -1,6 +1,7 @@
 using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Objectives;
 
 namespace Game.Feature.Stages
 {
@@ -12,6 +13,7 @@ namespace Game.Feature.Stages
             EntityState[] initialEntities,
             TerrainData initialTerrain,
             int playerEntityId,
+            StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
             EnemyAiProfileOverride[] enemyAiProfileOverrides,
             EnemyPresentationBinding[] enemyPresentationBindings,
             StaticEntityPresentationBinding[] staticEntityPresentationBindings)
@@ -21,6 +23,7 @@ namespace Game.Feature.Stages
             InitialEntities = initialEntities ?? Array.Empty<EntityState>();
             InitialTerrain = initialTerrain ?? TerrainData.Empty;
             PlayerEntityId = playerEntityId;
+            ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
             EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
             StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
@@ -35,6 +38,8 @@ namespace Game.Feature.Stages
         public TerrainData InitialTerrain { get; }
 
         public int PlayerEntityId { get; }
+
+        public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition { get; }
 
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
 

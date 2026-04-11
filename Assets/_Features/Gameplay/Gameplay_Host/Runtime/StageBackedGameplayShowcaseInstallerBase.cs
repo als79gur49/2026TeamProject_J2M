@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.Host
                 buildResult.InitialEntities,
                 buildResult.InitialTerrain,
                 buildResult.PlayerEntityId,
+                buildResult.ObjectiveRuntimeDefinition,
                 buildResult.EnemyAiProfileOverrides,
                 buildResult.EnemyPresentationBindings,
                 buildResult.StaticEntityPresentationBindings);

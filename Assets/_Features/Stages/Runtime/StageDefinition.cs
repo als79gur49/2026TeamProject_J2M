@@ -59,6 +59,12 @@ namespace Game.Feature.Stages
         [Header("Wall Spawns")]
         [SerializeField] private StageSpawnDefinition[] wallSpawns = Array.Empty<StageSpawnDefinition>();
 
+        [Header("Zones")]
+        [SerializeField] private StageZoneDefinition[] zones = Array.Empty<StageZoneDefinition>();
+
+        [Header("Objective")]
+        [SerializeField] private StageObjectiveAuthoring objective = StageObjectiveAuthoring.CreateDefault();
+
         public StageBoardDefinition Board => board;
 
         public StageSpawnDefinition[] PlayerSpawns => playerSpawns ?? Array.Empty<StageSpawnDefinition>();
@@ -68,6 +74,10 @@ namespace Game.Feature.Stages
         public StageSpawnDefinition[] EnemySpawns => enemySpawns ?? Array.Empty<StageSpawnDefinition>();
 
         public StageSpawnDefinition[] WallSpawns => wallSpawns ?? Array.Empty<StageSpawnDefinition>();
+
+        public StageZoneDefinition[] Zones => zones ?? Array.Empty<StageZoneDefinition>();
+
+        public StageObjectiveAuthoring Objective => NormalizeObjective(objective);
 
         public StageSpawnDefinition[] Spawns => FlattenSpawnGroups();
 
@@ -97,6 +107,16 @@ namespace Game.Feature.Stages
             }
 
             return flattened.ToArray();
+        }
+
+        private static StageObjectiveAuthoring NormalizeObjective(StageObjectiveAuthoring authoring)
+        {
+            return new StageObjectiveAuthoring
+            {
+                CompletionPolicy = authoring.CompletionPolicy,
+                GoalZoneIds = authoring.GetGoalZoneIdsOrEmpty(),
+                RequiredConditions = authoring.GetRequiredConditionsOrEmpty(),
+            };
         }
 
         internal readonly struct StageSpawnGroup

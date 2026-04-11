@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Objectives;
 
 namespace Game.Feature.Stages
 {
@@ -15,6 +16,7 @@ namespace Game.Feature.Stages
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
             var enemyPresentationBindings = BuildEnemyPresentationBindings(validated.Spawns);
             var staticEntityPresentationBindings = BuildStaticEntityPresentationBindings(validated.Spawns);
+            var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated);
 
             return new StageRuntimeBuildResult(
                 validated.BoardBounds,
@@ -22,6 +24,7 @@ namespace Game.Feature.Stages
                 initialEntities,
                 TerrainData.Empty,
                 validated.PlayerEntityId,
+                objectiveRuntimeDefinition,
                 enemyAiProfileOverrides,
                 enemyPresentationBindings,
                 staticEntityPresentationBindings);
@@ -194,6 +197,126 @@ namespace Game.Feature.Stages
             return string.IsNullOrWhiteSpace(presentationId)
                 ? string.Empty
                 : presentationId.Trim();
+        }
+
+        private static StageObjectiveRuntimeDefinition BuildObjectiveRuntimeDefinition(
+            StageDefinitionValidator.ValidatedStageData validated)
+        {
+            if (validated == null)
+            {
+                throw new ArgumentNullException(nameof(validated));
+            }
+
+            var zoneDefinitions = BuildZoneRuntimeDefinitions(validated.Zones);
+            if (validated.Objective.CompletionPolicy == StageCompletionPolicy.Disabled)
+            {
+                return new StageObjectiveRuntimeDefinition(
+                    StageCompletionPolicy.Disabled,
+                    validated.PlayerEntityId,
+                    zoneDefinitions,
+                    Array.Empty<StageZoneRuntimeDefinition>(),
+                    Array.Empty<StageConditionRuntimeDefinition>());
+            }
+
+            var zonesById = BuildZoneLookup(zoneDefinitions);
+            var goalZones = BuildGoalZoneDefinitions(validated.Objective.GetGoalZoneIdsOrEmpty(), zonesById);
+            var conditionDefinitions = BuildConditionRuntimeDefinitions(
+                validated,
+                zonesById);
+
+            return new StageObjectiveRuntimeDefinition(
+                validated.Objective.CompletionPolicy,
+                validated.PlayerEntityId,
+                zoneDefinitions,
+                goalZones,
+                conditionDefinitions);
+        }
+
+        private static StageZoneRuntimeDefinition[] BuildZoneRuntimeDefinitions(
+            IReadOnlyList<StageZoneDefinition> zones)
+        {
+            if (zones == null || zones.Count == 0)
+            {
+                return Array.Empty<StageZoneRuntimeDefinition>();
+            }
+
+            var runtimeDefinitions = new StageZoneRuntimeDefinition[zones.Count];
+            for (var i = 0; i < zones.Count; i++)
+            {
+                var authoringZone = zones[i];
+                var regions = authoringZone.GetRegionsOrEmpty();
+                var runtimeRegions = new StageZoneRuntimeRegion[regions.Length];
+                for (var regionIndex = 0; regionIndex < regions.Length; regionIndex++)
+                {
+                    runtimeRegions[regionIndex] = new StageZoneRuntimeRegion(
+                        regions[regionIndex].MinInclusive,
+                        regions[regionIndex].MaxInclusive);
+                }
+
+                runtimeDefinitions[i] = new StageZoneRuntimeDefinition(
+                    authoringZone.ZoneId,
+                    authoringZone.FaceId,
+                    runtimeRegions);
+            }
+
+            return runtimeDefinitions;
+        }
+
+        private static Dictionary<string, StageZoneRuntimeDefinition> BuildZoneLookup(
+            IReadOnlyList<StageZoneRuntimeDefinition> zoneDefinitions)
+        {
+            var zonesById = new Dictionary<string, StageZoneRuntimeDefinition>(StringComparer.Ordinal);
+            for (var i = 0; i < zoneDefinitions.Count; i++)
+            {
+                zonesById[zoneDefinitions[i].ZoneId] = zoneDefinitions[i];
+            }
+
+            return zonesById;
+        }
+
+        private static StageZoneRuntimeDefinition[] BuildGoalZoneDefinitions(
+            IReadOnlyList<string> goalZoneIds,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById)
+        {
+            if (goalZoneIds == null || goalZoneIds.Count == 0)
+            {
+                return Array.Empty<StageZoneRuntimeDefinition>();
+            }
+
+            var goalZones = new StageZoneRuntimeDefinition[goalZoneIds.Count];
+            for (var i = 0; i < goalZoneIds.Count; i++)
+            {
+                if (!zonesById.TryGetValue(goalZoneIds[i], out goalZones[i]))
+                {
+                    throw new InvalidOperationException(
+                        $"Objective references unknown goal zone id '{goalZoneIds[i]}'.");
+                }
+            }
+
+            return goalZones;
+        }
+
+        private static StageConditionRuntimeDefinition[] BuildConditionRuntimeDefinitions(
+            StageDefinitionValidator.ValidatedStageData validated,
+            IReadOnlyDictionary<string, StageZoneRuntimeDefinition> zonesById)
+        {
+            var requiredConditions = validated.Objective.GetRequiredConditionsOrEmpty();
+            if (requiredConditions.Length == 0)
+            {
+                return Array.Empty<StageConditionRuntimeDefinition>();
+            }
+
+            var compilationContext = new StageConditionCompilationContext(
+                validated.StageName,
+                validated.PlayerEntityId,
+                zonesById);
+            var runtimeDefinitions = new StageConditionRuntimeDefinition[requiredConditions.Length];
+            for (var i = 0; i < requiredConditions.Length; i++)
+            {
+                runtimeDefinitions[i] = requiredConditions[i].Compile(in compilationContext);
+            }
+
+            return runtimeDefinitions;
         }
 
         private static EntityState CreateWall(int entityId, SurfaceCell position, int hp = 1)

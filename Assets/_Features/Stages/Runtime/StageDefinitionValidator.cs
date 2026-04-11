@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Objectives;
 
 namespace Game.Feature.Stages
 {
@@ -23,12 +24,17 @@ namespace Game.Feature.Stages
             var boardBounds = CreateBoardBounds(stageName, board);
             var spawnEntries = NormalizeExplicitSpawns(stage.GetSpawnGroups());
             var playerEntityId = ValidateEntities(stageName, spawnEntries, boardBounds);
+            var zones = ValidateZones(stageName, stage.Zones, boardBounds);
+            var objective = ValidateObjective(stageName, stage.Objective, zones);
 
             return new ValidatedStageData(
+                stageName,
                 boardBounds,
                 new CubeTopologyState(board.InitialBottomFace),
                 ExtractSpawns(spawnEntries),
-                playerEntityId);
+                playerEntityId,
+                zones,
+                objective);
         }
 
         private static BoardBounds CreateBoardBounds(string stageName, StageBoardDefinition board)
@@ -118,6 +124,158 @@ namespace Game.Feature.Stages
             return playerEntityId;
         }
 
+        private static StageZoneDefinition[] ValidateZones(
+            string stageName,
+            IReadOnlyList<StageZoneDefinition> zones,
+            BoardBounds boardBounds)
+        {
+            if (zones == null || zones.Count == 0)
+            {
+                return Array.Empty<StageZoneDefinition>();
+            }
+
+            var normalizedZones = new StageZoneDefinition[zones.Count];
+            var zoneIds = new HashSet<string>(StringComparer.Ordinal);
+
+            for (var zoneIndex = 0; zoneIndex < zones.Count; zoneIndex++)
+            {
+                var zone = zones[zoneIndex];
+                var normalizedZoneId = NormalizeZoneId(stageName, zoneIndex, zone.ZoneId);
+                if (!zoneIds.Add(normalizedZoneId))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' contains duplicate zone id '{normalizedZoneId}'.");
+                }
+
+                var normalizedRegions = ValidateRegions(stageName, zoneIndex, normalizedZoneId, zone.GetRegionsOrEmpty(), boardBounds);
+                normalizedZones[zoneIndex] = new StageZoneDefinition
+                {
+                    ZoneId = normalizedZoneId,
+                    FaceId = zone.FaceId,
+                    Regions = normalizedRegions,
+                };
+            }
+
+            return normalizedZones;
+        }
+
+        private static StageObjectiveAuthoring ValidateObjective(
+            string stageName,
+            StageObjectiveAuthoring objective,
+            IReadOnlyList<StageZoneDefinition> zones)
+        {
+            var normalizedGoalZoneIds = objective.GetGoalZoneIdsOrEmpty();
+            var requiredConditions = objective.GetRequiredConditionsOrEmpty();
+            var zonesById = BuildZonesById(zones);
+            var validationContext = new StageConditionValidationContext(stageName, zonesById);
+            var normalizedGoalIds = new string[normalizedGoalZoneIds.Length];
+
+            for (var i = 0; i < normalizedGoalZoneIds.Length; i++)
+            {
+                var goalZoneId = normalizedGoalZoneIds[i];
+                if (string.IsNullOrWhiteSpace(goalZoneId))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective contains an empty goal zone id at index {i}.");
+                }
+
+                var normalizedGoalZoneId = goalZoneId.Trim();
+                if (!zonesById.ContainsKey(normalizedGoalZoneId))
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective references unknown goal zone id '{normalizedGoalZoneId}'.");
+                }
+
+                normalizedGoalIds[i] = normalizedGoalZoneId;
+            }
+
+            var normalizedConditions = new StageConditionAsset[requiredConditions.Length];
+            for (var i = 0; i < requiredConditions.Length; i++)
+            {
+                var condition = requiredConditions[i];
+                if (condition == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' objective contains a null condition asset at index {i}.");
+                }
+
+                condition.Validate(in validationContext);
+                normalizedConditions[i] = condition;
+            }
+
+            return new StageObjectiveAuthoring
+            {
+                CompletionPolicy = objective.CompletionPolicy,
+                GoalZoneIds = normalizedGoalIds,
+                RequiredConditions = normalizedConditions,
+            };
+        }
+
+        private static string NormalizeZoneId(string stageName, int zoneIndex, string zoneId)
+        {
+            if (string.IsNullOrWhiteSpace(zoneId))
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' zone[{zoneIndex}] must declare a non-empty zone id.");
+            }
+
+            return zoneId.Trim();
+        }
+
+        private static StageZoneRegionDefinition[] ValidateRegions(
+            string stageName,
+            int zoneIndex,
+            string zoneId,
+            IReadOnlyList<StageZoneRegionDefinition> regions,
+            BoardBounds boardBounds)
+        {
+            if (regions == null || regions.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"Stage '{stageName}' zone '{zoneId}' must contain at least one region.");
+            }
+
+            var normalizedRegions = new StageZoneRegionDefinition[regions.Count];
+            for (var regionIndex = 0; regionIndex < regions.Count; regionIndex++)
+            {
+                var region = regions[regionIndex];
+                if (region.MaxInclusive.x < region.MinInclusive.x ||
+                    region.MaxInclusive.y < region.MinInclusive.y)
+                {
+                    throw new InvalidOperationException(
+                        $"Stage '{stageName}' zone '{zoneId}' region[{regionIndex}] has inverted min/max bounds.");
+                }
+
+                for (var x = region.MinInclusive.x; x <= region.MaxInclusive.x; x++)
+                {
+                    for (var y = region.MinInclusive.y; y <= region.MaxInclusive.y; y++)
+                    {
+                        var cell = new UnityEngine.Vector2Int(x, y);
+                        if (!boardBounds.Contains(cell))
+                        {
+                            throw new InvalidOperationException(
+                                $"Stage '{stageName}' zone '{zoneId}' region[{regionIndex}] contains out-of-bounds cell ({x},{y}).");
+                        }
+                    }
+                }
+
+                normalizedRegions[regionIndex] = region;
+            }
+
+            return normalizedRegions;
+        }
+
+        private static Dictionary<string, StageZoneDefinition> BuildZonesById(IReadOnlyList<StageZoneDefinition> zones)
+        {
+            var zonesById = new Dictionary<string, StageZoneDefinition>(StringComparer.Ordinal);
+            for (var i = 0; i < zones.Count; i++)
+            {
+                zonesById[zones[i].ZoneId] = zones[i];
+            }
+
+            return zonesById;
+        }
+
         private static ExplicitSpawnEntry[] NormalizeExplicitSpawns(
             IReadOnlyList<StageDefinition.StageSpawnGroup> spawnGroups)
         {
@@ -199,16 +357,24 @@ namespace Game.Feature.Stages
         internal sealed class ValidatedStageData
         {
             public ValidatedStageData(
+                string stageName,
                 BoardBounds boardBounds,
                 CubeTopologyState initialTopology,
                 StageSpawnDefinition[] spawns,
-                int playerEntityId)
+                int playerEntityId,
+                StageZoneDefinition[] zones,
+                StageObjectiveAuthoring objective)
             {
+                StageName = string.IsNullOrWhiteSpace(stageName) ? "<unnamed stage>" : stageName;
                 BoardBounds = boardBounds;
                 InitialTopology = initialTopology;
                 Spawns = spawns ?? Array.Empty<StageSpawnDefinition>();
                 PlayerEntityId = playerEntityId;
+                Zones = zones ?? Array.Empty<StageZoneDefinition>();
+                Objective = objective;
             }
+
+            public string StageName { get; }
 
             public BoardBounds BoardBounds { get; }
 
@@ -217,6 +383,10 @@ namespace Game.Feature.Stages
             public StageSpawnDefinition[] Spawns { get; }
 
             public int PlayerEntityId { get; }
+
+            public StageZoneDefinition[] Zones { get; }
+
+            public StageObjectiveAuthoring Objective { get; }
         }
     }
 }

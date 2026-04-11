@@ -4,6 +4,7 @@ using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 
@@ -78,6 +79,9 @@ namespace Game.Feature.Gameplay.Loop
 
             builder.Append("PendingDelayedAttackEffects").Append('\n');
             AppendPendingDelayedAttackEffectLines(builder, tickResultData.PendingDelayedAttackEffects);
+
+            builder.Append("Objective").Append('\n');
+            AppendObjectiveLines(builder, tickResultData.ObjectiveResult);
 
             builder.Append("EventLog").Append('\n');
             AppendStringLines(builder, tickResultData.EventLog);
@@ -234,6 +238,40 @@ namespace Game.Feature.Gameplay.Loop
                 builder
                     .Append(terrainEntries[i].x).Append('|')
                     .Append(terrainEntries[i].y).Append('\n');
+            }
+        }
+
+        private static void AppendObjectiveLines(
+            StringBuilder builder,
+            StageObjectiveTickResult objectiveResult)
+        {
+            if (objectiveResult == null || !objectiveResult.HasObjective)
+            {
+                builder.Append("<none>").Append('\n');
+                return;
+            }
+
+            builder
+                .Append(objectiveResult.GoalReached ? 1 : 0).Append('|')
+                .Append(objectiveResult.AllConditionsSatisfied ? 1 : 0).Append('|')
+                .Append(objectiveResult.ClearedThisTick ? 1 : 0).Append('|')
+                .Append(objectiveResult.IsCleared ? 1 : 0).Append('\n');
+
+            var conditionStatuses = objectiveResult.ConditionStatuses;
+            if (conditionStatuses.Count == 0)
+            {
+                builder.Append("<conditions-empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < conditionStatuses.Count; i++)
+            {
+                var status = conditionStatuses[i];
+                builder
+                    .Append(status.ConditionId).Append('|')
+                    .Append(status.ConditionType).Append('|')
+                    .Append(status.IsSatisfied ? 1 : 0).Append('|')
+                    .Append(status.Details).Append('\n');
             }
         }
 

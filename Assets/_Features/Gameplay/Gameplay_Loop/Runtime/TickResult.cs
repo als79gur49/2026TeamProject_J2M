@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -27,7 +28,8 @@ namespace Game.Feature.Gameplay.Loop
                 new CubeTopologyState(FaceId.Floor),
                 TickPresentationData.Empty,
                 string.Empty,
-                TickTrace.Empty)
+                TickTrace.Empty,
+                StageObjectiveTickResult.NoObjective)
         {
         }
 
@@ -42,7 +44,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> eventLog,
             CubeTopologyState finalTopology,
             string determinismHash,
-            TickTrace trace)
+            TickTrace trace,
+            StageObjectiveTickResult objectiveResult = null)
             : this(
                 tickIndex,
                 completedPhases,
@@ -55,7 +58,8 @@ namespace Game.Feature.Gameplay.Loop
                 finalTopology,
                 TickPresentationData.Empty,
                 determinismHash,
-                trace)
+                trace,
+                objectiveResult)
         {
         }
 
@@ -71,7 +75,8 @@ namespace Game.Feature.Gameplay.Loop
             CubeTopologyState finalTopology,
             TickPresentationData presentationData,
             string determinismHash,
-            TickTrace trace)
+            TickTrace trace,
+            StageObjectiveTickResult objectiveResult = null)
         {
             if (completedPhases == null)
             {
@@ -108,6 +113,7 @@ namespace Game.Feature.Gameplay.Loop
             CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
             PresentationData = presentationData;
             Trace = trace ?? throw new ArgumentNullException(nameof(trace));
+            ObjectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
             TickIndex = tickIndex;
             _completedPhases = new ReadOnlyCollection<TickPhase>(new List<TickPhase>(completedPhases));
             _phaseTrace = new ReadOnlyCollection<string>(new List<string>(phaseTrace));
@@ -140,6 +146,8 @@ namespace Game.Feature.Gameplay.Loop
         public string DeterminismHash { get; }
 
         public TickTrace Trace { get; }
+
+        public StageObjectiveTickResult ObjectiveResult { get; }
 
         public bool CompletedAllPhases =>
             _completedPhases.Count == 4 &&

@@ -9,7 +9,7 @@ using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
 {
-    internal readonly struct DamageResolutionRecord
+    public readonly struct DamageResolutionRecord
     {
         public DamageResolutionRecord(
             int groupId,

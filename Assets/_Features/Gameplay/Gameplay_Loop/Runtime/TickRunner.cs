@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.Objectives;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -25,6 +26,12 @@ namespace Game.Feature.Gameplay.Loop
 
         public int NextTickIndex { get; private set; }
 
+        public TickResult LastResult { get; private set; }
+
+        public StageObjectiveRuntimeDefinition ObjectiveDefinition => _pipeline.ObjectiveDefinition;
+
+        public StageObjectiveTickResult CurrentObjectiveResult => _pipeline.CurrentObjectiveResult;
+
         public TickResult RunNextTick()
         {
             return RunTick(_inputBuffer.ConsumeOrDefault(NextTickIndex));
@@ -43,6 +50,7 @@ namespace Game.Feature.Gameplay.Loop
                 throw new InvalidOperationException("TickPipeline returned a mismatched tick index.");
             }
 
+            LastResult = result;
             NextTickIndex = result.TickIndex + 1;
             return result;
         }

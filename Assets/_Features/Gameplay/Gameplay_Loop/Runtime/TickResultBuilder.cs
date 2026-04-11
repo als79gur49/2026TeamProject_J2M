@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -22,6 +23,7 @@ namespace Game.Feature.Gameplay.Loop
             AttackPhaseResult attackPhaseResult,
             CleanupPhaseResult cleanupPhaseResult,
             RespawnPhaseResult respawnPhaseResult,
+            StageObjectiveTickResult objectiveResult,
             in TickPresentationBuildContext presentationBuildContext)
         {
             if (finalSnapshot == null)
@@ -54,6 +56,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(respawnPhaseResult));
             }
 
+            if (objectiveResult == null)
+            {
+                throw new ArgumentNullException(nameof(objectiveResult));
+            }
+
             var finalEntities = new List<EntityState>();
             finalSnapshot.EnumerateEntitiesOrdered(finalEntities);
 
@@ -81,7 +88,8 @@ namespace Game.Feature.Gameplay.Loop
                 finalEntities,
                 pendingDelayedAttackEffects,
                 eventLog,
-                _presentationDataBuilder.Build(presentationBuildContext));
+                _presentationDataBuilder.Build(presentationBuildContext),
+                objectiveResult);
         }
 
         private static void AddRange(List<string> destination, IReadOnlyList<string> source)
@@ -99,6 +107,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<EntityState> _finalEntities;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _pendingDelayedAttackEffects;
         private readonly TickPresentationData _presentationData;
+        private readonly StageObjectiveTickResult _objectiveResult;
 
         public TickResultData(
             IEnumerable<EntityState> finalEntities,
@@ -108,7 +117,8 @@ namespace Game.Feature.Gameplay.Loop
                 finalEntities,
                 pendingDelayedAttackEffects,
                 eventLog,
-                TickPresentationData.Empty)
+                TickPresentationData.Empty,
+                StageObjectiveTickResult.NoObjective)
         {
         }
 
@@ -116,7 +126,8 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<EntityState> finalEntities,
             IEnumerable<DelayedAttackEffectRecord> pendingDelayedAttackEffects,
             IEnumerable<string> eventLog,
-            TickPresentationData presentationData)
+            TickPresentationData presentationData,
+            StageObjectiveTickResult objectiveResult = null)
         {
             if (finalEntities == null)
             {
@@ -134,6 +145,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             _presentationData = presentationData ?? throw new ArgumentNullException(nameof(presentationData));
+            _objectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
             _finalEntities = new ReadOnlyCollection<EntityState>(new List<EntityState>(finalEntities));
             _pendingDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(pendingDelayedAttackEffects));
             _eventLog = new ReadOnlyCollection<string>(new List<string>(eventLog));
@@ -146,6 +158,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> EventLog => _eventLog;
 
         public TickPresentationData PresentationData => _presentationData;
+
+        public StageObjectiveTickResult ObjectiveResult => _objectiveResult;
     }
 
     internal sealed class RespawnPhaseResult

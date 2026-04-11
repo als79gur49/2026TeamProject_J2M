@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using Unity.Cinemachine;
@@ -76,6 +77,7 @@ namespace Game.Feature.Gameplay.Host
                 generalTimingProfile,
                 playerControlTiming,
                 playerRespawnTiming.RespawnDelayTicks,
+                configuration.ObjectiveRuntimeDefinition,
                 startTickIndex: 1);
 
             var boardRoot = EnsureBoardRootHierarchy(hostTransform);
@@ -156,6 +158,7 @@ namespace Game.Feature.Gameplay.Host
                 viewRegistry,
                 viewCameraTarget,
                 worldState,
+                configuration.ObjectiveRuntimeDefinition,
                 viewCamera,
                 viewCameraRig,
                 presentedInitialEntities);

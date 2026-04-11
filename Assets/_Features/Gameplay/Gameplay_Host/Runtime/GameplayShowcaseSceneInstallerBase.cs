@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Timing;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
@@ -20,6 +21,7 @@ namespace Game.Feature.Gameplay.Host
                 EntityState[] initialEntities,
                 GameplayTerrainData initialTerrain,
                 int playerEntityId,
+                StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
                 EnemyPresentationBinding[] enemyPresentationBindings,
                 StaticEntityPresentationBinding[] staticEntityPresentationBindings)
@@ -29,6 +31,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialEntities = initialEntities ?? Array.Empty<EntityState>();
                 InitialTerrain = initialTerrain ?? GameplayTerrainData.Empty;
                 PlayerEntityId = playerEntityId;
+                ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
@@ -43,6 +46,8 @@ namespace Game.Feature.Gameplay.Host
             public GameplayTerrainData InitialTerrain { get; }
 
             public int PlayerEntityId { get; }
+
+            public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition { get; }
 
             public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
 
@@ -222,6 +227,7 @@ namespace Game.Feature.Gameplay.Host
                 InitialTerrain = initialState.InitialTerrain,
                 InitialTopology = initialState.InitialTopology,
                 MoveDeadzone = moveDeadzone,
+                ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 SnapViewCameraToTarget = configureMainCamera,
