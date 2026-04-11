@@ -8,6 +8,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using NUnit.Framework;
 using UnityEditor;
@@ -60,6 +61,78 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(
                     driver.GetPresentationDurationSeconds(PlayerActionKind.Flip, host.TimingProfile.FlipMotionDurationSeconds),
                     Is.EqualTo(host.TimingProfile.FlipMotionDurationSeconds));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplaySceneHost_Initialize_AddsStageClearOverlayComponent()
+        {
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_AddsStageClearOverlayComponent");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreatePlayerEntity(),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        ObjectiveRuntimeDefinition = CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0)),
+                        PlayerEntityId = 10,
+                    });
+
+                Assert.That(hostObject.GetComponent<GameplayStageClearOverlay>(), Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        public void GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_AndShowsOverlay()
+        {
+            var hostObject = new GameObject("GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_AndShowsOverlay");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(
+                    new GameplaySceneHostConfiguration
+                    {
+                        AutoAdvanceTicks = false,
+                        AutoCreateViews = false,
+                        InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
+                        InitialEntities = new[]
+                        {
+                            CreatePlayerEntity(),
+                        },
+                        InitialTopology = new CubeTopologyState(FaceId.Floor),
+                        ObjectiveRuntimeDefinition = CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0)),
+                        PlayerEntityId = 10,
+                    });
+
+                var stageClearedCallCount = 0;
+                host.InputHost.StageCleared += () => stageClearedCallCount++;
+
+                var result = host.InputHost.RunSingleTick();
+                var overlay = hostObject.GetComponent<GameplayStageClearOverlay>();
+
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
+                Assert.That(stageClearedCallCount, Is.EqualTo(1));
+                Assert.That(overlay, Is.Not.Null);
+                Assert.That(overlay.IsVisible, Is.True);
             }
             finally
             {
@@ -2042,6 +2115,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 boardPresence = EntityBoardPresence.Occupying,
                 aiMode = EnemyAiMode.None,
             };
+        }
+
+        private static StageObjectiveRuntimeDefinition CreateSingleCellObjective(SurfaceCell goalCell)
+        {
+            var zone = new StageZoneRuntimeDefinition(
+                "goal",
+                goalCell.face,
+                new[]
+                {
+                    new StageZoneRuntimeRegion(goalCell.PlanarPosition, goalCell.PlanarPosition),
+                });
+
+            return new StageObjectiveRuntimeDefinition(
+                StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                10,
+                new[] { zone },
+                new[] { zone },
+                Array.Empty<StageConditionRuntimeDefinition>());
         }
 
         private static EntityState CreateEnemyEntity(

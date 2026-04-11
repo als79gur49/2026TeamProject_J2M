@@ -5,6 +5,7 @@ using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Timing;
 using NUnit.Framework;
@@ -728,6 +729,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<EntityState>(),
                     Game.Feature.Gameplay.BoardState.TerrainData.Empty,
                     playerEntityId: 10,
+                    StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),
                     Array.Empty<EnemyPresentationBinding>(),
                     Array.Empty<StaticEntityPresentationBinding>());
