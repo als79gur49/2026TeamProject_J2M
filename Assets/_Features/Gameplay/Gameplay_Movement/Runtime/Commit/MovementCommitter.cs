@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -11,6 +12,70 @@ using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Movement.Commit
 {
+    internal readonly struct MovementFacingResolutionRecord
+    {
+        public MovementFacingResolutionRecord(int groupId, int entityId, Direction facing)
+        {
+            GroupId = groupId;
+            EntityId = entityId;
+            Facing = facing;
+        }
+
+        public int GroupId { get; }
+
+        public int EntityId { get; }
+
+        public Direction Facing { get; }
+    }
+
+    internal readonly struct MovementExecutionLockResolutionRecord
+    {
+        public MovementExecutionLockResolutionRecord(int groupId, int entityId, EntityExecutionLockState lockState)
+        {
+            GroupId = groupId;
+            EntityId = entityId;
+            LockState = lockState;
+        }
+
+        public int GroupId { get; }
+
+        public int EntityId { get; }
+
+        public EntityExecutionLockState LockState { get; }
+    }
+
+    internal readonly struct MovementEnemyLocomotionResolutionRecord
+    {
+        public MovementEnemyLocomotionResolutionRecord(int groupId, int entityId, int cooldownTicks)
+        {
+            GroupId = groupId;
+            EntityId = entityId;
+            CooldownTicks = cooldownTicks;
+        }
+
+        public int GroupId { get; }
+
+        public int EntityId { get; }
+
+        public int CooldownTicks { get; }
+    }
+
+    internal readonly struct MovementPlayerControlResolutionRecord
+    {
+        public MovementPlayerControlResolutionRecord(int groupId, int entityId, PlayerControlState state)
+        {
+            GroupId = groupId;
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int GroupId { get; }
+
+        public int EntityId { get; }
+
+        public PlayerControlState State { get; }
+    }
+
     internal sealed class MovementCommitter
     {
         private const int ProjectileImpactDamageAmount = 1;
@@ -78,29 +143,99 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             commitEvents.Clear();
-            var reservationSequence = 1;
+            var impactReservations = ResolveImpactReservations(snapshot, tickIndex, selectedGroups);
+            for (var i = 0; i < impactReservations.Count; i++)
+            {
+                transientBuffer.AddImpact(impactReservations[i]);
+            }
+
+            var destroyResolutions = ResolveDestroyResolutions(snapshot, selectedGroups);
+            var facingResolutions = ResolveFacingResolutions(snapshot, sortedIntents, selectedGroups);
+            var executionLockResolutions = ResolveExecutionLockResolutions(snapshot, tickIndex, selectedGroups);
+            var enemyLocomotionResolutions = ResolveEnemyLocomotionResolutions(snapshot, sortedIntents, selectedGroups);
+            var playerControlResolutions = ResolvePlayerControlResolutions(snapshot, sortedIntents, tickIndex, selectedGroups);
+            CommitResolved(
+                writeContext,
+                selectedGroups,
+                impactReservations,
+                destroyResolutions,
+                facingResolutions,
+                executionLockResolutions,
+                enemyLocomotionResolutions,
+                playerControlResolutions,
+                commitEvents);
+        }
+
+        internal void CommitResolved(
+            IMovementCommitContext writeContext,
+            IReadOnlyList<ActionGroup> selectedGroups,
+            IReadOnlyList<ImpactReservation> impactReservations,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            IReadOnlyList<MovementFacingResolutionRecord> facingResolutions,
+            IReadOnlyList<MovementExecutionLockResolutionRecord> executionLockResolutions,
+            IReadOnlyList<MovementEnemyLocomotionResolutionRecord> enemyLocomotionResolutions,
+            IReadOnlyList<MovementPlayerControlResolutionRecord> playerControlResolutions,
+            List<string> commitEvents)
+        {
+            if (writeContext == null)
+            {
+                throw new ArgumentNullException(nameof(writeContext));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            if (impactReservations == null)
+            {
+                throw new ArgumentNullException(nameof(impactReservations));
+            }
+
+            if (destroyResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(destroyResolutions));
+            }
+
+            if (facingResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(facingResolutions));
+            }
+
+            if (executionLockResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(executionLockResolutions));
+            }
+
+            if (enemyLocomotionResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(enemyLocomotionResolutions));
+            }
+
+            if (playerControlResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(playerControlResolutions));
+            }
+
+            if (commitEvents == null)
+            {
+                throw new ArgumentNullException(nameof(commitEvents));
+            }
+
+            commitEvents.Clear();
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
-
-                if (group.GroupKind == ActionGroupKind.ProjectileImpact)
+                if (TryFindImpactReservation(impactReservations, group.GroupId, out var impactReservation))
                 {
-                    var reservation = CreateImpactReservation(snapshot, tickIndex, group, reservationSequence);
-                    transientBuffer.AddImpact(reservation);
                     commitEvents.Add(
-                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={reservation.SourceId}|Target={reservation.TargetId}|At={FormatCell(reservation.Position)}|Damage={reservation.Damage}|Sequence={reservation.ReservationSequence}");
-                    reservationSequence++;
-                    continue;
-                }
+                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.Position)}|Damage={impactReservation.Damage}|Sequence={impactReservation.ReservationSequence}");
 
-                if (group.HasResolvedImpact)
-                {
-                    var reservation = CreateImpactReservation(snapshot, tickIndex, group, reservationSequence);
-                    transientBuffer.AddImpact(reservation);
-                    commitEvents.Add(
-                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={reservation.SourceId}|Target={reservation.TargetId}|At={FormatCell(reservation.Position)}|Damage={reservation.Damage}|Sequence={reservation.ReservationSequence}");
-                    reservationSequence++;
+                    if (group.GroupKind == ActionGroupKind.ProjectileImpact)
+                    {
+                        continue;
+                    }
                 }
 
                 for (var stateChangeIndex = 0; stateChangeIndex < group.StateChanges.Count; stateChangeIndex++)
@@ -127,12 +262,11 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         $"TopologyCommitted|G={group.GroupId}|I={group.IntentId}|Rotation={topologyChange.RotationKind}|Bottom={topologyChange.UpdatedTopology.BottomFace}|Front={topologyChange.UpdatedTopology.FrontFace}");
                 }
 
-                if (group.GroupKind == ActionGroupKind.Flip)
+                if (TryFindFacingResolution(facingResolutions, group.GroupId, out var facingResolution))
                 {
-                    var flipSourceFacing = ResolveFlipSourceFacing(snapshot, sortedIntents, group);
-                    writeContext.SetFacing(group.SourceId, flipSourceFacing);
+                    writeContext.SetFacing(facingResolution.EntityId, facingResolution.Facing);
                     commitEvents.Add(
-                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={group.SourceId}|Facing={flipSourceFacing}");
+                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={facingResolution.EntityId}|Facing={facingResolution.Facing}");
                 }
 
                 for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
@@ -152,103 +286,451 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         group.BoxKineticInstigatorTeamId);
                 }
 
-                ApplyExecutionLockCommit(snapshot, tickIndex, group, writeContext);
+                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                {
+                    var move = group.Moves[moveIndex];
+                    if (!TryFindExecutionLockResolution(executionLockResolutions, group.GroupId, move.EntityId, out var executionLockResolution))
+                    {
+                        continue;
+                    }
+
+                    writeContext.SetEntityExecutionLockState(executionLockResolution.EntityId, executionLockResolution.LockState);
+                }
 
                 for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
                 {
                     var destroy = group.Destroys[destroyIndex];
-                    writeContext.MarkDestroy(destroy.TargetId);
+                    if (!TryFindDestroyResolution(destroyResolutions, group.GroupId, destroy.TargetId, destroyIndex, out var destroyResolution) ||
+                        !destroyResolution.Accepted)
+                    {
+                        continue;
+                    }
+
+                    writeContext.MarkDestroy(destroyResolution.TargetId);
                     commitEvents.Add(
-                        $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|Condition={destroy.Condition}");
+                        $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroyResolution.TargetId}|Condition={destroyResolution.Condition}");
                 }
 
-                ApplyEnemyLocomotionCommit(snapshot, sortedIntents, group, writeContext);
-                ApplyPlayerControlCommit(snapshot, sortedIntents, tickIndex, group, writeContext);
+                if (TryFindEnemyLocomotionResolution(enemyLocomotionResolutions, group.GroupId, out var enemyLocomotionResolution))
+                {
+                    writeContext.SetEnemyLocomotionCooldown(enemyLocomotionResolution.EntityId, enemyLocomotionResolution.CooldownTicks);
+                }
+
+                if (TryFindPlayerControlResolution(playerControlResolutions, group.GroupId, out var playerControlResolution))
+                {
+                    writeContext.SetPlayerControlState(playerControlResolution.EntityId, playerControlResolution.State);
+                }
             }
         }
 
-        private static void ApplyEnemyLocomotionCommit(
-            WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> sortedIntents,
-            ActionGroup group,
-            IMovementCommitContext writeContext)
-        {
-            if (!snapshot.TryGetEntity(group.SourceId, out var source) ||
-                source.type != EntityType.Unit ||
-                (source.aiMode != EnemyAiMode.Patrol &&
-                 source.aiMode != EnemyAiMode.Chase &&
-                 source.aiMode != EnemyAiMode.Charge))
-            {
-                return;
-            }
-
-            var intent = FindIntent(sortedIntents, group.IntentId);
-            if (intent == null ||
-                intent.CommandKind != MovementCommandKind.Move)
-            {
-                return;
-            }
-
-            writeContext.SetEnemyLocomotionCooldown(group.SourceId, intent.MoveCooldownTicks);
-        }
-
-        private void ApplyExecutionLockCommit(
+        internal List<ImpactReservation> ResolveImpactReservations(
             WorldSnapshot snapshot,
             int tickIndex,
-            ActionGroup group,
-            IMovementCommitContext writeContext)
+            IReadOnlyList<ActionGroup> selectedGroups)
         {
-            if (group.GroupKind != ActionGroupKind.Move &&
-                group.GroupKind != ActionGroupKind.Item)
+            if (snapshot == null)
             {
-                return;
+                throw new ArgumentNullException(nameof(snapshot));
             }
 
-            for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+            if (selectedGroups == null)
             {
-                var move = group.Moves[moveIndex];
-                if (!snapshot.TryGetEntity(move.EntityId, out var movedEntity) ||
-                    movedEntity.type != EntityType.Unit)
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            var impactReservations = new List<ImpactReservation>();
+            var reservationSequence = 1;
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (group.GroupKind != ActionGroupKind.ProjectileImpact &&
+                    !group.HasResolvedImpact)
                 {
                     continue;
                 }
 
-                snapshot.TryGetEntityExecutionLockState(move.EntityId, out var previousState);
-                var lockState = EntityExecutionLockQueries.StartMoveLock(previousState, tickIndex, _moveOccupancyTicks);
-                writeContext.SetEntityExecutionLockState(move.EntityId, lockState);
+                impactReservations.Add(CreateImpactReservation(snapshot, tickIndex, group, reservationSequence));
+                reservationSequence++;
             }
+
+            return impactReservations;
         }
 
-        private void ApplyPlayerControlCommit(
+        internal List<DestroyResolutionRecord> ResolveDestroyResolutions(
+            WorldSnapshot snapshot,
+            IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            var destroyResolutions = new List<DestroyResolutionRecord>();
+            var destroyMarkedTargets = new HashSet<int>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
+                {
+                    var destroy = group.Destroys[destroyIndex];
+                    var accepted = false;
+                    var finalHp = 0;
+
+                    if (!destroyMarkedTargets.Contains(destroy.TargetId) &&
+                        snapshot.TryGetEntity(destroy.TargetId, out var target) &&
+                        !target.markedForDeath)
+                    {
+                        finalHp = target.hp;
+                        if (destroy.Condition != DestroyCondition.WhenHpDepleted || finalHp <= 0)
+                        {
+                            destroyMarkedTargets.Add(destroy.TargetId);
+                            accepted = true;
+                        }
+                    }
+
+                    destroyResolutions.Add(
+                        new DestroyResolutionRecord(
+                            group.GroupId,
+                            group.IntentId,
+                            group.SourceId,
+                            destroy.TargetId,
+                            destroy.Condition,
+                            finalHp,
+                            accepted,
+                            destroyIndex));
+                }
+            }
+
+            return destroyResolutions;
+        }
+
+        internal List<MovementFacingResolutionRecord> ResolveFacingResolutions(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (sortedIntents == null)
+            {
+                throw new ArgumentNullException(nameof(sortedIntents));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            var facingResolutions = new List<MovementFacingResolutionRecord>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (group.GroupKind != ActionGroupKind.Flip)
+                {
+                    continue;
+                }
+
+                facingResolutions.Add(
+                    new MovementFacingResolutionRecord(
+                        group.GroupId,
+                        group.SourceId,
+                        ResolveFlipSourceFacing(snapshot, sortedIntents, group)));
+            }
+
+            return facingResolutions;
+        }
+
+        internal List<MovementExecutionLockResolutionRecord> ResolveExecutionLockResolutions(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            var executionLockResolutions = new List<MovementExecutionLockResolutionRecord>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (group.GroupKind != ActionGroupKind.Move &&
+                    group.GroupKind != ActionGroupKind.Item)
+                {
+                    continue;
+                }
+
+                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                {
+                    var move = group.Moves[moveIndex];
+                    if (!snapshot.TryGetEntity(move.EntityId, out var movedEntity) ||
+                        movedEntity.type != EntityType.Unit)
+                    {
+                        continue;
+                    }
+
+                    snapshot.TryGetEntityExecutionLockState(move.EntityId, out var previousState);
+                    var lockState = EntityExecutionLockQueries.StartMoveLock(previousState, tickIndex, _moveOccupancyTicks);
+                    executionLockResolutions.Add(
+                        new MovementExecutionLockResolutionRecord(
+                            group.GroupId,
+                            move.EntityId,
+                            lockState));
+                }
+            }
+
+            return executionLockResolutions;
+        }
+
+        internal List<MovementEnemyLocomotionResolutionRecord> ResolveEnemyLocomotionResolutions(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (sortedIntents == null)
+            {
+                throw new ArgumentNullException(nameof(sortedIntents));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            var locomotionResolutions = new List<MovementEnemyLocomotionResolutionRecord>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (!snapshot.TryGetEntity(group.SourceId, out var source) ||
+                    source.type != EntityType.Unit ||
+                    (source.aiMode != EnemyAiMode.Patrol &&
+                     source.aiMode != EnemyAiMode.Chase &&
+                     source.aiMode != EnemyAiMode.Charge))
+                {
+                    continue;
+                }
+
+                var intent = FindIntent(sortedIntents, group.IntentId);
+                if (intent == null ||
+                    intent.CommandKind != MovementCommandKind.Move)
+                {
+                    continue;
+                }
+
+                locomotionResolutions.Add(
+                    new MovementEnemyLocomotionResolutionRecord(
+                        group.GroupId,
+                        group.SourceId,
+                        intent.MoveCooldownTicks));
+            }
+
+            return locomotionResolutions;
+        }
+
+        internal List<MovementPlayerControlResolutionRecord> ResolvePlayerControlResolutions(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
             int tickIndex,
-            ActionGroup group,
-            IMovementCommitContext writeContext)
+            IReadOnlyList<ActionGroup> selectedGroups)
         {
-            if (!snapshot.TryGetPlayerControlState(group.SourceId, out var controlState))
+            if (snapshot == null)
             {
-                return;
+                throw new ArgumentNullException(nameof(snapshot));
             }
 
-            var intent = FindIntent(sortedIntents, group.IntentId);
-            if (intent == null)
+            if (sortedIntents == null)
             {
-                return;
+                throw new ArgumentNullException(nameof(sortedIntents));
             }
 
-            PlayerControlState updatedState;
-            switch (intent.CommandKind)
+            if (selectedGroups == null)
             {
-                case MovementCommandKind.Move:
-                    updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks, tickIndex);
-                    break;
-
-                default:
-                    return;
+                throw new ArgumentNullException(nameof(selectedGroups));
             }
 
-            writeContext.SetPlayerControlState(group.SourceId, updatedState);
+            var playerControlResolutions = new List<MovementPlayerControlResolutionRecord>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (!snapshot.TryGetPlayerControlState(group.SourceId, out var controlState))
+                {
+                    continue;
+                }
+
+                var intent = FindIntent(sortedIntents, group.IntentId);
+                if (intent == null)
+                {
+                    continue;
+                }
+
+                PlayerControlState updatedState;
+                switch (intent.CommandKind)
+                {
+                    case MovementCommandKind.Move:
+                        updatedState = PlayerControlQueries.ConsumeMoveCooldown(controlState, _playerMoveCooldownTicks, tickIndex);
+                        break;
+
+                    default:
+                        continue;
+                }
+
+                playerControlResolutions.Add(
+                    new MovementPlayerControlResolutionRecord(
+                        group.GroupId,
+                        group.SourceId,
+                        updatedState));
+            }
+            return playerControlResolutions;
+        }
+
+        internal static List<ImpactReservation> SortImpactReservations(IReadOnlyList<ImpactReservation> impactReservations)
+        {
+            if (impactReservations == null)
+            {
+                throw new ArgumentNullException(nameof(impactReservations));
+            }
+
+            var sortedReservations = new List<ImpactReservation>(impactReservations);
+            sortedReservations.Sort(ImpactReservationComparer.Instance);
+            return sortedReservations;
+        }
+
+        private static bool TryFindImpactReservation(
+            IReadOnlyList<ImpactReservation> impactReservations,
+            int groupId,
+            out ImpactReservation impactReservation)
+        {
+            for (var i = 0; i < impactReservations.Count; i++)
+            {
+                if (impactReservations[i].SourceActionGroupId == groupId)
+                {
+                    impactReservation = impactReservations[i];
+                    return true;
+                }
+            }
+
+            impactReservation = default;
+            return false;
+        }
+
+        private static bool TryFindFacingResolution(
+            IReadOnlyList<MovementFacingResolutionRecord> facingResolutions,
+            int groupId,
+            out MovementFacingResolutionRecord facingResolution)
+        {
+            for (var i = 0; i < facingResolutions.Count; i++)
+            {
+                if (facingResolutions[i].GroupId == groupId)
+                {
+                    facingResolution = facingResolutions[i];
+                    return true;
+                }
+            }
+
+            facingResolution = default;
+            return false;
+        }
+
+        private static bool TryFindExecutionLockResolution(
+            IReadOnlyList<MovementExecutionLockResolutionRecord> executionLockResolutions,
+            int groupId,
+            int entityId,
+            out MovementExecutionLockResolutionRecord executionLockResolution)
+        {
+            for (var i = 0; i < executionLockResolutions.Count; i++)
+            {
+                if (executionLockResolutions[i].GroupId == groupId &&
+                    executionLockResolutions[i].EntityId == entityId)
+                {
+                    executionLockResolution = executionLockResolutions[i];
+                    return true;
+                }
+            }
+
+            executionLockResolution = default;
+            return false;
+        }
+
+        private static bool TryFindDestroyResolution(
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            int groupId,
+            int targetId,
+            int localActionIndex,
+            out DestroyResolutionRecord destroyResolution)
+        {
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                if (destroyResolutions[i].GroupId == groupId &&
+                    destroyResolutions[i].TargetId == targetId &&
+                    destroyResolutions[i].LocalActionIndex == localActionIndex)
+                {
+                    destroyResolution = destroyResolutions[i];
+                    return true;
+                }
+            }
+
+            destroyResolution = default;
+            return false;
+        }
+
+        private static bool TryFindEnemyLocomotionResolution(
+            IReadOnlyList<MovementEnemyLocomotionResolutionRecord> enemyLocomotionResolutions,
+            int groupId,
+            out MovementEnemyLocomotionResolutionRecord enemyLocomotionResolution)
+        {
+            for (var i = 0; i < enemyLocomotionResolutions.Count; i++)
+            {
+                if (enemyLocomotionResolutions[i].GroupId == groupId)
+                {
+                    enemyLocomotionResolution = enemyLocomotionResolutions[i];
+                    return true;
+                }
+            }
+
+            enemyLocomotionResolution = default;
+            return false;
+        }
+
+        private static bool TryFindPlayerControlResolution(
+            IReadOnlyList<MovementPlayerControlResolutionRecord> playerControlResolutions,
+            int groupId,
+            out MovementPlayerControlResolutionRecord playerControlResolution)
+        {
+            for (var i = 0; i < playerControlResolutions.Count; i++)
+            {
+                if (playerControlResolutions[i].GroupId == groupId)
+                {
+                    playerControlResolution = playerControlResolutions[i];
+                    return true;
+                }
+            }
+
+            playerControlResolution = default;
+            return false;
         }
 
         private static ImpactReservation CreateImpactReservation(

@@ -80,6 +80,77 @@ namespace Game.Feature.Gameplay.Attack.Commit
             commitEvents.Clear();
             delayedAttackEnqueueEvents.Clear();
             damageResolutions.Clear();
+            var resolvedDamageResolutions = ResolveDamageResolutions(snapshot, selectedGroups, tickIndex);
+            for (var i = 0; i < resolvedDamageResolutions.Count; i++)
+            {
+                damageResolutions.Add(resolvedDamageResolutions[i]);
+            }
+
+            var destroyResolutions = ResolveDestroyResolutions(snapshot, selectedGroups, damageResolutions);
+            var delayedAttackEffects = ResolveDelayedAttackEffects(selectedGroups, tickIndex);
+            CommitResolved(
+                writeContext,
+                delayedAttackEffectSink,
+                selectedGroups,
+                damageResolutions,
+                destroyResolutions,
+                delayedAttackEffects,
+                commitEvents,
+                delayedAttackEnqueueEvents);
+        }
+
+        internal void CommitResolved(
+            IAttackCommitContext writeContext,
+            IDelayedAttackEffectSink delayedAttackEffectSink,
+            IReadOnlyList<ActionGroup> selectedGroups,
+            IReadOnlyList<DamageResolutionRecord> damageResolutions,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            IReadOnlyList<DelayedAttackEffectRecord> delayedAttackEffects,
+            List<string> commitEvents,
+            List<string> delayedAttackEnqueueEvents)
+        {
+            if (writeContext == null)
+            {
+                throw new ArgumentNullException(nameof(writeContext));
+            }
+
+            if (delayedAttackEffectSink == null)
+            {
+                throw new ArgumentNullException(nameof(delayedAttackEffectSink));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            if (damageResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(damageResolutions));
+            }
+
+            if (destroyResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(destroyResolutions));
+            }
+
+            if (delayedAttackEffects == null)
+            {
+                throw new ArgumentNullException(nameof(delayedAttackEffects));
+            }
+
+            if (commitEvents == null)
+            {
+                throw new ArgumentNullException(nameof(commitEvents));
+            }
+
+            if (delayedAttackEnqueueEvents == null)
+            {
+                throw new ArgumentNullException(nameof(delayedAttackEnqueueEvents));
+            }
+
+            commitEvents.Clear();
+            delayedAttackEnqueueEvents.Clear();
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
@@ -94,9 +165,6 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 }
             }
 
-            var accumulatedDamageByTarget = new Dictionary<int, int>();
-            var playerDamageStatesByEntityId = new Dictionary<int, PlayerDamageState>();
-
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
@@ -104,15 +172,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 for (var damageIndex = 0; damageIndex < group.Damages.Count; damageIndex++)
                 {
                     var damage = group.Damages[damageIndex];
-                    var resolution = ResolveDamage(
-                        snapshot,
-                        writeContext,
-                        tickIndex,
-                        group,
-                        damage,
-                        playerDamageStatesByEntityId);
-                    damageResolutions.Add(resolution);
-
+                    var resolution = FindDamageResolution(damageResolutions, group.GroupId, damage.TargetId, damageIndex);
                     if (!resolution.Accepted)
                     {
                         var sourceKindSuffix = BuildSourceKindSuffix(group.AttackSourceKind);
@@ -121,18 +181,15 @@ namespace Game.Feature.Gameplay.Attack.Commit
                         continue;
                     }
 
+                    if (resolution.HasPlayerDamageState)
+                    {
+                        writeContext.SetPlayerDamageState(damage.TargetId, resolution.PlayerDamageState);
+                    }
+
                     writeContext.ApplyDamage(damage.TargetId, damage.Amount);
                     var committedSourceKindSuffix = BuildSourceKindSuffix(group.AttackSourceKind);
                     commitEvents.Add(
                         $"DamageCommitted|G={group.GroupId}|I={group.IntentId}{committedSourceKindSuffix}|Target={damage.TargetId}|Amount={damage.Amount}");
-
-                    var accumulatedDamage = damage.Amount;
-                    if (accumulatedDamageByTarget.TryGetValue(damage.TargetId, out var existingDamage))
-                    {
-                        accumulatedDamage += existingDamage;
-                    }
-
-                    accumulatedDamageByTarget[damage.TargetId] = accumulatedDamage;
                 }
             }
 
@@ -149,127 +206,216 @@ namespace Game.Feature.Gameplay.Attack.Commit
                 }
             }
 
-            var destroyMarkedTargets = new HashSet<int>();
-
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
 
                 for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
                 {
-                    var destroy = group.Destroys[destroyIndex];
-                    if (destroyMarkedTargets.Contains(destroy.TargetId))
+                    var destroyResolution = FindDestroyResolution(destroyResolutions, group.GroupId, group.Destroys[destroyIndex].TargetId, destroyIndex);
+                    if (!destroyResolution.Accepted)
                     {
                         continue;
                     }
 
-                    if (!snapshot.TryGetEntity(destroy.TargetId, out var target) || target.markedForDeath)
-                    {
-                        continue;
-                    }
-
-                    var accumulatedDamage = accumulatedDamageByTarget.TryGetValue(destroy.TargetId, out var damage)
-                        ? damage
-                        : 0;
-                    var finalHp = target.hp - accumulatedDamage;
-                    if (destroy.Condition == DestroyCondition.WhenHpDepleted && finalHp > 0)
-                    {
-                        continue;
-                    }
-
-                    destroyMarkedTargets.Add(destroy.TargetId);
-
-                    writeContext.MarkDestroy(destroy.TargetId);
+                    writeContext.MarkDestroy(destroyResolution.TargetId);
                     commitEvents.Add(
-                        $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroy.TargetId}|FinalHp={finalHp}|Condition={destroy.Condition}");
+                        $"DestroyMarked|G={group.GroupId}|I={group.IntentId}|Target={destroyResolution.TargetId}|FinalHp={destroyResolution.FinalHp}|Condition={destroyResolution.Condition}");
                 }
             }
 
+            var groupsById = new Dictionary<int, ActionGroup>(selectedGroups.Count);
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                groupsById[selectedGroups[groupIndex].GroupId] = selectedGroups[groupIndex];
+            }
+
+            for (var delayedIndex = 0; delayedIndex < delayedAttackEffects.Count; delayedIndex++)
+            {
+                var effectRecord = delayedAttackEffects[delayedIndex];
+                delayedAttackEffectSink.Enqueue(effectRecord);
+                if (!groupsById.TryGetValue(effectRecord.SourceActionGroupId, out var sourceGroup))
+                {
+                    throw new InvalidOperationException($"Missing source group {effectRecord.SourceActionGroupId} for delayed attack effect.");
+                }
+
+                delayedAttackEnqueueEvents.Add(
+                    $"DelayedAttackEnqueued|G={effectRecord.SourceActionGroupId}|I={sourceGroup.IntentId}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|ExecuteTick={effectRecord.ExecuteAtTick}|Sequence={effectRecord.EffectSequence}");
+            }
+        }
+
+        private List<DamageResolutionRecord> ResolveDamageResolutions(
+            WorldSnapshot snapshot,
+            IReadOnlyList<ActionGroup> selectedGroups,
+            int tickIndex)
+        {
+            var damageResolutions = new List<DamageResolutionRecord>();
+            var playerDamageStatesByEntityId = new Dictionary<int, PlayerDamageState>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                for (var damageIndex = 0; damageIndex < group.Damages.Count; damageIndex++)
+                {
+                    var damage = group.Damages[damageIndex];
+                    if (!snapshot.TryGetEntity(damage.TargetId, out var target) ||
+                        !EntityRolePolicy.IsPlayerUnit(target))
+                    {
+                        damageResolutions.Add(
+                            new DamageResolutionRecord(
+                                group.GroupId,
+                                group.IntentId,
+                                group.SourceId,
+                                group.AttackSourceKind,
+                                damage.TargetId,
+                                damage.Amount,
+                                accepted: true,
+                                DamageRejectReason.None,
+                                damageIndex));
+                        continue;
+                    }
+
+                    if (!playerDamageStatesByEntityId.TryGetValue(damage.TargetId, out var damageState))
+                    {
+                        damageState = snapshot.TryGetPlayerDamageState(damage.TargetId, out var storedState)
+                            ? storedState
+                            : default;
+                    }
+
+                    if (!PlayerDamageQueries.CanAcceptDamage(damageState, tickIndex))
+                    {
+                        playerDamageStatesByEntityId[damage.TargetId] = damageState;
+                        damageResolutions.Add(
+                            new DamageResolutionRecord(
+                                group.GroupId,
+                                group.IntentId,
+                                group.SourceId,
+                                group.AttackSourceKind,
+                                damage.TargetId,
+                                damage.Amount,
+                                accepted: false,
+                                DamageRejectReason.ReceiverCooldown,
+                                damageIndex));
+                        continue;
+                    }
+
+                    var updatedState = PlayerDamageQueries.AcceptDamage(
+                        damageState,
+                        tickIndex,
+                        _playerDamageCooldownTicks);
+                    playerDamageStatesByEntityId[damage.TargetId] = updatedState;
+                    damageResolutions.Add(
+                        new DamageResolutionRecord(
+                            group.GroupId,
+                            group.IntentId,
+                            group.SourceId,
+                            group.AttackSourceKind,
+                            damage.TargetId,
+                            damage.Amount,
+                            accepted: true,
+                            DamageRejectReason.None,
+                            damageIndex,
+                            hasPlayerDamageState: true,
+                            playerDamageState: updatedState));
+                }
+            }
+
+            return damageResolutions;
+        }
+
+        private static List<DestroyResolutionRecord> ResolveDestroyResolutions(
+            WorldSnapshot snapshot,
+            IReadOnlyList<ActionGroup> selectedGroups,
+            IReadOnlyList<DamageResolutionRecord> damageResolutions)
+        {
+            var accumulatedDamageByTarget = new Dictionary<int, int>();
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                if (!damageResolutions[i].Accepted)
+                {
+                    continue;
+                }
+
+                if (accumulatedDamageByTarget.TryGetValue(damageResolutions[i].TargetId, out var existingDamage))
+                {
+                    accumulatedDamageByTarget[damageResolutions[i].TargetId] = existingDamage + damageResolutions[i].Amount;
+                    continue;
+                }
+
+                accumulatedDamageByTarget[damageResolutions[i].TargetId] = damageResolutions[i].Amount;
+            }
+
+            var destroyResolutions = new List<DestroyResolutionRecord>();
+            var destroyMarkedTargets = new HashSet<int>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
+                {
+                    var destroy = group.Destroys[destroyIndex];
+                    var accepted = false;
+                    var finalHp = 0;
+
+                    if (!destroyMarkedTargets.Contains(destroy.TargetId) &&
+                        snapshot.TryGetEntity(destroy.TargetId, out var target) &&
+                        !target.markedForDeath)
+                    {
+                        var accumulatedDamage = accumulatedDamageByTarget.TryGetValue(destroy.TargetId, out var damage)
+                            ? damage
+                            : 0;
+                        finalHp = target.hp - accumulatedDamage;
+                        if (destroy.Condition != DestroyCondition.WhenHpDepleted || finalHp <= 0)
+                        {
+                            destroyMarkedTargets.Add(destroy.TargetId);
+                            accepted = true;
+                        }
+                    }
+
+                    destroyResolutions.Add(
+                        new DestroyResolutionRecord(
+                            group.GroupId,
+                            group.IntentId,
+                            group.SourceId,
+                            destroy.TargetId,
+                            destroy.Condition,
+                            finalHp,
+                            accepted,
+                            destroyIndex));
+                }
+            }
+
+            return destroyResolutions;
+        }
+
+        private static List<DelayedAttackEffectRecord> ResolveDelayedAttackEffects(
+            IReadOnlyList<ActionGroup> selectedGroups,
+            int tickIndex)
+        {
+            var delayedAttackEffects = new List<DelayedAttackEffectRecord>();
             var delayedAttackSequence = 1;
 
             for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
             {
                 var group = selectedGroups[groupIndex];
-
                 for (var delayedIndex = 0; delayedIndex < group.DelayedAttacks.Count; delayedIndex++)
                 {
                     var delayedAttack = group.DelayedAttacks[delayedIndex];
-                    var effectRecord = new DelayedAttackEffectRecord(
-                        group.SourceId,
-                        delayedAttack.TargetId,
-                        delayedAttack.Damage,
-                        group.Priority,
-                        tickIndex,
-                        tickIndex + 1,
-                        group.GroupId,
-                        delayedAttackSequence);
-                    delayedAttackEffectSink.Enqueue(effectRecord);
-                    delayedAttackEnqueueEvents.Add(
-                        $"DelayedAttackEnqueued|G={group.GroupId}|I={group.IntentId}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|ExecuteTick={effectRecord.ExecuteAtTick}|Sequence={effectRecord.EffectSequence}");
+                    delayedAttackEffects.Add(
+                        new DelayedAttackEffectRecord(
+                            group.SourceId,
+                            delayedAttack.TargetId,
+                            delayedAttack.Damage,
+                            group.Priority,
+                            tickIndex,
+                            tickIndex + 1,
+                            group.GroupId,
+                            delayedAttackSequence));
                     delayedAttackSequence++;
                 }
             }
-        }
 
-        private DamageResolutionRecord ResolveDamage(
-            WorldSnapshot snapshot,
-            IAttackCommitContext writeContext,
-            int tickIndex,
-            ActionGroup group,
-            in DamageAction damage,
-            Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId)
-        {
-            if (!snapshot.TryGetEntity(damage.TargetId, out var target) ||
-                !EntityRolePolicy.IsPlayerUnit(target))
-            {
-                return new DamageResolutionRecord(
-                    group.GroupId,
-                    group.IntentId,
-                    group.SourceId,
-                    group.AttackSourceKind,
-                    damage.TargetId,
-                    damage.Amount,
-                    accepted: true,
-                    DamageRejectReason.None);
-            }
-
-            if (!playerDamageStatesByEntityId.TryGetValue(damage.TargetId, out var damageState))
-            {
-                damageState = snapshot.TryGetPlayerDamageState(damage.TargetId, out var storedState)
-                    ? storedState
-                    : default;
-            }
-
-            if (!PlayerDamageQueries.CanAcceptDamage(damageState, tickIndex))
-            {
-                playerDamageStatesByEntityId[damage.TargetId] = damageState;
-                return new DamageResolutionRecord(
-                    group.GroupId,
-                    group.IntentId,
-                    group.SourceId,
-                    group.AttackSourceKind,
-                    damage.TargetId,
-                    damage.Amount,
-                    accepted: false,
-                    DamageRejectReason.ReceiverCooldown);
-            }
-
-            var updatedState = PlayerDamageQueries.AcceptDamage(
-                damageState,
-                tickIndex,
-                _playerDamageCooldownTicks);
-            playerDamageStatesByEntityId[damage.TargetId] = updatedState;
-            writeContext.SetPlayerDamageState(damage.TargetId, updatedState);
-
-            return new DamageResolutionRecord(
-                group.GroupId,
-                group.IntentId,
-                group.SourceId,
-                group.AttackSourceKind,
-                damage.TargetId,
-                damage.Amount,
-                accepted: true,
-                DamageRejectReason.None);
+            return delayedAttackEffects;
         }
 
         private static string BuildSourceKindSuffix(AttackSourceKind sourceKind)
@@ -277,6 +423,46 @@ namespace Game.Feature.Gameplay.Attack.Commit
             return sourceKind == AttackSourceKind.PassiveContact
                 ? $"|SourceKind={sourceKind}"
                 : string.Empty;
+        }
+
+        private static DamageResolutionRecord FindDamageResolution(
+            IReadOnlyList<DamageResolutionRecord> damageResolutions,
+            int groupId,
+            int targetId,
+            int localActionIndex)
+        {
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                if (damageResolutions[i].GroupId == groupId &&
+                    damageResolutions[i].TargetId == targetId &&
+                    damageResolutions[i].LocalActionIndex == localActionIndex)
+                {
+                    return damageResolutions[i];
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Missing damage resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
+        }
+
+        private static DestroyResolutionRecord FindDestroyResolution(
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            int groupId,
+            int targetId,
+            int localActionIndex)
+        {
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                if (destroyResolutions[i].GroupId == groupId &&
+                    destroyResolutions[i].TargetId == targetId &&
+                    destroyResolutions[i].LocalActionIndex == localActionIndex)
+                {
+                    return destroyResolutions[i];
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Missing destroy resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
         }
     }
 }

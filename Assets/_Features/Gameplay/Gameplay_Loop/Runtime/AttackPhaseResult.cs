@@ -19,7 +19,10 @@ namespace Game.Feature.Gameplay.Loop
             int targetId,
             int amount,
             bool accepted,
-            DamageRejectReason rejectReason)
+            DamageRejectReason rejectReason,
+            int localActionIndex = 0,
+            bool hasPlayerDamageState = false,
+            PlayerDamageState playerDamageState = default)
         {
             GroupId = groupId;
             IntentId = intentId;
@@ -29,6 +32,9 @@ namespace Game.Feature.Gameplay.Loop
             Amount = amount;
             Accepted = accepted;
             RejectReason = rejectReason;
+            LocalActionIndex = localActionIndex;
+            HasPlayerDamageState = hasPlayerDamageState;
+            PlayerDamageState = playerDamageState;
         }
 
         public int GroupId { get; }
@@ -46,6 +52,12 @@ namespace Game.Feature.Gameplay.Loop
         public bool Accepted { get; }
 
         public DamageRejectReason RejectReason { get; }
+
+        public int LocalActionIndex { get; }
+
+        public bool HasPlayerDamageState { get; }
+
+        public PlayerDamageState PlayerDamageState { get; }
     }
 
     internal sealed class AttackPhaseResult
