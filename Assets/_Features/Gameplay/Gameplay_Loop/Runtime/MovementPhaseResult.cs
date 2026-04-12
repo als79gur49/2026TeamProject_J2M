@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
-using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -12,23 +11,23 @@ namespace Game.Feature.Gameplay.Loop
         public static readonly MovementPhaseResult Empty = new(
             Array.Empty<RawMovementIntent>(),
             Array.Empty<MoveIntent>(),
-            Array.Empty<ActionGroup>(),
-            Array.Empty<ActionGroup>(),
+            Array.Empty<ResolutionRecord>(),
+            Array.Empty<FinalizationOperation>(),
             Array.Empty<string>(),
             Array.Empty<string>());
 
         private readonly ReadOnlyCollection<string> _commitEvents;
-        private readonly ReadOnlyCollection<ActionGroup> _expandedCandidates;
         private readonly ReadOnlyCollection<RawMovementIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
-        private readonly ReadOnlyCollection<ActionGroup> _selectedGroups;
+        private readonly ReadOnlyCollection<ResolutionRecord> _resolutionRecords;
+        private readonly ReadOnlyCollection<FinalizationOperation> _resolvedOperations;
         private readonly ReadOnlyCollection<MoveIntent> _sortedIntents;
 
         public MovementPhaseResult(
             IEnumerable<RawMovementIntent> rawIntents,
             IEnumerable<MoveIntent> sortedIntents,
-            IEnumerable<ActionGroup> expandedCandidates,
-            IEnumerable<ActionGroup> selectedGroups,
+            IEnumerable<ResolutionRecord> resolutionRecords,
+            IEnumerable<FinalizationOperation> resolvedOperations,
             IEnumerable<string> commitEvents,
             IEnumerable<string> rejectedReasons)
         {
@@ -42,14 +41,14 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(sortedIntents));
             }
 
-            if (expandedCandidates == null)
+            if (resolutionRecords == null)
             {
-                throw new ArgumentNullException(nameof(expandedCandidates));
+                throw new ArgumentNullException(nameof(resolutionRecords));
             }
 
-            if (selectedGroups == null)
+            if (resolvedOperations == null)
             {
-                throw new ArgumentNullException(nameof(selectedGroups));
+                throw new ArgumentNullException(nameof(resolvedOperations));
             }
 
             if (commitEvents == null)
@@ -64,8 +63,8 @@ namespace Game.Feature.Gameplay.Loop
 
             _rawIntents = new ReadOnlyCollection<RawMovementIntent>(new List<RawMovementIntent>(rawIntents));
             _sortedIntents = new ReadOnlyCollection<MoveIntent>(new List<MoveIntent>(sortedIntents));
-            _expandedCandidates = new ReadOnlyCollection<ActionGroup>(new List<ActionGroup>(expandedCandidates));
-            _selectedGroups = new ReadOnlyCollection<ActionGroup>(new List<ActionGroup>(selectedGroups));
+            _resolutionRecords = new ReadOnlyCollection<ResolutionRecord>(new List<ResolutionRecord>(resolutionRecords));
+            _resolvedOperations = new ReadOnlyCollection<FinalizationOperation>(new List<FinalizationOperation>(resolvedOperations));
             _commitEvents = new ReadOnlyCollection<string>(new List<string>(commitEvents));
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
         }
@@ -74,9 +73,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<MoveIntent> SortedIntents => _sortedIntents;
 
-        public IReadOnlyList<ActionGroup> ExpandedCandidates => _expandedCandidates;
+        public IReadOnlyList<ResolutionRecord> ResolutionRecords => _resolutionRecords;
 
-        public IReadOnlyList<ActionGroup> SelectedGroups => _selectedGroups;
+        public IReadOnlyList<FinalizationOperation> ResolvedOperations => _resolvedOperations;
 
         public IReadOnlyList<string> CommitEvents => _commitEvents;
 

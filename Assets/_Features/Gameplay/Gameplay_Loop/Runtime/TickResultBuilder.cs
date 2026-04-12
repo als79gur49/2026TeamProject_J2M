@@ -5,7 +5,6 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Model.Actions;
-using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
@@ -390,17 +389,29 @@ namespace Game.Feature.Gameplay.Loop
             List<TickVisibilityChange> visibilityChanges,
             ISet<int> exitOwnedEntityIds)
         {
-            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
-
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-                AppendEntityMotions(context, group, entityMotions);
-                AppendDetachVisibilityChanges(
-                    context.PreMovementSnapshot,
-                    group.BoardPresenceChanges,
-                    visibilityChanges,
-                    exitOwnedEntityIds);
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.MoveEntity)
+                {
+                    AppendEntityMotion(context, operation, entityMotions);
+                    continue;
+                }
+
+                if (operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                    operation.BoardPresence == EntityBoardPresence.Detached &&
+                    !exitOwnedEntityIds.Contains(operation.EntityId) &&
+                    context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity))
+                {
+                    visibilityChanges.Add(
+                        new TickVisibilityChange(
+                            operation.EntityId,
+                            TickVisibilityChangeKind.Detach,
+                            sourceEntity.position,
+                            context.PreMovementSnapshot.Topology,
+                            sourceEntity.facing));
+                }
             }
         }
 
@@ -408,28 +419,23 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TickVisibilityChange> visibilityChanges)
         {
-            var selectedGroups = context.AttackPhaseResult.SelectedGroups;
-
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            var operations = context.AttackPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-
-                for (var spawnIndex = 0; spawnIndex < group.Spawns.Count; spawnIndex++)
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.SpawnEntity)
                 {
-                    var spawn = group.Spawns[spawnIndex];
-                    if (!context.PostAttackSnapshot.TryGetEntity(spawn.Entity.entityId, out var spawnedEntity))
-                    {
-                        continue;
-                    }
-
-                    visibilityChanges.Add(
-                        new TickVisibilityChange(
-                            spawnedEntity.entityId,
-                            TickVisibilityChangeKind.Spawn,
-                            spawnedEntity.position,
-                            context.PostAttackSnapshot.Topology,
-                            spawnedEntity.facing));
+                    continue;
                 }
+
+                var spawnedEntity = operation.SpawnedEntity;
+                visibilityChanges.Add(
+                    new TickVisibilityChange(
+                        spawnedEntity.entityId,
+                        TickVisibilityChangeKind.Spawn,
+                        spawnedEntity.position,
+                        context.PostAttackSnapshot.Topology,
+                        spawnedEntity.facing));
             }
         }
 
@@ -459,46 +465,46 @@ namespace Game.Feature.Gameplay.Loop
             ISet<int> exitOwnedEntityIds,
             ISet<int> signaledEntityIds)
         {
-            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
             var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
+            var operations = context.MovementPhaseResult.ResolvedOperations;
 
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            for (var i = 0; i < operations.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-                var destroyTargets = CollectDestroyTargets(group);
-                for (var changeIndex = 0; changeIndex < group.BoardPresenceChanges.Count; changeIndex++)
+                var operation = operations[i];
+                if (operation.Metadata.ExitCauseHint == TickEntityExitCause.None ||
+                    !removedEntityIds.Contains(operation.EntityId) ||
+                    !signaledEntityIds.Add(operation.EntityId) ||
+                    !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity))
                 {
-                    var boardPresenceChange = group.BoardPresenceChanges[changeIndex];
-                    if (boardPresenceChange.BoardPresence != EntityBoardPresence.Detached ||
-                        !removedEntityIds.Contains(boardPresenceChange.EntityId) ||
-                        !signaledEntityIds.Add(boardPresenceChange.EntityId) ||
-                        !context.PreMovementSnapshot.TryGetEntity(boardPresenceChange.EntityId, out var sourceEntity))
-                    {
-                        continue;
-                    }
-
-                    var exitCause = ResolveEntityExitCause(group, destroyTargets, sourceEntity);
-                    if (exitCause == TickEntityExitCause.None)
-                    {
-                        continue;
-                    }
-
-                    entityExitSignals.Add(
-                        new TickEntityExitPresentationSignal(
-                            boardPresenceChange.EntityId,
-                            exitCause,
-                            sourceEntity.position,
-                            context.PreMovementSnapshot.Topology,
-                            sourceEntity.facing,
-                            sourceEntity.type,
-                            sourceActorEntityId: group.SourceId,
-                            presentationSeed: BuildStablePresentationSeed(
-                                context.CurrentTickIndex,
-                                boardPresenceChange.EntityId,
-                                group.SourceId,
-                                exitCause)));
-                    exitOwnedEntityIds.Add(boardPresenceChange.EntityId);
+                    continue;
                 }
+
+                var isExitSignal =
+                    (operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                     operation.BoardPresence == EntityBoardPresence.Detached) ||
+                    operation.Kind == FinalizationOperationKind.MarkDestroy;
+                if (!isExitSignal)
+                {
+                    signaledEntityIds.Remove(operation.EntityId);
+                    continue;
+                }
+
+                var exitCause = operation.Metadata.ExitCauseHint;
+                entityExitSignals.Add(
+                    new TickEntityExitPresentationSignal(
+                        operation.EntityId,
+                        exitCause,
+                        sourceEntity.position,
+                        context.PreMovementSnapshot.Topology,
+                        sourceEntity.facing,
+                        sourceEntity.type,
+                        sourceActorEntityId: operation.Metadata.SourceActorEntityId,
+                        presentationSeed: BuildStablePresentationSeed(
+                            context.CurrentTickIndex,
+                            operation.EntityId,
+                            operation.Metadata.SourceActorEntityId,
+                            exitCause)));
+                exitOwnedEntityIds.Add(operation.EntityId);
             }
         }
 
@@ -509,8 +515,6 @@ namespace Game.Feature.Gameplay.Loop
             ISet<int> signaledEntityIds)
         {
             var removedEntityIds = context.CleanupPhaseResult.RemovedEntityIds;
-            var selectedGroups = context.AttackPhaseResult.SelectedGroups;
-
             for (var i = 0; i < removedEntityIds.Count; i++)
             {
                 var entityId = removedEntityIds[i];
@@ -518,26 +522,25 @@ namespace Game.Feature.Gameplay.Loop
                     !signaledEntityIds.Add(entityId) ||
                     !context.PostAttackSnapshot.TryGetEntity(entityId, out var removedEntity) ||
                     !EntityRolePolicy.IsEnemyUnit(removedEntity) ||
-                    !TryResolveDestroyingAttackGroup(selectedGroups, entityId, out var destroyingGroup))
+                    !TryFindAttackDestroyOperation(context.AttackPhaseResult.ResolvedOperations, entityId, out var destroyOperation))
                 {
                     continue;
                 }
 
-                const TickEntityExitCause exitCause = TickEntityExitCause.EnemyDeath;
                 entityExitSignals.Add(
                     new TickEntityExitPresentationSignal(
                         entityId,
-                        exitCause,
+                        destroyOperation.Metadata.ExitCauseHint,
                         removedEntity.position,
                         context.PostAttackSnapshot.Topology,
                         removedEntity.facing,
                         removedEntity.type,
-                        sourceActorEntityId: destroyingGroup.SourceId,
+                        sourceActorEntityId: destroyOperation.Metadata.SourceActorEntityId,
                         presentationSeed: BuildStablePresentationSeed(
                             context.CurrentTickIndex,
                             entityId,
-                            destroyingGroup.SourceId,
-                            exitCause)));
+                            destroyOperation.Metadata.SourceActorEntityId,
+                            destroyOperation.Metadata.ExitCauseHint)));
                 exitOwnedEntityIds.Add(entityId);
             }
         }
@@ -745,19 +748,20 @@ namespace Game.Feature.Gameplay.Loop
             CollectEnemyActionCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
             CollectEnemyActionCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
 
-            var selectedGroups = context.AttackPhaseResult.SelectedGroups;
-            for (var i = 0; i < selectedGroups.Count; i++)
+            for (var i = 0; i < context.AttackPhaseResult.ResolutionRecords.Count; i++)
             {
-                var sourceId = selectedGroups[i].SourceId;
-                if (!IsEnemyUnit(context.PostMovementSnapshot, sourceId))
+                var resolutionRecord = context.AttackPhaseResult.ResolutionRecords[i];
+                if (resolutionRecord.Kind != ContestKind.Plan ||
+                    !resolutionRecord.Accepted ||
+                    !IsEnemyUnit(context.PostMovementSnapshot, resolutionRecord.SourceId))
                 {
                     continue;
                 }
 
-                executedEntityIds.Add(sourceId);
-                if (seenEntityIds.Add(sourceId))
+                executedEntityIds.Add(resolutionRecord.SourceId);
+                if (seenEntityIds.Add(resolutionRecord.SourceId))
                 {
-                    candidateEntityIds.Add(sourceId);
+                    candidateEntityIds.Add(resolutionRecord.SourceId);
                 }
             }
 
@@ -826,26 +830,24 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                var startedWindupThisTick = resolvedState.phase == EnemyJumpPhase.Windup &&
-                                            (!hasPreviousState || previousJumpState.phase != EnemyJumpPhase.Windup);
-                var retryThisTick = hasPreviousState &&
-                                    previousJumpState.phase == EnemyJumpPhase.Airborne &&
-                                    resolvedState.phase == EnemyJumpPhase.Airborne &&
-                                    resolvedState.retryCount > previousJumpState.retryCount;
-                var startedAirborneThisTick = resolvedState.phase == EnemyJumpPhase.Airborne &&
-                                              (!hasPreviousState || previousJumpState.phase != EnemyJumpPhase.Airborne) &&
-                                              !retryThisTick;
-                var landedThisTick = hasPreviousState &&
-                                     previousJumpState.phase == EnemyJumpPhase.Airborne &&
-                                     resolvedState.phase != EnemyJumpPhase.Airborne &&
-                                     context.FinalAuthoritativeSnapshot.TryGetEntity(entityId, out var landedEntity) &&
-                                     landedEntity.boardPresence == EntityBoardPresence.Occupying;
+                var startedWindupThisTick = false;
+                var startedAirborneThisTick = false;
+                var landedThisTick = false;
+                var retryThisTick = false;
+                var presentationTargetCell = resolvedState.lockedTargetCell;
+                if (TryFindJumpPresentationOperation(context.MovementPhaseResult.ResolvedOperations, entityId, out var jumpOperation))
+                {
+                    startedWindupThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.WindupStart;
+                    startedAirborneThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.AirborneStart;
+                    landedThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.LandingSuccess;
+                    retryThisTick = jumpOperation.Metadata.JumpPresentationKind == JumpPresentationKind.LandingRetry;
+                    if (!jumpOperation.Metadata.PresentationTargetCell.Equals(default(SurfaceCell)))
+                    {
+                        presentationTargetCell = jumpOperation.Metadata.PresentationTargetCell;
+                    }
+                }
+
                 var facing = ResolveJumpPresentationFacing(context, entityId);
-                var presentationTargetCell = ResolveJumpPresentationTargetCell(
-                    context,
-                    entityId,
-                    resolvedState,
-                    landedThisTick);
                 var remainingAirborneTicks = resolvedState.phase == EnemyJumpPhase.Airborne
                     ? Math.Max(0, resolvedState.landingTick - context.CurrentTickIndex)
                     : 0;
@@ -950,32 +952,6 @@ namespace Game.Feature.Gameplay.Loop
                 : Direction.Up;
         }
 
-        private static SurfaceCell ResolveJumpPresentationTargetCell(
-            in TickPresentationBuildContext context,
-            int entityId,
-            in EnemyJumpRuntimeState jumpState,
-            bool landedThisTick)
-        {
-            if (landedThisTick &&
-                context.FinalAuthoritativeSnapshot.TryGetEntity(entityId, out var landedEntity))
-            {
-                return landedEntity.position;
-            }
-
-            if (TryResolveJumpPresentationEntity(context, entityId, out var entity) &&
-                EnemyJumpQueries.TryResolveLandingCell(
-                    context.FinalAuthoritativeSnapshot,
-                    entity,
-                    jumpState,
-                    out var predictedLandingCell,
-                    out _))
-            {
-                return predictedLandingCell;
-            }
-
-            return jumpState.lockedTargetCell;
-        }
-
         private static bool TryResolveJumpPresentationEntity(
             in TickPresentationBuildContext context,
             int entityId,
@@ -1018,7 +994,10 @@ namespace Game.Feature.Gameplay.Loop
             return new TickTopologyMotion(
                 sourceTopology,
                 destinationTopology,
-                ResolveRotationKind(context.MovementPhaseResult.SelectedGroups, sourceTopology, destinationTopology));
+                ResolveRotationKind(
+                    context.MovementPhaseResult.ResolvedOperations,
+                    sourceTopology,
+                    destinationTopology));
         }
 
         private static void BuildTransitionVisibilityPresentation(
@@ -1035,7 +1014,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var excludedEntityIds = CollectTransitionVisibilityExcludedEntityIds(
-                context.MovementPhaseResult.SelectedGroups,
+                context.MovementPhaseResult.ResolvedOperations,
                 visibilityChanges,
                 entityExitSignals);
             var finalEntities = new List<EntityState>();
@@ -1066,141 +1045,63 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void AppendEntityMotions(
+        private static void AppendEntityMotion(
             in TickPresentationBuildContext context,
-            ActionGroup group,
+            FinalizationOperation operation,
             List<TickEntityMotion> entityMotions)
         {
-            var motionKind = ResolveMotionKind(group, context.PreMovementSnapshot, context.PostMovementSnapshot);
-            if (motionKind == TickEntityMotionKind.None)
+            if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                !TryResolveMotionKind(operation.Metadata.MovementSemanticKind, out var motionKind) ||
+                !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
+                !context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity) ||
+                destinationEntity.boardPresence != EntityBoardPresence.Occupying)
             {
                 return;
             }
 
-            for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
-            {
-                var move = group.Moves[moveIndex];
-                if (!context.PreMovementSnapshot.TryGetEntity(move.EntityId, out var sourceEntity) ||
-                    !context.PostMovementSnapshot.TryGetEntity(move.EntityId, out var destinationEntity) ||
-                    destinationEntity.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                entityMotions.Add(
-                    new TickEntityMotion(
-                        move.EntityId,
-                        motionKind,
-                        move.SourceCell,
-                        move.DestinationCell,
-                        context.PreMovementSnapshot.Topology,
-                        context.PostMovementSnapshot.Topology,
-                        sourceEntity.facing,
-                        move.Facing));
-            }
+            entityMotions.Add(
+                new TickEntityMotion(
+                    operation.EntityId,
+                    motionKind,
+                    sourceEntity.position,
+                    operation.Destination,
+                    context.PreMovementSnapshot.Topology,
+                    context.PostMovementSnapshot.Topology,
+                    sourceEntity.facing,
+                    destinationEntity.facing));
         }
 
-        private static void AppendDetachVisibilityChanges(
-            WorldSnapshot sourceSnapshot,
-            IReadOnlyList<BoardPresenceChangeAction> boardPresenceChanges,
-            List<TickVisibilityChange> visibilityChanges,
-            ISet<int> excludedEntityIds)
+        private static bool TryResolveMotionKind(
+            MovementSemanticKind semanticKind,
+            out TickEntityMotionKind motionKind)
         {
-            for (var i = 0; i < boardPresenceChanges.Count; i++)
+            motionKind = semanticKind switch
             {
-                var boardPresenceChange = boardPresenceChanges[i];
-                if (boardPresenceChange.BoardPresence != EntityBoardPresence.Detached ||
-                    excludedEntityIds.Contains(boardPresenceChange.EntityId) ||
-                    !sourceSnapshot.TryGetEntity(boardPresenceChange.EntityId, out var sourceEntity))
-                {
-                    continue;
-                }
-
-                visibilityChanges.Add(
-                    new TickVisibilityChange(
-                        boardPresenceChange.EntityId,
-                        TickVisibilityChangeKind.Detach,
-                        sourceEntity.position,
-                        sourceSnapshot.Topology,
-                        sourceEntity.facing));
-            }
-        }
-
-        private static TickEntityMotionKind ResolveMotionKind(
-            ActionGroup group,
-            WorldSnapshot preMovementSnapshot,
-            WorldSnapshot postMovementSnapshot)
-        {
-            return group.GroupKind switch
-            {
-                ActionGroupKind.Push => ResolvePushMotionKind(group, preMovementSnapshot, postMovementSnapshot),
-                ActionGroupKind.Flip => TickEntityMotionKind.Flip,
-                ActionGroupKind.Move => ResolveMoveMotionKind(group, preMovementSnapshot, postMovementSnapshot),
-                ActionGroupKind.Item => ResolveMoveMotionKind(group, preMovementSnapshot, postMovementSnapshot),
+                MovementSemanticKind.Move => TickEntityMotionKind.Move,
+                MovementSemanticKind.Item => TickEntityMotionKind.Move,
+                MovementSemanticKind.Push => TickEntityMotionKind.Push,
+                MovementSemanticKind.Flip => TickEntityMotionKind.Flip,
+                MovementSemanticKind.Slide => TickEntityMotionKind.BoxSlide,
+                MovementSemanticKind.ProjectileMove => TickEntityMotionKind.ProjectileMove,
                 _ => TickEntityMotionKind.None,
             };
-        }
-
-        private static TickEntityMotionKind ResolvePushMotionKind(
-            ActionGroup group,
-            WorldSnapshot preMovementSnapshot,
-            WorldSnapshot postMovementSnapshot)
-        {
-            for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
-            {
-                var entityId = group.Moves[moveIndex].EntityId;
-                if (!TryResolveEntity(entityId, preMovementSnapshot, postMovementSnapshot, out var preEntity, out var postEntity))
-                {
-                    continue;
-                }
-
-                if (IsSlidingPushBox(preEntity) || IsSlidingPushBox(postEntity))
-                {
-                    return TickEntityMotionKind.BoxSlide;
-                }
-            }
-
-            return TickEntityMotionKind.Push;
-        }
-
-        private static TickEntityMotionKind ResolveMoveMotionKind(
-            ActionGroup group,
-            WorldSnapshot preMovementSnapshot,
-            WorldSnapshot postMovementSnapshot)
-        {
-            for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
-            {
-                var entityId = group.Moves[moveIndex].EntityId;
-                if (TryResolveEntityType(entityId, preMovementSnapshot, postMovementSnapshot, out var entityType))
-                {
-                    return entityType == EntityType.Projectile
-                        ? TickEntityMotionKind.ProjectileMove
-                        : TickEntityMotionKind.Move;
-                }
-            }
-
-            return TickEntityMotionKind.None;
+            return motionKind != TickEntityMotionKind.None;
         }
 
         private static bool DidGeneratePlayerMoveMotionThisTick(
             in TickPresentationBuildContext context,
             int entityId)
         {
-            var selectedGroups = context.MovementPhaseResult.SelectedGroups;
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-                if (ResolveMotionKind(group, context.PreMovementSnapshot, context.PostMovementSnapshot) != TickEntityMotionKind.Move)
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.MoveEntity &&
+                    operation.EntityId == entityId &&
+                    TryResolveMotionKind(operation.Metadata.MovementSemanticKind, out var motionKind) &&
+                    motionKind == TickEntityMotionKind.Move)
                 {
-                    continue;
-                }
-
-                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
-                {
-                    if (group.Moves[moveIndex].EntityId == entityId)
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
 
@@ -1219,18 +1120,17 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static HashSet<int> CollectTransitionVisibilityExcludedEntityIds(
-            IReadOnlyList<ActionGroup> selectedGroups,
+            IReadOnlyList<FinalizationOperation> movementOperations,
             IReadOnlyList<TickVisibilityChange> visibilityChanges,
             IReadOnlyList<TickEntityExitPresentationSignal> entityExitSignals)
         {
             var excludedEntityIds = new HashSet<int>();
 
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            for (var i = 0; i < movementOperations.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                if (movementOperations[i].Kind == FinalizationOperationKind.MoveEntity)
                 {
-                    excludedEntityIds.Add(group.Moves[moveIndex].EntityId);
+                    excludedEntityIds.Add(movementOperations[i].EntityId);
                 }
             }
 
@@ -1247,58 +1147,46 @@ namespace Game.Feature.Gameplay.Loop
             return excludedEntityIds;
         }
 
-        private static HashSet<int> CollectDestroyTargets(ActionGroup group)
-        {
-            var destroyTargets = new HashSet<int>();
-            for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
-            {
-                destroyTargets.Add(group.Destroys[destroyIndex].TargetId);
-            }
-
-            return destroyTargets;
-        }
-
-        private static bool TryResolveDestroyingAttackGroup(
-            IReadOnlyList<ActionGroup> selectedGroups,
+        private static bool TryFindAttackDestroyOperation(
+            IReadOnlyList<FinalizationOperation> operations,
             int targetEntityId,
-            out ActionGroup destroyingGroup)
+            out FinalizationOperation destroyOperation)
         {
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            for (var i = 0; i < operations.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-                for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.MarkDestroy &&
+                    operation.EntityId == targetEntityId &&
+                    operation.Metadata.ExitCauseHint != TickEntityExitCause.None)
                 {
-                    if (group.Destroys[destroyIndex].TargetId != targetEntityId)
-                    {
-                        continue;
-                    }
-
-                    destroyingGroup = group;
+                    destroyOperation = operation;
                     return true;
                 }
             }
 
-            destroyingGroup = null;
+            destroyOperation = default;
             return false;
         }
 
-        private static TickEntityExitCause ResolveEntityExitCause(
-            ActionGroup group,
-            ISet<int> destroyTargets,
-            EntityState sourceEntity)
+        private static bool TryFindJumpPresentationOperation(
+            IReadOnlyList<FinalizationOperation> operations,
+            int entityId,
+            out FinalizationOperation jumpOperation)
         {
-            if (group.GroupKind == ActionGroupKind.Item)
+            for (var i = operations.Count - 1; i >= 0; i--)
             {
-                return TickEntityExitCause.ItemConsume;
+                var operation = operations[i];
+                if (operation.Kind == FinalizationOperationKind.SetEnemyJumpState &&
+                    operation.EntityId == entityId &&
+                    operation.Metadata.JumpPresentationKind != JumpPresentationKind.None)
+                {
+                    jumpOperation = operation;
+                    return true;
+                }
             }
 
-            if (sourceEntity.type == EntityType.Box &&
-                destroyTargets.Contains(sourceEntity.entityId))
-            {
-                return TickEntityExitCause.BoxDestroy;
-            }
-
-            return TickEntityExitCause.None;
+            jumpOperation = default;
+            return false;
         }
 
         private static int BuildStablePresentationSeed(
@@ -1326,67 +1214,19 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static bool TryResolveEntityType(
-            int entityId,
-            WorldSnapshot preMovementSnapshot,
-            WorldSnapshot postMovementSnapshot,
-            out EntityType entityType)
-        {
-            if (preMovementSnapshot.TryGetEntity(entityId, out var preMovementEntity))
-            {
-                entityType = preMovementEntity.type;
-                return true;
-            }
-
-            if (postMovementSnapshot.TryGetEntity(entityId, out var postMovementEntity))
-            {
-                entityType = postMovementEntity.type;
-                return true;
-            }
-
-            entityType = default;
-            return false;
-        }
-
-        private static bool TryResolveEntity(
-            int entityId,
-            WorldSnapshot preMovementSnapshot,
-            WorldSnapshot postMovementSnapshot,
-            out EntityState? preEntity,
-            out EntityState? postEntity)
-        {
-            var hasPreEntity = preMovementSnapshot.TryGetEntity(entityId, out var resolvedPreEntity);
-            var hasPostEntity = postMovementSnapshot.TryGetEntity(entityId, out var resolvedPostEntity);
-            preEntity = hasPreEntity ? resolvedPreEntity : null;
-            postEntity = hasPostEntity ? resolvedPostEntity : null;
-            return hasPreEntity || hasPostEntity;
-        }
-
-        private static bool IsSlidingPushBox(EntityState? entity)
-        {
-            return entity.HasValue &&
-                   entity.Value.type == EntityType.Box &&
-                   entity.Value.state == EntityPhaseState.Sliding &&
-                   (entity.Value.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push;
-        }
-
         private static CubeRotationKind ResolveRotationKind(
-            IReadOnlyList<ActionGroup> selectedGroups,
+            IReadOnlyList<FinalizationOperation> movementOperations,
             CubeTopologyState sourceTopology,
             CubeTopologyState destinationTopology)
         {
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            for (var i = 0; i < movementOperations.Count; i++)
             {
-                var topologyChanges = selectedGroups[groupIndex].TopologyChanges;
-                for (var changeIndex = 0; changeIndex < topologyChanges.Count; changeIndex++)
+                var operation = movementOperations[i];
+                if (operation.Kind == FinalizationOperationKind.SetTopology &&
+                    operation.Topology.Equals(destinationTopology) &&
+                    operation.Metadata.RotationKind != CubeRotationKind.None)
                 {
-                    var topologyChange = topologyChanges[changeIndex];
-                    if (!topologyChange.UpdatedTopology.Equals(destinationTopology))
-                    {
-                        continue;
-                    }
-
-                    return topologyChange.RotationKind;
+                    return operation.Metadata.RotationKind;
                 }
             }
 

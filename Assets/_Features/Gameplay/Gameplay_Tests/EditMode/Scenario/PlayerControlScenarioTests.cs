@@ -335,7 +335,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -434,13 +434,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(startTick.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(startTick.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(20));
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
-            Assert.That(executeTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            Assert.That(executeTick.MovementPhaseResult.ResolveAcceptedActions().Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
@@ -475,7 +475,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var signal = executeTick.PresentationData.PlayerActionSignals.Single();
 
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(executeTick.MovementPhaseResult.SelectedGroups.Single().GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            Assert.That(executeTick.MovementPhaseResult.ResolveAcceptedActions().Single().GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.IsRecoveryPhase, Is.True);
@@ -505,7 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var signal = executeTick.PresentationData.PlayerActionSignals.Single();
 
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(executeTick.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(executeTick.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.IsRecoveryPhase, Is.True);

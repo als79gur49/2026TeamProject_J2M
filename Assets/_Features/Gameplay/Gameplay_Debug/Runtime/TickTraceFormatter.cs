@@ -7,7 +7,6 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
-using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.PlayerControl;
@@ -41,9 +40,9 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "PreMovement.PlayerActionTransitions", preMovementStatePhaseResult.PlayerActionTransitions, FormatPlayerActionTransition);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
-            AppendSection(builder, "Movement.Candidates", movementPhaseResult.ExpandedCandidates, FormatActionGroup);
             AppendSection(builder, "Movement.RejectedReasons", movementPhaseResult.RejectedReasons, FormatString);
-            AppendSection(builder, "Movement.SelectedGroups", movementPhaseResult.SelectedGroups, FormatActionGroup);
+            AppendSection(builder, "Movement.Resolutions", movementPhaseResult.ResolutionRecords, FormatResolutionRecord);
+            AppendSection(builder, "Movement.ResolvedOperations", movementPhaseResult.ResolvedOperations, FormatFinalizationOperation);
             AppendSection(builder, "Movement.CommitEvents", movementPhaseResult.CommitEvents, FormatString);
             AppendOccupancySection(builder, "Movement.OccupancyBefore", s0Snapshot);
             AppendOccupancySection(builder, "Movement.OccupancyAfter", s1Snapshot);
@@ -55,10 +54,11 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Attack.DrainedImpacts", attackPhaseResult.DrainedImpactReservations, FormatImpactReservation);
             AppendSection(builder, "Attack.DrainedDelayedEffects", attackPhaseResult.DrainedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
             AppendSection(builder, "Attack.NormalizedInputs", attackPhaseResult.SortedInputs, FormatAttackIntent);
-            AppendSection(builder, "Attack.Candidates", attackPhaseResult.ExpandedCandidates, FormatActionGroup);
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);
-            AppendSection(builder, "Attack.SelectedGroups", attackPhaseResult.SelectedGroups, FormatActionGroup);
+            AppendSection(builder, "Attack.Resolutions", attackPhaseResult.ResolutionRecords, FormatResolutionRecord);
+            AppendSection(builder, "Attack.ResolvedOperations", attackPhaseResult.ResolvedOperations, FormatFinalizationOperation);
             AppendSection(builder, "Attack.DamageResolutions", attackPhaseResult.DamageResolutions, FormatDamageResolutionRecord);
+            AppendSection(builder, "Attack.QueuedDelayedEffects", attackPhaseResult.QueuedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
             AppendSection(builder, "Attack.CommitEvents", attackPhaseResult.CommitEvents, FormatString);
             AppendSection(builder, "EnemyAction.AfterAttackTransitions", enemyActionPhaseResult.AfterAttackTransitions, FormatEnemyActionTransition);
             AppendSection(builder, "EnemyAi.AfterAttackTransitions", enemyAiPhaseResult.AfterAttackTransitions, FormatString);
@@ -283,6 +283,82 @@ namespace Game.Feature.Gameplay.Debug
             return $"G={record.GroupId}|I={record.IntentId}|Source={record.SourceId}|SourceKind={record.SourceKind}|Target={record.TargetId}|Amount={record.Amount}|Accepted={(record.Accepted ? 1 : 0)}|RejectReason={record.RejectReason}";
         }
 
+        private static string FormatResolutionRecord(ResolutionRecord record)
+        {
+            return $"Contest={record.ContestId}|Kind={record.Kind}|Accepted={(record.Accepted ? 1 : 0)}|Source={record.SourceId}|Priority={record.Priority}|Plan={record.ActionPlanId}|Affected={record.AffectedEntityId}|Local={record.LocalActionIndex}";
+        }
+
+        private static string FormatFinalizationOperation(FinalizationOperation operation)
+        {
+            var builder = new StringBuilder();
+            builder
+                .Append("Seq=").Append(operation.Sequence)
+                .Append("|Bucket=").Append(operation.Bucket)
+                .Append("|Kind=").Append(operation.Kind)
+                .Append("|Origin=").Append(operation.Metadata.OriginPhase)
+                .Append("|Semantic=").Append(operation.Metadata.SemanticKind)
+                .Append("|MoveSemantic=").Append(operation.Metadata.MovementSemanticKind)
+                .Append("|DamageSource=").Append(operation.Metadata.DamageSourceType)
+                .Append("|Jump=").Append(operation.Metadata.JumpPresentationKind)
+                .Append("|Source=").Append(operation.Metadata.SourceActorEntityId)
+                .Append("|Plan=").Append(operation.Metadata.ActionPlanId)
+                .Append("|Intent=").Append(operation.Metadata.IntentId)
+                .Append("|Contest=").Append(operation.Metadata.ContestId)
+                .Append("|Local=").Append(operation.Metadata.LocalActionIndex)
+                .Append("|Priority=").Append(operation.Metadata.Priority)
+                .Append("|Entity=").Append(operation.EntityId);
+
+            switch (operation.Kind)
+            {
+                case FinalizationOperationKind.MoveEntity:
+                    builder.Append("|Dest=").Append(FormatCell(operation.Destination));
+                    break;
+
+                case FinalizationOperationKind.ApplyStateChange:
+                    builder.Append("|State=").Append(operation.PhaseState).Append("|Timer=").Append(operation.StateTimer);
+                    break;
+
+                case FinalizationOperationKind.SetFacing:
+                    builder.Append("|Facing=").Append(operation.Facing);
+                    break;
+
+                case FinalizationOperationKind.SetBoardPresence:
+                    builder.Append("|Presence=").Append(operation.BoardPresence);
+                    break;
+
+                case FinalizationOperationKind.SetTopology:
+                    builder.Append("|Rotation=").Append(operation.Metadata.RotationKind)
+                        .Append("|Bottom=").Append(operation.Topology.BottomFace)
+                        .Append("|Front=").Append(operation.Topology.FrontFace);
+                    break;
+
+                case FinalizationOperationKind.ApplyDamage:
+                    builder.Append("|Amount=").Append(operation.Amount)
+                        .Append("|SourceKind=").Append(operation.Metadata.AttackSourceKind);
+                    break;
+
+                case FinalizationOperationKind.MarkDestroy:
+                    builder.Append("|ExitCause=").Append(operation.Metadata.ExitCauseHint);
+                    break;
+
+                case FinalizationOperationKind.SpawnEntity:
+                    builder.Append("|SpawnE=").Append(operation.SpawnedEntity.entityId)
+                        .Append("|Pos=").Append(FormatCell(operation.SpawnedEntity.position))
+                        .Append("|Type=").Append(operation.SpawnedEntity.type);
+                    break;
+
+                case FinalizationOperationKind.EnqueueDelayedAttackEffect:
+                    builder.Append("|DelayedSource=").Append(operation.DelayedAttackEffect.SourceId)
+                        .Append("|DelayedTarget=").Append(operation.DelayedAttackEffect.TargetId)
+                        .Append("|Damage=").Append(operation.DelayedAttackEffect.Damage)
+                        .Append("|ExecuteTick=").Append(operation.DelayedAttackEffect.ExecuteAtTick)
+                        .Append("|EffectSequence=").Append(operation.DelayedAttackEffect.EffectSequence);
+                    break;
+            }
+
+            return builder.ToString();
+        }
+
         private static string FormatBoardBounds(BoardBounds boardBounds)
         {
             if (!boardBounds.IsBounded)
@@ -355,254 +431,6 @@ namespace Game.Feature.Gameplay.Debug
         {
             return
                 $"DelayedAttack|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|Priority={effectRecord.Priority}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|Group={effectRecord.SourceActionGroupId}|Sequence={effectRecord.EffectSequence}";
-        }
-
-        private static string FormatActionGroup(ActionGroup group)
-        {
-            var builder = new StringBuilder();
-            builder
-                .Append("G=").Append(group.GroupId)
-                .Append("|I=").Append(group.IntentId)
-                .Append("|Source=").Append(group.SourceId)
-                .Append("|Priority=").Append(group.Priority)
-                .Append("|Kind=").Append(group.GroupKind);
-
-            if (group.HasResolvedImpact)
-            {
-                builder
-                    .Append("|ImpactSource=").Append(group.ImpactSourceId)
-                    .Append("|ImpactTarget=").Append(group.ImpactTargetId);
-            }
-
-            if (group.BoxKineticTargetId > 0)
-            {
-                builder
-                    .Append("|KineticBox=").Append(group.BoxKineticTargetId)
-                    .Append("|KineticInstigator=").Append(group.BoxKineticInstigatorEntityId)
-                    .Append("|KineticTeam=").Append(group.BoxKineticInstigatorTeamId);
-            }
-
-            builder
-                .Append("|Moves=").Append(FormatMoves(group.Moves))
-                .Append("|Damages=").Append(FormatDamages(group.Damages))
-                .Append("|Spawns=").Append(FormatSpawns(group.Spawns))
-                .Append("|Destroys=").Append(FormatDestroys(group.Destroys))
-                .Append("|StateChanges=").Append(FormatStateChanges(group.StateChanges))
-                .Append("|BoardPresenceChanges=").Append(FormatBoardPresenceChanges(group.BoardPresenceChanges))
-                .Append("|TopologyChanges=").Append(FormatTopologyChanges(group.TopologyChanges))
-                .Append("|DelayedAttacks=").Append(FormatDelayedAttacks(group.DelayedAttacks));
-            return builder.ToString();
-        }
-
-        private static string FormatMoves(IReadOnlyList<MoveAction> moves)
-        {
-            if (moves.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < moves.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var move = moves[i];
-                builder
-                    .Append("E=").Append(move.EntityId)
-                    .Append(':').Append(FormatCell(move.SourceCell))
-                    .Append("->").Append(FormatCell(move.DestinationCell))
-                    .Append(':').Append(move.Facing);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatDamages(IReadOnlyList<DamageAction> damages)
-        {
-            if (damages.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < damages.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var damage = damages[i];
-                builder
-                    .Append("Target=").Append(damage.TargetId)
-                    .Append(":Amount=").Append(damage.Amount);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatSpawns(IReadOnlyList<SpawnAction> spawns)
-        {
-            if (spawns.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < spawns.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var spawn = spawns[i];
-                builder
-                    .Append("SpawnId=").Append(spawn.SpawnId)
-                    .Append(":Entity=").Append(FormatEntityState(spawn.Entity));
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatDestroys(IReadOnlyList<DestroyAction> destroys)
-        {
-            if (destroys.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < destroys.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                builder
-                    .Append("Target=").Append(destroys[i].TargetId)
-                    .Append(":Condition=").Append(destroys[i].Condition);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatStateChanges(IReadOnlyList<StateChangeAction> stateChanges)
-        {
-            if (stateChanges.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < stateChanges.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var stateChange = stateChanges[i];
-                builder
-                    .Append("E=").Append(stateChange.EntityId)
-                    .Append(":State=").Append(stateChange.State)
-                    .Append(":Timer=").Append(stateChange.StateTimer);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatBoardPresenceChanges(IReadOnlyList<BoardPresenceChangeAction> boardPresenceChanges)
-        {
-            if (boardPresenceChanges.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < boardPresenceChanges.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var boardPresenceChange = boardPresenceChanges[i];
-                builder
-                    .Append("E=").Append(boardPresenceChange.EntityId)
-                    .Append(":Presence=").Append(boardPresenceChange.BoardPresence);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatTopologyChanges(IReadOnlyList<TopologyChangeAction> topologyChanges)
-        {
-            if (topologyChanges.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < topologyChanges.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var topologyChange = topologyChanges[i];
-                builder
-                    .Append("Rotation=").Append(topologyChange.RotationKind)
-                    .Append(":Bottom=").Append(topologyChange.UpdatedTopology.BottomFace)
-                    .Append(":Front=").Append(topologyChange.UpdatedTopology.FrontFace);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
-        }
-
-        private static string FormatDelayedAttacks(IReadOnlyList<DelayedAttackAction> delayedAttacks)
-        {
-            if (delayedAttacks.Count == 0)
-            {
-                return "[]";
-            }
-
-            var builder = new StringBuilder("[");
-
-            for (var i = 0; i < delayedAttacks.Count; i++)
-            {
-                if (i > 0)
-                {
-                    builder.Append(',');
-                }
-
-                var delayedAttack = delayedAttacks[i];
-                builder
-                    .Append("Target=").Append(delayedAttack.TargetId)
-                    .Append(":Damage=").Append(delayedAttack.Damage);
-            }
-
-            builder.Append(']');
-            return builder.ToString();
         }
 
         private readonly struct TraceOccupancyEntry

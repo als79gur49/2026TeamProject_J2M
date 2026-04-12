@@ -424,9 +424,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(topologyAfterFirstTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(topologyAfterSecondTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(topologyAfterThirdTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(firstTick.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
-            Assert.That(secondTick.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
-            Assert.That(thirdTick.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
+            Assert.That(firstTick.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
+            Assert.That(secondTick.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
+            Assert.That(thirdTick.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
             Assert.That(firstTick.EventLog, Has.None.Contains("TopologyCommitted"));
             Assert.That(secondTick.EventLog, Has.None.Contains("TopologyCommitted"));
             Assert.That(thirdTick.EventLog, Has.None.Contains("TopologyCommitted"));

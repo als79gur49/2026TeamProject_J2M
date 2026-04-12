@@ -2246,7 +2246,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var result = pipeline.RunTick(new TickInput(1));
 
                 Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
-                Assert.That(result.MovementPhaseResult.SelectedGroups.SelectMany(group => group.TopologyChanges), Is.Empty);
+                Assert.That(result.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
                 Assert.That(result.EventLog, Has.None.Contains("TopologyCommitted"));
                 Assert.That(result.Trace.Text, Does.Not.Contain("TopologyCommitted"));
             }

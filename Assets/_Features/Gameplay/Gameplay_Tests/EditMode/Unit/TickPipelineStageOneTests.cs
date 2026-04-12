@@ -1293,7 +1293,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     postMovementSnapshot,
                     postMovementSnapshot,
-                    CreateMovementPhaseResult(actionGroup),
+                    CreateMovementPhaseResult(actionGroup, ResolvedActionSemanticKind.ProjectileMove),
                     AttackPhaseResult.Empty,
                     CleanupPhaseResult.Empty));
 
@@ -2142,28 +2142,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static MovementPhaseResult CreateMovementPhaseResult(params ActionGroup[] selectedGroups)
         {
-            return new MovementPhaseResult(
+            return CanonicalPhaseResultFactory.CreateMovementPhaseResult(selectedGroups);
+        }
+
+        private static MovementPhaseResult CreateMovementPhaseResult(
+            ActionGroup selectedGroup,
+            ResolvedActionSemanticKind semanticKind)
+        {
+            return CanonicalPhaseResultFactory.CreateMovementPhaseResult(
                 Array.Empty<RawMovementIntent>(),
                 Array.Empty<MoveIntent>(),
-                selectedGroups,
-                selectedGroups,
+                new[] { selectedGroup },
                 Array.Empty<string>(),
-                Array.Empty<string>());
+                Array.Empty<string>(),
+                _ => semanticKind);
         }
 
         private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)
         {
-            return new AttackPhaseResult(
-                Array.Empty<RawAttackIntent>(),
-                Array.Empty<ImpactReservation>(),
-                Array.Empty<DelayedAttackEffectRecord>(),
-                Array.Empty<DamageResolutionRecord>(),
-                Array.Empty<AttackIntent>(),
-                selectedGroups,
-                selectedGroups,
-                Array.Empty<string>(),
-                Array.Empty<string>(),
-                Array.Empty<string>());
+            return CanonicalPhaseResultFactory.CreateAttackPhaseResult(selectedGroups);
         }
 
         private static EnemyActionRuntimeState CreateEnemyActionState(

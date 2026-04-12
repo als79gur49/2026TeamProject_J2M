@@ -91,6 +91,18 @@ namespace Game.Feature.Gameplay.Entities
 
         public int ControlledEntityId => _entityId;
 
+        internal bool TryGetJumpCooldownTicks(out int cooldownTicks)
+        {
+            cooldownTicks = 0;
+            if (!HasJumpMovementSkill())
+            {
+                return false;
+            }
+
+            cooldownTicks = _movementSkillCapability.JumpTimingSettings.CooldownTicks;
+            return true;
+        }
+
         void IEnemyAiStateLogic.CommitAiTransitions(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -457,27 +469,6 @@ namespace Game.Feature.Gameplay.Entities
             if (nextState.phase == EnemyJumpPhase.Airborne)
             {
                 suppressMovementThisTick = true;
-
-                if (input.TickIndex >= nextState.landingTick)
-                {
-                    if (EnemyJumpQueries.TryResolveLandingCell(snapshot, source, nextState, out var landingCell, out var landingRule))
-                    {
-                        jumpWriteContext.MoveEnemyJumpEntity(_entityId, landingCell);
-                        jumpWriteContext.SetEnemyJumpBoardPresence(_entityId, EntityBoardPresence.Occupying);
-                        nextState = EnemyJumpQueries.EnterCooldown(nextState, _movementSkillCapability.JumpTimingSettings.CooldownTicks);
-                        AppendJumpUpdate(
-                            updates,
-                            _entityId,
-                            "Landing",
-                            nextState,
-                            $"Cell={landingCell}|Rule={landingRule}");
-                    }
-                    else
-                    {
-                        nextState = EnemyJumpQueries.ScheduleRetry(nextState, input.TickIndex + 1);
-                        AppendJumpUpdate(updates, _entityId, "Retry", nextState, "Reason=NoLegalLandingCell");
-                    }
-                }
             }
             else if (nextState.phase == EnemyJumpPhase.Cooldown)
             {
@@ -592,8 +583,7 @@ namespace Game.Feature.Gameplay.Entities
                 lockedTargetCell,
                 tickIndex,
                 _movementSkillCapability.JumpTimingSettings);
-
-            return TryResolveJumpLanding(snapshot, source, jumpState);
+            return true;
         }
 
         private bool TryFindSameFacePlayerTarget(
@@ -629,25 +619,12 @@ namespace Game.Feature.Gameplay.Entities
                     candidate.position,
                     tickIndex,
                     _movementSkillCapability.JumpTimingSettings);
-                if (!TryResolveJumpLanding(snapshot, source, jumpState))
-                {
-                    continue;
-                }
 
                 bestDistance = distance;
                 lockedTargetCell = candidate.position;
             }
 
             return bestDistance != int.MaxValue;
-        }
-
-        private static bool TryResolveJumpLanding(
-            WorldSnapshot snapshot,
-            in EntityState source,
-            in EnemyJumpRuntimeState jumpState)
-        {
-            return EnemyJumpQueries.TryResolveLandingCell(snapshot, source, jumpState, out var landingCell, out _) &&
-                   landingCell != source.position;
         }
 
         private static bool IsValidSameFacePlayerTarget(

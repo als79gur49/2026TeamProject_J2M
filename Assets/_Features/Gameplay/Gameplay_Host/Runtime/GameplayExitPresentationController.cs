@@ -148,8 +148,9 @@ namespace Game.Feature.Gameplay.Host
             return exitCause switch
             {
                 TickEntityExitCause.ItemConsume => _timingProfile.ItemConsumeEffectDurationSeconds,
-                TickEntityExitCause.BoxDestroy => _timingProfile.BoxDestroyEffectDurationSeconds,
-                TickEntityExitCause.EnemyDeath => _timingProfile.EnemyDeathEffectDurationSeconds,
+                TickEntityExitCause.DestroyedByImpact => _timingProfile.BoxDestroyEffectDurationSeconds,
+                TickEntityExitCause.Killed => _timingProfile.EnemyDeathEffectDurationSeconds,
+                TickEntityExitCause.OutOfBounds => _timingProfile.ItemConsumeEffectDurationSeconds,
                 _ => _timingProfile.ItemConsumeEffectDurationSeconds,
             };
         }
@@ -158,7 +159,7 @@ namespace Game.Feature.Gameplay.Host
             TickEntityExitPresentationSignal signal,
             out GameplayEntityPose localPose)
         {
-            if (signal.ExitCause == TickEntityExitCause.EnemyDeath)
+            if (signal.ExitCause == TickEntityExitCause.Killed)
             {
                 if (TryResolvePlayerLocalPose(out localPose))
                 {

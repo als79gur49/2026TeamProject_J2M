@@ -6319,14 +6319,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)
         {
-            return new AttackPhaseResult(
-                Array.Empty<RawAttackIntent>(),
-                Array.Empty<ImpactReservation>(),
-                Array.Empty<AttackIntent>(),
-                Array.Empty<ActionGroup>(),
-                selectedGroups,
-                Array.Empty<string>(),
-                Array.Empty<string>());
+            return CanonicalPhaseResultFactory.CreateAttackPhaseResult(selectedGroups);
         }
 
         private static EntityState CreateSurfaceUnit(

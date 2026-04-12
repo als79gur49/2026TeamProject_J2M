@@ -78,7 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
             Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.AttackPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.AttackPhaseResult.RejectedReasons, Has.Some.Contains("Stage=ExecutionLock"));
             Assert.That(result.PresentationData.EnemyActionSignals, Is.Empty);
@@ -181,7 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
             var stackedUnits = new List<EntityState>();
 
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -280,11 +280,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { ActionGroupKind.Item },
-                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupKind).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupKind).ToArray());
             CollectionAssert.AreEqual(
                 new[] { MovementCommandKind.Push },
                 result.MovementPhaseResult.SortedIntents.Select(intent => intent.CommandKind).ToArray());
-            Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(result.EventLog, Does.Not.Contain("LootGranted"));
@@ -338,7 +338,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 2, SourceId: 50, DamageTargetId: 10),
                 },
                 result.AttackPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, DamageTargetId: group.Damages.Single().TargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -377,7 +377,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 2, IntentId: 2, SourceId: 20, Kind: ActionGroupKind.Attack, DamageTargetId: 30, DestroyTargetId: 30),
                 },
                 firstRun.Result.AttackPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (
                         group.GroupId,
                         group.IntentId,
@@ -393,7 +393,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 2, SourceId: 20, DamageTargetId: 30, DestroyTargetId: 30),
                 },
                 firstRun.Result.AttackPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (
                         group.GroupId,
                         group.SourceId,
@@ -428,7 +428,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             CollectionAssert.AreEqual(
                 firstRun.Result.AttackPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (
                         group.GroupId,
                         group.IntentId,
@@ -437,7 +437,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         DestroyTargetId: group.Destroys.Single().TargetId))
                     .ToArray(),
                 secondRun.Result.AttackPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (
                         group.GroupId,
                         group.IntentId,
@@ -447,7 +447,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             CollectionAssert.AreEqual(
                 firstRun.Result.AttackPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (
                         group.GroupId,
                         group.SourceId,
@@ -455,7 +455,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         DestroyTargetId: group.Destroys.Single().TargetId))
                     .ToArray(),
                 secondRun.Result.AttackPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (
                         group.GroupId,
                         group.SourceId,
@@ -493,8 +493,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .SortedInputs
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
                     .ToArray());
-            Assert.That(result.AttackPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.AttackPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.AttackPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -538,7 +538,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 1, IntentId: 1, SourceId: 10, SpawnId: 1, EntityId: 11, Cell: new SurfaceCell(FaceId.Floor, 1, 0), Type: EntityType.Projectile, SpawnTick: 4),
                 },
                 result.AttackPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group =>
                     {
                         var spawn = group.Spawns.Single();
@@ -552,8 +552,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4",
                 },
                 result.AttackPhaseResult.CommitEvents);
-            Assert.That(result.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().SpawnId, Is.EqualTo(1));
-            Assert.That(result.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().Entity.entityId, Is.EqualTo(11));
+            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().SpawnId, Is.EqualTo(1));
+            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().Entity.entityId, Is.EqualTo(11));
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterTick), Is.True);
             Assert.That(projectileAfterTick.entityId, Is.EqualTo(11));
             Assert.That(projectileAfterTick.spawnTick, Is.EqualTo(4));
@@ -632,7 +632,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 2, SourceId: 10, SpawnId: 2, EntityId: 22),
                 },
                 result.AttackPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group =>
                     {
                         var spawn = group.Spawns.Single();
@@ -850,7 +850,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             logic.SetTickIndex(1);
             var firstResult = pipeline.RunTick(new TickInput(1));
-            var firstProjectileId = firstResult.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().Entity.entityId;
+            var firstProjectileId = firstResult.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().Entity.entityId;
 
             var intermediateResults = RunTicks(
                 pipeline,
@@ -861,7 +861,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             logic.SetTickIndex(15);
             var secondSpawnResult = pipeline.RunTick(new TickInput(15));
-            var secondProjectileId = secondSpawnResult.AttackPhaseResult.SelectedGroups.Single().Spawns.Single().Entity.entityId;
+            var secondProjectileId = secondSpawnResult.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().Entity.entityId;
 
             CollectionAssert.AreEqual(new[] { 20, firstProjectileId }, cleanupResult.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
             Assert.That(secondProjectileId, Is.EqualTo(firstProjectileId + 1));
@@ -903,7 +903,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             Assert.That(result.AttackPhaseResult.SortedInputs.Any(intent => intent.TargetId == 40), Is.False);
             Assert.That(
-                result.AttackPhaseResult.ExpandedCandidates.Any(group => group.Damages.Any(damage => damage.TargetId == 40)),
+                result.AttackPhaseResult.ResolveAcceptedActions().Any(group => group.Damages.Any(damage => damage.TargetId == 40)),
                 Is.False);
             Assert.That(result.EventLog.Any(evt => evt.Contains("Target=40")), Is.False);
             CollectionAssert.AreEqual(new[] { 5, 20 }, result.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
@@ -1275,8 +1275,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     AttackSourceKind.PassiveContact,
                 },
                 result.SortedInputs.Select(intent => intent.SourceKind).ToArray());
-            Assert.That(result.ExpandedCandidates[0].StateChanges, Has.Count.EqualTo(1));
-            Assert.That(result.ExpandedCandidates[1].StateChanges, Is.Empty);
+            Assert.That(result.ResolveAcceptedActions()[0].StateChanges, Has.Count.EqualTo(1));
+            Assert.That(result.ResolveAcceptedActions()[1].StateChanges, Is.Empty);
             Assert.That(result.DamageResolutions[0].Accepted, Is.True);
             Assert.That(result.DamageResolutions[0].SourceKind, Is.EqualTo(AttackSourceKind.Combat));
             Assert.That(result.DamageResolutions[1].Accepted, Is.False);
@@ -1339,7 +1339,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var selectedGroups = new List<ActionGroup>();
             new AttackResolver().Resolve(expandedCandidates, selectedGroups, rejectedReasons);
-            FinalizeAttackSpawns(selectedGroups, idAllocator, entityIdAllocator);
+            AssignSpawnIdsForSelectedGroups(selectedGroups, idAllocator, entityIdAllocator);
 
             var damageResolutions = new List<DamageResolutionRecord>();
             var commitEvents = new List<string>();
@@ -1354,20 +1354,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 commitEvents,
                 delayedAttackEnqueueEvents);
 
-            return new AttackPhaseResult(
+            return CanonicalPhaseResultFactory.CreateAttackPhaseResult(
                 rawAttackIntents,
                 drainedImpactReservations,
                 Array.Empty<DelayedAttackEffectRecord>(),
                 damageResolutions,
                 sortedInputs,
-                expandedCandidates,
                 selectedGroups,
                 commitEvents,
                 commitEvents,
                 rejectedReasons);
         }
 
-        private static void FinalizeAttackSpawns(
+        private static void AssignSpawnIdsForSelectedGroups(
             IReadOnlyList<ActionGroup> selectedGroups,
             IdAllocator idAllocator,
             EntityIdAllocator entityIdAllocator)

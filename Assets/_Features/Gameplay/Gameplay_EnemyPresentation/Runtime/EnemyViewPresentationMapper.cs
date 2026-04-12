@@ -266,18 +266,32 @@ namespace Game.Feature.Gameplay.Host
 
         private void CollectAttackSignals(AttackPhaseResult attackPhaseResult)
         {
-            var selectedGroups = attackPhaseResult.SelectedGroups;
-            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            for (var i = 0; i < attackPhaseResult.ResolutionRecords.Count; i++)
             {
-                var group = selectedGroups[groupIndex];
-                _candidateEntityIds.Add(group.SourceId);
-                _attackingEntityIds.Add(group.SourceId);
-
-                for (var damageIndex = 0; damageIndex < group.Damages.Count; damageIndex++)
+                var resolution = attackPhaseResult.ResolutionRecords[i];
+                if (resolution.Kind == ContestKind.Plan && resolution.Accepted)
                 {
-                    var targetId = group.Damages[damageIndex].TargetId;
-                    _candidateEntityIds.Add(targetId);
-                    _damagedEntityIds.Add(targetId);
+                    _candidateEntityIds.Add(resolution.SourceId);
+                    _attackingEntityIds.Add(resolution.SourceId);
+                }
+            }
+
+            for (var i = 0; i < attackPhaseResult.ResolvedOperations.Count; i++)
+            {
+                var operation = attackPhaseResult.ResolvedOperations[i];
+                if (operation.Kind != FinalizationOperationKind.ApplyDamage)
+                {
+                    continue;
+                }
+
+                _candidateEntityIds.Add(operation.EntityId);
+                _damagedEntityIds.Add(operation.EntityId);
+
+                if (operation.Metadata.DamageSourceType == DamageSourceType.Attack &&
+                    operation.Metadata.SourceActorEntityId != 0)
+                {
+                    _candidateEntityIds.Add(operation.Metadata.SourceActorEntityId);
+                    _attackingEntityIds.Add(operation.Metadata.SourceActorEntityId);
                 }
             }
         }

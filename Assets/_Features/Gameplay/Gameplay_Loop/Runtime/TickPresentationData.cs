@@ -363,6 +363,9 @@ namespace Game.Feature.Gameplay.Loop
         ItemConsume = 1,
         BoxDestroy = 2,
         EnemyDeath = 3,
+        OutOfBounds = 4,
+        DestroyedByImpact = BoxDestroy,
+        Killed = EnemyDeath,
     }
 
     // Exit signals transfer visual ownership away from the authoritative entity view.

@@ -4,7 +4,6 @@ using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Intents;
-using Game.Feature.Gameplay.Model.Groups;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -68,8 +67,9 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<DelayedAttackEffectRecord>(),
             Array.Empty<DamageResolutionRecord>(),
             Array.Empty<AttackIntent>(),
-            Array.Empty<ActionGroup>(),
-            Array.Empty<ActionGroup>(),
+            Array.Empty<ResolutionRecord>(),
+            Array.Empty<FinalizationOperation>(),
+            Array.Empty<DelayedAttackEffectRecord>(),
             Array.Empty<string>(),
             Array.Empty<string>(),
             Array.Empty<string>());
@@ -79,33 +79,12 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _drainedDelayedAttackEffects;
         private readonly ReadOnlyCollection<ImpactReservation> _drainedImpactReservations;
         private readonly ReadOnlyCollection<string> _eventLogEntries;
-        private readonly ReadOnlyCollection<ActionGroup> _expandedCandidates;
+        private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _queuedDelayedAttackEffects;
         private readonly ReadOnlyCollection<RawAttackIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
-        private readonly ReadOnlyCollection<ActionGroup> _selectedGroups;
+        private readonly ReadOnlyCollection<ResolutionRecord> _resolutionRecords;
+        private readonly ReadOnlyCollection<FinalizationOperation> _resolvedOperations;
         private readonly ReadOnlyCollection<AttackIntent> _sortedInputs;
-
-        public AttackPhaseResult(
-            IEnumerable<RawAttackIntent> rawIntents,
-            IEnumerable<ImpactReservation> drainedImpactReservations,
-            IEnumerable<AttackIntent> sortedInputs,
-            IEnumerable<ActionGroup> expandedCandidates,
-            IEnumerable<ActionGroup> selectedGroups,
-            IEnumerable<string> commitEvents,
-            IEnumerable<string> rejectedReasons)
-            : this(
-                rawIntents,
-                drainedImpactReservations,
-                Array.Empty<DelayedAttackEffectRecord>(),
-                Array.Empty<DamageResolutionRecord>(),
-                sortedInputs,
-                expandedCandidates,
-                selectedGroups,
-                commitEvents,
-                commitEvents,
-                rejectedReasons)
-        {
-        }
 
         public AttackPhaseResult(
             IEnumerable<RawAttackIntent> rawIntents,
@@ -113,8 +92,9 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
             IEnumerable<DamageResolutionRecord> damageResolutions,
             IEnumerable<AttackIntent> sortedInputs,
-            IEnumerable<ActionGroup> expandedCandidates,
-            IEnumerable<ActionGroup> selectedGroups,
+            IEnumerable<ResolutionRecord> resolutionRecords,
+            IEnumerable<FinalizationOperation> resolvedOperations,
+            IEnumerable<DelayedAttackEffectRecord> queuedDelayedAttackEffects,
             IEnumerable<string> commitEvents,
             IEnumerable<string> eventLogEntries,
             IEnumerable<string> rejectedReasons)
@@ -144,14 +124,19 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(sortedInputs));
             }
 
-            if (expandedCandidates == null)
+            if (resolutionRecords == null)
             {
-                throw new ArgumentNullException(nameof(expandedCandidates));
+                throw new ArgumentNullException(nameof(resolutionRecords));
             }
 
-            if (selectedGroups == null)
+            if (resolvedOperations == null)
             {
-                throw new ArgumentNullException(nameof(selectedGroups));
+                throw new ArgumentNullException(nameof(resolvedOperations));
+            }
+
+            if (queuedDelayedAttackEffects == null)
+            {
+                throw new ArgumentNullException(nameof(queuedDelayedAttackEffects));
             }
 
             if (commitEvents == null)
@@ -174,8 +159,9 @@ namespace Game.Feature.Gameplay.Loop
             _drainedDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(drainedDelayedAttackEffects));
             _damageResolutions = new ReadOnlyCollection<DamageResolutionRecord>(new List<DamageResolutionRecord>(damageResolutions));
             _sortedInputs = new ReadOnlyCollection<AttackIntent>(new List<AttackIntent>(sortedInputs));
-            _expandedCandidates = new ReadOnlyCollection<ActionGroup>(new List<ActionGroup>(expandedCandidates));
-            _selectedGroups = new ReadOnlyCollection<ActionGroup>(new List<ActionGroup>(selectedGroups));
+            _resolutionRecords = new ReadOnlyCollection<ResolutionRecord>(new List<ResolutionRecord>(resolutionRecords));
+            _resolvedOperations = new ReadOnlyCollection<FinalizationOperation>(new List<FinalizationOperation>(resolvedOperations));
+            _queuedDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(queuedDelayedAttackEffects));
             _commitEvents = new ReadOnlyCollection<string>(new List<string>(commitEvents));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
@@ -191,9 +177,11 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<AttackIntent> SortedInputs => _sortedInputs;
 
-        public IReadOnlyList<ActionGroup> ExpandedCandidates => _expandedCandidates;
+        public IReadOnlyList<ResolutionRecord> ResolutionRecords => _resolutionRecords;
 
-        public IReadOnlyList<ActionGroup> SelectedGroups => _selectedGroups;
+        public IReadOnlyList<FinalizationOperation> ResolvedOperations => _resolvedOperations;
+
+        public IReadOnlyList<DelayedAttackEffectRecord> QueuedDelayedAttackEffects => _queuedDelayedAttackEffects;
 
         public IReadOnlyList<string> CommitEvents => _commitEvents;
 

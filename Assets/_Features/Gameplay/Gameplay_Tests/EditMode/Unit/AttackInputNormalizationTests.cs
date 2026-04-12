@@ -222,9 +222,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var attackPhaseResult = new AttackPhaseResult(
                 Array.Empty<RawAttackIntent>(),
                 new[] { reservation },
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<DamageResolutionRecord>(),
                 normalizedInputs,
-                Array.Empty<ActionGroup>(),
-                Array.Empty<ActionGroup>(),
+                Array.Empty<ResolutionRecord>(),
+                Array.Empty<FinalizationOperation>(),
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
                 Array.Empty<string>(),
                 Array.Empty<string>());
 

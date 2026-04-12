@@ -8,6 +8,11 @@ using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Entities
 {
+    internal interface IEnemyJumpTimingBinding : IEntityLogicSourceBinding
+    {
+        bool TryGetJumpCooldownTicks(out int cooldownTicks);
+    }
+
     internal sealed class EnemyEntityLogicFactory : IEntityLogicFactory
     {
         private readonly EnemyAiRuntimeDefinition _defaultDefinition;
@@ -86,7 +91,7 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
-    internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IEntityLogicSourceBinding
+    internal sealed class EnemyCoreLogicAdapter : IEnemyAiStateLogic, IPreMovementStateLogic, IMovementEntityLogic, IEnemyJumpTimingBinding
     {
         private readonly EnemyLogic _logic;
 
@@ -96,6 +101,11 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public int ControlledEntityId => _logic.ControlledEntityId;
+
+        public bool TryGetJumpCooldownTicks(out int cooldownTicks)
+        {
+            return _logic.TryGetJumpCooldownTicks(out cooldownTicks);
+        }
 
         public void CommitAiTransitions(
             WorldSnapshot snapshot,

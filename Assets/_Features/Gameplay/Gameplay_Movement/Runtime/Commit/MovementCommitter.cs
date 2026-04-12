@@ -76,12 +76,64 @@ namespace Game.Feature.Gameplay.Movement.Commit
         public PlayerControlState State { get; }
     }
 
+    internal readonly struct MovementImpactSpaceResolutionRecord
+    {
+        public MovementImpactSpaceResolutionRecord(
+            int groupId,
+            int entityId,
+            SurfaceCell sourceCell,
+            SurfaceCell destinationCell,
+            Direction facing,
+            bool hasStateChange,
+            EntityPhaseState state,
+            int stateTimer,
+            bool hasSourceFacing,
+            int sourceFacingEntityId,
+            Direction sourceFacing)
+        {
+            GroupId = groupId;
+            EntityId = entityId;
+            SourceCell = sourceCell;
+            DestinationCell = destinationCell;
+            Facing = facing;
+            HasStateChange = hasStateChange;
+            State = state;
+            StateTimer = stateTimer;
+            HasSourceFacing = hasSourceFacing;
+            SourceFacingEntityId = sourceFacingEntityId;
+            SourceFacing = sourceFacing;
+        }
+
+        public int GroupId { get; }
+
+        public int EntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell DestinationCell { get; }
+
+        public Direction Facing { get; }
+
+        public bool HasStateChange { get; }
+
+        public EntityPhaseState State { get; }
+
+        public int StateTimer { get; }
+
+        public bool HasSourceFacing { get; }
+
+        public int SourceFacingEntityId { get; }
+
+        public Direction SourceFacing { get; }
+    }
+
     internal sealed class MovementCommitter
     {
         private const int ProjectileImpactDamageAmount = 1;
         private const int BoxImpactDamageAmount = 1;
         private readonly int _moveOccupancyTicks;
         private readonly int _playerMoveCooldownTicks;
+        private readonly int _slidingStateTimerTicks;
 
         public MovementCommitter(
             PlayerControlTimingAuthoritativeSnapshot playerControlTiming,
@@ -101,6 +153,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
             _playerMoveCooldownTicks = playerControlTiming.MoveCooldownTicks;
             _moveOccupancyTicks = timingProfile.MoveOccupancyTicks;
+            _slidingStateTimerTicks = timingProfile.BoxSlideStepIntervalTicks;
         }
 
         public void Commit(
@@ -158,6 +211,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 writeContext,
                 selectedGroups,
                 impactReservations,
+                Array.Empty<MovementImpactSpaceResolutionRecord>(),
                 destroyResolutions,
                 facingResolutions,
                 executionLockResolutions,
@@ -170,6 +224,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             IMovementCommitContext writeContext,
             IReadOnlyList<ActionGroup> selectedGroups,
             IReadOnlyList<ImpactReservation> impactReservations,
+            IReadOnlyList<MovementImpactSpaceResolutionRecord> impactSpaceResolutions,
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
             IReadOnlyList<MovementFacingResolutionRecord> facingResolutions,
             IReadOnlyList<MovementExecutionLockResolutionRecord> executionLockResolutions,
@@ -190,6 +245,11 @@ namespace Game.Feature.Gameplay.Movement.Commit
             if (impactReservations == null)
             {
                 throw new ArgumentNullException(nameof(impactReservations));
+            }
+
+            if (impactSpaceResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(impactSpaceResolutions));
             }
 
             if (destroyResolutions == null)
@@ -238,12 +298,39 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     }
                 }
 
-                for (var stateChangeIndex = 0; stateChangeIndex < group.StateChanges.Count; stateChangeIndex++)
+                var hasImpactSpaceResolution = TryFindImpactSpaceResolution(
+                    impactSpaceResolutions,
+                    group.GroupId,
+                    out var impactSpaceResolution);
+
+                if (hasImpactSpaceResolution &&
+                    impactSpaceResolution.HasSourceFacing)
                 {
-                    var stateChange = group.StateChanges[stateChangeIndex];
-                    writeContext.ApplyStateChange(stateChange.EntityId, stateChange.State, stateChange.StateTimer);
+                    writeContext.SetFacing(impactSpaceResolution.SourceFacingEntityId, impactSpaceResolution.SourceFacing);
                     commitEvents.Add(
-                        $"StateChanged|G={group.GroupId}|I={group.IntentId}|E={stateChange.EntityId}|State={stateChange.State}|Timer={stateChange.StateTimer}");
+                        $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={impactSpaceResolution.SourceFacingEntityId}|Facing={impactSpaceResolution.SourceFacing}");
+                }
+
+                if (hasImpactSpaceResolution &&
+                    impactSpaceResolution.HasStateChange)
+                {
+                    writeContext.ApplyStateChange(
+                        impactSpaceResolution.EntityId,
+                        impactSpaceResolution.State,
+                        impactSpaceResolution.StateTimer);
+                    commitEvents.Add(
+                        $"StateChanged|G={group.GroupId}|I={group.IntentId}|E={impactSpaceResolution.EntityId}|State={impactSpaceResolution.State}|Timer={impactSpaceResolution.StateTimer}");
+                }
+
+                if (!hasImpactSpaceResolution)
+                {
+                    for (var stateChangeIndex = 0; stateChangeIndex < group.StateChanges.Count; stateChangeIndex++)
+                    {
+                        var stateChange = group.StateChanges[stateChangeIndex];
+                        writeContext.ApplyStateChange(stateChange.EntityId, stateChange.State, stateChange.StateTimer);
+                        commitEvents.Add(
+                            $"StateChanged|G={group.GroupId}|I={group.IntentId}|E={stateChange.EntityId}|State={stateChange.State}|Timer={stateChange.StateTimer}");
+                    }
                 }
 
                 for (var presenceIndex = 0; presenceIndex < group.BoardPresenceChanges.Count; presenceIndex++)
@@ -269,13 +356,23 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         $"FacingCommitted|G={group.GroupId}|I={group.IntentId}|E={facingResolution.EntityId}|Facing={facingResolution.Facing}");
                 }
 
-                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                if (hasImpactSpaceResolution)
                 {
-                    var move = group.Moves[moveIndex];
-                    writeContext.MoveEntity(move.EntityId, move.DestinationCell);
-                    writeContext.SetFacing(move.EntityId, move.Facing);
+                    writeContext.MoveEntity(impactSpaceResolution.EntityId, impactSpaceResolution.DestinationCell);
+                    writeContext.SetFacing(impactSpaceResolution.EntityId, impactSpaceResolution.Facing);
                     commitEvents.Add(
-                        $"MoveCommitted|G={group.GroupId}|I={group.IntentId}|E={move.EntityId}|To={FormatCell(move.DestinationCell)}|Facing={move.Facing}");
+                        $"MoveCommitted|G={group.GroupId}|I={group.IntentId}|E={impactSpaceResolution.EntityId}|To={FormatCell(impactSpaceResolution.DestinationCell)}|Facing={impactSpaceResolution.Facing}");
+                }
+                else
+                {
+                    for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                    {
+                        var move = group.Moves[moveIndex];
+                        writeContext.MoveEntity(move.EntityId, move.DestinationCell);
+                        writeContext.SetFacing(move.EntityId, move.Facing);
+                        commitEvents.Add(
+                            $"MoveCommitted|G={group.GroupId}|I={group.IntentId}|E={move.EntityId}|To={FormatCell(move.DestinationCell)}|Facing={move.Facing}");
+                    }
                 }
 
                 if (group.BoxKineticTargetId > 0)
@@ -286,15 +383,31 @@ namespace Game.Feature.Gameplay.Movement.Commit
                         group.BoxKineticInstigatorTeamId);
                 }
 
-                for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                if (hasImpactSpaceResolution)
                 {
-                    var move = group.Moves[moveIndex];
-                    if (!TryFindExecutionLockResolution(executionLockResolutions, group.GroupId, move.EntityId, out var executionLockResolution))
+                    if (TryFindExecutionLockResolution(
+                            executionLockResolutions,
+                            group.GroupId,
+                            impactSpaceResolution.EntityId,
+                            out var impactExecutionLockResolution))
                     {
-                        continue;
+                        writeContext.SetEntityExecutionLockState(
+                            impactExecutionLockResolution.EntityId,
+                            impactExecutionLockResolution.LockState);
                     }
+                }
+                else
+                {
+                    for (var moveIndex = 0; moveIndex < group.Moves.Count; moveIndex++)
+                    {
+                        var move = group.Moves[moveIndex];
+                        if (!TryFindExecutionLockResolution(executionLockResolutions, group.GroupId, move.EntityId, out var executionLockResolution))
+                        {
+                            continue;
+                        }
 
-                    writeContext.SetEntityExecutionLockState(executionLockResolution.EntityId, executionLockResolution.LockState);
+                        writeContext.SetEntityExecutionLockState(executionLockResolution.EntityId, executionLockResolution.LockState);
+                    }
                 }
 
                 for (var destroyIndex = 0; destroyIndex < group.Destroys.Count; destroyIndex++)
@@ -607,6 +720,49 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return playerControlResolutions;
         }
 
+        internal bool TryResolveImpactSpaceSuccess(
+            WorldSnapshot snapshot,
+            ActionGroup group,
+            ImpactReservation impactReservation,
+            out MovementImpactSpaceResolutionRecord resolution)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (group.GroupKind != ActionGroupKind.BoxImpact)
+            {
+                resolution = default;
+                return false;
+            }
+
+            if (!snapshot.TryGetEntity(group.ImpactSourceId, out var impactSourceBox))
+            {
+                throw new InvalidOperationException(
+                    $"Impact space resolution requires a valid impact source box. ImpactSource={group.ImpactSourceId}, Group={group.GroupId}, Intent={group.IntentId}");
+            }
+
+            var moveFacing = ResolveImpactMoveFacing(impactSourceBox.position, impactReservation);
+            var isFlipImpact = IsFlipImpact(impactSourceBox.position, impactReservation);
+            var hasSourceFacing = isFlipImpact;
+            var sourceFacing = hasSourceFacing ? ResolveOpposite(moveFacing) : Direction.None;
+
+            resolution = new MovementImpactSpaceResolutionRecord(
+                group.GroupId,
+                impactSourceBox.entityId,
+                impactSourceBox.position,
+                new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y),
+                moveFacing,
+                hasStateChange: !isFlipImpact,
+                state: EntityPhaseState.Sliding,
+                stateTimer: !isFlipImpact ? _slidingStateTimerTicks : 0,
+                hasSourceFacing,
+                sourceFacingEntityId: hasSourceFacing ? group.SourceId : 0,
+                sourceFacing);
+            return true;
+        }
+
         internal static List<ImpactReservation> SortImpactReservations(IReadOnlyList<ImpactReservation> impactReservations)
         {
             if (impactReservations == null)
@@ -733,6 +889,24 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return false;
         }
 
+        private static bool TryFindImpactSpaceResolution(
+            IReadOnlyList<MovementImpactSpaceResolutionRecord> impactSpaceResolutions,
+            int groupId,
+            out MovementImpactSpaceResolutionRecord impactSpaceResolution)
+        {
+            for (var i = 0; i < impactSpaceResolutions.Count; i++)
+            {
+                if (impactSpaceResolutions[i].GroupId == groupId)
+                {
+                    impactSpaceResolution = impactSpaceResolutions[i];
+                    return true;
+                }
+            }
+
+            impactSpaceResolution = default;
+            return false;
+        }
+
         private static ImpactReservation CreateImpactReservation(
             WorldSnapshot snapshot,
             int tickIndex,
@@ -830,6 +1004,56 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
             throw new InvalidOperationException(
                 $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
+        }
+
+        private static Direction ResolveImpactMoveFacing(
+            SurfaceCell sourceCell,
+            ImpactReservation impactReservation)
+        {
+            var delta = new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y) - sourceCell;
+            if (delta.x > 0)
+            {
+                return Direction.Right;
+            }
+
+            if (delta.x < 0)
+            {
+                return Direction.Left;
+            }
+
+            if (delta.y > 0)
+            {
+                return Direction.Up;
+            }
+
+            if (delta.y < 0)
+            {
+                return Direction.Down;
+            }
+
+            throw new InvalidOperationException(
+                $"Impact move requires a distinct destination. Source={sourceCell}|ImpactAt=({impactReservation.Position.x},{impactReservation.Position.y})");
+        }
+
+        private static bool IsFlipImpact(
+            SurfaceCell sourceCell,
+            ImpactReservation impactReservation)
+        {
+            var destinationCell = new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y);
+            var delta = destinationCell - sourceCell;
+            return Math.Abs(delta.x) + Math.Abs(delta.y) > 1;
+        }
+
+        private static Direction ResolveOpposite(Direction facing)
+        {
+            return facing switch
+            {
+                Direction.Up => Direction.Down,
+                Direction.Right => Direction.Left,
+                Direction.Down => Direction.Up,
+                Direction.Left => Direction.Right,
+                _ => Direction.None,
+            };
         }
 
         private static string FormatCell(SurfaceCell cell)

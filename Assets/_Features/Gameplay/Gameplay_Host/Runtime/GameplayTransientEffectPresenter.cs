@@ -256,7 +256,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return _exitCause switch
             {
-                TickEntityExitCause.BoxDestroy => _rootStartLocalPosition + (_root.localRotation * Vector3.back * Mathf.Lerp(0f, 0.08f, easedTime)),
+                TickEntityExitCause.DestroyedByImpact => _rootStartLocalPosition + (_root.localRotation * Vector3.back * Mathf.Lerp(0f, 0.08f, easedTime)),
                 _ => _rootStartLocalPosition,
             };
         }
@@ -265,7 +265,7 @@ namespace Game.Feature.Gameplay.Host
         {
             return _exitCause switch
             {
-                TickEntityExitCause.BoxDestroy => new Vector3(
+                TickEntityExitCause.DestroyedByImpact => new Vector3(
                     Mathf.Lerp(1f, 1.18f, easedTime),
                     Mathf.Lerp(1f, 1.18f, easedTime),
                     Mathf.Lerp(1f, 0.22f, easedTime)),
@@ -736,7 +736,7 @@ namespace Game.Feature.Gameplay.Host
 
             var renderers = visualRoot.GetComponentsInChildren<Renderer>(includeInactive: true);
             var instancedMaterials = CreateInstancedMaterials(renderers);
-            if (signal.ExitCause == TickEntityExitCause.EnemyDeath)
+            if (signal.ExitCause == TickEntityExitCause.Killed)
             {
                 var plan = EnemyDeathExitEffectPlanBuilder.Build(
                     _parent,

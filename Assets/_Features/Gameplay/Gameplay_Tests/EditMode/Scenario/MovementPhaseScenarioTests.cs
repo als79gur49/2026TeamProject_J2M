@@ -56,12 +56,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move, Destination: new Vector2Int(1, 0)) },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.Moves.Single().Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[] { 1 },
-                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupId).ToArray());
             CollectionAssert.AreEqual(
                 new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
                 result.MovementPhaseResult.CommitEvents);
@@ -92,12 +92,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move, Destination: new Vector2Int(1, 0)) },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.Moves.Single().Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[] { 1 },
-                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupId).ToArray());
             CollectionAssert.AreEqual(
                 new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
                 result.MovementPhaseResult.CommitEvents);
@@ -136,12 +136,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 2, SourceId: 20, Kind: ActionGroupKind.Move, Destination: new Vector2Int(1, 0)),
                 },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.Moves.Single().Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[] { 1, 2 },
-                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupId).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -175,8 +175,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(result.MovementPhaseResult.SortedIntents, Is.Empty);
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
@@ -266,7 +266,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination, intent.CommandKind))
                     .ToArray());
-            var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            var slideGroup = result.MovementPhaseResult.ResolveAcceptedActions().Single();
             Assert.That(slideGroup.GroupId, Is.EqualTo(1));
             Assert.That(slideGroup.SourceId, Is.EqualTo(10));
             Assert.That(slideGroup.GroupKind, Is.EqualTo(ActionGroupKind.Push));
@@ -280,7 +280,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[] { 1 },
-                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupId).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -477,7 +477,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            var slideGroup = result.MovementPhaseResult.ResolveAcceptedActions().Single();
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -517,7 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            var slideGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            var slideGroup = result.MovementPhaseResult.ResolveAcceptedActions().Single();
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -594,7 +594,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.MovementPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(
                 new[] { 1 },
-                result.MovementPhaseResult.SelectedGroups.Select(group => group.GroupId).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupId).ToArray());
             CollectionAssert.AreEqual(
                 System.Array.Empty<string>(),
                 result.MovementPhaseResult.RejectedReasons);
@@ -624,7 +624,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.BoxImpact, ImpactSourceId: 20, ImpactTargetId: 30) },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.ImpactSourceId, group.ImpactTargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -686,7 +686,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
@@ -716,7 +716,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (ImpactSourceId: 20, ImpactTargetId: 30) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.ImpactSourceId, group.ImpactTargetId)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.ImpactSourceId, group.ImpactTargetId)).ToArray());
             Assert.That(snapshotAfter.TryGetEntity(30, out var hostile), Is.True);
             Assert.That(hostile.hp, Is.EqualTo(2));
             Assert.That(snapshotAfter.TryGetEntity(40, out var friendly), Is.True);
@@ -741,8 +741,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -775,8 +775,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -808,7 +808,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.MovementPhaseResult.SortedIntents.Count, Is.EqualTo(1));
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Item) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -874,7 +874,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Item) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -913,7 +913,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Item) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -964,8 +964,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -994,8 +994,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1033,7 +1033,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination, intent.CommandKind))
                     .ToArray());
-            var flipGroup = result.MovementPhaseResult.ExpandedCandidates.Single();
+            var flipGroup = result.MovementPhaseResult.ResolveAcceptedActions().Single();
             Assert.That(flipGroup.GroupId, Is.EqualTo(1));
             Assert.That(flipGroup.SourceId, Is.EqualTo(10));
             Assert.That(flipGroup.GroupKind, Is.EqualTo(ActionGroupKind.Flip));
@@ -1092,7 +1092,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.BoxImpact, ImpactSourceId: 30, ImpactTargetId: 20) },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, group.ImpactSourceId, group.ImpactTargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -1124,8 +1124,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1154,8 +1154,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1191,7 +1191,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1228,8 +1228,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1309,7 +1309,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(GetEntityPosition(worldState, 30), Is.EqualTo(new Vector2Int(-1, 0)));
         }
@@ -1334,8 +1334,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Up)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1400,7 +1400,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1441,7 +1441,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 20, Kind: ActionGroupKind.Move) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1478,8 +1478,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1510,8 +1510,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1572,8 +1572,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
-            Assert.That(result.MovementPhaseResult.ExpandedCandidates, Is.Empty);
-            Assert.That(result.MovementPhaseResult.SelectedGroups, Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1696,7 +1696,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Push, MoveCount: 0) },
                 result.MovementPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, MoveCount: group.Moves.Count))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -1789,7 +1789,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Flip) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1844,12 +1844,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 2, SourceId: 10, Priority: 5, Destination: new Vector2Int(1, 0)),
                 },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.Priority, group.Moves.Single().Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 20) },
-                result.MovementPhaseResult.SelectedGroups.Select(group => (group.GroupId, group.SourceId)).ToArray());
+                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId)).ToArray());
             CollectionAssert.AreEqual(
                 new[] { "MoveCommitted|G=1|I=1|E=20|To=(1,0)|Facing=Left" },
                 result.MovementPhaseResult.CommitEvents);
@@ -1916,20 +1916,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .ToArray());
             CollectionAssert.AreEqual(
                 firstRun.Result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.IntentId, group.SourceId, group.Moves.Single().Destination))
                     .ToArray(),
                 secondRun.Result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.IntentId, group.SourceId, group.Moves.Single().Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
                 firstRun.Result.MovementPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId))
                     .ToArray(),
                 secondRun.Result.MovementPhaseResult
-                    .SelectedGroups
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -1966,7 +1966,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.ProjectileImpact, MoveCount: 0, TargetId: 20) },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, group.GroupKind, MoveCount: group.Moves.Count, TargetId: group.ProjectileImpactTargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -2044,7 +2044,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (GroupId: 1, SourceId: 10, TargetId: 30),
                 },
                 result.MovementPhaseResult
-                    .ExpandedCandidates
+                    .ResolveAcceptedActions()
                     .Select(group => (group.GroupId, group.SourceId, TargetId: group.ProjectileImpactTargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
@@ -2299,10 +2299,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 commitEvents);
 
             return (
-                new MovementPhaseResult(
+                CanonicalPhaseResultFactory.CreateMovementPhaseResult(
                     rawMovementIntents,
                     sortedIntents,
-                    expandedCandidates,
                     selectedGroups,
                     commitEvents,
                     rejectedReasons),
