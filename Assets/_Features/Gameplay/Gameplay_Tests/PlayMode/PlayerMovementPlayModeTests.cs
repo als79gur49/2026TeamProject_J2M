@@ -1,5 +1,7 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
@@ -81,7 +83,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
             Assert.That(host.InputHost.AdvanceTime(0f), Is.EqualTo(1));
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
-            Assert.That(host.WorldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+            Assert.That(host.Presenter.CurrentTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
 
             yield return DestroyHost(host);
         }
@@ -137,8 +139,8 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(controller.LensDistortionOverride.intensity.value, Is.EqualTo(0f));
 
             yield return DestroyHost(host);
-            Object.Destroy(outputCameraObject);
-            Object.Destroy(sourceProfile);
+            UnityEngine.Object.Destroy(outputCameraObject);
+            UnityEngine.Object.Destroy(sourceProfile);
             yield return null;
         }
 
@@ -161,7 +163,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var directRig = directRootObject.AddComponent<GameplayCameraRig>();
                 directRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
-                directRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                GameplayCameraRigReflectionAdapter.ConfigureTopologyTransitionCameraShake(
+                    directRig,
+                    TopologyTransitionCameraShakeProfile.CreateDefault());
                 directRig.Initialize(
                     directCameraObject.AddComponent<Camera>(),
                     directBoardRoot.CameraTargetRoot,
@@ -169,7 +173,9 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
                 var cinemachineRig = cinemachineRootObject.AddComponent<GameplayCameraRig>();
                 cinemachineRig.ApplySettings(GameplayCameraSettings.CreateRuntimeDefault());
-                cinemachineRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                GameplayCameraRigReflectionAdapter.ConfigureTopologyTransitionCameraShake(
+                    cinemachineRig,
+                    TopologyTransitionCameraShakeProfile.CreateDefault());
                 cinemachineRig.Initialize(
                     null,
                     cinemachineBoardRoot.CameraTargetRoot,
@@ -204,27 +210,37 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     durationSeconds: 0.2f,
                     presentedVisualRotation: Quaternion.Euler(12f, 0f, 0f),
                     angularVelocityNormalized: 1f);
-                directRig.ApplyTopologyTransitionVisualState(impactState);
+                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(directRig, impactState);
                 directRig.SnapToTarget();
-                cinemachineRig.ApplyTopologyTransitionVisualState(impactState);
+                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, impactState);
                 cinemachineRig.SnapToTarget();
                 brain.ManualUpdate();
 
                 Assert.That(
-                    Vector3.Distance(directRig.TopologyTransitionShakeLocalPosition, cinemachineRig.TopologyTransitionShakeLocalPosition),
+                    Vector3.Distance(
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig)),
                     Is.LessThan(0.0001f));
                 Assert.That(
-                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, cinemachineRig.TopologyTransitionShakeLocalRotation),
+                    Quaternion.Angle(
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    directRig.TopologyTransitionShakeLocalPosition.sqrMagnitude > 0.000001f ||
-                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, Quaternion.identity) > 0.001f,
+                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig).sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
+                        Quaternion.identity) > 0.001f,
                     Is.True);
                 Assert.That(
-                    Vector3.Distance(cinemachineBoardRoot.CameraEffectsRoot.localPosition, cinemachineRig.TopologyTransitionShakeLocalPosition),
+                    Vector3.Distance(
+                        cinemachineBoardRoot.CameraEffectsRoot.localPosition,
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig)),
                     Is.LessThan(0.0001f));
                 Assert.That(
-                    Quaternion.Angle(cinemachineBoardRoot.CameraEffectsRoot.localRotation, cinemachineRig.TopologyTransitionShakeLocalRotation),
+                    Quaternion.Angle(
+                        cinemachineBoardRoot.CameraEffectsRoot.localRotation,
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
                     Is.LessThan(0.001f));
                 Assert.That(
                     Vector3.Distance(outputCamera.transform.position, cinemachineCamera.transform.position),
@@ -242,46 +258,60 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     durationSeconds: 0.2f,
                     presentedVisualRotation: Quaternion.Euler(78f, 0f, 0f),
                     angularVelocityNormalized: 0.45f);
-                directRig.ApplyTopologyTransitionVisualState(landingState);
+                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(directRig, landingState);
                 directRig.SnapToTarget();
-                cinemachineRig.ApplyTopologyTransitionVisualState(landingState);
+                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, landingState);
                 cinemachineRig.SnapToTarget();
                 brain.ManualUpdate();
 
                 Assert.That(
-                    Vector3.Distance(directRig.TopologyTransitionShakeLocalPosition, cinemachineRig.TopologyTransitionShakeLocalPosition),
+                    Vector3.Distance(
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig)),
                     Is.LessThan(0.0001f));
                 Assert.That(
-                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, cinemachineRig.TopologyTransitionShakeLocalRotation),
+                    Quaternion.Angle(
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig)),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    directRig.TopologyTransitionShakeLocalPosition.sqrMagnitude > 0.000001f ||
-                    Quaternion.Angle(directRig.TopologyTransitionShakeLocalRotation, Quaternion.identity) > 0.001f,
+                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig).sqrMagnitude > 0.000001f ||
+                    Quaternion.Angle(
+                        GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
+                        Quaternion.identity) > 0.001f,
                     Is.True);
 
                 var inactiveState = TopologyTransitionVisualState.Inactive(
                     new CubeTopologyState(FaceId.Front),
                     Quaternion.Euler(90f, 0f, 0f));
-                directRig.ApplyTopologyTransitionVisualState(inactiveState);
+                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(directRig, inactiveState);
                 directRig.SnapToTarget();
-                cinemachineRig.ApplyTopologyTransitionVisualState(inactiveState);
+                GameplayCameraRigReflectionAdapter.ApplyTopologyTransitionVisualState(cinemachineRig, inactiveState);
                 cinemachineRig.SnapToTarget();
                 brain.ManualUpdate();
 
-                Assert.That(directRig.TopologyTransitionShakeLocalPosition, Is.EqualTo(Vector3.zero));
-                Assert.That(directRig.TopologyTransitionShakeLocalRotation, Is.EqualTo(Quaternion.identity));
-                Assert.That(cinemachineRig.TopologyTransitionShakeLocalPosition, Is.EqualTo(Vector3.zero));
-                Assert.That(cinemachineRig.TopologyTransitionShakeLocalRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(
+                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(directRig),
+                    Is.EqualTo(Vector3.zero));
+                Assert.That(
+                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(directRig),
+                    Is.EqualTo(Quaternion.identity));
+                Assert.That(
+                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalPosition(cinemachineRig),
+                    Is.EqualTo(Vector3.zero));
+                Assert.That(
+                    GameplayCameraRigReflectionAdapter.GetTopologyTransitionShakeLocalRotation(cinemachineRig),
+                    Is.EqualTo(Quaternion.identity));
                 Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(cinemachineBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
             }
             finally
             {
-                Object.Destroy(directRootObject);
-                Object.Destroy(cinemachineRootObject);
-                Object.Destroy(directCameraObject);
-                Object.Destroy(outputCameraObject);
-                Object.Destroy(cinemachineCameraObject);
+                UnityEngine.Object.Destroy(directRootObject);
+                UnityEngine.Object.Destroy(cinemachineRootObject);
+                UnityEngine.Object.Destroy(directCameraObject);
+                UnityEngine.Object.Destroy(outputCameraObject);
+                UnityEngine.Object.Destroy(cinemachineCameraObject);
             }
 
             yield return null;
@@ -308,7 +338,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(secondTick, Is.Not.Null);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
 
-            var snapshot = host.WorldState.CreateSnapshot();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
 
@@ -341,7 +371,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
 
-            var snapshot = host.WorldState.CreateSnapshot();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
@@ -376,7 +406,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(host.Presenter.HasBlockingPresentation, Is.False);
             Assert.That(host.TickRunner.NextTickIndex, Is.EqualTo(3));
 
-            var snapshot = host.WorldState.CreateSnapshot();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(30, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
 
@@ -529,7 +559,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 host.InputHost.SetRawMoveInput(Vector2.right);
                 host.InputHost.RunSingleTick();
 
-                var snapshot = host.WorldState.CreateSnapshot();
+                var snapshot = CaptureAuthoritativeSnapshot(host);
                 Assert.That(snapshot.TryGetEntity(10, out playerEntity), Is.True);
                 Assert.That(itemView.gameObject.activeSelf, Is.False);
                 if (playerEntity.position == new SurfaceCell(FaceId.Floor, 2, 0))
@@ -688,7 +718,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             Assert.That(followupMoveTick, Is.Not.Null);
             host.Presenter.UpdatePresentation(0f);
 
-            var snapshot = host.WorldState.CreateSnapshot();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(driver.CurrentState, Is.EqualTo(PlayerViewAnimationState.WalkLoop));
@@ -962,7 +992,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
             host.Presenter.UpdatePresentation(0f);
-            var snapshot = host.WorldState.CreateSnapshot();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(player.facing, Is.EqualTo(Direction.Right));
@@ -1117,16 +1147,16 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             };
         }
 
-        private static IEnumerator DestroyHost(GameplaySceneHost host, Object ownedActions = null)
+        private static IEnumerator DestroyHost(GameplaySceneHost host, UnityEngine.Object ownedActions = null)
         {
             if (host != null)
             {
-                Object.Destroy(host.gameObject);
+                UnityEngine.Object.Destroy(host.gameObject);
             }
 
             if (ownedActions != null)
             {
-                Object.Destroy(ownedActions);
+                UnityEngine.Object.Destroy(ownedActions);
             }
 
             yield return null;
@@ -1150,7 +1180,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static void AssertViewMatchesProjectedState(GameplaySceneHost host, int entityId)
         {
-            var snapshot = host.WorldState.CreateSnapshot();
+            var snapshot = CaptureAuthoritativeSnapshot(host);
             Assert.That(snapshot.TryGetEntity(entityId, out var entity), Is.True);
             var projector = new GameplayCubeProjector(snapshot.BoardBounds, 1f);
             Assert.That(host.ViewRegistry.TryGetView(entityId, out var view), Is.True);
@@ -1168,6 +1198,90 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     view.transform.rotation,
                     host.BoardRoot.transform.rotation * projectedRotation),
                 Is.LessThan(0.1f));
+        }
+
+        private static WorldSnapshot CaptureAuthoritativeSnapshot(GameplaySceneHost host)
+        {
+            return GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+        }
+
+        private static class GameplayCameraRigReflectionAdapter
+        {
+            private static readonly BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.NonPublic;
+            private const string ConfigureTopologyTransitionCameraShakeMethodName = "ConfigureTopologyTransitionCameraShake";
+            private const string ApplyTopologyTransitionVisualStateMethodName = "ApplyTopologyTransitionVisualState";
+            private const string TopologyTransitionShakeLocalPositionPropertyName = "TopologyTransitionShakeLocalPosition";
+            private const string TopologyTransitionShakeLocalRotationPropertyName = "TopologyTransitionShakeLocalRotation";
+
+            private static readonly MethodInfo ConfigureTopologyTransitionCameraShakeMethod =
+                GetRequiredMethod(ConfigureTopologyTransitionCameraShakeMethodName, parameterCount: 1);
+
+            private static readonly MethodInfo ApplyTopologyTransitionVisualStateMethod =
+                GetRequiredMethod(ApplyTopologyTransitionVisualStateMethodName, parameterCount: 1);
+
+            private static readonly PropertyInfo TopologyTransitionShakeLocalPositionProperty =
+                GetRequiredProperty(TopologyTransitionShakeLocalPositionPropertyName);
+
+            private static readonly PropertyInfo TopologyTransitionShakeLocalRotationProperty =
+                GetRequiredProperty(TopologyTransitionShakeLocalRotationPropertyName);
+
+            public static void ConfigureTopologyTransitionCameraShake(
+                GameplayCameraRig rig,
+                TopologyTransitionCameraShakeProfile profile)
+            {
+                InvokeRequired(ConfigureTopologyTransitionCameraShakeMethod, rig, profile);
+            }
+
+            public static void ApplyTopologyTransitionVisualState(
+                GameplayCameraRig rig,
+                TopologyTransitionVisualState visualState)
+            {
+                InvokeRequired(ApplyTopologyTransitionVisualStateMethod, rig, visualState);
+            }
+
+            public static Vector3 GetTopologyTransitionShakeLocalPosition(GameplayCameraRig rig)
+            {
+                return (Vector3)GetRequiredValue(TopologyTransitionShakeLocalPositionProperty, rig);
+            }
+
+            public static Quaternion GetTopologyTransitionShakeLocalRotation(GameplayCameraRig rig)
+            {
+                return (Quaternion)GetRequiredValue(TopologyTransitionShakeLocalRotationProperty, rig);
+            }
+
+            private static MethodInfo GetRequiredMethod(string name, int parameterCount)
+            {
+                return typeof(GameplayCameraRig)
+                    .GetMethods(InstanceFlags)
+                    .Single(method => method.Name == name && method.GetParameters().Length == parameterCount);
+            }
+
+            private static PropertyInfo GetRequiredProperty(string name)
+            {
+                return typeof(GameplayCameraRig).GetProperty(name, InstanceFlags) ??
+                       throw new InvalidOperationException($"Missing internal GameplayCameraRig property '{name}'.");
+            }
+
+            private static object GetRequiredValue(PropertyInfo property, GameplayCameraRig rig)
+            {
+                if (rig == null)
+                {
+                    throw new ArgumentNullException(nameof(rig));
+                }
+
+                return property.GetValue(rig) ??
+                       throw new InvalidOperationException($"Property '{property.Name}' returned null unexpectedly.");
+            }
+
+            private static void InvokeRequired(MethodInfo method, GameplayCameraRig rig, object argument)
+            {
+                if (rig == null)
+                {
+                    throw new ArgumentNullException(nameof(rig));
+                }
+
+                method.Invoke(rig, new[] { argument });
+            }
         }
 
         private static InputActionAsset CreateKeyboardMoveActions()

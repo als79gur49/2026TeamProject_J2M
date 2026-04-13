@@ -55,14 +55,14 @@ namespace Game.Feature.Gameplay.Host
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
             var faceSeamGap = configuration.ResolveFaceSeamGap();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
-            var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(initialEntities, generalTimingProfile);
+            var normalizedInitialEntities = NormalizeInitialEntitiesForRuntime(initialEntities, generalTimingProfile);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 normalizedInitialEntities,
                 configuration.InitialBoardBounds,
                 initialTerrain,
                 configuration.InitialTopology);
-            var initialSnapshot = SnapshotBuilder.Create(worldState);
+            var initialSnapshot = GameplayCompositionRoot.CreateSnapshot(worldState);
             var presentedInitialEntities = new List<EntityState>();
             initialSnapshot.EnumerateEntitiesOrdered(presentedInitialEntities);
 
@@ -182,6 +182,41 @@ namespace Game.Feature.Gameplay.Host
                 configuration?.StaticEntityPresentationCatalog,
                 configuration?.StaticEntityPresentationBindings,
                 nameof(GameplaySceneHostConfiguration));
+        }
+
+        private static List<EntityState> NormalizeInitialEntitiesForRuntime(
+            IEnumerable<EntityState> initialEntities,
+            GameplayTimingProfile timingProfile)
+        {
+            if (initialEntities == null)
+            {
+                throw new ArgumentNullException(nameof(initialEntities));
+            }
+
+            if (timingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(timingProfile));
+            }
+
+            var normalizedEntities = new List<EntityState>();
+
+            foreach (var entity in initialEntities)
+            {
+                var normalizedEntity = entity;
+
+                if (normalizedEntity.type == EntityType.Projectile &&
+                    normalizedEntity.spawnTick == 0 &&
+                    normalizedEntity.stateTimer == 0 &&
+                    normalizedEntity.hp > 0 &&
+                    !normalizedEntity.markedForDeath)
+                {
+                    normalizedEntity.stateTimer = timingProfile.ProjectileStepIntervalTicks;
+                }
+
+                normalizedEntities.Add(normalizedEntity);
+            }
+
+            return normalizedEntities;
         }
 
         private static IReadOnlyList<IEntityLogic> BuildStaticEntityLogics(

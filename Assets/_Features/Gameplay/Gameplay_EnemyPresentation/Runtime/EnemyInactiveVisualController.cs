@@ -26,7 +26,7 @@ namespace Game.Feature.Gameplay.Host
 
         public float CurrentInactiveBlend { get; private set; }
 
-        internal bool AllowLegacyColorFallback => allowLegacyColorFallback;
+        public bool AllowLegacyColorFallback => allowLegacyColorFallback;
 
         private void Awake()
         {
@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.Host
             Apply(EnemyVisualActivityState.Normal, 0f);
         }
 
-        internal void ConfigureLegacyColorFallback(bool allow)
+        public void ConfigureLegacyColorFallback(bool allow)
         {
             allowLegacyColorFallback = allow;
         }

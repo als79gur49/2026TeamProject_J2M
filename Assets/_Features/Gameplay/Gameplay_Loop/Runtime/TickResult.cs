@@ -140,7 +140,11 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<string> EventLog => _eventLog;
 
-        internal CubeTopologyState FinalTopology { get; }
+        /// <summary>
+        /// Authoritative topology after the tick commits. This is a final presentation seam,
+        /// not an intermediate phase diagnostic surface.
+        /// </summary>
+        public CubeTopologyState FinalTopology { get; }
 
         public TickPresentationData PresentationData { get; }
 

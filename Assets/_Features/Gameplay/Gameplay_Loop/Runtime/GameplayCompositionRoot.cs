@@ -55,6 +55,16 @@ namespace Game.Feature.Gameplay.Loop
                 topology);
         }
 
+        public static WorldSnapshot CreateSnapshot(WorldState worldState)
+        {
+            if (worldState == null)
+            {
+                throw new ArgumentNullException(nameof(worldState));
+            }
+
+            return worldState.CreateSnapshot();
+        }
+
         public static TickPipeline CreateTickPipeline(WorldState worldState)
         {
             return CreateDefaultBootstrapper().CreateTickPipeline(worldState);
