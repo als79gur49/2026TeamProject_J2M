@@ -1,5 +1,7 @@
 # Gameplay Test Stratification
 
+> Operational source of truth: use [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md) for how to run tests, interpret failures, and work with governance. This file remains the detailed stratification inventory and reference.
+
 ## SUMMARY
 - Total tests: 718
 - Core: 116
