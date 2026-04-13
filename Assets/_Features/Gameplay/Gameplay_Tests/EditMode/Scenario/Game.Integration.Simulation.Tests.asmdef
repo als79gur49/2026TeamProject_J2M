@@ -3,7 +3,8 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.Scenario",
   "references": [
     "Game.Feature.Gameplay",
-    "Game.Feature.Gameplay.Tests"
+    "Game.Feature.Gameplay.Tests",
+    "Game.Feature.Gameplay.Host"
   ],
   "includePlatforms": [
     "Editor"

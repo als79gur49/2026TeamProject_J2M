@@ -1882,6 +1882,149 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 2)),
+                CreateWall(entityId: 91, position: new Vector2Int(2, 1)),
+                CreateWall(entityId: 92, position: new Vector2Int(0, 1)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+            });
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
+                Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));
+                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 0)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var result = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
+
+                Assert.That(result.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 }));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Up));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyEntityLogicFactory_RoleEnemyWithNoneAiMode_DoesNotCreateLogicOrAdvanceState()
+        {
+            var passiveTutorialEnemy = CreateUnit(
+                entityId: 40,
+                teamId: 2,
+                position: new Vector2Int(0, 0),
+                aiMode: EnemyAiMode.None,
+                facing: Direction.Right,
+                aiStateTimer: 2,
+                enemyLocomotionCooldownTicks: 3);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                passiveTutorialEnemy,
+            });
+            var factory = new EnemyEntityLogicFactory();
+            var provider = GameplayEntityLogicProviderFactory.CreateDefault((EnemyAiProfile)null);
+            var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 7,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Right,
+                    startTick = 1,
+                    executeTick = 2,
+                });
+
+            Assert.That(factory.CanCreate(passiveTutorialEnemy), Is.False);
+            Assert.That(EnemyParticipationPolicy.IsEnemyLogicEntity(passiveTutorialEnemy), Is.False);
+            Assert.That(logicSet.AiStateLogics, Is.Empty);
+            Assert.That(logicSet.PreMovementStateLogics, Is.Empty);
+            Assert.That(logicSet.MovementLogics, Is.Empty);
+            Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
+            Assert.That(logicSet.AttackLogics, Is.Empty);
+
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+            var result = pipeline.RunTick(new TickInput(1));
+            var enemy = GetEntity(worldState, 40);
+
+            Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+            Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.None));
+            Assert.That(enemy.aiStateTimer, Is.EqualTo(2));
+            Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(3));
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState), Is.True);
+            Assert.That(actionState.sequence, Is.EqualTo(7));
+            Assert.That(actionState.lockedTargetEntityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLocomotionCooldown_Authority_ComesFromEnemyAiProfileRuntimeDefinitionAndEntityState()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+            try
+            {
+                var runtimeDefinition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var enemyAfterSecondTick = GetEntity(worldState, 40);
+
+                Assert.That(runtimeDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2));
+                Assert.That(firstTick.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 }));
+                Assert.That(GetEntityAfterTick(firstTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
+                Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(enemyAfterSecondTick.enemyLocomotionCooldownTicks, Is.EqualTo(1));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -1911,6 +2054,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return entity;
         }
 
+        private static Vector2Int GetEntityPosition(WorldState worldState, int entityId)
+        {
+            return GetEntity(worldState, entityId).position.PlanarPosition;
+        }
+
+        private static int GetEntityHp(WorldState worldState, int entityId)
+        {
+            return GetEntity(worldState, entityId).hp;
+        }
+
         private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
         {
             return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
@@ -1937,9 +2090,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
-        private static EnemyAiProfile CreateEnemyProfile(int windupTicks)
+        private static EnemyAiProfile CreateEnemyProfile(
+            int windupTicks,
+            int moveCooldownTicks = 0,
+            int recoverTicks = 1)
         {
-            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks);
+            return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks, recoverTicks);
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
@@ -2047,7 +2203,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int entityId,
             int teamId,
             Vector2Int position,
-            int hp,
+            int hp = 1,
             EnemyAiMode aiMode = EnemyAiMode.None,
             Direction facing = Direction.Right,
             int aiStateTimer = 0,
@@ -2077,7 +2233,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int entityId,
             int teamId,
             SurfaceCell position,
-            int hp,
+            int hp = 1,
             EnemyAiMode aiMode = EnemyAiMode.None,
             Direction facing = Direction.Right,
             int aiStateTimer = 0,

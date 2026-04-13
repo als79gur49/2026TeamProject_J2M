@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -10,7 +11,7 @@ using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
 
-namespace Game.Feature.Gameplay.Tests.Unit
+namespace Game.Feature.Gameplay.Tests.Scenario
 {
     public sealed class EnemyViewIsolationTests
     {
@@ -282,7 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
         }
 
-        private sealed class TestViewFactory : IGameplayEntityViewFactory
+        private sealed class TestViewFactory : global::Game.Feature.Gameplay.Host.IGameplayEntityViewFactory
         {
             private readonly bool _attachEnemyAnimatorDriver;
             private readonly float? _enemyMoveOverrideSeconds;
@@ -298,12 +299,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 _enemyMoveOverrideSeconds = enemyMoveOverrideSeconds;
             }
 
-            public GameplayEntityView CreateView(in EntityState entity)
+            public global::Game.Feature.Gameplay.Host.GameplayEntityView CreateView(in EntityState entity)
             {
                 var viewObject = new GameObject($"EntityView_{entity.entityId}");
                 viewObject.transform.SetParent(_parent, worldPositionStays: false);
 
-                var view = viewObject.AddComponent<GameplayEntityView>();
+                var view = viewObject.AddComponent<global::Game.Feature.Gameplay.Host.GameplayEntityView>();
                 view.Initialize(entity.entityId);
 
                 if (_attachEnemyAnimatorDriver &&
@@ -314,7 +315,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     if (_enemyMoveOverrideSeconds.HasValue)
                     {
                         var authoring = viewObject.AddComponent<UnitLocomotionPresentationAuthoring>();
-                        PlayerViewPrefabTestUtility.SetSerializedField(
+                        SetSerializedField(
                             authoring,
                             "moveMotionDurationSeconds",
                             _enemyMoveOverrideSeconds.Value);
@@ -322,6 +323,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
 
                 return view;
+            }
+
+            private static void SetSerializedField(object target, string fieldName, object value)
+            {
+                var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
+                field.SetValue(target, value);
             }
         }
     }

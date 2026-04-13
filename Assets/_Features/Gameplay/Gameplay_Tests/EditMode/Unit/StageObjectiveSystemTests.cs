@@ -358,55 +358,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TickPipeline_ExposesObjectiveResultInTickResult()
-        {
-            var objective = CreateSimpleObjectiveDefinition(new SurfaceCell(FaceId.Floor, 1, 1));
-            var timingProfile = GameplayTimingProfile.CreateDefault();
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[]
-                {
-                    CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
-                },
-                DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
-                timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                Array.Empty<IEntityLogic>(),
-                timingProfile,
-                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                objectiveDefinition: objective);
-
-            var result = pipeline.RunTick(new TickInput(1));
-
-            Assert.That(result.ObjectiveResult.HasObjective, Is.True);
-            Assert.That(result.ObjectiveResult.IsCleared, Is.True);
-            Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void TickPipeline_DeterminismHash_ChangesWhenObjectiveStateChanges()
-        {
-            var clearObjective = CreateSimpleObjectiveDefinition(new SurfaceCell(FaceId.Floor, 1, 1));
-            var unclearedObjective = CreateSimpleObjectiveDefinition(new SurfaceCell(FaceId.Floor, 2, 2));
-            var timingProfile = GameplayTimingProfile.CreateDefault();
-
-            var clearedResult = RunSingleTickWithObjective(
-                CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
-                clearObjective,
-                timingProfile);
-            var unclearedResult = RunSingleTickWithObjective(
-                CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 1, 1)),
-                unclearedObjective,
-                timingProfile);
-
-            Assert.That(clearedResult.DeterminismHash, Is.Not.EqualTo(unclearedResult.DeterminismHash));
-        }
-
-        [Test]
-        [Category("Extended")]
         public void StageRuntimeBuilder_ExistingAuthoringWithoutObjective_RemainsCompatible()
         {
             var stage = CreateStage(
@@ -427,26 +378,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 UnityEngine.Object.DestroyImmediate(stage);
             }
-        }
-
-        private static TickResult RunSingleTickWithObjective(
-            EntityState player,
-            StageObjectiveRuntimeDefinition objectiveDefinition,
-            GameplayTimingProfile timingProfile)
-        {
-            var worldState = GameplayWorldStateTestFactory.CreateBounded(
-                new[] { player },
-                DefaultBoardBounds,
-                Game.Feature.Gameplay.BoardState.TerrainData.Empty,
-                new CubeTopologyState(FaceId.Floor),
-                timingProfile);
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                Array.Empty<IEntityLogic>(),
-                timingProfile,
-                CreateDefaultPlayerControlTimingSnapshot(timingProfile),
-                objectiveDefinition: objectiveDefinition);
-            return pipeline.RunTick(new TickInput(1));
         }
 
         private static StageObjectiveRuntimeDefinition CreateSimpleObjectiveDefinition(SurfaceCell goalCell)

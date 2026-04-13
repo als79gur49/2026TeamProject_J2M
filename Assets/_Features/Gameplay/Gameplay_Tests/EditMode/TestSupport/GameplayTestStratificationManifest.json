@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generatedAtUtc": "2026-04-13T06:44:48Z",
+  "generatedAtUtc": "2026-04-13T07:50:00Z",
   "tests": [
     {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Core.AttackInputNormalizationCoreTests.AttackInputNormalizer_NormalizesEntityIntentsAndReservations_ByDocumentOrder",
@@ -3272,6 +3272,169 @@
       "locked": false
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Variation/detail coverage for enemy_ai_scenario_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1))); | Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));",
+      "targetSymbols": [
+        "Vector2Int",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs",
+      "lineNumber": 1887,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick",
+      "category": "Full",
+      "mode": "EditMode",
+      "contracts": [
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Rare edge or broad variation coverage for enemy_ai_scenario_contract reserved for Full runs.",
+      "assertionSummary": "Assert.That(result.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 })); | Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1))); | Assert.That(enemy.facing, Is.EqualTo(Direction.Up));",
+      "targetSymbols": [
+        "Vector2Int",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "Assert.That",
+        "MovementPhaseResult.SortedIntents.Select",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs",
+      "lineNumber": 1917,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyEntityLogicFactory_RoleEnemyWithNoneAiMode_DoesNotCreateLogicOrAdvanceState",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Variation/detail coverage for enemy_ai_scenario_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(factory.CanCreate(passiveTutorialEnemy), Is.False); | Assert.That(EnemyParticipationPolicy.IsEnemyLogicEntity(passiveTutorialEnemy), Is.False); | Assert.That(logicSet.AiStateLogics, Is.Empty);",
+      "targetSymbols": [
+        "Vector2Int",
+        "EnemyEntityLogicFactory",
+        "TickInput",
+        "GameplayEntityLogicProviderFactory.CreateDefault",
+        "State.CreateSnapshot",
+        "State.CreateWriteContext",
+        "Assert.That",
+        "EnemyParticipationPolicy.IsEnemyLogicEntity"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs",
+      "lineNumber": 1945,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyLocomotionCooldown_Authority_ComesFromEnemyAiProfileRuntimeDefinitionAndEntityState",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Variation/detail coverage for enemy_ai_scenario_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(runtimeDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2)); | Assert.That(firstTick.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 })); | Assert.That(GetEntityAfterTick(firstTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));",
+      "targetSymbols": [
+        "Vector2Int",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "Assert.That",
+        "Is.EqualTo",
+        "Tick.MovementPhaseResult.SortedIntents.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyAiScenarioTests.cs",
+      "lineNumber": 2000,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "determinism",
+        "enemy_view_isolation_contract"
+      ],
+      "reason": "Variation/detail coverage for determinism outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(presentedFirstTick.DeterminismHash, Is.EqualTo(baselineFirstTick.DeterminismHash)); | Assert.That(presentedSecondTick.DeterminismHash, Is.EqualTo(baselineSecondTick.DeterminismHash)); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "GameObject",
+        "GameplayEntityViewBinder",
+        "TestViewFactory",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "World.CreateSnapshot",
+        "GameplayTimingProfile.CreateDefault"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyViewIsolationTests.cs",
+      "lineNumber": 20,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyWindupSignals_DoesNotChangeLaterTickAuthoritativeResults",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "determinism",
+        "enemy_view_isolation_contract"
+      ],
+      "reason": "Variation/detail coverage for determinism outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(presentedWindupTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True); | Assert.That(presentedWindupTick.DeterminismHash, Is.EqualTo(baselineWindupTick.DeterminismHash)); | Assert.That(presentedExecuteTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.True);",
+      "targetSymbols": [
+        "Vector2Int",
+        "GameObject",
+        "GameplayEntityViewBinder",
+        "TestViewFactory",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "World.CreateSnapshot",
+        "GameplayTimingProfile.CreateDefault"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyViewIsolationTests.cs",
+      "lineNumber": 85,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "enemy_view_isolation_contract"
+      ],
+      "reason": "Variation/detail coverage for enemy_view_isolation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(presentedSnapshotAfter.TryGetEntity(40, out var presentedEnemy), Is.True); | Assert.That(presentedEnemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));",
+      "targetSymbols": [
+        "Vector2Int",
+        "GameObject",
+        "GameplayEntityViewBinder",
+        "TestViewFactory",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "World.CreateSnapshot",
+        "GameplayTimingProfile.CreateDefault"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/EnemyViewIsolationTests.cs",
+      "lineNumber": 160,
+      "overridden": false,
+      "locked": false
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_EmptyCellMove_Succeeds",
       "category": "Extended",
       "mode": "EditMode",
@@ -5039,16 +5202,16 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.RunTick_CompletesPlanResolveFinalizeCleanupRespawn",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_CompletesPlanResolveFinalizeCleanupRespawn",
       "category": "Extended",
       "mode": "EditMode",
       "contracts": [
         "canonical_path",
         "resolve_finalize_contract",
         "spawn_destroy_delayed_ordering",
-        "tick_pipeline_structure_contract"
+        "tick_pipeline_structure_simulation_contract"
       ],
-      "reason": "Locked integration coverage for canonical_path in TickPipelineStructureTests.",
+      "reason": "Variation/detail coverage for canonical_path outside the minimal Core representative set.",
       "assertionSummary": "Assert.That(result.TickIndex, Is.EqualTo(7)); | Assert.That(result.CompletedAllPhases, Is.True); | CollectionAssert.AreEqual(",
       "targetSymbols": [
         "TickInput",
@@ -5059,9 +5222,315 @@
         "CollectionAssert.AreEqual"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
-      "lineNumber": 14,
-      "overridden": true,
-      "locked": true
+      "lineNumber": 29,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_SortsRawIntents_AndAssignsCentralIntentIds",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "StubEntityLogic",
+        "RawMovementIntent",
+        "TickInput",
+        "RawAttackIntent.CreateFireProjectile",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "CollectionAssert.AreEqual",
+        "MovementPhaseResult.SortedIntents.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 70,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_AttackPhase_CollectsOnlyAliveEntityIntents",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "StubEntityLogic",
+        "TickInput",
+        "RawAttackIntent.CreateFireProjectile",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "CollectionAssert.AreEqual",
+        "AttackPhaseResult.SortedInputs.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 121,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_UsesInjectedEntityLogicProvider",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "TickPipeline",
+        "StubEntityLogicProvider",
+        "StubEntityLogic",
+        "RawMovementIntent",
+        "TickInput",
+        "GameplayTimingProfile.CreateDefault",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 165,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.TickRunner_RunNextTick_ConsumesBufferedInputAndAdvancesIndex",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(result.TickIndex, Is.EqualTo(4)); | Assert.That(runner.NextTickIndex, Is.EqualTo(5)); | Assert.That(inputBuffer.HasBufferedInput(4), Is.False);",
+      "targetSymbols": [
+        "TickInputBuffer",
+        "TickRunner",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "GameplayWorldStateTestFactory.CreateBounded",
+        "Buffer.Record",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 202,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.TickRunner_RunTick_RejectsOutOfOrderTickIndex",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That( | Assert.That(runner.NextTickIndex, Is.EqualTo(3));",
+      "targetSymbols": [
+        "TickRunner",
+        "TickInputBuffer",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "GameplayWorldStateTestFactory.CreateBounded",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 221,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.GameplayCompositionRoot_CreateTickRunner_UsesDefaultProviderWithProjectileCadence",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty); | Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0))); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "TickInputBuffer",
+        "SurfaceCell",
+        "GameplayCompositionRoot.CreateTickRunner",
+        "GameplayTimingProfile.CreateDefault",
+        "Assert.That",
+        "Result.FinalEntities.Single",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 236,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_OffBottomEnemy_DoesNotEmitMovementOrAttackTrace",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);",
+      "targetSymbols": [
+        "SurfaceCell",
+        "BoardBounds",
+        "Vector2Int",
+        "CubeTopologyState",
+        "TickInput",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "Assert.That",
+        "Does.Not.Contain"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 281,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_TopologyRotation_ReevaluatesEnemyParticipationBeforeAttackCollection",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front))); | Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);",
+      "targetSymbols": [
+        "SurfaceCell",
+        "BoardBounds",
+        "Vector2Int",
+        "CubeTopologyState",
+        "PlayerLogic",
+        "TickInput",
+        "State.CreateWriteContext",
+        "GameplayCompositionRoot.CreateTickPipeline"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 310,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileCadence",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty); | Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1))); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "TickInputBuffer",
+        "TickInput",
+        "SurfaceCell",
+        "GameplayCompositionRoot.CreateDefaultBootstrapper",
+        "GameplayTimingProfile.CreateDefault",
+        "Buffer.Record",
+        "Assert.That"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 355,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.RunTick_UsesAuthoritativeProjectileStateTimerWithoutSessionStartMutation",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));",
+      "targetSymbols": [
+        "Vector2Int",
+        "BoardBounds",
+        "TickInput",
+        "SurfaceCell",
+        "GameplayCompositionRoot.CreateWorldState",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "GameplayTimingProfile.CreateDefault",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 409,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.TickPipeline_ExposesObjectiveResultInTickResult",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for tick_pipeline_structure_simulation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(result.ObjectiveResult.HasObjective, Is.True); | Assert.That(result.ObjectiveResult.IsCleared, Is.True); | Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);",
+      "targetSymbols": [
+        "SurfaceCell",
+        "CubeTopologyState",
+        "TickInput",
+        "GameplayTimingProfile.CreateDefault",
+        "GameplayWorldStateTestFactory.CreateBounded",
+        "GameplayCompositionRoot.CreateTickPipeline",
+        "Assert.That"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 626,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.TickPipeline_DeterminismHash_ChangesWhenObjectiveStateChanges",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "determinism",
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Variation/detail coverage for determinism outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(clearedResult.DeterminismHash, Is.Not.EqualTo(unclearedResult.DeterminismHash));",
+      "targetSymbols": [
+        "SurfaceCell",
+        "GameplayTimingProfile.CreateDefault",
+        "Assert.That",
+        "Is.Not.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 655,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.TickPipelineStructureSimulationTests.GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming",
+      "category": "Full",
+      "mode": "EditMode",
+      "contracts": [
+        "tick_pipeline_structure_simulation_contract"
+      ],
+      "reason": "Rare edge or broad variation coverage for tick_pipeline_structure_simulation_contract reserved for Full runs.",
+      "assertionSummary": "Assert.DoesNotThrow( | CollectionAssert.AreEqual( | Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);",
+      "targetSymbols": [
+        "GameObject",
+        "BoardBounds",
+        "Vector2Int",
+        "SurfaceCell",
+        "CubeTopologyState",
+        "Assert.DoesNotThrow",
+        "InputHost.SetRawMoveInput",
+        "InputHost.RunSingleTick"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Scenario/TickPipelineStructureSimulationTests.cs",
+      "lineNumber": 740,
+      "overridden": false,
+      "locked": false
     },
     {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.GameplayTestStratification_ManifestAndSourceRemainConsistent",
@@ -6334,49 +6803,6 @@
       "locked": false
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1))); | Assert.That(GetEntityAfterTick(firstTick, 40).facing, Is.EqualTo(Direction.Right));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 790,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Rare edge or broad variation coverage for enemy_logic_contract reserved for Full runs.",
-      "assertionSummary": "Assert.That(result.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 })); | Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 1))); | Assert.That(enemy.facing, Is.EqualTo(Direction.Up));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "MovementPhaseResult.SortedIntents.Select",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 820,
-      "overridden": false,
-      "locked": false
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoxAsAnchor",
       "category": "Extended",
       "mode": "EditMode",
@@ -6393,7 +6819,7 @@
         "State.CreateSnapshot"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 848,
+      "lineNumber": 790,
       "overridden": false,
       "locked": false
     },
@@ -6416,7 +6842,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 866,
+      "lineNumber": 808,
       "overridden": false,
       "locked": false
     },
@@ -6437,7 +6863,7 @@
         "State.CreateSnapshot"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 888,
+      "lineNumber": 830,
       "overridden": false,
       "locked": false
     },
@@ -6459,7 +6885,7 @@
         "State.CreateSnapshot"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 906,
+      "lineNumber": 848,
       "overridden": false,
       "locked": false
     },
@@ -6482,7 +6908,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 925,
+      "lineNumber": 867,
       "overridden": false,
       "locked": false
     },
@@ -6506,7 +6932,7 @@
         "State.CreateWriteContext"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 947,
+      "lineNumber": 889,
       "overridden": false,
       "locked": false
     },
@@ -6524,7 +6950,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 985,
+      "lineNumber": 927,
       "overridden": false,
       "locked": false
     },
@@ -6545,7 +6971,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1004,
+      "lineNumber": 946,
       "overridden": false,
       "locked": false
     },
@@ -6565,7 +6991,7 @@
         "Capabilities.TryGetMovementSkill"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1035,
+      "lineNumber": 977,
       "overridden": false,
       "locked": false
     },
@@ -6586,7 +7012,7 @@
         "Capabilities.TryGetPassiveContact"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1066,
+      "lineNumber": 1008,
       "overridden": false,
       "locked": false
     },
@@ -6606,7 +7032,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1093,
+      "lineNumber": 1035,
       "overridden": false,
       "locked": false
     },
@@ -6624,7 +7050,7 @@
         "Does.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1113,
+      "lineNumber": 1055,
       "overridden": false,
       "locked": false
     },
@@ -6642,7 +7068,7 @@
         "Does.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1131,
+      "lineNumber": 1073,
       "overridden": false,
       "locked": false
     },
@@ -6663,7 +7089,7 @@
         "Does.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1150,
+      "lineNumber": 1092,
       "overridden": false,
       "locked": false
     },
@@ -6682,7 +7108,7 @@
         "Does.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1180,
+      "lineNumber": 1122,
       "overridden": false,
       "locked": false
     },
@@ -6702,7 +7128,7 @@
         "Does.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1212,
+      "lineNumber": 1154,
       "overridden": false,
       "locked": false
     },
@@ -6724,7 +7150,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1241,
+      "lineNumber": 1183,
       "overridden": false,
       "locked": false
     },
@@ -6746,7 +7172,7 @@
         "Has.Count.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1265,
+      "lineNumber": 1207,
       "overridden": false,
       "locked": false
     },
@@ -6768,7 +7194,7 @@
         "Has.Count.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1293,
+      "lineNumber": 1235,
       "overridden": false,
       "locked": false
     },
@@ -6789,31 +7215,7 @@
         "Has.Count.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1321,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyEntityLogicFactory_RoleEnemyWithNoneAiMode_DoesNotCreateLogicOrAdvanceState",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(factory.CanCreate(passiveTutorialEnemy), Is.False); | Assert.That(EnemyParticipationPolicy.IsEnemyLogicEntity(passiveTutorialEnemy), Is.False); | Assert.That(logicSet.AiStateLogics, Is.Empty);",
-      "targetSymbols": [
-        "Vector2Int",
-        "EnemyEntityLogicFactory",
-        "TickInput",
-        "GameplayEntityLogicProviderFactory.CreateDefault",
-        "State.CreateSnapshot",
-        "State.CreateWriteContext",
-        "Assert.That",
-        "EnemyParticipationPolicy.IsEnemyLogicEntity"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1340,
+      "lineNumber": 1263,
       "overridden": false,
       "locked": false
     },
@@ -6836,7 +7238,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1396,
+      "lineNumber": 1282,
       "overridden": false,
       "locked": false
     },
@@ -6856,29 +7258,7 @@
         "CollectionAssert.AreEqual"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1431,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLocomotionCooldown_Authority_ComesFromEnemyAiProfileRuntimeDefinitionAndEntityState",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(runtimeDefinition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(2)); | Assert.That(firstTick.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 })); | Assert.That(GetEntityAfterTick(firstTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Tick.MovementPhaseResult.SortedIntents.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1454,
+      "lineNumber": 1317,
       "overridden": false,
       "locked": false
     },
@@ -6900,7 +7280,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1484,
+      "lineNumber": 1340,
       "overridden": false,
       "locked": false
     },
@@ -6922,7 +7302,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1514,
+      "lineNumber": 1370,
       "overridden": false,
       "locked": false
     },
@@ -6943,7 +7323,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1553,
+      "lineNumber": 1409,
       "overridden": false,
       "locked": false
     },
@@ -6964,7 +7344,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1578,
+      "lineNumber": 1434,
       "overridden": false,
       "locked": false
     },
@@ -6986,7 +7366,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1600,
+      "lineNumber": 1456,
       "overridden": false,
       "locked": false
     },
@@ -7010,7 +7390,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1623,
+      "lineNumber": 1479,
       "overridden": false,
       "locked": false
     },
@@ -7034,7 +7414,7 @@
         "EnemyAttackTimingSettings.CreateDefaultMelee"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1644,
+      "lineNumber": 1500,
       "overridden": false,
       "locked": false
     },
@@ -7058,519 +7438,7 @@
         "EnemyLocomotionTimingSettings.CreateDefaultMelee"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1666,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_PatrolEnemy_IsMaterializedDuringTick",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1691,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_PatrolEnemy_WithLocomotionCooldown_MovesLessFrequently",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(2, 0))); | Assert.That(firstTick.MovementPhaseResult.SortedIntents.Select(intent => intent.SourceId).ToArray(), Is.EqualTo(new[] { 40 })); | Assert.That(afterFirstTick.enemyLocomotionCooldownTicks, Is.EqualTo(2));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Tick.MovementPhaseResult.SortedIntents.Select",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1715,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_PatrolEnemy_BlockedAfterCooldownExpires_DoesNotRestartLocomotionCooldown",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0))); | Assert.That(enemy.enemyLocomotionCooldownTicks, Is.Zero);",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1743,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_ChargingEnemy_WithLocomotionCooldown_WaitsBetweenChargeSteps",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0))); | Assert.That(GetEntityAfterTick(firstTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2)); | Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));",
-      "targetSymbols": [
-        "Vector2Int",
-        "BoardBounds",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1763,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_PatrolEnemy_SensesOpponent_TransitionsToChaseAndMovesInSameTick",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.Trace.Text, Does.Contain(\"EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol\")); | Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0))); | Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Does.Contain",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1795,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_AttackEnemy_IsMaterializedDuringTick",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1813,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_BottomFaceEnemy_StillParticipatesInAutonomy",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2)); | Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1838,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_OffBottomEnemy_FreezesAiTimerAndLocomotionCooldown",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover)); | Assert.That(enemy.aiStateTimer, Is.EqualTo(2)); | Assert.That(enemy.enemyLocomotionCooldownTicks, Is.EqualTo(2));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "CubeTopologyState",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Not.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1892,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_OffBottomEnemy_ClearsStaleEnemyActionState",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Attack));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "CubeTopologyState",
-        "TickInput",
-        "State.CreateWriteContext",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1922,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_AttackEnemy_WithWindup_StartTick_ArmsActionWithoutAttack",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(3));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1958,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_AttackEnemy_WithWindup_ExecutesOnlyOnExecuteTick",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(windupResult.AttackPhaseResult.SortedInputs, Is.Empty); | CollectionAssert.AreEqual( | Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "CollectionAssert.AreEqual",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 1984,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_AttackEnemy_WithZeroWindup_ExecutesOnStartTick",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(2)); | Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2017,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_NonAttackingProfile_DoesNotArmActionStateOrAttack",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "State.CreateSnapshot"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2049,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_WallFollowerProfile_DoesNotLeavePatrolWhenDetectionDisabled",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Rare edge or broad variation coverage for enemy_logic_contract reserved for Full runs.",
-      "assertionSummary": "Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol)); | Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(0, 0)));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2078,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_WallFollowerProfile_DoesNotArmActionStateOrAttack",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Rare edge or broad variation coverage for enemy_logic_contract reserved for Full runs.",
-      "assertionSummary": "Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "State.CreateSnapshot"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2104,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_ChargingProfile_DoesNotArmActionStateOrAttack",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Rare edge or broad variation coverage for enemy_logic_contract reserved for Full runs.",
-      "assertionSummary": "Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);",
-      "targetSymbols": [
-        "Vector2Int",
-        "BoardBounds",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "State.CreateSnapshot"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2132,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_WindupEnemy_LosesLockedTarget_CancelsActionAndFallsBackToPatrol",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty); | Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol)); | Assert.That(actionState.IsActive, Is.False);",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "State.CreateWriteContext",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2169,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_TransitionsToRecoverAfterAttack",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover)); | Assert.That(enemy.aiStateTimer, Is.EqualTo(1));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2193,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_RecoverEnemy_CountsDownThenReturnsToChase",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(firstResult.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(firstResult.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(firstTickEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2222,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_RecoverEnemy_LocomotionCooldown_IsTrackedIndependently",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(firstTickEnemy.aiMode, Is.EqualTo(EnemyAiMode.Recover)); | Assert.That(firstTickEnemy.aiStateTimer, Is.EqualTo(0)); | Assert.That(firstTickEnemy.enemyLocomotionCooldownTicks, Is.EqualTo(1));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2250,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_DoesNotRestartLocomotionCooldown",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Recover)); | Assert.That(enemy.enemyLocomotionCooldownTicks, Is.Zero);",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "Does.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2277,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_ChaseEnemy_LosesTarget_RevertsToPatrolAndPatrolMoves",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_logic_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol)); | Assert.That(GetEntityPosition(worldState, 40), Is.EqualTo(new Vector2Int(1, 0)));",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2298,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.DefaultEntityLogicProvider_WallFollowerProfile_BoundaryStep_DoesNotCreateTopologyChangingMovementGroup",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_logic_contract"
-      ],
-      "reason": "Rare edge or broad variation coverage for enemy_logic_contract reserved for Full runs.",
-      "assertionSummary": "Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1))); | Assert.That(result.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty); | Assert.That(result.EventLog, Has.None.Contains(\"TopologyCommitted\"));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "BoardBounds",
-        "Vector2Int",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Is.EqualTo",
-        "MovementPhaseResult.ResolveAcceptedActions"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyLogicTests.cs",
-      "lineNumber": 2314,
+      "lineNumber": 1522,
       "overridden": false,
       "locked": false
     },
@@ -7628,80 +7496,6 @@
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyPrefabScaffoldTests.cs",
       "lineNumber": 41,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "determinism",
-        "enemy_view_isolation_contract"
-      ],
-      "reason": "Variation/detail coverage for determinism outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(presentedFirstTick.DeterminismHash, Is.EqualTo(baselineFirstTick.DeterminismHash)); | Assert.That(presentedSecondTick.DeterminismHash, Is.EqualTo(baselineSecondTick.DeterminismHash)); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "GameObject",
-        "GameplayEntityViewBinder",
-        "TestViewFactory",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "World.CreateSnapshot",
-        "GameplayTimingProfile.CreateDefault"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs",
-      "lineNumber": 19,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyWindupSignals_DoesNotChangeLaterTickAuthoritativeResults",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "determinism",
-        "enemy_view_isolation_contract"
-      ],
-      "reason": "Variation/detail coverage for determinism outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(presentedWindupTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True); | Assert.That(presentedWindupTick.DeterminismHash, Is.EqualTo(baselineWindupTick.DeterminismHash)); | Assert.That(presentedExecuteTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.True);",
-      "targetSymbols": [
-        "Vector2Int",
-        "GameObject",
-        "GameplayEntityViewBinder",
-        "TestViewFactory",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "World.CreateSnapshot",
-        "GameplayTimingProfile.CreateDefault"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs",
-      "lineNumber": 84,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyViewIsolationTests.GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "enemy_view_isolation_contract"
-      ],
-      "reason": "Variation/detail coverage for enemy_view_isolation_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(presentedSnapshotAfter.TryGetEntity(40, out var presentedEnemy), Is.True); | Assert.That(presentedEnemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));",
-      "targetSymbols": [
-        "Vector2Int",
-        "GameObject",
-        "GameplayEntityViewBinder",
-        "TestViewFactory",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "World.CreateSnapshot",
-        "GameplayTimingProfile.CreateDefault"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/EnemyViewIsolationTests.cs",
-      "lineNumber": 159,
       "overridden": false,
       "locked": false
     },
@@ -11536,30 +11330,6 @@
       "locked": false
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.RuntimeBoardBoundsGuardTests.GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "runtime_board_bounds_guard_contract"
-      ],
-      "reason": "Large scaffold, fuzz, or broad regression coverage reserved for Full runs.",
-      "assertionSummary": "Assert.DoesNotThrow( | CollectionAssert.AreEqual( | Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);",
-      "targetSymbols": [
-        "GameObject",
-        "BoardBounds",
-        "Vector2Int",
-        "SurfaceCell",
-        "CubeTopologyState",
-        "Assert.DoesNotThrow",
-        "InputHost.SetRawMoveInput",
-        "InputHost.RunSingleTick"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 716,
-      "overridden": false,
-      "locked": false
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.RuntimeBoardBoundsGuardTests.GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming",
       "category": "Full",
       "mode": "EditMode",
@@ -11580,7 +11350,7 @@
         "ViewRegistry.TryGetView"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 769,
+      "lineNumber": 716,
       "overridden": false,
       "locked": false
     },
@@ -11599,7 +11369,7 @@
         "CollectionAssert.AreEqual"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 856,
+      "lineNumber": 803,
       "overridden": false,
       "locked": false
     },
@@ -11623,7 +11393,7 @@
         "Is.LessThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 910,
+      "lineNumber": 857,
       "overridden": false,
       "locked": false
     },
@@ -11647,7 +11417,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 942,
+      "lineNumber": 889,
       "overridden": false,
       "locked": false
     },
@@ -11669,7 +11439,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 968,
+      "lineNumber": 915,
       "overridden": false,
       "locked": false
     },
@@ -11690,7 +11460,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1001,
+      "lineNumber": 948,
       "overridden": false,
       "locked": false
     },
@@ -11711,7 +11481,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1022,
+      "lineNumber": 969,
       "overridden": false,
       "locked": false
     },
@@ -11733,7 +11503,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1044,
+      "lineNumber": 991,
       "overridden": false,
       "locked": false
     },
@@ -11755,7 +11525,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1085,
+      "lineNumber": 1032,
       "overridden": false,
       "locked": false
     },
@@ -11776,7 +11546,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1126,
+      "lineNumber": 1073,
       "overridden": false,
       "locked": false
     },
@@ -11798,7 +11568,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1158,
+      "lineNumber": 1105,
       "overridden": false,
       "locked": false
     },
@@ -11820,7 +11590,7 @@
         "Is.GreaterThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1192,
+      "lineNumber": 1139,
       "overridden": false,
       "locked": false
     },
@@ -11841,7 +11611,7 @@
         "Is.GreaterThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1206,
+      "lineNumber": 1153,
       "overridden": false,
       "locked": false
     },
@@ -11863,7 +11633,7 @@
         "Is.GreaterThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1219,
+      "lineNumber": 1166,
       "overridden": false,
       "locked": false
     },
@@ -11886,7 +11656,7 @@
         "Is.LessThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1233,
+      "lineNumber": 1180,
       "overridden": false,
       "locked": false
     },
@@ -11910,7 +11680,7 @@
         "Quaternion.Angle"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1249,
+      "lineNumber": 1196,
       "overridden": false,
       "locked": false
     },
@@ -11934,7 +11704,7 @@
         "Quaternion.Angle"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1275,
+      "lineNumber": 1222,
       "overridden": false,
       "locked": false
     },
@@ -11958,7 +11728,7 @@
         "Vector3.Distance"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1301,
+      "lineNumber": 1248,
       "overridden": false,
       "locked": false
     },
@@ -11980,7 +11750,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1326,
+      "lineNumber": 1273,
       "overridden": false,
       "locked": false
     },
@@ -12004,7 +11774,7 @@
         "Is.LessThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1370,
+      "lineNumber": 1317,
       "overridden": false,
       "locked": false
     },
@@ -12028,7 +11798,7 @@
         "Is.LessThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1417,
+      "lineNumber": 1364,
       "overridden": false,
       "locked": false
     },
@@ -12051,7 +11821,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1475,
+      "lineNumber": 1422,
       "overridden": false,
       "locked": false
     },
@@ -12075,7 +11845,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1493,
+      "lineNumber": 1440,
       "overridden": false,
       "locked": false
     },
@@ -12099,7 +11869,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1521,
+      "lineNumber": 1468,
       "overridden": false,
       "locked": false
     },
@@ -12122,7 +11892,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1549,
+      "lineNumber": 1496,
       "overridden": false,
       "locked": false
     },
@@ -12145,7 +11915,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1577,
+      "lineNumber": 1524,
       "overridden": false,
       "locked": false
     },
@@ -12169,7 +11939,7 @@
         "Is.LessThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1605,
+      "lineNumber": 1552,
       "overridden": false,
       "locked": false
     },
@@ -12193,7 +11963,7 @@
         "Is.LessThan"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1626,
+      "lineNumber": 1573,
       "overridden": false,
       "locked": false
     },
@@ -12217,7 +11987,7 @@
         "Camera.WorldToViewportPoint"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1647,
+      "lineNumber": 1594,
       "overridden": false,
       "locked": false
     },
@@ -12241,7 +12011,7 @@
         "Camera.WorldToViewportPoint"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1695,
+      "lineNumber": 1642,
       "overridden": false,
       "locked": false
     },
@@ -12265,7 +12035,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1743,
+      "lineNumber": 1690,
       "overridden": false,
       "locked": false
     },
@@ -12288,7 +12058,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1791,
+      "lineNumber": 1738,
       "overridden": false,
       "locked": false
     },
@@ -12310,7 +12080,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1837,
+      "lineNumber": 1784,
       "overridden": false,
       "locked": false
     },
@@ -12334,7 +12104,7 @@
         "Is.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1855,
+      "lineNumber": 1802,
       "overridden": false,
       "locked": false
     },
@@ -12358,7 +12128,7 @@
         "TileTexture.SetPixel"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1891,
+      "lineNumber": 1838,
       "overridden": false,
       "locked": false
     },
@@ -12382,7 +12152,7 @@
         "VisibleTilePoolRoot.Find"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 1956,
+      "lineNumber": 1903,
       "overridden": false,
       "locked": false
     },
@@ -12406,7 +12176,7 @@
         "Assert.That"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2020,
+      "lineNumber": 1967,
       "overridden": false,
       "locked": false
     },
@@ -12430,7 +12200,7 @@
         "GameplayTimingProfile.CreateDefault"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2105,
+      "lineNumber": 2052,
       "overridden": false,
       "locked": false
     },
@@ -12455,7 +12225,7 @@
         "GameplayTimingProfile.CreateDefault"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2157,
+      "lineNumber": 2104,
       "overridden": false,
       "locked": false
     },
@@ -12479,7 +12249,7 @@
         "GameplayTimingProfile.CreateDefault"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2198,
+      "lineNumber": 2145,
       "overridden": false,
       "locked": false
     },
@@ -12503,7 +12273,7 @@
         "GameplayTimingProfile.CreateDefault"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2233,
+      "lineNumber": 2180,
       "overridden": false,
       "locked": false
     },
@@ -12527,7 +12297,7 @@
         "GameplayTimingProfile.CreateDefault"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2287,
+      "lineNumber": 2234,
       "overridden": false,
       "locked": false
     },
@@ -12553,7 +12323,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2337,
+      "lineNumber": 2284,
       "overridden": false,
       "locked": false
     },
@@ -12577,7 +12347,7 @@
         "TickPresentationData"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2462,
+      "lineNumber": 2409,
       "overridden": false,
       "locked": false
     },
@@ -12602,7 +12372,7 @@
         "ActionGroup"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2521,
+      "lineNumber": 2468,
       "overridden": false,
       "locked": false
     },
@@ -12626,7 +12396,7 @@
         "TickPresentationData"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2591,
+      "lineNumber": 2538,
       "overridden": false,
       "locked": false
     },
@@ -12650,7 +12420,7 @@
         "TickPresentationData"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2690,
+      "lineNumber": 2637,
       "overridden": false,
       "locked": false
     },
@@ -12675,7 +12445,7 @@
         "TickPresentationData"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2760,
+      "lineNumber": 2707,
       "overridden": false,
       "locked": false
     },
@@ -12702,7 +12472,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2816,
+      "lineNumber": 2763,
       "overridden": false,
       "locked": false
     },
@@ -12728,7 +12498,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2906,
+      "lineNumber": 2853,
       "overridden": false,
       "locked": false
     },
@@ -12754,7 +12524,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 2990,
+      "lineNumber": 2937,
       "overridden": false,
       "locked": false
     },
@@ -12780,7 +12550,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3085,
+      "lineNumber": 3032,
       "overridden": false,
       "locked": false
     },
@@ -12806,7 +12576,7 @@
         "TickPresentationData"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3182,
+      "lineNumber": 3129,
       "overridden": false,
       "locked": false
     },
@@ -12832,7 +12602,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3350,
+      "lineNumber": 3297,
       "overridden": false,
       "locked": false
     },
@@ -12857,7 +12627,7 @@
         "Is.Not.EqualTo"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3492,
+      "lineNumber": 3439,
       "overridden": false,
       "locked": false
     },
@@ -12879,7 +12649,7 @@
         "Does.Not.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3565,
+      "lineNumber": 3512,
       "overridden": false,
       "locked": false
     },
@@ -12899,7 +12669,7 @@
         "Does.Not.Contain"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3598,
+      "lineNumber": 3545,
       "overridden": false,
       "locked": false
     },
@@ -12925,7 +12695,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3631,
+      "lineNumber": 3578,
       "overridden": false,
       "locked": false
     },
@@ -12951,7 +12721,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3739,
+      "lineNumber": 3686,
       "overridden": false,
       "locked": false
     },
@@ -12977,7 +12747,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3835,
+      "lineNumber": 3782,
       "overridden": false,
       "locked": false
     },
@@ -13003,7 +12773,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 3931,
+      "lineNumber": 3878,
       "overridden": false,
       "locked": false
     },
@@ -13029,7 +12799,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4013,
+      "lineNumber": 3960,
       "overridden": false,
       "locked": false
     },
@@ -13055,7 +12825,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4100,
+      "lineNumber": 4047,
       "overridden": false,
       "locked": false
     },
@@ -13081,7 +12851,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4225,
+      "lineNumber": 4172,
       "overridden": false,
       "locked": false
     },
@@ -13105,7 +12875,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4327,
+      "lineNumber": 4274,
       "overridden": false,
       "locked": false
     },
@@ -13129,7 +12899,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4379,
+      "lineNumber": 4326,
       "overridden": false,
       "locked": false
     },
@@ -13155,7 +12925,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4434,
+      "lineNumber": 4381,
       "overridden": false,
       "locked": false
     },
@@ -13179,7 +12949,7 @@
         "TickPresentationData"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4522,
+      "lineNumber": 4469,
       "overridden": false,
       "locked": false
     },
@@ -13203,7 +12973,7 @@
         "ViewPrefab.transform.SetParent"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4604,
+      "lineNumber": 4551,
       "overridden": false,
       "locked": false
     },
@@ -13227,7 +12997,7 @@
         "ViewPrefab.transform.SetParent"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4685,
+      "lineNumber": 4632,
       "overridden": false,
       "locked": false
     },
@@ -13251,7 +13021,7 @@
         "PlayerViewPrefabTestUtility.CreatePlayerViewPrefab"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4783,
+      "lineNumber": 4730,
       "overridden": false,
       "locked": false
     },
@@ -13275,7 +13045,7 @@
         "ViewPrefab.transform.SetParent"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4842,
+      "lineNumber": 4789,
       "overridden": false,
       "locked": false
     },
@@ -13299,7 +13069,7 @@
         "Quaternion.LookRotation"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4912,
+      "lineNumber": 4859,
       "overridden": false,
       "locked": false
     },
@@ -13324,7 +13094,7 @@
         "InputHost.SetRawMoveInput"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 4987,
+      "lineNumber": 4934,
       "overridden": false,
       "locked": false
     },
@@ -13349,7 +13119,7 @@
         "InputHost.SetRawMoveInput"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5045,
+      "lineNumber": 4992,
       "overridden": false,
       "locked": false
     },
@@ -13374,7 +13144,7 @@
         "InputHost.SetRawMoveInput"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5106,
+      "lineNumber": 5053,
       "overridden": false,
       "locked": false
     },
@@ -13399,7 +13169,7 @@
         "InputHost.SetRawMoveInput"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5170,
+      "lineNumber": 5117,
       "overridden": false,
       "locked": false
     },
@@ -13425,7 +13195,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5232,
+      "lineNumber": 5179,
       "overridden": false,
       "locked": false
     },
@@ -13451,7 +13221,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5307,
+      "lineNumber": 5254,
       "overridden": false,
       "locked": false
     },
@@ -13477,7 +13247,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5383,
+      "lineNumber": 5330,
       "overridden": false,
       "locked": false
     },
@@ -13503,7 +13273,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5460,
+      "lineNumber": 5407,
       "overridden": false,
       "locked": false
     },
@@ -13529,7 +13299,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5526,
+      "lineNumber": 5473,
       "overridden": false,
       "locked": false
     },
@@ -13555,7 +13325,7 @@
         "Vector2Int"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5620,
+      "lineNumber": 5567,
       "overridden": false,
       "locked": false
     },
@@ -13581,7 +13351,7 @@
         "BoardBounds"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5706,
+      "lineNumber": 5653,
       "overridden": false,
       "locked": false
     },
@@ -13607,7 +13377,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5805,
+      "lineNumber": 5752,
       "overridden": false,
       "locked": false
     },
@@ -13633,7 +13403,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5881,
+      "lineNumber": 5828,
       "overridden": false,
       "locked": false
     },
@@ -13659,7 +13429,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 5961,
+      "lineNumber": 5908,
       "overridden": false,
       "locked": false
     },
@@ -13685,7 +13455,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 6064,
+      "lineNumber": 6011,
       "overridden": false,
       "locked": false
     },
@@ -13711,7 +13481,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 6134,
+      "lineNumber": 6081,
       "overridden": false,
       "locked": false
     },
@@ -13737,7 +13507,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 6212,
+      "lineNumber": 6159,
       "overridden": false,
       "locked": false
     },
@@ -13763,7 +13533,7 @@
         "SurfaceCell"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/RuntimeBoardBoundsGuardTests.cs",
-      "lineNumber": 6291,
+      "lineNumber": 6238,
       "overridden": false,
       "locked": false
     },
@@ -14032,50 +13802,6 @@
       "locked": false
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.TickPipeline_ExposesObjectiveResultInTickResult",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "stage_objective_system_contract"
-      ],
-      "reason": "Variation/detail coverage for stage_objective_system_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.ObjectiveResult.HasObjective, Is.True); | Assert.That(result.ObjectiveResult.IsCleared, Is.True); | Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);",
-      "targetSymbols": [
-        "SurfaceCell",
-        "CubeTopologyState",
-        "TickInput",
-        "GameplayTimingProfile.CreateDefault",
-        "GameplayWorldStateTestFactory.CreateBounded",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageObjectiveSystemTests.cs",
-      "lineNumber": 361,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.TickPipeline_DeterminismHash_ChangesWhenObjectiveStateChanges",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "determinism",
-        "stage_objective_system_contract"
-      ],
-      "reason": "Variation/detail coverage for determinism outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(clearedResult.DeterminismHash, Is.Not.EqualTo(unclearedResult.DeterminismHash));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "GameplayTimingProfile.CreateDefault",
-        "Assert.That",
-        "Is.Not.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageObjectiveSystemTests.cs",
-      "lineNumber": 390,
-      "overridden": false,
-      "locked": false
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.StageObjectiveSystemTests.StageRuntimeBuilder_ExistingAuthoringWithoutObjective_RemainsCompatible",
       "category": "Extended",
       "mode": "EditMode",
@@ -14093,7 +13819,7 @@
         "UnityEngine.Object.DestroyImmediate"
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/StageObjectiveSystemTests.cs",
-      "lineNumber": 410,
+      "lineNumber": 361,
       "overridden": false,
       "locked": false
     },
@@ -14345,847 +14071,6 @@
       "locked": false
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_SortsRawIntents_AndAssignsCentralIntentIds",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "StubEntityLogic",
-        "RawMovementIntent",
-        "TickInput",
-        "RawAttackIntent.CreateFireProjectile",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "MovementPhaseResult.SortedIntents.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 32,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_AttackPhase_CollectsOnlyAliveEntityIntents",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "StubEntityLogic",
-        "TickInput",
-        "RawAttackIntent.CreateFireProjectile",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "CollectionAssert.AreEqual",
-        "AttackPhaseResult.SortedInputs.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 83,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_UsesInjectedEntityLogicProvider",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickPipeline",
-        "StubEntityLogicProvider",
-        "StubEntityLogic",
-        "RawMovementIntent",
-        "TickInput",
-        "GameplayTimingProfile.CreateDefault",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 127,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickRunner_RunNextTick_ConsumesBufferedInputAndAdvancesIndex",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.TickIndex, Is.EqualTo(4)); | Assert.That(runner.NextTickIndex, Is.EqualTo(5)); | Assert.That(inputBuffer.HasBufferedInput(4), Is.False);",
-      "targetSymbols": [
-        "TickInputBuffer",
-        "TickRunner",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "GameplayWorldStateTestFactory.CreateBounded",
-        "Buffer.Record",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 164,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickRunner_RunTick_RejectsOutOfOrderTickIndex",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That( | Assert.That(runner.NextTickIndex, Is.EqualTo(3));",
-      "targetSymbols": [
-        "TickRunner",
-        "TickInputBuffer",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "GameplayWorldStateTestFactory.CreateBounded",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 183,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.GameplayCompositionRoot_CreateTickRunner_UsesDefaultProviderWithProjectileCadence",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty); | Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0))); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInputBuffer",
-        "SurfaceCell",
-        "GameplayCompositionRoot.CreateTickRunner",
-        "GameplayTimingProfile.CreateDefault",
-        "Assert.That",
-        "Result.FinalEntities.Single",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 198,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_OffBottomEnemy_DoesNotEmitMovementOrAttackTrace",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);",
-      "targetSymbols": [
-        "SurfaceCell",
-        "BoardBounds",
-        "Vector2Int",
-        "CubeTopologyState",
-        "TickInput",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "Assert.That",
-        "Does.Not.Contain"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 243,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_TopologyRotation_ReevaluatesEnemyParticipationBeforeAttackCollection",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front))); | Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty); | Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);",
-      "targetSymbols": [
-        "SurfaceCell",
-        "BoardBounds",
-        "Vector2Int",
-        "CubeTopologyState",
-        "PlayerLogic",
-        "TickInput",
-        "State.CreateWriteContext",
-        "GameplayCompositionRoot.CreateTickPipeline"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 272,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.GameplayBootstrapper_CreateTickRunner_PreservesPreExistingProjectileCadence",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty); | Assert.That(firstResult.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1))); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "TickInputBuffer",
-        "TickInput",
-        "SurfaceCell",
-        "GameplayCompositionRoot.CreateDefaultBootstrapper",
-        "GameplayTimingProfile.CreateDefault",
-        "Buffer.Record",
-        "Assert.That"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 317,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_NormalizesPreExistingProjectileCadence",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "interaction_push",
-        "interaction_flip",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(snapshot.TryGetProjectileAt(new Vector2Int(0, 0), out var projectile), Is.True); | Assert.That(projectile.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks));",
-      "targetSymbols": [
-        "GameplayTimingProfile",
-        "Vector2Int",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 371,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.RunTick_UsesAuthoritativeProjectileStateTimerWithoutSessionStartMutation",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(result.FinalEntities.Single().position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));",
-      "targetSymbols": [
-        "Vector2Int",
-        "BoardBounds",
-        "TickInput",
-        "SurfaceCell",
-        "GameplayCompositionRoot.CreateWorldState",
-        "GameplayCompositionRoot.CreateTickPipeline",
-        "GameplayTimingProfile.CreateDefault",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 406,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_EnumeratesEntitiesInEntityIdOrder",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 10, 20, 30 }, orderedEntities.Select(entity => entity.entityId).ToArray());",
-      "targetSymbols": [
-        "Vector2Int",
-        "List<EntityState>",
-        "CollectionAssert.AreEqual",
-        "Entities.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 443,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_EnumeratesOccupancyLayersInCellOrder",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "List<SnapshotOccupancyEntry>",
-        "CollectionAssert.AreEqual",
-        "Units.Select",
-        "Solids.Select",
-        "Projectiles.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 486,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_MarkedForDeathUnit_DoesNotBlockUnitPlacementButStillBlocksMovementUntilCleanup",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False); | Assert.That(snapshot.BlocksMovement(10), Is.True);",
-      "targetSymbols": [
-        "Vector2Int",
-        "Assert.That"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 579,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_IsBlockedForUnit_ConsidersBoardBoundsTerrainAndIgnoresProjectileAndUnitLayers",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(snapshot.IsInsideBoard(new Vector2Int(0, 0)), Is.True); | Assert.That(snapshot.IsInsideBoard(new Vector2Int(-1, 0)), Is.False); | Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(-1, 0)), Is.True);",
-      "targetSymbols": [
-        "Vector2Int",
-        "BoardBounds",
-        "GameplayTerrainData",
-        "Assert.That"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 602,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_TryGetPlacementBlocker_AppliesGameplayFacePresenceAndEntityTypeRules",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That( | Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity)); | Assert.That(blocker.EntityId, Is.EqualTo(30));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "BoardBounds",
-        "Vector2Int",
-        "GameplayTerrainData",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 659,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(snapshot.CanBeTargetedForNewSelection(10), Is.False);",
-      "targetSymbols": [
-        "Vector2Int",
-        "Assert.That"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 738,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.WorldSnapshot_IsImmutable_AfterWorldMutation",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out var deathMarkedUnit), Is.True); | Assert.That(deathMarkedUnit.entityId, Is.EqualTo(10)); | Assert.That(snapshot.TryGetProjectileAt(new Vector2Int(2, 0), out var projectile), Is.True);",
-      "targetSymbols": [
-        "Vector2Int",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 760,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_EdgeReservation_RejectsLaterCandidateThatSharesUndirectedEdge",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "MovementResolver",
-        "MoveAction",
-        "Vector2Int",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual",
-        "Groups.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 809,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_EdgeReservation_StillRejectsDestinationConflict",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "MovementResolver",
-        "MoveAction",
-        "Vector2Int",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual",
-        "Groups.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 843,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_UnitSharedMove_RejectsLaterCandidateWhenPushAlreadyReservedDestination",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "interaction_push",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "MovementResolver",
-        "MoveAction",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual",
-        "Groups.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 877,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_UnitSharedMove_RejectsLaterPushCandidateThatSharesUndirectedEdge",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "interaction_push",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "Vector2Int",
-        "MovementResolver",
-        "MoveAction",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual",
-        "Groups.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 933,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_TopologyReservation_RejectsLaterCandidateThatAlsoChangesTopology",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "MovementResolver",
-        "SurfaceCell",
-        "CubeTopologyState",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual",
-        "Groups.Select"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 989,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_TopologyExclusive_RejectsLaterOrdinaryCandidateAfterTopologySelected",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "MovementResolver",
-        "SurfaceCell",
-        "CubeTopologyState",
-        "MoveAction",
-        "Vector2Int",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1029,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.Movement_TopologyExclusive_RejectsTopologyCandidateWhenOrdinaryGroupAlreadySelected",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for tick_pipeline_stage_one_contract outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "MovementResolver",
-        "MoveAction",
-        "Vector2Int",
-        "SurfaceCell",
-        "CubeTopologyState",
-        "List<ActionGroup>",
-        "List<string>",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1066,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsMoveMotionForUnitMove",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "SurfaceCell",
-        "ActionGroup",
-        "MoveAction",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "Group.AssignGroupId",
-        "Group.Moves.Add",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1103,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "SurfaceCell",
-        "ActionGroup",
-        "MoveAction",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "Group.AssignGroupId",
-        "Group.Moves.Add",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1143,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsBoxSlideMotionForSlidingPushBox",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "interaction_push",
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual(",
-      "targetSymbols": [
-        "SurfaceCell",
-        "ActionGroup",
-        "MoveAction",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "Group.AssignGroupId",
-        "Group.Moves.Add",
-        "CollectionAssert.AreEqual"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1183,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsTopologyAndVisibilityPresentationRecords",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(presentationData.TopologyMotion.HasValue, Is.True); | Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward)); | Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(initialTopology));",
-      "targetSymbols": [
-        "CubeTopologyState",
-        "SurfaceCell",
-        "BoardBounds",
-        "Vector2Int",
-        "ActionGroup",
-        "MoveAction",
-        "BoardPresenceChangeAction",
-        "TopologyChangeAction"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1232,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsTransitionVisibilityPresentationRecordsForTopologyPassengers",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(presentationData.VisibilityChanges, Is.Empty);",
-      "targetSymbols": [
-        "CubeTopologyState",
-        "SurfaceCell",
-        "BoardBounds",
-        "Vector2Int",
-        "ActionGroup",
-        "MoveAction",
-        "TopologyChangeAction",
-        "TickPresentationDataBuilder"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1326,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsEnemyDeathExitSignalForAttackKilledEnemy_WithoutGenericCleanupRemove",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1)); | Assert.That(signal.ExitedEntityId, Is.EqualTo(40)); | Assert.That(signal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));",
-      "targetSymbols": [
-        "CubeTopologyState",
-        "BoardBounds",
-        "Vector2Int",
-        "SurfaceCell",
-        "ActionGroup",
-        "DestroyAction",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1390,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsEnemyActionSignalForOngoingWindup",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee)); | Assert.That(signal.ActiveActionSequence, Is.EqualTo(3));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "EnemyActionStateSeed",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "Data.EnemyActionSignals.Single",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1471,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsEnemyActionSignalForStartExecuteAndRecovery",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee)); | Assert.That(signal.ActiveActionSequence, Is.EqualTo(1));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "EnemyActionStateSeed",
-        "ActionGroup",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "Group.AssignGroupId",
-        "Data.EnemyActionSignals.Single",
-        "Assert.That"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1530,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsEnemyActionCancelSignalWhenWindupClears",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.None)); | Assert.That(signal.ActiveActionSequence, Is.EqualTo(2));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "EnemyActionStateSeed",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "EnemyActionQueries.Clear",
-        "Data.EnemyActionSignals.Single",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1592,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart",
-      "category": "Extended",
-      "mode": "EditMode",
-      "contracts": [
-        "interaction_jump",
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Variation/detail coverage for interaction_jump outside the minimal Core representative set.",
-      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.Sequence, Is.EqualTo(3)); | Assert.That(signal.Phase, Is.EqualTo(EnemyJumpPhase.Windup));",
-      "targetSymbols": [
-        "SurfaceCell",
-        "EnemyJumpStateSeed",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "Data.EnemyJumpSignals.Single",
-        "Assert.That",
-        "Is.EqualTo"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1645,
-      "overridden": false,
-      "locked": false
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry",
-      "category": "Full",
-      "mode": "EditMode",
-      "contracts": [
-        "interaction_jump",
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Rare edge or broad variation coverage for interaction_jump reserved for Full runs.",
-      "assertionSummary": "Assert.That(startSignal.Phase, Is.EqualTo(EnemyJumpPhase.Airborne)); | Assert.That(startSignal.StartedWindupThisTick, Is.False); | Assert.That(startSignal.StartedAirborneThisTick, Is.True);",
-      "targetSymbols": [
-        "SurfaceCell",
-        "TickPresentationDataBuilder",
-        "TickPresentationBuildContext",
-        "EnemyJumpStateSeed",
-        "StartPresentationData.EnemyJumpSignals.Single",
-        "Assert.That",
-        "Is.EqualTo",
-        "PresentationData.EnemyJumpSignals.Single"
-      ],
-      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/TickPipelineStageOneTests.cs",
-      "lineNumber": 1699,
-      "overridden": false,
-      "locked": false
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TopologyTransitionPostFxTests.GameplaySceneHost_Initialize_TopologyTransitionPostFx_CreatesRuntimeVolumeCloneFromAuthoritativeAsset",
       "category": "Extended",
       "mode": "EditMode",
@@ -15393,6 +14278,609 @@
       ],
       "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/UnitLocomotionPresentationAuthoringTests.cs",
       "lineNumber": 107,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.GameplayWorldStateTestFactory_CreateBounded_WithTimingProfile_NormalizesPreExistingProjectileCadence",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(snapshot.TryGetProjectileAt(new Vector2Int(0, 0), out var projectile), Is.True); | Assert.That(projectile.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks));",
+      "targetSymbols": [
+        "GameplayTimingProfile",
+        "Vector2Int",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 32,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_EnumeratesEntitiesInEntityIdOrder",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 10, 20, 30 }, orderedEntities.Select(entity => entity.entityId).ToArray());",
+      "targetSymbols": [
+        "Vector2Int",
+        "List<EntityState>",
+        "CollectionAssert.AreEqual",
+        "Entities.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 67,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_EnumeratesOccupancyLayersInCellOrder",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "List<SnapshotOccupancyEntry>",
+        "CollectionAssert.AreEqual",
+        "Units.Select",
+        "Solids.Select",
+        "Projectiles.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 110,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_MarkedForDeathUnit_DoesNotBlockUnitPlacementButStillBlocksMovementUntilCleanup",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False); | Assert.That(snapshot.BlocksMovement(10), Is.True);",
+      "targetSymbols": [
+        "Vector2Int",
+        "Assert.That"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 203,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_IsBlockedForUnit_ConsidersBoardBoundsTerrainAndIgnoresProjectileAndUnitLayers",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(snapshot.IsInsideBoard(new Vector2Int(0, 0)), Is.True); | Assert.That(snapshot.IsInsideBoard(new Vector2Int(-1, 0)), Is.False); | Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(-1, 0)), Is.True);",
+      "targetSymbols": [
+        "Vector2Int",
+        "BoardBounds",
+        "GameplayTerrainData",
+        "Assert.That"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 226,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_TryGetPlacementBlocker_AppliesGameplayFacePresenceAndEntityTypeRules",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That( | Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity)); | Assert.That(blocker.EntityId, Is.EqualTo(30));",
+      "targetSymbols": [
+        "SurfaceCell",
+        "BoardBounds",
+        "Vector2Int",
+        "GameplayTerrainData",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 283,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_CanBeTargetedForNewSelection_FollowsMarkedForDeathPolicy",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(snapshot.CanBeTargetedForNewSelection(10), Is.False);",
+      "targetSymbols": [
+        "Vector2Int",
+        "Assert.That"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 362,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.WorldSnapshot_IsImmutable_AfterWorldMutation",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out var deathMarkedUnit), Is.True); | Assert.That(deathMarkedUnit.entityId, Is.EqualTo(10)); | Assert.That(snapshot.TryGetProjectileAt(new Vector2Int(2, 0), out var projectile), Is.True);",
+      "targetSymbols": [
+        "Vector2Int",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 384,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_EdgeReservation_RejectsLaterCandidateThatSharesUndirectedEdge",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "MovementResolver",
+        "MoveAction",
+        "Vector2Int",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual",
+        "Groups.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 433,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_EdgeReservation_StillRejectsDestinationConflict",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "MovementResolver",
+        "MoveAction",
+        "Vector2Int",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual",
+        "Groups.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 467,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_UnitSharedMove_RejectsLaterCandidateWhenPushAlreadyReservedDestination",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "interaction_push",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "MovementResolver",
+        "MoveAction",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual",
+        "Groups.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 501,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_UnitSharedMove_RejectsLaterPushCandidateThatSharesUndirectedEdge",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "interaction_push",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "Vector2Int",
+        "MovementResolver",
+        "MoveAction",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual",
+        "Groups.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 557,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_TopologyReservation_RejectsLaterCandidateThatAlsoChangesTopology",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "MovementResolver",
+        "SurfaceCell",
+        "CubeTopologyState",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual",
+        "Groups.Select"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 613,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_TopologyExclusive_RejectsLaterOrdinaryCandidateAfterTopologySelected",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "MovementResolver",
+        "SurfaceCell",
+        "CubeTopologyState",
+        "MoveAction",
+        "Vector2Int",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 653,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.Movement_TopologyExclusive_RejectsTopologyCandidateWhenOrdinaryGroupAlreadySelected",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for world_snapshot_and_presentation_contract outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(new[] { 1 }, selectedGroups.Select(group => group.GroupId).ToArray()); | CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "MovementResolver",
+        "MoveAction",
+        "Vector2Int",
+        "SurfaceCell",
+        "CubeTopologyState",
+        "List<ActionGroup>",
+        "List<string>",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 690,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsMoveMotionForUnitMove",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "SurfaceCell",
+        "ActionGroup",
+        "MoveAction",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "Group.AssignGroupId",
+        "Group.Moves.Add",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 727,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "SurfaceCell",
+        "ActionGroup",
+        "MoveAction",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "Group.AssignGroupId",
+        "Group.Moves.Add",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 767,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsBoxSlideMotionForSlidingPushBox",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "interaction_push",
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for interaction_push outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual(",
+      "targetSymbols": [
+        "SurfaceCell",
+        "ActionGroup",
+        "MoveAction",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "Group.AssignGroupId",
+        "Group.Moves.Add",
+        "CollectionAssert.AreEqual"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 807,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsTopologyAndVisibilityPresentationRecords",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(presentationData.TopologyMotion.HasValue, Is.True); | Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward)); | Assert.That(presentationData.TopologyMotion.Value.SourceTopology, Is.EqualTo(initialTopology));",
+      "targetSymbols": [
+        "CubeTopologyState",
+        "SurfaceCell",
+        "BoardBounds",
+        "Vector2Int",
+        "ActionGroup",
+        "MoveAction",
+        "BoardPresenceChangeAction",
+        "TopologyChangeAction"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 856,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsTransitionVisibilityPresentationRecordsForTopologyPassengers",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "CollectionAssert.AreEqual( | Assert.That(presentationData.VisibilityChanges, Is.Empty);",
+      "targetSymbols": [
+        "CubeTopologyState",
+        "SurfaceCell",
+        "BoardBounds",
+        "Vector2Int",
+        "ActionGroup",
+        "MoveAction",
+        "TopologyChangeAction",
+        "TickPresentationDataBuilder"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 950,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyDeathExitSignalForAttackKilledEnemy_WithoutGenericCleanupRemove",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1)); | Assert.That(signal.ExitedEntityId, Is.EqualTo(40)); | Assert.That(signal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));",
+      "targetSymbols": [
+        "CubeTopologyState",
+        "BoardBounds",
+        "Vector2Int",
+        "SurfaceCell",
+        "ActionGroup",
+        "DestroyAction",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 1014,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyActionSignalForOngoingWindup",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee)); | Assert.That(signal.ActiveActionSequence, Is.EqualTo(3));",
+      "targetSymbols": [
+        "SurfaceCell",
+        "EnemyActionStateSeed",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "Data.EnemyActionSignals.Single",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 1095,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyActionSignalForStartExecuteAndRecovery",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.Melee)); | Assert.That(signal.ActiveActionSequence, Is.EqualTo(1));",
+      "targetSymbols": [
+        "SurfaceCell",
+        "EnemyActionStateSeed",
+        "ActionGroup",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "Group.AssignGroupId",
+        "Data.EnemyActionSignals.Single",
+        "Assert.That"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 1154,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyActionCancelSignalWhenWindupClears",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for spawn_destroy_delayed_ordering outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.ActiveActionKind, Is.EqualTo(EnemyActionKind.None)); | Assert.That(signal.ActiveActionSequence, Is.EqualTo(2));",
+      "targetSymbols": [
+        "SurfaceCell",
+        "EnemyActionStateSeed",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "EnemyActionQueries.Clear",
+        "Data.EnemyActionSignals.Single",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 1216,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForWindupStart",
+      "category": "Extended",
+      "mode": "EditMode",
+      "contracts": [
+        "interaction_jump",
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Variation/detail coverage for interaction_jump outside the minimal Core representative set.",
+      "assertionSummary": "Assert.That(signal.EntityId, Is.EqualTo(enemyId)); | Assert.That(signal.Sequence, Is.EqualTo(3)); | Assert.That(signal.Phase, Is.EqualTo(EnemyJumpPhase.Windup));",
+      "targetSymbols": [
+        "SurfaceCell",
+        "EnemyJumpStateSeed",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "Data.EnemyJumpSignals.Single",
+        "Assert.That",
+        "Is.EqualTo"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 1269,
+      "overridden": false,
+      "locked": false
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.WorldSnapshotAndPresentationTests.TickPresentationDataBuilder_BuildsEnemyJumpSignal_ForAirborneStartAndRetry",
+      "category": "Full",
+      "mode": "EditMode",
+      "contracts": [
+        "interaction_jump",
+        "spawn_destroy_delayed_ordering",
+        "world_snapshot_and_presentation_contract"
+      ],
+      "reason": "Rare edge or broad variation coverage for interaction_jump reserved for Full runs.",
+      "assertionSummary": "Assert.That(startSignal.Phase, Is.EqualTo(EnemyJumpPhase.Airborne)); | Assert.That(startSignal.StartedWindupThisTick, Is.False); | Assert.That(startSignal.StartedAirborneThisTick, Is.True);",
+      "targetSymbols": [
+        "SurfaceCell",
+        "TickPresentationDataBuilder",
+        "TickPresentationBuildContext",
+        "EnemyJumpStateSeed",
+        "StartPresentationData.EnemyJumpSignals.Single",
+        "Assert.That",
+        "Is.EqualTo",
+        "PresentationData.EnemyJumpSignals.Single"
+      ],
+      "sourcePath": "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/WorldSnapshotAndPresentationTests.cs",
+      "lineNumber": 1323,
       "overridden": false,
       "locked": false
     },

@@ -713,59 +713,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming()
-        {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming");
-
-            try
-            {
-                var host = hostObject.AddComponent<GameplaySceneHost>();
-
-                Assert.DoesNotThrow(
-                    () => host.Initialize(
-                        new GameplaySceneHostConfiguration
-                        {
-                            AutoAdvanceTicks = false,
-                            AutoCreateViews = false,
-                            InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
-                            RepeatedMoveIntervalSeconds = 1f / 60f,
-                            InitialEntities = new[]
-                            {
-                                new EntityState
-                                {
-                                    entityId = 10,
-                                    position = new SurfaceCell(FaceId.Floor, 0, 0),
-                                    hp = 3,
-                                    maxHp = 3,
-                                    teamId = 1,
-                                    type = EntityType.Unit,
-                                    state = EntityPhaseState.Idle,
-                                    facing = Direction.Right,
-                                },
-                            },
-                            InitialTopology = new CubeTopologyState(FaceId.Floor),
-                            PlayerEntityId = 10,
-                            StaticEntityLogics = Array.Empty<IEntityLogic>(),
-                        }));
-
-                host.InputHost.SetRawMoveInput(Vector2.right);
-                var firstTick = host.InputHost.RunSingleTick();
-                var secondTick = host.InputHost.RunSingleTick();
-
-                CollectionAssert.AreEqual(
-                    new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
-                    firstTick.MovementPhaseResult.CommitEvents);
-                Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
-                Assert.That(host.ViewRegistry.TryGetView(10, out _), Is.False);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(hostObject);
-            }
-        }
-
-        [Test]
-        [Category("Full")]
         public void GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming()
         {
             var hostObject = new GameObject("GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming");
