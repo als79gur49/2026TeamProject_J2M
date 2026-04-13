@@ -491,7 +491,6 @@ namespace Game.Feature.Gameplay.Loop
 
             var rawAttackIntents = attackPlanResult.RawAttackIntents;
             var attackRejectedReasons = attackPlanResult.RejectedReasons;
-            var sortedInputs = attackPlanResult.SortedInputs;
             var attackResolutionRecords = new List<ResolutionRecord>();
             var attackPlanContests = BuildAttackPlanContestsCanonical(
                 attackPlanResult.OrderedActionPlanIds,
@@ -714,7 +713,6 @@ namespace Game.Feature.Gameplay.Loop
                 drainedImpactReservations,
                 drainedDelayedAttackEffects,
                 damageResolutions,
-                sortedInputs,
                 attackResolutionRecords,
                 attackStageBatch.Operations,
                 delayedAttackEffects,
@@ -910,7 +908,7 @@ namespace Game.Feature.Gameplay.Loop
             AssignAttackGroupIds(expandedAttackCandidates);
             var actionPlanPayloads = BuildAttackActionPlanPayloads(snapshot, expandedAttackCandidates, tickIndex);
             var orderedActionPlanIds = BuildOrderedAttackActionPlanIds(snapshot, expandedAttackCandidates);
-            return new AttackPlanBuildResult(rawAttackIntents, sortedInputs, expandedAttackCandidates, actionPlanPayloads, orderedActionPlanIds, rejectedReasons);
+            return new AttackPlanBuildResult(rawAttackIntents, expandedAttackCandidates, actionPlanPayloads, orderedActionPlanIds, rejectedReasons);
         }
 
         private Dictionary<int, MovementActionPlanPayload> BuildMovementActionPlanPayloads(
@@ -1605,8 +1603,8 @@ namespace Game.Feature.Gameplay.Loop
                 new UnityEngine.Vector2Int(impactCell.x, impactCell.y),
                 ResolveImpactDamageAmount(group),
                 tickGenerated: 0,
-                sourceActionGroupId: group.GroupId,
-                reservationSequence: 0);
+                sourceActionPlanId: group.GroupId,
+                localActionIndex: 0);
             var moveFacing = ResolveImpactMoveFacing(impactSourceEntity.position, impactReservation);
             var isFlipImpact = IsFlipImpact(impactSourceEntity.position, impactReservation);
             var hasSourceFacing = isFlipImpact;
@@ -2109,7 +2107,7 @@ namespace Game.Feature.Gameplay.Loop
             var impactReservationsByActionPlanId = new Dictionary<int, ImpactReservation>(impactReservations.Count);
             for (var i = 0; i < impactReservations.Count; i++)
             {
-                impactReservationsByActionPlanId[impactReservations[i].SourceActionGroupId] = impactReservations[i];
+                impactReservationsByActionPlanId[impactReservations[i].SourceActionPlanId] = impactReservations[i];
             }
 
             for (var i = 0; i < orderedActionPlanIds.Count; i++)
@@ -2125,7 +2123,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (impactReservationsByActionPlanId.TryGetValue(actionPlanId, out var impactReservation))
                 {
                     commitEvents.Add(
-                        $"ImpactReservationCreated|G={actionPlanId}|I={payload.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y))}|Damage={impactReservation.Damage}|Sequence={impactReservation.ReservationSequence}");
+                        $"ImpactReservationCreated|G={actionPlanId}|I={payload.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y))}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
                 }
 
                 var hasContingentResolution = TryFindResolutionRecord(resolutionRecords, ContestKind.Space, actionPlanId, 1, out var contingentResolution) &&
@@ -3671,13 +3669,13 @@ namespace Game.Feature.Gameplay.Loop
                     new Contest(
                         nextContestId++,
                         ContestKind.Impact,
-                        reservation.SourceActionGroupId,
+                        reservation.SourceActionPlanId,
                         reservation.SourceId,
                         priority: 0,
                         reservation.TargetId,
                         new SurfaceCell(FaceId.Floor, reservation.Position.x, reservation.Position.y),
                         hasAffectedCell: true,
-                        localActionIndex: reservation.ReservationSequence));
+                        localActionIndex: reservation.LocalActionIndex));
             }
 
             return contests;
@@ -4543,14 +4541,12 @@ namespace Game.Feature.Gameplay.Loop
     {
         public AttackPlanBuildResult(
             List<RawAttackIntent> rawAttackIntents,
-            List<AttackIntent> sortedInputs,
             List<ActionGroup> expandedCandidates,
             Dictionary<int, AttackActionPlanPayload> actionPlanPayloads,
             List<int> orderedActionPlanIds,
             List<string> rejectedReasons)
         {
             RawAttackIntents = rawAttackIntents ?? throw new ArgumentNullException(nameof(rawAttackIntents));
-            SortedInputs = sortedInputs ?? throw new ArgumentNullException(nameof(sortedInputs));
             ExpandedCandidates = expandedCandidates ?? throw new ArgumentNullException(nameof(expandedCandidates));
             ActionPlanPayloads = actionPlanPayloads ?? throw new ArgumentNullException(nameof(actionPlanPayloads));
             OrderedActionPlanIds = orderedActionPlanIds ?? throw new ArgumentNullException(nameof(orderedActionPlanIds));
@@ -4558,8 +4554,6 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         public List<RawAttackIntent> RawAttackIntents { get; }
-
-        public List<AttackIntent> SortedInputs { get; }
 
         public List<ActionGroup> ExpandedCandidates { get; }
 

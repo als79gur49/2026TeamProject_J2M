@@ -290,7 +290,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 if (TryFindImpactReservation(impactReservations, group.GroupId, out var impactReservation))
                 {
                     commitEvents.Add(
-                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.Position)}|Damage={impactReservation.Damage}|Sequence={impactReservation.ReservationSequence}");
+                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.Position)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
 
                     if (group.GroupKind == ActionGroupKind.ProjectileImpact)
                     {
@@ -782,7 +782,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
         {
             for (var i = 0; i < impactReservations.Count; i++)
             {
-                if (impactReservations[i].SourceActionGroupId == groupId)
+                if (impactReservations[i].SourceActionPlanId == groupId)
                 {
                     impactReservation = impactReservations[i];
                     return true;

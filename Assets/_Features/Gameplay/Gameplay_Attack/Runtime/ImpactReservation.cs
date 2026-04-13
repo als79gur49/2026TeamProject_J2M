@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Attack
@@ -10,17 +9,49 @@ namespace Game.Feature.Gameplay.Attack
             int targetId,
             Vector2Int position,
             int damage,
+            int tickGenerated)
+            : this(
+                sourceId,
+                targetId,
+                position,
+                damage,
+                tickGenerated,
+                default)
+        {
+        }
+
+        internal ImpactReservation(
+            int sourceId,
+            int targetId,
+            Vector2Int position,
+            int damage,
             int tickGenerated,
-            int sourceActionGroupId,
-            int reservationSequence)
+            int sourceActionPlanId,
+            int localActionIndex)
+            : this(
+                sourceId,
+                targetId,
+                position,
+                damage,
+                tickGenerated,
+                new InternalMetadata(sourceActionPlanId, localActionIndex))
+        {
+        }
+
+        private ImpactReservation(
+            int sourceId,
+            int targetId,
+            Vector2Int position,
+            int damage,
+            int tickGenerated,
+            InternalMetadata metadata)
         {
             SourceId = sourceId;
             TargetId = targetId;
             Position = position;
             Damage = damage;
             TickGenerated = tickGenerated;
-            SourceActionGroupId = sourceActionGroupId;
-            ReservationSequence = reservationSequence;
+            Metadata = metadata;
         }
 
         public int SourceId { get; }
@@ -33,10 +64,23 @@ namespace Game.Feature.Gameplay.Attack
 
         public int TickGenerated { get; }
 
-        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, TargetId, Position, Damage, and TickGenerated.")]
-        public int SourceActionGroupId { get; }
+        internal int SourceActionPlanId => Metadata.SourceActionPlanId;
 
-        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, TargetId, Position, Damage, and TickGenerated.")]
-        public int ReservationSequence { get; }
+        internal int LocalActionIndex => Metadata.LocalActionIndex;
+
+        internal InternalMetadata Metadata { get; }
+
+        internal readonly struct InternalMetadata
+        {
+            public InternalMetadata(int sourceActionPlanId, int localActionIndex)
+            {
+                SourceActionPlanId = sourceActionPlanId;
+                LocalActionIndex = localActionIndex;
+            }
+
+            public int SourceActionPlanId { get; }
+
+            public int LocalActionIndex { get; }
+        }
     }
 }

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
-using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Loop
@@ -68,7 +67,6 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<ImpactReservation>(),
             Array.Empty<DelayedAttackEffectRecord>(),
             Array.Empty<DamageResolutionRecord>(),
-            Array.Empty<AttackIntent>(),
             Array.Empty<ResolutionRecord>(),
             Array.Empty<FinalizationOperation>(),
             Array.Empty<DelayedAttackEffectRecord>(),
@@ -86,14 +84,12 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<string> _rejectedReasons;
         private readonly ReadOnlyCollection<ResolutionRecord> _resolutionRecords;
         private readonly ReadOnlyCollection<FinalizationOperation> _resolvedOperations;
-        private readonly ReadOnlyCollection<AttackIntent> _sortedInputs;
 
         public AttackPhaseResult(
             IEnumerable<RawAttackIntent> rawIntents,
             IEnumerable<ImpactReservation> drainedImpactReservations,
             IEnumerable<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
             IEnumerable<DamageResolutionRecord> damageResolutions,
-            IEnumerable<AttackIntent> sortedInputs,
             IEnumerable<ResolutionRecord> resolutionRecords,
             IEnumerable<FinalizationOperation> resolvedOperations,
             IEnumerable<DelayedAttackEffectRecord> queuedDelayedAttackEffects,
@@ -119,11 +115,6 @@ namespace Game.Feature.Gameplay.Loop
             if (damageResolutions == null)
             {
                 throw new ArgumentNullException(nameof(damageResolutions));
-            }
-
-            if (sortedInputs == null)
-            {
-                throw new ArgumentNullException(nameof(sortedInputs));
             }
 
             if (resolutionRecords == null)
@@ -160,7 +151,6 @@ namespace Game.Feature.Gameplay.Loop
             _drainedImpactReservations = new ReadOnlyCollection<ImpactReservation>(new List<ImpactReservation>(drainedImpactReservations));
             _drainedDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(drainedDelayedAttackEffects));
             _damageResolutions = new ReadOnlyCollection<DamageResolutionRecord>(new List<DamageResolutionRecord>(damageResolutions));
-            _sortedInputs = new ReadOnlyCollection<AttackIntent>(new List<AttackIntent>(sortedInputs));
             _resolutionRecords = new ReadOnlyCollection<ResolutionRecord>(new List<ResolutionRecord>(resolutionRecords));
             _resolvedOperations = new ReadOnlyCollection<FinalizationOperation>(new List<FinalizationOperation>(resolvedOperations));
             _queuedDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(queuedDelayedAttackEffects));
@@ -176,9 +166,6 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<DelayedAttackEffectRecord> DrainedDelayedAttackEffects => _drainedDelayedAttackEffects;
 
         public IReadOnlyList<DamageResolutionRecord> DamageResolutions => _damageResolutions;
-
-        [Obsolete("Phase-private normalized input IR. Prefer RawIntents, DrainedImpactReservations, DamageResolutions, or CommitEvents in tests and diagnostics.")]
-        public IReadOnlyList<AttackIntent> SortedInputs => _sortedInputs;
 
         public IReadOnlyList<ResolutionRecord> ResolutionRecords => _resolutionRecords;
 

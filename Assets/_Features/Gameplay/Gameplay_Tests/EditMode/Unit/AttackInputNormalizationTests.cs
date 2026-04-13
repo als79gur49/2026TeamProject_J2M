@@ -82,7 +82,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TickTraceBuilder_EmitsDrainedReservations_AndNormalizedSyntheticInputs()
+        public void TickTraceBuilder_EmitsDrainedReservations_WithoutNormalizedInputIr()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
             {
@@ -92,14 +92,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var snapshot = SnapshotBuilder.Create(worldState);
             var reservation = new ImpactReservation(30, 20, new Vector2Int(1, 0), 1, 7, 2, 1);
-            var normalizedInputs = new List<AttackIntent>();
             var finalEntities = new List<EntityState>();
-
-            new AttackInputNormalizer().Normalize(
-                Array.Empty<RawAttackIntent>(),
-                new[] { reservation },
-                normalizedInputs);
-            normalizedInputs[0].AssignIntentId(1);
             snapshot.EnumerateEntitiesOrdered(finalEntities);
 
             var attackPhaseResult = new AttackPhaseResult(
@@ -107,7 +100,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[] { reservation },
                 Array.Empty<DelayedAttackEffectRecord>(),
                 Array.Empty<DamageResolutionRecord>(),
-                normalizedInputs,
                 Array.Empty<ResolutionRecord>(),
                 Array.Empty<FinalizationOperation>(),
                 Array.Empty<DelayedAttackEffectRecord>(),

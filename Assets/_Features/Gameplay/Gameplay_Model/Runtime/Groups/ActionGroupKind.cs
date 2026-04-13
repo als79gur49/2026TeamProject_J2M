@@ -1,6 +1,6 @@
 namespace Game.Feature.Gameplay.Model.Groups
 {
-    public enum ActionGroupKind
+    internal enum ActionGroupKind
     {
         None = 0,
         Move = 1,

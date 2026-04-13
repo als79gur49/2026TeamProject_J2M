@@ -2,7 +2,6 @@ using System.Collections.Generic;
 using System.Text;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
-using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -53,7 +52,6 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Attack.RawIntents", attackPhaseResult.RawIntents, FormatRawAttackIntent);
             AppendSection(builder, "Attack.DrainedImpacts", attackPhaseResult.DrainedImpactReservations, FormatImpactReservation);
             AppendSection(builder, "Attack.DrainedDelayedEffects", attackPhaseResult.DrainedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
-            AppendSection(builder, "Attack.NormalizedInputs", attackPhaseResult.SortedInputs, FormatAttackIntent);
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);
             AppendSection(builder, "Attack.Resolutions", attackPhaseResult.ResolutionRecords, FormatResolutionRecord);
             AppendSection(builder, "Attack.ResolvedOperations", attackPhaseResult.ResolvedOperations, FormatFinalizationOperation);
@@ -389,42 +387,10 @@ namespace Game.Feature.Gameplay.Debug
             return $"Source={rawIntent.SourceId}|Priority={rawIntent.Priority}|SourceKind={rawIntent.SourceKind}|Target={rawIntent.TargetId}|Command={rawIntent.CommandKind}|LocalSequence={rawIntent.LocalSequence}";
         }
 
-        private static string FormatAttackIntent(AttackIntent intent)
-        {
-            var builder = new StringBuilder();
-            builder
-                .Append("I=").Append(intent.IntentId)
-                .Append("|Source=").Append(intent.SourceId)
-                .Append("|Priority=").Append(intent.Priority)
-                .Append("|Target=").Append(intent.TargetId)
-                .Append("|Command=").Append(intent.CommandKind)
-                .Append("|SourceKind=").Append(intent.SourceKind)
-                .Append("|Kind=").Append(intent.InputKind)
-                .Append("|LocalSequence=").Append(intent.LocalSequence);
-
-            if (intent.HasTargetCell)
-            {
-                builder
-                    .Append("|TargetCell=(").Append(intent.TargetCell.x).Append(',').Append(intent.TargetCell.y).Append(')');
-            }
-
-            if (intent.ImpactReservation.HasValue)
-            {
-                builder.Append('|').Append(FormatImpactReservation(intent.ImpactReservation.Value));
-            }
-
-            if (intent.DelayedAttackEffect.HasValue)
-            {
-                builder.Append('|').Append(FormatDelayedAttackEffectRecord(intent.DelayedAttackEffect.Value));
-            }
-
-            return builder.ToString();
-        }
-
         private static string FormatImpactReservation(ImpactReservation reservation)
         {
             return
-                $"Reservation|Source={reservation.SourceId}|Target={reservation.TargetId}|Position=({reservation.Position.x},{reservation.Position.y})|Damage={reservation.Damage}|Tick={reservation.TickGenerated}|Group={reservation.SourceActionGroupId}|Sequence={reservation.ReservationSequence}";
+                $"Reservation|Source={reservation.SourceId}|Target={reservation.TargetId}|Position=({reservation.Position.x},{reservation.Position.y})|Damage={reservation.Damage}|Tick={reservation.TickGenerated}";
         }
 
         private static string FormatDelayedAttackEffectRecord(DelayedAttackEffectRecord effectRecord)

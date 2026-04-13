@@ -14,13 +14,13 @@ namespace Game.Feature.Gameplay.Attack.Sorting
                 return result;
             }
 
-            result = left.SourceActionGroupId.CompareTo(right.SourceActionGroupId);
+            result = left.SourceActionPlanId.CompareTo(right.SourceActionPlanId);
             if (result != 0)
             {
                 return result;
             }
 
-            result = left.ReservationSequence.CompareTo(right.ReservationSequence);
+            result = left.LocalActionIndex.CompareTo(right.LocalActionIndex);
             if (result != 0)
             {
                 return result;

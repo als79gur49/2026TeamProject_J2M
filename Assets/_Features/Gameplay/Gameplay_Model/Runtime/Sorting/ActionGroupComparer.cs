@@ -6,7 +6,7 @@ using Game.Feature.Gameplay.Model.Groups;
 
 namespace Game.Feature.Gameplay.Model.Sorting
 {
-    public sealed class ActionGroupComparer : IComparer<ActionGroup>
+    internal sealed class ActionGroupComparer : IComparer<ActionGroup>
     {
         public static readonly ActionGroupComparer Instance = new();
 

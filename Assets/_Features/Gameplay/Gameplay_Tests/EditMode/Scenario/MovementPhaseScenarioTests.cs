@@ -1606,9 +1606,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 10, Kind: ActionGroupKind.Move) },
-                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
-            CollectionAssert.AreEqual(
                 new[]
                 {
                     "MovementRejected|Stage=Resolve|G=2|I=2|Source=20|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=True",
@@ -1648,9 +1645,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
             CollectionAssert.AreEqual(
-                new[] { (GroupId: 1, SourceId: 20, Kind: ActionGroupKind.Move) },
-                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => (group.GroupId, group.SourceId, group.GroupKind)).ToArray());
-            CollectionAssert.AreEqual(
                 new[]
                 {
                     "MovementRejected|Stage=Resolve|G=2|I=2|Source=10|Reason=TopologyExclusive|BlockedBy=1|BlockingKind=Move|BlockingTopologyChange=False",
@@ -1687,8 +1681,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1720,8 +1712,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
 
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -1784,8 +1774,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Down)));
 
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
             Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
@@ -2151,26 +2139,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
                     .ToArray());
             CollectionAssert.AreEqual(
-                firstRun.Result.MovementPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (group.GroupId, group.IntentId, group.SourceId, group.Moves.Single().Destination))
-                    .ToArray(),
-                secondRun.Result.MovementPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (group.GroupId, group.IntentId, group.SourceId, group.Moves.Single().Destination))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                firstRun.Result.MovementPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (group.GroupId, group.SourceId))
-                    .ToArray(),
-                secondRun.Result.MovementPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (group.GroupId, group.SourceId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
                 firstRun.Result.MovementPhaseResult.CommitEvents,
                 secondRun.Result.MovementPhaseResult.CommitEvents);
+            CollectionAssert.AreEqual(
+                firstRun.Result.MovementPhaseResult.RejectedReasons,
+                secondRun.Result.MovementPhaseResult.RejectedReasons);
             Assert.That(firstRun.OccupancyAfter, Is.EqualTo(secondRun.OccupancyAfter));
             CollectionAssert.AreEqual(
                 new[]

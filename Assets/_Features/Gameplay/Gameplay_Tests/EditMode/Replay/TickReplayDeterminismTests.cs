@@ -78,9 +78,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
                 secondReplay.Select(frame => frame.DeterminismHash).ToArray());
             CollectionAssert.AreEqual(
-                firstReplay.Select(frame => frame.Trace).ToArray(),
-                secondReplay.Select(frame => frame.Trace).ToArray());
-            CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
                 secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
             CollectionAssert.AreEqual(
@@ -95,6 +92,80 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_AttackLogicRegistrationPermutation_ProducesSameHashTraceAndEventLog()
+        {
+            var firstReplay = RunAttackLogicPermutationReplaySequence(reverseLogicOrder: false);
+            var secondReplay = RunAttackLogicPermutationReplaySequence(reverseLogicOrder: true);
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(
+                firstReplay[0].EventLogDump
+                    .Split('\n')
+                    .Count(line => line.StartsWith("SpawnCommitted|", StringComparison.Ordinal)),
+                Is.EqualTo(2));
+            Assert.That(
+                firstReplay[0].FinalEntitiesDump
+                    .Split('\n')
+                    .Count(line => line.Contains("|Type=Projectile|", StringComparison.Ordinal)),
+                Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_OffBottomEnemySuppression_ProducesStableEmptyAttackSurface()
+        {
+            var firstReplay = RunOffBottomEnemyReplaySequence();
+            var secondReplay = RunOffBottomEnemyReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Source=40|Priority="));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("Source=40|Target=10"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_TopologyRotation_CancelsEnemyActionBeforeAttackCollection_WithoutAttackArtifacts()
+        {
+            var firstReplay = RunTopologyRotationAttackSuppressionReplaySequence();
+            var secondReplay = RunTopologyRotationAttackSuppressionReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "TopologyCommitted",
+                    "Rotation=Forward"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=10"),
+                Is.True);
+            Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("DamageCommitted"));
+            Assert.That(firstReplay[0].EnemyActionDump, Does.Contain("E=40|Kind=None|Seq=1|Target=0|Direction=None"));
+            Assert.That(firstReplay[0].EnemyActionDump, Does.Not.Contain("Kind=Melee"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("EnemyAction.BeforeAttackCollectionTransitions"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Prev=Melee|Curr=None|PrevSeq=1|CurrSeq=1|Started=False|Canceled=True"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
         }
 
         [Test]
@@ -401,7 +472,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Push"));
+            Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
@@ -604,8 +675,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Flip"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
+            Assert.That(firstReplay[0].PlayerControlDump, Does.Contain("Action=Flip|ActionSeq=1|ActionDirection=Left|ActionTarget=30"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
@@ -644,8 +714,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=10:(0,0)->(1,0):Right]"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Moves=[E=10:(1,0)->(0,0):Left]"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left"));
             Assert.That(firstReplay[1].Trace, Does.Not.Contain("Reason=EdgeReserved"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -684,7 +754,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Source=10|Priority=5|Target=0|Command=FireProjectile"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=21|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=12|Facing=Right|Marked=0|SpawnTick=1"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
                     firstReplay[0].EventLogDump,
@@ -772,7 +842,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].Trace, Does.Contain("ExecuteTick=2"));
             Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
             Assert.That(firstReplay[1].Trace, Does.Contain("Attack.DrainedDelayedEffects"));
-            Assert.That(firstReplay[1].Trace, Does.Contain("Command=DelayedEffect"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("GeneratedTick=1|ExecuteTick=2"));
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("DelayedAttackDrained|Tick=2|Source=10|Target=20|Damage=1|GeneratedTick=1|ExecuteTick=2|Group=99|Sequence=1"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -1198,6 +1268,92 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     new TickInput(1),
                     new TickInput(2),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunAttackLogicPermutationReplaySequence(bool reverseLogicOrder)
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                    CreateUnit(entityId: 20, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 0)),
+                GameplayTerrainData.Empty);
+
+            var firstLogic = new ScriptedCombatLogic(
+                sourceId: 10,
+                attackIntent: RawAttackIntent.CreateFireProjectile(10, 5));
+            var secondLogic = new ScriptedCombatLogic(
+                sourceId: 20,
+                attackIntent: RawAttackIntent.CreateFireProjectile(20, 5));
+            var entityLogics = reverseLogicOrder
+                ? new IEntityLogic[] { secondLogic, firstLogic }
+                : new IEntityLogic[] { firstLogic, secondLogic };
+
+            return new TickReplayHarness().Run(
+                worldState,
+                entityLogics,
+                new[]
+                {
+                    new TickInput(1),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunOffBottomEnemyReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+
+            return new TickReplayHarness().Run(
+                worldState,
+                Array.Empty<IEntityLogic>(),
+                new[]
+                {
+                    new TickInput(1),
+                });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunTopologyRotationAttackSuppressionReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 1), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Attack),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty,
+                new CubeTopologyState(FaceId.Floor));
+            worldState.CreateWriteContext().SetEnemyActionState(
+                40,
+                new EnemyActionRuntimeState
+                {
+                    kind = EnemyActionKind.Melee,
+                    sequence = 1,
+                    lockedTargetEntityId = 10,
+                    direction = Direction.Up,
+                    startTick = 0,
+                    executeTick = 1,
+                });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new PlayerLogic(10),
+                },
+                new[]
+                {
+                    new TickInput(1, PlayerTickCommand.Move(Direction.Up)),
                 });
         }
 
@@ -1688,6 +1844,42 @@ namespace Game.Feature.Gameplay.Tests.Replay
             GameplayTerrainData terrainData)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData);
+        }
+
+        private static WorldState CreateWorldState(
+            IEnumerable<EntityState> initialEntities,
+            BoardBounds boardBounds,
+            GameplayTerrainData terrainData,
+            CubeTopologyState topology)
+        {
+            return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
+        }
+
+        private static void AssertEquivalentReplayOutputs(
+            IReadOnlyList<TickReplayFrame> firstReplay,
+            IReadOnlyList<TickReplayFrame> secondReplay)
+        {
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.PlayerControlDump).ToArray(),
+                secondReplay.Select(frame => frame.PlayerControlDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.PlayerDamageDump).ToArray(),
+                secondReplay.Select(frame => frame.PlayerDamageDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyActionDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyActionDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
         }
 
         private static void SetSerializedField(object target, string fieldName, object value)

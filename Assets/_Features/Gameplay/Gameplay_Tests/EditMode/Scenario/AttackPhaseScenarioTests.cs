@@ -1433,7 +1433,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 drainedImpactReservations,
                 Array.Empty<DelayedAttackEffectRecord>(),
                 damageResolutions,
-                sortedInputs,
                 selectedGroups,
                 commitEvents,
                 commitEvents,

@@ -67,7 +67,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Extended")]
-        public void RunTick_SortsRawIntents_AndAssignsCentralIntentIds()
+        public void RunTick_SortsMovementIntents_AndCollectsAttackRawIntents()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -110,15 +110,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, IntentId: 3),
-                    (SourceId: 10, IntentId: 4),
+                    (SourceId: 20, Priority: 10, Command: AttackCommandKind.FireProjectile),
+                    (SourceId: 10, Priority: 5, Command: AttackCommandKind.FireProjectile),
                 },
-                result.AttackPhaseResult.SortedInputs.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
+                result.AttackPhaseResult.RawIntents
+                    .Select(intent => (intent.SourceId, intent.Priority, intent.CommandKind))
+                    .ToArray());
         }
 
         [Test]
         [Category("Extended")]
-        public void RunTick_AttackPhase_CollectsOnlyAliveEntityIntents()
+        public void RunTick_AttackPhase_CollectsOnlyAliveEntityRawIntents_AndIgnoresDeadSources()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -155,9 +157,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 1),
+                    (SourceId: 10, Priority: 5, Command: AttackCommandKind.FireProjectile),
                 },
-                result.AttackPhaseResult.SortedInputs.Select(intent => (intent.SourceId, intent.IntentId)).ToArray());
+                result.AttackPhaseResult.RawIntents
+                    .Select(intent => (intent.SourceId, intent.Priority, intent.CommandKind))
+                    .ToArray());
+            Assert.That(
+                result.AttackPhaseResult.CommitEvents.All(
+                    evt => !evt.Contains("Source=20", StringComparison.Ordinal) &&
+                           !evt.Contains("E=20", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(result.AttackPhaseResult.DamageResolutions, Is.Empty);
         }
 
         [Test]
@@ -297,7 +307,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
             Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
-            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
             Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
             Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
             Assert.That(result.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=AfterAttack|E=40"));
@@ -340,7 +349,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(worldState.CreateSnapshot().Topology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
             Assert.That(result.AttackPhaseResult.RawIntents, Is.Empty);
-            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
             Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out var actionState), Is.True);
             Assert.That(actionState.IsActive, Is.False);
             Assert.That(actionState.sequence, Is.EqualTo(1));

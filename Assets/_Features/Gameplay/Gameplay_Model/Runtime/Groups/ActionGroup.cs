@@ -5,7 +5,7 @@ using Game.Feature.Gameplay.Model.Actions;
 
 namespace Game.Feature.Gameplay.Model.Groups
 {
-    public sealed class ActionGroup
+    internal sealed class ActionGroup
     {
         public ActionGroup(
             int intentId,

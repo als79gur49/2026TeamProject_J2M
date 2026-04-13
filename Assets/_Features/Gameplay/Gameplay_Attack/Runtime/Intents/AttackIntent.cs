@@ -177,7 +177,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 AttackCommandKind.ImpactReservation,
                 AttackSourceKind.ImpactReservation,
                 AttackInputKind.ImpactReservation,
-                reservation.ReservationSequence,
+                reservation.LocalActionIndex,
                 default,
                 hasTargetCell: false,
                 reservation,
