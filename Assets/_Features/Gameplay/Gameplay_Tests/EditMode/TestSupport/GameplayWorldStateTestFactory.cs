@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
@@ -533,23 +532,6 @@ namespace Game.Feature.Gameplay.Tests
     }
 
     [Serializable]
-    internal sealed class GameplayTestStratificationOverrideFile
-    {
-        public int version = 1;
-        public GameplayTestStratificationOverrideEntry[] overrides = Array.Empty<GameplayTestStratificationOverrideEntry>();
-    }
-
-    [Serializable]
-    internal sealed class GameplayTestStratificationOverrideEntry
-    {
-        public string fullyQualifiedName = string.Empty;
-        public string category = string.Empty;
-        public string[] contracts = Array.Empty<string>();
-        public string reason = string.Empty;
-        public bool locked = false;
-    }
-
-    [Serializable]
     internal sealed class GameplayTestStratificationManifestFile
     {
         public int version = 1;
@@ -563,32 +545,12 @@ namespace Game.Feature.Gameplay.Tests
         public string fullyQualifiedName = string.Empty;
         public string category = string.Empty;
         public string mode = string.Empty;
-        public string[] contracts = Array.Empty<string>();
-        public string reason = string.Empty;
-        public string assertionSummary = string.Empty;
-        public string[] targetSymbols = Array.Empty<string>();
-        public string sourcePath = string.Empty;
-        public int lineNumber = 0;
-        public bool overridden = false;
-        public bool locked = false;
-    }
-
-    internal sealed class GameplayDiscoveredTestSource
-    {
-        public string fullyQualifiedName = string.Empty;
-        public string category = string.Empty;
-        public string mode = string.Empty;
-        public string sourcePath = string.Empty;
-        public int lineNumber;
-        public int primaryCategoryCount;
     }
 
     internal static class GameplayTestStratificationPaths
     {
         internal const string TestRootRelativePath = "Assets/_Features/Gameplay/Gameplay_Tests";
-        internal const string OverrideRelativePath = "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/GameplayTestStratificationOverrides.json";
         internal const string ManifestRelativePath = "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/GameplayTestStratificationManifest.json";
-        internal const string ReportRelativePath = "Docs/Architecture/Gameplay-Test-Stratification.md";
 
         internal static string GetProjectRootPath()
         {
@@ -620,157 +582,7 @@ namespace Game.Feature.Gameplay.Tests
             }
 
             manifest.tests ??= Array.Empty<GameplayTestStratificationManifestTest>();
-            for (var i = 0; i < manifest.tests.Length; i++)
-            {
-                manifest.tests[i].contracts ??= Array.Empty<string>();
-                manifest.tests[i].targetSymbols ??= Array.Empty<string>();
-            }
-
             return manifest;
-        }
-
-        internal static GameplayTestStratificationOverrideFile LoadOverrides(string absolutePath = null)
-        {
-            absolutePath ??= GameplayTestStratificationPaths.GetAbsolutePath(GameplayTestStratificationPaths.OverrideRelativePath);
-            if (!File.Exists(absolutePath))
-            {
-                throw new FileNotFoundException($"Gameplay test stratification override file is missing: {absolutePath}", absolutePath);
-            }
-
-            var overrideFile = JsonUtility.FromJson<GameplayTestStratificationOverrideFile>(File.ReadAllText(absolutePath));
-            if (overrideFile == null)
-            {
-                throw new InvalidOperationException($"Failed to deserialize gameplay test stratification overrides: {absolutePath}");
-            }
-
-            overrideFile.overrides ??= Array.Empty<GameplayTestStratificationOverrideEntry>();
-            for (var i = 0; i < overrideFile.overrides.Length; i++)
-            {
-                overrideFile.overrides[i].contracts ??= Array.Empty<string>();
-            }
-
-            return overrideFile;
-        }
-    }
-
-    internal static class GameplayTestSourceDiscovery
-    {
-        private static readonly Regex NamespaceRegex = new(@"namespace\s+(?<name>[A-Za-z0-9_.]+)", RegexOptions.Compiled);
-        private static readonly Regex ClassRegex = new(@"(?:public|internal)\s+(?:sealed\s+|static\s+|partial\s+)*class\s+(?<name>[A-Za-z0-9_]+)", RegexOptions.Compiled);
-        private static readonly Regex TestAttributeRegex = new(@"^\s*\[(Test|UnityTest)\]\s*$", RegexOptions.Compiled);
-        private static readonly Regex CategoryRegex = new(@"Category\(""(?<category>Core|Extended|Full)""\)", RegexOptions.Compiled);
-        private static readonly Regex SignatureRegex = new(@"^\s*public\s+[^\(]*?\s+(?<name>[A-Za-z0-9_]+)\s*\(", RegexOptions.Compiled);
-
-        internal static GameplayDiscoveredTestSource[] Discover()
-        {
-            var testRootPath = GameplayTestStratificationPaths.GetAbsolutePath(GameplayTestStratificationPaths.TestRootRelativePath);
-            var projectRootPath = GameplayTestStratificationPaths.GetProjectRootPath();
-            var buffer = new List<GameplayDiscoveredTestSource>();
-            var sourceFilePaths = Directory.GetFiles(testRootPath, "*.cs", SearchOption.AllDirectories)
-                .OrderBy(path => path, StringComparer.Ordinal)
-                .ToArray();
-
-            for (var i = 0; i < sourceFilePaths.Length; i++)
-            {
-                ParseFile(sourceFilePaths[i], projectRootPath, buffer);
-            }
-
-            return buffer
-                .OrderBy(test => test.sourcePath, StringComparer.Ordinal)
-                .ThenBy(test => test.lineNumber)
-                .ToArray();
-        }
-
-        private static void ParseFile(
-            string absolutePath,
-            string projectRootPath,
-            List<GameplayDiscoveredTestSource> buffer)
-        {
-            var content = File.ReadAllText(absolutePath);
-            var lines = File.ReadAllLines(absolutePath);
-
-            var namespaceMatch = NamespaceRegex.Match(content);
-            var classMatch = ClassRegex.Match(content);
-            if (!namespaceMatch.Success || !classMatch.Success)
-            {
-                return;
-            }
-
-            var namespaceName = namespaceMatch.Groups["name"].Value;
-            var className = classMatch.Groups["name"].Value;
-            var relativePath = MakeRelativePath(projectRootPath, absolutePath);
-            var mode = relativePath.IndexOf("/PlayMode/", StringComparison.Ordinal) >= 0
-                ? "PlayMode"
-                : "EditMode";
-
-            for (var lineIndex = 0; lineIndex < lines.Length; lineIndex++)
-            {
-                if (!TestAttributeRegex.IsMatch(lines[lineIndex]))
-                {
-                    continue;
-                }
-
-                var attributeStart = lineIndex;
-                while (attributeStart > 0 && IsAttributeLine(lines[attributeStart - 1]))
-                {
-                    attributeStart--;
-                }
-
-                var signatureLine = lineIndex + 1;
-                while (signatureLine < lines.Length && !SignatureRegex.IsMatch(lines[signatureLine]))
-                {
-                    signatureLine++;
-                }
-
-                if (signatureLine >= lines.Length)
-                {
-                    continue;
-                }
-
-                var signatureMatch = SignatureRegex.Match(lines[signatureLine]);
-                if (!signatureMatch.Success)
-                {
-                    continue;
-                }
-
-                var primaryCategories = new List<string>();
-                for (var attributeLine = attributeStart; attributeLine < signatureLine; attributeLine++)
-                {
-                    var categoryMatch = CategoryRegex.Match(lines[attributeLine]);
-                    if (categoryMatch.Success)
-                    {
-                        primaryCategories.Add(categoryMatch.Groups["category"].Value);
-                    }
-                }
-
-                buffer.Add(new GameplayDiscoveredTestSource
-                {
-                    fullyQualifiedName = $"{namespaceName}.{className}.{signatureMatch.Groups["name"].Value}",
-                    category = primaryCategories.Count == 1 ? primaryCategories[0] : string.Empty,
-                    mode = mode,
-                    sourcePath = relativePath,
-                    lineNumber = signatureLine + 1,
-                    primaryCategoryCount = primaryCategories.Count,
-                });
-            }
-        }
-
-        private static bool IsAttributeLine(string line)
-        {
-            return line.TrimStart().StartsWith("[", StringComparison.Ordinal);
-        }
-
-        private static string MakeRelativePath(string projectRootPath, string absolutePath)
-        {
-            var normalizedProjectRoot = Path.GetFullPath(projectRootPath)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            var normalizedAbsolutePath = Path.GetFullPath(absolutePath);
-            if (normalizedAbsolutePath.StartsWith(normalizedProjectRoot, StringComparison.OrdinalIgnoreCase))
-            {
-                return normalizedAbsolutePath.Substring(normalizedProjectRoot.Length).Replace('\\', '/');
-            }
-
-            return normalizedAbsolutePath.Replace('\\', '/');
         }
     }
 }

@@ -218,6 +218,27 @@
       "locked": true
     },
     {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_AttackLogicRegistrationPermutation_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_OffBottomEnemySuppression_ProducesStableEmptyAttackSurface",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_affects_attack",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for movement_affects_attack in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming",
       "category": "Core",
       "contracts": [
@@ -305,6 +326,17 @@
         "tick_replay_determinism_contract"
       ],
       "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_TopologyRotation_CancelsEnemyActionBeforeAttackCollection_WithoutAttackArtifacts",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_affects_attack",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for movement_affects_attack in TickReplayDeterminismTests.",
       "locked": true
     },
     {
@@ -990,15 +1022,6 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.GameplayTestStratification_ManifestAndSourceRemainConsistent",
-      "category": "Extended",
-      "contracts": [
-        "gameplay_test_stratification_audit_contract"
-      ],
-      "reason": "Locked infrastructure coverage for gameplay_test_stratification_audit_contract in GameplayTestStratificationAuditTests.",
-      "locked": true
-    },
-    {
       "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTimingOwnershipTests.GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy",
       "category": "Core",
       "contracts": [
@@ -1016,39 +1039,6 @@
         "gameplay_timing_ownership_contract"
       ],
       "reason": "Locked Core coverage for semantic_metadata in GameplayTimingOwnershipTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.DelayedEventQueue_OrderIsDeterministic",
-      "category": "Core",
-      "contracts": [
-        "determinism",
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Locked Core coverage for determinism in TickPipelineStageOneTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.PhaseTransientBuffer_DrainImpacts_ReturnsDeterministicOrder_AndClearsBuffer",
-      "category": "Core",
-      "contracts": [
-        "determinism",
-        "tick_pipeline_stage_one_contract"
-      ],
-      "reason": "Locked Core coverage for determinism in TickPipelineStageOneTests.",
-      "locked": true
-    },
-    {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.RunTick_CompletesPlanResolveFinalizeCleanupRespawn",
-      "category": "Extended",
-      "contracts": [
-        "canonical_path",
-        "resolve_finalize_contract",
-        "spawn_destroy_delayed_ordering",
-        "tick_pipeline_structure_contract"
-      ],
-      "reason": "Locked integration coverage for canonical_path in TickPipelineStructureTests.",
       "locked": true
     }
   ]

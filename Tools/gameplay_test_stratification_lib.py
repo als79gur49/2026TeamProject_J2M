@@ -14,18 +14,6 @@ from typing import Dict, Iterable, List, Mapping, Sequence, Tuple
 
 
 PRIMARY_CATEGORIES = ("Core", "Extended", "Full")
-REQUIRED_CORE_CONTRACTS = (
-    "canonical_path",
-    "resolve_finalize_contract",
-    "determinism",
-    "semantic_metadata",
-    "interaction_push",
-    "interaction_flip",
-    "interaction_jump",
-    "damage_affects_movement",
-    "movement_affects_attack",
-    "spawn_destroy_delayed_ordering",
-)
 FULL_FILE_NAMES = {
     "CombinedGameplayShowcaseInstallerTests.cs",
     "EnemyPrefabScaffoldTests.cs",
@@ -98,9 +86,7 @@ EXECUTION_CONTEXT_PATTERNS = (
     "MovementPhaseResult",
     "AttackPhaseResult",
     "CleanupPhaseResult",
-    "ResolveAcceptedActions(",
     "CommitEvents",
-    "SortedInputs",
     "RejectedReasons",
     "TickIndex",
 )
@@ -108,7 +94,6 @@ EXECUTION_CHAIN_SYMBOLS = (
     "MovementCommitter",
     "AttackCommitter",
     "CleanupProcessor",
-    "ResolveAcceptedActions(",
     "CommitEvents",
 )
 FORBIDDEN_CORE_STRUCTURE_PATTERNS = (
@@ -154,8 +139,6 @@ BEHAVIOR_ASSERTION_PATTERNS = (
     "CompletedPhases",
     "PhaseTrace",
     "CommitEvents",
-    "ResolveAcceptedActions(",
-    "SortedInputs",
     "RejectedReasons",
     "PresentationData.",
     "GetEntityPosition(",
@@ -216,7 +199,6 @@ def get_repo_paths(root: Path) -> Dict[str, Path]:
         "test_root": test_root,
         "override_path": test_root / "EditMode/TestSupport/GameplayTestStratificationOverrides.json",
         "manifest_path": test_root / "EditMode/TestSupport/GameplayTestStratificationManifest.json",
-        "report_path": root / "Docs/Architecture/Gameplay-Test-Stratification.md",
         "governance_history_path": result_root / ".governance/authoritative-history.json",
         "metrics_dir": result_root / ".metrics",
     }
@@ -405,14 +387,8 @@ def build_manifest(tests: List[TestMethod], overrides: Dict[str, dict], root: Pa
 
         if override and override.get("category"):
             category = override["category"]
-            reason = override.get("reason") or f"Locked override for {contracts[0]}."
-            overridden = True
-            locked = bool(override.get("locked", False))
         else:
             category = auto_category(test, contracts, assembly_name)
-            reason = auto_reason(test, category, contracts)
-            overridden = False
-            locked = False
 
         entries.append(
             {
@@ -420,13 +396,6 @@ def build_manifest(tests: List[TestMethod], overrides: Dict[str, dict], root: Pa
                 "category": category,
                 "mode": test.mode,
                 "contracts": contracts,
-                "reason": reason,
-                "assertionSummary": build_assertion_summary(test),
-                "targetSymbols": extract_target_symbols(test),
-                "sourcePath": test.relative_path,
-                "lineNumber": test.line_number,
-                "overridden": overridden,
-                "locked": locked,
             }
         )
 
@@ -525,37 +494,6 @@ def auto_reason(test: TestMethod, category: str, contracts: List[str]) -> str:
     return f"Variation/detail coverage for {primary_contract} outside the minimal Core representative set."
 
 
-def build_assertion_summary(test: TestMethod) -> str:
-    assertion_lines: List[str] = []
-    for raw_line in test.body.splitlines():
-        line = raw_line.strip()
-        if "Assert." in line or "CollectionAssert." in line or "StringAssert." in line:
-            normalized = re.sub(r"\s+", " ", line)
-            if normalized not in assertion_lines:
-                assertion_lines.append(normalized)
-        if len(assertion_lines) == 3:
-            break
-    if assertion_lines:
-        return " | ".join(assertion_lines)
-    return "No direct Assert.* line captured; classification used method body and target symbol signals."
-
-
-def extract_target_symbols(test: TestMethod) -> List[str]:
-    candidates: List[str] = []
-    for pattern in (
-        re.compile(r"typeof\((?P<symbol>[A-Za-z0-9_.<>]+)\)"),
-        re.compile(r"new\s+(?P<symbol>[A-Z][A-Za-z0-9_.<>]+)\("),
-        re.compile(r"(?P<symbol>[A-Z][A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)+)\("),
-    ):
-        for match in pattern.finditer(test.body):
-            symbol = match.group("symbol").replace("global::", "")
-            if symbol not in candidates:
-                candidates.append(symbol)
-            if len(candidates) == 8:
-                return candidates
-    return candidates
-
-
 def build_rewrite_map(manifest: dict) -> Dict[str, str]:
     return {
         entry["fullyQualifiedName"]: entry["category"]
@@ -589,83 +527,39 @@ def rewrite_source_categories(root: Path, tests: List[TestMethod], rewrite_map: 
             path.write_text(rewritten, encoding="utf-8")
 
 
-def build_report(manifest: dict) -> str:
-    tests = manifest["tests"]
-    counts = Counter(entry["category"] for entry in tests)
-    core_tests = [entry for entry in tests if entry["category"] == "Core"]
-    core_ratio = (len(core_tests) / len(tests)) if tests else 0.0
-    contract_to_tests: Dict[str, List[dict]] = defaultdict(list)
-    for entry in core_tests:
-        for contract in entry["contracts"]:
-            if contract in REQUIRED_CORE_CONTRACTS:
-                contract_to_tests[contract].append(entry)
-
-    risks: List[str] = []
-    if not (0.10 <= core_ratio <= 0.25):
-        risks.append(f"Core ratio out of bounds: {core_ratio:.2%}")
-    if not any(entry["mode"] == "PlayMode" for entry in core_tests):
-        risks.append("Core is missing a PlayMode integration test.")
-    for contract in REQUIRED_CORE_CONTRACTS:
-        if len(contract_to_tests.get(contract, [])) < 2:
-            risks.append(f"Core contract {contract} is covered by fewer than two tests.")
-
-    lines: List[str] = []
-    lines.append("# Gameplay Test Stratification")
-    lines.append("")
-    lines.append("## SUMMARY")
-    lines.append(f"- Total tests: {len(tests)}")
-    lines.append(f"- Core: {counts['Core']}")
-    lines.append(f"- Extended: {counts['Extended']}")
-    lines.append(f"- Full: {counts['Full']}")
-    lines.append(f"- Core ratio: {core_ratio:.2%}")
-    lines.append("")
-    lines.append("## Core 포함 계약 목록")
-    for contract in REQUIRED_CORE_CONTRACTS:
-        lines.append(f"- `{contract}` ({len(contract_to_tests.get(contract, []))})")
-        for entry in contract_to_tests.get(contract, []):
-            lines.append(f"  - `{entry['fullyQualifiedName']}`")
-    lines.append("")
-    lines.append("## Moved Tests")
-    for entry in tests:
-        contract_list = ",".join(entry["contracts"])
-        lines.append(
-            f"- previous=ImplicitFull -> new={entry['category']} | `{entry['fullyQualifiedName']}` | contracts={contract_list} | reason={entry['reason']}"
-        )
-    lines.append("")
-    lines.append("## Potential Risks")
-    if risks:
-        for risk in risks:
-            lines.append(f"- {risk}")
-    else:
-        lines.append("- None.")
-    return "\n".join(lines) + "\n"
+def build_persisted_manifest(manifest: Mapping[str, object]) -> dict:
+    tests = [
+        {
+            "fullyQualifiedName": entry["fullyQualifiedName"],
+            "category": entry["category"],
+            "mode": entry["mode"],
+        }
+        for entry in manifest["tests"]
+    ]
+    return {
+        "version": manifest["version"],
+        "generatedAtUtc": manifest["generatedAtUtc"],
+        "tests": tests,
+    }
 
 
 def check_outputs(
     manifest_path: Path,
-    report_path: Path,
     manifest: dict,
-    report_text: str,
     tests: List[TestMethod],
     rewrite_map: Dict[str, str],
 ) -> List[str]:
     failures: List[str] = []
+    persisted_manifest = build_persisted_manifest(manifest)
     if not manifest_path.exists():
         failures.append(f"Missing manifest: {manifest_path}")
     else:
         existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         existing_manifest["generatedAtUtc"] = "<ignored>"
-        comparable_manifest = dict(manifest)
+        comparable_manifest = dict(persisted_manifest)
         comparable_manifest["generatedAtUtc"] = "<ignored>"
         if existing_manifest != comparable_manifest:
             failures.append("Manifest is out of date.")
-
-    if not report_path.exists():
-        failures.append(f"Missing report: {report_path}")
-    else:
-        existing_report = report_path.read_text(encoding="utf-8")
-        if existing_report != report_text:
-            failures.append("Report is out of date.")
 
     for test in tests:
         current_categories = [
@@ -683,6 +577,25 @@ def check_outputs(
             failures.append(
                 f"Source category mismatch for {test.fully_qualified_name}: {current_categories[0]} != {expected_category}"
             )
+    return failures
+
+
+def validate_inventory(tests: Sequence[TestMethod], overrides: Mapping[str, dict], manifest: Mapping[str, object]) -> List[str]:
+    failures: List[str] = []
+    test_names = [test.fully_qualified_name for test in tests]
+    manifest_names = [entry["fullyQualifiedName"] for entry in manifest["tests"]]
+
+    if len(set(test_names)) != len(test_names):
+        failures.append("Source discovery produced duplicate fully-qualified test names.")
+
+    if len(set(manifest_names)) != len(manifest_names):
+        failures.append("Generated manifest contains duplicate fully-qualified test names.")
+
+    discovered_name_set = set(test_names)
+    for fully_qualified_name in overrides:
+        if fully_qualified_name not in discovered_name_set:
+            failures.append(f"Override points at a missing test: {fully_qualified_name}")
+
     return failures
 
 
@@ -888,7 +801,13 @@ def load_governance_history(path: Path) -> dict:
             "schemaVersion": 1,
             "runs": [],
         }
-    return json.loads(path.read_text(encoding="utf-8"))
+    content = path.read_text(encoding="utf-8").strip()
+    if not content:
+        return {
+            "schemaVersion": 1,
+            "runs": [],
+        }
+    return json.loads(content)
 
 
 def update_governance_history(
@@ -953,6 +872,8 @@ def build_governance_summary(
         for entry in manifest_tests
         if entry.get("mode") == "PlayMode" and entry.get("category") == "Core"
     )
+    core_tests = [entry for entry in manifest_tests if entry.get("category") == "Core"]
+    core_ratio = (len(core_tests) / len(manifest_tests)) if manifest_tests else 0.0
     playmode_core_cap = compute_playmode_core_cap(core_l2_count, feature_count)
 
     candidate_count = sum(
@@ -962,6 +883,12 @@ def build_governance_summary(
 
     warnings: List[str] = []
     failures: List[str] = []
+
+    if not (0.10 <= core_ratio <= 0.25):
+        failures.append(f"Core ratio must stay within 10%-25% (current: {core_ratio:.2%}).")
+
+    if playmode_core_count == 0:
+        failures.append("Core must include at least one PlayMode integration test.")
 
     for test in tests:
         assembly_name = resolve_assembly_name(test.absolute_path, assembly_map)

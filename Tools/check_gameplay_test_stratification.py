@@ -36,15 +36,13 @@ def main() -> int:
         overrides = lib.load_overrides(paths["override_path"])
         manifest = lib.build_manifest(tests, overrides, root)
         rewrite_map = lib.build_rewrite_map(manifest)
-        report_text = lib.build_report(manifest)
         output_failures = lib.check_outputs(
             paths["manifest_path"],
-            paths["report_path"],
             manifest,
-            report_text,
             tests,
             rewrite_map,
         )
+        inventory_failures = lib.validate_inventory(tests, overrides, manifest)
         summary, warnings, failures = lib.build_governance_summary(root, tests, manifest, mode)
     except Exception as error:
         print(f"ERROR: governance check failed: {error}", file=sys.stderr)
@@ -55,6 +53,11 @@ def main() -> int:
 
     all_warnings = list(warnings)
     all_failures = list(failures)
+    if inventory_failures:
+        if mode == lib.STRICT_GOVERNANCE_MODE:
+            all_failures.extend(inventory_failures)
+        else:
+            all_warnings.extend(inventory_failures)
     if output_failures:
         if mode == lib.STRICT_GOVERNANCE_MODE:
             all_failures.extend(output_failures)

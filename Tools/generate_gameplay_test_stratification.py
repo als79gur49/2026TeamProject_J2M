@@ -19,12 +19,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Do not write files; validate current source/manifest/report instead.",
+        help="Do not write files; validate current source and manifest instead.",
     )
     parser.add_argument(
         "--skip-source-rewrite",
         action="store_true",
-        help="Update manifest/report without rewriting source categories.",
+        help="Update manifest without rewriting source categories.",
     )
     return parser.parse_args()
 
@@ -38,17 +38,15 @@ def main() -> int:
     overrides = lib.load_overrides(paths["override_path"])
     manifest = lib.build_manifest(tests, overrides, root)
     rewrite_map = lib.build_rewrite_map(manifest)
-    report_text = lib.build_report(manifest)
 
     if args.check:
         failures = lib.check_outputs(
             paths["manifest_path"],
-            paths["report_path"],
             manifest,
-            report_text,
             tests,
             rewrite_map,
         )
+        failures.extend(lib.validate_inventory(tests, overrides, manifest))
         if failures:
             for failure in failures:
                 print(failure, file=sys.stderr)
@@ -60,9 +58,7 @@ def main() -> int:
     if not args.skip_source_rewrite:
         lib.rewrite_source_categories(root, tests, rewrite_map)
 
-    lib.write_json(paths["manifest_path"], manifest)
-    paths["report_path"].parent.mkdir(parents=True, exist_ok=True)
-    paths["report_path"].write_text(report_text, encoding="utf-8")
+    lib.write_json(paths["manifest_path"], lib.build_persisted_manifest(manifest))
     lib.print_summary(manifest)
     return 0
 
