@@ -12,19 +12,21 @@
 - 현재 환경에서는 `./run_tests.sh core`와 `./run_tests.sh full`이 실제로 실행 가능하다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green
-  - `./run_tests.sh full`: red, Unity Full EditMode `706 total / 112 failed`
+  - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
+- generated stratification report는 더 이상 governance truth-source가 아니다.
 
 ### English Original
 - In the current environment, both `./run_tests.sh core` and `./run_tests.sh full` are runnable.
 - The current baseline is:
   - `./run_tests.sh core`: green
-  - `./run_tests.sh full`: red, Unity Full EditMode `706 total / 112 failed`
+  - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
+- The generated stratification report is no longer an active governance truth source.
 
 ## 1. Overview / 개요
 ### 한국어
@@ -204,14 +206,22 @@ WSL CLI
   - 테스트 배치 경계
   - Core purity 규칙
   - Integration 밖에 놓인 execution-based test
-  - manifest/report 일관성
+  - persisted manifest/source 일관성
   - PlayMode Core cap 동작
+- active truth-source:
+  - `./run_tests.sh core`
+  - `./run_tests.sh full`
+  - pinned baseline doc
+  - touched cluster readout
+  - grep gate for removed structural vocabulary
 - 규칙 정의 위치:
   - `Tools/gameplay_test_stratification_lib.py`
 - 규칙 소비 위치:
   - `Tools/check_gameplay_test_stratification.py`
   - `Tools/generate_gameplay_test_stratification.py`
   - `run_tests.sh`
+- historical/non-canonical:
+  - `Docs/Architecture/Gameplay-Test-Stratification.md`
 - 모드:
   - 로컬 기본값: `soft`
   - CI 기본값: `strict`
@@ -222,14 +232,22 @@ WSL CLI
   - test placement boundaries
   - Core purity rules
   - execution-based tests outside Integration
-  - manifest/report consistency
+  - persisted manifest/source consistency
   - PlayMode Core cap behavior
+- active truth sources:
+  - `./run_tests.sh core`
+  - `./run_tests.sh full`
+  - the pinned baseline doc
+  - touched-cluster readouts
+  - grep gates for removed structural vocabulary
 - Rule source:
   - `Tools/gameplay_test_stratification_lib.py`
 - Rule consumers:
   - `Tools/check_gameplay_test_stratification.py`
   - `Tools/generate_gameplay_test_stratification.py`
   - `run_tests.sh`
+- Historical/non-canonical:
+  - `Docs/Architecture/Gameplay-Test-Stratification.md`
 - Modes:
   - local default: `soft`
   - CI default: `strict`
