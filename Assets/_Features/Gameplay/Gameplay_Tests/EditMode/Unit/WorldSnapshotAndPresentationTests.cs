@@ -217,8 +217,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var snapshot = CreateSnapshot(worldState);
 
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
-            Assert.That(snapshot.BlocksMovement(10), Is.True);
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new Vector2Int(1, 0), out _), Is.False);
+            Assert.That(snapshot.TryPickImpactTargetAt(new Vector2Int(1, 0), sourceTeamId: 1, out var impactTarget), Is.True);
+            Assert.That(impactTarget.entityId, Is.EqualTo(10));
         }
 
         [Test]
@@ -271,11 +272,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(snapshot.IsInsideBoard(new Vector2Int(0, 0)), Is.True);
             Assert.That(snapshot.IsInsideBoard(new Vector2Int(-1, 0)), Is.False);
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(-1, 0)), Is.True);
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(0, 1)), Is.True);
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(2, 0)), Is.False);
-            Assert.That(snapshot.IsBlockedForUnit(new Vector2Int(3, 0)), Is.True);
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new Vector2Int(-1, 0), out var boardEdgeBlocker), Is.True);
+            Assert.That(boardEdgeBlocker.Kind, Is.EqualTo(SlideStopperKind.BoardEdge));
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new Vector2Int(0, 1), out var terrainBlocker), Is.True);
+            Assert.That(terrainBlocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new Vector2Int(1, 0), out _), Is.False);
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new Vector2Int(2, 0), out _), Is.False);
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new Vector2Int(3, 0), out var solidBlocker), Is.True);
+            Assert.That(solidBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(solidBlocker.EntityId, Is.EqualTo(30));
         }
 
         [Test]
@@ -415,17 +420,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
             });
             var snapshot = CreateSnapshot(worldState);
+            var unitsAtMarkedCell = new List<EntityState>();
+            var unitsAtOriginalCell = new List<EntityState>();
+            var unitsAtMovedCell = new List<EntityState>();
 
-            Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out var deathMarkedUnit), Is.True);
-            Assert.That(deathMarkedUnit.entityId, Is.EqualTo(10));
+            snapshot.EnumerateUnitsAt(new Vector2Int(1, 0), unitsAtMarkedCell);
+            CollectionAssert.AreEqual(new[] { 10 }, unitsAtMarkedCell.Select(entity => entity.entityId).ToArray());
             Assert.That(snapshot.TryGetProjectileAt(new Vector2Int(2, 0), out var projectile), Is.True);
             Assert.That(projectile.entityId, Is.EqualTo(20));
 
             CreateWriteContext(worldState).MoveEntity(30, new Vector2Int(5, 0));
 
-            Assert.That(snapshot.TryGetUnitAt(new Vector2Int(3, 0), out var originalUnit), Is.True);
-            Assert.That(originalUnit.entityId, Is.EqualTo(30));
-            Assert.That(snapshot.TryGetUnitAt(new Vector2Int(5, 0), out _), Is.False);
+            snapshot.EnumerateUnitsAt(new Vector2Int(3, 0), unitsAtOriginalCell);
+            CollectionAssert.AreEqual(new[] { 30 }, unitsAtOriginalCell.Select(entity => entity.entityId).ToArray());
+            snapshot.EnumerateUnitsAt(new Vector2Int(5, 0), unitsAtMovedCell);
+            Assert.That(unitsAtMovedCell, Is.Empty);
         }
 
         [Test]

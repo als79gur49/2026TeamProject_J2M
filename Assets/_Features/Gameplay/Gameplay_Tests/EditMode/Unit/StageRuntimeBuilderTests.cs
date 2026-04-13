@@ -160,8 +160,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     buildResult.InitialTerrain,
                     buildResult.InitialTopology)
                 .CreateSnapshot();
-            Assert.That(snapshot.IsBlockedForUnit(floorWall.position), Is.True);
-            Assert.That(snapshot.IsBlockedForUnit(frontWall.position), Is.True);
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(floorWall.position, out var floorWallBlocker), Is.True);
+            Assert.That(floorWallBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(floorWallBlocker.EntityId, Is.EqualTo(floorWall.entityId));
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(frontWall.position, out var frontWallBlocker), Is.True);
+            Assert.That(frontWallBlocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(frontWallBlocker.EntityId, Is.EqualTo(frontWall.entityId));
 
             Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
             Assert.That(HasWallAt(buildResult.InitialEntities, new SurfaceCell(FaceId.Front, 7, buildResult.BoardBounds.MaxInclusive.y)), Is.False);

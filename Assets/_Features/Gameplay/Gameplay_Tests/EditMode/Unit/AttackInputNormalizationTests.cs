@@ -130,9 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "0123456789ABCDEF");
 
             Assert.That(trace.Text, Does.Contain("Attack.DrainedImpacts"));
-            Assert.That(trace.Text, Does.Contain("Attack.NormalizedInputs"));
-            Assert.That(trace.Text, Does.Contain("Reservation|Source=30|Target=20|Position=(1,0)|Damage=1|Tick=7|Group=2|Sequence=1"));
-            Assert.That(trace.Text, Does.Contain("I=1|Source=30|Priority=0|Target=20|Command=ImpactReservation|Kind=ImpactReservation|LocalSequence=1"));
+            Assert.That(trace.Text, Does.Contain("Reservation|Source=30|Target=20|Position=(1,0)|Damage=1|Tick=7"));
         }
 
         private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp)

@@ -602,7 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -618,7 +618,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                             Array.Empty<TickEnemyActionPresentationSignal>(),
                             Array.Empty<TickEnemyJumpPresentationSignal>(),
-                            Array.Empty<TickEntityExitPresentationSignal>()),
+                            new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    exitedEntityId: 10,
+                                    TickEntityExitCause.Killed,
+                                    sourceCell,
+                                    topology,
+                                    Direction.Right,
+                                    EntityType.Unit),
+                            }),
                         string.Empty,
                         TickTrace.Empty),
                     viewsByEntityId,

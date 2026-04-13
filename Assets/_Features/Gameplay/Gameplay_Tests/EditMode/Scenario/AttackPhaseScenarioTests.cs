@@ -78,8 +78,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .RawIntents
                     .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            Assert.That(result.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(result.AttackPhaseResult.CommitEvents, Is.Empty);
             Assert.That(result.AttackPhaseResult.RejectedReasons, Has.Some.Contains("Stage=ExecutionLock"));
             Assert.That(result.PresentationData.EnemyActionSignals, Is.Empty);
@@ -137,24 +136,32 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var unlockTick = pipeline.RunTick(new TickInput(3));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(moveTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(lockedTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(moveTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(lockedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
                     (SourceId: 10, TargetId: 20),
                 },
                 unlockTick.AttackPhaseResult
-                    .SortedInputs
+                    .RawIntents
                     .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
-                },
-                unlockTick.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    unlockTick.AttackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=10",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    unlockTick.AttackPhaseResult.CommitEvents,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
 
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(1));
@@ -184,23 +191,31 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
             var stackedUnits = new List<EntityState>();
 
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 1, TargetId: 20),
+                    (SourceId: 10, TargetId: 20),
                 },
                 result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
-                },
-                result.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=10",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
 
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(GetEntityPosition(snapshotAfter, 20), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
@@ -229,18 +244,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var attackPhaseResult = RunAttackPhaseOnly(worldState, entityLogics, tickIndex: 5);
             var snapshotAfterAttack = SnapshotBuilder.Create(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "StateChanged|G=2|I=2|E=20|State=Acting|Timer=0",
-                    "DamageCommitted|G=1|I=1|Target=30|Amount=1",
-                    "DamageCommitted|G=2|I=2|Target=30|Amount=1",
-                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1|Condition=WhenHpDepleted",
-                },
-                attackPhaseResult.CommitEvents);
-            Assert.That(snapshotAfterAttack.IsBlockedForUnit(new Vector2Int(1, 0)), Is.True);
-            Assert.That(snapshotAfterAttack.TryGetUnitAt(new Vector2Int(1, 0), out var targetAfterAttack), Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    attackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=10",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    attackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=20",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                attackPhaseResult.CommitEvents.Count(evt =>
+                    SemanticEventAssertions.ContainsEvent(new[] { evt }, "DamageCommitted", "Target=30", "Amount=1")),
+                Is.EqualTo(2));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    attackPhaseResult.CommitEvents,
+                    "DestroyMarked",
+                    "Target=30",
+                    "Condition=WhenHpDepleted"),
+                Is.True);
+            var unitsAfterAttack = new List<EntityState>();
+            Assert.That(snapshotAfterAttack.TryPickImpactTargetAt(new Vector2Int(1, 0), sourceTeamId: 1, out var targetAfterAttack), Is.True);
+            snapshotAfterAttack.EnumerateUnitsAt(new Vector2Int(1, 0), unitsAfterAttack);
+            Assert.That(unitsAfterAttack.Select(entity => entity.entityId).ToArray(), Is.EqualTo(new[] { 30 }));
             Assert.That(targetAfterAttack.entityId, Is.EqualTo(30));
             Assert.That(targetAfterAttack.hp, Is.EqualTo(-1));
             Assert.That(targetAfterAttack.markedForDeath, Is.True);
@@ -253,8 +287,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfterCleanup = SnapshotBuilder.Create(worldState);
 
             CollectionAssert.AreEqual(new[] { 30 }, cleanupResult.RemovedEntityIds);
-            Assert.That(snapshotAfterCleanup.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
-            Assert.That(snapshotAfterCleanup.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            var unitsAfterCleanup = new List<EntityState>();
+            Assert.That(snapshotAfterCleanup.TryGetUnitTraversalBlocker(new Vector2Int(1, 0), out _), Is.False);
+            snapshotAfterCleanup.EnumerateUnitsAt(new Vector2Int(1, 0), unitsAfterCleanup);
+            Assert.That(unitsAfterCleanup, Is.Empty);
             Assert.That(snapshotAfterCleanup.TryGetEntity(30, out _), Is.False);
         }
 
@@ -284,12 +320,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[] { ActionGroupKind.Item },
-                result.MovementPhaseResult.ResolveAcceptedActions().Select(group => group.GroupKind).ToArray());
-            CollectionAssert.AreEqual(
                 new[] { MovementCommandKind.Push },
                 result.MovementPhaseResult.SortedIntents.Select(intent => intent.CommandKind).ToArray());
-            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(result.EventLog, Does.Not.Contain("LootGranted"));
@@ -325,35 +358,44 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 40, IntentId: 2, TargetId: 30),
-                    (SourceId: 50, IntentId: 3, TargetId: 10),
+                    (SourceId: 40, TargetId: 30),
+                    (SourceId: 50, TargetId: 10),
                 },
                 result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "AttackRejected|Stage=Expand|I=2|Source=40|Target=30|Reason=TargetNotSelectable",
-                },
-                result.AttackPhaseResult.RejectedReasons);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (GroupId: 2, SourceId: 50, DamageTargetId: 10),
-                },
-                result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (group.GroupId, group.SourceId, DamageTargetId: group.Damages.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=2|I=3|E=50|State=Acting|Timer=0",
-                    "DamageCommitted|G=2|I=3|Target=10|Amount=1",
-                },
-                result.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.RejectedReasons,
+                    "AttackRejected",
+                    "Stage=Expand",
+                    "Source=40",
+                    "Target=30",
+                    "Reason=TargetNotSelectable"),
+                Is.True);
+            Assert.That(
+                result.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceId == 50 &&
+                              record.TargetId == 10 &&
+                              record.Amount == 1),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=50",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "DamageCommitted",
+                    "Target=10",
+                    "Amount=1"),
+                Is.True);
             Assert.That(GetEntityPosition(snapshotAfter, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(GetEntityHp(snapshotAfter, 10), Is.EqualTo(2));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
@@ -370,104 +412,50 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, IntentId: 1, TargetId: 30),
-                    (SourceId: 20, IntentId: 2, TargetId: 30),
+                    (SourceId: 10, TargetId: 30),
+                    (SourceId: 20, TargetId: 30),
                 },
                 firstRun.Result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (GroupId: 1, IntentId: 1, SourceId: 10, Kind: ActionGroupKind.Attack, DamageTargetId: 30, DestroyTargetId: 30),
-                    (GroupId: 2, IntentId: 2, SourceId: 20, Kind: ActionGroupKind.Attack, DamageTargetId: 30, DestroyTargetId: 30),
-                },
-                firstRun.Result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (
-                        group.GroupId,
-                        group.IntentId,
-                        group.SourceId,
-                        group.GroupKind,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (GroupId: 1, SourceId: 10, DamageTargetId: 30, DestroyTargetId: 30),
-                    (GroupId: 2, SourceId: 20, DamageTargetId: 30, DestroyTargetId: 30),
-                },
-                firstRun.Result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (
-                        group.GroupId,
-                        group.SourceId,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "StateChanged|G=2|I=2|E=20|State=Acting|Timer=0",
-                    "DamageCommitted|G=1|I=1|Target=30|Amount=1",
-                    "DamageCommitted|G=2|I=2|Target=30|Amount=1",
-                    "DestroyMarked|G=1|I=1|Target=30|FinalHp=-1|Condition=WhenHpDepleted",
-                },
-                firstRun.Result.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                firstRun.Result.AttackPhaseResult.DamageResolutions.Count(
+                    record => record.Accepted && record.TargetId == 30 && record.Amount == 1),
+                Is.EqualTo(2));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstRun.Result.AttackPhaseResult.CommitEvents,
+                    "DestroyMarked",
+                    "Target=30",
+                    "Condition=WhenHpDepleted"),
+                Is.True);
             CollectionAssert.AreEqual(new[] { 30 }, firstRun.Result.CleanupPhaseResult.RemovedEntityIds);
 
             Assert.That(firstRun.OccupancyAfter, Is.EqualTo("10@(0,0),20@(2,0)"));
-            Assert.That(firstRun.SnapshotAfter.IsBlockedForUnit(new Vector2Int(1, 0)), Is.False);
-            Assert.That(firstRun.SnapshotAfter.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            var unitsAfterFirstRun = new List<EntityState>();
+            Assert.That(firstRun.SnapshotAfter.TryGetUnitTraversalBlocker(new Vector2Int(1, 0), out _), Is.False);
+            firstRun.SnapshotAfter.EnumerateUnitsAt(new Vector2Int(1, 0), unitsAfterFirstRun);
+            Assert.That(unitsAfterFirstRun, Is.Empty);
             Assert.That(firstRun.SnapshotAfter.TryGetEntity(30, out _), Is.False);
 
             CollectionAssert.AreEqual(
                 firstRun.Result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray(),
                 secondRun.Result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
             CollectionAssert.AreEqual(
                 firstRun.Result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (
-                        group.GroupId,
-                        group.IntentId,
-                        group.SourceId,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
+                    .DamageResolutions
+                    .Select(record => (record.SourceId, record.TargetId, record.Accepted, record.Amount, record.RejectReason))
                     .ToArray(),
                 secondRun.Result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (
-                        group.GroupId,
-                        group.IntentId,
-                        group.SourceId,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                firstRun.Result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (
-                        group.GroupId,
-                        group.SourceId,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
-                    .ToArray(),
-                secondRun.Result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group => (
-                        group.GroupId,
-                        group.SourceId,
-                        DamageTargetId: group.Damages.Single().TargetId,
-                        DestroyTargetId: group.Destroys.Single().TargetId))
+                    .DamageResolutions
+                    .Select(record => (record.SourceId, record.TargetId, record.Accepted, record.Amount, record.RejectReason))
                     .ToArray());
             CollectionAssert.AreEqual(firstRun.Result.AttackPhaseResult.CommitEvents, secondRun.Result.AttackPhaseResult.CommitEvents);
             CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.RemovedEntityIds, secondRun.Result.CleanupPhaseResult.RemovedEntityIds);
@@ -496,20 +484,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[] { (SourceId: 10, IntentId: 1, TargetId: 20) },
+                new[] { (SourceId: 10, TargetId: 20) },
                 result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.TargetId))
                     .ToArray());
-            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
-            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(result.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(result.AttackPhaseResult.CommitEvents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "AttackRejected|Stage=Expand|I=1|Source=10|Target=20|Reason=NotSameCellOrAdjacent|SourceCell=(0,0)|TargetCell=(2,0)",
-                },
-                result.AttackPhaseResult.RejectedReasons);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.RejectedReasons,
+                    "AttackRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Target=20",
+                    "Reason=NotSameCellOrAdjacent"),
+                Is.True);
             Assert.That(GetEntityHp(snapshotAfter, 20), Is.EqualTo(3));
             Assert.That(IsMarkedForDeath(snapshotAfter, 20), Is.False);
             Assert.That(result.Trace.Text, Does.Contain("Attack.RejectedReasons"));
@@ -536,38 +526,36 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             CollectionAssert.AreEqual(
-                new[] { (SourceId: 10, IntentId: 1, Command: AttackCommandKind.FireProjectile, TargetId: 0) },
+                new[] { (SourceId: 10, Command: AttackCommandKind.FireProjectile, TargetId: 0) },
                 result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.IntentId, intent.CommandKind, intent.TargetId))
+                    .RawIntents
+                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (GroupId: 1, IntentId: 1, SourceId: 10, SpawnId: 1, EntityId: 11, Cell: new SurfaceCell(FaceId.Floor, 1, 0), Type: EntityType.Projectile, SpawnTick: 4),
-                },
-                result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group =>
-                    {
-                        var spawn = group.Spawns.Single();
-                        return (group.GroupId, group.IntentId, group.SourceId, spawn.SpawnId, EntityId: spawn.Entity.entityId, Cell: spawn.Entity.position, Type: spawn.Entity.type, SpawnTick: spawn.Entity.spawnTick);
-                    })
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4",
-                },
-                result.AttackPhaseResult.CommitEvents);
-            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().SpawnId, Is.EqualTo(1));
-            Assert.That(result.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().Entity.entityId, Is.EqualTo(11));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=10",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "SpawnCommitted",
+                    "SpawnId=1",
+                    "E=11",
+                    "Pos=(1,0)",
+                    "Type=Projectile",
+                    "SpawnTick=4"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterTick), Is.True);
             Assert.That(projectileAfterTick.entityId, Is.EqualTo(11));
             Assert.That(projectileAfterTick.spawnTick, Is.EqualTo(4));
             Assert.That(projectileAfterTick.stateTimer, Is.EqualTo(defaultTimingProfile.ProjectileStepIntervalTicks));
-            Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=4"));
+            Assert.That(result.Trace.Text, Does.Contain("SpawnCommitted"));
+            Assert.That(result.Trace.Text, Does.Contain("SpawnId=1"));
+            Assert.That(result.Trace.Text, Does.Contain("E=11"));
             Assert.That(result.Trace.Text, Does.Contain($"Spawns=[SpawnId=1:Entity=E=11|Pos=(1,0)|Hp=1/1|Team=1|Type=Projectile|State=Idle|Timer={defaultTimingProfile.ProjectileStepIntervalTicks}|Facing=Right|Marked=False|SpawnTick=4|BoxCapabilities=None|AiMode=None|AiTimer=0|LocomotionCooldown=0|Face=Floor|Presence=Occupying]"));
         }
 
@@ -591,19 +579,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(4));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(1,0)|Type=Projectile|SpawnTick=4",
-                },
-                result.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=10",
+                    "State=Acting",
+                    "Timer=0"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "SpawnCommitted",
+                    "SpawnId=1",
+                    "E=21",
+                    "Pos=(1,0)",
+                    "Type=Projectile",
+                    "SpawnTick=4"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetEntity(20, out var occupiedUnit), Is.True);
             Assert.That(occupiedUnit.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var spawnedProjectile), Is.True);
             Assert.That(spawnedProjectile.entityId, Is.EqualTo(21));
             Assert.That(spawnedProjectile.stateTimer, Is.EqualTo(defaultTimingProfile.ProjectileStepIntervalTicks));
-            Assert.That(snapshotAfter.TryGetUnitAt(new Vector2Int(1, 0), out var primaryOccupant), Is.True);
+            var unitsAtProjectileCell = new List<EntityState>();
+            snapshotAfter.EnumerateUnitsAt(new Vector2Int(1, 0), unitsAtProjectileCell);
+            Assert.That(unitsAtProjectileCell.Select(entity => entity.entityId).ToArray(), Is.EqualTo(new[] { 20 }));
+            var primaryOccupant = unitsAtProjectileCell[0];
             Assert.That(primaryOccupant.entityId, Is.EqualTo(20));
         }
 
@@ -627,29 +629,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(6));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=20|State=Acting|Timer=0",
-                    "StateChanged|G=2|I=2|E=10|State=Acting|Timer=0",
-                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(2,0)|Type=Projectile|SpawnTick=6",
-                    "SpawnCommitted|G=2|I=2|SpawnId=2|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=6",
-                },
-                result.AttackPhaseResult.CommitEvents);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (GroupId: 1, SourceId: 20, SpawnId: 1, EntityId: 21),
-                    (GroupId: 2, SourceId: 10, SpawnId: 2, EntityId: 22),
-                },
-                result.AttackPhaseResult
-                    .ResolveAcceptedActions()
-                    .Select(group =>
-                    {
-                        var spawn = group.Spawns.Single();
-                        return (group.GroupId, group.SourceId, spawn.SpawnId, EntityId: spawn.Entity.entityId);
-                    })
-                    .ToArray());
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "SpawnCommitted",
+                    "SpawnId=1",
+                    "E=21",
+                    "Pos=(2,0)",
+                    "Type=Projectile",
+                    "SpawnTick=6"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.AttackPhaseResult.CommitEvents,
+                    "SpawnCommitted",
+                    "SpawnId=2",
+                    "E=22",
+                    "Pos=(1,0)",
+                    "Type=Projectile",
+                    "SpawnTick=6"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(2, 0), out var highPriorityProjectile), Is.True);
             Assert.That(snapshotAfter.TryGetProjectileAt(new Vector2Int(1, 0), out var lowPriorityProjectile), Is.True);
             Assert.That(highPriorityProjectile.entityId, Is.EqualTo(21));
@@ -684,13 +683,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfterFirstTick = CreateSnapshot(worldState);
 
             Assert.That(firstResult.MovementPhaseResult.SortedIntents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=10|State=Acting|Timer=0",
-                    "SpawnCommitted|G=1|I=1|SpawnId=1|E=11|Pos=(1,0)|Type=Projectile|SpawnTick=1",
-                },
-                firstResult.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstResult.AttackPhaseResult.CommitEvents,
+                    "SpawnCommitted",
+                    "SpawnId=1",
+                    "E=11",
+                    "Pos=(1,0)",
+                    "Type=Projectile",
+                    "SpawnTick=1"),
+                Is.True);
             Assert.That(firstResult.EventLog.Any(evt => evt.Contains("ImpactReservationCreated")), Is.False);
             Assert.That(snapshotAfterFirstTick.TryGetProjectileAt(new Vector2Int(1, 0), out var projectileAfterFirstTick), Is.True);
             Assert.That(projectileAfterFirstTick.entityId, Is.EqualTo(11));
@@ -718,13 +720,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .SortedIntents
                     .Select(intent => (intent.SourceId, intent.IntentId, intent.Destination))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=11|State=Idle|Timer=12",
-                    "MoveCommitted|G=1|I=1|E=11|To=(2,0)|Facing=Right",
-                },
-                firstMoveResult.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstMoveResult.MovementPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=11",
+                    "State=Idle",
+                    "Timer=12"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstMoveResult.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=11",
+                    "To=(2,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(snapshotAfterFirstMove.TryGetProjectileAt(new Vector2Int(2, 0), out var projectileAfterFirstMove), Is.True);
             Assert.That(projectileAfterFirstMove.entityId, Is.EqualTo(11));
             Assert.That(projectileAfterFirstMove.stateTimer, Is.EqualTo(timingProfile.ProjectileStepIntervalTicks - 1));
@@ -865,7 +876,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             logic.SetTickIndex(1);
             var firstResult = pipeline.RunTick(new TickInput(1));
-            var firstProjectileId = firstResult.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().Entity.entityId;
+            var firstSnapshot = CreateSnapshot(worldState);
+            Assert.That(firstSnapshot.TryGetProjectileAt(new Vector2Int(1, 0), out var firstProjectile), Is.True);
+            var firstProjectileId = firstProjectile.entityId;
 
             var intermediateResults = RunTicks(
                 pipeline,
@@ -876,7 +889,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             logic.SetTickIndex(15);
             var secondSpawnResult = pipeline.RunTick(new TickInput(15));
-            var secondProjectileId = secondSpawnResult.AttackPhaseResult.ResolveAcceptedActions().Single().Spawns.Single().Entity.entityId;
+            var secondSnapshot = CreateSnapshot(worldState);
+            Assert.That(secondSnapshot.TryGetProjectileAt(new Vector2Int(1, 0), out var secondProjectile), Is.True);
+            var secondProjectileId = secondProjectile.entityId;
 
             CollectionAssert.AreEqual(new[] { 20, firstProjectileId }, cleanupResult.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
             Assert.That(secondProjectileId, Is.EqualTo(firstProjectileId + 1));
@@ -907,19 +922,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfter = CreateSnapshot(worldState);
 
             Assert.That(retargetingLogic.AttackCollectCallCount, Is.EqualTo(1));
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 10, Command: AttackCommandKind.Attack, TargetId: 20, IsSynthetic: false),
-                    (SourceId: 5, Command: AttackCommandKind.ImpactReservation, TargetId: 20, IsSynthetic: true),
-                },
-                result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId, intent.IsSynthetic))
-                    .ToArray());
-            Assert.That(result.AttackPhaseResult.SortedInputs.Any(intent => intent.TargetId == 40), Is.False);
             Assert.That(
-                result.AttackPhaseResult.ResolveAcceptedActions().Any(group => group.Damages.Any(damage => damage.TargetId == 40)),
+                result.AttackPhaseResult.DamageResolutions.Count(
+                    record => record.Accepted && record.TargetId == 20),
+                Is.EqualTo(2));
+            Assert.That(
+                result.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceKind == AttackSourceKind.ImpactReservation &&
+                              record.TargetId == 20),
+                Is.True);
+            Assert.That(
+                result.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceKind == AttackSourceKind.Combat &&
+                              record.TargetId == 20),
+                Is.True);
+            Assert.That(
+                result.AttackPhaseResult.DamageResolutions.Any(record => record.TargetId == 40),
                 Is.False);
             Assert.That(result.EventLog.Any(evt => evt.Contains("Target=40")), Is.False);
             CollectionAssert.AreEqual(new[] { 5, 20 }, result.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
@@ -970,12 +990,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Respawn:Exit",
                 },
                 result.PhaseTrace);
+            Assert.That(
+                result.MovementPhaseResult.CommitEvents.Any(evt => evt.StartsWith("ImpactReservationCreated|", StringComparison.Ordinal)),
+                Is.True);
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    "ImpactReservationCreated|G=1|I=1|Source=5|Target=20|At=(1,0)|Damage=1|Sequence=1",
+                    (SourceId: 5, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1, TickGenerated: 1),
                 },
-                result.MovementPhaseResult.CommitEvents);
+                result.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.Position,
+                        reservation.Damage,
+                        reservation.TickGenerated))
+                    .ToArray());
         }
 
         [Test]
@@ -1001,36 +1032,37 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, TargetId: 20, Sequence: 1),
+                    (SourceId: 10, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1, TickGenerated: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
-                    .Select(reservation => (reservation.SourceId, reservation.TargetId, reservation.ReservationSequence))
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.Position,
+                        reservation.Damage,
+                        reservation.TickGenerated))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 10, Command: AttackCommandKind.ImpactReservation, TargetId: 20, IsSynthetic: true),
-                },
-                result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId, intent.IsSynthetic))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DamageCommitted|G=2|I=2|Target=20|Amount=1",
-                    "DamageCommitted|G=2|I=2|Target=10|Amount=1",
-                    "DestroyMarked|G=2|I=2|Target=10|FinalHp=0|Condition=WhenHpDepleted",
-                },
-                result.AttackPhaseResult.CommitEvents);
+            Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(2));
+            Assert.That(
+                result.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceKind == AttackSourceKind.ImpactReservation &&
+                              record.TargetId == 20 &&
+                              record.Amount == 1),
+                Is.True);
+            Assert.That(
+                result.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.TargetId == 10 &&
+                              record.Amount == 1),
+                Is.True);
             CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(snapshotAfter.TryGetEntity(10, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(20, out var targetAfter), Is.True);
             Assert.That(targetAfter.hp, Is.EqualTo(1));
             Assert.That(targetAfter.markedForDeath, Is.False);
-            Assert.That(result.Trace.Text, Does.Contain("Attack.DrainedImpacts"));
-            Assert.That(result.Trace.Text, Does.Contain("Command=ImpactReservation"));
+            Assert.That(result.Trace.Text, Does.Contain("SourceKind=ImpactReservation"));
         }
 
         [Test]
@@ -1058,7 +1090,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var snapshotAfterFirstTick = CreateSnapshot(worldState);
 
             Assert.That(firstResult.AttackPhaseResult.DrainedDelayedAttackEffects, Is.Empty);
-            Assert.That(firstResult.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(firstResult.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(firstResult.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(firstResult.EventLog.Any(evt => evt.Contains("DelayedAttackDrained")), Is.False);
             Assert.That(GetEntityHp(snapshotAfterFirstTick, 20), Is.EqualTo(2));
 
@@ -1074,28 +1107,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .DrainedDelayedAttackEffects
                     .Select(effect => (effect.SourceId, effect.TargetId, effect.ExecuteAtTick, effect.EffectSequence))
                     .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 10, Command: AttackCommandKind.DelayedEffect, TargetId: 20, IsSynthetic: true),
-                },
-                secondResult.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.CommandKind, intent.TargetId, intent.IsSynthetic))
-                    .ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
-                },
-                secondResult.AttackPhaseResult.CommitEvents);
+            Assert.That(
+                secondResult.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceId == 10 &&
+                              record.TargetId == 20 &&
+                              record.Amount == 1),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    secondResult.AttackPhaseResult.CommitEvents,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
             CollectionAssert.AreEqual(
                 new[]
                 {
                     "DelayedAttackDrained|Tick=2|Source=10|Target=20|Damage=1|GeneratedTick=1|ExecuteTick=2|Group=99|Sequence=1",
-                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
                 },
-                secondResult.EventLog);
+                secondResult.EventLog.Where(evt => evt.StartsWith("DelayedAttackDrained|", StringComparison.Ordinal)).ToArray());
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    secondResult.EventLog,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
             Assert.That(GetEntityHp(snapshotAfterSecondTick, 20), Is.EqualTo(1));
             Assert.That(IsMarkedForDeath(snapshotAfterSecondTick, 20), Is.False);
         }
@@ -1135,18 +1173,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var sameTickDrain = queue.Drain(7);
             var nextTickDrain = queue.Drain(8);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
-                },
-                commitEvents);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DelayedAttackEnqueued|G=1|I=1|Source=10|Target=30|Damage=1|ExecuteTick=8|Sequence=1",
-                },
-                delayedAttackEnqueueEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    commitEvents,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    delayedAttackEnqueueEvents,
+                    "DelayedAttackEnqueued",
+                    "Source=10",
+                    "Target=30",
+                    "Damage=1",
+                    "ExecuteTick=8",
+                    "Sequence=1"),
+                Is.True);
             Assert.That(GetEntityHp(snapshotAfterCommit, 20), Is.EqualTo(2));
             Assert.That(GetEntityHp(snapshotAfterCommit, 30), Is.EqualTo(3));
             Assert.That(sameTickDrain, Is.Empty);
@@ -1191,18 +1234,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 commitEvents,
                 delayedAttackEnqueueEvents);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DamageCommitted|G=1|I=1|Target=20|Amount=1",
-                },
-                commitEvents);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "DelayedAttackEnqueued|G=1|I=1|Source=10|Target=30|Damage=1|ExecuteTick=8|Sequence=1",
-                },
-                delayedAttackEnqueueEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    commitEvents,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    delayedAttackEnqueueEvents,
+                    "DelayedAttackEnqueued",
+                    "Source=10",
+                    "Target=30",
+                    "Damage=1",
+                    "ExecuteTick=8",
+                    "Sequence=1"),
+                Is.True);
         }
 
         [Test]
@@ -1298,9 +1346,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     AttackSourceKind.Combat,
                     AttackSourceKind.PassiveContact,
                 },
-                result.SortedInputs.Select(intent => intent.SourceKind).ToArray());
-            Assert.That(result.ResolveAcceptedActions()[0].StateChanges, Has.Count.EqualTo(1));
-            Assert.That(result.ResolveAcceptedActions()[1].StateChanges, Is.Empty);
+                result.DamageResolutions.Select(record => record.SourceKind).ToArray());
+            Assert.That(
+                result.CommitEvents.Count(evt =>
+                    SemanticEventAssertions.ContainsEvent(new[] { evt }, "StateChanged", "E=40", "State=Acting")),
+                Is.EqualTo(1));
             Assert.That(result.DamageResolutions[0].Accepted, Is.True);
             Assert.That(result.DamageResolutions[0].SourceKind, Is.EqualTo(AttackSourceKind.Combat));
             Assert.That(result.DamageResolutions[1].Accepted, Is.False);

@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(enemyAfterFirstTick.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
             Assert.That(enemyAfterFirstTick.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(firstTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol|FromTimer=0|To=Chase|ToTimer=0|Reason=TargetSensed"));
 
             var secondTick = pipeline.RunTick(new TickInput(2));
@@ -43,15 +43,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(enemyAfterSecondTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
             Assert.That(enemyAfterSecondTick.aiStateTimer, Is.EqualTo(1));
             Assert.That(playerAfterSecondTick.hp, Is.EqualTo(2));
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                secondTick.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
-                    .ToArray());
+            Assert.That(
+                secondTick.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceId == 40 &&
+                              record.TargetId == 10 &&
+                              record.SourceKind == AttackSourceKind.Combat),
+                Is.True);
             Assert.That(secondTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40|From=Chase|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));
             Assert.That(secondTick.Trace.Text, Does.Contain("EnemyAiTransition|Stage=AfterAttack|E=40|From=Attack|FromTimer=0|To=Recover|ToTimer=1|Reason=AttackCommitted"));
 
@@ -101,15 +99,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var actionStateAfterExecuteTick = GetEnemyActionState(worldState, 40);
             var executeSignal = executeTick.PresentationData.EnemyActionSignals.Single();
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                executeTick.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
-                    .ToArray());
+            Assert.That(
+                executeTick.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceId == 40 &&
+                              record.TargetId == 10 &&
+                              record.SourceKind == AttackSourceKind.Combat),
+                Is.True);
             Assert.That(playerAfterExecuteTick.hp, Is.EqualTo(2));
             Assert.That(enemyAfterExecuteTick.aiMode, Is.EqualTo(EnemyAiMode.Recover));
             Assert.That(enemyAfterExecuteTick.aiStateTimer, Is.EqualTo(1));
@@ -152,7 +148,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             Assert.That(windupTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
             Assert.That(cancelTick.AttackPhaseResult.RawIntents, Is.Empty);
-            Assert.That(cancelTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(cancelTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(enemyAfterCancelTick.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(enemyAfterCancelTick.aiStateTimer, Is.Zero);
             Assert.That(actionStateAfterCancelTick.IsActive, Is.False);
@@ -203,29 +199,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var unlockTick = pipeline.RunTick(new TickInput(3));
             var executeTick = pipeline.RunTick(new TickInput(4));
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MoveCommitted|G=1|I=1|E=40|To=(1,0)|Facing=Right",
-                },
-                moveTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    moveTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=40",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(worldState.CreateSnapshot().TryGetEntityExecutionLockState(40, out var executionLockState), Is.True);
             Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
             Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));
             Assert.That(moveTick.PresentationData.EnemyActionSignals, Is.Empty);
             Assert.That(lockedTick.PresentationData.EnemyActionSignals, Is.Empty);
-            Assert.That(lockedTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(lockedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(unlockTick.PresentationData.EnemyActionSignals.Single().StartedThisTick, Is.True);
             Assert.That(unlockTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.False);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                executeTick.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
-                    .ToArray());
+            Assert.That(
+                executeTick.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceId == 40 &&
+                              record.TargetId == 10 &&
+                              record.SourceKind == AttackSourceKind.Combat),
+                Is.True);
             Assert.That(executeTick.PresentationData.EnemyActionSignals.Single().ExecutedThisTick, Is.True);
         }
 
@@ -254,8 +250,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (SourceId: 40, TargetId: 10),
                 },
                 result.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
+                    .DamageResolutions
+                    .Where(record => record.Accepted)
+                    .Select(record => (record.SourceId, record.TargetId))
                     .ToArray());
             CollectionAssert.AreEqual(new[] { 40 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out _), Is.False);
@@ -289,9 +286,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
             Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
             Assert.That(thirdTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
         }
 
         [Test]
@@ -309,10 +306,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             worldState.CreateWriteContext().SetTopology(new CubeTopologyState(FaceId.Front));
             var suspendedTick = pipeline.RunTick(new TickInput(2));
 
-            Assert.That(activeTick.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceId), Does.Contain(40));
+            Assert.That(
+                activeTick.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted && record.SourceId == 40),
+                Is.True);
             Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
             Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(suspendedTick.AttackPhaseResult.SortedInputs, Is.Empty);
+            Assert.That(suspendedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40"));
             Assert.That(suspendedTick.Trace.Text, Does.Not.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40"));
@@ -336,16 +336,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var resumedTick = pipeline.RunTick(new TickInput(2));
 
             Assert.That(suspendedTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(suspendedTick.AttackPhaseResult.SortedInputs, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    (SourceId: 40, TargetId: 10),
-                },
-                resumedTick.AttackPhaseResult
-                    .SortedInputs
-                    .Select(intent => (intent.SourceId, intent.TargetId))
-                    .ToArray());
+            Assert.That(suspendedTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(
+                resumedTick.AttackPhaseResult.DamageResolutions.Any(
+                    record => record.Accepted &&
+                              record.SourceId == 40 &&
+                              record.TargetId == 10),
+                Is.True);
             Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
             Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
         }
@@ -370,7 +367,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var firstTick = pipeline.RunTick(new TickInput(1));
 
                 Assert.That(firstTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyJumpState(40, out _), Is.False);
                 Assert.That(firstTick.PresentationData.EnemyJumpSignals, Is.Empty);
 
@@ -392,7 +389,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var jumpState = GetEnemyJumpState(worldState, 40);
 
                 Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
-                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Windup));
                 Assert.That(jumpState.windupEndTick, Is.EqualTo(2));
                 Assert.That(jumpState.landingTick, Is.EqualTo(3));
@@ -433,9 +430,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(topologyAfterFirstTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(topologyAfterSecondTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
             Assert.That(topologyAfterThirdTick, Is.EqualTo(new CubeTopologyState(FaceId.Floor)));
-            Assert.That(firstTick.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
-            Assert.That(secondTick.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
-            Assert.That(thirdTick.MovementPhaseResult.ResolveAcceptedActions().SelectMany(group => group.TopologyChanges), Is.Empty);
             Assert.That(firstTick.EventLog, Has.None.Contains("TopologyCommitted"));
             Assert.That(secondTick.EventLog, Has.None.Contains("TopologyCommitted"));
             Assert.That(thirdTick.EventLog, Has.None.Contains("TopologyCommitted"));
@@ -625,9 +619,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var enemy = GetEntity(worldState, 40);
                 var player = GetEntity(worldState, 10);
 
-                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(player.hp, Is.EqualTo(3));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
@@ -933,7 +927,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 1)));
                 Assert.That(GetEntity(worldState, 50).state, Is.EqualTo(EntityPhaseState.Idle));
                 Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Windup));
-                Assert.That(impactTick.MovementPhaseResult.CommitEvents, Has.Member("ImpactReservationCreated|G=1|I=1|Source=50|Target=40|At=(0,1)|Damage=1|Sequence=1"));
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 50, TargetId: 40, Position: new Vector2Int(0, 1), Damage: 1),
+                    },
+                    impactTick.AttackPhaseResult
+                        .DrainedImpactReservations
+                        .Select(reservation => (reservation.SourceId, reservation.TargetId, reservation.Position, reservation.Damage))
+                        .ToArray());
             }
             finally
             {
@@ -1051,7 +1053,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(enemy.hp, Is.EqualTo(2));
                 Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 1)));
                 Assert.That(GetEntity(worldState, 50).state, Is.EqualTo(EntityPhaseState.Idle));
-                Assert.That(landingImpactTick.MovementPhaseResult.CommitEvents, Has.Member("ImpactReservationCreated|G=1|I=1|Source=50|Target=40|At=(3,1)|Damage=1|Sequence=1"));
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 50, TargetId: 40, Position: new Vector2Int(3, 1), Damage: 1),
+                    },
+                    landingImpactTick.AttackPhaseResult
+                        .DrainedImpactReservations
+                        .Select(reservation => (reservation.SourceId, reservation.TargetId, reservation.Position, reservation.Damage))
+                        .ToArray());
             }
             finally
             {
@@ -1220,9 +1230,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var secondTick = pipeline.RunTick(new TickInput(2));
                 var thirdTick = pipeline.RunTick(new TickInput(3));
 
-                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(40, out _), Is.False);
             }
             finally
@@ -1368,9 +1378,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var enemy = GetEntity(worldState, 40);
                 var player = GetEntity(worldState, 10);
 
-                Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(secondTick.AttackPhaseResult.SortedInputs, Is.Empty);
-                Assert.That(thirdTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(firstTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(thirdTick.AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
                 Assert.That(player.hp, Is.EqualTo(3));
                 Assert.That(firstTick.Trace.Text, Does.Not.Contain("To=Chase"));
@@ -1403,15 +1413,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var enemy = GetEntity(worldState, 40);
                 var player = GetEntity(worldState, 10);
 
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (SourceId: 40, TargetId: 10),
-                    },
-                    result.AttackPhaseResult
-                        .SortedInputs
-                        .Select(intent => (intent.SourceId, intent.TargetId))
-                        .ToArray());
+                Assert.That(
+                    result.AttackPhaseResult.DamageResolutions.Any(
+                        record => record.Accepted &&
+                                  record.SourceId == 40 &&
+                                  record.TargetId == 10),
+                    Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
                 Assert.That(player.hp, Is.EqualTo(2));
@@ -1451,15 +1458,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var player = GetEntity(worldState, 10);
 
                 Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
-                CollectionAssert.AreEqual(
-                    new[]
-                    {
-                        (SourceId: 40, TargetId: 10),
-                    },
-                    result.AttackPhaseResult
-                        .SortedInputs
-                        .Select(intent => (intent.SourceId, intent.TargetId))
-                        .ToArray());
+                Assert.That(
+                    result.AttackPhaseResult.DamageResolutions.Any(
+                        record => record.Accepted &&
+                                  record.SourceId == 40 &&
+                                  record.TargetId == 10),
+                    Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
                 Assert.That(enemy.position.PlanarPosition, Is.EqualTo(stackedCell));
                 Assert.That(player.hp, Is.EqualTo(2));
@@ -1500,7 +1504,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         AttackSourceKind.Combat,
                         AttackSourceKind.PassiveContact,
                     },
-                    result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray());
+                    result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray());
                 Assert.That(resolutions.Count, Is.EqualTo(2));
                 Assert.That(resolutions[0].Accepted, Is.True);
                 Assert.That(resolutions[0].SourceKind, Is.EqualTo(AttackSourceKind.Combat));
@@ -1531,7 +1535,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
                 var result = pipeline.RunTick(new TickInput(1));
 
-                Assert.That(result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
@@ -1558,7 +1562,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
                 var result = pipeline.RunTick(new TickInput(1));
 
-                Assert.That(result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
@@ -1585,7 +1589,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
                 var result = pipeline.RunTick(new TickInput(1));
 
-                Assert.That(result.AttackPhaseResult.SortedInputs.Select(intent => intent.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
+                Assert.That(result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
@@ -1799,7 +1803,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
                 Assert.That(player.hp, Is.EqualTo(3));
                 Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
-                Assert.That(fourthTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                Assert.That(fourthTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             }
             finally
             {

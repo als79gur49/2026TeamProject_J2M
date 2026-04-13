@@ -47,9 +47,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var entity), Is.True);
             Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
-            Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
+            Assert.That(GetUnitIdsAt(snapshot, new Vector2Int(1, 0)), Is.Empty);
         }
 
         [Test]
@@ -66,7 +65,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out _), Is.False);
+            Assert.That(GetUnitIdsAt(snapshot, new Vector2Int(1, 0)), Is.Empty);
         }
 
         [Test]
@@ -87,9 +86,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var entity), Is.True);
             Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.right, out _), Is.False);
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
+            Assert.That(GetUnitIdsAt(snapshot, Vector2Int.right), Is.Empty);
         }
 
         [Test]
@@ -106,7 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.right, out _), Is.False);
+            Assert.That(GetUnitIdsAt(snapshot, Vector2Int.right), Is.Empty);
         }
 
         [Test]
@@ -125,8 +123,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
             Assert.That(snapshot.TryGetEntity(20, out var stackedEntity), Is.True);
             Assert.That(stackedEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
+            Assert.That(snapshot.TryGetPrimaryUnitAt(Vector2Int.zero, out var primaryOccupant), Is.True);
+            Assert.That(primaryOccupant.entityId, Is.EqualTo(10));
 
             var occupancy = new List<SnapshotOccupancyEntry>();
             snapshot.EnumerateUnitOccupancyOrdered(occupancy);
@@ -199,9 +197,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(20, out var blockingEntity), Is.True);
             Assert.That(blockingEntity.markedForDeath, Is.True);
             Assert.That(blockingEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out _), Is.False);
-            Assert.That(snapshot.TryGetUnitAt(new Vector2Int(1, 0), out var primaryOccupant), Is.True);
+            Assert.That(GetUnitIdsAt(snapshot, Vector2Int.zero), Is.Empty);
+            Assert.That(snapshot.TryGetPrimaryUnitAt(new Vector2Int(1, 0), out var primaryOccupant), Is.True);
             Assert.That(primaryOccupant.entityId, Is.EqualTo(10));
+            CollectionAssert.AreEqual(new[] { 10, 20 }, GetUnitIdsAt(snapshot, new Vector2Int(1, 0)));
         }
 
         [Test]
@@ -228,9 +227,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(reoccupyingEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(snapshot.TryGetEntity(20, out var currentOccupant), Is.True);
             Assert.That(currentOccupant.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.right, out _), Is.False);
+            Assert.That(snapshot.TryGetPrimaryUnitAt(Vector2Int.zero, out var primaryOccupant), Is.True);
+            Assert.That(primaryOccupant.entityId, Is.EqualTo(10));
+            CollectionAssert.AreEqual(new[] { 10, 20 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
+            Assert.That(GetUnitIdsAt(snapshot, Vector2Int.right), Is.Empty);
         }
 
         [Test]
@@ -250,9 +250,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(10, out var existingBox), Is.True);
             Assert.That(existingBox.type, Is.EqualTo(EntityType.Box));
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
-            Assert.That(occupant.type, Is.EqualTo(EntityType.Box));
+            Assert.That(snapshot.TryGetSolidOccupantAt(Vector2Int.zero, out var solidOccupant), Is.True);
+            Assert.That(solidOccupant.entityId, Is.EqualTo(10));
+            Assert.That(solidOccupant.type, Is.EqualTo(EntityType.Box));
         }
 
         [Test]
@@ -271,9 +271,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out _), Is.True);
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
-            Assert.That(occupant.type, Is.EqualTo(EntityType.Unit));
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
+            Assert.That(snapshot.TryGetSolidOccupantAt(Vector2Int.zero, out _), Is.False);
         }
 
         [Test]
@@ -293,8 +292,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetEntity(20, out var projectile), Is.True);
             Assert.That(projectile.type, Is.EqualTo(EntityType.Projectile));
             Assert.That(projectile.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            Assert.That(snapshot.TryGetUnitAt(Vector2Int.zero, out var occupant), Is.True);
-            Assert.That(occupant.entityId, Is.EqualTo(10));
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
             Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out var projectileOccupant), Is.True);
             Assert.That(projectileOccupant.entityId, Is.EqualTo(20));
         }
@@ -407,6 +405,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 spawnTick = 0,
                 boxCapabilities = BoxCapabilities.Push | BoxCapabilities.Flip,
             };
+        }
+
+        private static int[] GetUnitIdsAt(WorldSnapshot snapshot, Vector2Int cell)
+        {
+            var units = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, units);
+            return units.Select(entity => entity.entityId).ToArray();
         }
     }
 }

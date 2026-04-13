@@ -22,13 +22,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
                 GameplayTerrainData.Empty);
             var snapshot = CreateSnapshot(worldState);
+            var activeUnits = new List<EntityState>();
+            var inactiveUnits = new List<EntityState>();
 
             Assert.That(snapshot.TryGetEntity(20, out var inactiveEntity), Is.True);
             Assert.That(inactiveEntity.position.face, Is.EqualTo(FaceId.Ceiling));
 
-            Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 1), out var activeOccupant), Is.True);
-            Assert.That(activeOccupant.entityId, Is.EqualTo(10));
-            Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Ceiling, 1, 1), out _), Is.False);
+            snapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 1, 1), activeUnits);
+            snapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Ceiling, 1, 1), inactiveUnits);
+
+            CollectionAssert.AreEqual(new[] { 10 }, activeUnits.ConvertAll(entity => entity.entityId));
+            Assert.That(inactiveUnits, Is.Empty);
         }
 
         [Test]
@@ -637,13 +641,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             boardPresence: EntityBoardPresence.Detached),
                     },
                     new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
-                    GameplayTerrainData.Empty));
+                        GameplayTerrainData.Empty));
+            var units = new List<EntityState>();
 
             Assert.That(snapshot.TryGetEntity(20, out var detachedEntity), Is.True);
             Assert.That(detachedEntity.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-            Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
-            Assert.That(snapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
-            Assert.That(snapshot.BlocksMovement(20), Is.False);
+            snapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 1, 0), units);
+            Assert.That(units, Is.Empty);
+            Assert.That(snapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+            Assert.That(snapshot.TryPickImpactTargetAt(new SurfaceCell(FaceId.Floor, 1, 0), sourceTeamId: 1, out _), Is.False);
             Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.False);
         }
 

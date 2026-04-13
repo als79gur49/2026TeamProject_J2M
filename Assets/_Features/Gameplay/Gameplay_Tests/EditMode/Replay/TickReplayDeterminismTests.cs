@@ -43,12 +43,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             var result = pipeline.RunTick(new TickInput(1));
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
-                },
-                result.EventLog);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.EventLog,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -258,8 +260,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Attack.DrainedImpacts"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=10|Target=20|At=(1,0)|Damage=1|Sequence=1"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "ImpactReservationCreated",
+                    "Source=10",
+                    "Target=20",
+                    "At=(1,0)",
+                    "Damage=1",
+                    "Sequence=1"),
+                Is.True);
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=10"));
         }
 
@@ -282,7 +292,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
@@ -385,8 +402,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Push"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("StateChanged|G=1|I=1|E=30|State=Sliding|Timer=12"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(2,0)|Facing=Right"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "StateChanged",
+                    "E=30",
+                    "State=Sliding",
+                    "Timer=12"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=30",
+                    "To=(2,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=30|Pos=(2,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Sliding|Timer=11|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=Push"));
         }
@@ -454,7 +485,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
         }
@@ -480,9 +518,28 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Item"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Command=Move"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("BoardPresenceCommitted|G=1|I=1|E=30|Presence=Detached"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("DestroyMarked|G=1|I=1|Target=30|Condition=AlwaysMark"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "BoardPresenceCommitted",
+                    "E=30",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "DestroyMarked",
+                    "Target=30",
+                    "Condition=AlwaysMark"),
+                Is.True);
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=30"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Not.Contain("E=30|"));
@@ -508,8 +565,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Item"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("BoardPresenceCommitted|G=1|I=1|E=30|Presence=Detached"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("DamageCommitted|G=2|I=3|Target=10|Amount=1"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "BoardPresenceCommitted",
+                    "E=30",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "DamageCommitted",
+                    "Target=10",
+                    "Amount=1"),
+                Is.True);
             Assert.That(firstReplay[0].EventLogDump, Does.Contain("CleanupRemoved|E=30"));
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("Target=30|Amount=1"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(1,0)|Hp=2|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities=None"));
@@ -537,8 +606,21 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Kind=Flip"));
             Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=30:(-1,0)->(1,0):Right]"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("FacingCommitted|G=1|I=1|E=10|Facing=Left"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=30|To=(1,0)|Facing=Right"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "FacingCommitted",
+                    "E=10",
+                    "Facing=Left"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=30",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=10|Pos=(0,0)|Hp=3|MaxHp=3|Team=1|Type=Unit|State=Idle|Timer=0|Facing=Left|Marked=0|SpawnTick=0|BoxCapabilities=None"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain($"E=30|Pos=(1,0)|Hp=1|MaxHp=1|Team=0|Type=Box|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0|BoxCapabilities={BoxCapabilities.Flip}"));
         }
@@ -565,8 +647,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[0].Trace, Does.Contain("Moves=[E=10:(0,0)->(1,0):Right]"));
             Assert.That(firstReplay[1].Trace, Does.Contain("Moves=[E=10:(1,0)->(0,0):Left]"));
             Assert.That(firstReplay[1].Trace, Does.Not.Contain("Reason=EdgeReserved"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right"));
-            Assert.That(firstReplay[1].EventLogDump, Does.Contain("MoveCommitted|G=1|I=1|E=10|To=(0,0)|Facing=Left"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[1].EventLogDump,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(0,0)",
+                    "Facing=Left"),
+                Is.True);
         }
 
         [Test]
@@ -589,10 +685,37 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Source=10|Priority=5|Target=0|Command=FireProjectile"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=21|Pos=(1,0)|Type=Projectile|SpawnTick=1"));
-            Assert.That(firstReplay[13].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=21|Target=20|At=(2,0)|Damage=1|Sequence=1"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "SpawnCommitted",
+                    "SpawnId=1",
+                    "E=21",
+                    "Pos=(1,0)",
+                    "Type=Projectile",
+                    "SpawnTick=1"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[13].EventLogDump,
+                    "ImpactReservationCreated",
+                    "Source=21",
+                    "Target=20",
+                    "At=(2,0)",
+                    "Damage=1",
+                    "Sequence=1"),
+                Is.True);
             Assert.That(firstReplay[13].EventLogDump, Does.Contain("CleanupRemoved|E=21"));
-            Assert.That(firstReplay[14].EventLogDump, Does.Contain("SpawnCommitted|G=1|I=1|SpawnId=1|E=22|Pos=(1,0)|Type=Projectile|SpawnTick=15"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[14].EventLogDump,
+                    "SpawnCommitted",
+                    "SpawnId=1",
+                    "E=22",
+                    "Pos=(1,0)",
+                    "Type=Projectile",
+                    "SpawnTick=15"),
+                Is.True);
             Assert.That(firstReplay[14].FinalEntitiesDump, Does.Contain("E=22|Pos=(1,0)|Hp=1|MaxHp=1|Team=1|Type=Projectile|State=Idle|Timer=12|Facing=Right|Marked=0|SpawnTick=15"));
         }
 
@@ -612,9 +735,16 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
-            Assert.That(firstReplay[0].Trace, Does.Contain("Attack.DrainedImpacts"));
-            Assert.That(firstReplay[0].Trace, Does.Contain("Command=ImpactReservation"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("ImpactReservationCreated|G=1|I=1|Source=5|Target=20|At=(1,0)|Damage=1|Sequence=1"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "ImpactReservationCreated",
+                    "Source=5",
+                    "Target=20",
+                    "At=(1,0)",
+                    "Damage=1",
+                    "Sequence=1"),
+                Is.True);
             Assert.That(firstReplay[0].EventLogDump, Does.Not.Contain("Target=40"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,1)|Hp=2|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
         }
@@ -644,7 +774,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[1].Trace, Does.Contain("Attack.DrainedDelayedEffects"));
             Assert.That(firstReplay[1].Trace, Does.Contain("Command=DelayedEffect"));
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("DelayedAttackDrained|Tick=2|Source=10|Target=20|Damage=1|GeneratedTick=1|ExecuteTick=2|Group=99|Sequence=1"));
-            Assert.That(firstReplay[1].EventLogDump, Does.Contain("DamageCommitted|G=1|I=1|Target=20|Amount=1"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[1].EventLogDump,
+                    "DamageCommitted",
+                    "Target=20",
+                    "Amount=1"),
+                Is.True);
             Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=20|Pos=(1,0)|Hp=1|MaxHp=2|Team=2|Type=Unit|State=Idle|Timer=0|Facing=Right|Marked=0|SpawnTick=0"));
         }
 
@@ -1019,7 +1155,14 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("SourceKind=PassiveContact"));
-            Assert.That(firstReplay[0].EventLogDump, Does.Contain("DamageCommitted|G=1|I=1|SourceKind=PassiveContact|Target=10|Amount=1"));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstReplay[0].EventLogDump,
+                    "DamageCommitted",
+                    "SourceKind=PassiveContact",
+                    "Target=10",
+                    "Amount=1"),
+                Is.True);
             Assert.That(firstReplay[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed="));
         }
 

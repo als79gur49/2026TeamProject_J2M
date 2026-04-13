@@ -44,15 +44,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
-                firstTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(thirdTick.MovementPhaseResult.SortedIntents, Is.Empty);
             Assert.That(fourthTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[] { "MoveCommitted|G=1|I=1|E=10|To=(2,0)|Facing=Right" },
-                fifthTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    fifthTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(2,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
@@ -87,13 +97,23 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var thirdTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[] { "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right" },
-                firstTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    firstTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(secondTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[] { "MoveCommitted|G=1|I=1|E=10|To=(2,0)|Facing=Right" },
-                thirdTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    thirdTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(2,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
         }
@@ -212,13 +232,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     (SourceId: 10, IntentId: 1, Command: MovementCommandKind.Push),
                 },
                 thirdTick.MovementPhaseResult.SortedIntents.Select(intent => (intent.SourceId, intent.IntentId, intent.CommandKind)).ToArray());
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "StateChanged|G=1|I=1|E=20|State=Sliding|Timer=12",
-                    "MoveCommitted|G=1|I=1|E=20|To=(2,0)|Facing=Right",
-                },
-                thirdTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    thirdTick.MovementPhaseResult.CommitEvents,
+                    "StateChanged",
+                    "E=20",
+                    "State=Sliding",
+                    "Timer=12"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    thirdTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=20",
+                    "To=(2,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(snapshotAfter.TryGetPlayerControlState(10, out var controlState), Is.True);
@@ -311,12 +340,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var fifthTick = pipeline.RunTick(new TickInput(5, PlayerTickCommand.Move(Direction.Right)));
 
             Assert.That(firstTick.MovementPhaseResult.SortedIntents, Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(-1,0)",
-                },
-                directionChangeTick.MovementPhaseResult.RejectedReasons);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    directionChangeTick.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=BlockedDestination",
+                    "Cell=(-1,0)"),
+                Is.True);
             Assert.That(snapshotAfterDirectionChange.TryGetEntity(10, out var playerAfterDirectionChange), Is.True);
             Assert.That(playerAfterDirectionChange.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(playerAfterDirectionChange.facing, Is.EqualTo(Direction.Left));
@@ -344,13 +376,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(result.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MovementRejected|Stage=Expand|Source=10|I=1|Reason=BlockedDestination|Cell=(1,0)",
-                },
-                result.MovementPhaseResult.RejectedReasons);
+            Assert.That(result.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.RejectedReasons,
+                    "MovementRejected",
+                    "Stage=Expand",
+                    "Source=10",
+                    "Reason=BlockedDestination",
+                    "Cell=(1,0)"),
+                Is.True);
             Assert.That(snapshotAfter.TryGetEntity(10, out var player), Is.True);
             Assert.That(player.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(player.facing, Is.EqualTo(Direction.Right));
@@ -446,13 +481,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var executeTick = pipeline.RunTick(new TickInput(2, PlayerTickCommand.Move(Direction.Up)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            Assert.That(startTick.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(startTick.MovementPhaseResult.CommitEvents, Is.Empty);
+            Assert.That(startTick.MovementPhaseResult.RejectedReasons, Is.Empty);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.False);
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().TargetEntityId, Is.EqualTo(20));
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().Direction, Is.EqualTo(Direction.Right));
-            Assert.That(executeTick.MovementPhaseResult.ResolveAcceptedActions().Single().GroupKind, Is.EqualTo(ActionGroupKind.Flip));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 20, Kind: TickEntityMotionKind.Flip),
+                },
+                executeTick.PresentationData.EntityMotions.Select(motion => (motion.EntityId, motion.MotionKind)).ToArray());
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.False);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ExecutedThisTick, Is.True);
             Assert.That(executeTick.PresentationData.PlayerActionSignals.Single().ActiveActionKind, Is.EqualTo(PlayerActionKind.Flip));
@@ -488,7 +529,19 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var signal = executeTick.PresentationData.PlayerActionSignals.Single();
 
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(executeTick.MovementPhaseResult.ResolveAcceptedActions().Single().GroupKind, Is.EqualTo(ActionGroupKind.BoxImpact));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 20, TargetId: 30, Position: new Vector2Int(-1, 0), Damage: 1),
+                },
+                executeTick.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.Position,
+                        reservation.Damage))
+                    .ToArray());
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.IsRecoveryPhase, Is.True);
@@ -519,7 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var signal = executeTick.PresentationData.PlayerActionSignals.Single();
 
             Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
-            Assert.That(executeTick.MovementPhaseResult.ResolveAcceptedActions(), Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.IsRecoveryPhase, Is.True);
@@ -584,12 +637,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var unlockTick = pipeline.RunTick(new TickInput(3, PlayerTickCommand.Flip(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(
-                new[]
-                {
-                    "MoveCommitted|G=1|I=1|E=10|To=(1,0)|Facing=Right",
-                },
-                moveTick.MovementPhaseResult.CommitEvents);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    moveTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=10",
+                    "To=(1,0)",
+                    "Facing=Right"),
+                Is.True);
             Assert.That(CreateSnapshot(worldState).TryGetEntityExecutionLockState(10, out var executionLockState), Is.True);
             Assert.That(executionLockState.phase, Is.EqualTo(EntityExecutionPhase.Move));
             Assert.That(executionLockState.unlockTickExclusive, Is.EqualTo(3));

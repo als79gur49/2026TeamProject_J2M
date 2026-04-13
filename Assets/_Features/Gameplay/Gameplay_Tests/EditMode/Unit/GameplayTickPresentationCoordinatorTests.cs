@@ -1130,7 +1130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -1150,7 +1150,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             },
                             Array.Empty<TickEnemyActionPresentationSignal>(),
                             Array.Empty<TickEnemyJumpPresentationSignal>(),
-                            Array.Empty<TickEntityExitPresentationSignal>()),
+                            new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    exitedEntityId: 10,
+                                    TickEntityExitCause.Killed,
+                                    playerCell,
+                                    topology,
+                                    Direction.Right,
+                                    EntityType.Unit),
+                            }),
                         string.Empty,
                         TickTrace.Empty));
 
@@ -1426,7 +1435,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
+                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -1442,7 +1451,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
                             enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
                             enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
-                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>()),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    exitedEntityId: 10,
+                                    TickEntityExitCause.Killed,
+                                    spawnCell,
+                                    topology,
+                                    Direction.Right,
+                                    EntityType.Unit),
+                            }),
                         string.Empty,
                         TickTrace.Empty));
 

@@ -222,7 +222,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         2,
                         PlayerTickCommand.None,
                         new[] { 99 },
-                        Array.Empty<DamageResolutionRecord>()));
+                        Array.Empty<StageObjectiveDamageFact>()));
 
                 Assert.That(firstTick.IsCleared, Is.False);
                 Assert.That(secondTick.GoalReached, Is.True);
@@ -309,7 +309,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         2,
                         PlayerTickCommand.None,
                         new[] { 42 },
-                        Array.Empty<DamageResolutionRecord>()));
+                        Array.Empty<StageObjectiveDamageFact>()));
                 Assert.That(runtime.IsSatisfied, Is.True);
 
                 runtime.Advance(CreateSnapshot(CreatePlayerEntity(10, new SurfaceCell(FaceId.Floor, 0, 0))), StageObjectiveTickFacts.Empty);

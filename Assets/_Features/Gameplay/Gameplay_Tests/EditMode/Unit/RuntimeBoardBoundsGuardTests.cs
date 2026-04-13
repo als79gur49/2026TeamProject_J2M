@@ -454,12 +454,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                     var firstTick = host.InputHost.RunSingleTick();
                     Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var firstTickPlayer), Is.True);
-                    Assert.That(firstTick.AttackPhaseResult.SortedInputs, Is.Empty);
+                    Assert.That(firstTick.AttackPhaseResult.RawIntents, Is.Empty);
                     Assert.That(firstTickPlayer.hp, Is.EqualTo(3));
 
                     var secondTick = host.InputHost.RunSingleTick();
                     Assert.That(host.WorldState.CreateSnapshot().TryGetEntity(10, out var secondTickPlayer), Is.True);
-                    Assert.That(secondTick.AttackPhaseResult.SortedInputs.Count, Is.EqualTo(1));
+                    Assert.That(secondTick.AttackPhaseResult.RawIntents.Count, Is.EqualTo(1));
                     Assert.That(secondTickPlayer.hp, Is.EqualTo(2));
                 }
                 finally
@@ -4965,9 +4965,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var snapshot = host.WorldState.CreateSnapshot();
 
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out var movedUnit), Is.True);
-                Assert.That(movedUnit.entityId, Is.EqualTo(10));
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 0, 0), out _), Is.False);
+                CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(GetUnitIdsAt(snapshot, new SurfaceCell(FaceId.Floor, 0, 0)), Is.Empty);
 
                 var renderedPosition = GetViewPosition(host, 10);
                 var sourcePosition = GetProjectedEntityPosition(
@@ -5023,9 +5022,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var snapshot = host.WorldState.CreateSnapshot();
 
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 2, 0), out var pushedBox), Is.True);
+                Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, 2, 0), out var pushedBox), Is.True);
                 Assert.That(pushedBox.entityId, Is.EqualTo(20));
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+                Assert.That(GetUnitIdsAt(snapshot, new SurfaceCell(FaceId.Floor, 1, 0)), Is.Empty);
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
 
                 var renderedPosition = GetViewPosition(host, 20);
@@ -5085,11 +5084,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var snapshot = host.WorldState.CreateSnapshot();
 
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 2, 0), out var pushedBox), Is.True);
+                Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, 2, 0), out var pushedBox), Is.True);
                 Assert.That(pushedBox.entityId, Is.EqualTo(20));
                 Assert.That(snapshot.TryGetProjectileAt(new SurfaceCell(FaceId.Floor, 2, 0), out var projectile), Is.True);
                 Assert.That(projectile.entityId, Is.EqualTo(30));
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
+                Assert.That(GetUnitIdsAt(snapshot, new SurfaceCell(FaceId.Floor, 1, 0)), Is.Empty);
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
 
                 var renderedPosition = GetViewPosition(host, 20);
@@ -5149,9 +5148,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var snapshot = host.WorldState.CreateSnapshot();
 
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out var flippedBox), Is.True);
+                Assert.That(snapshot.TryGetSolidOccupantAt(new SurfaceCell(FaceId.Floor, 1, 0), out var flippedBox), Is.True);
                 Assert.That(flippedBox.entityId, Is.EqualTo(20));
-                Assert.That(snapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, -1, 0), out _), Is.False);
+                Assert.That(GetUnitIdsAt(snapshot, new SurfaceCell(FaceId.Floor, -1, 0)), Is.Empty);
                 Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.True);
 
                 var renderedPosition = GetViewPosition(host, 20);
@@ -6757,6 +6756,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertVectorApproximately(Vector3 actual, Vector3 expected)
         {
             Assert.That(Vector3.Distance(actual, expected), Is.LessThan(0.001f));
+        }
+
+        private static int[] GetUnitIdsAt(WorldSnapshot snapshot, SurfaceCell cell)
+        {
+            var units = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, units);
+            return units.Select(entity => entity.entityId).ToArray();
         }
 
         private sealed class TestViewFactory : IGameplayEntityViewFactory

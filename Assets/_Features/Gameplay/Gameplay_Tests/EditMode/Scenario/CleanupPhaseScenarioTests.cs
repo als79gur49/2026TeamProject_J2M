@@ -25,7 +25,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
             var beforeSnapshot = CreateSnapshot(worldState);
 
-            Assert.That(beforeSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
+            Assert.That(beforeSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
             Assert.That(beforeSnapshot.TryGetEntity(10, out var entityBefore), Is.True);
             Assert.That(entityBefore.markedForDeath, Is.True);
 
@@ -34,7 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
             Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.False);
-            Assert.That(afterSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
+            Assert.That(afterSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
         }
 
         [Test]
@@ -51,20 +51,24 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
             var beforeSnapshot = CreateSnapshot(worldState);
+            var beforeUnits = new List<EntityState>();
 
             Assert.That(beforeSnapshot.TryGetEntity(10, out var entityBefore), Is.True);
             Assert.That(entityBefore.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-            Assert.That(beforeSnapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
-            Assert.That(beforeSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
+            beforeSnapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 1, 0), beforeUnits);
+            Assert.That(beforeUnits, Is.Empty);
+            Assert.That(beforeSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
 
             var result = pipeline.RunTick(new TickInput(6));
             var afterSnapshot = CreateSnapshot(worldState);
+            var afterUnits = new List<EntityState>();
 
             Assert.That(result.CleanupPhaseResult.RemovedEntityIds, Is.Empty);
             Assert.That(afterSnapshot.TryGetEntity(10, out var entityAfter), Is.True);
             Assert.That(entityAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
-            Assert.That(afterSnapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
-            Assert.That(afterSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 1, 0)), Is.False);
+            afterSnapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 1, 0), afterUnits);
+            Assert.That(afterUnits, Is.Empty);
+            Assert.That(afterSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
         }
 
         [Test]
@@ -269,8 +273,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             pipeline.RunTick(new TickInput(8));
 
             var afterSnapshot = CreateSnapshot(worldState);
-            Assert.That(afterSnapshot.IsBlockedForUnit(new SurfaceCell(FaceId.Floor, 3, 1)), Is.False);
-            Assert.That(afterSnapshot.TryGetUnitAt(new SurfaceCell(FaceId.Floor, 3, 1), out _), Is.False);
+            var units = new List<EntityState>();
+            Assert.That(afterSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 3, 1), out _), Is.False);
+            afterSnapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 3, 1), units);
+            Assert.That(units, Is.Empty);
         }
 
         [Test]
