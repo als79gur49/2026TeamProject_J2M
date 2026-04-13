@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class UnitLocomotionPresentationAuthoringTests
     {
         [Test]
+        [Category("Extended")]
         public void UnitLocomotionPresentationAuthoring_CreateSnapshot_PreservesOverrideAndFallbackSentinel()
         {
             var rootObject = new GameObject("UnitLocomotionPresentationAuthoring_CreateSnapshot");
@@ -34,6 +35,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void UnitLocomotionPresentationAuthoring_InvalidOverrideDuration_Throws()
         {
             var rootObject = new GameObject("UnitLocomotionPresentationAuthoring_InvalidOverrideDuration");
@@ -52,6 +54,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_ValidatesOptionalUnitLocomotionPresentationAuthoring()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_ValidatesOptionalUnitLocomotionPresentationAuthoring");
@@ -77,6 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyViewPrefabRequirements_ValidatesOptionalUnitLocomotionPresentationAuthoring()
         {
             var prefabObject = new GameObject("EnemyViewPrefabRequirements_ValidatesOptionalUnitLocomotionPresentationAuthoring");
@@ -99,6 +103,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyViewPrefabRequirements_AllowsUnitLocomotionWithoutLegacyEntityMotionAuthoring()
         {
             var prefabObject = new GameObject("EnemyViewPrefabRequirements_AllowsUnitLocomotionWithoutLegacyEntityMotionAuthoring");

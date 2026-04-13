@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         };
 
         [Test]
+        [Category("Full")]
         public void Fuzz_SameSeedScenarioGeneration_ProducesSameCanonicalScenarioDump()
         {
             const int seed = 20260323;
@@ -33,6 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         }
 
         [Test]
+        [Category("Full")]
         public void Fuzz_CuratedSeeds_ProduceIdenticalPerTickHashesTwice()
         {
             var generator = new FuzzScenarioGenerator();
@@ -48,6 +50,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         }
 
         [Test]
+        [Category("Full")]
         public void Fuzz_CuratedSeeds_ProduceIdenticalPerTickTraceAndDumpsTwice()
         {
             var generator = new FuzzScenarioGenerator();
@@ -87,6 +90,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         }
 
         [Test]
+        [Category("Full")]
         public void ReplayArtifactWriter_WritesFirstDivergentTickArtifacts()
         {
             const int seed = 90901;
@@ -159,6 +163,7 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
         [Test]
         [Explicit("Long-running deterministic replay fuzz sweep.")]
         [Category("LongRunning")]
+        [Category("Full")]
         public void Fuzz_LongRunningCuratedSeeds_ProduceIdenticalPerTickArtifactsTwice()
         {
             var generator = new FuzzScenarioGenerator();

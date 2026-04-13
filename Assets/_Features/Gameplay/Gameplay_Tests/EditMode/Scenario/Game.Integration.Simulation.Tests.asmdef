@@ -1,0 +1,14 @@
+{
+  "name": "Game.Integration.Simulation.Tests",
+  "rootNamespace": "Game.Feature.Gameplay.Tests.Scenario",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Tests"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

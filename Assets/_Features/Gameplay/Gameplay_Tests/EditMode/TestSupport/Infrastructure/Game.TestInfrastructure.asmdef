@@ -1,0 +1,14 @@
+{
+  "name": "Game.TestInfrastructure",
+  "rootNamespace": "Game.Feature.Gameplay.Tests.Infrastructure",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Tests"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

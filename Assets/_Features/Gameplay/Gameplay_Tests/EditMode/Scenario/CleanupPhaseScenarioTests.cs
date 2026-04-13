@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class CleanupPhaseScenarioTests
     {
         [Test]
+        [Category("Core")]
         public void Cleanup_MarkedForDeathOccupyingEntity_RemainsPresentUntilCleanupThenIsRemoved()
         {
             var worldState = CreateWorldState(new[]
@@ -37,6 +38,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_DetachedEntityWithoutDestroyMark_RemainsDetachedAndSurvivesCleanup()
         {
             var worldState = CreateWorldState(new[]
@@ -66,6 +68,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_HpZeroEntity_IsRemovedInCleanup()
         {
             var worldState = CreateWorldState(new[]
@@ -82,6 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Respawn_PlayerRemovedInCleanup_RespawnsNextTickAtInitialSpawnWithFullHp()
         {
             var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
@@ -122,6 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Respawn_ConfiguredDelay_WaitsEligibleTickBeforeRespawning()
         {
             var worldState = CreateWorldState(new[]
@@ -156,6 +161,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Respawn_SolidBlockerAtInitialSpawn_SkipsUntilBlockerIsRemoved()
         {
             var spawnCell = new SurfaceCell(FaceId.Floor, 0, 0);
@@ -188,6 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Respawn_PlayerControlState_IsResetWhenPlayerReturns()
         {
             var worldState = CreateWorldState(new[]
@@ -250,6 +257,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_RemovalClearsOccupancy()
         {
             var worldState = CreateWorldState(new[]
@@ -266,6 +274,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_SpawnedThisTick_DoesNotTickTimer()
         {
             var worldState = CreateWorldState(new[]
@@ -289,6 +298,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_StateTimer_DecrementsOnlyForSurvivors()
         {
             var worldState = CreateWorldState(new[]
@@ -325,6 +335,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_StateTransition_AppliesAfterTimerTick()
         {
             var worldState = CreateWorldState(new[]
@@ -359,6 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_SlidingState_DoesNotAutoTransitionWhenTimerReachesZero()
         {
             var worldState = CreateWorldState(new[]
@@ -388,6 +400,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Cleanup_SameInput_ProducesDeterministicResult()
         {
             var firstRun = RunDeterministicCleanupTick();

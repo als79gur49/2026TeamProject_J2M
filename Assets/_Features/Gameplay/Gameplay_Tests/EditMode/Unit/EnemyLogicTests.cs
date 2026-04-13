@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class EnemyLogicTests
     {
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_ImplementsMovementAndAttackContracts()
         {
             var logic = new EnemyLogic(entityId: 40);
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_InvalidConfig_ThrowsArgumentException()
         {
             var exception = Assert.Throws<ArgumentException>(() => new EnemyLogic(entityId: 40, default(EnemyAiRuntimeDefinition)));
@@ -38,6 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_PatrolMode_ProducesForwardMovementIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -58,6 +61,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_PatrolMode_BottomFaceBoundary_DoesNotProduceMovementIntent()
         {
             var worldState = CreateWorldState(
@@ -80,6 +84,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_StationaryPassiveContactProfile_DoesNotMove_AndProducesSameCellContactIntent()
         {
             var profile = EnemyAiProfileTestFactory.CreateStationaryPassiveContact();
@@ -113,6 +118,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_ChaseMode_ProducesMovementTowardNearestOpponent()
         {
             var worldState = CreateWorldState(new[]
@@ -135,6 +141,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_ChaseMode_FallsBackToSecondaryAxisWhenPrimaryStepIsBlocked()
         {
             var worldState = CreateWorldState(new[]
@@ -157,6 +164,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_JumpCapablePatrol_OpenGround_UsesPatrolMovementIntent()
         {
             var profile = CreateJumpPatrolProfile();
@@ -186,6 +194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_JumpCapableChase_OpenGround_UsesGroundChaseMovementIntent()
         {
             var profile = CreateJumpEnemyProfile(attackDecisionStrategyKind: AttackDecisionStrategyKind.None);
@@ -263,6 +272,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_JumpCooldown_DoesNotSuppressMovementOrAttack()
         {
             var profile = CreateJumpEnemyProfile();
@@ -320,6 +330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_JumpLandingTick_SuppressesMovementButNotAttack()
         {
             var profile = CreateJumpEnemyProfile();
@@ -372,6 +383,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_ChaseMode_BoundaryStep_DoesNotCreateTopologyChangingMovementGroup()
         {
             var worldState = CreateWorldState(
@@ -406,6 +418,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_ExecuteTick_ProducesRawAttackIntentForLockedTarget()
         {
             var worldState = CreateWorldState(new[]
@@ -439,6 +452,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_ExecuteTickActionState_DoesNotRequireAttackModeToProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -472,6 +486,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_AttackMode_WithoutActiveActionState_DoesNotProduceRawAttackIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -488,6 +503,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyActionStateTargeting_ResolveFacing_SameCell_KeepsSourceFacing()
         {
             var source = CreateUnit(
@@ -509,6 +525,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ContactSameCellAttackDecisionStrategy_RequiresExactSameCell()
         {
             var strategy = ContactSameCellAttackDecisionStrategy.Instance;
@@ -535,6 +552,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_RecoverMode_DoesNotProduceMovementOrAttackIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -554,6 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_BeforeAttackStage_ReevaluatesPostMovementSnapshot_AndCommitsAttackMode()
         {
             var worldState = CreateWorldState(new[]
@@ -584,6 +603,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLogic_DeadSource_CommitsDeadMode()
         {
             var worldState = CreateWorldState(new[]
@@ -613,6 +633,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void NearestOpponentDetectionStrategy_SenseRangeSetting_ChangesSelectionOutcome()
         {
             var worldState = CreateWorldState(new[]
@@ -641,6 +662,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ForwardPatrolStrategy_BlockedMovementResponseSetting_ChangesMovementOutcome()
         {
             var worldState = CreateWorldState(
@@ -673,6 +695,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WallFollowPatrolStrategy_RightHandWall_PrefersForwardWhileHandAnchorExists()
         {
             var worldState = CreateWorldState(new[]
@@ -701,6 +724,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WallFollowPatrolStrategy_ResultAnchorForward_ReacquiresHandAnchorAfterStep()
         {
             var worldState = CreateWorldState(
@@ -731,6 +755,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WallFollowPatrolStrategy_ResultAnchorPreferredTurn_RoundsConvexCorner()
         {
             var worldState = CreateWorldState(
@@ -761,6 +786,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WallFollowPatrolStrategy_DeadEnd_RotatesInPlaceBeforeResumingPatrol()
         {
             var worldState = CreateWorldState(new[]
@@ -790,6 +816,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultEntityLogicProvider_WallFollowerProfile_ForwardBlocked_TurnsAndMovesInSameTick()
         {
             var worldState = CreateWorldState(new[]
@@ -817,6 +844,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoxAsAnchor()
         {
             var worldState = CreateWorldState(new[]
@@ -834,6 +862,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyMovementStrategyShared_WallFollowResultAnchor_TreatsBoxAsAnchor()
         {
             var worldState = CreateWorldState(
@@ -855,6 +884,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyMovementStrategyShared_WallFollowAnchor_IgnoresUnitsIncludingPlayers()
         {
             var worldState = CreateWorldState(new[]
@@ -872,6 +902,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyMovementStrategyShared_WallFollowAnchor_TreatsBoardEdgeAsAnchor()
         {
             var worldState = CreateWorldState(
@@ -890,6 +921,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyMovementStrategyShared_WallFollowResultAnchor_IgnoresUnitsIncludingPlayers()
         {
             var worldState = CreateWorldState(
@@ -911,6 +943,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyEntityLogicFactory_ProfileDrivenAssembly_UsesInjectedProfileSettings()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -948,6 +981,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_UsesDefaultZeroWindupAndMoveCooldown()
         {
             var profile = EnemyAiProfileTestFactory.CreateDefaultMelee();
@@ -966,6 +1000,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CanonicalFactoryProfiles_UseDefaultZeroMoveCooldown()
         {
             var profiles = new[]
@@ -996,6 +1031,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_CompilesTypedRuntimeAndCapabilities()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: true, out var createdAssets);
@@ -1026,6 +1062,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_CompilesPassiveContactAlongsideCombatAndJump()
         {
             var profile = CreateHybridAuthoringProfile(
@@ -1052,6 +1089,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_WithoutCombatCapability_DoesNotRequireCombatData()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: false, out var createdAssets);
@@ -1071,6 +1109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_MissingCoreAuthoring_ThrowsClearException()
         {
             var profile = ScriptableObject.CreateInstance<EnemyAiProfile>();
@@ -1088,6 +1127,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_MissingBrainAuthoring_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: false, out var createdAssets);
@@ -1106,6 +1146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateCombatCapabilities_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: false, out var createdAssets);
@@ -1135,6 +1176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_DuplicatePassiveContactCapabilities_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(
@@ -1166,6 +1208,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_DuplicateMovementSkillCapabilities_ThrowsClearException()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: false, includeJump: true, out var createdAssets);
@@ -1194,6 +1237,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_JumpChaserProfile_OnlyCompilesJumpCapability()
         {
             var profile = EnemyAiProfileTestFactory.CreateJumpChaser(
@@ -1217,6 +1261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayEntityLogicProviderFactory_NonAttackingProfile_OmitsCombatLogicsFromEntitySet()
         {
             var worldState = CreateWorldState(new[]
@@ -1244,6 +1289,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayEntityLogicProviderFactory_PassiveContactOnlyProfile_ArmsAttackLogicWithoutEnemyActionState()
         {
             var worldState = CreateWorldState(new[]
@@ -1271,6 +1317,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayEntityLogicProviderFactory_NullProfile_UsesDefaultMeleeRuntimeDefinition()
         {
             var worldState = CreateWorldState(new[]
@@ -1289,6 +1336,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyEntityLogicFactory_RoleEnemyWithNoneAiMode_DoesNotCreateLogicOrAdvanceState()
         {
             var passiveTutorialEnemy = CreateUnit(
@@ -1344,6 +1392,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpProfile_InspectorTimings_AreSeconds_AndConvertToTicks()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1378,6 +1427,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpProfile_SerializedFields_RemainLogicOnlyContract()
         {
             var serializedFieldNames = typeof(EnemyAiProfile)
@@ -1400,6 +1450,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyLocomotionCooldown_Authority_ComesFromEnemyAiProfileRuntimeDefinitionAndEntityState()
         {
             var profile = CreateEnemyProfile(windupTicks: 0, moveCooldownTicks: 2);
@@ -1429,6 +1480,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_AtDefaultSimulationRate_PreservesAuthoringSecondsSemantics()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1458,6 +1510,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_ChangingSimulationTicksPerSecond_PreservesAuthoringTimeMeaning()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1496,6 +1549,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_ZeroSeconds_AllowsZeroWindupRecoverAndMoveCooldownTicks()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1520,6 +1574,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_NegativeSeconds_ThrowsArgumentException()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1541,6 +1596,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_NegativeMoveCooldownSeconds_ThrowsArgumentException()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1563,6 +1619,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiRuntimeDefinition_NegativeWindupTicks_ThrowsArgumentException()
         {
             var exception = Assert.Throws<ArgumentException>(
@@ -1583,6 +1640,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiRuntimeDefinition_NegativeMoveCooldownTicks_ThrowsArgumentException()
         {
             var exception = Assert.Throws<ArgumentException>(
@@ -1604,6 +1662,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiRuntimeDefinition_NegativeDesiredChaseDistance_ThrowsArgumentException()
         {
             var exception = Assert.Throws<ArgumentException>(
@@ -1628,6 +1687,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_PatrolEnemy_IsMaterializedDuringTick()
         {
             var worldState = CreateWorldState(new[]
@@ -1651,6 +1711,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_PatrolEnemy_WithLocomotionCooldown_MovesLessFrequently()
         {
             var worldState = CreateWorldState(new[]
@@ -1678,6 +1739,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_PatrolEnemy_BlockedAfterCooldownExpires_DoesNotRestartLocomotionCooldown()
         {
             var worldState = CreateWorldState(new[]
@@ -1697,6 +1759,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_ChargingEnemy_WithLocomotionCooldown_WaitsBetweenChargeSteps()
         {
             var worldState = CreateWorldState(
@@ -1728,6 +1791,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_PatrolEnemy_SensesOpponent_TransitionsToChaseAndMovesInSameTick()
         {
             var worldState = CreateWorldState(new[]
@@ -1745,6 +1809,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_AttackEnemy_IsMaterializedDuringTick()
         {
             var worldState = CreateWorldState(new[]
@@ -1769,6 +1834,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_BottomFaceEnemy_StillParticipatesInAutonomy()
         {
             var worldState = CreateWorldState(new[]
@@ -1822,6 +1888,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_OffBottomEnemy_FreezesAiTimerAndLocomotionCooldown()
         {
             var worldState = CreateWorldState(
@@ -1851,6 +1918,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_OffBottomEnemy_ClearsStaleEnemyActionState()
         {
             var worldState = CreateWorldState(
@@ -1886,6 +1954,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_AttackEnemy_WithWindup_StartTick_ArmsActionWithoutAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -1911,6 +1980,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_AttackEnemy_WithWindup_ExecutesOnlyOnExecuteTick()
         {
             var worldState = CreateWorldState(new[]
@@ -1943,6 +2013,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_AttackEnemy_WithZeroWindup_ExecutesOnStartTick()
         {
             var worldState = CreateWorldState(new[]
@@ -1974,6 +2045,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_NonAttackingProfile_DoesNotArmActionStateOrAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -2002,6 +2074,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultEntityLogicProvider_WallFollowerProfile_DoesNotLeavePatrolWhenDetectionDisabled()
         {
             var worldState = CreateWorldState(new[]
@@ -2027,6 +2100,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultEntityLogicProvider_WallFollowerProfile_DoesNotArmActionStateOrAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -2054,6 +2128,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultEntityLogicProvider_ChargingProfile_DoesNotArmActionStateOrAttack()
         {
             var worldState = CreateWorldState(
@@ -2090,6 +2165,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_WindupEnemy_LosesLockedTarget_CancelsActionAndFallsBackToPatrol()
         {
             var worldState = CreateWorldState(new[]
@@ -2113,6 +2189,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_TransitionsToRecoverAfterAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -2141,6 +2218,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_RecoverEnemy_CountsDownThenReturnsToChase()
         {
             var worldState = CreateWorldState(new[]
@@ -2168,6 +2246,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_RecoverEnemy_LocomotionCooldown_IsTrackedIndependently()
         {
             var worldState = CreateWorldState(new[]
@@ -2194,6 +2273,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_ChaseEnemy_InAttackRange_DoesNotRestartLocomotionCooldown()
         {
             var worldState = CreateWorldState(new[]
@@ -2214,6 +2294,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultEntityLogicProvider_ChaseEnemy_LosesTarget_RevertsToPatrolAndPatrolMoves()
         {
             var worldState = CreateWorldState(new[]
@@ -2229,6 +2310,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultEntityLogicProvider_WallFollowerProfile_BoundaryStep_DoesNotCreateTopologyChangingMovementGroup()
         {
             var worldState = CreateWorldState(

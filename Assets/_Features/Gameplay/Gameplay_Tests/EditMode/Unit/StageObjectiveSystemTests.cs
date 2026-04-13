@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static readonly BoardBounds DefaultBoardBounds = new(new Vector2Int(0, 0), new Vector2Int(4, 4));
 
         [Test]
+        [Category("Extended")]
         public void StageDefinitionValidation_DuplicateZoneIdRejects()
         {
             var stage = CreateStage(
@@ -35,6 +36,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageDefinitionValidation_OutOfBoundsRegionRejects()
         {
             var stage = CreateStage(
@@ -51,6 +53,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageDefinitionValidation_UnknownGoalZoneIdRejects()
         {
             var stage = CreateStage(
@@ -67,6 +70,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageDefinitionValidation_EmptyZoneIdRejects()
         {
             var stage = CreateStage(
@@ -83,6 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageZoneRuntimeDefinition_ContainsCell_FaceAware()
         {
             var zone = new StageZoneRuntimeDefinition(
@@ -98,6 +103,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageZoneRuntimeDefinition_ContainsCell_AcrossMultipleRegions()
         {
             var zone = new StageZoneRuntimeDefinition(
@@ -115,6 +121,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ObjectiveClear_PlayerOnGoal_WithNoConditions_Clears()
         {
             var objective = BuildObjectiveDefinition(
@@ -137,6 +144,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ObjectiveClear_PlayerNotOnGoal_DoesNotClear()
         {
             var objective = BuildObjectiveDefinition(
@@ -157,6 +165,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ObjectiveClear_PlayerOnGoal_WithUnmetCondition_DoesNotClear()
         {
             var condition = ScriptableObject.CreateInstance<SpecificEntityRemovedConditionAsset>();
@@ -188,6 +197,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ObjectiveClear_LevelTrigger_ClearsWhenLastConditionBecomesSatisfiedWhileAlreadyOnGoal()
         {
             var condition = ScriptableObject.CreateInstance<SpecificEntityRemovedConditionAsset>();
@@ -227,6 +237,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void ObjectiveClear_StickyClear_RemainsClearedAfterGoalIsLost()
         {
             var objective = BuildObjectiveDefinition(
@@ -251,6 +262,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void Conditions_AllEnemiesDefeated_TracksSnapshotState()
         {
             var conditionAsset = ScriptableObject.CreateInstance<AllEnemiesDefeatedConditionAsset>();
@@ -278,6 +290,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void Conditions_SpecificEntityRemoved_BecomesStickyAfterCleanupFact()
         {
             var conditionAsset = ScriptableObject.CreateInstance<SpecificEntityRemovedConditionAsset>();
@@ -309,6 +322,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void Conditions_VisitZoneSequence_DoesNotDoubleCountContinuousStay()
         {
             var conditionAsset = ScriptableObject.CreateInstance<VisitZoneSequenceConditionAsset>();
@@ -343,6 +357,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void TickPipeline_ExposesObjectiveResultInTickResult()
         {
             var objective = CreateSimpleObjectiveDefinition(new SurfaceCell(FaceId.Floor, 1, 1));
@@ -371,6 +386,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void TickPipeline_DeterminismHash_ChangesWhenObjectiveStateChanges()
         {
             var clearObjective = CreateSimpleObjectiveDefinition(new SurfaceCell(FaceId.Floor, 1, 1));
@@ -390,6 +406,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_ExistingAuthoringWithoutObjective_RemainsCompatible()
         {
             var stage = CreateStage(

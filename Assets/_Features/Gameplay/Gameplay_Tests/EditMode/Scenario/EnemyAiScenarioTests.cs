@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class EnemyAiScenarioTests
     {
         [Test]
+        [Category("Extended")]
         public void EnemyAi_MultiTick_FollowsPatrolChaseAttackRecoverSequence()
         {
             var worldState = CreateWorldState(new[]
@@ -66,6 +67,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_WindupProfile_TelegraphsBeforeExecuteAndThenEntersRecover()
         {
             var worldState = CreateWorldState(new[]
@@ -130,6 +132,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol()
         {
             var worldState = CreateWorldState(new[]
@@ -164,6 +167,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_MoveOccupancy_BlocksAttackStartUntilFirstUnlockedTick()
         {
             var timingProfile = new GameplayTimingProfile(
@@ -226,6 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_FatalDamage_IsRemovedByCleanupAtTickEnd()
         {
             var worldState = CreateWorldState(new[]
@@ -290,6 +295,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_TopologyChange_MakesBottomEnemySuspendImmediately()
         {
             var worldState = CreateWorldState(new[]
@@ -313,6 +319,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_TopologyChange_RestoresParticipationWhenEnemyReturnsToBottom()
         {
             var worldState = CreateWorldState(
@@ -344,6 +351,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpProfile_OffBottom_DoesNotStartOrProgressJump()
         {
             var worldState = CreateWorldState(
@@ -397,6 +405,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_MultiTick_BoundaryPatrol_NeverCommitsTopologyChange()
         {
             var worldState = CreateWorldState(
@@ -436,6 +445,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_WallFollowerProfile_CirculatesAroundWallAcrossMultipleTicks()
         {
             var worldState = CreateWorldState(
@@ -487,6 +497,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_WallFollowerProfile_CirculatesAroundBoxAcrossMultipleTicks()
         {
             var worldState = CreateWorldState(
@@ -538,6 +549,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_WallFollowerProfile_CirculatesAlongBoardEdgeAcrossMultipleTicks()
         {
             var worldState = CreateWorldState(
@@ -588,6 +600,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_NonAttackingProfile_OnlyPatrolsAndChases()
         {
             var worldState = CreateWorldState(new[]
@@ -626,6 +639,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpPatrol_SameFacePlayer_StartsWindupEvenWhenGroundOpen()
         {
             var worldState = CreateWorldState(new[]
@@ -655,6 +669,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpStart_DifferentFacePlayer_DoesNotStartJump()
         {
             var worldState = CreateWorldState(new[]
@@ -681,6 +696,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpChase_OpenGround_StartsWindup()
         {
             var worldState = CreateWorldState(new[]
@@ -710,6 +726,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpStart_SameFaceFarPlayer_StartsWindup()
         {
             var worldState = CreateWorldState(new[]
@@ -738,6 +755,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpStart_LocksPlayerSurfaceCellAtStartTick()
         {
             var worldState = CreateWorldState(new[]
@@ -766,6 +784,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpWindup_KeepsSourceCellOccupied()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -798,6 +817,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_Jump_PresentationSignals_EmitWindupAndAirborneFromRuntimePipeline()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -852,6 +872,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpAirborne_SetsDetached_AndBecomesUntargetable()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -886,6 +907,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void JumpWindupEnemy_CanBeHitByBoxImpact()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -920,6 +942,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void JumpAirborneEnemy_IsIgnoredByBoxImpact()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -958,6 +981,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void EnemyAi_JumpLanding_OnLockedPlayerCell_AllowsUnitStacking()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -994,6 +1018,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void JumpLandingThenBoxImpact_SameTick_UsesLandedOccupancy()
         {
             var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
@@ -1035,6 +1060,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void EnemyAi_JumpLanding_BoxOnLockedCell_UsesTwoRingFallback()
         {
             var lockedTargetCell = new SurfaceCell(FaceId.Floor, 2, 1);
@@ -1072,6 +1098,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpLanding_TargetTwoRingBlocked_FallsBackToSourceTwoRing()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -1119,6 +1146,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpLanding_NoLegalCellWithinAllowedSpace_StaysAirborne_AndRetriesSameLockedTarget()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
@@ -1173,6 +1201,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_Jump_DoesNotUseAttackPhase()
         {
             var worldState = CreateWorldState(new[]
@@ -1203,6 +1232,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpCooldown_SameFacePlayer_DoesNotRestartDuringCooldown()
         {
             var worldState = CreateWorldState(
@@ -1240,6 +1270,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpCooldown_Complete_WithSameFacePlayer_AllowsNewJump()
         {
             var worldState = CreateWorldState(
@@ -1278,6 +1309,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpCooldown_DoesNotBlockPatrolLocomotion_AfterPlayerLeavesFace()
         {
             var worldState = CreateWorldState(
@@ -1314,6 +1346,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_WallFollowerProfile_PlayerInSenseRange_RemainsInPatrolPermanently()
         {
             var worldState = CreateWorldState(
@@ -1351,6 +1384,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_MovesIntoPlayerCell_AndDealsSameTickDamage()
         {
             var worldState = CreateWorldState(new[]
@@ -1396,6 +1430,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_AlreadySharingPlayerCell_DealsDamageWithoutMoving()
         {
             var stackedCell = new Vector2Int(0, 0);
@@ -1442,6 +1477,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_MeleeProfile_WithPassiveContact_SameCellProducesCombatAndPassiveCandidates()
         {
             var worldState = CreateWorldState(new[]
@@ -1480,6 +1516,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpChaserProfile_WithPassiveContact_SameCellDealsDamage()
         {
             var worldState = CreateWorldState(new[]
@@ -1506,6 +1543,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_NonAttackingProfile_WithPassiveContact_SameCellDealsDamage()
         {
             var worldState = CreateWorldState(new[]
@@ -1532,6 +1570,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_WallFollowerProfile_WithPassiveContact_SameCellDealsDamage()
         {
             var worldState = CreateWorldState(new[]
@@ -1558,6 +1597,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_PlayerOwnedCooldownWhileStacked_OnlyAcceptsAtReceiverCadence()
         {
             var worldState = CreateWorldState(new[]
@@ -1593,6 +1633,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_TwoEnemiesSameCellSameTick_OnlyFirstDeterministicHitIsAccepted()
         {
             var worldState = CreateWorldState(new[]
@@ -1627,6 +1668,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_CooldownExpiryWhileStillStacked_ReacceptsExactlyOneHit()
         {
             var worldState = CreateWorldState(new[]
@@ -1657,6 +1699,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAi_ContactDamageProfile_RecoverTicks_NoLongerControlContactCadence_ButRegularMeleeStillUsesRecover()
         {
             var fastContactProfile = CreateContactDamageProfile(recoverTicks: 0);
@@ -1718,6 +1761,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_ChargingProfile_StartsChargeUsingObstacleLane_AndStopsAtAdjacentUnit()
         {
             var worldState = CreateWorldState(
@@ -1764,6 +1808,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_ChargingProfile_WithLocomotionCooldown_WaitsForCommittedMoves()
         {
             var worldState = CreateWorldState(
@@ -1799,6 +1844,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAi_WallFollowerProfile_WithLocomotionCooldown_PreservesWallFollowRule()
         {
             var worldState = CreateWorldState(

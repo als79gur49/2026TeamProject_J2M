@@ -1,0 +1,15 @@
+{
+  "name": "Game.Integration.Fuzz.Tests",
+  "rootNamespace": "Game.Feature.Gameplay.Tests.Fuzz",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Tests",
+    "Game.Integration.Replay.Tests"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

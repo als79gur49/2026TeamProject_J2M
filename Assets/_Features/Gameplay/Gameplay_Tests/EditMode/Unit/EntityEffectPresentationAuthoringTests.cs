@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string BlackEyePrefabPath = "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_BlackEye.prefab";
 
         [Test]
+        [Category("Full")]
         public void EntityEffectPresentationAuthoring_CreateSnapshot_PreservesOverridesPrefabsAndOwnership()
         {
             var rootObject = new GameObject("EntityEffectPresentationAuthoring_CreateSnapshot");
@@ -59,6 +60,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EntityEffectPresentationAuthoring_InvalidOverrideDuration_Throws()
         {
             var rootObject = new GameObject("EntityEffectPresentationAuthoring_InvalidOverrideDuration");
@@ -77,6 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EntityEffectPresentationAuthoring_AnchorOwnershipWithoutAnchorName_Throws()
         {
             var rootObject = new GameObject("EntityEffectPresentationAuthoring_AnchorOwnershipWithoutAnchorName");
@@ -96,6 +99,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_AllowsMissingEntityEffectPresentationAuthoring()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_AllowsMissingEntityEffectPresentationAuthoring");
@@ -120,6 +124,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_ValidatesOptionalEntityEffectPresentationAuthoring()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_ValidatesOptionalEntityEffectPresentationAuthoring");
@@ -143,6 +148,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyViewPrefabRequirements_ValidatesOptionalEntityEffectPresentationAuthoring()
         {
             var prefabObject = new GameObject("EnemyViewPrefabRequirements_ValidatesOptionalEntityEffectPresentationAuthoring");
@@ -165,6 +171,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerDeathVisibilityTail_UsesMaxOfAnimatorDurationAndTailOverride()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerDeathVisibilityTail_UsesMaxOfAnimatorDurationAndTailOverride");
@@ -203,6 +210,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DeathViewTail_DoesNotChangeAnimatorSpeed()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("DeathViewTail_DoesNotChangeAnimatorSpeed");
@@ -253,6 +261,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerPrefab_ExposesDeathAnimatorDurationAuthoring()
         {
             var view = LoadGameplayPrefab(PlayerPrefabPath);
@@ -263,12 +272,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void StartisPrefab_ExposesDeathAnimatorDurationAndReferenceClipAuthoring()
         {
             AssertEnemyDeathAuthoringSurface(StartisPrefabPath, expectedReferenceClipName: "Die");
         }
 
         [Test]
+        [Category("Full")]
         public void BlackEyePrefab_ExposesDeathAnimatorDurationAndReferenceClipAuthoring()
         {
             AssertEnemyDeathAuthoringSurface(BlackEyePrefabPath, expectedReferenceClipName: "Die");

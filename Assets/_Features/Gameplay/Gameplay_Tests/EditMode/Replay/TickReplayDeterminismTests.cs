@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
     public sealed class TickReplayDeterminismTests
     {
         [Test]
+        [Category("Core")]
         public void TickResult_ExtendsFinalStateAndEventLog_WithoutCrossPhaseBackflow()
         {
             var worldState = CreateWorldState(new[]
@@ -65,6 +66,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_SameInitialWorldAndInputSequence_ProducesSamePerTickHashAndTrace()
         {
             var firstReplay = RunReplaySequence();
@@ -94,6 +96,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyDeathPresentationData_DoesNotAffectCanonicalStateOrHash()
         {
             var finalEntities = new[]
@@ -147,6 +150,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump()
         {
             var playerLogic = CreateThresholdPushPlayerLogic(entityId: 10, pushContactThresholdTicks: 2);
@@ -200,6 +204,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming()
         {
             var snapshot = new PlayerControlTimingSettings
@@ -238,6 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog()
         {
             var firstReplay = RunProjectileImpactReplaySequence();
@@ -258,6 +264,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_ScriptedMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunScriptedMoveIntoUnitStackedReplaySequence();
@@ -281,6 +288,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_OccupancyDump_ListsLayeredEntriesForStackedUnitsInCellOrder()
         {
             var frames = new TickReplayHarness().Run(
@@ -305,6 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_StackedUnitOccupancy_IsIncludedInCanonicalState()
         {
             var stackedResult = GameplayCompositionRoot.CreateTickPipeline(
@@ -328,6 +337,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EntityExecutionLockState_IsIncludedInCanonicalState()
         {
             var unlockedWorldState = CreateWorldState(new[]
@@ -356,6 +366,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunPushBoxReplaySequence();
@@ -381,6 +392,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunPushBoxTerrainReplaySequence();
@@ -402,6 +414,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunPushBoxBoardEdgeReplaySequence();
@@ -423,6 +436,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PlayerMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunPlayerMoveIntoUnitStackedReplaySequence();
@@ -446,6 +460,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_ItemScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunItemReplaySequence();
@@ -474,6 +489,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_CompositeItemAttackScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunCompositeItemAttackReplaySequence();
@@ -501,6 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_FlipBoxScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunFlipBoxReplaySequence();
@@ -527,6 +544,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunEdgeReservationReplaySequence();
@@ -552,6 +570,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_SpawnScenario_ProducesSamePerTickHashTraceAndEventLog()
         {
             var firstReplay = RunSpawnReplaySequence();
@@ -578,6 +597,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_OnHitBoundaryScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunOnHitBoundaryReplaySequence();
@@ -600,6 +620,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_DelayedEventScenario_ProducesSameHashTraceAndEventLog()
         {
             var firstReplay = RunDelayedEventReplaySequence();
@@ -628,6 +649,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_PendingDelayedEvent_IsIncludedInCanonicalState()
         {
             var pipelineWithoutDelayedEvent = GameplayCompositionRoot.CreateTickPipeline(
@@ -664,6 +686,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Snapshot_EntityState_PreservesEnemyAiMode()
         {
             var worldState = CreateWorldState(new[]
@@ -679,6 +702,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Snapshot_EnemyActionState_PreservesStoredRuntimeState()
         {
             var worldState = CreateWorldState(new[]
@@ -711,6 +735,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Snapshot_EnemyJumpState_PreservesStoredRuntimeState()
         {
             var worldState = CreateWorldState(new[]
@@ -745,6 +770,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Snapshot_BoxKineticOwner_PreservesStoredRuntimeState()
         {
             var worldState = CreateWorldState(new[]
@@ -761,6 +787,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState()
         {
             var idlePipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -790,6 +817,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_BoxKineticOwner_IsIncludedInCanonicalState()
         {
             var idleWorldState = CreateWorldState(new[]
@@ -816,6 +844,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyAiStateTimer_IsIncludedInCanonicalState()
         {
             var zeroTimerPipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -837,6 +866,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyLocomotionCooldown_IsIncludedInCanonicalState()
         {
             var zeroCooldownPipeline = GameplayCompositionRoot.CreateTickPipeline(
@@ -866,6 +896,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyActionState_IsIncludedInCanonicalState()
         {
             var idleWorldState = CreateWorldState(new[]
@@ -906,6 +937,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState()
         {
             var idleWorldState = CreateWorldState(new[]
@@ -940,6 +972,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState()
         {
             var firstReplay = RunEnemyAiReplaySequence();
@@ -967,6 +1000,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         }
 
         [Test]
+        [Category("Core")]
         public void Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage()
         {
             var firstReplay = RunPassiveContactReplaySequence();

@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         };
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfileAssets_RepositoryProfiles_UseCanonicalAuthoringContract()
         {
             var assetPaths = AssetDatabase.FindAssets("t:EnemyAiProfile")

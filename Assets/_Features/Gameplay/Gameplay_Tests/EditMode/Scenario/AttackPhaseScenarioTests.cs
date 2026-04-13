@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class AttackPhaseScenarioTests
     {
         [Test]
+        [Category("Core")]
         public void Attack_MoveCommit_BlocksSameTickAttackUntilExecutionUnlock()
         {
             var timingProfile = new GameplayTimingProfile(
@@ -93,6 +94,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_MoveCommit_AllowsAttackOnFirstTickAfterExecutionUnlock()
         {
             var timingProfile = new GameplayTimingProfile(
@@ -160,6 +162,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_AlreadySameCellContactAttack_SucceedsWithoutMovement()
         {
             var stackedCell = new Vector2Int(1, 0);
@@ -208,6 +211,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_DeadAfterDamage_StillOccupiesUntilCleanup()
         {
             var worldState = CreateWorldState(new[]
@@ -255,6 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_PlayerPushInput_ResolvesItemInMovement_AndLeavesAttackPhaseEmpty()
         {
             var worldState = CreateWorldState(new[]
@@ -292,6 +297,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_CompositeItemConsumption_RejectsConsumedBoxTarget_AndUsesPostMovePlayerPosition()
         {
             var worldState = CreateWorldState(new[]
@@ -355,6 +361,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_FatalDamage_IsRemovedByCleanupAtTickEnd()
         {
             var firstRun = RunFatalAttackTick();
@@ -470,6 +477,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_NonAdjacentTarget_DoesNotProduceCandidate()
         {
             var worldState = CreateWorldState(new[]
@@ -509,6 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_FireProjectileIntent_SpawnsProjectileDuringCommit()
         {
             var worldState = CreateWorldState(new[]
@@ -563,6 +572,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_FireProjectileIntent_AllowsSpawnIntoOccupiedUnitCell()
         {
             var worldState = CreateWorldState(new[]
@@ -598,6 +608,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_SpawnIds_AreAssignedByCommitOrder()
         {
             var worldState = CreateWorldState(new[]
@@ -646,6 +657,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_SpawnedProjectile_BeginsMovingOnlyAfterConfiguredCadence()
         {
             var worldState = CreateWorldState(new[]
@@ -719,6 +731,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Movement_PreExistingProjectileAt60Tps_PreservesRealTimeCadence()
         {
             var timingProfile = CreateTimingProfile(
@@ -780,6 +793,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Movement_PreExistingProjectileAt120Tps_PreservesSameRealTimeCadence()
         {
             var timingProfile = CreateTimingProfile(
@@ -832,6 +846,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_SpawnedEntityIds_AreNotReusedAfterCleanupAcrossTicks()
         {
             var worldState = CreateWorldState(new[]
@@ -869,6 +884,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_OnHit_DoesNotCreateSameTickNewIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -914,6 +930,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_OnHit_DoesNotReenterMovementPhase()
         {
             var worldState = CreateWorldState(new[]
@@ -962,6 +979,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Attack_ImpactReservation_CanStillExpandToFixedSameTickActions()
         {
             var worldState = CreateWorldState(new[]
@@ -1016,6 +1034,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void DelayedEventQueue_DrainsOnNextTickOnly()
         {
             var worldState = CreateWorldState(new[]
@@ -1082,6 +1101,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void DelayedEventQueue_DoesNotCreateSameTickBackflow()
         {
             var worldState = CreateWorldState(new[]
@@ -1141,6 +1161,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void AttackCommitter_ClearsReusedOutputBuffersBeforeAppendingEvents()
         {
             var worldState = CreateWorldState(new[]
@@ -1185,6 +1206,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void ContactDamage_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires()
         {
             var worldState = CreateWorldState(new[]
@@ -1212,6 +1234,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted()
         {
             var worldState = CreateWorldState(new[]
@@ -1245,6 +1268,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PassiveContact_AndCombat_FromSameSource_ShareOrderingButPassiveSkipsActingStateChange()
         {
             var worldState = CreateWorldState(new[]

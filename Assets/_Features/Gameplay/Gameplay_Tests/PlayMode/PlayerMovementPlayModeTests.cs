@@ -40,6 +40,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PresentationLock_DuringTopologyTransitionPreventsTickAndBurst()
         {
             var host = CreateHost(new[]
@@ -86,6 +87,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_TopologyTransition_CameraMotionBlurActivatesThenResets()
         {
             var outputCameraObject = new GameObject("PlayModeTopologyTransitionOutputCamera");
@@ -141,6 +143,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator TopologyTransitionCameraShake_PlayMode_DirectAndCinemachinePaths_SharePulseTimingAndReset()
         {
             var directRootObject = new GameObject("PlayModeTopologyTransitionCameraShake_DirectRoot");
@@ -285,6 +288,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_MovePresentation_DoesNotBlockSubsequentTicks()
         {
             var host = CreateHost(new[]
@@ -312,6 +316,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_BoxSlidePresentation_DoesNotBlockSimulationTicks()
         {
             var host = CreateHost(new[]
@@ -345,6 +350,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipPresentation_DoesNotBlockSubsequentTicks()
         {
             var host = CreateHost(new[]
@@ -378,6 +384,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_PresenterRefreshesTransformAfterTick()
         {
             var host = CreateHost(new[]
@@ -395,6 +402,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_InputActionCallback_ProducesTickMove()
         {
             var actions = CreateKeyboardMoveActions();
@@ -418,6 +426,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_MoveIntoPushBox_DoesNotSlideWithoutPushInput()
         {
             var actions = CreateKeyboardMoveActions();
@@ -444,6 +453,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
         public IEnumerator PlayerMove_PlayMode_PushInputStartsSlidingBoxWithoutMovingPlayer()
         {
             var host = CreateHost(
@@ -467,6 +477,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PushBufferedAtTickBoundary_PrioritizesPushOverMove()
         {
             var host = CreateHost(new[]
@@ -488,6 +499,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_ItemPickup_HidesOriginalItemBeforeNextMoveWhileConsumeEffectContinues()
         {
             var host = CreateHost(
@@ -535,6 +547,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PushDestroyBox_HidesOriginalBoxWhileDestroyEffectContinues()
         {
             var host = CreateHost(
@@ -563,6 +576,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipBufferedAtTickBoundary_PrioritizesFlipOverMove()
         {
             var host = CreateHost(new[]
@@ -585,6 +599,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PushBufferedDuringRepeatLock_IsNotDropped()
         {
             var host = CreateHost(new[]
@@ -611,6 +626,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipBufferedDuringRepeatLock_IsNotDropped()
         {
             var host = CreateHost(new[]
@@ -637,6 +653,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipVisualHold_YieldsImmediatelyToNewWalkPresentation()
         {
             var host = CreateHost(
@@ -683,6 +700,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_NoSampledDirection_DropsBufferedPushAndFlip()
         {
             var host = CreateHost(new[]
@@ -705,6 +723,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_InteractionTick_DoesNotConsumePlainMoveCadence()
         {
             var host = CreateHost(new[]
@@ -732,6 +751,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_PushBufferedDuringInitialDelay_UsesSampledDirection()
         {
             var host = CreateHost(
@@ -768,6 +788,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_FlipBufferedDuringDirectionChangeDelay_UsesSampledDirection()
         {
             var host = CreateHost(
@@ -809,6 +830,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator GameplayInputHost_Reenable_RebindsInputActions()
         {
             var actions = CreateKeyboardMoveActions();
@@ -838,6 +860,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_HoldInputRepeatsAtConfiguredTickInterval()
         {
             var host = CreateHost(new[]
@@ -868,6 +891,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_TapRelease_BuffersAcrossShortCooldown()
         {
             var host = CreateHost(
@@ -901,6 +925,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Core")]
         public IEnumerator PlayerMove_PlayMode_SpawnedEntity_BecomesVisibleAfterTick()
         {
             var host = CreateHost(
@@ -925,6 +950,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
         }
 
         [UnityTest]
+        [Category("Full")]
         public IEnumerator PlayerMove_PlayMode_BlockedCell_DoesNotVisuallyDrift()
         {
             var host = CreateHost(new[]

@@ -1,0 +1,1055 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.PlayerMovementPlayModeTests.PlayerMove_PlayMode_PushInputStartsSlidingBoxWithoutMovingPlayer",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "player_movement_play_mode_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerMovementPlayModeTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.PlayerMovementPlayModeTests.PlayerMove_PlayMode_SpawnedEntity_BecomesVisibleAfterTick",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "player_movement_play_mode_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in PlayerMovementPlayModeTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_BoxKineticOwner_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyActionState_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyAiMode_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyAiStateTimer_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyDeathPresentationData_DoesNotAffectCanonicalStateOrHash",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_jump",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyLocomotionCooldown_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EntityExecutionLockState_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_PendingDelayedEvent_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_StackedUnitOccupancy_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_CompositeItemAttackScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_DelayedEventScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EdgeReservationScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_FlipBoxScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_flip",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ItemScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "spawn_destroy_delayed_ordering",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_OccupancyDump_ListsLayeredEntriesForStackedUnitsInCellOrder",
+      "category": "Core",
+      "contracts": [
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for tick_replay_determinism_contract in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_OnHitBoundaryScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerControlState_DeterministicallyReflectsCustomAuthoritativeActionTiming",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_push",
+        "interaction_flip",
+        "damage_affects_movement",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_push",
+        "damage_affects_movement",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PlayerMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ProjectileImpactScenario_ProducesSamePerTickHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxBoardEdgeScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_push",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxEntityStopperScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_push",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_PushBoxTerrainStopperScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "interaction_push",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_SameInitialWorldAndInputSequence_ProducesSamePerTickHashAndTrace",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ScriptedMoveIntoUnitStackedScenario_ProducesSameHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_SpawnScenario_ProducesSamePerTickHashTraceAndEventLog",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Snapshot_BoxKineticOwner_PreservesStoredRuntimeState",
+      "category": "Core",
+      "contracts": [
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for tick_replay_determinism_contract in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Snapshot_EnemyActionState_PreservesStoredRuntimeState",
+      "category": "Core",
+      "contracts": [
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for tick_replay_determinism_contract in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Snapshot_EnemyJumpState_PreservesStoredRuntimeState",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_jump in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Snapshot_EntityState_PreservesEnemyAiMode",
+      "category": "Core",
+      "contracts": [
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for tick_replay_determinism_contract in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.TickResult_ExtendsFinalStateAndEventLog_WithoutCrossPhaseBackflow",
+      "category": "Core",
+      "contracts": [
+        "canonical_path",
+        "resolve_finalize_contract",
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for canonical_path in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.AttackCommitter_ClearsReusedOutputBuffersBeforeAppendingEvents",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_AlreadySameCellContactAttack_SucceedsWithoutMovement",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_CompositeItemConsumption_RejectsConsumedBoxTarget_AndUsesPostMovePlayerPosition",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_DeadAfterDamage_StillOccupiesUntilCleanup",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FatalDamage_IsRemovedByCleanupAtTickEnd",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_AllowsSpawnIntoOccupiedUnitCell",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_FireProjectileIntent_SpawnsProjectileDuringCommit",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_ImpactReservation_CanStillExpandToFixedSameTickActions",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_MoveCommit_AllowsAttackOnFirstTickAfterExecutionUnlock",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "damage_affects_movement",
+        "movement_affects_attack",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_MoveCommit_BlocksSameTickAttackUntilExecutionUnlock",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "movement_affects_attack",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_NonAdjacentTarget_DoesNotProduceCandidate",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotCreateSameTickNewIntent",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_OnHit_DoesNotReenterMovementPhase",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_PlayerPushInput_ResolvesItemInMovement_AndLeavesAttackPhaseEmpty",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_SpawnIds_AreAssignedByCommitOrder",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_SpawnedEntityIds_AreNotReusedAfterCleanupAcrossTicks",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Attack_SpawnedProjectile_BeginsMovingOnlyAfterConfiguredCadence",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.ContactDamage_PlayerOwnedCooldown_RejectsStackedHitUntilReceiverGateExpires",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.ContactDamage_SameTickMultipleSources_OnlyFirstDeterministicResolutionIsAccepted",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.DelayedEventQueue_DoesNotCreateSameTickBackflow",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.DelayedEventQueue_DrainsOnNextTickOnly",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Movement_PreExistingProjectileAt120Tps_PreservesSameRealTimeCadence",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.Movement_PreExistingProjectileAt60Tps_PreservesRealTimeCadence",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.AttackPhaseScenarioTests.PassiveContact_AndCombat_FromSameSource_ShareOrderingButPassiveSkipsActingStateChange",
+      "category": "Core",
+      "contracts": [
+        "attack_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for attack_phase_scenario_contract in AttackPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_DetachedEntityWithoutDestroyMark_RemainsDetachedAndSurvivesCleanup",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_HpZeroEntity_IsRemovedInCleanup",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_MarkedForDeathOccupyingEntity_RemainsPresentUntilCleanupThenIsRemoved",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_RemovalClearsOccupancy",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_SameInput_ProducesDeterministicResult",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_SlidingState_DoesNotAutoTransitionWhenTimerReachesZero",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_SpawnedThisTick_DoesNotTickTimer",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_StateTimer_DecrementsOnlyForSurvivors",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Cleanup_StateTransition_AppliesAfterTimerTick",
+      "category": "Core",
+      "contracts": [
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for spawn_destroy_delayed_ordering in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_ConfiguredDelay_WaitsEligibleTickBeforeRespawning",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_PlayerControlState_IsResetWhenPlayerReturns",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_PlayerRemovedInCleanup_RespawnsNextTickAtInitialSpawnWithFullHp",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.CleanupPhaseScenarioTests.Respawn_SolidBlockerAtInitialSpawn_SkipsUntilBlockerIsRemoved",
+      "category": "Core",
+      "contracts": [
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "cleanup_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for damage_affects_movement in CleanupPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_JumpLanding_BoxOnLockedCell_UsesTwoRingFallback",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_jump in EnemyAiScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_JumpLanding_OnLockedPlayerCell_AllowsUnitStacking",
+      "category": "Core",
+      "contracts": [
+        "interaction_jump",
+        "enemy_ai_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_jump in EnemyAiScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Impact_KillsEnemy_BoxStillDoesNotAdvanceSameTick",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "damage_affects_movement",
+        "spawn_destroy_delayed_ordering",
+        "movement_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in MovementPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_Flip_SucceedsWhenOppositeCellIsFree",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "movement_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_flip in MovementPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Movement_SameInput_AssignsDeterministicIntentIds",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "movement_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in MovementPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Push_BoxNextStepHasHostileUnit_CreatesImpactAndStopsBeforeUnitCell",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "damage_affects_movement",
+        "movement_phase_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in MovementPhaseScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipBlockedFailure_StillEntersRecoveryWithoutReturnTrack",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_flip in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipImpactFailure_StillEntersRecoveryWithoutReturnTrack",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_flip in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipPreExecuteInvalidation_CancelsBeforeExecute",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_flip in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_BlockedMove_UpdatesFacingWithoutMoving",
+      "category": "Core",
+      "contracts": [
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for player_control_scenario_contract in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_BufferedMove_DoesNotAccumulatePushContact",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_DirectionChange_ResetsPushContact",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_FlipAction_ExecutesAfterWindupInsteadOfSameTick",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_flip in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_FlipStartsActionAndRetainsPriorityOverPush",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_HoldAgainstSameBox_TriggersPushAtThreshold",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_InputRelease_ResetsPushContact",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_LocomotionPresentationSignal_InputReleaseDuringCooldown_DropsWalkLoop",
+      "category": "Core",
+      "contracts": [
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for player_control_scenario_contract in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked",
+      "category": "Core",
+      "contracts": [
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for player_control_scenario_contract in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam",
+      "category": "Core",
+      "contracts": [
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for player_control_scenario_contract in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick",
+      "category": "Core",
+      "contracts": [
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for player_control_scenario_contract in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick",
+      "category": "Core",
+      "contracts": [
+        "interaction_flip",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_flip in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_PushAction_ExecutesAfterWindupInsteadOfThresholdTick",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "player_control_scenario_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in PlayerControlScenarioTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.GameplayTestStratification_ManifestAndSourceRemainConsistent",
+      "category": "Extended",
+      "contracts": [
+        "gameplay_test_stratification_audit_contract"
+      ],
+      "reason": "Locked infrastructure coverage for gameplay_test_stratification_audit_contract in GameplayTestStratificationAuditTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTimingOwnershipTests.GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy",
+      "category": "Core",
+      "contracts": [
+        "semantic_metadata",
+        "gameplay_timing_ownership_contract"
+      ],
+      "reason": "Locked Core coverage for semantic_metadata in GameplayTimingOwnershipTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.GameplayTimingOwnershipTests.GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks",
+      "category": "Core",
+      "contracts": [
+        "semantic_metadata",
+        "gameplay_timing_ownership_contract"
+      ],
+      "reason": "Locked Core coverage for semantic_metadata in GameplayTimingOwnershipTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.DelayedEventQueue_OrderIsDeterministic",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "spawn_destroy_delayed_ordering",
+        "tick_pipeline_stage_one_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickPipelineStageOneTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStageOneTests.PhaseTransientBuffer_DrainImpacts_ReturnsDeterministicOrder_AndClearsBuffer",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_pipeline_stage_one_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickPipelineStageOneTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.TickPipelineStructureTests.RunTick_CompletesPlanResolveFinalizeCleanupRespawn",
+      "category": "Extended",
+      "contracts": [
+        "canonical_path",
+        "resolve_finalize_contract",
+        "spawn_destroy_delayed_ordering",
+        "tick_pipeline_structure_contract"
+      ],
+      "reason": "Locked integration coverage for canonical_path in TickPipelineStructureTests.",
+      "locked": true
+    }
+  ]
+}

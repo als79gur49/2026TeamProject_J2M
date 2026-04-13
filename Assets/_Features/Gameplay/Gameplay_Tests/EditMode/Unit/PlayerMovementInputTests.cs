@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class PlayerMovementInputTests
     {
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_MoveCommand_ProducesSingleRawMovementIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -39,6 +40,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_FlipCommand_DoesNotProduceImmediateIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -57,6 +59,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ActivePushAction_ProducesSingleRawPushIntentOnExecuteTick()
         {
             var worldState = CreateWorldState(new[]
@@ -97,6 +100,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ConfiguredTimingSnapshot_OnlyExecutesOnSnapshotExecuteTick()
         {
             var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
@@ -147,6 +151,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ImplementsMovementContractOnly()
         {
             var logic = new PlayerLogic(entityId: 10);
@@ -156,6 +161,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ActiveFlipAction_ProducesSingleRawFlipIntentOnExecuteTick()
         {
             var worldState = CreateWorldState(new[]
@@ -196,6 +202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ActiveAction_BlocksOrdinaryMoveIntentBeforeExecuteTick()
         {
             var worldState = CreateWorldState(new[]
@@ -231,6 +238,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ActiveAction_BlocksFlipInputBeforeExecuteTick()
         {
             var worldState = CreateWorldState(new[]
@@ -266,6 +274,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ActiveAction_BlocksOrdinaryMoveIntentDuringRecovery()
         {
             var worldState = CreateWorldState(new[]
@@ -302,6 +311,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_NoMoveCommand_ProducesNoIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -320,6 +330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_DeadEntity_DoesNotProduceIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -338,6 +349,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_ExposesControlledEntityId()
         {
             var logic = new PlayerLogic(entityId: 10);
@@ -346,6 +358,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerLogic_MoveCooldown_BlocksIntentUntilStateExpires()
         {
             var worldState = CreateWorldState(new[]
@@ -371,6 +384,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void InputQuantizer_Vector2ToGridDirection_PicksDominantAxis()
         {
             var direction = GridMoveInputQuantizer.Quantize(new Vector2(0.8f, 0.2f), deadzone: 0.5f);
@@ -379,6 +393,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void InputQuantizer_DiagonalTie_ReturnsNone()
         {
             var direction = GridMoveInputQuantizer.Quantize(new Vector2(1f, 1f), deadzone: 0.5f);
@@ -387,6 +402,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void InputQuantizer_BelowDeadzone_ReturnsNone()
         {
             var direction = GridMoveInputQuantizer.Quantize(new Vector2(0.2f, 0.1f), deadzone: 0.5f);
@@ -395,6 +411,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_HoldAgainstSameBox_AccumulatesContactTicks()
         {
             var worldState = CreateWorldState(new[]
@@ -428,6 +445,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_MoveIntoUnit_DoesNotAccumulatePushContact()
         {
             var worldState = CreateWorldState(new[]
@@ -455,6 +473,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_FlipInputAgainstUnit_DoesNotStartFlipAction()
         {
             var worldState = CreateWorldState(new[]
@@ -480,6 +499,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_ExecutionLock_BlocksFlipStart()
         {
             var worldState = CreateWorldState(new[]
@@ -512,6 +532,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlQueries_StartAction_ZeroWindup_MarksExecutionAttemptedImmediately()
         {
             var startedState = PlayerControlQueries.StartAction(
@@ -530,6 +551,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_InputRelease_ResetsContact()
         {
             var worldState = CreateWorldState(new[]
@@ -561,6 +583,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_TargetChange_ResetsAccumulation()
         {
             var firstWorld = CreateWorldState(new[]
@@ -603,6 +626,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_ActiveAction_AdvancesExecutionAndCompletion()
         {
             var worldState = CreateWorldState(new[]
@@ -653,6 +677,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_ActivePushAction_IgnoresRecoveryInputsAndAllowsNextPushAfterCompletion()
         {
             var worldState = CreateWorldState(new[]
@@ -745,6 +770,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlStateLogic_ActiveFlipAction_IgnoresRecoveryInputsAndAllowsNextFlipAfterCompletion()
         {
             var worldState = CreateWorldState(new[]

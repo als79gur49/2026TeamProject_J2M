@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class PlayerControlScenarioTests
     {
         [Test]
+        [Category("Core")]
         public void PlayerControl_MoveCooldown_CannotBeBypassedByTapSpam()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
@@ -59,6 +60,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_MoveCooldown_OneTick_BlocksImmediateNextTick()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
@@ -97,6 +99,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_LocomotionPresentationSignal_StaysTrueDuringCooldownGapAndDropsWhenBlocked()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
@@ -142,6 +145,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_LocomotionPresentationSignal_InputReleaseDuringCooldown_DropsWalkLoop()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1);
@@ -172,6 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_HoldAgainstSameBox_TriggersPushAtThreshold()
         {
             var worldState = CreateWorldState(new[]
@@ -223,6 +228,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_InputRelease_ResetsPushContact()
         {
             var worldState = CreateWorldState(new[]
@@ -252,6 +258,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_BufferedMove_DoesNotAccumulatePushContact()
         {
             var worldState = CreateWorldState(new[]
@@ -279,6 +286,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_DirectionChange_ResetsPushContact()
         {
             var worldState = CreateWorldState(new[]
@@ -318,6 +326,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_BlockedMove_UpdatesFacingWithoutMoving()
         {
             var worldState = CreateWorldState(new[]
@@ -348,6 +357,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_FlipStartsActionAndRetainsPriorityOverPush()
         {
             var worldState = CreateWorldState(new[]
@@ -374,6 +384,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_PushAction_ExecutesAfterWindupInsteadOfThresholdTick()
         {
             var worldState = CreateWorldState(new[]
@@ -416,6 +427,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_FlipAction_ExecutesAfterWindupInsteadOfSameTick()
         {
             var worldState = CreateWorldState(new[]
@@ -454,6 +466,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void FlipImpactFailure_StillEntersRecoveryWithoutReturnTrack()
         {
             var worldState = CreateWorldState(new[]
@@ -485,6 +498,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void FlipBlockedFailure_StillEntersRecoveryWithoutReturnTrack()
         {
             var worldState = CreateWorldState(new[]
@@ -513,6 +527,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void FlipPreExecuteInvalidation_CancelsBeforeExecute()
         {
             var worldState = CreateWorldState(new[]
@@ -543,6 +558,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_MoveOccupancy_BlocksFlipStartUntilFirstUnlockedTick()
         {
             var timingProfile = CreateTimingProfile(repeatedMoveIntervalTicks: 1, moveOccupancyTicks: 1);
@@ -586,6 +602,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void PlayerControl_CustomPushInputLock_IgnoresNewInputsUntilActionCompletes()
         {
             var timingProfile = CreateTimingProfile();

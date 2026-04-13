@@ -22,6 +22,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayShowcaseScaffoldTests
     {
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_Creates3DScaffoldAndRemovesLegacyLabels()
         {
             var scene = CreateIsolatedTestScene();
@@ -93,6 +94,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_CapturesAuthoredCinemachinePoseAsCameraBaseline()
         {
             var scene = CreateIsolatedTestScene();
@@ -169,6 +171,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_AppliesProvidedShakeProfileToRig()
         {
             var scene = CreateIsolatedTestScene();
@@ -213,6 +216,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayPresentationCleanup_RemovesLegacyGridOriginContracts()
         {
             var scene = CreateIsolatedTestScene();
@@ -279,6 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseInstaller_CreateConfiguration_MissingSimulationTimingPreset_ThrowsInstallerName()
         {
             var scene = CreateIsolatedTestScene();
@@ -308,6 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseInstaller_CreateConfiguration_MissingPresentationTimingPreset_ThrowsInstallerName()
         {
             var scene = CreateIsolatedTestScene();
@@ -337,6 +343,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayPresentationCleanup_CreateConfiguration_DoesNotDuplicatePlayerPrefabWhenViewFactoryProvidesIt()
         {
             var scene = CreateIsolatedTestScene();
@@ -378,6 +385,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseInstaller_CreateConfiguration_PropagatesExplicitFaceSeamGap()
         {
             var scene = CreateIsolatedTestScene();
@@ -412,6 +420,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCameraRig_InitializeWithoutDirectCamera_DrivesOrbitHierarchyPose()
         {
             var scene = CreateIsolatedTestScene();
@@ -562,6 +571,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseInstaller_CreateConfiguration_ClonesTopologyTransitionCameraShakeProfile()
         {
             var scene = CreateIsolatedTestScene();
@@ -613,6 +623,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayShowcaseInstaller_CreateConfiguration_ClonesTopologyTransitionPostFxProfile()
         {
             var scene = CreateIsolatedTestScene();
@@ -769,6 +780,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Entities/Runtime/Entity_View_PlayerAnimationTest.prefab";
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseScene_SerializesTimingPresetReferencesInsteadOfLegacyTimingFields()
         {
             var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
@@ -794,6 +806,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseScene_SerializesEnemyPresentationCatalogReference()
         {
             var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
@@ -803,6 +816,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerAnimationTestPrefab_UsesPresentationOnlyTimingAuthoringComponents()
         {
             var prefabText = ReadNormalizedText(PlayerAnimationTestPrefabPath);
@@ -817,6 +831,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void ShowcaseScenes_SerializeCinemachineBootstrapWithoutExtraBlendDamping()
         {
             AssertShowcaseSceneUsesCutBrainBlend(CombinedScenePath);

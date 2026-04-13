@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class EnemyViewIsolationTests
     {
         [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_PresentingEnemyFrames_DoesNotChangeLaterTickAuthoritativeResults()
         {
             var initialEntities = new[]
@@ -79,6 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_PresentingEnemyWindupSignals_DoesNotChangeLaterTickAuthoritativeResults()
         {
             var initialEntities = new[]
@@ -153,6 +155,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_PresentingEnemyMotionAuthoring_DoesNotChangeLocomotionCooldownAuthority()
         {
             var initialEntities = new[]

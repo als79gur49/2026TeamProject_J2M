@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class FlipInteractionPresentationTests
     {
         [Test]
+        [Category("Extended")]
         public void FlipInteractionTrack_PhasesTransitionFromWindupToRecoveryToComplete()
         {
             var track = new FlipInteractionTrack(
@@ -43,6 +44,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayTrackPlanner_FlipInteractionTrack_CancelAndTargetLossRemoveTrackSafely()
         {
             var rootObject = new GameObject("GameplayTrackPlanner_FlipInteractionTrack_CancelAndTargetLossRemoveTrackSafely");
@@ -150,6 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayEntityPresentationApplier_FlipInteraction_DoesNotMoveGameplayEntityViewRoots()
         {
             var rootObject = new GameObject("GameplayEntityPresentationApplier_FlipInteraction_DoesNotMoveGameplayEntityViewRoots");

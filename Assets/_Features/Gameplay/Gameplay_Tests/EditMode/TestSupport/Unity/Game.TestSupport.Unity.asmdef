@@ -1,0 +1,13 @@
+{
+  "name": "Game.TestSupport.Unity",
+  "rootNamespace": "Game.Feature.Gameplay.Tests.Support.Unity",
+  "references": [
+    "Game.Feature.Gameplay"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

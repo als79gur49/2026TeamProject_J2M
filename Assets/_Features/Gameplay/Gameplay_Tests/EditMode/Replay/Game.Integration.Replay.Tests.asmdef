@@ -1,0 +1,15 @@
+{
+  "name": "Game.Integration.Replay.Tests",
+  "rootNamespace": "Game.Feature.Gameplay.Tests.Replay",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Tests",
+    "Game.Feature.Gameplay.Host"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

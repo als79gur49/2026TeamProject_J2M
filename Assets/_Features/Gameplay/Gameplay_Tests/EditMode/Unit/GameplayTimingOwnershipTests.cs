@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayTimingOwnershipTests
     {
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_WithoutPlayerPrefab_AutoCreatesPrimitivePlayerViewWithMotionFallbackDefaults()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefab_AutoCreatesPrimitivePlayerViewWithMotionFallbackDefaults");
@@ -69,6 +70,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplaySceneHost_Initialize_AddsStageClearOverlayComponent()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_AddsStageClearOverlayComponent");
@@ -100,6 +102,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_AndShowsOverlay()
         {
             var hostObject = new GameObject("GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_AndShowsOverlay");
@@ -141,6 +144,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcase_NonAttackingEnemyProfileAndStartisPrefab_ShareMoveCadence()
         {
             const string enemyProfilePath =
@@ -163,6 +167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_WithoutAnimatorOverride_UsesResolvedMotionDuration()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WithoutAnimatorOverride_UsesResolvedMotionDuration");
@@ -210,6 +215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_WithAnimatorOverride_PrefersAnimatorDurationOverResolvedMotionDuration()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WithAnimatorOverride_PrefersAnimatorDurationOverResolvedMotionDuration");
@@ -243,6 +249,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_PushStart_CrossFadesToWindup()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PushStart_CrossFadesToWindup");
@@ -271,6 +278,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_PushExecute_CrossFadesToRecovery()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PushExecute_CrossFadesToRecovery");
@@ -299,6 +307,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_FlipStart_CrossFadesToWindup()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_FlipStart_CrossFadesToWindup");
@@ -327,6 +336,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_FlipExecute_CrossFadesToRecovery()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_FlipExecute_CrossFadesToRecovery");
@@ -355,6 +365,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_Execute_DoesNotReplayWindup()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_Execute_DoesNotReplayWindup");
@@ -388,6 +399,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_PhaseDurations_DriveDistinctAnimatorSpeeds()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_PhaseDurations_DriveDistinctAnimatorSpeeds");
@@ -422,6 +434,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_FlipRecovery_UsesRecoveryClipLengthForSpeed()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_FlipRecovery_UsesRecoveryClipLengthForSpeed");
@@ -465,6 +478,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationOverride()
         {
             var rootObject = new GameObject("PlayerAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationOverride");
@@ -486,6 +500,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_DeathDurationOverride_UsesInspectorValue()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_DeathDurationOverride_UsesInspectorValue");
@@ -527,6 +542,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_WalkLoop_UsesSingleStateForEnterAndExit()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_WalkLoop_UsesSingleStateForEnterAndExit");
@@ -562,6 +578,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerViewPresentationMapper_PlayerRemovedThisTick_SetsDidDie()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_PlayerRemovedThisTick_SetsDidDie");
@@ -617,6 +634,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerViewPresentationMapper_AcceptedDamageSignal_SetsTookDamageThisTick()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_AcceptedDamageSignal_SetsTookDamageThisTick");
@@ -688,6 +706,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk");
@@ -767,6 +786,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_PlayerHitSignal_TriggersAnimatorWithoutChangingBaseState()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerHitSignal_TriggersAnimatorWithoutChangingBaseState");
@@ -842,6 +862,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_PlayerRespawnSpawn_ClearsDeathOverride()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerRespawnSpawn_ClearsDeathOverride");
@@ -953,6 +974,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_DeathState_CrossFadesToDeath()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_DeathState_CrossFadesToDeath");
@@ -988,6 +1010,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerDeath_DoesNotRequireNewPlayerActionKind()
         {
             CollectionAssert.AreEqual(
@@ -996,6 +1019,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerS1Controller_WalkLoopConfiguration_RemovesLegacyStartAndDoneStates()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
@@ -1016,6 +1040,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerDeath_UsesUnifiedDeathClip_NotSplitRuntimeChain()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
@@ -1039,6 +1064,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerS1Controller_PlayerActionStates_ArePhaseSplitWithoutAutoTransitions()
         {
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>("Assets/3DM/1Player/Player_S1.controller");
@@ -1069,6 +1095,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerS1Prefab_PlayerAnimatorDriver_MapsWalkSequenceStates()
         {
             var prefabObject = AssetDatabase.LoadAssetAtPath<GameObject>(
@@ -1099,6 +1126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides()
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_UsesOptionalOverrides");
@@ -1168,6 +1196,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimationTimingAuthoring_CreateSnapshot_InvalidOverride_Throws()
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_InvalidOverride_Throws");
@@ -1203,6 +1232,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimationTimingAuthoring_CreateSnapshot_DurationOverrideWithoutReferenceClip_Throws()
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_DurationOverrideWithoutReferenceClip_Throws");
@@ -1233,6 +1263,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationAndReferenceClip()
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_CreateSnapshot_PreservesDeathAnimatorDurationAndReferenceClip");
@@ -1264,6 +1295,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimationTimingAuthoring_DeathDurationOverrideWithoutReferenceClip_Throws()
         {
             var rootObject = new GameObject("EnemyAnimationTimingAuthoring_DeathDurationOverrideWithoutReferenceClip_Throws");
@@ -1284,6 +1316,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimationTimingAuthoring_PublicApi_IsLimitedToTimingSnapshotAndValidation()
         {
             var publicMethodNames = typeof(EnemyAnimationTimingAuthoring)
@@ -1312,6 +1345,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_PublicApi_DoesNotExposeTimingQueryOverrides()
         {
             var publicMethodNames = typeof(EnemyAnimatorDriver)
@@ -1325,6 +1359,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_OptionalAnimationTimingHook_StaysPresentationOnly");
@@ -1404,6 +1439,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_CrossFadeOverride_SuppressesWindupAndRecoveryTriggerFallbacks()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_CrossFadeOverride_SuppressesWindupAndRecoveryTriggerFallbacks");
@@ -1470,6 +1506,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_StateNameAndClipNameMismatch_UsesReferenceClipLengthForAnimatorSpeed()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_StateNameAndClipNameMismatch_UsesReferenceClipLengthForAnimatorSpeed");
@@ -1532,6 +1569,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_DeathDurationOverride_UsesReferenceClipAndInspectorValue()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_DeathDurationOverride_UsesReferenceClipAndInspectorValue");
@@ -1576,6 +1614,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_DeathPhase_PersistsAcrossVisibilityTailWithoutResettingToDefaultSpeed()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_DeathPhase_PersistsAcrossVisibilityTailWithoutResettingToDefaultSpeed");
@@ -1625,6 +1664,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_PlaybackSuppression_OverridesAnimatorSpeedWithoutResettingPresentationState()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_PlaybackSuppression_OverridesAnimatorSpeedWithoutResettingPresentationState");
@@ -1688,6 +1728,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAnimatorDriver_JumpSignals_UseSeparatePresentationPhases()
         {
             var rootObject = new GameObject("EnemyAnimatorDriver_JumpSignals_UseSeparatePresentationPhases");
@@ -1773,6 +1814,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_KeepsEnemyAnimationTimingHookOptional");
@@ -1792,6 +1834,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplaySceneHost_Initialize_WithEnemyPresentationBindingButMissingCatalog_Throws()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithEnemyPresentationBindingButMissingCatalog_Throws");
@@ -1833,6 +1876,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
         public void GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithEnemyPresentationCatalog_UsesBoundPrefabForConfiguredEnemy");
@@ -1921,6 +1965,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplaySceneHost_Initialize_WithStaticPresentationBindingButMissingCatalog_Throws()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithStaticPresentationBindingButMissingCatalog_Throws");
@@ -1962,6 +2007,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
         public void GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithStaticPresentationCatalog_UsesBoundPrefabsAndFallbacks");
@@ -2058,6 +2104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_SerializedFields_RemainLogicOnlyContract()
         {
             var serializedFieldNames = typeof(EnemyAiProfile)
@@ -2080,6 +2127,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void DeathAnimatorDuration_DoesNotRequireNewActionKinds()
         {
             CollectionAssert.AreEqual(

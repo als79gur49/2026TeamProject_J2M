@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string DeprecatedVolumeProfileGuid = "eda47df5b85f4f249abf7abd73db2cb2";
 
         [Test]
+        [Category("Extended")]
         public void GameplaySceneHost_Initialize_TopologyTransitionPostFx_CreatesRuntimeVolumeCloneFromAuthoritativeAsset()
         {
             var hostObject = new GameObject("GameplaySceneHost_TopologyTransitionPostFx");
@@ -100,6 +101,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void TopologyTransitionPostFxController_UsesAngularVelocityEnvelopeAndFastLandingFade()
         {
             var controllerObject = new GameObject("TopologyTransitionPostFxController");
@@ -178,6 +180,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void TopologyTransitionPostFxController_UsesConfiguredDistortionImpactAndLandingPulses()
         {
             var controllerObject = new GameObject("TopologyTransitionPostFxController_Distortion");
@@ -253,6 +256,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void ShowcaseScenes_InstallerSerialization_UsesAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
             var combinedSceneText = ReadNormalizedText(CombinedScenePath);
@@ -272,6 +276,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void ShowcaseScenes_Scaffold_EnablesPostProcessingOnOutputCamera()
         {
             AssertSceneScaffoldEnablesOutputCameraPostProcessing(CombinedScenePath);

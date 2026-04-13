@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class EntityMotionPresentationAuthoringTests
     {
         [Test]
+        [Category("Extended")]
         public void EntityMotionPresentationAuthoring_CreateSnapshot_PreservesOverridesAndFallbackSentinel()
         {
             var rootObject = new GameObject("EntityMotionPresentationAuthoring_CreateSnapshot");
@@ -42,6 +43,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EntityMotionPresentationAuthoring_InvalidOverrideDuration_Throws()
         {
             var rootObject = new GameObject("EntityMotionPresentationAuthoring_InvalidOverrideDuration");
@@ -60,6 +62,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_AllowsMissingEntityMotionPresentationAuthoring()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_AllowsMissingEntityMotionPresentationAuthoring");
@@ -84,6 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_ValidatesOptionalEntityMotionPresentationAuthoring()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_ValidatesOptionalEntityMotionPresentationAuthoring");

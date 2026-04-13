@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class WorldStatePlacementInvariantTests
     {
         [Test]
+        [Category("Extended")]
         public void MoveEntity_TerrainBlockedDestination_Throws()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -29,6 +30,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void MoveEntity_TerrainBlockedDestination_LeavesEntityStateAndOccupancyUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -51,6 +53,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_TerrainBlockedDestination_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -67,6 +70,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void MoveEntity_BoardOutsideDestination_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -89,6 +93,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_BoardOutsideDestination_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -105,6 +110,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_UnitOccupiedDestination_AllowsStackingAndKeepsPrimaryOccupantDeterministic()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -134,6 +140,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_InactiveFaceTerrainBlockedDestination_StillThrowsForAuthoritativeStateValidation()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -150,6 +157,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_InactiveFaceOccupiedDestination_AllowsAuthoritativeUnitStacking()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -171,6 +179,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void MoveEntity_MarkedForDeathOccupiedDestination_AllowsAuthoritativeUnitStacking()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -196,6 +205,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SetBoardPresence_ReoccupyingIntoOccupiedCell_AllowsUnitStacking()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -224,6 +234,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_BoxOccupiedDestination_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -245,6 +256,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_BoxDestinationOccupiedByUnit_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -265,6 +277,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_ProjectileDestinationOccupiedByUnit_AllowsProjectileAndPreservesUnitOccupancy()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -287,6 +300,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_ProjectileDestinationOccupiedByBox_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -306,6 +320,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void SpawnEntity_ProjectileDestinationOccupiedByProjectile_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(

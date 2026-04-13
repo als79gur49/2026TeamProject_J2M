@@ -27,6 +27,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class RuntimeBoardBoundsGuardTests
     {
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UnboundedBoard_Throws()
         {
             var gameObject = new GameObject("RuntimeBoardBoundsGuardTests");
@@ -45,6 +46,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCompositionRoot_CreateWorldState_RejectsUnboundedBoard()
         {
             Assert.Throws<InvalidOperationException>(
@@ -55,6 +57,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_NormalizesPreExistingProjectileCadence");
@@ -106,6 +109,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreateTimingProfile_DefaultsTopologyMotionDurationToPushAndAllowsOverride()
         {
             var configuration = new GameplaySceneHostConfiguration
@@ -139,6 +143,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_DefaultsTopologyRotationVisualMappingToForwardUsesPositiveX()
         {
             var configuration = new GameplaySceneHostConfiguration();
@@ -152,6 +157,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_ResolveFaceSeamGap_DefaultsToCellSizeAndAllowsOverride()
         {
             var configuration = new GameplaySceneHostConfiguration
@@ -167,6 +173,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTimingProfile_CreateDefault_PreservesDefaultTimeMeaningAtSixtyTps()
         {
             var profile = GameplayTimingProfile.CreateDefault();
@@ -190,6 +197,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreateTimingProfile_ChangingSimulationTicksPerSecondPreservesGeneralTimeMeaning()
         {
             var sixtyTpsProfile = new GameplaySceneHostConfiguration
@@ -213,6 +221,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_ChangingSimulationTicksPerSecondPreservesPlayerTimeMeaning()
         {
             var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
@@ -241,6 +250,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreatePlayerControlTimingSnapshot_DefaultsMoveCooldownToRepeatedMoveIntervalAndConvertsTicks()
         {
             var configuration = new GameplaySceneHostConfiguration
@@ -274,6 +284,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_ChangingSimulationTicksPerSecondPreservesTimeMeaning()
         {
             var sixtyTpsSnapshot = new GameplaySceneHostConfiguration
@@ -302,6 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreatePlayerRespawnTimingSnapshot_ZeroSecondsStillRespectsNextTickRule()
         {
             var snapshot = new GameplaySceneHostConfiguration
@@ -318,6 +330,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_ChangingSimulationTicksPerSecondPreservesEnemyTimeMeaning()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -368,6 +381,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHostConfiguration_CreateEnemyAiRuntimeSnapshot_NullDefaultProfile_UsesDefaultMeleeDefinition()
         {
             var snapshot = new GameplaySceneHostConfiguration
@@ -386,6 +400,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_NormalizesEnemyWindupAgainstSimulationTickRate()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_NormalizesEnemyWindupAgainstSimulationTickRate");
@@ -459,6 +474,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerControlTimingSettings_CreateAuthoritativeSnapshot_PreservesExplicitPlayerTimingValues()
         {
             var snapshot = new PlayerControlTimingSettings
@@ -476,6 +492,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerControlTimingSettings_CreateAuthoritativeSnapshot_InputLockShorterThanExecuteDelay_Throws()
         {
             var settings = new PlayerControlTimingSettings
@@ -488,6 +505,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerAnimationTimingAuthoring_CreateSnapshot_UsesAnimatorDurations()
         {
             var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimationTimingAuthoring_CreateSnapshot");
@@ -515,6 +533,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerAnimationTimingAuthoring_CreateSnapshot_NonPositiveAnimatorDuration_Throws()
         {
             var authoringRoot = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimationTimingAuthoring_InvalidDuration");
@@ -534,6 +553,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredPlayerControlTiming_WhenPlayerPrefabHasAnimationTimingAuthoringOnly");
@@ -619,6 +639,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_CreatesBoardRootHierarchyAndParentsViewsUnderEntityRoot");
@@ -691,6 +712,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_WithoutPlayerPrefabAuthoritativeSource_UsesDefaultPlayerControlTiming");
@@ -743,6 +765,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming()
         {
             var hostObject = new GameObject("GameplaySceneHost_AutoCreateViewsFalse_UsesConfiguredPlayerControlTiming");
@@ -829,6 +852,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCompositionRoot_DeclaresOnlyBoundedWorldFactory()
         {
             var worldFactories = typeof(GameplayCompositionRoot)
@@ -882,6 +906,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayViewProjectionTests
     {
         [Test]
+        [Category("Full")]
         public void GameplayEntityView_ApplyLocalPose_UsesLocalTransformSpace()
         {
             var rootObject = new GameObject("GameplayEntityView_ApplyLocalPose_UsesLocalTransformSpace");
@@ -913,6 +938,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot()
         {
             var viewObject = new GameObject("GameplayEntityView_ConfigureModelRoot_CreatesDedicatedModelPivot");
@@ -938,6 +964,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_CreatesCubeEntityVisualProfilesWithoutColliders");
@@ -970,6 +997,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_AiControlledUnit_AddsEnemyAnimatorDriver()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_AiControlledUnit_AddsEnemyAnimatorDriver");
@@ -990,6 +1018,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_PlayerUnit_AddsPlayerAnimatorDriverOnlyToPlayer()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_PlayerUnit_AddsPlayerAnimatorDriverOnlyToPlayer");
@@ -1011,6 +1040,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_StaticEnemyBindingWithNoneAiMode_UsesEnemyPrefab()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticEnemyBindingWithNoneAiMode_UsesEnemyPrefab");
@@ -1051,6 +1081,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_StaticBoxBinding_UsesPrefabAndSanitizesPhysics()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxBinding_UsesPrefabAndSanitizesPhysics");
@@ -1091,6 +1122,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_StaticBoxBinding_WithoutRenderer_Throws()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxBinding_WithoutRenderer_Throws");
@@ -1122,6 +1154,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual()
         {
             var parentObject = new GameObject("DefaultGameplayEntityViewFactory_StaticBoxWithoutBinding_FallsBackToPrimitiveVisual");
@@ -1155,6 +1188,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayEntityVisualProfile_BoxVisualRecedesIntoFaceInterior()
         {
             var profile = GameplayEntityVisualProfile.Create(EntityType.Box, 1f);
@@ -1168,6 +1202,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayEntityVisualProfile_UnitVisualRecedesIntoFaceInterior()
         {
             var profile = GameplayEntityVisualProfile.Create(EntityType.Unit, 1f);
@@ -1180,6 +1215,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayEntityVisualProfile_WallVisualRecedesIntoFaceInterior()
         {
             var profile = GameplayEntityVisualProfile.Create(EntityType.None, 1f);
@@ -1193,6 +1229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void ProjectedCellPose_NormalizesNormalVector()
         {
             var pose = new ProjectedCellPose(
@@ -1208,6 +1245,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_ProjectsBottomFaceToHorizontalPlane()
         {
             var projector = new GameplayCubeProjector(
@@ -1233,6 +1271,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_ProjectsFrontFaceToVerticalPlane()
         {
             var projector = new GameplayCubeProjector(
@@ -1258,6 +1297,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_SurfaceFrames_KeepFaceCentersOnExplodedCubeAxes()
         {
             var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0));
@@ -1282,6 +1322,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_TransitionProjection_UsesSourceAndDestinationVisibleFaceUnion()
         {
             var projector = new GameplayCubeProjector(
@@ -1325,6 +1366,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_TransitionProjection_MatchesOrdinaryProjection_WhenTopologyDoesNotChange()
         {
             var projector = new GameplayCubeProjector(
@@ -1371,6 +1413,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_TransitionProjection_KeepsPhysicalFacePoseAcrossTopologyPairs()
         {
             var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
@@ -1428,6 +1471,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_GetProjectedTransitionEntitySlot_ReturnsPhysicalSlotInsteadOfDestinationRemap()
         {
             var projector = new GameplayCubeProjector(
@@ -1445,6 +1489,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_FrontFaceRows_RiseAwayFromFloor()
         {
             var projector = new GameplayCubeProjector(
@@ -1472,6 +1517,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_FloorRows_AdvanceTowardPositiveZ()
         {
             var projector = new GameplayCubeProjector(
@@ -1499,6 +1545,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_SeparatesFloorAndFrontFacesWithOneCellSeamGap()
         {
             var projector = new GameplayCubeProjector(
@@ -1526,6 +1573,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_UsesExplicitFaceSeamGapIndependentOfCellSize()
         {
             var projector = new GameplayCubeProjector(
@@ -1553,6 +1601,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_FloorRightFacing_AlignsWithPositiveXAxis()
         {
             var projector = new GameplayCubeProjector(
@@ -1573,6 +1622,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_FrontRightFacing_AlignsWithPositiveXAxis()
         {
             var projector = new GameplayCubeProjector(
@@ -1593,6 +1643,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCameraRig_DefaultPose_ProjectsFloorPositiveXToScreenRight()
         {
             var rigObject = new GameObject("GameplayCameraRig_DefaultPose_ProjectsFloorPositiveXToScreenRight");
@@ -1640,6 +1691,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCameraRig_DefaultPose_ProjectsFrontPositiveXToScreenRight()
         {
             var rigObject = new GameObject("GameplayCameraRig_DefaultPose_ProjectsFrontPositiveXToScreenRight");
@@ -1687,6 +1739,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCameraRig_ManualDistance_KeepsPositionWhenFieldOfViewChanges()
         {
             var rigObject = new GameObject("GameplayCameraRig_ManualDistance_KeepsPositionWhenFieldOfViewChanges");
@@ -1734,6 +1787,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCameraRig_AutoFit_ChangesDistanceWhenFieldOfViewChanges()
         {
             var rigObject = new GameObject("GameplayCameraRig_AutoFit_ChangesDistanceWhenFieldOfViewChanges");
@@ -1779,6 +1833,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayCubeProjector_RejectsInactiveFaceEntityProjection()
         {
             var projector = new GameplayCubeProjector(
@@ -1796,6 +1851,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles()
         {
             var rootObject = new GameObject("GameplayBoardSurfaceRenderer_CreatesExpectedVisibleFaceTiles");
@@ -1831,6 +1887,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UsesConfiguredBoardSurfaceTextureForAllTiles()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesConfiguredBoardSurfaceTextureForAllTiles");
@@ -1895,6 +1952,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayBoardSurfaceRenderer_TopologyTransition_UsesDestinationVisibleFacesAtStart()
         {
             var rootObject = new GameObject("GameplayBoardSurfaceRenderer_TopologyTransition_UsesDestinationVisibleFacesAtStart");
@@ -1958,6 +2016,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses()
         {
             var rootObject = new GameObject("GameplayBoardSurfaceRenderer_TopologyTransition_StartWorldPosesMatchDestinationVisibleSurfacePoses");
@@ -2042,6 +2101,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PresentsOnlyActiveFaceEntitiesIn3D");
@@ -2093,6 +2153,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_HidesDetachedEntitiesBeforeCleanupRemoval()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_HidesDetachedEntitiesBeforeCleanupRemoval");
@@ -2133,6 +2194,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_KeepsMarkedForDeathEntityVisibleWhileStillOccupying()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_KeepsMarkedForDeathEntityVisibleWhileStillOccupying");
@@ -2167,6 +2229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_ForwardTopologyChange_UsesProjectedCubePose()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_ForwardTopologyChange_UsesProjectedCubePose");
@@ -2220,6 +2283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_BackwardTopologyChange_UsesProjectedCubePose()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_BackwardTopologyChange_UsesProjectedCubePose");
@@ -2269,6 +2333,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PresentationPhase_TransitionsBetweenIdleEntityMotionAndTopologyTransition()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PresentationPhase_TransitionsBetweenIdleEntityMotionAndTopologyTransition");
@@ -2393,6 +2458,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PresentationPhase_TreatsVisibilityTrackAsEntityMotion()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PresentationPhase_TreatsVisibilityTrackAsEntityMotion");
@@ -2451,6 +2517,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_MapsEnemyAttackHitAndMoveSignalsToAnimatorDrivers");
@@ -2520,6 +2587,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_MapsEnemyWindupExecuteAndRecoverySignalsToAnimatorDriver()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_MapsEnemyWindupExecuteAndRecoverySignalsToAnimatorDriver");
@@ -2618,6 +2686,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_ZeroWindupEnemyExecuteSignal_DoesNotTriggerWindup()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_ZeroWindupEnemyExecuteSignal_DoesNotTriggerWindup");
@@ -2687,6 +2756,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_RemovedEnemy_MapsDeathSignalToAnimatorDriver()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_RemovedEnemy_MapsDeathSignalToAnimatorDriver");
@@ -2742,6 +2812,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerDeathVisibilityTail_DoesNotHideBeforeDeathClipCompletes()
         {
             var rootObject = new GameObject("PlayerDeathVisibilityTail_DoesNotHideBeforeDeathClipCompletes");
@@ -2831,6 +2902,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_PlayerMoveMotion_ResolvesWalkThenIdleAfterTrackCompletes()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerMoveMotion_ResolvesWalkThenIdleAfterTrackCompletes");
@@ -2914,6 +2986,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_PlayerLocomotionSignal_KeepsWalkLoopAcrossCooldownGap()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerLocomotionSignal_KeepsWalkLoopAcrossCooldownGap");
@@ -3008,6 +3081,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_PlayerLocomotionSignal_FalseFallsBackToIdleOnlyAfterMoveTrackEnds()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerLocomotionSignal_FalseFallsBackToIdleOnlyAfterMoveTrackEnds");
@@ -3104,6 +3178,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_Present_PlayerActionSignals_HoldPushAndFlipUntilPresentationDurationExpires");
@@ -3271,6 +3346,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PlayerActionHold_YieldsImmediatelyToNewWalkPresentation()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PlayerActionHold_YieldsImmediatelyToNewWalkPresentation");
@@ -3412,6 +3488,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerAnimatorDriver_TransitionsBetweenWindupAndRecoveryPhases()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_TransitionsBetweenWindupAndRecoveryPhases");
@@ -3484,6 +3561,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void PlayerAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields()
         {
             var serializedFieldNames = typeof(PlayerAnimatorDriver)
@@ -3516,6 +3594,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyAnimatorDriver_InspectorSurface_IsLimitedToCoreAuthoringFields()
         {
             var serializedFieldNames = typeof(EnemyAnimatorDriver)
@@ -3548,6 +3627,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyMotion_MaintainsBoardRootIdentity()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_MaintainsBoardRootIdentity");
@@ -3655,6 +3735,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyMotion_FrontToCeiling_UsesShortestArcAcrossCeilingBoundary()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_FrontToCeiling_UsesShortestArcAcrossCeilingBoundary");
@@ -3750,6 +3831,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyMotion_CeilingToFront_UsesShortestArcAcrossCeilingBoundary()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_CeilingToFront_UsesShortestArcAcrossCeilingBoundary");
@@ -3845,6 +3927,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyMotion_UsesDedicatedDuration()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_UsesDedicatedDuration");
@@ -3926,6 +4009,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyMotion_BackToCeiling_PreservesContinuousOrbitXDegrees()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_BackToCeiling_PreservesContinuousOrbitXDegrees");
@@ -4012,6 +4096,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyMotion_WithCinemachineBrain_SyncsOutputCameraSameCall()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyMotion_WithCinemachineBrain_SyncsOutputCameraSameCall");
@@ -4136,6 +4221,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyTransition_CameraShake_OnlyCameraEffectsRootMovesAndResets()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyTransition_CameraShake_OnlyCameraEffectsRootMovesAndResets");
@@ -4237,6 +4323,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_InitialFrontTopology_UsesPositiveXRestPoseAndCameraOrbit()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_InitialFrontTopology_UsesPositiveXRestPoseAndCameraOrbit");
@@ -4288,6 +4375,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_InitialFrontTopology_ConfiguredNegativeXMappingOverridesDefault()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_InitialFrontTopology_ConfiguredNegativeXMappingOverridesDefault");
@@ -4342,6 +4430,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyTransition_HidesSourceOnlyEntityAtStart()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyTransition_HidesSourceOnlyEntityAtStart");
@@ -4429,6 +4518,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_TopologyTransition_ResolvesMotionStartPoseInTransitionSpace()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_TopologyTransition_ResolvesMotionStartPoseInTransitionSpace");
@@ -4510,6 +4600,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition()
         {
             var hostObject = new GameObject("GameplaySceneHost_CameraTarget_StaysOnCubeCenterDuringTopologyTransition");
@@ -4590,6 +4681,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart()
         {
             var hostObject = new GameObject("GameplaySceneHost_TopologyTransition_CameraOrbitPreservesScreenContinuityAtStart");
@@ -4687,6 +4779,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesPerspectiveCameraRigAndTracksCubeCenter");
@@ -4745,6 +4838,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_AppliesConfiguredCameraSettingsToRigAndCamera()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_AppliesConfiguredCameraSettingsToRigAndCamera");
@@ -4814,6 +4908,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_Initialize_UsesCapturedAuthoredCameraPoseAsBaseline()
         {
             var hostObject = new GameObject("GameplaySceneHost_Initialize_UsesCapturedAuthoredCameraPoseAsBaseline");
@@ -4888,6 +4983,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates()
         {
             var hostObject = new GameObject("GameplaySceneHost_MoveMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates");
@@ -4945,6 +5041,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates()
         {
             var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsWorldQueriesOnCommittedDestinationWhileViewInterpolates");
@@ -5005,6 +5102,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates()
         {
             var hostObject = new GameObject("GameplaySceneHost_PushMotion_KeepsProjectileLayerQueriesOnCommittedDestinationWhileViewInterpolates");
@@ -5068,6 +5166,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySceneHost_FlipMotion_KeepsWorldQueriesOnCommittedLandingCellWhileViewInterpolates()
         {
             var hostObject = new GameObject("GameplaySceneHost_FlipMotion_KeepsWorldQueriesOnCommittedLandingCellWhileViewInterpolates");
@@ -5129,6 +5228,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_MoveMotion_MidpointInterpolatesBetweenSourceAndDestination()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_MoveMotion_MidpointInterpolatesBetweenSourceAndDestination");
@@ -5203,6 +5303,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_ProjectileMoveMotion_MidpointInterpolatesBetweenSourceAndDestination()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_ProjectileMoveMotion_MidpointInterpolatesBetweenSourceAndDestination");
@@ -5278,6 +5379,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_DetachVisibility_KeepsTargetVisibleUntilTrackCompletes()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_DetachVisibility_KeepsTargetVisibleUntilTrackCompletes");
@@ -5354,6 +5456,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_RemoveVisibility_KeepsTargetVisibleUntilTrackCompletes()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_RemoveVisibility_KeepsTargetVisibleUntilTrackCompletes");
@@ -5419,6 +5522,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_ItemConsumeSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_ItemConsumeSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration");
@@ -5512,6 +5616,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_BoxDestroyExitSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_BoxDestroyExitSignal_HidesOriginalViewImmediatelyAndUsesDedicatedEffectDuration");
@@ -5597,6 +5702,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndTransientCompletesAfterDedicatedDuration()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_EnemyDeathExitSignal_HidesOriginalViewImmediately_AndTransientCompletesAfterDedicatedDuration");
@@ -5695,6 +5801,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PushMotion_MidpointInterpolatesBetweenSourceAndDestination()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PushMotion_MidpointInterpolatesBetweenSourceAndDestination");
@@ -5770,6 +5877,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_BoxSlideMotion_MidpointUsesLinearInterpolation()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_BoxSlideMotion_MidpointUsesLinearInterpolation");
@@ -5849,6 +5957,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_QueuedPushMotions_PreserveSequentialStepsAcrossCatchUp()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_QueuedPushMotions_PreserveSequentialStepsAcrossCatchUp");
@@ -5951,6 +6060,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_FlipMotion_MidpointTravelsAlongArc()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_MidpointTravelsAlongArc");
@@ -6020,6 +6130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_FlipMotion_OnFrontFace_UsesFaceRelativeArcAndRotation()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_OnFrontFace_UsesFaceRelativeArcAndRotation");
@@ -6097,6 +6208,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_FlipMotion_CompletesAtLandingCellAndRotation()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_FlipMotion_CompletesAtLandingCellAndRotation");
@@ -6175,6 +6287,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayTickViewPresenter_PushAfterFlip_DoesNotInterpolateRotationWhenFacingChanges()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PushAfterFlip_DoesNotInterpolateRotationWhenFacingChanges");

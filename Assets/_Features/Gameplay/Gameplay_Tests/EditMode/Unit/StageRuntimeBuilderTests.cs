@@ -30,6 +30,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string WindupEnemyPresentationId = "windup_melee_showcase";
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_DuplicateEntityIdRejects()
         {
             var stage = CreateStage(
@@ -42,6 +43,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_DuplicateCellRejects()
         {
             var stage = CreateStage(
@@ -54,6 +56,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_OutOfBoundsRejects()
         {
             var stage = CreateStage(
@@ -65,6 +68,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_ZeroPlayerRejects()
         {
             var stage = CreateStage(
@@ -76,6 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_MultiplePlayersRejects()
         {
             var stage = CreateStage(
@@ -88,6 +93,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_GroupKindMismatchRejects()
         {
             var stage = ScriptableObject.CreateInstance<StageDefinition>();
@@ -111,6 +117,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void StageRuntimeBuilder_CombinedShowcaseStageBuild_ReflectsCurrentConfiguredContract()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
@@ -223,6 +230,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_BuildsEnemyPresentationBindingsOnlyForEnemySpawnsWithIds()
         {
             var enemyProfile = ScriptableObject.CreateInstance<EnemyAiProfile>();
@@ -275,6 +283,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_BuildsStaticPresentationBindingsOnlyForBoxAndWallSpawnsWithIds()
         {
             var stage = CreateStage(
@@ -303,6 +312,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_TutorialEnemySpawnWithPassiveContactProfile_BuildsOverridesAndKeepsPatrolMode()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(TutorialStageAssetPath);

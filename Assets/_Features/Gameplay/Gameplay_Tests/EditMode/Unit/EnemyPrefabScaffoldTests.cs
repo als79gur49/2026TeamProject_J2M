@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class EnemyPrefabScaffoldTests
     {
         [Test]
+        [Category("Full")]
         public void EnemyViewNonAttackingPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
         {
             var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_NonAttacking.prefab");
@@ -20,6 +21,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseEnemyPrefab_UsesMoveOnlyLocomotionAuthoringAlongsideEnemyAnimationTiming()
         {
             var prefabText = ReadNormalizedText("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Prefabs/EnemyView_WindupMelee.prefab");
@@ -35,6 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void EnemyViewAttackingPrefab_BindsExplicitEnemyTimingReferenceClips()
         {
             var prefabText = ReadNormalizedText("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/EnemyView_Attacking.prefab");

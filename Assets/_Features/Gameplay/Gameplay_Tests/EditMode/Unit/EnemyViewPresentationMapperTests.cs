@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class EnemyViewPresentationMapperTests
     {
         [Test]
+        [Category("Extended")]
         public void EnemyViewPresentationMapper_MapsJumpWindupAndAirborneWithoutUsingAttackPhase()
         {
             const int enemyId = 40;
@@ -71,6 +72,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void EnemyViewPresentationMapper_TryMapInitial_RoleEnemyWithNoneAiMode_StillMapsEnemyViewState()
         {
             var mapper = new EnemyViewPresentationMapper();

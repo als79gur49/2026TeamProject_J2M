@@ -10,6 +10,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class WorldSurfaceQueryTests
     {
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryGetUnitAt_IgnoresInactiveFaceOccupant()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -31,6 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_ExplicitOccupancyQueries_SeparateUnitsAndSolids()
         {
             var unitCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -70,6 +72,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryPickImpactTargetAt_PrefersHostileThenFallsBackDeterministically()
         {
             var hostileCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -101,6 +104,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryPickHostileUnitImpactTargetAt_SelectsOnlyHostileUnitsDeterministically()
         {
             var contestedCell = new SurfaceCell(FaceId.Floor, 1, 0);
@@ -128,6 +132,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_MovesOntoBottomTopEdgeCell()
         {
             var snapshot = CreateSnapshot(
@@ -150,6 +155,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_RotatesForwardFromBottomTopEdge()
         {
             var snapshot = CreateSnapshot(
@@ -173,6 +179,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_RotatesBackwardFromBottomBottomEdge()
         {
             var snapshot = CreateSnapshot(
@@ -196,6 +203,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_AlwaysResolvesBottomTopTraversalGeometry()
         {
             var snapshot = CreateSnapshot(
@@ -218,6 +226,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_SeamDestinationUnitDoesNotBlockButSolidDoes()
         {
             var unitOnlySnapshot = CreateSnapshot(
@@ -269,6 +278,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_DoesNotRotateFromFrontFaceOrSideEdge()
         {
             var snapshot = CreateSnapshot(
@@ -303,6 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_VectorDeltaOutsideSideEdge_LeavesOutParametersAtDefault()
         {
             var snapshot = CreateSnapshot(
@@ -325,6 +336,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_LeftSideEdge_LeavesOutParametersAtDefault()
         {
             var snapshot = CreateSnapshot(
@@ -347,6 +359,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolvePlayerStep_FrontBottomEdge_DoesNotRotateOrLeakDestination()
         {
             var snapshot = CreateSnapshot(
@@ -369,6 +382,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveUnitStep_BottomFaceTopEdge_DoesNotRotateOrLeakDestination()
         {
             var snapshot = CreateSnapshot(
@@ -391,6 +405,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveUnitStep_InteriorMove_StaysOnActiveFaceWithoutRotation()
         {
             var snapshot = CreateSnapshot(
@@ -413,6 +428,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_SlidesToEdgeCell()
         {
             var snapshot = CreateSnapshot(
@@ -433,6 +449,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesBottomFrontSharedEdge()
         {
             var snapshot = CreateSnapshot(
@@ -453,6 +470,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_CrossesFrontBottomSharedEdgeBackToBottom()
         {
             var snapshot = CreateSnapshot(
@@ -473,6 +491,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtSolidOnBottomFrontSeamDestination()
         {
             var snapshot = CreateSnapshot(
@@ -498,6 +517,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtSolidOnFrontBottomSeamDestination()
         {
             var snapshot = CreateSnapshot(
@@ -523,6 +543,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsAtOtherBoardEdges()
         {
             var snapshot = CreateSnapshot(
@@ -544,6 +565,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_IgnoresDetachedOccupantOnNextCell()
         {
             var snapshot = CreateSnapshot(
@@ -570,6 +592,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsOnStackedUnitsOnNextCell()
         {
             var snapshot = CreateSnapshot(
@@ -601,6 +624,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_GameplayQueries_HideDetachedEntities()
         {
             var snapshot = CreateSnapshot(
@@ -624,6 +648,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_StopsOnMarkedForDeathOccupantOnNextCell()
         {
             var snapshot = CreateSnapshot(
@@ -657,6 +682,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveNextSurfaceBoxSlideStep_SucceedsWhenUnboundedBoardHasNoStopper()
         {
             var snapshot = CreateSnapshot(
@@ -677,6 +703,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveLocalFlipCells_StaysOnSameFace()
         {
             var snapshot = CreateSnapshot(
@@ -697,6 +724,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveLocalFlipCells_RejectsBottomFrontBoundaryCrossing()
         {
             var snapshot = CreateSnapshot(
@@ -717,6 +745,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void WorldSnapshot_TryResolveLocalFlipCells_RejectsSideBoundaryCrossing()
         {
             var snapshot = CreateSnapshot(

@@ -34,6 +34,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string JumpEnemyPresentationId = "Jump_showcase";
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_DoesNotAutoGeneratePerimeterWalls()
         {
             var buildResult = BuildCombinedStage();
@@ -55,6 +56,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_PlacesPushableBoxesOnEveryRotatingFace()
         {
             var buildResult = BuildCombinedStage();
@@ -80,6 +82,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_PlacesConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
@@ -100,6 +103,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_BuildsEnemyProfileOverrideForConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
@@ -115,6 +119,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
         {
             var buildResult = BuildCombinedStage();
@@ -130,6 +135,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_PlacesWallFollowerShowcaseEnemyAtConfiguredPatrolLane()
         {
             var buildResult = BuildCombinedStage();
@@ -143,6 +149,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_BuildsWallFollowerProfileOverride()
         {
             var buildResult = BuildCombinedStage();
@@ -155,6 +162,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_PlacesJumpShowcaseEnemyOnFarFloorLane()
         {
             var buildResult = BuildCombinedStage();
@@ -168,6 +176,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_BuildsJumpShowcaseProfileOverride()
         {
             var buildResult = BuildCombinedStage();
@@ -181,6 +190,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayStage_DoesNotPlaceMultipleEntitiesOnTheSameCell()
         {
             var buildResult = BuildCombinedStage();
@@ -196,6 +206,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayBoxCapabilityLabelViewFactory_AddsCapabilityTextOnlyToBoxes()
         {
             var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactoryTests");
@@ -248,6 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory_UsesPrefabOnlyForPlayerAndKeepsBoxLabels()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_PlayerViewPrefabFactory");
@@ -319,6 +331,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayBoxCapabilityLabelViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_ThrowsWhenCreatingPlayerView()
         {
             var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_PlayerPrefabMissingAnimationTimingAuthoring_ThrowsWhenCreatingPlayerView");
@@ -357,6 +370,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator()
         {
             var parentObject = new GameObject("GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator");
@@ -403,6 +417,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ViewFactory_AttachesTimingAuthoringToConfiguredShowcaseEnemy");
@@ -451,6 +466,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver()
         {
             var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_ConfiguredShowcaseEnemy_TimingAuthoringFeedsPresenterDriver");

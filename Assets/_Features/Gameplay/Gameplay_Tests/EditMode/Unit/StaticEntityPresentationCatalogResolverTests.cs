@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class StaticEntityPresentationCatalogResolverTests
     {
         [Test]
+        [Category("Extended")]
         public void StaticEntityPresentationCatalogResolver_DuplicatePresentationIdsAfterTrim_Throws()
         {
             var catalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();
@@ -58,6 +59,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void StaticEntityPresentationCatalogResolver_DuplicateEntityIdsInBindings_Throws()
         {
             var catalog = ScriptableObject.CreateInstance<StaticEntityPresentationCatalog>();

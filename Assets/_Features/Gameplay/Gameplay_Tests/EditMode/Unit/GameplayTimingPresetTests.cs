@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class GameplayTimingPresetTests
     {
         [Test]
+        [Category("Extended")]
         public void GameplaySimulationTimingPreset_ApplyTo_MatchesLegacyConfigurationAndClonesPlayerControlTiming()
         {
             var sourceTiming = new PlayerControlTimingSettings
@@ -84,6 +85,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayPresentationTimingPreset_ApplyTo_PreservesFallbackSemanticsAgainstLegacyConfiguration()
         {
             var preset = CreatePresentationTimingPreset(
@@ -128,6 +130,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplaySimulationTimingPreset_ApplyTo_InvalidInterval_Throws()
         {
             var preset = CreateSimulationTimingPreset(repeatedMoveIntervalSeconds: 0f);
@@ -143,6 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void GameplayPresentationTimingPreset_ApplyTo_InvalidDuration_Throws()
         {
             var preset = CreatePresentationTimingPreset(pushMotionDurationSeconds: 0f);
@@ -158,6 +162,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
         public void PlayerControlTimingSettings_CreateDefault_UsesPhaseAlignedExecuteAndRecoveryWindows()
         {
             var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
@@ -177,6 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Full")]
         public void GameplaySimulationTimingPreset_DefaultShowcase_UsesPlayerPhaseTimingWindows()
         {
             const string presetPath =

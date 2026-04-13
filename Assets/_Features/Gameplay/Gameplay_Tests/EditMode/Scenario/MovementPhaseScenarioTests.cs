@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     public sealed class MovementPhaseScenarioTests
     {
         [Test]
+        [Category("Extended")]
         public void Movement_EmptyCellMove_Succeeds()
         {
             var worldState = CreateWorldState(new[]
@@ -71,6 +72,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ScriptedMoveIntoUnit_SucceedsAndStacks()
         {
             var worldState = CreateWorldState(new[]
@@ -112,6 +114,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_TwoScriptedUnitsEnteringSameDestinationInSameTick_BothSucceedAndStack()
         {
             var worldState = CreateWorldState(new[]
@@ -158,6 +161,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_MoveIntoPushBox_StartsHoldContactWithoutMoveOrRejection()
         {
             var worldState = CreateWorldState(new[]
@@ -184,6 +188,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_MoveIntoUnit_SucceedsWithoutStartingPushContact()
         {
             var worldState = CreateWorldState(new[]
@@ -212,6 +217,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_EnemyMoveIntoPlayerCell_SucceedsAndStacks()
         {
             var worldState = CreateWorldState(new[]
@@ -240,6 +246,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputPushBox_StopsBeforeEntityBlocker_AndEntityTypeNoneWallRemainsValid()
         {
             var worldState = CreateWorldState(new[]
@@ -310,6 +317,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_SlidingPushBox_ContinuesOnLaterTicksUntilBlocked()
         {
             var worldState = CreateWorldState(new[]
@@ -370,6 +378,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_BoxSlideInterval_At60Tps_PreservesRealTimeCadence()
         {
             var timingProfile = CreateTimingProfile(
@@ -414,6 +423,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_BoxSlideInterval_At120Tps_PreservesRealTimeCadence()
         {
             var timingProfile = CreateTimingProfile(
@@ -458,6 +468,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputPushBox_StartsSlidingBeforeTerrainBlocker()
         {
             var worldState = CreateWorldState(
@@ -498,6 +509,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputPushBox_StartsSlidingBeforeBoardEdge()
         {
             var worldState = CreateWorldState(
@@ -538,6 +550,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputPushBox_IgnoresProjectileAsSlideStopper()
         {
             var worldState = CreateWorldState(
@@ -566,6 +579,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputPushBox_StartsSlidingWhenBoundedLaneHasNoStopper()
         {
             var worldState = CreateWorldState(
@@ -603,6 +617,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Push_BoxNextStepHasHostileUnit_CreatesImpactAndStopsBeforeUnitCell()
         {
             var worldState = CreateWorldState(new[]
@@ -643,6 +658,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Impact_KillsEnemy_BoxStillDoesNotAdvanceSameTick()
         {
             var worldState = CreateWorldState(new[]
@@ -668,6 +684,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Impact_TargetCellHasFriendlyOnly_DoesNotDamageFriendly()
         {
             var worldState = CreateWorldState(new[]
@@ -695,6 +712,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Impact_TargetCellHasStackedFriendlyAndHostile_PicksHostileDeterministically()
         {
             var worldState = CreateWorldState(new[]
@@ -724,6 +742,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenEntityStopperIsAdjacent()
         {
             var worldState = CreateWorldState(new[]
@@ -756,6 +775,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ImmediatePushHoldMoveIntoPushBox_FallsBackToBlockedDestinationWhenTerrainStopperIsAdjacent()
         {
             var worldState = CreateWorldState(
@@ -788,6 +808,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ItemBox_PlayerEntersCellInSameTick_AndCleanupRemovesBox()
         {
             var worldState = CreateWorldState(new[]
@@ -823,6 +844,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ItemBox_LosesBoardPresenceBeforeCleanupRemoval()
         {
             var worldState = CreateWorldState(new[]
@@ -852,6 +874,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputOnItemPushFlipBox_ResolvesAsItemBeforePushOrFlip()
         {
             var worldState = CreateWorldState(new[]
@@ -891,6 +914,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputOnItemPushFlipDestroyBox_ResolvesAsItemBeforePushFlipOrDestroy_AndPresentationUsesEntityExitOwnership()
         {
             var worldState = CreateWorldState(new[]
@@ -948,6 +972,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputPushBox_FailsWhenBoxLacksCapability()
         {
             var worldState = CreateWorldState(new[]
@@ -978,6 +1003,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushInputIntoUnit_FailsBecausePushTargetsOnlyBoxes()
         {
             var worldState = CreateWorldState(new[]
@@ -1008,6 +1034,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Movement_Flip_SucceedsWhenOppositeCellIsFree()
         {
             var worldState = CreateWorldState(new[]
@@ -1071,6 +1098,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Flip_LandingHasHostileUnit_CreatesImpactAndBoxRemainsAtSource()
         {
             var worldState = CreateWorldState(new[]
@@ -1108,6 +1136,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_Flip_FailsWhenTargetIsNotFlippableBox()
         {
             var worldState = CreateWorldState(new[]
@@ -1138,6 +1167,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_FlipInputIntoUnit_FailsBecauseFlipTargetsOnlyBoxes()
         {
             var worldState = CreateWorldState(new[]
@@ -1168,6 +1198,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_FlipInputOnItemFlipDestroyBox_UsesFlipBranch_WithoutConsumeOrDestroy()
         {
             var worldState = CreateWorldState(new[]
@@ -1211,6 +1242,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Flip_LandingHasWallOrBox_IsBlockedWithoutImpact()
         {
             var worldState = CreateWorldState(new[]
@@ -1243,6 +1275,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void SlidingPush_BoxHitsHostileUnit_CreatesImpactAndStopsSliding()
         {
             var worldState = CreateWorldState(new[]
@@ -1285,6 +1318,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PlayerInput_FlipBeatsPushWhenBothButtonsArePressed()
         {
             var worldState = CreateWorldState(
@@ -1315,6 +1349,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_Flip_RejectsFrontBoundaryCrossing()
         {
             var worldState = CreateWorldState(
@@ -1347,6 +1382,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void Movement_MoveAcrossBottomTopEdge_CommitsForwardTopologyChange()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1378,6 +1414,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_TopologyChangingTick_RejectsOrdinaryCandidateInSameTick()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1419,6 +1456,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_OrdinarySelection_RejectsLaterTopologyChangingCandidate()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1459,6 +1497,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationHasWallBlocker()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1492,6 +1531,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_MoveAcrossBottomTopEdge_FailsWhenRotatedDestinationTerrainBlocked()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1523,6 +1563,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void Movement_MoveAcrossBottomBottomEdge_CommitsBackwardTopologyChange()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1554,6 +1595,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_MoveFromFrontBottomEdge_FailsWithoutRotation()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1585,6 +1627,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void Movement_PushInputPushBox_ContinuesAcrossBottomFrontSharedEdge()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1630,6 +1673,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void Movement_PushInputPushBox_ContinuesAcrossFrontBottomSharedEdgeBackToBottom()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -1675,6 +1719,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_PushDestroyBox_WhenSlideStopperIsAdjacent_DetachesAndRemovesBox()
         {
             var worldState = CreateWorldState(new[]
@@ -1721,6 +1766,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_SlidingPushDestroyBox_WhenLaterSlideStops_RemainsOnBoardAndBecomesIdle()
         {
             var worldState = CreateWorldState(
@@ -1769,6 +1815,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_Flip_RejectsLaterCandidateThatMovesSameBox()
         {
             var worldState = CreateWorldState(new[]
@@ -1809,6 +1856,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_SameDestination_OnlyHigherPriorityWins()
         {
             var worldState = CreateWorldState(new[]
@@ -1866,6 +1914,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_EdgeReservation_DoesNotPersistAcrossTicks()
         {
             var worldState = CreateWorldState(new[]
@@ -1900,6 +1949,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Core")]
         public void Movement_SameInput_AssignsDeterministicIntentIds()
         {
             var firstRun = RunDeterministicMovementTick();
@@ -1946,6 +1996,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ProjectileImpact_CreatesReservation_AndAttackConsumesIt()
         {
             var worldState = CreateWorldState(new[]
@@ -2020,6 +2071,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void Movement_ProjectileImpact_PrefersHostileTargetWithinStackedUnits()
         {
             var worldState = CreateWorldState(new[]
@@ -2076,6 +2128,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
         public void MovementCommitter_ProjectileImpact_UsesResolvedGroupTargetWithoutIntentLookup()
         {
             var timingProfile = CreateTimingProfile();
@@ -2125,6 +2178,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Full")]
         public void Movement_ProjectileReservations_AssignSequenceByCommitOrder()
         {
             var worldState = CreateWorldState(new[]
