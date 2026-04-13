@@ -1,3 +1,6 @@
+> Non-canonical target blueprint.
+> Canonical current behavior and boundaries are documented in [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md).
+
 # Tick Pipeline Full Model Blueprint
 
 ## 1. 목적

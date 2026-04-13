@@ -1,3 +1,6 @@
+> Non-canonical implementation-history document.
+> Layered occupancy and query vocabulary now follow [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md).
+
 # Unit Overlap Implementation Plan
 
 ## 목적

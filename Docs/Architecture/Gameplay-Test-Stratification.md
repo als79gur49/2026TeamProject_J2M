@@ -1,3 +1,6 @@
+> Non-canonical governance inventory.
+> Behavioral contract and architecture vocabulary now follow [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md) and [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md).
+
 # Gameplay Test Stratification
 
 > Operational source of truth: use [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md) for how to run tests, interpret failures, and work with governance. This file remains the detailed stratification inventory and reference.

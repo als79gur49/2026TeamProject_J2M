@@ -1,3 +1,6 @@
+> Non-canonical rulebook snapshot.
+> Current gameplay rule text lives in [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md).
+
 # Box Impact / Flip / Jump Rulebook
 
 ## 1. 목적

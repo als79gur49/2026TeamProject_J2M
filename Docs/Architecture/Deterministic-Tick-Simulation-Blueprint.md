@@ -1,3 +1,8 @@
+> Non-canonical historical document.
+> Canonical current spec: [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
+> Gameplay rules appendix: [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
+> Boundary/IR ADR: [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
+
 # Deterministic Tick Simulation Blueprint
 
 ## 1. 목적

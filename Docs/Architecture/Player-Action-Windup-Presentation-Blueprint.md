@@ -1,3 +1,6 @@
+> Non-canonical historical blueprint.
+> Canonical action runtime and presentation boundary are documented in [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md) and [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md).
+
 # Player Action Wind-up Presentation Blueprint
 
 ## 1. 목적

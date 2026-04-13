@@ -1,3 +1,6 @@
+> Non-canonical implementation-history document.
+> Current canonical contract is [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md).
+
 # Deterministic Tick Simulation Implementation Plan
 
 ## 1. 목적

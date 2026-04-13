@@ -1,8 +1,30 @@
+> Non-canonical governance guide.
+> Canonical architecture and gameplay behavior references are [Docs/Architecture/Tick-Simulation-Canonical-Spec.md](../Architecture/Tick-Simulation-Canonical-Spec.md) and [Docs/Architecture/Gameplay-Rules-Appendix.md](../Architecture/Gameplay-Rules-Appendix.md).
+
 # Gameplay Test Automation Guide / 게임플레이 테스트 자동화 가이드
 
 > This document is intentionally bilingual. Korean guidance is added for local developer readability, and the English original is preserved to avoid meaning drift during translation.
 >
 > 이 문서는 의도적으로 한영 병기 형태를 유지한다. 한국어 설명은 로컬 개발자 가독성을 위한 것이고, 번역 과정에서 의미가 달라지는 일을 막기 위해 영어 원문을 함께 남긴다.
+
+## Current Validation Baseline / 현재 검증 기준점
+### 한국어
+- 현재 환경에서는 `./run_tests.sh core`와 `./run_tests.sh full`이 실제로 실행 가능하다.
+- 현재 기준점은 다음과 같다.
+  - `./run_tests.sh core`: green
+  - `./run_tests.sh full`: red, Unity Full EditMode `706 total / 112 failed`
+  - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
+- 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
+- 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
+
+### English Original
+- In the current environment, both `./run_tests.sh core` and `./run_tests.sh full` are runnable.
+- The current baseline is:
+  - `./run_tests.sh core`: green
+  - `./run_tests.sh full`: red, Unity Full EditMode `706 total / 112 failed`
+  - Unity Full PlayMode has not run yet because EditMode failed first.
+- Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
+- See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
 
 ## 1. Overview / 개요
 ### 한국어
