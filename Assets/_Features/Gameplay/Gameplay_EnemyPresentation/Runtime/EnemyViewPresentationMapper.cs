@@ -107,11 +107,10 @@ namespace Game.Feature.Gameplay.Host
 
     public sealed class EnemyViewPresentationMapper
     {
-        private readonly HashSet<int> _attackingEntityIds = new();
         private readonly HashSet<int> _candidateEntityIds = new();
         private readonly Dictionary<int, TickEnemyActionPresentationSignal> _enemyActionSignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemyDamagePresentationSignal> _enemyDamageSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyJumpPresentationSignal> _enemyJumpSignalsByEntityId = new();
-        private readonly HashSet<int> _damagedEntityIds = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
         private readonly HashSet<int> _removedEntityIds = new();
@@ -139,19 +138,18 @@ namespace Game.Feature.Gameplay.Host
             buffer.Clear();
             _candidateEntityIds.Clear();
             _movingEntityIds.Clear();
-            _attackingEntityIds.Clear();
             _enemyActionSignalsByEntityId.Clear();
+            _enemyDamageSignalsByEntityId.Clear();
             _enemyJumpSignalsByEntityId.Clear();
-            _damagedEntityIds.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
 
             CacheFinalEntities(result.FinalEntities);
             CollectMovementSignals(result.PresentationData);
-            CollectAttackSignals(result.AttackPhaseResult);
             CollectEnemyActionSignals(result.PresentationData);
+            CollectEnemyDamageSignals(result.PresentationData);
             CollectEnemyJumpSignals(result.PresentationData);
-            CollectRemovalSignals(result.CleanupPhaseResult);
+            CollectRemovalSignals(result.PresentationData);
 
             foreach (var entityId in _candidateEntityIds)
             {
@@ -170,19 +168,25 @@ namespace Game.Feature.Gameplay.Host
                 var activeActionKind = EnemyActionKind.None;
                 var jumpPhase = EnemyJumpPhase.None;
                 var startedWindupThisTick = false;
-                var executedThisTick = _attackingEntityIds.Contains(entityId);
+                var executedThisTick = false;
                 var startedRecoveryThisTick = false;
                 var startedJumpWindupThisTick = false;
                 var startedJumpAirborneThisTick = false;
                 var landedFromJumpThisTick = false;
                 var retryingJumpAirborneThisTick = false;
+                var tookDamageThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
                 {
                     activeActionKind = actionSignal.ActiveActionKind;
                     startedWindupThisTick = actionSignal.StartedThisTick && !actionSignal.ExecutedThisTick;
-                    executedThisTick |= actionSignal.ExecutedThisTick;
+                    executedThisTick = actionSignal.ExecutedThisTick;
                     startedRecoveryThisTick = actionSignal.StartedRecoveryThisTick;
+                }
+
+                if (_enemyDamageSignalsByEntityId.TryGetValue(entityId, out var damageSignal))
+                {
+                    tookDamageThisTick = damageSignal.TookDamageThisTick;
                 }
 
                 if (_enemyJumpSignalsByEntityId.TryGetValue(entityId, out var jumpSignal))
@@ -208,7 +212,7 @@ namespace Game.Feature.Gameplay.Host
                     startedJumpAirborneThisTick,
                     landedFromJumpThisTick,
                     retryingJumpAirborneThisTick,
-                    _damagedEntityIds.Contains(entityId),
+                    tookDamageThisTick,
                     didDie);
             }
         }
@@ -264,38 +268,6 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void CollectAttackSignals(AttackPhaseResult attackPhaseResult)
-        {
-            for (var i = 0; i < attackPhaseResult.ResolutionRecords.Count; i++)
-            {
-                var resolution = attackPhaseResult.ResolutionRecords[i];
-                if (resolution.Kind == ContestKind.Plan && resolution.Accepted)
-                {
-                    _candidateEntityIds.Add(resolution.SourceId);
-                    _attackingEntityIds.Add(resolution.SourceId);
-                }
-            }
-
-            for (var i = 0; i < attackPhaseResult.ResolvedOperations.Count; i++)
-            {
-                var operation = attackPhaseResult.ResolvedOperations[i];
-                if (operation.Kind != FinalizationOperationKind.ApplyDamage)
-                {
-                    continue;
-                }
-
-                _candidateEntityIds.Add(operation.EntityId);
-                _damagedEntityIds.Add(operation.EntityId);
-
-                if (operation.Metadata.DamageSourceType == DamageSourceType.Attack &&
-                    operation.Metadata.SourceActorEntityId != 0)
-                {
-                    _candidateEntityIds.Add(operation.Metadata.SourceActorEntityId);
-                    _attackingEntityIds.Add(operation.Metadata.SourceActorEntityId);
-                }
-            }
-        }
-
         private void CollectEnemyActionSignals(TickPresentationData presentationData)
         {
             var enemyActionSignals = presentationData.EnemyActionSignals;
@@ -304,6 +276,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyActionSignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyActionSignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemyDamageSignals(TickPresentationData presentationData)
+        {
+            var enemyDamageSignals = presentationData.EnemyDamageSignals;
+            for (var i = 0; i < enemyDamageSignals.Count; i++)
+            {
+                var signal = enemyDamageSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemyDamageSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 
@@ -318,12 +301,26 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void CollectRemovalSignals(CleanupPhaseResult cleanupPhaseResult)
+        private void CollectRemovalSignals(TickPresentationData presentationData)
         {
-            var removedEntityIds = cleanupPhaseResult.RemovedEntityIds;
-            for (var i = 0; i < removedEntityIds.Count; i++)
+            var entityExitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < entityExitSignals.Count; i++)
             {
-                var entityId = removedEntityIds[i];
+                var entityId = entityExitSignals[i].ExitedEntityId;
+                _candidateEntityIds.Add(entityId);
+                _removedEntityIds.Add(entityId);
+            }
+
+            var visibilityChanges = presentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.ChangeKind != TickVisibilityChangeKind.Remove)
+                {
+                    continue;
+                }
+
+                var entityId = change.EntityId;
                 _candidateEntityIds.Add(entityId);
                 _removedEntityIds.Add(entityId);
             }

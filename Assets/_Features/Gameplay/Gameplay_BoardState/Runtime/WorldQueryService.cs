@@ -103,6 +103,28 @@ namespace Game.Feature.Gameplay.BoardState
             return SnapshotReadQueries.IsTerrainBlockedForUnit(topology, terrainData, cell);
         }
 
+        public static bool TryGetUnitTraversalBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            SurfaceCell cell,
+            out SlideStopper blocker)
+        {
+            return WorldPlacementPolicy.TryGetUnitBlocker(
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
+                topology,
+                boardBounds,
+                terrainData,
+                cell,
+                out blocker);
+        }
+
+        [Obsolete("Legacy compatibility API. Prefer TryGetUnitTraversalBlocker or layer-aware placement queries in new code.")]
         public static bool IsBlockedForUnit(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
@@ -112,14 +134,15 @@ namespace Game.Feature.Gameplay.BoardState
             TerrainData terrainData,
             SurfaceCell cell)
         {
-            return WorldPlacementPolicy.IsBlockedForUnit(
+            return TryGetUnitTraversalBlocker(
                 entitiesById,
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
                 terrainData,
-                cell);
+                cell,
+                out _);
         }
 
         public static bool TryGetAuthoritativePlacementBlocker(
@@ -174,6 +197,7 @@ namespace Game.Feature.Gameplay.BoardState
                 out blocker);
         }
 
+        [Obsolete("Legacy compatibility API. Prefer explicit layer-aware target selection or gameplay query checks in new code.")]
         public static bool BlocksMovement(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             CubeTopologyState topology,

@@ -1,6 +1,6 @@
 namespace Game.Feature.Gameplay.Attack
 {
-    public enum AttackInputKind
+    internal enum AttackInputKind
     {
         EntityIntent = 0,
         ImpactReservation = 1,

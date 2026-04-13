@@ -7,7 +7,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Attack.Intents
 {
-    public class AttackIntent : Intent
+    internal class AttackIntent : Intent
     {
         public AttackIntent(int sourceId, int priority, int targetId)
             : this(
@@ -168,7 +168,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
             return 0;
         }
 
-        public static AttackIntent FromImpactReservation(ImpactReservation reservation)
+        internal static AttackIntent FromImpactReservation(ImpactReservation reservation)
         {
             return new AttackIntent(
                 reservation.SourceId,
@@ -200,7 +200,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
                 effectRecord);
         }
 
-        public static AttackIntent FromRawIntent(RawAttackIntent rawIntent)
+        internal static AttackIntent FromRawIntent(RawAttackIntent rawIntent)
         {
             switch (rawIntent.CommandKind)
             {
@@ -229,7 +229,7 @@ namespace Game.Feature.Gameplay.Attack.Intents
             }
         }
 
-        public static AttackIntent CreateFireProjectile(int sourceId, int priority, int localSequence = 0)
+        internal static AttackIntent CreateFireProjectile(int sourceId, int priority, int localSequence = 0)
         {
             return new AttackIntent(
                 sourceId,

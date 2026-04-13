@@ -145,17 +145,11 @@ namespace Game.Feature.Gameplay.Loop
             var finalAuthoritativeSnapshot = SnapshotBuilder.Create(_worldState);
             var movementPhaseResult = resolvePhaseResult.MovementPhaseResult;
             var attackPhaseResult = resolvePhaseResult.AttackPhaseResult;
-            var objectiveExtensions = new Dictionary<Type, object>
-            {
-                { typeof(CleanupPhaseResult), cleanupPhaseResult },
-                { typeof(AttackPhaseResult), attackPhaseResult },
-            };
             var objectiveTickFacts = new StageObjectiveTickFacts(
                 input.TickIndex,
                 input.PlayerCommand,
                 cleanupPhaseResult.RemovedEntityIds,
-                attackPhaseResult.DamageResolutions,
-                objectiveExtensions);
+                BuildObjectiveDamageFacts(attackPhaseResult.DamageResolutions));
             var objectiveResult = _objectiveTracker.Advance(finalAuthoritativeSnapshot, in objectiveTickFacts);
             var presentationBuildContext = new TickPresentationBuildContext(
                 preMovementSnapshot,
@@ -3565,6 +3559,33 @@ namespace Game.Feature.Gameplay.Loop
 
             throw new InvalidOperationException(
                 $"Missing damage resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
+        }
+
+        private static IReadOnlyList<StageObjectiveDamageFact> BuildObjectiveDamageFacts(
+            IReadOnlyList<DamageResolutionRecord> damageResolutions)
+        {
+            if (damageResolutions == null || damageResolutions.Count == 0)
+            {
+                return Array.Empty<StageObjectiveDamageFact>();
+            }
+
+            var facts = new StageObjectiveDamageFact[damageResolutions.Count];
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                var damageResolution = damageResolutions[i];
+                facts[i] = new StageObjectiveDamageFact(
+                    damageResolution.SourceId,
+                    damageResolution.SourceKind,
+                    damageResolution.TargetId,
+                    damageResolution.Amount,
+                    damageResolution.Accepted,
+                    damageResolution.RejectReason,
+                    damageResolution.LocalActionIndex,
+                    damageResolution.HasPlayerDamageState,
+                    damageResolution.PlayerDamageState);
+            }
+
+            return facts;
         }
 
         private static DestroyResolutionRecord FindDestroyResolution(

@@ -129,6 +129,7 @@ namespace Game.Feature.Gameplay.Loop
 
         internal AttackPhaseResult AttackPhaseResult { get; }
 
+        [Obsolete("Host/view presentation code should consume TickResult.PresentationData instead of phase-private cleanup details.")]
         internal CleanupPhaseResult CleanupPhaseResult { get; }
 
         public IReadOnlyList<TickPhase> CompletedPhases => _completedPhases;

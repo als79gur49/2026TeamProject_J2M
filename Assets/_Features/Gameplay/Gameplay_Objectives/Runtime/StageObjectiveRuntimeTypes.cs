@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.PlayerControl;
 
 namespace Game.Feature.Gameplay.Objectives
 {
@@ -71,11 +73,53 @@ namespace Game.Feature.Gameplay.Objectives
         }
     }
 
+    public readonly struct StageObjectiveDamageFact
+    {
+        public StageObjectiveDamageFact(
+            int sourceId,
+            AttackSourceKind sourceKind,
+            int targetId,
+            int amount,
+            bool accepted,
+            DamageRejectReason rejectReason,
+            int localActionIndex = 0,
+            bool hasPlayerDamageState = false,
+            PlayerDamageState playerDamageState = default)
+        {
+            SourceId = sourceId;
+            SourceKind = sourceKind;
+            TargetId = targetId;
+            Amount = amount;
+            Accepted = accepted;
+            RejectReason = rejectReason;
+            LocalActionIndex = localActionIndex;
+            HasPlayerDamageState = hasPlayerDamageState;
+            PlayerDamageState = playerDamageState;
+        }
+
+        public int SourceId { get; }
+
+        public AttackSourceKind SourceKind { get; }
+
+        public int TargetId { get; }
+
+        public int Amount { get; }
+
+        public bool Accepted { get; }
+
+        public DamageRejectReason RejectReason { get; }
+
+        public int LocalActionIndex { get; }
+
+        public bool HasPlayerDamageState { get; }
+
+        public PlayerDamageState PlayerDamageState { get; }
+    }
+
     public readonly struct StageObjectiveTickFacts
     {
         private static readonly IReadOnlyList<int> EmptyRemovedEntityIds = Array.Empty<int>();
-        private static readonly IReadOnlyList<Loop.DamageResolutionRecord> EmptyDamageResolutions = Array.Empty<Loop.DamageResolutionRecord>();
-        private static readonly IReadOnlyDictionary<Type, object> EmptyExtensions = new Dictionary<Type, object>();
+        private static readonly IReadOnlyList<StageObjectiveDamageFact> EmptyDamageResolutions = Array.Empty<StageObjectiveDamageFact>();
 
         public static readonly StageObjectiveTickFacts Empty = new(
             0,
@@ -87,14 +131,12 @@ namespace Game.Feature.Gameplay.Objectives
             int tickIndex,
             Loop.PlayerTickCommand playerCommand,
             IReadOnlyList<int> cleanupRemovedEntityIds,
-            IReadOnlyList<Loop.DamageResolutionRecord> attackDamageResolutions,
-            IReadOnlyDictionary<Type, object> extensions = null)
+            IReadOnlyList<StageObjectiveDamageFact> attackDamageResolutions)
         {
             TickIndex = tickIndex;
             PlayerCommand = playerCommand;
             CleanupRemovedEntityIds = cleanupRemovedEntityIds ?? EmptyRemovedEntityIds;
             AttackDamageResolutions = attackDamageResolutions ?? EmptyDamageResolutions;
-            Extensions = extensions ?? EmptyExtensions;
         }
 
         public int TickIndex { get; }
@@ -103,22 +145,7 @@ namespace Game.Feature.Gameplay.Objectives
 
         public IReadOnlyList<int> CleanupRemovedEntityIds { get; }
 
-        public IReadOnlyList<Loop.DamageResolutionRecord> AttackDamageResolutions { get; }
-
-        public IReadOnlyDictionary<Type, object> Extensions { get; }
-
-        public bool TryGetExtension<TExtension>(out TExtension extension)
-        {
-            if (Extensions.TryGetValue(typeof(TExtension), out var boxedExtension) &&
-                boxedExtension is TExtension typedExtension)
-            {
-                extension = typedExtension;
-                return true;
-            }
-
-            extension = default;
-            return false;
-        }
+        public IReadOnlyList<StageObjectiveDamageFact> AttackDamageResolutions { get; }
     }
 
     public readonly struct StageConditionStatus

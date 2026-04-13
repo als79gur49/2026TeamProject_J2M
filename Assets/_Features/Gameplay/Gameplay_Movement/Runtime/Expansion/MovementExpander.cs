@@ -665,7 +665,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return false;
             }
 
-            if (!snapshot.BlocksMovement(target.entityId))
+            if (!IsGameplayImpactBlocker(snapshot, target.entityId))
             {
                 rejectedReasons.Add(
                     $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=ImpactTargetNotBlocking|Target={target.entityId}|Cell={FormatCell(destinationCell)}");
@@ -694,6 +694,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             return snapshot.TryGetPrimaryUnitAt(topology, cell, out entity);
+        }
+
+        private static bool IsGameplayImpactBlocker(WorldSnapshot snapshot, int entityId)
+        {
+            return snapshot.TryGetEntity(entityId, out var entity) &&
+                   entity.type != EntityType.Projectile &&
+                   GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, snapshot.Topology);
         }
 
         private static Vector2Int ResolveIntentDelta(SurfaceCell source, Vector2Int destination)

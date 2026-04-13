@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Attack
@@ -32,8 +33,10 @@ namespace Game.Feature.Gameplay.Attack
 
         public int TickGenerated { get; }
 
+        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, TargetId, Position, Damage, and TickGenerated.")]
         public int SourceActionGroupId { get; }
 
+        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, TargetId, Position, Damage, and TickGenerated.")]
         public int ReservationSequence { get; }
     }
 }

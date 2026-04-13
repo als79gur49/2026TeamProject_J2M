@@ -161,7 +161,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             IReadOnlyList<MoveIntent> sortedIntents,
             int tickIndex,
             IMovementCommitContext writeContext,
-            PhaseTransientBuffer transientBuffer,
+            ImpactReservationBuffer transientBuffer,
             IReadOnlyList<ActionGroup> selectedGroups,
             List<string> commitEvents)
         {

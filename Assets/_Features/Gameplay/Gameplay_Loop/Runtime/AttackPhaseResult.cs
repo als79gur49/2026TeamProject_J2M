@@ -36,8 +36,10 @@ namespace Game.Feature.Gameplay.Loop
             PlayerDamageState = playerDamageState;
         }
 
+        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
         public int GroupId { get; }
 
+        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
         public int IntentId { get; }
 
         public int SourceId { get; }
@@ -175,6 +177,7 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<DamageResolutionRecord> DamageResolutions => _damageResolutions;
 
+        [Obsolete("Phase-private normalized input IR. Prefer RawIntents, DrainedImpactReservations, DamageResolutions, or CommitEvents in tests and diagnostics.")]
         public IReadOnlyList<AttackIntent> SortedInputs => _sortedInputs;
 
         public IReadOnlyList<ResolutionRecord> ResolutionRecords => _resolutionRecords;

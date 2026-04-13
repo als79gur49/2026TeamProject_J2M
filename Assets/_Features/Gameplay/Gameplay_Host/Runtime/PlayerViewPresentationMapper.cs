@@ -136,7 +136,7 @@ namespace Game.Feature.Gameplay.Host
             _locomotionSignalsByEntityId.Clear();
 
             CacheFinalEntities(result.FinalEntities);
-            CollectRemovalSignals(result.CleanupPhaseResult);
+            CollectRemovalSignals(result.PresentationData);
 
             foreach (var pair in viewsByEntityId)
             {
@@ -234,12 +234,26 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
-        private void CollectRemovalSignals(CleanupPhaseResult cleanupPhaseResult)
+        private void CollectRemovalSignals(TickPresentationData presentationData)
         {
-            var removedEntityIds = cleanupPhaseResult.RemovedEntityIds;
-            for (var i = 0; i < removedEntityIds.Count; i++)
+            var entityExitSignals = presentationData.EntityExitSignals;
+            for (var i = 0; i < entityExitSignals.Count; i++)
             {
-                var entityId = removedEntityIds[i];
+                var entityId = entityExitSignals[i].ExitedEntityId;
+                _candidateEntityIds.Add(entityId);
+                _removedEntityIds.Add(entityId);
+            }
+
+            var visibilityChanges = presentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                var change = visibilityChanges[i];
+                if (change.ChangeKind != TickVisibilityChangeKind.Remove)
+                {
+                    continue;
+                }
+
+                var entityId = change.EntityId;
                 _candidateEntityIds.Add(entityId);
                 _removedEntityIds.Add(entityId);
             }

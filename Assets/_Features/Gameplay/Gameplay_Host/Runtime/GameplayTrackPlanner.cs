@@ -363,10 +363,21 @@ namespace Game.Feature.Gameplay.Host
                 _entityPresentationApplier.ClearJumpPresentationState(_trackState.CompletedTransitionVisibilityStateIds[i]);
             }
 
-            var removedEntityIds = result.CleanupPhaseResult.RemovedEntityIds;
-            for (var i = 0; i < removedEntityIds.Count; i++)
+            var entityExitSignals = result.PresentationData.EntityExitSignals;
+            for (var i = 0; i < entityExitSignals.Count; i++)
             {
-                _entityPresentationApplier.ClearJumpPresentationState(removedEntityIds[i]);
+                _entityPresentationApplier.ClearJumpPresentationState(entityExitSignals[i].ExitedEntityId);
+            }
+
+            var visibilityChanges = result.PresentationData.VisibilityChanges;
+            for (var i = 0; i < visibilityChanges.Count; i++)
+            {
+                if (visibilityChanges[i].ChangeKind != TickVisibilityChangeKind.Remove)
+                {
+                    continue;
+                }
+
+                _entityPresentationApplier.ClearJumpPresentationState(visibilityChanges[i].EntityId);
             }
         }
 

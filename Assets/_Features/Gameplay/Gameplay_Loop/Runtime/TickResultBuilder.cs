@@ -337,6 +337,7 @@ namespace Game.Feature.Gameplay.Loop
             var entityMotions = new List<TickEntityMotion>();
             var entityExitSignals = new List<TickEntityExitPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
+            var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
@@ -353,6 +354,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
+            BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
 
@@ -361,6 +363,7 @@ namespace Game.Feature.Gameplay.Loop
 
             return entityMotions.Count == 0 &&
                    enemyActionSignals.Count == 0 &&
+                   enemyDamageSignals.Count == 0 &&
                    enemyJumpSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
@@ -378,6 +381,7 @@ namespace Game.Feature.Gameplay.Loop
                     playerActionSignals,
                     playerLocomotionSignals,
                     playerDamageSignals,
+                    enemyDamageSignals,
                     enemyActionSignals,
                     enemyJumpSignals,
                     entityExitSignals);
@@ -790,6 +794,37 @@ namespace Game.Feature.Gameplay.Loop
                         transition.CanceledThisTick,
                         executedEntityIds.Contains(entityId),
                         DidStartEnemyRecovery(context.PostMovementSnapshot, context.PostAttackSnapshot, entityId)));
+            }
+        }
+
+        private static void BuildEnemyDamagePresentation(
+            in TickPresentationBuildContext context,
+            List<TickEnemyDamagePresentationSignal> enemyDamageSignals)
+        {
+            var acceptedDamageByEntityId = new Dictionary<int, int>();
+            var damageResolutions = context.AttackPhaseResult.DamageResolutions;
+
+            for (var i = 0; i < damageResolutions.Count; i++)
+            {
+                var resolution = damageResolutions[i];
+                if (!resolution.Accepted ||
+                    !context.PostAttackSnapshot.TryGetEntity(resolution.TargetId, out var targetEntity) ||
+                    !EntityRolePolicy.IsEnemyUnit(targetEntity))
+                {
+                    continue;
+                }
+
+                acceptedDamageByEntityId.TryGetValue(targetEntity.entityId, out var accumulatedDamage);
+                acceptedDamageByEntityId[targetEntity.entityId] = accumulatedDamage + resolution.Amount;
+            }
+
+            foreach (var pair in acceptedDamageByEntityId)
+            {
+                enemyDamageSignals.Add(
+                    new TickEnemyDamagePresentationSignal(
+                        pair.Key,
+                        tookDamageThisTick: true,
+                        pair.Value));
             }
         }
 
