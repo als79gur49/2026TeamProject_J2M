@@ -1,0 +1,13 @@
+{
+  "name": "Game.Feature.UI.Composition",
+  "rootNamespace": "Game.Feature.UI.Composition",
+  "references": [
+    "Game.Feature.Gameplay.Host",
+    "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.UI.Application",
+    "Game.Feature.UI.Flow",
+    "Game.Feature.UI.HUD",
+    "Game.Feature.UI.Screens",
+    "Game.Feature.UI.Popups"
+  ]
+}

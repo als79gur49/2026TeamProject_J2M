@@ -1,0 +1,10 @@
+{
+  "name": "Game.Feature.UI.Flow",
+  "rootNamespace": "Game.Feature.UI.Flow",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.UI.Application",
+    "Game.Feature.UI.HUD"
+  ]
+}
