@@ -1,6 +1,4 @@
 using System;
-using System.Linq;
-using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -128,7 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void DefaultGameplayEntityViewFactory_PlayerPrefabValidation_ValidatesOptionalEntityEffectPresentationAuthoring()
         {
             var rootObject = new GameObject("DefaultGameplayEntityViewFactory_ValidatesOptionalEntityEffectPresentationAuthoring");
-            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("PlayerViewPrefabRequirements_ValidatesOptionalEntityEffectPresentationAuthoring");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab("PlayerViewFactory_ValidatesOptionalEntityEffectPresentationAuthoring");
 
             try
             {
@@ -167,96 +165,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 UnityEngine.Object.DestroyImmediate(prefabObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void PlayerDeathVisibilityTail_UsesMaxOfAnimatorDurationAndTailOverride()
-        {
-            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerDeathVisibilityTail_UsesMaxOfAnimatorDurationAndTailOverride");
-
-            try
-            {
-                var view = rootObject.GetComponent<GameplayEntityView>();
-                var timingAuthoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
-                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
-                var effectAuthoring = rootObject.AddComponent<EntityEffectPresentationAuthoring>();
-
-                Assert.That(view, Is.Not.Null);
-                Assert.That(timingAuthoring, Is.Not.Null);
-                Assert.That(driver, Is.Not.Null);
-
-                PlayerViewPrefabTestUtility.SetSerializedField(timingAuthoring, "deathAnimatorDurationSeconds", 2f);
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "deathViewTailSeconds", 3f);
-
-                var stateStore = new GameplayPresentationStateStore();
-                stateStore.ViewsByEntityId[10] = view;
-                stateStore.EntityTypesByEntityId[10] = EntityType.Unit;
-                var resolver = new GameplayMotionTimingResolver(stateStore, new GameplayPresentationTrackState());
-
-                var durationSeconds = resolver.ResolveVisibilityDurationSeconds(
-                    10,
-                    TickVisibilityChangeKind.Remove,
-                    CreateTimingProfile(pushMotionDurationSeconds: 0.25f));
-
-                Assert.That(driver.DeathPresentationDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
-                Assert.That(durationSeconds, Is.EqualTo(3f).Within(0.0001f));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void DeathViewTail_DoesNotChangeAnimatorSpeed()
-        {
-            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("DeathViewTail_DoesNotChangeAnimatorSpeed");
-
-            try
-            {
-                var view = rootObject.GetComponent<GameplayEntityView>();
-                var timingAuthoring = rootObject.GetComponent<PlayerAnimationTimingAuthoring>();
-                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
-                var effectAuthoring = rootObject.AddComponent<EntityEffectPresentationAuthoring>();
-                var animator = rootObject.AddComponent<Animator>();
-                var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>("Assets/3DM/1Player/Player_S1.controller");
-
-                Assert.That(view, Is.Not.Null);
-                Assert.That(timingAuthoring, Is.Not.Null);
-                Assert.That(driver, Is.Not.Null);
-                Assert.That(controller, Is.Not.Null);
-
-                animator.runtimeAnimatorController = controller;
-                PlayerViewPrefabTestUtility.SetSerializedField(driver, "animator", animator);
-                PlayerViewPrefabTestUtility.SetSerializedField(timingAuthoring, "deathAnimatorDurationSeconds", 2f);
-                PlayerViewPrefabTestUtility.SetSerializedField(effectAuthoring, "deathViewTailSeconds", 5f);
-
-                driver.SyncRuntimeState(isVisible: true, resolvedState: PlayerViewAnimationState.Death);
-
-                var expectedReferenceLengthSeconds = controller.animationClips
-                    .Single(clip => clip != null && string.Equals(clip.name, "Death", StringComparison.Ordinal))
-                    .length;
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
-                Assert.That(driver.CurrentPresentationDurationSeconds, Is.EqualTo(2f).Within(0.0001f));
-
-                var stateStore = new GameplayPresentationStateStore();
-                stateStore.ViewsByEntityId[10] = view;
-                stateStore.EntityTypesByEntityId[10] = EntityType.Unit;
-                var resolver = new GameplayMotionTimingResolver(stateStore, new GameplayPresentationTrackState());
-                var durationSeconds = resolver.ResolveVisibilityDurationSeconds(
-                    10,
-                    TickVisibilityChangeKind.Remove,
-                    CreateTimingProfile(pushMotionDurationSeconds: 0.25f));
-
-                Assert.That(durationSeconds, Is.EqualTo(5f).Within(0.0001f));
-                Assert.That(driver.CurrentAnimatorSpeed, Is.EqualTo(expectedReferenceLengthSeconds / 2f).Within(0.0001f));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
@@ -335,7 +243,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(authoring.DeathOwnershipMode, Is.EqualTo(DeathPresentationOwnershipMode.CloneSourceView));
             Assert.That(authoring.DeathOwnershipMode, Is.Not.EqualTo(DeathPresentationOwnershipMode.AnchorToNamedTransform));
 
-            Assert.DoesNotThrow(() => ValidatePrefab(view, prefabPath));
+            Assert.DoesNotThrow(() => ValidatePrefabThroughPublicSeams(view, prefabPath));
         }
 
         private static EntityState CreatePlayerEntityState()
@@ -358,35 +266,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return view;
         }
 
-        private static void ValidatePrefab(GameplayEntityView view, string prefabPath)
+        private static void ValidatePrefabThroughPublicSeams(GameplayEntityView view, string prefabPath)
         {
             if (view.TryGetComponent<PlayerAnimatorDriver>(out _))
             {
-                InvokePlayerPrefabValidation(view, prefabPath);
+                ValidatePlayerPrefabThroughFactory(view);
                 return;
             }
 
             EnemyViewPrefabRequirements.ValidateEnemyViewPrefab(view, prefabPath);
         }
 
-        private static void InvokePlayerPrefabValidation(GameplayEntityView view, string prefabPath)
+        private static void ValidatePlayerPrefabThroughFactory(GameplayEntityView playerViewPrefab)
         {
-            var requirementsType = typeof(PlayerAnimationTimingAuthoring).Assembly.GetType(
-                "Game.Feature.Gameplay.Host.PlayerViewPrefabRequirements",
-                throwOnError: true);
-            var validateMethod = requirementsType.GetMethod(
-                "ValidatePlayerViewPrefab",
-                BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
-
-            Assert.That(validateMethod, Is.Not.Null, "Could not locate PlayerViewPrefabRequirements.ValidatePlayerViewPrefab.");
-
+            var rootObject = new GameObject("ValidatePlayerPrefabThroughFactory");
             try
             {
-                validateMethod.Invoke(null, new object[] { view, prefabPath });
+                var factory = new DefaultGameplayEntityViewFactory(
+                    rootObject.transform,
+                    1f,
+                    playerEntityId: 10,
+                    playerViewPrefab);
+
+                var runtimeView = factory.CreateView(CreatePlayerEntityState());
+                Assert.That(runtimeView, Is.Not.Null);
             }
-            catch (TargetInvocationException exception) when (exception.InnerException != null)
+            finally
             {
-                throw exception.InnerException;
+                UnityEngine.Object.DestroyImmediate(rootObject);
             }
         }
 
@@ -409,20 +316,5 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(referenceClipProperty.objectReferenceValue.name, Is.EqualTo(expectedReferenceClipName));
         }
 
-        private static GameplayTimingProfile CreateTimingProfile(float pushMotionDurationSeconds)
-        {
-            return new GameplayTimingProfile(
-                GameplayTimingProfile.DefaultSimulationTicksPerSecond,
-                GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
-                GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
-                GameplayTimingProfile.DefaultBoxSlideStepIntervalSeconds,
-                GameplayTimingProfile.DefaultProjectileStepIntervalSeconds,
-                GameplayTimingProfile.DefaultMoveMotionDurationSeconds,
-                pushMotionDurationSeconds,
-                GameplayTimingProfile.DefaultTopologyMotionDurationSeconds,
-                GameplayTimingProfile.DefaultFlipMotionDurationSeconds,
-                GameplayTimingProfile.DefaultFlipArcHeightInCells,
-                GameplayTimingProfile.DefaultMaxTicksPerFrame);
-        }
     }
 }

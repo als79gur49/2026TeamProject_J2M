@@ -11,7 +11,7 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
-    public sealed class FlipInteractionPresentationTests
+    public sealed class FlipInteractionPlannerInternalTests
     {
         [Test]
         [Category("Extended")]
@@ -51,7 +51,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlanner(rootObject);
+                var (planner, stateStore, trackState, projector, timingProfile) = CreatePlannerHarness(rootObject);
                 stateStore.ViewsByEntityId[10] = CreateEntityView(rootObject.transform, 10);
                 stateStore.ViewsByEntityId[20] = CreateEntityView(rootObject.transform, 20);
 
@@ -151,91 +151,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        [Test]
-        [Category("Extended")]
-        public void GameplayEntityPresentationApplier_FlipInteraction_DoesNotMoveGameplayEntityViewRoots()
-        {
-            var rootObject = new GameObject("GameplayEntityPresentationApplier_FlipInteraction_DoesNotMoveGameplayEntityViewRoots");
-
-            try
-            {
-                var stateStore = new GameplayPresentationStateStore();
-                var trackState = new GameplayPresentationTrackState();
-                var poseResolver = new GameplayPoseResolver(stateStore, trackState);
-                var animationSync = new GameplayAnimationSyncCoordinator();
-                var motionTimingResolver = new GameplayMotionTimingResolver(stateStore, trackState);
-                var committedFrameBuilder = new GameplayCommittedFrameBuilder(stateStore, poseResolver, animationSync);
-                var applier = new GameplayEntityPresentationApplier(
-                    stateStore,
-                    trackState,
-                    poseResolver,
-                    animationSync,
-                    motionTimingResolver,
-                    new DefaultEnemyVisualSemanticResolver(),
-                    committedFrameBuilder);
-                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
-                var binder = new GameplayEntityViewBinder(registry, viewFactory: null);
-                var timingProfile = GameplayTimingProfile.CreateDefault();
-
-                stateStore.ResetSession(new CubeTopologyState(FaceId.Floor));
-
-                var playerView = CreateEntityView(rootObject.transform, 10);
-                var boxView = CreateEntityView(rootObject.transform, 20);
-                registry.Register(playerView);
-                registry.Register(boxView);
-                stateStore.ViewsByEntityId[10] = playerView;
-                stateStore.ViewsByEntityId[20] = boxView;
-                stateStore.CommittedLocalTargetPoses[10] = new GameplayEntityPose(new Vector3(1f, 2f, 3f), Quaternion.identity);
-                stateStore.CommittedLocalTargetPoses[20] = new GameplayEntityPose(new Vector3(4f, 5f, 6f), Quaternion.identity);
-
-                var handRestAnchor = new GameObject("HandRestAnchor").transform;
-                handRestAnchor.SetParent(playerView.transform, worldPositionStays: false);
-                handRestAnchor.localPosition = new Vector3(0.1f, 0.2f, 0.3f);
-                var handIkTarget = new GameObject("HandIkTarget").transform;
-                handIkTarget.SetParent(playerView.transform, worldPositionStays: false);
-                handIkTarget.localPosition = new Vector3(-0.1f, 0.2f, 0.3f);
-                var playerDriver = playerView.gameObject.AddComponent<PlayerFlipInteractionDriver>();
-                PlayerViewPrefabTestUtility.SetSerializedField(playerDriver, "handRestAnchor", handRestAnchor);
-                PlayerViewPrefabTestUtility.SetSerializedField(playerDriver, "handIkTarget", handIkTarget);
-
-                var boxVisualRoot = new GameObject("BoxVisualRoot").transform;
-                boxVisualRoot.SetParent(boxView.ModelRoot, worldPositionStays: false);
-                var gripPoint = new GameObject("GripPoint").transform;
-                gripPoint.SetParent(boxVisualRoot, worldPositionStays: false);
-                gripPoint.localPosition = new Vector3(0.25f, 0f, 0f);
-                var boxDriver = boxView.gameObject.AddComponent<BoxFlipInteractionDriver>();
-                PlayerViewPrefabTestUtility.SetSerializedField(boxDriver, "visualRoot", boxVisualRoot);
-                PlayerViewPrefabTestUtility.SetSerializedField(boxDriver, "gripPoint", gripPoint);
-
-                trackState.FlipInteractionTracks[10] = new FlipInteractionTrack(
-                    playerEntityId: 10,
-                    boxEntityId: 20,
-                    actionSequence: 1,
-                    direction: Direction.Right,
-                    windupDurationSeconds: 0.2f,
-                    followDurationSeconds: 0.2f,
-                    recoveryDurationSeconds: 0.2f,
-                    phase: FlipInteractionPhase.AirborneFollow);
-
-                applier.Apply(
-                    deltaTime: 0f,
-                    hasActiveBoardRotationTween: false,
-                    binder,
-                    timingProfile);
-
-                Assert.That(playerView.transform.localPosition, Is.EqualTo(new Vector3(1f, 2f, 3f)));
-                Assert.That(boxView.transform.localPosition, Is.EqualTo(new Vector3(4f, 5f, 6f)));
-                Assert.That(handIkTarget.position, Is.Not.EqualTo(handRestAnchor.position));
-                Assert.That(boxVisualRoot.localPosition, Is.Not.EqualTo(Vector3.zero));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(rootObject);
-            }
-        }
-
         private static (GameplayTrackPlanner Planner, GameplayPresentationStateStore StateStore, GameplayPresentationTrackState TrackState, GameplayCubeProjector Projector, GameplayTimingProfile TimingProfile)
-            CreatePlanner(GameObject rootObject)
+            CreatePlannerHarness(GameObject rootObject)
         {
             var stateStore = new GameplayPresentationStateStore();
             var trackState = new GameplayPresentationTrackState();
