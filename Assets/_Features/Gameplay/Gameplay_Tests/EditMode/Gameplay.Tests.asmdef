@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Stages",
     "Unity.InputSystem",
