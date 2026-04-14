@@ -1,0 +1,21 @@
+{
+  "name": "Game.Feature.UI.Tests",
+  "rootNamespace": "Game.Feature.UI.Tests",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Host",
+    "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.UI.Application",
+    "Game.Feature.UI.Flow",
+    "Game.Feature.UI.HUD",
+    "Game.Feature.UI.Screens",
+    "Game.Feature.UI.Popups",
+    "Game.Feature.UI.Composition"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}
