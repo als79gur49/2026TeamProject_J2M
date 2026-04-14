@@ -158,6 +158,15 @@ Repository traceability:
 - This document extends that same boundary into the future UI architecture.
 - `Assets/_Features/UI` and `Assets/_Shared/UI` are the current UI feature anchors in the repo and should grow under this boundary rather than around it.
 
+Tick-result presentation mapping rule:
+
+- `Non-Negotiable` `Gameplay.UIAccess` does not expose `TickResult` directly to UI.
+- `Non-Negotiable` `IGameplayPresentationFeed` is consumed by one UI-application-owned presentation source/store only.
+- `Non-Negotiable` `UITickEventRouter` interprets one authoritative frame into semantic UI events without cross-frame memory.
+- `Non-Negotiable` `UIStateMapper` owns durable snapshot reduction, semantic notification retention, dedupe, and tick-based expiry.
+- `Default Guidance` Presenters and controllers consume mapped snapshots or query reads triggered by that source/store, not raw frame deltas.
+- `Default Guidance` The root presentation snapshot must stay bounded to durable cross-feature slices. Screen-local viewmodels remain feature-local.
+
 ## 9. Final Layered Architecture
 
 The canonical UI architecture uses five layers.
