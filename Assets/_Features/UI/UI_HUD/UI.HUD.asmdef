@@ -1,8 +1,4 @@
 {
   "name": "Game.Feature.UI.HUD",
-  "rootNamespace": "Game.Feature.UI.HUD",
-  "references": [
-    "Game.Feature.Gameplay",
-    "Game.Feature.Gameplay.UIAccess"
-  ]
+  "rootNamespace": "Game.Feature.UI.HUD"
 }

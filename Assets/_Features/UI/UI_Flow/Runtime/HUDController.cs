@@ -1,6 +1,4 @@
 using System;
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.HUD;
 
@@ -13,17 +11,25 @@ namespace Game.Feature.UI.Flow
         private const string PausedFeedback = "Paused";
         private const string UnavailableFeedback = "Unavailable";
 
+        private readonly GameplayHudViewModel _viewModel;
         private readonly GameplayHudPresenter _presenter;
+        private FeedbackSource _feedbackSource;
+        private GameplayHudCommandResult? _lastCommandResult;
+        private GameplayHudState _currentState;
+        private string _feedbackText = string.Empty;
         private GameplayHudView _view;
         private UIBlockSnapshot _currentBlockSnapshot;
 
         public HUDController(GameplayHudPresenter presenter)
         {
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _presenter.ViewModel.SetInteractivity(true);
+            _viewModel = new GameplayHudViewModel();
+            _presenter.StateChanged += HandlePresenterStateChanged;
+            _currentState = _presenter.CurrentState;
+            ApplyViewModel();
         }
 
-        public GameplayHudViewModel ViewModel => _presenter.ViewModel;
+        public GameplayHudViewModel ViewModel => _viewModel;
 
         public void AttachView(GameplayHudView view)
         {
@@ -44,59 +50,105 @@ namespace Game.Feature.UI.Flow
         public void ApplyBlockSnapshot(UIBlockSnapshot blockSnapshot)
         {
             _currentBlockSnapshot = blockSnapshot;
-            ViewModel.SetInteractivity(!blockSnapshot.BlocksHudInteraction);
+            if (_feedbackSource == FeedbackSource.LocalBlock && !blockSnapshot.BlocksHudInteraction)
+            {
+                ClearFeedback();
+            }
+
+            ApplyViewModel();
         }
 
-        public GameplayCommandAcceptance? RequestFlipRight()
+        public GameplayHudCommandResult? RequestFlipRight()
         {
             if (_currentBlockSnapshot.BlocksHudInteraction)
             {
-                ViewModel.SetFeedback(LocalBlockFeedback, null);
+                ApplyLocalBlockFeedback();
                 return null;
             }
 
-            var acceptance = _presenter.RequestFlip(Direction.Right);
-            ApplyAcceptanceFeedback(acceptance);
-            return acceptance;
+            var result = _presenter.RequestFlipRight();
+            ApplyCommandResult(result);
+            return result;
         }
 
-        public GameplayCommandAcceptance? RequestMoveUp()
+        public GameplayHudCommandResult? RequestMoveUp()
         {
             if (_currentBlockSnapshot.BlocksHudInteraction)
             {
-                ViewModel.SetFeedback(LocalBlockFeedback, null);
+                ApplyLocalBlockFeedback();
                 return null;
             }
 
-            var acceptance = _presenter.SetHeldMoveDirection(Direction.Up);
-            ApplyAcceptanceFeedback(acceptance);
-            return acceptance;
+            var result = _presenter.RequestMoveUp();
+            ApplyCommandResult(result);
+            return result;
         }
 
         public void Dispose()
         {
             DetachView();
+            _presenter.StateChanged -= HandlePresenterStateChanged;
             _presenter.Dispose();
         }
 
-        private void ApplyAcceptanceFeedback(GameplayCommandAcceptance acceptance)
+        private void ApplyCommandResult(GameplayHudCommandResult commandResult)
         {
-            if (acceptance.Accepted)
+            _lastCommandResult = commandResult;
+
+            if (commandResult.Accepted)
             {
-                ViewModel.SetFeedback(string.Empty, acceptance);
+                ClearFeedback();
                 return;
             }
 
-            ViewModel.SetFeedback(MapFeedback(acceptance.RejectionReason), acceptance);
+            _feedbackSource = FeedbackSource.GameplayRejected;
+            _feedbackText = MapFeedback(commandResult.FailureKind);
+            ApplyViewModel();
         }
 
-        private static string MapFeedback(GameplayCommandRejectionReason rejectionReason)
+        private void ApplyLocalBlockFeedback()
         {
-            switch (rejectionReason)
+            _feedbackSource = FeedbackSource.LocalBlock;
+            _feedbackText = LocalBlockFeedback;
+            _lastCommandResult = null;
+            ApplyViewModel();
+        }
+
+        private void ApplyViewModel()
+        {
+            _viewModel.ApplyGameplayState(_currentState);
+            _viewModel.SetInteractivity(!_currentBlockSnapshot.BlocksHudInteraction);
+            _viewModel.SetFeedback(_feedbackText, _lastCommandResult);
+        }
+
+        private void ClearFeedback()
+        {
+            _feedbackSource = FeedbackSource.None;
+            _feedbackText = string.Empty;
+            ApplyViewModel();
+        }
+
+        private void HandlePresenterStateChanged(GameplayHudState state)
+        {
+            _currentState = state;
+
+            if ((_feedbackSource == FeedbackSource.GameplayRejected && state.CanAcceptGameplayCommands && !_currentBlockSnapshot.BlocksHudInteraction) ||
+                (_feedbackSource == FeedbackSource.LocalBlock && !_currentBlockSnapshot.BlocksHudInteraction))
             {
-                case GameplayCommandRejectionReason.Paused:
+                _feedbackSource = FeedbackSource.None;
+                _feedbackText = string.Empty;
+            }
+
+            ApplyViewModel();
+        }
+
+        private static string MapFeedback(GameplayHudCommandFailureKind failureKind)
+        {
+            switch (failureKind)
+            {
+                case GameplayHudCommandFailureKind.Paused:
                     return PausedFeedback;
-                case GameplayCommandRejectionReason.BlockingPresentation:
+                case GameplayHudCommandFailureKind.Busy:
                     return BusyFeedback;
                 default:
                     return UnavailableFeedback;
@@ -124,6 +176,13 @@ namespace Game.Feature.UI.Flow
         private void HandleFlipRightRequested()
         {
             RequestFlipRight();
+        }
+
+        private enum FeedbackSource
+        {
+            None = 0,
+            LocalBlock = 1,
+            GameplayRejected = 2,
         }
     }
 }

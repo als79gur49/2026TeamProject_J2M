@@ -12,6 +12,7 @@ namespace Game.Feature.UI.Application
         private readonly IGameplayPauseService _pauseService;
         private readonly IGameplayPresentationFeed _presentationFeed;
         private readonly IGameplayQueryFacade _queryFacade;
+        private CubeTopologyState _currentTopology;
 
         public GameplayHudPresenter(
             IGameplayQueryFacade queryFacade,
@@ -23,17 +24,18 @@ namespace Game.Feature.UI.Application
             _commandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             _presentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
             _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            _currentTopology = _presentationFeed.CurrentState.CurrentTopology;
 
-            ViewModel = new GameplayHudViewModel();
             _presentationFeed.FramePublished += HandleFramePublished;
             _presentationFeed.StateChanged += HandlePresentationStateChanged;
             _pauseService.PauseChanged += HandlePauseChanged;
 
             Refresh();
-            ViewModel.SetCurrentTopology(_presentationFeed.CurrentState.CurrentTopology);
         }
 
-        public GameplayHudViewModel ViewModel { get; }
+        public event Action<GameplayHudState> StateChanged;
+
+        public GameplayHudState CurrentState { get; private set; }
 
         public void Dispose()
         {
@@ -47,39 +49,43 @@ namespace Game.Feature.UI.Application
             var session = _queryFacade.Session.Read();
             var playerHud = _queryFacade.PlayerHud.Read();
 
-            ViewModel.ApplyGameplayState(session, playerHud);
+            CurrentState = new GameplayHudState(
+                playerHud.PlayerEntityId,
+                playerHud.CurrentHp,
+                playerHud.Facing.ToString(),
+                playerHud.ActiveActionKind.ToString(),
+                _currentTopology.BottomFace.ToString(),
+                playerHud.CanMoveThisTick,
+                playerHud.CanStartActionThisTick,
+                session.IsPaused,
+                session.IsStageCleared,
+                session.CanAcceptGameplayCommands);
+            StateChanged?.Invoke(CurrentState);
         }
 
-        public GameplayCommandAcceptance SetHeldMoveDirection(Direction direction)
+        public GameplayHudCommandResult RequestMoveUp()
         {
-            var acceptance = _commandGateway.SetHeldMoveDirection(direction);
+            var acceptance = _commandGateway.SetHeldMoveDirection(Direction.Up);
             Refresh();
-            return acceptance;
+            return MapAcceptance(acceptance);
         }
 
-        public GameplayCommandAcceptance ClearHeldMoveDirection()
+        public GameplayHudCommandResult RequestFlipRight()
         {
-            var acceptance = _commandGateway.ClearHeldMoveDirection();
+            var acceptance = _commandGateway.RequestFlip(Direction.Right);
             Refresh();
-            return acceptance;
-        }
-
-        public GameplayCommandAcceptance RequestFlip(Direction direction)
-        {
-            var acceptance = _commandGateway.RequestFlip(direction);
-            Refresh();
-            return acceptance;
+            return MapAcceptance(acceptance);
         }
 
         private void HandleFramePublished(GameplayPresentationFrame frame)
         {
             if (frame.Topology.HasValue)
             {
-                ViewModel.SetCurrentTopology(frame.Topology.Value.DestinationTopology);
+                _currentTopology = frame.Topology.Value.DestinationTopology;
             }
             else
             {
-                ViewModel.SetCurrentTopology(frame.FinalTopology);
+                _currentTopology = frame.FinalTopology;
             }
 
             Refresh();
@@ -92,7 +98,26 @@ namespace Game.Feature.UI.Application
 
         private void HandlePresentationStateChanged(GameplayPresentationState state)
         {
-            ViewModel.SetCurrentTopology(state.CurrentTopology);
+            _currentTopology = state.CurrentTopology;
+            Refresh();
+        }
+
+        private static GameplayHudCommandResult MapAcceptance(GameplayCommandAcceptance acceptance)
+        {
+            if (acceptance.Accepted)
+            {
+                return GameplayHudCommandResult.Accept();
+            }
+
+            switch (acceptance.RejectionReason)
+            {
+                case GameplayCommandRejectionReason.Paused:
+                    return GameplayHudCommandResult.Reject(GameplayHudCommandFailureKind.Paused);
+                case GameplayCommandRejectionReason.BlockingPresentation:
+                    return GameplayHudCommandResult.Reject(GameplayHudCommandFailureKind.Busy);
+                default:
+                    return GameplayHudCommandResult.Reject(GameplayHudCommandFailureKind.Unavailable);
+            }
         }
     }
 }

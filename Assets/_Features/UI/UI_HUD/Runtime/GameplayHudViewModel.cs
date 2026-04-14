@@ -1,18 +1,96 @@
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.PlayerControl;
-using Game.Feature.Gameplay.UIAccess.Models;
-
 namespace Game.Feature.UI.HUD
 {
+    public enum GameplayHudCommandFailureKind
+    {
+        None = 0,
+        Paused = 1,
+        Busy = 2,
+        Unavailable = 3,
+    }
+
+    public readonly struct GameplayHudCommandResult
+    {
+        public GameplayHudCommandResult(bool accepted, GameplayHudCommandFailureKind failureKind)
+        {
+            Accepted = accepted;
+            FailureKind = failureKind;
+        }
+
+        public bool Accepted { get; }
+
+        public GameplayHudCommandFailureKind FailureKind { get; }
+
+        public static GameplayHudCommandResult Accept()
+        {
+            return new GameplayHudCommandResult(true, GameplayHudCommandFailureKind.None);
+        }
+
+        public static GameplayHudCommandResult Reject(GameplayHudCommandFailureKind failureKind)
+        {
+            return new GameplayHudCommandResult(false, failureKind);
+        }
+    }
+
+    public readonly struct GameplayHudState
+    {
+        public GameplayHudState(
+            int playerEntityId,
+            int currentHp,
+            string facingText,
+            string activeActionText,
+            string topologyText,
+            bool canMoveThisTick,
+            bool canStartActionThisTick,
+            bool isPaused,
+            bool isStageCleared,
+            bool canAcceptGameplayCommands)
+        {
+            PlayerEntityId = playerEntityId;
+            CurrentHp = currentHp;
+            FacingText = facingText ?? string.Empty;
+            ActiveActionText = activeActionText ?? string.Empty;
+            TopologyText = topologyText ?? string.Empty;
+            CanMoveThisTick = canMoveThisTick;
+            CanStartActionThisTick = canStartActionThisTick;
+            IsPaused = isPaused;
+            IsStageCleared = isStageCleared;
+            CanAcceptGameplayCommands = canAcceptGameplayCommands;
+        }
+
+        public int PlayerEntityId { get; }
+
+        public int CurrentHp { get; }
+
+        public string FacingText { get; }
+
+        public string ActiveActionText { get; }
+
+        public string TopologyText { get; }
+
+        public bool CanMoveThisTick { get; }
+
+        public bool CanStartActionThisTick { get; }
+
+        public bool IsPaused { get; }
+
+        public bool IsStageCleared { get; }
+
+        public bool CanAcceptGameplayCommands { get; }
+    }
+
     public sealed class GameplayHudViewModel
     {
+        public event System.Action Changed;
+
         public int PlayerEntityId { get; private set; }
 
         public int CurrentHp { get; private set; }
 
-        public Direction Facing { get; private set; }
+        public string FacingText { get; private set; } = string.Empty;
 
-        public PlayerActionKind ActiveActionKind { get; private set; }
+        public string ActiveActionText { get; private set; } = string.Empty;
+
+        public string TopologyText { get; private set; } = string.Empty;
 
         public bool CanMoveThisTick { get; private set; }
 
@@ -24,43 +102,38 @@ namespace Game.Feature.UI.HUD
 
         public bool CanAcceptGameplayCommands { get; private set; }
 
-        public CubeTopologyState CurrentTopology { get; private set; }
-
         public bool IsInteractive { get; private set; }
 
         public string FeedbackText { get; private set; } = string.Empty;
 
-        public GameplayCommandAcceptance? LastCommandAcceptance { get; private set; }
+        public GameplayHudCommandResult? LastCommandResult { get; private set; }
 
-        public void ApplyGameplayState(
-            GameplaySessionReadModel session,
-            GameplayPlayerHudReadModel playerHud)
+        public void ApplyGameplayState(GameplayHudState state)
         {
-            PlayerEntityId = playerHud.PlayerEntityId;
-            CurrentHp = playerHud.CurrentHp;
-            Facing = playerHud.Facing;
-            ActiveActionKind = playerHud.ActiveActionKind;
-            CanMoveThisTick = playerHud.CanMoveThisTick;
-            CanStartActionThisTick = playerHud.CanStartActionThisTick;
-            IsPaused = session.IsPaused;
-            IsStageCleared = session.IsStageCleared;
-            CanAcceptGameplayCommands = session.CanAcceptGameplayCommands;
-        }
-
-        public void SetCurrentTopology(CubeTopologyState topology)
-        {
-            CurrentTopology = topology;
+            PlayerEntityId = state.PlayerEntityId;
+            CurrentHp = state.CurrentHp;
+            FacingText = state.FacingText;
+            ActiveActionText = state.ActiveActionText;
+            TopologyText = state.TopologyText;
+            CanMoveThisTick = state.CanMoveThisTick;
+            CanStartActionThisTick = state.CanStartActionThisTick;
+            IsPaused = state.IsPaused;
+            IsStageCleared = state.IsStageCleared;
+            CanAcceptGameplayCommands = state.CanAcceptGameplayCommands;
+            Changed?.Invoke();
         }
 
         public void SetInteractivity(bool isInteractive)
         {
             IsInteractive = isInteractive;
+            Changed?.Invoke();
         }
 
-        public void SetFeedback(string feedbackText, GameplayCommandAcceptance? acceptance)
+        public void SetFeedback(string feedbackText, GameplayHudCommandResult? commandResult)
         {
             FeedbackText = feedbackText ?? string.Empty;
-            LastCommandAcceptance = acceptance;
+            LastCommandResult = commandResult;
+            Changed?.Invoke();
         }
     }
 }

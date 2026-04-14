@@ -1,23 +1,95 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.HUD
 {
     public sealed class GameplayHudView : MonoBehaviour
     {
+        [SerializeField] private GameObject _root;
+        [SerializeField] private Text _titleLabel;
+        [SerializeField] private Text _hpLabel;
+        [SerializeField] private Text _facingLabel;
+        [SerializeField] private Text _actionLabel;
+        [SerializeField] private Text _topologyLabel;
+        [SerializeField] private Text _pausedLabel;
+        [SerializeField] private Text _readyLabel;
+        [SerializeField] private Text _feedbackLabel;
+        [SerializeField] private Button _moveUpButton;
+        [SerializeField] private Button _flipRightButton;
+        [SerializeField] private Button _pauseButton;
+
         public event Action MoveUpRequested;
 
         public event Action FlipRightRequested;
 
         public event Action PauseRequested;
 
-        public bool IsVisible { get; set; } = true;
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                _isVisible = value;
+                RefreshView();
+            }
+        }
 
         public GameplayHudViewModel ViewModel { get; private set; }
 
+        private bool _isVisible = true;
+
+        public void Configure(
+            GameObject root,
+            Text titleLabel,
+            Text hpLabel,
+            Text facingLabel,
+            Text actionLabel,
+            Text topologyLabel,
+            Text pausedLabel,
+            Text readyLabel,
+            Text feedbackLabel,
+            Button moveUpButton,
+            Button flipRightButton,
+            Button pauseButton)
+        {
+            _root = root;
+            _titleLabel = titleLabel;
+            _hpLabel = hpLabel;
+            _facingLabel = facingLabel;
+            _actionLabel = actionLabel;
+            _topologyLabel = topologyLabel;
+            _pausedLabel = pausedLabel;
+            _readyLabel = readyLabel;
+            _feedbackLabel = feedbackLabel;
+            _moveUpButton = moveUpButton;
+            _flipRightButton = flipRightButton;
+            _pauseButton = pauseButton;
+
+            _moveUpButton.onClick.RemoveListener(ClickMoveUp);
+            _flipRightButton.onClick.RemoveListener(ClickFlipRight);
+            _pauseButton.onClick.RemoveListener(ClickPause);
+            _moveUpButton.onClick.AddListener(ClickMoveUp);
+            _flipRightButton.onClick.AddListener(ClickFlipRight);
+            _pauseButton.onClick.AddListener(ClickPause);
+
+            RefreshView();
+        }
+
         public void Bind(GameplayHudViewModel viewModel)
         {
+            if (ViewModel != null)
+            {
+                ViewModel.Changed -= HandleViewModelChanged;
+            }
+
             ViewModel = viewModel;
+            if (ViewModel != null)
+            {
+                ViewModel.Changed += HandleViewModelChanged;
+            }
+
+            RefreshView();
         }
 
         public void ClickFlipRight()
@@ -50,49 +122,92 @@ namespace Game.Feature.UI.HUD
             PauseRequested?.Invoke();
         }
 
-        private void OnGUI()
+        private void OnDestroy()
         {
-            if (!IsVisible || ViewModel == null)
+            if (ViewModel != null)
             {
+                ViewModel.Changed -= HandleViewModelChanged;
+            }
+        }
+
+        private void HandleViewModelChanged()
+        {
+            RefreshView();
+        }
+
+        private void RefreshView()
+        {
+            if (_root != null)
+            {
+                _root.SetActive(IsVisible);
+            }
+
+            if (ViewModel == null)
+            {
+                if (_feedbackLabel != null)
+                {
+                    _feedbackLabel.text = string.Empty;
+                }
+
                 return;
             }
 
-            GUILayout.BeginArea(new Rect(12f, Screen.height - 210f, 260f, 198f), GUI.skin.box);
-            GUILayout.Label("Gameplay HUD");
-            GUILayout.Label($"HP: {ViewModel.CurrentHp}");
-            GUILayout.Label($"Facing: {ViewModel.Facing}");
-            GUILayout.Label($"Action: {ViewModel.ActiveActionKind}");
-            GUILayout.Label($"Topology: {ViewModel.CurrentTopology.BottomFace}");
-            GUILayout.Label($"Paused: {ViewModel.IsPaused}");
-            GUILayout.Label($"Ready: {ViewModel.CanAcceptGameplayCommands}");
-
-            var previousEnabled = GUI.enabled;
-            GUI.enabled = ViewModel.IsInteractive;
-            if (GUILayout.Button("Move Up"))
+            if (_titleLabel != null)
             {
-                ClickMoveUp();
+                _titleLabel.text = "Gameplay HUD";
             }
 
-            GUI.enabled = ViewModel.IsInteractive;
-            if (GUILayout.Button("Flip Right"))
+            if (_hpLabel != null)
             {
-                ClickFlipRight();
+                _hpLabel.text = $"HP: {ViewModel.CurrentHp}";
             }
 
-            GUI.enabled = ViewModel.IsInteractive;
-            if (GUILayout.Button("Pause"))
+            if (_facingLabel != null)
             {
-                ClickPause();
+                _facingLabel.text = $"Facing: {ViewModel.FacingText}";
             }
 
-            GUI.enabled = previousEnabled;
-
-            if (!string.IsNullOrEmpty(ViewModel.FeedbackText))
+            if (_actionLabel != null)
             {
-                GUILayout.Label($"Feedback: {ViewModel.FeedbackText}");
+                _actionLabel.text = $"Action: {ViewModel.ActiveActionText}";
             }
 
-            GUILayout.EndArea();
+            if (_topologyLabel != null)
+            {
+                _topologyLabel.text = $"Topology: {ViewModel.TopologyText}";
+            }
+
+            if (_pausedLabel != null)
+            {
+                _pausedLabel.text = $"Paused: {ViewModel.IsPaused}";
+            }
+
+            if (_readyLabel != null)
+            {
+                _readyLabel.text = $"Ready: {ViewModel.CanAcceptGameplayCommands}";
+            }
+
+            if (_feedbackLabel != null)
+            {
+                _feedbackLabel.text = string.IsNullOrEmpty(ViewModel.FeedbackText)
+                    ? string.Empty
+                    : $"Feedback: {ViewModel.FeedbackText}";
+            }
+
+            if (_moveUpButton != null)
+            {
+                _moveUpButton.interactable = ViewModel.IsInteractive;
+            }
+
+            if (_flipRightButton != null)
+            {
+                _flipRightButton.interactable = ViewModel.IsInteractive;
+            }
+
+            if (_pauseButton != null)
+            {
+                _pauseButton.interactable = ViewModel.IsInteractive;
+            }
         }
     }
 }
