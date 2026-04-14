@@ -48,6 +48,39 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiFlowInstaller_KeepsHudVisible_AcrossScreenChanges_WithFakePorts()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_KeepsHudVisible_AcrossScreenChanges_WithFakePorts");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                installer.Install(UiTestPortFactory.CreatePorts());
+
+                AssertHudVisible(installer);
+
+                installer.GameplayScreenView.ClickHelp();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+                Assert.That(installer.HelpScreenView.IsVisible, Is.True);
+                AssertHudVisible(installer);
+
+                installer.HelpScreenView.ClickBack();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                AssertHudVisible(installer);
+
+                installer.GameplayScreenView.ClickObjectives();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+                Assert.That(installer.ObjectiveStatusScreenView.IsVisible, Is.True);
+                AssertHudVisible(installer);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayUiFlowInstaller_ObjectiveInfoPopup_DoesNotPause_WithFakePorts()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -83,6 +116,12 @@ namespace Game.Feature.UI.Tests
                 DestroyEventSystemIfPresent();
                 Object.DestroyImmediate(rootObject);
             }
+        }
+
+        private static void AssertHudVisible(GameplayUiFlowInstaller installer)
+        {
+            Assert.That(installer.HudView.IsVisible, Is.True);
+            Assert.That(installer.HudView.gameObject.activeSelf, Is.True);
         }
 
         private static void DestroyEventSystemIfPresent()
