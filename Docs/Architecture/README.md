@@ -1,9 +1,11 @@
-# Gameplay Architecture Docs
+# Architecture Docs
 
-이 디렉터리의 canonical entrypoint는 아래 세 문서다.
+이 디렉터리의 canonical entrypoint는 아래 네 문서다.
 
 - [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
   - tick simulation의 canonical architecture spec
+- [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
+  - gameplay authoritative boundary를 UI layer까지 확장한 canonical UI architecture spec
 - [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
   - Push/Flip 등 gameplay rule appendix
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
@@ -12,8 +14,9 @@
 읽는 순서는 아래를 기준으로 고정한다.
 
 1. [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
-2. [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
-3. [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
+2. [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
+3. [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
+4. [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
 
 운영 가이드와 baseline은 별도 truth-source다.
 
