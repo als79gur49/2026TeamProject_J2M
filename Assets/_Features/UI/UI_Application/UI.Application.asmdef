@@ -4,6 +4,7 @@
   "references": [
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.UIAccess",
-    "Game.Feature.UI.HUD"
+    "Game.Feature.UI.HUD",
+    "Game.Feature.UI.Screens"
   ]
 }

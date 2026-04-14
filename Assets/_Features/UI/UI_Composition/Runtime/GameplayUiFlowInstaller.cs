@@ -13,15 +13,14 @@ namespace Game.Feature.UI.Composition
     public sealed class GameplayUiFlowInstaller : MonoBehaviour
     {
         [SerializeField] private GameplaySceneHost _sceneHost;
+        [SerializeField] private GameplayUiCanvasRootView _rootView;
         [SerializeField] private bool _installOnStart = true;
 
-        private GameplayHudView _hudView;
-        private HelpScreenView _helpScreenView;
-        private PausePopupView _pausePopupView;
-        private GameplayScreenView _gameplayScreenView;
         private bool _isInstalled;
 
         public GameplayUiFlowPorts Ports { get; private set; }
+
+        public GameplayUiCanvasRootView RootView => _rootView;
 
         public ScreenController ScreenController { get; private set; }
 
@@ -29,17 +28,23 @@ namespace Game.Feature.UI.Composition
 
         public HUDController HudController { get; private set; }
 
+        public ObjectiveStatusScreenController ObjectiveStatusScreenController { get; private set; }
+
         public UIBlockPolicy BlockPolicy { get; private set; }
 
         public UIFlowCoordinator Coordinator { get; private set; }
 
-        public GameplayHudView HudView => _hudView;
+        public GameplayHudView HudView => _rootView != null ? _rootView.HudView : null;
 
-        public GameplayScreenView GameplayScreenView => _gameplayScreenView;
+        public GameplayScreenView GameplayScreenView => _rootView != null ? _rootView.GameplayScreenView : null;
 
-        public HelpScreenView HelpScreenView => _helpScreenView;
+        public HelpScreenView HelpScreenView => _rootView != null ? _rootView.HelpScreenView : null;
 
-        public PausePopupView PausePopupView => _pausePopupView;
+        public ObjectiveStatusScreenView ObjectiveStatusScreenView => _rootView != null ? _rootView.ObjectiveStatusScreenView : null;
+
+        public PausePopupView PausePopupView => _rootView != null ? _rootView.PausePopupView : null;
+
+        public ObjectiveInfoPopupView ObjectiveInfoPopupView => _rootView != null ? _rootView.ObjectiveInfoPopupView : null;
 
         private void Start()
         {
@@ -59,11 +64,6 @@ namespace Game.Feature.UI.Composition
 
         public void Install(GameplaySceneHost sceneHost)
         {
-            if (_isInstalled)
-            {
-                return;
-            }
-
             if (sceneHost == null)
             {
                 throw new ArgumentNullException(nameof(sceneHost));
@@ -74,23 +74,39 @@ namespace Game.Feature.UI.Composition
                 throw new InvalidOperationException("GameplaySceneHost must be initialized before installing UI flow.");
             }
 
-            Ports = new GameplayUiFlowPorts(
+            Install(new GameplayUiFlowPorts(
                 sceneHost.UiAccess.CommandGateway,
                 sceneHost.UiAccess.QueryFacade,
                 sceneHost.UiAccess.PresentationFeed,
-                sceneHost.UiAccess.PauseService);
+                sceneHost.UiAccess.PauseService));
 
-            EnsureViews();
+            _sceneHost = null;
+        }
 
-            var presenter = new GameplayHudPresenter(
+        public void Install(GameplayUiFlowPorts ports)
+        {
+            if (_isInstalled)
+            {
+                return;
+            }
+
+            Ports = ports;
+            EnsureRootView();
+
+            var hudPresenter = new GameplayHudPresenter(
                 Ports.QueryFacade,
                 Ports.CommandGateway,
                 Ports.PresentationFeed,
-                Ports.PauseService);
+                Ports.GameplayPauseService);
+            var objectivePresenter = new ObjectiveStatusPresenter(
+                Ports.QueryFacade,
+                Ports.PresentationFeed,
+                Ports.GameplayPauseService);
 
             ScreenController = new ScreenController();
             PopupController = new PopupController();
-            HudController = new HUDController(presenter);
+            HudController = new HUDController(hudPresenter);
+            ObjectiveStatusScreenController = new ObjectiveStatusScreenController(objectivePresenter);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,
@@ -99,13 +115,13 @@ namespace Game.Feature.UI.Composition
                 BlockPolicy,
                 Ports.PauseService);
 
-            HudController.AttachView(_hudView);
+            HudController.AttachView(_rootView.HudView);
+            ObjectiveStatusScreenController.AttachView(_rootView.ObjectiveStatusScreenView);
             WireViewEvents();
             WireControllerEvents();
             Coordinator.Initialize();
             SyncViews();
 
-            _sceneHost = null;
             _isInstalled = true;
         }
 
@@ -115,36 +131,38 @@ namespace Game.Feature.UI.Composition
             UnwireControllerEvents();
             Coordinator?.Dispose();
             HudController?.Dispose();
+            ObjectiveStatusScreenController?.Dispose();
         }
 
-        private void EnsureViews()
+        private void EnsureRootView()
         {
-            _hudView = EnsureChildComponent<GameplayHudView>("GameplayHudView");
-            _gameplayScreenView = EnsureChildComponent<GameplayScreenView>("GameplayScreenView");
-            _helpScreenView = EnsureChildComponent<HelpScreenView>("HelpScreenView");
-            _pausePopupView = EnsureChildComponent<PausePopupView>("PausePopupView");
-        }
-
-        private T EnsureChildComponent<T>(string childName)
-            where T : Component
-        {
-            var child = transform.Find(childName);
-            if (child == null)
+            if (_rootView == null)
             {
-                var childObject = new GameObject(childName);
-                childObject.transform.SetParent(transform, false);
-                child = childObject.transform;
+                var child = transform.Find("GameplayUiCanvasRoot");
+                if (child == null)
+                {
+                    var childObject = new GameObject("GameplayUiCanvasRoot", typeof(RectTransform));
+                    childObject.transform.SetParent(transform, false);
+                    child = childObject.transform;
+                }
+
+                _rootView = child.GetComponent<GameplayUiCanvasRootView>() ??
+                            child.gameObject.AddComponent<GameplayUiCanvasRootView>();
             }
 
-            return child.GetComponent<T>() ?? child.gameObject.AddComponent<T>();
+            _rootView.EnsureHierarchy();
         }
 
         private void WireViewEvents()
         {
-            _hudView.PauseRequested += HandlePauseRequested;
-            _gameplayScreenView.HelpRequested += HandleHelpRequested;
-            _helpScreenView.BackRequested += HandleBackRequested;
-            _pausePopupView.ResumeRequested += HandleResumeRequested;
+            _rootView.HudView.PauseRequested += HandlePauseRequested;
+            _rootView.GameplayScreenView.HelpRequested += HandleHelpRequested;
+            _rootView.GameplayScreenView.ObjectivesRequested += HandleObjectiveStatusRequested;
+            _rootView.HelpScreenView.BackRequested += HandleBackRequested;
+            _rootView.PausePopupView.ResumeRequested += HandleResumeRequested;
+            _rootView.ObjectiveInfoPopupView.CloseRequested += HandleBackRequested;
+            ObjectiveStatusScreenController.BackRequested += HandleBackRequested;
+            ObjectiveStatusScreenController.InfoRequested += HandleObjectiveInfoRequested;
         }
 
         private void WireControllerEvents()
@@ -155,24 +173,41 @@ namespace Game.Feature.UI.Composition
 
         private void UnwireViewEvents()
         {
-            if (_hudView != null)
+            if (_rootView == null)
             {
-                _hudView.PauseRequested -= HandlePauseRequested;
+                return;
             }
 
-            if (_gameplayScreenView != null)
+            if (_rootView.HudView != null)
             {
-                _gameplayScreenView.HelpRequested -= HandleHelpRequested;
+                _rootView.HudView.PauseRequested -= HandlePauseRequested;
             }
 
-            if (_helpScreenView != null)
+            if (_rootView.GameplayScreenView != null)
             {
-                _helpScreenView.BackRequested -= HandleBackRequested;
+                _rootView.GameplayScreenView.HelpRequested -= HandleHelpRequested;
+                _rootView.GameplayScreenView.ObjectivesRequested -= HandleObjectiveStatusRequested;
             }
 
-            if (_pausePopupView != null)
+            if (_rootView.HelpScreenView != null)
             {
-                _pausePopupView.ResumeRequested -= HandleResumeRequested;
+                _rootView.HelpScreenView.BackRequested -= HandleBackRequested;
+            }
+
+            if (_rootView.PausePopupView != null)
+            {
+                _rootView.PausePopupView.ResumeRequested -= HandleResumeRequested;
+            }
+
+            if (_rootView.ObjectiveInfoPopupView != null)
+            {
+                _rootView.ObjectiveInfoPopupView.CloseRequested -= HandleBackRequested;
+            }
+
+            if (ObjectiveStatusScreenController != null)
+            {
+                ObjectiveStatusScreenController.BackRequested -= HandleBackRequested;
+                ObjectiveStatusScreenController.InfoRequested -= HandleObjectiveInfoRequested;
             }
         }
 
@@ -199,6 +234,18 @@ namespace Game.Feature.UI.Composition
             Coordinator.OpenHelpScreen();
         }
 
+        private void HandleObjectiveStatusRequested()
+        {
+            Coordinator.OpenObjectiveStatusScreen();
+        }
+
+        private void HandleObjectiveInfoRequested()
+        {
+            var content = ObjectiveStatusScreenController.BuildInfoContent();
+            _rootView.ObjectiveInfoPopupView.SetContent(content.Title, content.Body);
+            Coordinator.RequestObjectiveInfoPopup();
+        }
+
         private void HandleBackRequested()
         {
             Coordinator.HandleBackRequested();
@@ -211,15 +258,17 @@ namespace Game.Feature.UI.Composition
 
         private void SyncViews()
         {
-            if (ScreenController == null || PopupController == null)
+            if (_rootView == null || ScreenController == null || PopupController == null)
             {
                 return;
             }
 
-            _hudView.IsVisible = true;
-            _gameplayScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Gameplay;
-            _helpScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Help;
-            _pausePopupView.IsVisible = PopupController.Contains(PopupId.Pause);
+            _rootView.HudView.IsVisible = true;
+            _rootView.GameplayScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Gameplay;
+            _rootView.HelpScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Help;
+            ObjectiveStatusScreenController.SetVisible(ScreenController.CurrentScreenId == ScreenId.ObjectiveStatus);
+            _rootView.PausePopupView.IsVisible = PopupController.Contains(PopupId.Pause);
+            _rootView.ObjectiveInfoPopupView.IsVisible = PopupController.Contains(PopupId.ObjectiveInfo);
         }
     }
 }

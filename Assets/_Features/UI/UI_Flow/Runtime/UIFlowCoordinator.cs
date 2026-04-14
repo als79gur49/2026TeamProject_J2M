@@ -1,12 +1,12 @@
 using System;
-using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.UI.Application;
 
 namespace Game.Feature.UI.Flow
 {
     public sealed class UIFlowCoordinator : IDisposable
     {
         private readonly HUDController _hudController;
-        private readonly IGameplayPauseService _pauseService;
+        private readonly IUiFlowPauseService _pauseService;
         private readonly PopupController _popupController;
         private readonly ScreenController _screenController;
         private readonly UIBlockPolicy _uiBlockPolicy;
@@ -16,7 +16,7 @@ namespace Game.Feature.UI.Flow
             PopupController popupController,
             HUDController hudController,
             UIBlockPolicy uiBlockPolicy,
-            IGameplayPauseService pauseService)
+            IUiFlowPauseService pauseService)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
@@ -38,12 +38,22 @@ namespace Game.Feature.UI.Flow
 
         public bool OpenHelpScreen()
         {
-            if (_popupController.PopupCount > 0)
+            if (_popupController.PopupCount > 0 || _screenController.CurrentScreenId != ScreenId.Gameplay)
             {
                 return false;
             }
 
             return _screenController.Push(ScreenId.Help);
+        }
+
+        public bool OpenObjectiveStatusScreen()
+        {
+            if (_popupController.PopupCount > 0 || _screenController.CurrentScreenId != ScreenId.Gameplay)
+            {
+                return false;
+            }
+
+            return _screenController.Push(ScreenId.ObjectiveStatus);
         }
 
         public bool RequestPausePopup()
@@ -55,6 +65,16 @@ namespace Game.Feature.UI.Flow
 
             _pauseService.Pause();
             return true;
+        }
+
+        public bool RequestObjectiveInfoPopup()
+        {
+            if (_screenController.CurrentScreenId != ScreenId.ObjectiveStatus)
+            {
+                return false;
+            }
+
+            return _popupController.Push(new PopupEntry(PopupId.ObjectiveInfo, isModal: true));
         }
 
         public bool HandleBackRequested()
@@ -86,9 +106,10 @@ namespace Game.Feature.UI.Flow
         private void ApplyBlockSnapshot()
         {
             CurrentBlockSnapshot = _uiBlockPolicy.Evaluate(
-                _screenController.CurrentScreenId,
-                _popupController.TopPopup,
-                _popupController.PopupCount);
+                new UIFlowStateSnapshot(
+                    _screenController.CurrentScreenId,
+                    _popupController.TopPopup,
+                    _popupController.PopupCount));
             _hudController.ApplyBlockSnapshot(CurrentBlockSnapshot);
         }
 

@@ -1,13 +1,42 @@
 using System;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Popups
 {
     public sealed class PausePopupView : MonoBehaviour
     {
+        [SerializeField] private GameObject _root;
+        [SerializeField] private Text _titleLabel;
+        [SerializeField] private Text _descriptionLabel;
+        [SerializeField] private Button _resumeButton;
+
         public event Action ResumeRequested;
 
-        public bool IsVisible { get; set; }
+        public bool IsVisible
+        {
+            get => _isVisible;
+            set
+            {
+                _isVisible = value;
+                RefreshView();
+            }
+        }
+
+        private bool _isVisible;
+
+        public void Configure(GameObject root, Text titleLabel, Text descriptionLabel, Button resumeButton)
+        {
+            _root = root;
+            _titleLabel = titleLabel;
+            _descriptionLabel = descriptionLabel;
+            _resumeButton = resumeButton;
+
+            _resumeButton.onClick.RemoveListener(ClickResume);
+            _resumeButton.onClick.AddListener(ClickResume);
+
+            RefreshView();
+        }
 
         public void ClickResume()
         {
@@ -19,22 +48,22 @@ namespace Game.Feature.UI.Popups
             ResumeRequested?.Invoke();
         }
 
-        private void OnGUI()
+        private void RefreshView()
         {
-            if (!IsVisible)
+            if (_root != null)
             {
-                return;
+                _root.SetActive(IsVisible);
             }
 
-            GUILayout.BeginArea(new Rect(Screen.width * 0.5f - 120f, Screen.height * 0.5f - 70f, 240f, 140f), GUI.skin.window);
-            GUILayout.Label("Paused");
-            GUILayout.Label("Modal popup");
-            if (GUILayout.Button("Resume"))
+            if (_titleLabel != null)
             {
-                ClickResume();
+                _titleLabel.text = "Paused";
             }
 
-            GUILayout.EndArea();
+            if (_descriptionLabel != null)
+            {
+                _descriptionLabel.text = "Pausing modal popup";
+            }
         }
     }
 }

@@ -3,6 +3,17 @@ using Game.Feature.Gameplay.UIAccess.Contracts;
 
 namespace Game.Feature.UI.Application
 {
+    public interface IUiFlowPauseService
+    {
+        bool IsPaused { get; }
+
+        void Pause();
+
+        void Resume();
+
+        void Toggle();
+    }
+
     public readonly struct GameplayUiFlowPorts
     {
         public GameplayUiFlowPorts(
@@ -14,7 +25,8 @@ namespace Game.Feature.UI.Application
             CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
-            PauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            GameplayPauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            PauseService = new UiFlowPauseServiceAdapter(GameplayPauseService);
         }
 
         public IGameplayCommandGateway CommandGateway { get; }
@@ -23,6 +35,35 @@ namespace Game.Feature.UI.Application
 
         public IGameplayPresentationFeed PresentationFeed { get; }
 
-        public IGameplayPauseService PauseService { get; }
+        public IGameplayPauseService GameplayPauseService { get; }
+
+        public IUiFlowPauseService PauseService { get; }
+
+        private sealed class UiFlowPauseServiceAdapter : IUiFlowPauseService
+        {
+            private readonly IGameplayPauseService _pauseService;
+
+            public UiFlowPauseServiceAdapter(IGameplayPauseService pauseService)
+            {
+                _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            }
+
+            public bool IsPaused => _pauseService.IsPaused;
+
+            public void Pause()
+            {
+                _pauseService.Pause();
+            }
+
+            public void Resume()
+            {
+                _pauseService.Resume();
+            }
+
+            public void Toggle()
+            {
+                _pauseService.Toggle();
+            }
+        }
     }
 }
