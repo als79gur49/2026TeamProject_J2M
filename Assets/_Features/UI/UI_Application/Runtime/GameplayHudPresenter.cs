@@ -8,26 +8,16 @@ namespace Game.Feature.UI.Application
     public sealed class GameplayHudPresenter : IDisposable
     {
         private readonly IGameplayCommandGateway _commandGateway;
-        private readonly IGameplayPauseService _pauseService;
-        private readonly IGameplayPresentationFeed _presentationFeed;
-        private readonly IGameplayQueryFacade _queryFacade;
-        private GameplayUiTopology _currentTopology;
+        private readonly IGameplayUiPresentationSource _presentationSource;
 
         public GameplayHudPresenter(
-            IGameplayQueryFacade queryFacade,
             IGameplayCommandGateway commandGateway,
-            IGameplayPresentationFeed presentationFeed,
-            IGameplayPauseService pauseService)
+            IGameplayUiPresentationSource presentationSource)
         {
-            _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             _commandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
-            _presentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
-            _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
-            _currentTopology = _presentationFeed.CurrentState.CurrentTopology;
+            _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
 
-            _presentationFeed.FramePublished += HandleFramePublished;
-            _presentationFeed.StateChanged += HandlePresentationStateChanged;
-            _pauseService.PauseChanged += HandlePauseChanged;
+            _presentationSource.SnapshotChanged += HandleSnapshotChanged;
 
             Refresh();
         }
@@ -38,27 +28,24 @@ namespace Game.Feature.UI.Application
 
         public void Dispose()
         {
-            _presentationFeed.FramePublished -= HandleFramePublished;
-            _presentationFeed.StateChanged -= HandlePresentationStateChanged;
-            _pauseService.PauseChanged -= HandlePauseChanged;
+            _presentationSource.SnapshotChanged -= HandleSnapshotChanged;
         }
 
         public void Refresh()
         {
-            var session = _queryFacade.Session.Read();
-            var playerHud = _queryFacade.PlayerHud.Read();
+            var snapshot = _presentationSource.CurrentSnapshot;
 
             CurrentState = new GameplayHudState(
-                playerHud.PlayerEntityId,
-                playerHud.CurrentHp,
-                playerHud.Facing.ToString(),
-                playerHud.ActiveActionKind.ToString(),
-                _currentTopology.BottomFace.ToString(),
-                playerHud.CanMoveThisTick,
-                playerHud.CanStartActionThisTick,
-                session.IsPaused,
-                session.IsStageCleared,
-                session.CanAcceptGameplayCommands);
+                snapshot.Player.PlayerEntityId,
+                snapshot.Player.CurrentHp,
+                snapshot.Player.Facing.ToString(),
+                snapshot.Player.ActiveActionKind.ToString(),
+                snapshot.Tick.FinalTopology.BottomFace.ToString(),
+                snapshot.Player.CanMoveThisTick,
+                snapshot.Player.CanStartActionThisTick,
+                snapshot.Interaction.IsPaused,
+                snapshot.Tick.IsStageCleared,
+                snapshot.Interaction.CanAcceptGameplayCommands);
             StateChanged?.Invoke(CurrentState);
         }
 
@@ -76,28 +63,8 @@ namespace Game.Feature.UI.Application
             return MapAcceptance(acceptance);
         }
 
-        private void HandleFramePublished(GameplayPresentationFrame frame)
+        private void HandleSnapshotChanged(UIPresentationSnapshot _)
         {
-            if (frame.Topology.HasValue)
-            {
-                _currentTopology = frame.Topology.Value.DestinationTopology;
-            }
-            else
-            {
-                _currentTopology = frame.FinalTopology;
-            }
-
-            Refresh();
-        }
-
-        private void HandlePauseChanged(bool _)
-        {
-            Refresh();
-        }
-
-        private void HandlePresentationStateChanged(GameplayPresentationState state)
-        {
-            _currentTopology = state.CurrentTopology;
             Refresh();
         }
 

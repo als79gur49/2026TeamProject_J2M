@@ -19,12 +19,12 @@ namespace Game.Feature.UI.Application
         public GameplayUiFlowPorts(
             IGameplayCommandGateway commandGateway,
             IGameplayQueryFacade queryFacade,
-            IGameplayPresentationFeed presentationFeed,
+            IGameplayUiPresentationSource presentationSource,
             IGameplayPauseService pauseService)
         {
             CommandGateway = commandGateway ?? throw new ArgumentNullException(nameof(commandGateway));
             QueryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
-            PresentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
+            PresentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             GameplayPauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
             PauseService = new UiFlowPauseServiceAdapter(GameplayPauseService);
         }
@@ -33,7 +33,7 @@ namespace Game.Feature.UI.Application
 
         public IGameplayQueryFacade QueryFacade { get; }
 
-        public IGameplayPresentationFeed PresentationFeed { get; }
+        public IGameplayUiPresentationSource PresentationSource { get; }
 
         public IGameplayPauseService GameplayPauseService { get; }
 

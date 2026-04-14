@@ -22,6 +22,8 @@ namespace Game.Feature.UI.Composition
 
         public GameplayUiCanvasRootView RootView => _rootView;
 
+        public IGameplayUiPresentationSource PresentationSource { get; private set; }
+
         public ScreenController ScreenController { get; private set; }
 
         public PopupController PopupController { get; private set; }
@@ -77,7 +79,10 @@ namespace Game.Feature.UI.Composition
             Install(new GameplayUiFlowPorts(
                 sceneHost.UiAccess.CommandGateway,
                 sceneHost.UiAccess.QueryFacade,
-                sceneHost.UiAccess.PresentationFeed,
+                new GameplayUiPresentationSource(
+                    sceneHost.UiAccess.QueryFacade,
+                    sceneHost.UiAccess.PresentationFeed,
+                    sceneHost.UiAccess.PauseService),
                 sceneHost.UiAccess.PauseService));
 
             _sceneHost = null;
@@ -92,16 +97,14 @@ namespace Game.Feature.UI.Composition
 
             Ports = ports;
             EnsureRootView();
+            PresentationSource = Ports.PresentationSource;
 
             var hudPresenter = new GameplayHudPresenter(
-                Ports.QueryFacade,
                 Ports.CommandGateway,
-                Ports.PresentationFeed,
-                Ports.GameplayPauseService);
+                PresentationSource);
             var objectivePresenter = new ObjectiveStatusPresenter(
                 Ports.QueryFacade,
-                Ports.PresentationFeed,
-                Ports.GameplayPauseService);
+                PresentationSource);
 
             ScreenController = new ScreenController();
             PopupController = new PopupController();
@@ -132,6 +135,7 @@ namespace Game.Feature.UI.Composition
             Coordinator?.Dispose();
             HudController?.Dispose();
             ObjectiveStatusScreenController?.Dispose();
+            (PresentationSource as IDisposable)?.Dispose();
         }
 
         private void EnsureRootView()
@@ -262,6 +266,10 @@ namespace Game.Feature.UI.Composition
             {
                 return;
             }
+
+            PresentationSource?.UpdateUiGameplayInputBlocked(
+                Coordinator != null &&
+                Coordinator.CurrentBlockSnapshot.BlocksHudInteraction);
 
             _rootView.HudView.IsVisible = true;
             _rootView.GameplayScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Gameplay;

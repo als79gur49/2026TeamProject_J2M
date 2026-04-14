@@ -1,28 +1,22 @@
 using System;
 using Game.Feature.Gameplay.UIAccess.Contracts;
-using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Application
 {
     public sealed class ObjectiveStatusPresenter : IDisposable
     {
-        private readonly IGameplayPauseService _pauseService;
-        private readonly IGameplayPresentationFeed _presentationFeed;
+        private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly IGameplayQueryFacade _queryFacade;
 
         public ObjectiveStatusPresenter(
             IGameplayQueryFacade queryFacade,
-            IGameplayPresentationFeed presentationFeed,
-            IGameplayPauseService pauseService)
+            IGameplayUiPresentationSource presentationSource)
         {
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
-            _presentationFeed = presentationFeed ?? throw new ArgumentNullException(nameof(presentationFeed));
-            _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
+            _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
 
-            _presentationFeed.FramePublished += HandleRefreshSignal;
-            _presentationFeed.StateChanged += HandleRefreshSignal;
-            _pauseService.PauseChanged += HandlePauseChanged;
+            _presentationSource.SnapshotChanged += HandleSnapshotChanged;
 
             Refresh();
         }
@@ -33,9 +27,7 @@ namespace Game.Feature.UI.Application
 
         public void Dispose()
         {
-            _presentationFeed.FramePublished -= HandleRefreshSignal;
-            _presentationFeed.StateChanged -= HandleRefreshSignal;
-            _pauseService.PauseChanged -= HandlePauseChanged;
+            _presentationSource.SnapshotChanged -= HandleSnapshotChanged;
         }
 
         public void Refresh()
@@ -55,17 +47,7 @@ namespace Game.Feature.UI.Application
             StateChanged?.Invoke(CurrentState);
         }
 
-        private void HandlePauseChanged(bool _)
-        {
-            Refresh();
-        }
-
-        private void HandleRefreshSignal(GameplayPresentationFrame _)
-        {
-            Refresh();
-        }
-
-        private void HandleRefreshSignal(GameplayPresentationState _)
+        private void HandleSnapshotChanged(UIPresentationSnapshot _)
         {
             Refresh();
         }
