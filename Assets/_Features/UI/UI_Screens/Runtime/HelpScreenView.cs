@@ -57,12 +57,12 @@ namespace Game.Feature.UI.Screens
 
             if (_titleLabel != null)
             {
-                _titleLabel.text = "Help Screen";
+                _titleLabel.text = "Help & Controls";
             }
 
             if (_descriptionLabel != null)
             {
-                _descriptionLabel.text = "Flow validation screen";
+                _descriptionLabel.text = "Use Move Up to advance, Flip Right to rotate, Objectives to review stage status, and Back to return to gameplay.";
             }
         }
     }
