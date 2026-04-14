@@ -1,5 +1,9 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 > Non-canonical implementation-history document.
-> Current canonical contract is [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md).
+> Current canonical contract is [Tick-Simulation-Canonical-Spec.md](../../Architecture/Tick-Simulation-Canonical-Spec.md).
 
 # Deterministic Tick Simulation Implementation Plan
 

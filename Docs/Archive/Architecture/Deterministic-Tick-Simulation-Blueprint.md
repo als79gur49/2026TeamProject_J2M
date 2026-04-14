@@ -1,7 +1,11 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 > Non-canonical historical document.
-> Canonical current spec: [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
-> Gameplay rules appendix: [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
-> Boundary/IR ADR: [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
+> Canonical current spec: [Tick-Simulation-Canonical-Spec.md](../../Architecture/Tick-Simulation-Canonical-Spec.md)
+> Gameplay rules appendix: [Gameplay-Rules-Appendix.md](../../Architecture/Gameplay-Rules-Appendix.md)
+> Boundary/IR ADR: [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](../../Architecture/ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
 
 # Deterministic Tick Simulation Blueprint
 

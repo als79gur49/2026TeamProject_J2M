@@ -1,3 +1,7 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 # Gameplay Legacy Removal Plan
 
 ## 1. 목적

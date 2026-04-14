@@ -1,7 +1,11 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 # AI Hybrid Structure Rules
 
-이 파일은 AI가 이 Unity 프로젝트의 폴더 구조와 배치 규칙을 일관되게 따르기 위한 운영 규칙이다.  
-새 세션의 AI는 이 문서를 우선 읽고, 아래 규칙을 깨지 않는 방식으로 폴더와 파일을 생성해야 한다.
+이 파일은 과거 폴더 구조와 배치 규칙을 기록한 historical snapshot이다.  
+현재 gameplay truth-source나 active architecture entrypoint가 아니며, 새 작업은 [Docs/Architecture/README.md](../../Architecture/README.md)를 먼저 따라야 한다.
 
 ## 1. 프로젝트 전제
 

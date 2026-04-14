@@ -1,5 +1,9 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 > Non-canonical rulebook snapshot.
-> Current gameplay rule text lives in [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md).
+> Current gameplay rule text lives in [Gameplay-Rules-Appendix.md](../../Architecture/Gameplay-Rules-Appendix.md).
 
 # Box Impact / Flip / Jump Rulebook
 

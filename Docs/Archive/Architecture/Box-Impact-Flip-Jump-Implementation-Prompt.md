@@ -1,3 +1,7 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 # Implementation Prompt: Box Impact / Flip Failure / Enemy Jump
 
 아래 프롬프트는 현재 `Assets/_Features/Gameplay` 코드베이스에 `Push / Sliding Push / Flip`의 enemy impact 규칙과 `Enemy Jump` 상호작용 규칙을 구현하기 위한 작업 지시문이다.

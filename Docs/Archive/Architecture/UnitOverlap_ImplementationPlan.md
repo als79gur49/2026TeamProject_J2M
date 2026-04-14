@@ -1,5 +1,9 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 > Non-canonical implementation-history document.
-> Layered occupancy and query vocabulary now follow [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md).
+> Layered occupancy and query vocabulary now follow [Tick-Simulation-Canonical-Spec.md](../../Architecture/Tick-Simulation-Canonical-Spec.md).
 
 # Unit Overlap Implementation Plan
 

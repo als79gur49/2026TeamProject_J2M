@@ -1,5 +1,5 @@
-> Non-canonical governance guide.
-> Canonical architecture and gameplay behavior references are [Docs/Architecture/Tick-Simulation-Canonical-Spec.md](../Architecture/Tick-Simulation-Canonical-Spec.md) and [Docs/Architecture/Gameplay-Rules-Appendix.md](../Architecture/Gameplay-Rules-Appendix.md).
+> Operational guide.
+> Canonical architecture and gameplay behavior references start at [Docs/Architecture/README.md](../Architecture/README.md), with [Docs/Architecture/Tick-Simulation-Canonical-Spec.md](../Architecture/Tick-Simulation-Canonical-Spec.md) and [Docs/Architecture/Gameplay-Rules-Appendix.md](../Architecture/Gameplay-Rules-Appendix.md) as the active spec/rules source.
 
 # Gameplay Test Automation Guide / 게임플레이 테스트 자동화 가이드
 
@@ -206,8 +206,8 @@ WSL CLI
   - 테스트 배치 경계
   - Core purity 규칙
   - Integration 밖에 놓인 execution-based test
-  - persisted manifest/source 일관성
-  - PlayMode Core cap 동작
+  - source category / override inventory 일관성
+  - PlayMode Core category count / cap
 - active truth-source:
   - `./run_tests.sh core`
   - `./run_tests.sh full`
@@ -218,10 +218,12 @@ WSL CLI
   - `Tools/gameplay_test_stratification_lib.py`
 - 규칙 소비 위치:
   - `Tools/check_gameplay_test_stratification.py`
-  - `Tools/generate_gameplay_test_stratification.py`
-  - `run_tests.sh`
+  - `Tools/generate_gameplay_test_stratification.py --check`
+- runner integration:
+  - `run_tests.sh`는 checker를 실행하지만 `gameplay_test_stratification_lib.py`를 직접 import하지 않는다.
+  - `TestRunnerCliBootstrap`의 Core PlayMode selection은 persisted manifest가 아니라 `assemblyNames + categoryNames("Core")`를 사용한다.
 - historical/non-canonical:
-  - `Docs/Architecture/Gameplay-Test-Stratification.md`
+  - [Docs/Archive/Architecture/Gameplay-Test-Stratification.md](../Archive/Architecture/Gameplay-Test-Stratification.md)
 - 모드:
   - 로컬 기본값: `soft`
   - CI 기본값: `strict`
@@ -232,8 +234,8 @@ WSL CLI
   - test placement boundaries
   - Core purity rules
   - execution-based tests outside Integration
-  - persisted manifest/source consistency
-  - PlayMode Core cap behavior
+  - source category / override inventory consistency
+  - PlayMode Core category count / cap
 - active truth sources:
   - `./run_tests.sh core`
   - `./run_tests.sh full`
@@ -244,10 +246,12 @@ WSL CLI
   - `Tools/gameplay_test_stratification_lib.py`
 - Rule consumers:
   - `Tools/check_gameplay_test_stratification.py`
-  - `Tools/generate_gameplay_test_stratification.py`
-  - `run_tests.sh`
+  - `Tools/generate_gameplay_test_stratification.py --check`
+- Runner integration:
+  - `run_tests.sh` invokes the checker but no longer imports `gameplay_test_stratification_lib.py` directly.
+  - `TestRunnerCliBootstrap` now uses `assemblyNames + categoryNames("Core")` for Core PlayMode selection instead of a persisted manifest.
 - Historical/non-canonical:
-  - `Docs/Architecture/Gameplay-Test-Stratification.md`
+  - [Docs/Archive/Architecture/Gameplay-Test-Stratification.md](../Archive/Architecture/Gameplay-Test-Stratification.md)
 - Modes:
   - local default: `soft`
   - CI default: `strict`

@@ -1,5 +1,9 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 > Non-canonical target blueprint.
-> Canonical current behavior and boundaries are documented in [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md).
+> Canonical current behavior and boundaries are documented in [Tick-Simulation-Canonical-Spec.md](../../Architecture/Tick-Simulation-Canonical-Spec.md).
 
 # Tick Pipeline Full Model Blueprint
 

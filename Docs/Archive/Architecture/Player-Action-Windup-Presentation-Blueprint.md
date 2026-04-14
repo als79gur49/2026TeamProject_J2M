@@ -1,5 +1,9 @@
+> Archived historical document.
+> This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Archive index: [Docs/Archive/README.md](../README.md).
+
 > Non-canonical historical blueprint.
-> Canonical action runtime and presentation boundary are documented in [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md) and [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md).
+> Canonical action runtime and presentation boundary are documented in [Tick-Simulation-Canonical-Spec.md](../../Architecture/Tick-Simulation-Canonical-Spec.md) and [Gameplay-Rules-Appendix.md](../../Architecture/Gameplay-Rules-Appendix.md).
 
 # Player Action Wind-up Presentation Blueprint
 
