@@ -70,6 +70,11 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickViewPresenter : MonoBehaviour
     {
         private readonly GameplayTickPresentationCoordinator _presentationCoordinator = new();
+        private bool _hasObservedPresentationState;
+        private bool _lastHasBlockingPresentation;
+        private bool _lastIsPresentationActive;
+        private bool _lastIsTopologyTransitionActive;
+        private CubeTopologyState _lastObservedTopology;
         private TopologyTransitionPostFxController _topologyTransitionPostFxController;
         private CinemachineBrain _viewCameraBrain;
         private GameplayCameraRig _viewCameraRig;
@@ -79,6 +84,8 @@ namespace Game.Feature.Gameplay.Host
             add => _presentationCoordinator.TopologyCommitted += value;
             remove => _presentationCoordinator.TopologyCommitted -= value;
         }
+
+        public event System.Action PresentationStateChanged;
 
         public CubeTopologyState CurrentTopology => _presentationCoordinator.CurrentTopology;
 
@@ -124,16 +131,19 @@ namespace Game.Feature.Gameplay.Host
                 topologyRotationVisualMapping,
                 topologyRotationTweenSettings,
                 faceSeamGap);
+            CapturePresentationState();
         }
 
         public void Present(TickResult result)
         {
             _presentationCoordinator.Present(result);
+            NotifyPresentationStateChangedIfNeeded();
         }
 
         public void PresentInitial(IReadOnlyList<EntityState> entities, CubeTopologyState topology)
         {
             _presentationCoordinator.PresentInitial(entities, topology);
+            CapturePresentationState();
         }
 
         public void AttachCameraRig(GameplayCameraRig viewCameraRig)
@@ -171,6 +181,7 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.UpdatePresentation(deltaTime);
             SyncViewCameraRuntime();
             RefreshTopologyTransitionPostFx();
+            NotifyPresentationStateChangedIfNeeded();
         }
 
         private void RefreshTopologyTransitionPostFx()
@@ -199,6 +210,43 @@ namespace Game.Feature.Gameplay.Host
             {
                 UpdatePresentation(Time.deltaTime);
             }
+        }
+
+        private void CapturePresentationState()
+        {
+            _lastObservedTopology = _presentationCoordinator.CurrentTopology;
+            _lastIsPresentationActive = _presentationCoordinator.IsPresentationActive;
+            _lastHasBlockingPresentation = _presentationCoordinator.HasBlockingPresentation;
+            _lastIsTopologyTransitionActive = _presentationCoordinator.IsTopologyTransitionActive;
+            _hasObservedPresentationState = true;
+        }
+
+        private void NotifyPresentationStateChangedIfNeeded()
+        {
+            if (!_hasObservedPresentationState)
+            {
+                CapturePresentationState();
+                return;
+            }
+
+            var currentTopology = _presentationCoordinator.CurrentTopology;
+            var isPresentationActive = _presentationCoordinator.IsPresentationActive;
+            var hasBlockingPresentation = _presentationCoordinator.HasBlockingPresentation;
+            var isTopologyTransitionActive = _presentationCoordinator.IsTopologyTransitionActive;
+
+            if (currentTopology.Equals(_lastObservedTopology) &&
+                isPresentationActive == _lastIsPresentationActive &&
+                hasBlockingPresentation == _lastHasBlockingPresentation &&
+                isTopologyTransitionActive == _lastIsTopologyTransitionActive)
+            {
+                return;
+            }
+
+            _lastObservedTopology = currentTopology;
+            _lastIsPresentationActive = isPresentationActive;
+            _lastHasBlockingPresentation = hasBlockingPresentation;
+            _lastIsTopologyTransitionActive = isTopologyTransitionActive;
+            PresentationStateChanged?.Invoke();
         }
     }
 }

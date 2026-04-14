@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Host",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.UIAccess",
     "Game.Feature.Stages",
     "Unity.InputSystem",
     "Unity.Cinemachine",

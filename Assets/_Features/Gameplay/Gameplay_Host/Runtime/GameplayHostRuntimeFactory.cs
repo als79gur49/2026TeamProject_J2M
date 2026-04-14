@@ -2,9 +2,11 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
+using Game.Feature.Gameplay.Host.UIAccess;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.UIAccess.Queries;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -149,6 +151,17 @@ namespace Game.Feature.Gameplay.Host
                 configuration.AutoAdvanceTicks);
             clearOverlay.Initialize(host, inputHost);
 
+            var pauseService = new GameplayHostPauseService(inputHost);
+            var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, inputHost, presenter, pauseService);
+            var uiAccess = new GameplayHostUiAccessContext(
+                new GameplayHostCommandGateway(inputHost, admissionPolicy),
+                new GameplayQueryFacade(
+                    new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
+                    new GameplayHostPlayerHudQuery(tickRunner, inputHost, admissionPolicy),
+                    new GameplayHostObjectiveQuery(tickRunner)),
+                new GameplayHostPresentationFeed(inputHost, presenter),
+                pauseService);
+
             return new GameplayHostRuntimeContext(
                 boardRoot,
                 boardSurfaceRenderer,
@@ -163,7 +176,8 @@ namespace Game.Feature.Gameplay.Host
                 configuration.ObjectiveRuntimeDefinition,
                 viewCamera,
                 viewCameraRig,
-                presentedInitialEntities);
+                presentedInitialEntities,
+                uiAccess);
         }
 
         private static IReadOnlyDictionary<int, GameplayEntityView> BuildEnemyViewPrefabs(

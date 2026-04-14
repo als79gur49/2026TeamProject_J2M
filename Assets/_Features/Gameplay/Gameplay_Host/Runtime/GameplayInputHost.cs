@@ -16,7 +16,9 @@ namespace Game.Feature.Gameplay.Host
         private bool _areActionsBound;
         private bool _autoAdvanceTicks;
         private bool _hasBufferedFlip;
+        private bool _hasPendingUiCommandOverride;
         private bool _isInitialized;
+        private bool _isSimulationPaused;
         private TickInputBuffer _inputBuffer;
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
@@ -24,16 +26,22 @@ namespace Game.Feature.Gameplay.Host
         private PlayerMoveIntentBuffer _moveIntentBuffer;
         private float _moveDeadzone;
         private int _playerEntityId;
+        private PlayerTickCommand _pendingUiCommandOverride;
         private GameplayTickViewPresenter _presenter;
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
+        private Direction _uiHeldMoveDirection;
 
         public event Action<TickResult> TickCompleted;
 
         public event Action<StageObjectiveTickResult> ObjectiveResultUpdated;
 
         public event Action StageCleared;
+
+        internal int PlayerEntityId => _playerEntityId;
+
+        internal bool IsSimulationPaused => _isSimulationPaused;
 
         public void Initialize(
             TickInputBuffer inputBuffer,
@@ -86,7 +94,11 @@ namespace Game.Feature.Gameplay.Host
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
             _hasBufferedFlip = false;
+            _hasPendingUiCommandOverride = false;
+            _pendingUiCommandOverride = default;
             _sampledMoveInput = Vector2.zero;
+            _uiHeldMoveDirection = Direction.None;
+            _isSimulationPaused = false;
             _isInitialized = true;
 
             BindActions();
@@ -99,6 +111,11 @@ namespace Game.Feature.Gameplay.Host
             if (deltaTime < 0f)
             {
                 throw new ArgumentOutOfRangeException(nameof(deltaTime), "Delta time must be zero or greater.");
+            }
+
+            if (_isSimulationPaused)
+            {
+                return 0;
             }
 
             if (IsPresentationLocked())
@@ -142,7 +159,7 @@ namespace Game.Feature.Gameplay.Host
         public TickResult RunSingleTick()
         {
             EnsureInitialized();
-            if (IsPresentationLocked())
+            if (_isSimulationPaused || IsPresentationLocked())
             {
                 return null;
             }
@@ -176,6 +193,12 @@ namespace Game.Feature.Gameplay.Host
             _autoAdvanceTicks = autoAdvanceTicks;
         }
 
+        internal void SetSimulationPaused(bool isSimulationPaused)
+        {
+            EnsureInitialized();
+            _isSimulationPaused = isSimulationPaused;
+        }
+
         public void SetRawMoveInput(Vector2 rawMoveInput)
         {
             _sampledMoveInput = rawMoveInput;
@@ -188,6 +211,45 @@ namespace Game.Feature.Gameplay.Host
         {
             EnsureInitialized();
             _hasBufferedFlip = true;
+        }
+
+        internal void SetUiHeldMoveDirection(Direction direction)
+        {
+            EnsureInitialized();
+
+            if (!IsOrthogonalDirection(direction))
+            {
+                throw new ArgumentOutOfRangeException(nameof(direction), direction, "UI-held move directions must be orthogonal.");
+            }
+
+            _uiHeldMoveDirection = direction;
+        }
+
+        internal void ClearUiHeldMoveDirection()
+        {
+            EnsureInitialized();
+            _uiHeldMoveDirection = Direction.None;
+        }
+
+        internal void BufferUiFlip(Direction direction)
+        {
+            EnsureInitialized();
+
+            if (!IsOrthogonalDirection(direction))
+            {
+                throw new ArgumentOutOfRangeException(nameof(direction), direction, "Buffered UI flip directions must be orthogonal.");
+            }
+
+            _pendingUiCommandOverride = PlayerTickCommand.Flip(direction);
+            _hasPendingUiCommandOverride = true;
+        }
+
+        internal void ClearPendingUiInput()
+        {
+            EnsureInitialized();
+            _uiHeldMoveDirection = Direction.None;
+            _pendingUiCommandOverride = default;
+            _hasPendingUiCommandOverride = false;
         }
 
         private void Update()
@@ -296,6 +358,9 @@ namespace Game.Feature.Gameplay.Host
 
             _areActionsBound = false;
             _hasBufferedFlip = false;
+            _hasPendingUiCommandOverride = false;
+            _pendingUiCommandOverride = default;
+            _uiHeldMoveDirection = Direction.None;
             _sampledMoveInput = Vector2.zero;
             _moveIntentBuffer?.Reset();
         }
@@ -318,12 +383,32 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand BuildPlayerCommand()
         {
+            if (_hasPendingUiCommandOverride)
+            {
+                var uiCommandOverride = _pendingUiCommandOverride;
+                _pendingUiCommandOverride = default;
+                _hasPendingUiCommandOverride = false;
+                return uiCommandOverride;
+            }
+
             var now = ResolveCurrentInputTime();
             var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
 
-            var resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out var usesBufferedDirection);
+            var resolvedDirection = Direction.None;
+            var usesBufferedDirection = false;
+
+            if (_uiHeldMoveDirection != Direction.None)
+            {
+                resolvedDirection = _uiHeldMoveDirection;
+            }
+            else
+            {
+                resolvedDirection = _moveIntentBuffer.ResolveDirection(now, out usesBufferedDirection);
+            }
+
             var flipPressed = _hasBufferedFlip || (_flipAction != null && _flipAction.IsPressed());
+
             _hasBufferedFlip = false;
 
             if (resolvedDirection == Direction.None)
@@ -379,6 +464,14 @@ namespace Game.Feature.Gameplay.Host
         private static float ResolveCurrentInputTime()
         {
             return Time.unscaledTime;
+        }
+
+        private static bool IsOrthogonalDirection(Direction direction)
+        {
+            return direction == Direction.Up ||
+                   direction == Direction.Right ||
+                   direction == Direction.Down ||
+                   direction == Direction.Left;
         }
     }
 

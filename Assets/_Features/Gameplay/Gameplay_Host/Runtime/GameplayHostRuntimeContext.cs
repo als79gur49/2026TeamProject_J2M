@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.Host.UIAccess;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -22,7 +23,8 @@ namespace Game.Feature.Gameplay.Host
             StageObjectiveRuntimeDefinition objectiveDefinition,
             Camera viewCamera,
             GameplayCameraRig viewCameraRig,
-            IReadOnlyList<EntityState> presentedInitialEntities)
+            IReadOnlyList<EntityState> presentedInitialEntities,
+            GameplayHostUiAccessContext uiAccess)
         {
             BoardRoot = boardRoot;
             BoardSurfaceRenderer = boardSurfaceRenderer;
@@ -38,6 +40,7 @@ namespace Game.Feature.Gameplay.Host
             ViewCamera = viewCamera;
             ViewCameraRig = viewCameraRig;
             PresentedInitialEntities = presentedInitialEntities;
+            UiAccess = uiAccess;
         }
 
         public GameplayBoardRoot BoardRoot { get; }
@@ -67,5 +70,7 @@ namespace Game.Feature.Gameplay.Host
         public WorldState WorldState { get; }
 
         public StageObjectiveRuntimeDefinition ObjectiveDefinition { get; }
+
+        public GameplayHostUiAccessContext UiAccess { get; }
     }
 }

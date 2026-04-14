@@ -1,6 +1,7 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.Host.UIAccess;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -29,6 +30,8 @@ namespace Game.Feature.Gameplay.Host
 
         public WorldState WorldState => _runtime?.WorldState;
 
+        public GameplayHostUiAccessContext UiAccess => _runtime?.UiAccess;
+
         public StageObjectiveRuntimeDefinition ObjectiveDefinition => _runtime?.ObjectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
 
         public StageObjectiveTickResult CurrentObjectiveResult => TickRunner?.CurrentObjectiveResult ?? StageObjectiveTickResult.NoObjective;
@@ -36,6 +39,11 @@ namespace Game.Feature.Gameplay.Host
         public void Initialize(GameplaySceneHostConfiguration configuration)
         {
             _runtime = GameplayHostRuntimeFactory.Create(this, configuration);
+        }
+
+        private void OnDestroy()
+        {
+            _runtime?.UiAccess?.Dispose();
         }
     }
 }
