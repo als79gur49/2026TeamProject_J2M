@@ -1,0 +1,9 @@
+{
+  "name": "Game.Feature.UI.Application",
+  "rootNamespace": "Game.Feature.UI.Application",
+  "references": [
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.UI.HUD"
+  ]
+}

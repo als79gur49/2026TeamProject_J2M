@@ -2,8 +2,9 @@ using System;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.UI.HUD;
 
-namespace Game.Feature.UI.HUD
+namespace Game.Feature.UI.Application
 {
     public sealed class GameplayHudPresenter : IDisposable
     {
@@ -25,10 +26,11 @@ namespace Game.Feature.UI.HUD
 
             ViewModel = new GameplayHudViewModel();
             _presentationFeed.FramePublished += HandleFramePublished;
+            _presentationFeed.StateChanged += HandlePresentationStateChanged;
             _pauseService.PauseChanged += HandlePauseChanged;
 
             Refresh();
-            ViewModel.CurrentTopology = _presentationFeed.CurrentState.CurrentTopology;
+            ViewModel.SetCurrentTopology(_presentationFeed.CurrentState.CurrentTopology);
         }
 
         public GameplayHudViewModel ViewModel { get; }
@@ -36,6 +38,7 @@ namespace Game.Feature.UI.HUD
         public void Dispose()
         {
             _presentationFeed.FramePublished -= HandleFramePublished;
+            _presentationFeed.StateChanged -= HandlePresentationStateChanged;
             _pauseService.PauseChanged -= HandlePauseChanged;
         }
 
@@ -44,39 +47,26 @@ namespace Game.Feature.UI.HUD
             var session = _queryFacade.Session.Read();
             var playerHud = _queryFacade.PlayerHud.Read();
 
-            ViewModel.PlayerEntityId = playerHud.PlayerEntityId;
-            ViewModel.CurrentHp = playerHud.CurrentHp;
-            ViewModel.Facing = playerHud.Facing;
-            ViewModel.ActiveActionKind = playerHud.ActiveActionKind;
-            ViewModel.CanMoveThisTick = playerHud.CanMoveThisTick;
-            ViewModel.CanStartActionThisTick = playerHud.CanStartActionThisTick;
-            ViewModel.IsPaused = session.IsPaused;
-            ViewModel.IsStageCleared = session.IsStageCleared;
+            ViewModel.ApplyGameplayState(session, playerHud);
         }
 
         public GameplayCommandAcceptance SetHeldMoveDirection(Direction direction)
         {
-            return ApplyCommandAcceptance(_commandGateway.SetHeldMoveDirection(direction));
+            var acceptance = _commandGateway.SetHeldMoveDirection(direction);
+            Refresh();
+            return acceptance;
         }
 
         public GameplayCommandAcceptance ClearHeldMoveDirection()
         {
-            return ApplyCommandAcceptance(_commandGateway.ClearHeldMoveDirection());
+            var acceptance = _commandGateway.ClearHeldMoveDirection();
+            Refresh();
+            return acceptance;
         }
 
         public GameplayCommandAcceptance RequestFlip(Direction direction)
         {
-            return ApplyCommandAcceptance(_commandGateway.RequestFlip(direction));
-        }
-
-        public void TogglePause()
-        {
-            _pauseService.Toggle();
-        }
-
-        private GameplayCommandAcceptance ApplyCommandAcceptance(GameplayCommandAcceptance acceptance)
-        {
-            ViewModel.LastCommandAcceptance = acceptance;
+            var acceptance = _commandGateway.RequestFlip(direction);
             Refresh();
             return acceptance;
         }
@@ -85,16 +75,24 @@ namespace Game.Feature.UI.HUD
         {
             if (frame.Topology.HasValue)
             {
-                ViewModel.CurrentTopology = frame.Topology.Value.DestinationTopology;
-                return;
+                ViewModel.SetCurrentTopology(frame.Topology.Value.DestinationTopology);
+            }
+            else
+            {
+                ViewModel.SetCurrentTopology(frame.FinalTopology);
             }
 
-            ViewModel.CurrentTopology = frame.FinalTopology;
+            Refresh();
         }
 
         private void HandlePauseChanged(bool _)
         {
             Refresh();
+        }
+
+        private void HandlePresentationStateChanged(GameplayPresentationState state)
+        {
+            ViewModel.SetCurrentTopology(state.CurrentTopology);
         }
     }
 }
