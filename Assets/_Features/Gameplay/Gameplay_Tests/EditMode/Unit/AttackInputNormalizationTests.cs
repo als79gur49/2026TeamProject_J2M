@@ -116,7 +116,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 MovementPhaseResult.Empty,
                 snapshot,
                 attackPhaseResult,
-                CleanupPhaseResult.Empty,
+                CleanupFixtureFactory.None(),
                 snapshot,
                 new TickResultData(finalEntities, Array.Empty<DelayedAttackEffectRecord>(), Array.Empty<string>()),
                 "0123456789ABCDEF");

@@ -152,7 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(enemyAfterCancelTick.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(enemyAfterCancelTick.aiStateTimer, Is.Zero);
             Assert.That(actionStateAfterCancelTick.IsActive, Is.False);
-            Assert.That(cancelTick.CleanupPhaseResult.RemovedEntityIds, Does.Contain(10));
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(cancelTick.EventLog), Does.Contain(10));
             Assert.That(cancelSignal.EntityId, Is.EqualTo(40));
             Assert.That(cancelSignal.ActiveActionKind, Is.EqualTo(EnemyActionKind.None));
             Assert.That(cancelSignal.StartedThisTick, Is.False);
@@ -254,7 +254,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .Where(record => record.Accepted)
                     .Select(record => (record.SourceId, record.TargetId))
                     .ToArray());
-            CollectionAssert.AreEqual(new[] { 40 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 40 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out _), Is.False);
             Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(2));
             Assert.That(result.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));

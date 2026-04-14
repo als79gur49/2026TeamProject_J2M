@@ -843,7 +843,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             CreatePlayerUnit(10, destinationCell),
@@ -960,7 +959,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -1050,7 +1048,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             CreatePlayerUnit(10, playerCell, hp: 2),
@@ -1130,7 +1127,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -1221,7 +1217,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             CreatePlayerUnit(10, sourceCell),
@@ -1258,7 +1253,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             CreatePlayerUnit(10, sourceCell),
@@ -1435,7 +1429,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -1474,7 +1467,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             CreatePlayerUnit(10, spawnCell),
@@ -2404,7 +2396,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty,
                 finalEntities,
                 Array.Empty<string>(),
                 topology,

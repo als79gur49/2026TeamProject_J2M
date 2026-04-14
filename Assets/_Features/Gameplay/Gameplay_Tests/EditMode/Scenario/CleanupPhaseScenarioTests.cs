@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(5));
             var afterSnapshot = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.False);
             Assert.That(afterSnapshot.TryGetUnitTraversalBlocker(new SurfaceCell(FaceId.Floor, 1, 0), out _), Is.False);
         }
@@ -63,7 +63,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var afterSnapshot = CreateSnapshot(worldState);
             var afterUnits = new List<EntityState>();
 
-            Assert.That(result.CleanupPhaseResult.RemovedEntityIds, Is.Empty);
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog), Is.Empty);
             Assert.That(afterSnapshot.TryGetEntity(10, out var entityAfter), Is.True);
             Assert.That(entityAfter.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
             afterSnapshot.EnumerateUnitsAt(new SurfaceCell(FaceId.Floor, 1, 0), afterUnits);
@@ -84,7 +84,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(7));
             var afterSnapshot = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(afterSnapshot.TryGetEntity(10, out _), Is.False);
         }
 
@@ -106,7 +106,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var respawnTick = pipeline.RunTick(new TickInput(21));
             var afterRespawnSnapshot = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(new[] { 10 }, deathTick.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog));
             Assert.That(deathTick.EventLog, Has.None.EqualTo("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=20"));
             Assert.That(afterDeathSnapshot.TryGetEntity(10, out _), Is.False);
 
@@ -156,7 +156,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var respawnTick = pipeline.RunTick(new TickInput(53));
             var finalSnapshot = CreateSnapshot(worldState);
 
-            Assert.That(deathTick.CleanupPhaseResult.RemovedEntityIds, Has.Member(10));
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
             Assert.That(waitingTickOne.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
             Assert.That(waitingTickTwo.EventLog, Has.None.StartWith("RespawnCommitted|E=10|"));
             Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(1,1)|Face=Floor|Facing=Right|Tick=53"));
@@ -182,7 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var blockedRespawnTick = pipeline.RunTick(new TickInput(31));
             var blockedSnapshot = CreateSnapshot(worldState);
 
-            Assert.That(deathTick.CleanupPhaseResult.RemovedEntityIds, Has.Member(10));
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
             Assert.That(blockedRespawnTick.EventLog, Does.Contain("RespawnSkipped|E=10|Pos=(0,0)|Face=Floor|Tick=31|Reason=Entity|BlockerEntity=90|BlockerType=None"));
             Assert.That(blockedSnapshot.TryGetEntity(10, out _), Is.False);
 
@@ -298,7 +298,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(11));
             var afterSnapshot = CreateSnapshot(worldState);
 
-            Assert.That(result.CleanupPhaseResult.TimerChanges, Is.Empty);
+            Assert.That(SemanticEventAssertions.FilterEvents(result.EventLog, "TimerTicked"), Is.Empty);
             Assert.That(GetEntityState(afterSnapshot, 10).stateTimer, Is.EqualTo(2));
             Assert.That(GetEntityState(afterSnapshot, 10).state, Is.EqualTo(EntityPhaseState.Cooldown));
         }
@@ -329,13 +329,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(12));
             var afterSnapshot = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             CollectionAssert.AreEqual(
                 new[]
                 {
                     "TimerTicked|E=10|State=Cooldown|From=3|To=2",
                 },
-                result.CleanupPhaseResult.TimerChanges);
+                SemanticEventAssertions.FilterEvents(result.EventLog, "TimerTicked"));
             Assert.That(afterSnapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(GetEntityState(afterSnapshot, 10).stateTimer, Is.EqualTo(2));
         }
@@ -364,13 +364,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     "TimerTicked|E=10|State=Cooldown|From=1|To=0",
                 },
-                result.CleanupPhaseResult.TimerChanges);
+                SemanticEventAssertions.FilterEvents(result.EventLog, "TimerTicked"));
             CollectionAssert.AreEqual(
                 new[]
                 {
                     "StateTransitioned|E=10|From=Cooldown|To=Idle|Timer=0",
                 },
-                result.CleanupPhaseResult.StateTransitions);
+                SemanticEventAssertions.FilterEvents(result.EventLog, "StateTransitioned"));
             Assert.That(GetEntityState(afterSnapshot, 10).stateTimer, Is.EqualTo(0));
             Assert.That(GetEntityState(afterSnapshot, 10).state, Is.EqualTo(EntityPhaseState.Idle));
         }
@@ -399,8 +399,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     "TimerTicked|E=10|State=Sliding|From=1|To=0",
                 },
-                result.CleanupPhaseResult.TimerChanges);
-            Assert.That(result.CleanupPhaseResult.StateTransitions, Is.Empty);
+                SemanticEventAssertions.FilterEvents(result.EventLog, "TimerTicked"));
+            Assert.That(SemanticEventAssertions.FilterEvents(result.EventLog, "StateTransitioned"), Is.Empty);
             Assert.That(GetEntityState(afterSnapshot, 10).stateTimer, Is.EqualTo(0));
             Assert.That(GetEntityState(afterSnapshot, 10).state, Is.EqualTo(EntityPhaseState.Sliding));
         }
@@ -412,9 +412,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var firstRun = RunDeterministicCleanupTick();
             var secondRun = RunDeterministicCleanupTick();
 
-            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.RemovedEntityIds, secondRun.Result.CleanupPhaseResult.RemovedEntityIds);
-            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.TimerChanges, secondRun.Result.CleanupPhaseResult.TimerChanges);
-            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.StateTransitions, secondRun.Result.CleanupPhaseResult.StateTransitions);
+            CollectionAssert.AreEqual(
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(firstRun.Result.EventLog),
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(secondRun.Result.EventLog));
+            CollectionAssert.AreEqual(
+                SemanticEventAssertions.FilterEvents(firstRun.Result.EventLog, "TimerTicked"),
+                SemanticEventAssertions.FilterEvents(secondRun.Result.EventLog, "TimerTicked"));
+            CollectionAssert.AreEqual(
+                SemanticEventAssertions.FilterEvents(firstRun.Result.EventLog, "StateTransitioned"),
+                SemanticEventAssertions.FilterEvents(secondRun.Result.EventLog, "StateTransitioned"));
             Assert.That(firstRun.StateDumpAfter, Is.EqualTo(secondRun.StateDumpAfter));
         }
 

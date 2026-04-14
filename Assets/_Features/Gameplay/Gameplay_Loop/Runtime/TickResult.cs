@@ -22,7 +22,6 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace,
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty,
                 Array.Empty<EntityState>(),
                 Array.Empty<string>(),
                 new CubeTopologyState(FaceId.Floor),
@@ -39,7 +38,6 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> phaseTrace,
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
-            CleanupPhaseResult cleanupPhaseResult,
             IEnumerable<EntityState> finalEntities,
             IEnumerable<string> eventLog,
             CubeTopologyState finalTopology,
@@ -52,7 +50,6 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult,
                 finalEntities,
                 eventLog,
                 finalTopology,
@@ -69,7 +66,6 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> phaseTrace,
             MovementPhaseResult movementPhaseResult,
             AttackPhaseResult attackPhaseResult,
-            CleanupPhaseResult cleanupPhaseResult,
             IEnumerable<EntityState> finalEntities,
             IEnumerable<string> eventLog,
             CubeTopologyState finalTopology,
@@ -110,7 +106,6 @@ namespace Game.Feature.Gameplay.Loop
 
             MovementPhaseResult = movementPhaseResult ?? throw new ArgumentNullException(nameof(movementPhaseResult));
             AttackPhaseResult = attackPhaseResult ?? throw new ArgumentNullException(nameof(attackPhaseResult));
-            CleanupPhaseResult = cleanupPhaseResult ?? throw new ArgumentNullException(nameof(cleanupPhaseResult));
             PresentationData = presentationData;
             Trace = trace ?? throw new ArgumentNullException(nameof(trace));
             ObjectiveResult = objectiveResult ?? StageObjectiveTickResult.NoObjective;
@@ -128,9 +123,6 @@ namespace Game.Feature.Gameplay.Loop
         internal MovementPhaseResult MovementPhaseResult { get; }
 
         internal AttackPhaseResult AttackPhaseResult { get; }
-
-        [Obsolete("Host/view presentation code should consume TickResult.PresentationData instead of phase-private cleanup details.")]
-        internal CleanupPhaseResult CleanupPhaseResult { get; }
 
         public IReadOnlyList<TickPhase> CompletedPhases => _completedPhases;
 

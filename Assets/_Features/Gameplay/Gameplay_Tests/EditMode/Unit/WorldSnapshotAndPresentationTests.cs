@@ -759,7 +759,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     CreateMovementPhaseResult(actionGroup, ResolvedActionSemanticKind.ProjectileMove),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty));
+                    CleanupFixtureFactory.None()));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -799,7 +799,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     CreateMovementPhaseResult(actionGroup),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty));
+                    CleanupFixtureFactory.None()));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -848,7 +848,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     CreateMovementPhaseResult(actionGroup),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty));
+                    CleanupFixtureFactory.None()));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -930,7 +930,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     finalSnapshot,
                     CreateMovementPhaseResult(movementGroup),
                     CreateAttackPhaseResult(attackGroup),
-                    new CleanupPhaseResult(new[] { 20 }, Array.Empty<string>(), Array.Empty<string>())));
+                    CleanupFixtureFactory.RemovedEntities(20)));
 
             Assert.That(presentationData.TopologyMotion.HasValue, Is.True);
             Assert.That(presentationData.TopologyMotion.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
@@ -1000,7 +1000,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     finalSnapshot,
                     CreateMovementPhaseResult(movementGroup),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty));
+                    CleanupFixtureFactory.None()));
 
             CollectionAssert.AreEqual(
                 new[]
@@ -1084,7 +1084,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     finalSnapshot,
                     CreateMovementPhaseResult(),
                     CreateAttackPhaseResult(attackGroup),
-                    new CleanupPhaseResult(new[] { 40 }, Array.Empty<string>(), Array.Empty<string>()),
+                    CleanupFixtureFactory.RemovedEntities(40),
                     currentTickIndex: tickIndex));
 
             Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
@@ -1145,7 +1145,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     finalSnapshot,
                     CreateMovementPhaseResult(),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
                     currentTickIndex: 5));
 
             var signal = presentationData.EnemyActionSignals.Single();
@@ -1207,7 +1207,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postAttackSnapshot,
                     CreateMovementPhaseResult(),
                     CreateAttackPhaseResult(attackGroup),
-                    CleanupPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
                     currentTickIndex: 7));
 
             var signal = presentationData.EnemyActionSignals.Single();
@@ -1260,7 +1260,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     CreateMovementPhaseResult(),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
                     currentTickIndex: 4));
 
             var signal = presentationData.EnemyActionSignals.Single();
@@ -1305,7 +1305,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     postMovementSnapshot,
                     CreateMovementPhaseResult(),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
                     currentTickIndex: 5,
                     jumpBaselineSnapshot: preMovementSnapshot));
 
@@ -1379,7 +1379,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new EnemyJumpStateSeed(enemyId, airborneState)),
                     CreateMovementPhaseResult(),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
                     currentTickIndex: 6,
                     jumpBaselineSnapshot: CreateSnapshotWithEnemyJumpStates(
                         new[]
@@ -1430,7 +1430,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new EnemyJumpStateSeed(enemyId, retryState)),
                     CreateMovementPhaseResult(),
                     AttackPhaseResult.Empty,
-                    CleanupPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
                     currentTickIndex: 7,
                     jumpBaselineSnapshot: CreateSnapshotWithEnemyJumpStates(
                         new[]

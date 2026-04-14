@@ -735,7 +735,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
 
-            CollectionAssert.AreEqual(new[] { 30 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
@@ -924,7 +924,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Target=20",
                     "Condition=AlwaysMark"),
                 Is.True);
-            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
         }
@@ -1020,7 +1020,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Target=20",
                     "Condition=AlwaysMark"),
                 Is.True);
-            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(result.Trace.Text, Does.Contain("Kind=Item"));
@@ -1089,7 +1089,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.PresentationData.EntityExitSignals.Count, Is.EqualTo(1));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.ItemConsume));
-            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
             Assert.That(finalSnapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(result.Trace.Text, Does.Contain("Kind=Item"));
@@ -1378,7 +1378,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Is.True);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("BoardPresenceCommitted")), Is.False);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("DestroyMarked")), Is.False);
-            Assert.That(result.CleanupPhaseResult.RemovedEntityIds, Is.Empty);
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog), Is.Empty);
             Assert.That(result.PresentationData.VisibilityChanges, Is.Empty);
             Assert.That(GetEntityCell(worldState, 10), Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
             Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
@@ -1920,7 +1920,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(result.PresentationData.EntityExitSignals.Count, Is.EqualTo(1));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
             Assert.That(result.PresentationData.EntityExitSignals[0].ExitCause, Is.EqualTo(TickEntityExitCause.BoxDestroy));
-            CollectionAssert.AreEqual(new[] { 20 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(GetEntityPosition(worldState, 10), Is.EqualTo(new Vector2Int(0, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
         }
@@ -1978,7 +1978,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Timer=0"),
                 Is.True);
             CollectionAssert.AreEqual(Array.Empty<string>(), secondTick.MovementPhaseResult.RejectedReasons);
-            CollectionAssert.AreEqual(Array.Empty<int>(), secondTick.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(Array.Empty<int>(), SemanticEventAssertions.GetCleanupRemovedEntityIds(secondTick.EventLog));
             Assert.That(GetEntityPosition(worldState, 20), Is.EqualTo(new Vector2Int(2, 0)));
             Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
             Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Idle));
@@ -2220,7 +2220,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Target=10",
                     "Condition=WhenHpDepleted"),
                 Is.True);
-            CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
 
             Assert.That(finalSnapshot.TryGetEntity(10, out _), Is.False);
             Assert.That(finalSnapshot.TryGetEntity(20, out var targetAfterTick), Is.True);
@@ -2297,7 +2297,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             projectileImpactGroup.AssignGroupId(1);
             projectileImpactGroup.AssignProjectileImpactTarget(20);
 
-            var transientBuffer = new PhaseTransientBuffer();
+            var transientBuffer = new ImpactReservationBuffer();
             var commitEvents = new List<string>();
 
             new MovementCommitter(CreateDefaultPlayerControlTimingSnapshot(timingProfile), timingProfile).Commit(
@@ -2521,7 +2521,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 sortedIntents,
                 input.TickIndex,
                 worldState.CreateWriteContext(),
-                new PhaseTransientBuffer(),
+                new ImpactReservationBuffer(),
                 selectedGroups,
                 commitEvents);
 

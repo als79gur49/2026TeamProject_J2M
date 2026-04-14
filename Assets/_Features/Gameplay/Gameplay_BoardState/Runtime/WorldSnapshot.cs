@@ -175,21 +175,6 @@ namespace Game.Feature.Gameplay.BoardState
             return TryPickHostileUnitImpactTargetAt(CreateDefaultQueryCell(cell), sourceTeamId, out entity);
         }
 
-        // Cell queries always resolve against committed authoritative occupancy, not render-time motion tracks.
-        // Legacy compatibility API: this returns the primary non-projectile occupant, not "unit only".
-        // Prefer EnumerateUnitsAt/TryGetSolidOccupantAt/TryPickImpactTargetAt in new code.
-        [Obsolete("Legacy compatibility API. Prefer EnumerateUnitsAt/TryGetSolidOccupantAt/TryPickImpactTargetAt in new code.")]
-        public bool TryGetUnitAt(SurfaceCell cell, out EntityState entity)
-        {
-            return TryGetUnitAt(_topology, cell, out entity);
-        }
-
-        [Obsolete("Legacy compatibility API. Prefer EnumerateUnitsAt/TryGetSolidOccupantAt/TryPickImpactTargetAt in new code.")]
-        public bool TryGetUnitAt(Vector2Int cell, out EntityState entity)
-        {
-            return TryGetUnitAt(CreateDefaultQueryCell(cell), out entity);
-        }
-
         public bool TryGetProjectileAt(SurfaceCell cell, out EntityState entity)
         {
             return TryGetProjectileAt(_topology, cell, out entity);
@@ -228,18 +213,6 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetUnitTraversalBlocker(Vector2Int cell, out SlideStopper blocker)
         {
             return TryGetUnitTraversalBlocker(CreateDefaultQueryCell(cell), out blocker);
-        }
-
-        [Obsolete("Legacy compatibility API. Prefer TryGetUnitTraversalBlocker or layer-aware placement queries in new code.")]
-        public bool IsBlockedForUnit(SurfaceCell cell)
-        {
-            return TryGetUnitTraversalBlocker(cell, out _);
-        }
-
-        [Obsolete("Legacy compatibility API. Prefer TryGetUnitTraversalBlocker or layer-aware placement queries in new code.")]
-        public bool IsBlockedForUnit(Vector2Int cell)
-        {
-            return IsBlockedForUnit(CreateDefaultQueryCell(cell));
         }
 
         internal bool TryGetPlacementBlocker(
@@ -374,12 +347,6 @@ namespace Game.Feature.Gameplay.BoardState
                 delta,
                 out destination,
                 out stopper);
-        }
-
-        [Obsolete("Legacy compatibility API. Prefer explicit layer-aware target selection or gameplay query checks in new code.")]
-        public bool BlocksMovement(int entityId)
-        {
-            return SnapshotReadQueries.BlocksMovement(_entitiesById, _topology, entityId);
         }
 
         public bool CanBeTargetedForNewSelection(int entityId)
@@ -576,17 +543,6 @@ namespace Game.Feature.Gameplay.BoardState
                 topology,
                 cell,
                 sourceTeamId,
-                out entity);
-        }
-
-        internal bool TryGetUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
-        {
-            return SnapshotReadQueries.TryGetPrimaryNonProjectileOccupantAt(
-                _entitiesById,
-                _stackedUnitsByCell,
-                _solidOccupancy,
-                topology,
-                cell,
                 out entity);
         }
 

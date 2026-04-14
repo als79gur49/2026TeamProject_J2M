@@ -203,7 +203,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty,
                 Array.Empty<EntityState>(),
                 Array.Empty<string>(),
                 new CubeTopologyState(FaceId.Floor),

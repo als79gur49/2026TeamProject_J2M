@@ -8,26 +8,6 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private static readonly IReadOnlyDictionary<SurfaceCell, int> EmptyOccupancy = new Dictionary<SurfaceCell, int>();
 
-        public static bool IsBlockedForUnit(
-            IReadOnlyDictionary<int, EntityState> entitiesById,
-            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
-            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
-            CubeTopologyState topology,
-            BoardBounds boardBounds,
-            TerrainData terrainData,
-            SurfaceCell cell)
-        {
-            return TryGetUnitBlocker(
-                entitiesById,
-                stackedUnitsByCell,
-                solidOccupancyByCell,
-                topology,
-                boardBounds,
-                terrainData,
-                cell,
-                out _);
-        }
-
         public static bool TryGetAuthoritativePlacementBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,

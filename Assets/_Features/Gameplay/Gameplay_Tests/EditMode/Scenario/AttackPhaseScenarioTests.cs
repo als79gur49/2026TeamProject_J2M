@@ -430,7 +430,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "Target=30",
                     "Condition=WhenHpDepleted"),
                 Is.True);
-            CollectionAssert.AreEqual(new[] { 30 }, firstRun.Result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(firstRun.Result.EventLog));
 
             Assert.That(firstRun.OccupancyAfter, Is.EqualTo("10@(0,0),20@(2,0)"));
             var unitsAfterFirstRun = new List<EntityState>();
@@ -458,9 +458,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     .Select(record => (record.SourceId, record.TargetId, record.Accepted, record.Amount, record.RejectReason))
                     .ToArray());
             CollectionAssert.AreEqual(firstRun.Result.AttackPhaseResult.CommitEvents, secondRun.Result.AttackPhaseResult.CommitEvents);
-            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.RemovedEntityIds, secondRun.Result.CleanupPhaseResult.RemovedEntityIds);
-            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.TimerChanges, secondRun.Result.CleanupPhaseResult.TimerChanges);
-            CollectionAssert.AreEqual(firstRun.Result.CleanupPhaseResult.StateTransitions, secondRun.Result.CleanupPhaseResult.StateTransitions);
+            CollectionAssert.AreEqual(
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(firstRun.Result.EventLog),
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(secondRun.Result.EventLog));
+            CollectionAssert.AreEqual(
+                SemanticEventAssertions.FilterEvents(firstRun.Result.EventLog, "TimerTicked"),
+                SemanticEventAssertions.FilterEvents(secondRun.Result.EventLog, "TimerTicked"));
+            CollectionAssert.AreEqual(
+                SemanticEventAssertions.FilterEvents(firstRun.Result.EventLog, "StateTransitioned"),
+                SemanticEventAssertions.FilterEvents(secondRun.Result.EventLog, "StateTransitioned"));
             Assert.That(firstRun.OccupancyAfter, Is.EqualTo(secondRun.OccupancyAfter));
         }
 
@@ -893,7 +899,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(secondSnapshot.TryGetProjectileAt(new Vector2Int(1, 0), out var secondProjectile), Is.True);
             var secondProjectileId = secondProjectile.entityId;
 
-            CollectionAssert.AreEqual(new[] { 20, firstProjectileId }, cleanupResult.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { 20, firstProjectileId },
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(cleanupResult.EventLog).OrderBy(id => id).ToArray());
             Assert.That(secondProjectileId, Is.EqualTo(firstProjectileId + 1));
             Assert.That(secondProjectileId, Is.Not.EqualTo(firstProjectileId));
         }
@@ -942,7 +950,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 result.AttackPhaseResult.DamageResolutions.Any(record => record.TargetId == 40),
                 Is.False);
             Assert.That(result.EventLog.Any(evt => evt.Contains("Target=40")), Is.False);
-            CollectionAssert.AreEqual(new[] { 5, 20 }, result.CleanupPhaseResult.RemovedEntityIds.OrderBy(id => id).ToArray());
+            CollectionAssert.AreEqual(
+                new[] { 5, 20 },
+                SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog).OrderBy(id => id).ToArray());
             Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(40, out var fallbackAfter), Is.True);
             Assert.That(fallbackAfter.hp, Is.EqualTo(2));
@@ -1057,7 +1067,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                               record.TargetId == 10 &&
                               record.Amount == 1),
                 Is.True);
-            CollectionAssert.AreEqual(new[] { 10 }, result.CleanupPhaseResult.RemovedEntityIds);
+            CollectionAssert.AreEqual(new[] { 10 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(snapshotAfter.TryGetEntity(10, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(20, out var targetAfter), Is.True);
             Assert.That(targetAfter.hp, Is.EqualTo(1));

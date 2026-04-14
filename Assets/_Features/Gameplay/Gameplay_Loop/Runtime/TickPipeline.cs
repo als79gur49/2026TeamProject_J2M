@@ -196,7 +196,6 @@ namespace Game.Feature.Gameplay.Loop
                 phaseTrace,
                 movementPhaseResult,
                 attackPhaseResult,
-                cleanupPhaseResult,
                 tickResultData.FinalEntities,
                 tickResultData.EventLog,
                 finalAuthoritativeSnapshot.Topology,

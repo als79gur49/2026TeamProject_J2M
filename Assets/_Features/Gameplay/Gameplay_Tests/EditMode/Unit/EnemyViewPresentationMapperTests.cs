@@ -97,7 +97,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty,
                 new[] { enemy },
                 Array.Empty<string>(),
                 new CubeTopologyState(FaceId.Floor),

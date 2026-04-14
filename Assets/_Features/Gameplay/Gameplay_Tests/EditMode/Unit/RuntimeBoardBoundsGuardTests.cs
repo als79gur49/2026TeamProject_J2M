@@ -2742,11 +2742,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[]
                         {
                             new TickVisibilityChange(40, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Up),
-                        }),
-                    cleanupPhaseResult: new CleanupPhaseResult(
-                        new[] { 40 },
-                        Array.Empty<string>(),
-                        Array.Empty<string>())));
+                        })));
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(driver.DeathSignalCount, Is.EqualTo(1));
@@ -2825,11 +2821,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         new[]
                         {
                             new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Right),
-                        }),
-                    cleanupPhaseResult: new CleanupPhaseResult(
-                        new[] { 10 },
-                        Array.Empty<string>(),
-                        Array.Empty<string>())));
+                        })));
                 presenter.UpdatePresentation(0f);
 
                 Assert.That(runtimeDriver.CurrentState, Is.EqualTo(PlayerViewAnimationState.Death));
@@ -6341,8 +6333,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CubeTopologyState topology,
             TickPresentationData presentationData = null,
             MovementPhaseResult movementPhaseResult = null,
-            AttackPhaseResult attackPhaseResult = null,
-            CleanupPhaseResult cleanupPhaseResult = null)
+            AttackPhaseResult attackPhaseResult = null)
         {
             return new TickResult(
                 1,
@@ -6350,7 +6341,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>(),
                 movementPhaseResult ?? MovementPhaseResult.Empty,
                 attackPhaseResult ?? AttackPhaseResult.Empty,
-                cleanupPhaseResult ?? CleanupPhaseResult.Empty,
                 finalEntities,
                 Array.Empty<string>(),
                 topology,

@@ -777,7 +777,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Array.Empty<string>(),
                 MovementPhaseResult.Empty,
                 AttackPhaseResult.Empty,
-                CleanupPhaseResult.Empty,
                 finalEntities,
                 Array.Empty<string>(),
                 topology,

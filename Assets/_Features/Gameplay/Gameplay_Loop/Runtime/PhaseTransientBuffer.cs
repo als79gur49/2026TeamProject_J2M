@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Sorting;
@@ -32,10 +31,5 @@ namespace Game.Feature.Gameplay.Loop
         {
             _impactReservations.Clear();
         }
-    }
-
-    [Obsolete("Use ImpactReservationBuffer. This legacy name remains only as a compatibility shim during the migration.")]
-    internal sealed class PhaseTransientBuffer : ImpactReservationBuffer
-    {
     }
 }

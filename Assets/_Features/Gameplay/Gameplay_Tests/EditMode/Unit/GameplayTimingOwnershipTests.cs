@@ -602,7 +602,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -667,7 +666,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             new EntityState
@@ -741,7 +739,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -821,7 +818,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             new EntityState
@@ -897,7 +893,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        new CleanupPhaseResult(new[] { 10 }, Array.Empty<string>(), Array.Empty<string>()),
                         Array.Empty<EntityState>(),
                         Array.Empty<string>(),
                         topology,
@@ -932,7 +927,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         Array.Empty<string>(),
                         MovementPhaseResult.Empty,
                         AttackPhaseResult.Empty,
-                        CleanupPhaseResult.Empty,
                         new[]
                         {
                             new EntityState
