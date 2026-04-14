@@ -173,6 +173,7 @@ namespace Game.Feature.Gameplay.Loop
             bool canceledThisTick,
             bool executedThisTick = false,
             bool isRecoveryPhase = false,
+            TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.None,
             int targetEntityId = 0,
             Direction direction = Direction.None)
         {
@@ -182,6 +183,7 @@ namespace Game.Feature.Gameplay.Loop
             StartedThisTick = startedThisTick;
             ExecutedThisTick = executedThisTick;
             IsRecoveryPhase = isRecoveryPhase;
+            ResolutionKind = resolutionKind;
             CompletedThisTick = completedThisTick;
             CanceledThisTick = canceledThisTick;
             TargetEntityId = targetEntityId;
@@ -200,6 +202,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public bool IsRecoveryPhase { get; }
 
+        public TickPlayerActionResolutionKind ResolutionKind { get; }
+
         public bool CompletedThisTick { get; }
 
         public bool CanceledThisTick { get; }
@@ -207,6 +211,14 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public Direction Direction { get; }
+    }
+
+    public enum TickPlayerActionResolutionKind
+    {
+        None = 0,
+        Success = 1,
+        Impact = 2,
+        Blocked = 3,
     }
 
     public readonly struct TickPlayerLocomotionPresentationSignal

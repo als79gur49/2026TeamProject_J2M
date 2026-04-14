@@ -11,6 +11,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             GameplayUiDirection activeActionDirection,
             int activeTargetEntityId,
             bool isActionInProgress,
+            bool isActionInRecoveryPhase,
             bool canMoveThisTick,
             bool canStartActionThisTick)
         {
@@ -22,6 +23,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             ActiveActionDirection = activeActionDirection;
             ActiveTargetEntityId = activeTargetEntityId;
             IsActionInProgress = isActionInProgress;
+            IsActionInRecoveryPhase = isActionInRecoveryPhase;
             CanMoveThisTick = canMoveThisTick;
             CanStartActionThisTick = canStartActionThisTick;
         }
@@ -41,6 +43,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public int ActiveTargetEntityId { get; }
 
         public bool IsActionInProgress { get; }
+
+        public bool IsActionInRecoveryPhase { get; }
 
         public bool CanMoveThisTick { get; }
 

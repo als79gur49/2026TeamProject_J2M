@@ -42,6 +42,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerHud.CurrentHp, Is.EqualTo(3));
                 Assert.That(playerHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
                 Assert.That(playerHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
+                Assert.That(playerHud.IsActionInRecoveryPhase, Is.False);
                 Assert.That(playerHud.CanMoveThisTick, Is.True);
                 Assert.That(playerHud.CanStartActionThisTick, Is.True);
 
@@ -177,13 +178,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(tickResult.PresentationData.PlayerLocomotionSignals[0].MoveMotionGeneratedThisTick, Is.True);
                 Assert.That(frameCount, Is.EqualTo(1));
                 Assert.That(capturedFrame.Player.HasValue, Is.True);
+                Assert.That(capturedFrame.Player.Value.PlayerEntityId, Is.EqualTo(10));
                 Assert.That(capturedFrame.Player.Value.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
+                Assert.That(capturedFrame.Player.Value.ActiveActionSequence, Is.EqualTo(0));
                 Assert.That(capturedFrame.Player.Value.ShouldPlayWalkLoop, Is.True);
                 Assert.That(capturedFrame.Player.Value.MoveMotionGeneratedThisTick, Is.True);
                 Assert.That(capturedFrame.Player.Value.ActionDirection, Is.EqualTo(GameplayUiDirection.None));
                 Assert.That(capturedFrame.Player.Value.TargetEntityId, Is.EqualTo(0));
                 Assert.That(capturedFrame.Player.Value.StartedThisTick, Is.False);
                 Assert.That(capturedFrame.Player.Value.ExecutedThisTick, Is.False);
+                Assert.That(capturedFrame.Player.Value.IsRecoveryPhase, Is.False);
+                Assert.That(capturedFrame.Player.Value.ResolutionKind, Is.EqualTo(GameplayUiActionResolutionKind.None));
             }
             finally
             {

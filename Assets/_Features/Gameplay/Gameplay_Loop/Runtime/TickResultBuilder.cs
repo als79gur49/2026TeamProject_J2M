@@ -647,6 +647,13 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     activeActionKind = transition.CurrentKind;
                     activeActionSequence = transition.CurrentSequence;
+                    if ((transition.CompletedThisTick || transition.CanceledThisTick) &&
+                        transition.CurrentKind == PlayerActionKind.None)
+                    {
+                        activeActionKind = transition.PreviousKind;
+                        activeActionSequence = transition.PreviousSequence;
+                    }
+
                     startedThisTick = transition.StartedThisTick;
                     completedThisTick = transition.CompletedThisTick;
                     canceledThisTick = transition.CanceledThisTick;
@@ -662,6 +669,17 @@ namespace Game.Feature.Gameplay.Loop
                     direction = controlState.activeAction.direction;
                 }
 
+                var isRecoveryPhase =
+                    activeActionKind != PlayerActionKind.None &&
+                    context.FinalAuthoritativeSnapshot.TryGetPlayerControlState(entityId, out var finalControlState) &&
+                    finalControlState.activeAction.IsActive &&
+                    finalControlState.activeAction.executeTick <= context.CurrentTickIndex;
+                var resolutionKind = ResolvePlayerActionResolutionKind(
+                    context,
+                    entityId,
+                    activeActionKind,
+                    executedThisTick);
+
                 playerActionSignals.Add(
                     new TickPlayerActionPresentationSignal(
                         entityId,
@@ -671,10 +689,8 @@ namespace Game.Feature.Gameplay.Loop
                         completedThisTick,
                         canceledThisTick,
                         executedThisTick,
-                        isRecoveryPhase: activeActionKind != PlayerActionKind.None &&
-                                         context.FinalAuthoritativeSnapshot.TryGetPlayerControlState(entityId, out var finalControlState) &&
-                                         finalControlState.activeAction.IsActive &&
-                                         finalControlState.activeAction.executeTick <= context.CurrentTickIndex,
+                        isRecoveryPhase,
+                        resolutionKind,
                         targetEntityId,
                         direction));
             }
@@ -712,25 +728,101 @@ namespace Game.Feature.Gameplay.Loop
             in TickPresentationBuildContext context,
             List<TickPlayerDamagePresentationSignal> playerDamageSignals)
         {
-            var signaledPlayerIds = new HashSet<int>();
+            var aggregatedDamageByPlayerId = new Dictionary<int, int>();
 
             for (var i = 0; i < context.AttackPhaseResult.DamageResolutions.Count; i++)
             {
                 var resolution = context.AttackPhaseResult.DamageResolutions[i];
                 if (!resolution.Accepted ||
-                    !signaledPlayerIds.Add(resolution.TargetId) ||
                     !context.PostAttackSnapshot.TryGetEntity(resolution.TargetId, out var target) ||
                     !EntityRolePolicy.IsPlayerUnit(target))
                 {
                     continue;
                 }
 
+                if (!aggregatedDamageByPlayerId.TryGetValue(resolution.TargetId, out var amount))
+                {
+                    amount = 0;
+                }
+
+                aggregatedDamageByPlayerId[resolution.TargetId] = amount + resolution.Amount;
+            }
+
+            foreach (var pair in aggregatedDamageByPlayerId)
+            {
                 playerDamageSignals.Add(
                     new TickPlayerDamagePresentationSignal(
-                        resolution.TargetId,
+                        pair.Key,
                         tookDamageThisTick: true,
-                        resolution.Amount));
+                        pair.Value));
             }
+        }
+
+        private static TickPlayerActionResolutionKind ResolvePlayerActionResolutionKind(
+            in TickPresentationBuildContext context,
+            int entityId,
+            PlayerActionKind actionKind,
+            bool executedThisTick)
+        {
+            if (!executedThisTick ||
+                actionKind == PlayerActionKind.None)
+            {
+                return TickPlayerActionResolutionKind.None;
+            }
+
+            if (DidResolvePlayerImpactThisTick(context.AttackPhaseResult, entityId))
+            {
+                return TickPlayerActionResolutionKind.Impact;
+            }
+
+            if (DidResolvePlayerActionMovementThisTick(context.MovementPhaseResult, entityId, actionKind))
+            {
+                return TickPlayerActionResolutionKind.Success;
+            }
+
+            return TickPlayerActionResolutionKind.Blocked;
+        }
+
+        private static bool DidResolvePlayerImpactThisTick(
+            AttackPhaseResult attackPhaseResult,
+            int entityId)
+        {
+            var reservations = attackPhaseResult.DrainedImpactReservations;
+            for (var i = 0; i < reservations.Count; i++)
+            {
+                if (reservations[i].SourceId == entityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool DidResolvePlayerActionMovementThisTick(
+            MovementPhaseResult movementPhaseResult,
+            int entityId,
+            PlayerActionKind actionKind)
+        {
+            var operations = movementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var operation = operations[i];
+                if (operation.Kind != FinalizationOperationKind.MoveEntity ||
+                    operation.Metadata.SourceActorEntityId != entityId)
+                {
+                    continue;
+                }
+
+                switch (actionKind)
+                {
+                    case PlayerActionKind.Push when operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Push:
+                    case PlayerActionKind.Flip when operation.Metadata.SemanticKind == ResolvedActionSemanticKind.Flip:
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private static void BuildEnemyPresentation(

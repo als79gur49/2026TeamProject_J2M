@@ -18,6 +18,14 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         Flip = 2,
     }
 
+    public enum GameplayUiActionResolutionKind
+    {
+        None = 0,
+        Success = 1,
+        Impact = 2,
+        Blocked = 3,
+    }
+
     public enum GameplayUiFace
     {
         Floor = 0,

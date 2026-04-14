@@ -117,9 +117,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
 
             return new GameplayPlayerPresentationSlice(
+                playerEntityId,
                 hasPlayerActionSignal
                     ? GameplayUiAccessMapper.ToUiActionKind(playerActionSignal.ActiveActionKind)
                     : GameplayUiActionKind.None,
+                hasPlayerActionSignal ? playerActionSignal.ActiveActionSequence : 0,
                 hasPlayerActionSignal
                     ? GameplayUiAccessMapper.ToUiDirection(playerActionSignal.Direction)
                     : GameplayUiDirection.None,
@@ -128,6 +130,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 hasPlayerActionSignal && playerActionSignal.ExecutedThisTick,
                 hasPlayerActionSignal && playerActionSignal.CompletedThisTick,
                 hasPlayerActionSignal && playerActionSignal.CanceledThisTick,
+                hasPlayerActionSignal && playerActionSignal.IsRecoveryPhase,
+                hasPlayerActionSignal
+                    ? GameplayUiAccessMapper.ToUiActionResolutionKind(playerActionSignal.ResolutionKind)
+                    : GameplayUiActionResolutionKind.None,
                 hasLocomotionSignal && locomotionSignal.ShouldPlayWalkLoop,
                 hasLocomotionSignal && locomotionSignal.MoveMotionGeneratedThisTick,
                 hasLocomotionSignal && locomotionSignal.WaitingForNextMoveCadence,

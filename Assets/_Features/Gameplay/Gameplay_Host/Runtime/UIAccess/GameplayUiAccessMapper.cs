@@ -1,6 +1,7 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
@@ -37,6 +38,17 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 PlayerActionKind.Push => GameplayUiActionKind.Push,
                 PlayerActionKind.Flip => GameplayUiActionKind.Flip,
                 _ => GameplayUiActionKind.None,
+            };
+        }
+
+        public static GameplayUiActionResolutionKind ToUiActionResolutionKind(TickPlayerActionResolutionKind resolutionKind)
+        {
+            return resolutionKind switch
+            {
+                TickPlayerActionResolutionKind.Success => GameplayUiActionResolutionKind.Success,
+                TickPlayerActionResolutionKind.Impact => GameplayUiActionResolutionKind.Impact,
+                TickPlayerActionResolutionKind.Blocked => GameplayUiActionResolutionKind.Blocked,
+                _ => GameplayUiActionResolutionKind.None,
             };
         }
 

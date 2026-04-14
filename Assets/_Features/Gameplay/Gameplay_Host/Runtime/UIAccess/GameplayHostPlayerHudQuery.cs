@@ -53,6 +53,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 activeActionDirection: GameplayUiAccessMapper.ToUiDirection(playerControlState.activeAction.direction),
                 activeTargetEntityId: playerControlState.activeAction.targetEntityId,
                 isActionInProgress: playerControlState.activeAction.IsActive,
+                isActionInRecoveryPhase: playerControlState.activeAction.IsActive &&
+                                         nextTickIndex > 0 &&
+                                         playerControlState.activeAction.executeTick < nextTickIndex,
                 canMoveThisTick: nextTickIndex > 0 &&
                                 canAcceptActionableCommands &&
                                 snapshot.CanExecuteMovementIntent(playerEntityId, nextTickIndex),
