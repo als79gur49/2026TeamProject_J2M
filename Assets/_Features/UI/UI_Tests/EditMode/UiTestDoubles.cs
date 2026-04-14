@@ -157,6 +157,7 @@ namespace Game.Feature.UI.Tests
                 activeActionDirection: GameplayUiDirection.None,
                 activeTargetEntityId: 0,
                 isActionInProgress: false,
+                isActionInRecoveryPhase: false,
                 canMoveThisTick: true,
                 canStartActionThisTick: true);
         }
@@ -220,9 +221,26 @@ namespace Game.Feature.UI.Tests
                 new GameplaySessionReadModel(1, false, true, false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 new GameplayObjectiveReadModel(false, false, false, false));
+            pauseService ??= new FakeGameplayPauseService();
+            return new GameplayUiFlowPorts(
+                commandGateway,
+                queryFacade,
+                CreatePresentationSource(queryFacade, presentationFeed, pauseService),
+                pauseService);
+        }
+
+        public static GameplayUiPresentationSource CreatePresentationSource(
+            FakeGameplayQueryFacade queryFacade = null,
+            FakeGameplayPresentationFeed presentationFeed = null,
+            FakeGameplayPauseService pauseService = null)
+        {
+            queryFacade ??= new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false));
             presentationFeed ??= new FakeGameplayPresentationFeed();
             pauseService ??= new FakeGameplayPauseService();
-            return new GameplayUiFlowPorts(commandGateway, queryFacade, presentationFeed, pauseService);
+            return new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
         }
     }
 }

@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
@@ -73,6 +74,54 @@ namespace Game.Feature.UI.Tests
                 .ToArray();
 
             Assert.That(references, Does.Not.Contain(gameplayAssemblyName));
+        }
+
+        [Test]
+        public void ApplicationUiAssembly_OnlyGameplayUiPresentationSourceDependsOnGameplayPresentationFeed()
+        {
+            var applicationAssembly = typeof(GameplayHudPresenter).Assembly;
+            var feedType = typeof(IGameplayPresentationFeed);
+
+            var dependentTypes = applicationAssembly
+                .GetTypes()
+                .Where(type => !type.IsNested && TypeDependsOn(type, feedType))
+                .Select(type => type.FullName)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(
+                dependentTypes,
+                Is.EqualTo(new[]
+                {
+                    typeof(GameplayUiPresentationSource).FullName,
+                }));
+        }
+
+        [Test]
+        public void PresenterTypes_DoNotDependOnRawGameplayPresentationContracts()
+        {
+            var forbiddenTypes = new[]
+            {
+                typeof(IGameplayPresentationFeed),
+                typeof(GameplayPresentationFrame),
+                typeof(GameplayPresentationState),
+            };
+            var presenterTypes = new[]
+            {
+                typeof(GameplayHudPresenter),
+                typeof(ObjectiveStatusPresenter),
+            };
+
+            foreach (var presenterType in presenterTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(presenterType, forbiddenType),
+                        Is.False,
+                        $"{presenterType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
         }
 
         [Test]
@@ -222,6 +271,25 @@ namespace Game.Feature.UI.Tests
             }
 
             return Nullable.GetUnderlyingType(type) ?? type;
+        }
+
+        private static bool TypeDependsOn(Type type, Type dependencyType)
+        {
+            if (type == null || dependencyType == null)
+            {
+                return false;
+            }
+
+            return type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                       .Any(field => NormalizeType(field.FieldType) == dependencyType) ||
+                   type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                       .Any(property => NormalizeType(property.PropertyType) == dependencyType) ||
+                   type.GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                       .Any(ctor => ctor.GetParameters().Any(parameter => NormalizeType(parameter.ParameterType) == dependencyType)) ||
+                   type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                       .Any(method =>
+                           NormalizeType(method.ReturnType) == dependencyType ||
+                           method.GetParameters().Any(parameter => NormalizeType(parameter.ParameterType) == dependencyType));
         }
     }
 }

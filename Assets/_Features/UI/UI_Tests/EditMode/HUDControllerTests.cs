@@ -73,6 +73,7 @@ namespace Game.Feature.UI.Tests
                 activeActionDirection: GameplayUiDirection.None,
                 activeTargetEntityId: 0,
                 isActionInProgress: false,
+                isActionInRecoveryPhase: false,
                 canMoveThisTick: true,
                 canStartActionThisTick: true));
             controller.RequestMoveUp();
@@ -93,18 +94,20 @@ namespace Game.Feature.UI.Tests
                     currentHp: 3,
                     facing: GameplayUiDirection.Up,
                     activeActionKind: GameplayUiActionKind.None,
-                    activeActionDirection: GameplayUiDirection.None,
-                    activeTargetEntityId: 0,
-                    isActionInProgress: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true),
+                activeActionDirection: GameplayUiDirection.None,
+                activeTargetEntityId: 0,
+                isActionInProgress: false,
+                isActionInRecoveryPhase: false,
+                canMoveThisTick: true,
+                canStartActionThisTick: true),
                 new GameplayObjectiveReadModel(false, false, false, false));
 
+            var presentationSource = UiTestPortFactory.CreatePresentationSource(
+                queryFacade: queryFacade,
+                pauseService: new FakeGameplayPauseService());
             var presenter = new GameplayHudPresenter(
-                queryFacade,
                 commandGateway,
-                new FakeGameplayPresentationFeed(),
-                new FakeGameplayPauseService());
+                presentationSource);
 
             return new HUDController(presenter);
         }

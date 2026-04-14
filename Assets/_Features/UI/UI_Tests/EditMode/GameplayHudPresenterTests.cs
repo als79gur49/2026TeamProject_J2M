@@ -22,14 +22,16 @@ namespace Game.Feature.UI.Tests
                     activeActionDirection: GameplayUiDirection.None,
                     activeTargetEntityId: 0,
                     isActionInProgress: false,
+                    isActionInRecoveryPhase: false,
                     canMoveThisTick: true,
                     canStartActionThisTick: true),
                 new GameplayObjectiveReadModel(false, false, false, false));
             var commandGateway = new FakeGameplayCommandGateway();
             var presentationFeed = new FakeGameplayPresentationFeed();
             var pauseService = new FakeGameplayPauseService();
+            using var presentationSource = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
 
-            using var presenter = new GameplayHudPresenter(queryFacade, commandGateway, presentationFeed, pauseService);
+            using var presenter = new GameplayHudPresenter(commandGateway, presentationSource);
 
             Assert.That(presenter.CurrentState.CurrentHp, Is.EqualTo(3));
             Assert.That(presenter.CurrentState.FacingText, Is.EqualTo("Up"));
@@ -46,6 +48,7 @@ namespace Game.Feature.UI.Tests
                 activeActionDirection: GameplayUiDirection.Right,
                 activeTargetEntityId: 22,
                 isActionInProgress: true,
+                isActionInRecoveryPhase: false,
                 canMoveThisTick: false,
                 canStartActionThisTick: false));
 
@@ -71,11 +74,12 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void GameplayHudPresenter_MapsRejectionReasonsToUiCommandResult()
         {
-            var presenter = CreatePresenter(new FakeGameplayCommandGateway
+            using var presentationSource = UiTestPortFactory.CreatePresentationSource();
+            using var presenter = new GameplayHudPresenter(new FakeGameplayCommandGateway
             {
                 OnRequestFlip = _ => GameplayCommandAcceptance.Reject(GameplayCommandRejectionReason.BlockingPresentation),
                 OnSetHeldMoveDirection = _ => GameplayCommandAcceptance.Reject(GameplayCommandRejectionReason.Paused),
-            });
+            }, presentationSource);
 
             var flipResult = presenter.RequestFlipRight();
             var moveResult = presenter.RequestMoveUp();
@@ -84,28 +88,6 @@ namespace Game.Feature.UI.Tests
             Assert.That(flipResult.FailureKind, Is.EqualTo(GameplayHudCommandFailureKind.Busy));
             Assert.That(moveResult.Accepted, Is.False);
             Assert.That(moveResult.FailureKind, Is.EqualTo(GameplayHudCommandFailureKind.Paused));
-        }
-
-        private static GameplayHudPresenter CreatePresenter(FakeGameplayCommandGateway commandGateway)
-        {
-            return new GameplayHudPresenter(
-                new FakeGameplayQueryFacade(
-                    new GameplaySessionReadModel(1, false, true, false),
-                    new GameplayPlayerHudReadModel(
-                        isAvailable: true,
-                        playerEntityId: 10,
-                        currentHp: 3,
-                        facing: GameplayUiDirection.Up,
-                        activeActionKind: GameplayUiActionKind.None,
-                        activeActionDirection: GameplayUiDirection.None,
-                        activeTargetEntityId: 0,
-                        isActionInProgress: false,
-                        canMoveThisTick: true,
-                        canStartActionThisTick: true),
-                    new GameplayObjectiveReadModel(false, false, false, false)),
-                commandGateway,
-                new FakeGameplayPresentationFeed(),
-                new FakeGameplayPauseService());
         }
     }
 }

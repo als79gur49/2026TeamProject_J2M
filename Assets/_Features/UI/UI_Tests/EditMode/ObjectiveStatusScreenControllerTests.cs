@@ -14,10 +14,10 @@ namespace Game.Feature.UI.Tests
                 new GameplaySessionReadModel(nextTickIndex: 7, isPaused: false, canAcceptGameplayCommands: false, isStageCleared: false),
                 FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                 new GameplayObjectiveReadModel(hasObjective: true, goalReached: true, allConditionsSatisfied: false, isCleared: false));
+            using var presentationSource = UiTestPortFactory.CreatePresentationSource(queryFacade: queryFacade);
             using var presenter = new ObjectiveStatusPresenter(
                 queryFacade,
-                new FakeGameplayPresentationFeed(),
-                new FakeGameplayPauseService());
+                presentationSource);
             using var controller = new ObjectiveStatusScreenController(presenter);
 
             Assert.That(controller.ViewModel.BadgeText, Is.EqualTo("Goal Reached"));

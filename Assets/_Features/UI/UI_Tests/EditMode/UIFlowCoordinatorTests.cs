@@ -67,24 +67,25 @@ namespace Game.Feature.UI.Tests
             out PopupController popupController,
             out HUDController hudController)
         {
-            var presenter = new GameplayHudPresenter(
-                new FakeGameplayQueryFacade(
-                    new GameplaySessionReadModel(1, false, true, false),
-                    new GameplayPlayerHudReadModel(
-                        isAvailable: true,
-                        playerEntityId: 10,
-                        currentHp: 3,
-                        facing: GameplayUiDirection.Up,
-                        activeActionKind: GameplayUiActionKind.None,
-                        activeActionDirection: GameplayUiDirection.None,
-                        activeTargetEntityId: 0,
-                        isActionInProgress: false,
-                        canMoveThisTick: true,
-                        canStartActionThisTick: true),
-                    new GameplayObjectiveReadModel(false, false, false, false)),
-                new FakeGameplayCommandGateway(),
-                new FakeGameplayPresentationFeed(),
-                pauseService);
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                new GameplayPlayerHudReadModel(
+                    isAvailable: true,
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Up,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
+                    activeTargetEntityId: 0,
+                    isActionInProgress: false,
+                    isActionInRecoveryPhase: false,
+                    canMoveThisTick: true,
+                    canStartActionThisTick: true),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var source = UiTestPortFactory.CreatePresentationSource(
+                queryFacade: queryFacade,
+                pauseService: pauseService);
+            var presenter = new GameplayHudPresenter(new FakeGameplayCommandGateway(), source);
 
             screenController = new ScreenController();
             popupController = new PopupController();
