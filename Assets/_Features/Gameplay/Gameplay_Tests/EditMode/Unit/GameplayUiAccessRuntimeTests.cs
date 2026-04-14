@@ -40,8 +40,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerHud.IsAvailable, Is.True);
                 Assert.That(playerHud.PlayerEntityId, Is.EqualTo(10));
                 Assert.That(playerHud.CurrentHp, Is.EqualTo(3));
-                Assert.That(playerHud.Facing, Is.EqualTo(Direction.Right));
-                Assert.That(playerHud.ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
+                Assert.That(playerHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
+                Assert.That(playerHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
                 Assert.That(playerHud.CanMoveThisTick, Is.True);
                 Assert.That(playerHud.CanStartActionThisTick, Is.True);
 
@@ -71,11 +71,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var commandGateway = host.UiAccess.CommandGateway;
                 var pauseService = host.UiAccess.PauseService;
 
-                Assert.That(commandGateway.SetHeldMoveDirection(Direction.Right).Accepted, Is.True);
+                Assert.That(commandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
 
                 pauseService.Pause();
 
-                var rejectedMove = commandGateway.SetHeldMoveDirection(Direction.Up);
+                var rejectedMove = commandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
                 var clearAcceptance = commandGateway.ClearHeldMoveDirection();
                 var pausedSession = host.UiAccess.QueryFacade.Session.Read();
 
@@ -120,16 +120,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host.UiAccess.PresentationFeed.FramePublished += frames.Add;
                 host.UiAccess.PresentationFeed.StateChanged += states.Add;
 
-                var acceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(Direction.Up);
+                var acceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
                 var tickResult = host.InputHost.RunSingleTick();
 
                 Assert.That(acceptance.Accepted, Is.True);
                 Assert.That(tickResult, Is.Not.Null);
                 Assert.That(frames.Count, Is.EqualTo(1));
                 Assert.That(frames[0].Topology.HasValue, Is.True);
-                Assert.That(frames[0].Topology.Value.RotationKind, Is.EqualTo(CubeRotationKind.Forward));
-                Assert.That(frames[0].Topology.Value.DestinationTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
-                Assert.That(frames[0].FinalTopology, Is.EqualTo(new CubeTopologyState(FaceId.Front)));
+                Assert.That(frames[0].Topology.Value.RotationKind, Is.EqualTo(GameplayUiRotationKind.Forward));
+                Assert.That(frames[0].Topology.Value.DestinationTopology.BottomFace, Is.EqualTo(GameplayUiFace.Front));
+                Assert.That(frames[0].FinalTopology.BottomFace, Is.EqualTo(GameplayUiFace.Front));
                 Assert.That(host.UiAccess.PresentationFeed.CurrentState.IsTopologyTransitionActive, Is.True);
                 Assert.That(states.Count, Is.GreaterThanOrEqualTo(1));
 
@@ -167,7 +167,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     frameCount++;
                 };
 
-                var acceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(Direction.Right);
+                var acceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
                 var tickResult = host.InputHost.RunSingleTick();
 
                 Assert.That(acceptance.Accepted, Is.True);
@@ -177,10 +177,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(tickResult.PresentationData.PlayerLocomotionSignals[0].MoveMotionGeneratedThisTick, Is.True);
                 Assert.That(frameCount, Is.EqualTo(1));
                 Assert.That(capturedFrame.Player.HasValue, Is.True);
-                Assert.That(capturedFrame.Player.Value.ActiveActionKind, Is.EqualTo(PlayerActionKind.None));
+                Assert.That(capturedFrame.Player.Value.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
                 Assert.That(capturedFrame.Player.Value.ShouldPlayWalkLoop, Is.True);
                 Assert.That(capturedFrame.Player.Value.MoveMotionGeneratedThisTick, Is.True);
-                Assert.That(capturedFrame.Player.Value.ActionDirection, Is.EqualTo(Direction.None));
+                Assert.That(capturedFrame.Player.Value.ActionDirection, Is.EqualTo(GameplayUiDirection.None));
                 Assert.That(capturedFrame.Player.Value.TargetEntityId, Is.EqualTo(0));
                 Assert.That(capturedFrame.Player.Value.StartedThisTick, Is.False);
                 Assert.That(capturedFrame.Player.Value.ExecutedThisTick, Is.False);

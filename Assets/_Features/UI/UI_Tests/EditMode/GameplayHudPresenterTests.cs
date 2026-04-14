@@ -1,6 +1,5 @@
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
@@ -18,9 +17,9 @@ namespace Game.Feature.UI.Tests
                     isAvailable: true,
                     playerEntityId: 10,
                     currentHp: 3,
-                    facing: Direction.Up,
-                    activeActionKind: PlayerActionKind.None,
-                    activeActionDirection: Direction.None,
+                    facing: GameplayUiDirection.Up,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
                     activeTargetEntityId: 0,
                     isActionInProgress: false,
                     canMoveThisTick: true,
@@ -35,16 +34,16 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.CurrentState.CurrentHp, Is.EqualTo(3));
             Assert.That(presenter.CurrentState.FacingText, Is.EqualTo("Up"));
             Assert.That(presenter.CurrentState.CanAcceptGameplayCommands, Is.True);
-            Assert.That(presenter.CurrentState.TopologyText, Is.EqualTo(FaceId.Floor.ToString()));
+            Assert.That(presenter.CurrentState.TopologyText, Is.EqualTo(GameplayUiFace.Floor.ToString()));
 
             queryFacade.SetSession(new GameplaySessionReadModel(2, true, false, false));
             queryFacade.SetPlayerHud(new GameplayPlayerHudReadModel(
                 isAvailable: true,
                 playerEntityId: 10,
                 currentHp: 2,
-                facing: Direction.Right,
-                activeActionKind: PlayerActionKind.Flip,
-                activeActionDirection: Direction.Right,
+                facing: GameplayUiDirection.Right,
+                activeActionKind: GameplayUiActionKind.Flip,
+                activeActionDirection: GameplayUiDirection.Right,
                 activeTargetEntityId: 22,
                 isActionInProgress: true,
                 canMoveThisTick: false,
@@ -52,16 +51,16 @@ namespace Game.Feature.UI.Tests
 
             presentationFeed.PublishFrame(new GameplayPresentationFrame(
                 tickIndex: 1,
-                finalTopology: new CubeTopologyState(FaceId.Front),
-                topology: new Game.Feature.Gameplay.UIAccess.Presentation.GameplayTopologyPresentationSlice(
-                    new CubeTopologyState(FaceId.Floor),
-                    new CubeTopologyState(FaceId.Front),
-                    CubeRotationKind.Forward)));
+                finalTopology: new GameplayUiTopology(GameplayUiFace.Front),
+                topology: new GameplayTopologyPresentationSlice(
+                    new GameplayUiTopology(GameplayUiFace.Floor),
+                    new GameplayUiTopology(GameplayUiFace.Front),
+                    GameplayUiRotationKind.Forward)));
 
             Assert.That(presenter.CurrentState.CurrentHp, Is.EqualTo(2));
             Assert.That(presenter.CurrentState.FacingText, Is.EqualTo("Right"));
             Assert.That(presenter.CurrentState.ActiveActionText, Is.EqualTo("Flip"));
-            Assert.That(presenter.CurrentState.TopologyText, Is.EqualTo(FaceId.Front.ToString()));
+            Assert.That(presenter.CurrentState.TopologyText, Is.EqualTo(GameplayUiFace.Front.ToString()));
 
             pauseService.Pause();
 
@@ -96,9 +95,9 @@ namespace Game.Feature.UI.Tests
                         isAvailable: true,
                         playerEntityId: 10,
                         currentHp: 3,
-                        facing: Direction.Up,
-                        activeActionKind: PlayerActionKind.None,
-                        activeActionDirection: Direction.None,
+                        facing: GameplayUiDirection.Up,
+                        activeActionKind: GameplayUiActionKind.None,
+                        activeActionDirection: GameplayUiDirection.None,
                         activeTargetEntityId: 0,
                         isActionInProgress: false,
                         canMoveThisTick: true,

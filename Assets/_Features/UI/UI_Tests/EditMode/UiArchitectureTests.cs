@@ -64,6 +64,18 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ApplicationUiAssembly_DoesNotReferenceGameplayAssembly()
+        {
+            var gameplayAssemblyName = typeof(WorldState).Assembly.GetName().Name;
+            var references = typeof(GameplayHudPresenter).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(references, Does.Not.Contain(gameplayAssemblyName));
+        }
+
+        [Test]
         public void FeatureUiAssemblies_DoNotDefineRuntimeOnGuiMethods()
         {
             var offendingMethods = GetRuntimeUiAssemblies()

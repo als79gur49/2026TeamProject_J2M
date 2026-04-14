@@ -1,7 +1,4 @@
 {
   "name": "Game.Feature.Gameplay.UIAccess",
-  "rootNamespace": "Game.Feature.Gameplay.UIAccess",
-  "references": [
-    "Game.Feature.Gameplay"
-  ]
+  "rootNamespace": "Game.Feature.Gameplay.UIAccess"
 }

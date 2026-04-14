@@ -1,5 +1,4 @@
 using System;
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.UIAccess.Presentation;
 
 namespace Game.Feature.Gameplay.UIAccess.Models
@@ -8,7 +7,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
     {
         public GameplayPresentationFrame(
             int tickIndex,
-            CubeTopologyState finalTopology,
+            GameplayUiTopology finalTopology,
             GameplayTopologyPresentationSlice? topology = null,
             GameplayPlayerPresentationSlice? player = null,
             GameplayStageEventPresentationSlice? stageEvent = null)
@@ -27,7 +26,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
 
         public int TickIndex { get; }
 
-        public CubeTopologyState FinalTopology { get; }
+        public GameplayUiTopology FinalTopology { get; }
 
         public GameplayTopologyPresentationSlice? Topology { get; }
 

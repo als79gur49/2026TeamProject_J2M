@@ -62,7 +62,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         private GameplayPresentationState CreateCurrentState()
         {
             return new GameplayPresentationState(
-                _presenter.CurrentTopology,
+                GameplayUiAccessMapper.ToUiTopology(_presenter.CurrentTopology),
                 _presenter.IsPresentationActive,
                 _presenter.HasBlockingPresentation,
                 _presenter.IsTopologyTransitionActive);
@@ -75,9 +75,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             {
                 var topologyMotion = result.PresentationData.TopologyMotion.Value;
                 topology = new GameplayTopologyPresentationSlice(
-                    topologyMotion.SourceTopology,
-                    topologyMotion.DestinationTopology,
-                    topologyMotion.RotationKind);
+                    GameplayUiAccessMapper.ToUiTopology(topologyMotion.SourceTopology),
+                    GameplayUiAccessMapper.ToUiTopology(topologyMotion.DestinationTopology),
+                    GameplayUiAccessMapper.ToUiRotationKind(topologyMotion.RotationKind));
             }
 
             var player = BuildPlayerSlice(result, _inputHost.PlayerEntityId);
@@ -89,7 +89,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             return new GameplayPresentationFrame(
                 result.TickIndex,
-                result.FinalTopology,
+                GameplayUiAccessMapper.ToUiTopology(result.FinalTopology),
                 topology,
                 player,
                 stageEvent);
@@ -117,8 +117,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             }
 
             return new GameplayPlayerPresentationSlice(
-                hasPlayerActionSignal ? playerActionSignal.ActiveActionKind : PlayerActionKind.None,
-                hasPlayerActionSignal ? playerActionSignal.Direction : Direction.None,
+                hasPlayerActionSignal
+                    ? GameplayUiAccessMapper.ToUiActionKind(playerActionSignal.ActiveActionKind)
+                    : GameplayUiActionKind.None,
+                hasPlayerActionSignal
+                    ? GameplayUiAccessMapper.ToUiDirection(playerActionSignal.Direction)
+                    : GameplayUiDirection.None,
                 hasPlayerActionSignal ? playerActionSignal.TargetEntityId : 0,
                 hasPlayerActionSignal && playerActionSignal.StartedThisTick,
                 hasPlayerActionSignal && playerActionSignal.ExecutedThisTick,

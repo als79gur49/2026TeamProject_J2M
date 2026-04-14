@@ -1,6 +1,3 @@
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.PlayerControl;
-
 namespace Game.Feature.Gameplay.UIAccess.Models
 {
     public readonly struct GameplayPlayerHudReadModel
@@ -9,9 +6,9 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool isAvailable,
             int playerEntityId,
             int currentHp,
-            Direction facing,
-            PlayerActionKind activeActionKind,
-            Direction activeActionDirection,
+            GameplayUiDirection facing,
+            GameplayUiActionKind activeActionKind,
+            GameplayUiDirection activeActionDirection,
             int activeTargetEntityId,
             bool isActionInProgress,
             bool canMoveThisTick,
@@ -35,11 +32,11 @@ namespace Game.Feature.Gameplay.UIAccess.Models
 
         public int CurrentHp { get; }
 
-        public Direction Facing { get; }
+        public GameplayUiDirection Facing { get; }
 
-        public PlayerActionKind ActiveActionKind { get; }
+        public GameplayUiActionKind ActiveActionKind { get; }
 
-        public Direction ActiveActionDirection { get; }
+        public GameplayUiDirection ActiveActionDirection { get; }
 
         public int ActiveTargetEntityId { get; }
 

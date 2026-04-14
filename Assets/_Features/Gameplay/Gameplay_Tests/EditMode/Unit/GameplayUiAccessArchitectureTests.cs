@@ -56,6 +56,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiAccess_Assembly_DoesNotReferenceGameplayAssembly()
+        {
+            var gameplayAssemblyName = typeof(WorldState).Assembly.GetName().Name;
+            var references = typeof(IGameplayCommandGateway).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(references, Does.Not.Contain(gameplayAssemblyName));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiAccess_PublicNames_DoNotLeakForbiddenVocabulary()
         {
             var forbiddenTokens = new[]

@@ -1,4 +1,3 @@
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 
@@ -17,7 +16,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             _admissionPolicy = admissionPolicy;
         }
 
-        public GameplayCommandAcceptance SetHeldMoveDirection(Direction direction)
+        public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
         {
             if (!IsOrthogonalDirection(direction))
             {
@@ -35,7 +34,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return acceptance;
             }
 
-            _inputHost.SetUiHeldMoveDirection(direction);
+            _inputHost.SetUiHeldMoveDirection(GameplayUiAccessMapper.ToGameplayDirection(direction));
             return GameplayCommandAcceptance.Accept();
         }
 
@@ -50,7 +49,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             return GameplayCommandAcceptance.Accept();
         }
 
-        public GameplayCommandAcceptance RequestFlip(Direction direction)
+        public GameplayCommandAcceptance RequestFlip(GameplayUiDirection direction)
         {
             if (!IsOrthogonalDirection(direction))
             {
@@ -68,16 +67,16 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return acceptance;
             }
 
-            _inputHost.BufferUiFlip(direction);
+            _inputHost.BufferUiFlip(GameplayUiAccessMapper.ToGameplayDirection(direction));
             return GameplayCommandAcceptance.Accept();
         }
 
-        private static bool IsOrthogonalDirection(Direction direction)
+        private static bool IsOrthogonalDirection(GameplayUiDirection direction)
         {
-            return direction == Direction.Up ||
-                   direction == Direction.Right ||
-                   direction == Direction.Down ||
-                   direction == Direction.Left;
+            return direction == GameplayUiDirection.Up ||
+                   direction == GameplayUiDirection.Right ||
+                   direction == GameplayUiDirection.Down ||
+                   direction == GameplayUiDirection.Left;
         }
     }
 }

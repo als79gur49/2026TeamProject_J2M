@@ -1,11 +1,9 @@
-using Game.Feature.Gameplay.BoardState;
-
 namespace Game.Feature.Gameplay.UIAccess.Models
 {
     public readonly struct GameplayPresentationState
     {
         public GameplayPresentationState(
-            CubeTopologyState currentTopology,
+            GameplayUiTopology currentTopology,
             bool isPresentationActive,
             bool hasBlockingPresentation,
             bool isTopologyTransitionActive)
@@ -16,7 +14,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             IsTopologyTransitionActive = isTopologyTransitionActive;
         }
 
-        public CubeTopologyState CurrentTopology { get; }
+        public GameplayUiTopology CurrentTopology { get; }
 
         public bool IsPresentationActive { get; }
 

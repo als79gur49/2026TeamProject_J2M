@@ -1,13 +1,12 @@
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.UIAccess.Models;
 
 namespace Game.Feature.Gameplay.UIAccess.Presentation
 {
     public readonly struct GameplayPlayerPresentationSlice
     {
         public GameplayPlayerPresentationSlice(
-            PlayerActionKind activeActionKind,
-            Direction actionDirection,
+            GameplayUiActionKind activeActionKind,
+            GameplayUiDirection actionDirection,
             int targetEntityId,
             bool startedThisTick,
             bool executedThisTick,
@@ -33,9 +32,9 @@ namespace Game.Feature.Gameplay.UIAccess.Presentation
             DamageAmount = damageAmount;
         }
 
-        public PlayerActionKind ActiveActionKind { get; }
+        public GameplayUiActionKind ActiveActionKind { get; }
 
-        public Direction ActionDirection { get; }
+        public GameplayUiDirection ActionDirection { get; }
 
         public int TargetEntityId { get; }
 

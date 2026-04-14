@@ -1,6 +1,4 @@
 using System;
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
@@ -16,16 +14,16 @@ namespace Game.Feature.UI.Tests
 
         public int SetHeldMoveDirectionCallCount { get; private set; }
 
-        public Func<Direction, GameplayCommandAcceptance> OnRequestFlip { get; set; } =
+        public Func<GameplayUiDirection, GameplayCommandAcceptance> OnRequestFlip { get; set; } =
             _ => GameplayCommandAcceptance.Accept();
 
-        public Func<Direction, GameplayCommandAcceptance> OnSetHeldMoveDirection { get; set; } =
+        public Func<GameplayUiDirection, GameplayCommandAcceptance> OnSetHeldMoveDirection { get; set; } =
             _ => GameplayCommandAcceptance.Accept();
 
         public Func<GameplayCommandAcceptance> OnClearHeldMoveDirection { get; set; } =
             () => GameplayCommandAcceptance.Accept();
 
-        public GameplayCommandAcceptance SetHeldMoveDirection(Direction direction)
+        public GameplayCommandAcceptance SetHeldMoveDirection(GameplayUiDirection direction)
         {
             SetHeldMoveDirectionCallCount++;
             return OnSetHeldMoveDirection(direction);
@@ -37,7 +35,7 @@ namespace Game.Feature.UI.Tests
             return OnClearHeldMoveDirection();
         }
 
-        public GameplayCommandAcceptance RequestFlip(Direction direction)
+        public GameplayCommandAcceptance RequestFlip(GameplayUiDirection direction)
         {
             RequestFlipCallCount++;
             return OnRequestFlip(direction);
@@ -97,7 +95,7 @@ namespace Game.Feature.UI.Tests
         public event Action<GameplayPresentationState> StateChanged;
 
         public GameplayPresentationState CurrentState { get; private set; } =
-            new GameplayPresentationState(new CubeTopologyState(FaceId.Floor), false, false, false);
+            new GameplayPresentationState(new GameplayUiTopology(GameplayUiFace.Floor), false, false, false);
 
         public void PublishFrame(GameplayPresentationFrame frame)
         {
@@ -154,9 +152,9 @@ namespace Game.Feature.UI.Tests
                 isAvailable: true,
                 playerEntityId: 10,
                 currentHp: 3,
-                facing: Direction.Up,
-                activeActionKind: PlayerActionKind.None,
-                activeActionDirection: Direction.None,
+                facing: GameplayUiDirection.Up,
+                activeActionKind: GameplayUiActionKind.None,
+                activeActionDirection: GameplayUiDirection.None,
                 activeTargetEntityId: 0,
                 isActionInProgress: false,
                 canMoveThisTick: true,

@@ -1,5 +1,4 @@
 using System;
-using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.HUD;
@@ -12,7 +11,7 @@ namespace Game.Feature.UI.Application
         private readonly IGameplayPauseService _pauseService;
         private readonly IGameplayPresentationFeed _presentationFeed;
         private readonly IGameplayQueryFacade _queryFacade;
-        private CubeTopologyState _currentTopology;
+        private GameplayUiTopology _currentTopology;
 
         public GameplayHudPresenter(
             IGameplayQueryFacade queryFacade,
@@ -65,14 +64,14 @@ namespace Game.Feature.UI.Application
 
         public GameplayHudCommandResult RequestMoveUp()
         {
-            var acceptance = _commandGateway.SetHeldMoveDirection(Direction.Up);
+            var acceptance = _commandGateway.SetHeldMoveDirection(GameplayUiDirection.Up);
             Refresh();
             return MapAcceptance(acceptance);
         }
 
         public GameplayHudCommandResult RequestFlipRight()
         {
-            var acceptance = _commandGateway.RequestFlip(Direction.Right);
+            var acceptance = _commandGateway.RequestFlip(GameplayUiDirection.Right);
             Refresh();
             return MapAcceptance(acceptance);
         }

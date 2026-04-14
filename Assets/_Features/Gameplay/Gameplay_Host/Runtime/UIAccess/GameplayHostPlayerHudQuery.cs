@@ -48,9 +48,9 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 isAvailable: true,
                 playerEntityId: playerEntityId,
                 currentHp: playerEntity.hp,
-                facing: playerEntity.facing,
-                activeActionKind: playerControlState.activeAction.kind,
-                activeActionDirection: playerControlState.activeAction.direction,
+                facing: GameplayUiAccessMapper.ToUiDirection(playerEntity.facing),
+                activeActionKind: GameplayUiAccessMapper.ToUiActionKind(playerControlState.activeAction.kind),
+                activeActionDirection: GameplayUiAccessMapper.ToUiDirection(playerControlState.activeAction.direction),
                 activeTargetEntityId: playerControlState.activeAction.targetEntityId,
                 isActionInProgress: playerControlState.activeAction.IsActive,
                 canMoveThisTick: nextTickIndex > 0 &&

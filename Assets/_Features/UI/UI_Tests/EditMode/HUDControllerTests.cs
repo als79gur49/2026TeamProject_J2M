@@ -1,5 +1,3 @@
-using Game.Feature.Gameplay.BoardState;
-using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -70,9 +68,9 @@ namespace Game.Feature.UI.Tests
                 isAvailable: true,
                 playerEntityId: 10,
                 currentHp: 3,
-                facing: Direction.Up,
-                activeActionKind: PlayerActionKind.None,
-                activeActionDirection: Direction.None,
+                facing: GameplayUiDirection.Up,
+                activeActionKind: GameplayUiActionKind.None,
+                activeActionDirection: GameplayUiDirection.None,
                 activeTargetEntityId: 0,
                 isActionInProgress: false,
                 canMoveThisTick: true,
@@ -93,9 +91,9 @@ namespace Game.Feature.UI.Tests
                     isAvailable: true,
                     playerEntityId: 10,
                     currentHp: 3,
-                    facing: Direction.Up,
-                    activeActionKind: PlayerActionKind.None,
-                    activeActionDirection: Direction.None,
+                    facing: GameplayUiDirection.Up,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
                     activeTargetEntityId: 0,
                     isActionInProgress: false,
                     canMoveThisTick: true,

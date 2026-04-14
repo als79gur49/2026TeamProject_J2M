@@ -1,23 +1,23 @@
-using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.UIAccess.Models;
 
 namespace Game.Feature.Gameplay.UIAccess.Presentation
 {
     public readonly struct GameplayTopologyPresentationSlice
     {
         public GameplayTopologyPresentationSlice(
-            CubeTopologyState sourceTopology,
-            CubeTopologyState destinationTopology,
-            CubeRotationKind rotationKind)
+            GameplayUiTopology sourceTopology,
+            GameplayUiTopology destinationTopology,
+            GameplayUiRotationKind rotationKind)
         {
             SourceTopology = sourceTopology;
             DestinationTopology = destinationTopology;
             RotationKind = rotationKind;
         }
 
-        public CubeTopologyState SourceTopology { get; }
+        public GameplayUiTopology SourceTopology { get; }
 
-        public CubeTopologyState DestinationTopology { get; }
+        public GameplayUiTopology DestinationTopology { get; }
 
-        public CubeRotationKind RotationKind { get; }
+        public GameplayUiRotationKind RotationKind { get; }
     }
 }
