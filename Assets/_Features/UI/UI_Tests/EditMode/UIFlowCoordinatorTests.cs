@@ -39,22 +39,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UIFlowCoordinator_AppliesBlockPolicyToHudAcrossHelpAndPausePopup()
+        public void UIFlowCoordinator_OpensObjectiveScreen_AndNonPausingObjectiveInfoPopup()
         {
             var pauseService = new FakeGameplayPauseService();
-            using var coordinator = CreateCoordinator(pauseService, out _, out _, out var hudController);
+            using var coordinator = CreateCoordinator(pauseService, out var screenController, out var popupController, out var hudController);
 
             coordinator.Initialize();
-            Assert.That(hudController.ViewModel.IsInteractive, Is.True);
 
-            coordinator.OpenHelpScreen();
+            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
             Assert.That(hudController.ViewModel.IsInteractive, Is.False);
 
-            coordinator.HandleBackRequested();
-            Assert.That(hudController.ViewModel.IsInteractive, Is.True);
+            Assert.That(coordinator.RequestObjectiveInfoPopup(), Is.True);
+            Assert.That(popupController.Contains(PopupId.ObjectiveInfo), Is.True);
+            Assert.That(pauseService.IsPaused, Is.False);
 
-            coordinator.RequestPausePopup();
-            Assert.That(hudController.ViewModel.IsInteractive, Is.False);
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(popupController.Contains(PopupId.ObjectiveInfo), Is.False);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(hudController.ViewModel.IsInteractive, Is.True);
         }
 
         private static UIFlowCoordinator CreateCoordinator(

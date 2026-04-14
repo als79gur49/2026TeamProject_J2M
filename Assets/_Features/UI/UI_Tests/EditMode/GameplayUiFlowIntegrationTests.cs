@@ -1,14 +1,13 @@
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
-using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
-using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Game.Feature.UI.Tests
 {
@@ -16,9 +15,9 @@ namespace Game.Feature.UI.Tests
     {
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_ComposesVerticalSlice_ThroughUiAccessOnly()
+        public void GameplayUiFlowInstaller_PreservesStage2RegressionSlice_ThroughDurableViews()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesVerticalSlice_ThroughUiAccessOnly");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesStage2RegressionSlice_ThroughDurableViews");
 
             try
             {
@@ -38,7 +37,6 @@ namespace Game.Feature.UI.Tests
                 installer.GameplayScreenView.ClickHelp();
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
-                Assert.That(installer.HudView.IsVisible, Is.True);
                 Assert.That(installer.HudView.ViewModel.IsInteractive, Is.False);
                 Assert.That(installer.HelpScreenView.IsVisible, Is.True);
 
@@ -49,19 +47,18 @@ namespace Game.Feature.UI.Tests
 
                 installer.HudView.ClickMoveUp();
 
-                Assert.That(installer.HudController.ViewModel.LastCommandAcceptance.HasValue, Is.True);
-                Assert.That(installer.HudController.ViewModel.LastCommandAcceptance.Value.Accepted, Is.True);
+                Assert.That(installer.HudController.ViewModel.LastCommandResult.HasValue, Is.True);
+                Assert.That(installer.HudController.ViewModel.LastCommandResult.Value.Accepted, Is.True);
 
-                var tickResult = host.InputHost.RunSingleTick();
+                host.InputHost.RunSingleTick();
 
-                Assert.That(tickResult, Is.Not.Null);
                 Assert.That(host.UiAccess.PresentationFeed.CurrentState.HasBlockingPresentation, Is.True);
 
                 installer.HudView.ClickFlipRight();
 
-                Assert.That(installer.HudController.ViewModel.LastCommandAcceptance.HasValue, Is.True);
-                Assert.That(installer.HudController.ViewModel.LastCommandAcceptance.Value.Accepted, Is.False);
-                Assert.That(installer.HudController.ViewModel.LastCommandAcceptance.Value.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.BlockingPresentation));
+                Assert.That(installer.HudController.ViewModel.LastCommandResult.HasValue, Is.True);
+                Assert.That(installer.HudController.ViewModel.LastCommandResult.Value.Accepted, Is.False);
+                Assert.That(installer.HudController.ViewModel.LastCommandResult.Value.FailureKind, Is.EqualTo(Game.Feature.UI.HUD.GameplayHudCommandFailureKind.Busy));
                 Assert.That(installer.HudController.ViewModel.FeedbackText, Is.EqualTo("Busy"));
 
                 installer.HudView.ClickPause();
@@ -78,6 +75,68 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.PausePopupView.IsVisible, Is.False);
             }
             finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiFlowInstaller_ComposesObjectiveStatusAndNonPausingObjectiveInfoPopup()
+        {
+            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesObjectiveStatusAndNonPausingObjectiveInfoPopup");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                installer.Install(host);
+
+                installer.GameplayScreenView.ClickObjectives();
+
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+                Assert.That(installer.ObjectiveStatusScreenView.IsVisible, Is.True);
+                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.False);
+                Assert.That(installer.ObjectiveStatusScreenController.ViewModel.SummaryText, Is.Not.Empty);
+
+                installer.ObjectiveStatusScreenView.ClickInfo();
+
+                Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.True);
+                Assert.That(installer.ObjectiveInfoPopupView.IsVisible, Is.True);
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
+                Assert.That(installer.ObjectiveInfoPopupView.BodyText, Is.Not.Empty);
+
+                installer.ObjectiveInfoPopupView.ClickClose();
+
+                Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.False);
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
+
+                installer.ObjectiveStatusScreenView.ClickBack();
+
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        private static void DestroySupportObjects(GameObject hostObject)
+        {
+            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            if (eventSystem != null)
+            {
+                Object.DestroyImmediate(eventSystem.gameObject);
+            }
+
+            if (hostObject != null)
             {
                 Object.DestroyImmediate(hostObject);
             }

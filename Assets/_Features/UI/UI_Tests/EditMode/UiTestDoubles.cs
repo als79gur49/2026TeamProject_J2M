@@ -4,6 +4,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.UI.Application;
 
 namespace Game.Feature.UI.Tests
 {
@@ -43,7 +44,7 @@ namespace Game.Feature.UI.Tests
         }
     }
 
-    internal sealed class FakeGameplayPauseService : IGameplayPauseService
+    internal sealed class FakeGameplayPauseService : IGameplayPauseService, IUiFlowPauseService
     {
         public event Action<bool> PauseChanged;
 
@@ -147,6 +148,21 @@ namespace Game.Feature.UI.Tests
             _objectiveQuery.Value = objective;
         }
 
+        public static GameplayPlayerHudReadModel CreateDefaultPlayerHud()
+        {
+            return new GameplayPlayerHudReadModel(
+                isAvailable: true,
+                playerEntityId: 10,
+                currentHp: 3,
+                facing: Direction.Up,
+                activeActionKind: PlayerActionKind.None,
+                activeActionDirection: Direction.None,
+                activeTargetEntityId: 0,
+                isActionInProgress: false,
+                canMoveThisTick: true,
+                canStartActionThisTick: true);
+        }
+
         private sealed class MutableSessionQuery : IGameplaySessionQuery
         {
             public MutableSessionQuery(GameplaySessionReadModel value)
@@ -190,6 +206,25 @@ namespace Game.Feature.UI.Tests
             {
                 return Value;
             }
+        }
+    }
+
+    internal static class UiTestPortFactory
+    {
+        public static GameplayUiFlowPorts CreatePorts(
+            FakeGameplayCommandGateway commandGateway = null,
+            FakeGameplayQueryFacade queryFacade = null,
+            FakeGameplayPresentationFeed presentationFeed = null,
+            FakeGameplayPauseService pauseService = null)
+        {
+            commandGateway ??= new FakeGameplayCommandGateway();
+            queryFacade ??= new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            presentationFeed ??= new FakeGameplayPresentationFeed();
+            pauseService ??= new FakeGameplayPauseService();
+            return new GameplayUiFlowPorts(commandGateway, queryFacade, presentationFeed, pauseService);
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Game.Feature.UI.Tests
         {
             var policy = new UIBlockPolicy();
 
-            var snapshot = policy.Evaluate(ScreenId.Help, null, popupCount: 0);
+            var snapshot = policy.Evaluate(new UIFlowStateSnapshot(ScreenId.Help, null, popupCount: 0));
 
             Assert.That(snapshot.BlocksHudInteraction, Is.True);
             Assert.That(snapshot.BlocksScreenInteraction, Is.False);
@@ -23,9 +23,10 @@ namespace Game.Feature.UI.Tests
             var policy = new UIBlockPolicy();
 
             var snapshot = policy.Evaluate(
-                ScreenId.Gameplay,
-                new PopupEntry(PopupId.Pause, isModal: true),
-                popupCount: 1);
+                new UIFlowStateSnapshot(
+                    ScreenId.Gameplay,
+                    new PopupEntry(PopupId.Pause, isModal: true),
+                    popupCount: 1));
 
             Assert.That(snapshot.BlocksHudInteraction, Is.True);
             Assert.That(snapshot.BlocksScreenInteraction, Is.True);

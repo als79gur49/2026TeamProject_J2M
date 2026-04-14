@@ -15,6 +15,7 @@ public static class TestRunnerCliBootstrap
 
     private const string CoreSelection = "core";
     private const string FullSelection = "full";
+    private const string UiSelection = "ui";
     private const string IntegrationSimulationSelection = "integration-simulation";
     private const string IntegrationReplaySelection = "integration-replay";
     private const string IntegrationFuzzSelection = "integration-fuzz";
@@ -24,6 +25,7 @@ public static class TestRunnerCliBootstrap
     private const string IntegrationSimulationAssemblyName = "Game.Integration.Simulation.Tests";
     private const string IntegrationReplayAssemblyName = "Game.Integration.Replay.Tests";
     private const string IntegrationFuzzAssemblyName = "Game.Integration.Fuzz.Tests";
+    private const string UiEditModeAssemblyName = "Game.Feature.UI.Tests";
     private const int WatchdogTimeoutSeconds = 285;
 
     private const string SessionPrefix = "Codex.TestRunnerCliBootstrap.";
@@ -501,6 +503,9 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
 
         switch (_selection)
         {
+            case UiSelection:
+                selectedAssemblyNames = new[] { UiEditModeAssemblyName };
+                return;
             case IntegrationSimulationSelection:
                 selectedAssemblyNames = new[] { IntegrationSimulationAssemblyName };
                 return;
@@ -534,6 +539,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         _selection = rawSelection.Trim().ToLowerInvariant();
         if (_selection != CoreSelection &&
             _selection != FullSelection &&
+            _selection != UiSelection &&
             _selection != IntegrationSimulationSelection &&
             _selection != IntegrationReplaySelection &&
             _selection != IntegrationFuzzSelection)
@@ -561,6 +567,7 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
 
         if (_selection != CoreSelection &&
             _selection != FullSelection &&
+            _selection != UiSelection &&
             _selection != IntegrationSimulationSelection &&
             _selection != IntegrationReplaySelection &&
             _selection != IntegrationFuzzSelection)

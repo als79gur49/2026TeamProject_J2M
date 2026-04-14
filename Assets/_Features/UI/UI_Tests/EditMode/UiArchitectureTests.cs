@@ -5,6 +5,7 @@ using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
@@ -18,41 +19,65 @@ namespace Game.Feature.UI.Tests
     public sealed class UiArchitectureTests
     {
         [Test]
-        public void NonCompositionUiAssemblies_DoNotReferenceGameplayHostAssembly()
+        public void OnlyCompositionUiAssemblyReferencesGameplayHostAssembly()
         {
-            var nonCompositionAssemblies = new[]
-            {
-                typeof(GameplayHudPresenter).Assembly,
-                typeof(HUDController).Assembly,
-                typeof(GameplayHudView).Assembly,
-                typeof(GameplayScreenView).Assembly,
-                typeof(PausePopupView).Assembly,
-            };
+            var hostAssemblyName = typeof(GameplaySceneHost).Assembly.GetName().Name;
+            var runtimeUiAssemblies = GetRuntimeUiAssemblies();
 
-            foreach (var assembly in nonCompositionAssemblies.Distinct())
+            foreach (var assembly in runtimeUiAssemblies.Where(assembly => assembly != typeof(GameplayUiFlowInstaller).Assembly))
             {
-                var references = assembly
-                    .GetReferencedAssemblies()
-                    .Select(reference => reference.Name)
-                    .ToArray();
-
-                Assert.That(references, Does.Not.Contain(typeof(GameplaySceneHost).Assembly.GetName().Name), assembly.GetName().Name);
+                var references = assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
+                Assert.That(references, Does.Not.Contain(hostAssemblyName), assembly.GetName().Name);
             }
-        }
 
-        [Test]
-        public void CompositionAssembly_IsTheOnlyUiAssemblyReferencingGameplayHost()
-        {
-            var references = typeof(GameplayUiFlowInstaller).Assembly
+            var compositionReferences = typeof(GameplayUiFlowInstaller).Assembly
                 .GetReferencedAssemblies()
                 .Select(reference => reference.Name)
                 .ToArray();
-
-            Assert.That(references, Does.Contain(typeof(GameplaySceneHost).Assembly.GetName().Name));
+            Assert.That(compositionReferences, Does.Contain(hostAssemblyName));
         }
 
         [Test]
-        public void NonCompositionUiAssemblies_DoNotExposeForbiddenGameplayTypes()
+        public void OnlyApplicationAndCompositionUiAssembliesReferenceGameplayUiAccessAssembly()
+        {
+            var uiAccessAssemblyName = typeof(IGameplayQueryFacade).Assembly.GetName().Name;
+            var applicationAssembly = typeof(GameplayHudPresenter).Assembly;
+            var compositionAssembly = typeof(GameplayUiFlowInstaller).Assembly;
+
+            foreach (var assembly in GetRuntimeUiAssemblies().Where(assembly => assembly != applicationAssembly && assembly != compositionAssembly))
+            {
+                var references = assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
+                Assert.That(references, Does.Not.Contain(uiAccessAssemblyName), assembly.GetName().Name);
+            }
+
+            var applicationReferences = applicationAssembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+            Assert.That(applicationReferences, Does.Contain(uiAccessAssemblyName));
+
+            var compositionReferences = compositionAssembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+            Assert.That(compositionReferences, Does.Contain(uiAccessAssemblyName));
+        }
+
+        [Test]
+        public void FeatureUiAssemblies_DoNotDefineRuntimeOnGuiMethods()
+        {
+            var offendingMethods = GetRuntimeUiAssemblies()
+                .SelectMany(assembly => assembly.GetExportedTypes())
+                .SelectMany(type => type.GetMethods(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                    .Where(method => method.Name == "OnGUI")
+                    .Select(method => $"{type.FullName}.{method.Name}"))
+                .ToArray();
+
+            Assert.That(offendingMethods, Is.Empty);
+        }
+
+        [Test]
+        public void HudScreenAndPopupAssemblies_DoNotExposeForbiddenGameplayTypes()
         {
             var forbiddenTypes = new HashSet<Type>
             {
@@ -65,8 +90,6 @@ namespace Game.Feature.UI.Tests
 
             var assemblies = new[]
             {
-                typeof(GameplayHudPresenter).Assembly,
-                typeof(HUDController).Assembly,
                 typeof(GameplayHudView).Assembly,
                 typeof(GameplayScreenView).Assembly,
                 typeof(PausePopupView).Assembly,
@@ -79,11 +102,36 @@ namespace Game.Feature.UI.Tests
                 .Select(NormalizeType)
                 .Where(type => type != null &&
                                (forbiddenTypes.Contains(type) ||
-                                (type.Namespace != null && type.Namespace.StartsWith("Game.Feature.Gameplay.Host", StringComparison.Ordinal))))
+                                (type.Namespace != null && type.Namespace.StartsWith("Game.Feature.Gameplay", StringComparison.Ordinal))))
                 .Distinct()
                 .ToArray();
 
             Assert.That(leakedTypes, Is.Empty);
+        }
+
+        [Test]
+        public void GameplayQueryFacade_Surface_RemainsBoundedToStageOneReaders()
+        {
+            var propertyNames = typeof(IGameplayQueryFacade)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(propertyNames, Is.EqualTo(new[] { "Objectives", "PlayerHud", "Session" }));
+        }
+
+        private static Assembly[] GetRuntimeUiAssemblies()
+        {
+            return new[]
+            {
+                typeof(GameplayHudPresenter).Assembly,
+                typeof(HUDController).Assembly,
+                typeof(GameplayHudView).Assembly,
+                typeof(GameplayScreenView).Assembly,
+                typeof(PausePopupView).Assembly,
+                typeof(GameplayUiFlowInstaller).Assembly,
+            }.Distinct().ToArray();
         }
 
         private static IEnumerable<Type> GetPublicSurfaceTypes(Type type)
