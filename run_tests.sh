@@ -13,7 +13,6 @@ RESULT_DIR="$PROJECT_PATH_WSL/TestResults"
 METRICS_DIR="$RESULT_DIR/.metrics"
 mkdir -p "$RESULT_DIR" "$METRICS_DIR"
 
-STRATIFICATION_MANIFEST_PATH_WSL="$PROJECT_PATH_WSL/Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/GameplayTestStratificationManifest.json"
 STRATIFICATION_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_test_stratification.py"
 
 DOTNET_CORE_LOG="$RESULT_DIR/wsl-dotnet-core.log"
@@ -38,8 +37,6 @@ UNITY_INTEGRATION_REPLAY_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-replay-
 UNITY_INTEGRATION_REPLAY_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-replay-editmode.xml"
 UNITY_INTEGRATION_FUZZ_EDITMODE_LOG="$RESULT_DIR/wsl-unity-integration-fuzz-editmode.log"
 UNITY_INTEGRATION_FUZZ_EDITMODE_XML="$RESULT_DIR/wsl-unity-integration-fuzz-editmode.xml"
-
-PLAYMODE_CORE_CAP=0
 
 require_file() {
     local path="$1"
@@ -108,24 +105,6 @@ run_governance_check() {
         echo "Stratification governance check failed"
         exit "$exit_code"
     fi
-
-    PLAYMODE_CORE_CAP="$(python3 - "$PROJECT_PATH_WSL" <<'PY'
-import sys
-from pathlib import Path
-
-root = Path(sys.argv[1])
-sys.path.insert(0, str(root / "Tools"))
-import gameplay_test_stratification_lib as lib
-
-paths = lib.get_repo_paths(root)
-tests = lib.discover_tests(root, paths["test_root"])
-overrides = lib.load_overrides(paths["override_path"])
-manifest = lib.build_manifest(tests, overrides, root)
-mode = lib.determine_governance_mode()
-summary, _, _ = lib.build_governance_summary(root, tests, manifest, mode)
-print(summary.playmode_core_cap)
-PY
-)"
 }
 
 summarize_stage_result() {
@@ -134,21 +113,111 @@ summarize_stage_result() {
     local stage_exit_code="$3"
     local metrics_path="$METRICS_DIR/${stage_key}.json"
 
-    python3 - "$PROJECT_PATH_WSL" "$xml_path" "$metrics_path" "$stage_key" "$stage_exit_code" <<'PY'
+    python3 - "$xml_path" "$metrics_path" "$stage_key" "$stage_exit_code" <<'PY'
+import json
+import math
 import sys
+import xml.etree.ElementTree as ET
+from datetime import datetime, timezone
 from pathlib import Path
 
-root = Path(sys.argv[1])
-xml_path = Path(sys.argv[2])
-metrics_path = Path(sys.argv[3])
-stage_key = sys.argv[4]
-stage_exit_code = int(sys.argv[5])
+xml_path = Path(sys.argv[1])
+metrics_path = Path(sys.argv[2])
+stage_key = sys.argv[3]
+stage_exit_code = int(sys.argv[4])
 
-sys.path.insert(0, str(root / "Tools"))
-import gameplay_test_stratification_lib as lib
 
-current = lib.parse_test_result_xml(xml_path)
-history = lib.read_stage_metrics(metrics_path)
+def extract_failure_message(node):
+    message_node = node.find("./failure/message")
+    if message_node is None or message_node.text is None:
+        return ""
+    return message_node.text.strip().splitlines()[0].strip()
+
+
+def parse_test_result_xml(path):
+    tree = ET.parse(path)
+    root = tree.getroot()
+
+    total = int(root.attrib.get("total", "0") or 0)
+    failed = int(root.attrib.get("failed", "0") or 0)
+    duration_text = root.attrib.get("duration", root.attrib.get("time", "0")) or "0"
+    try:
+        duration_seconds = float(duration_text)
+    except ValueError:
+        duration_seconds = 0.0
+
+    failed_cases = []
+    for node in root.findall(".//test-case[@result='Failed']"):
+        failed_cases.append(
+            {
+                "full_name": node.attrib.get("fullname") or node.attrib.get("name") or "<unknown>",
+                "message": extract_failure_message(node),
+            }
+        )
+
+    return {
+        "total": total,
+        "failed": failed,
+        "failure_ratio": (failed / total) if total else 0.0,
+        "duration_seconds": duration_seconds,
+        "failed_cases": failed_cases,
+    }
+
+
+def read_stage_metrics(path):
+    if not path.exists():
+        return []
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    return payload.get("runs", [])
+
+
+def evaluate_reliability_metrics(current, history):
+    successful_history = [entry for entry in history[-3:] if entry.get("total", 0) > 0]
+    if len(successful_history) < 3:
+        return []
+
+    average_total = sum(int(entry.get("total", 0)) for entry in successful_history) / len(successful_history)
+    average_duration = sum(float(entry.get("duration_seconds", 0.0)) for entry in successful_history) / len(successful_history)
+    current_total = int(current.get("total", 0))
+    current_duration = float(current.get("duration_seconds", 0.0))
+
+    warnings = []
+    total_drop_threshold = max(2, math.ceil(average_total * 0.05))
+    if current_total < average_total - total_drop_threshold:
+        warnings.append(f"test count dropped from moving average {average_total:.1f} to {current_total}")
+
+    if average_duration > 0 and current_duration < average_duration * 0.60:
+        warnings.append(
+            f"duration dropped from moving average {average_duration:.3f}s to {current_duration:.3f}s"
+        )
+
+    return warnings
+
+
+def write_json(path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def update_stage_metrics(path, current, record_success):
+    if not record_success:
+        return
+
+    history = read_stage_metrics(path)
+    history.append(
+        {
+            "timestampUtc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+            "total": int(current.get("total", 0)),
+            "failed": int(current.get("failed", 0)),
+            "failure_ratio": float(current.get("failure_ratio", 0.0)),
+            "duration_seconds": float(current.get("duration_seconds", 0.0)),
+        }
+    )
+    write_json(path, {"schemaVersion": 1, "runs": history[-3:]})
+
+
+current = parse_test_result_xml(xml_path)
+history = read_stage_metrics(metrics_path)
 
 print(
     f"Stage metrics [{stage_key}]: "
@@ -158,7 +227,7 @@ print(
     f"duration_seconds={current['duration_seconds']:.3f}"
 )
 
-for warning in lib.evaluate_reliability_metrics(current, history):
+for warning in evaluate_reliability_metrics(current, history):
     print(f"WARNING: {stage_key} {warning}")
 
 failed_cases = current.get("failed_cases") or []
@@ -170,7 +239,7 @@ if failed_cases:
         if message:
             print(f"  Reason: {message}")
 
-lib.update_stage_metrics(metrics_path, current, record_success=(stage_exit_code == 0))
+update_stage_metrics(metrics_path, current, record_success=(stage_exit_code == 0))
 PY
 }
 
@@ -185,13 +254,11 @@ run_unity_stage() {
     local -a command
     local log_path_win
     local xml_path_win
-    local manifest_path_win
     local exit_code
 
     rm -f "$xml_path"
     log_path_win="$(wslpath -w "$log_path")"
     xml_path_win="$(wslpath -w "$xml_path")"
-    manifest_path_win="$(wslpath -w "$STRATIFICATION_MANIFEST_PATH_WSL")"
 
     command=(
         timeout --kill-after=10 300
@@ -203,15 +270,7 @@ run_unity_stage() {
         -executeMethod "$execute_method"
         -codexSelection "$selection"
         -codexResultPath "$xml_path_win"
-        -codexManifestPath "$manifest_path_win"
     )
-
-    if [ "$selection" = "core" ] && [ "$platform" = "PlayMode" ] && [ "$PLAYMODE_CORE_CAP" -gt 0 ]; then
-        command+=(-codexPlayModeCoreCap "$PLAYMODE_CORE_CAP")
-        if [ "${ALLOW_PLAYMODE_CORE_OVERFLOW:-0}" = "1" ]; then
-            command+=(-codexAllowPlayModeCoreOverflow 1)
-        fi
-    fi
 
     echo "Running Unity $stage_label..."
 
@@ -291,7 +350,6 @@ main() {
     require_file "$DOTNET_PATH" "dotnet executable"
     require_file "$UNITY_PATH" "Unity executable"
     require_file "$STRATIFICATION_CHECKER_PATH" "stratification governance checker"
-    require_file "$STRATIFICATION_MANIFEST_PATH_WSL" "stratification manifest"
 
     run_governance_check
 

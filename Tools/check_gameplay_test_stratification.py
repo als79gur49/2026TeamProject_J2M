@@ -36,12 +36,7 @@ def main() -> int:
         overrides = lib.load_overrides(paths["override_path"])
         manifest = lib.build_manifest(tests, overrides, root)
         rewrite_map = lib.build_rewrite_map(manifest)
-        output_failures = lib.check_outputs(
-            paths["manifest_path"],
-            manifest,
-            tests,
-            rewrite_map,
-        )
+        output_failures = lib.check_source_categories(manifest, tests, rewrite_map)
         inventory_failures = lib.validate_inventory(tests, overrides, manifest)
         summary, warnings, failures = lib.build_governance_summary(root, tests, manifest, mode)
     except Exception as error:

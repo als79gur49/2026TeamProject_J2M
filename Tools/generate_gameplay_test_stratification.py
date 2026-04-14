@@ -9,7 +9,7 @@ import gameplay_test_stratification_lib as lib
 
 
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Generate gameplay test stratification artifacts.")
+    parser = argparse.ArgumentParser(description="Validate gameplay test stratification source truth.")
     parser.add_argument(
         "--root",
         type=Path,
@@ -19,12 +19,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Do not write files; validate current source and manifest instead.",
-    )
-    parser.add_argument(
-        "--skip-source-rewrite",
-        action="store_true",
-        help="Update manifest without rewriting source categories.",
+        help="Compatibility flag. Validation is source-truth only.",
     )
     return parser.parse_args()
 
@@ -33,32 +28,20 @@ def main() -> int:
     args = parse_args()
     root = args.root.resolve()
     paths = lib.get_repo_paths(root)
+    _ = args.check
 
     tests = lib.discover_tests(root, paths["test_root"])
     overrides = lib.load_overrides(paths["override_path"])
     manifest = lib.build_manifest(tests, overrides, root)
     rewrite_map = lib.build_rewrite_map(manifest)
 
-    if args.check:
-        failures = lib.check_outputs(
-            paths["manifest_path"],
-            manifest,
-            tests,
-            rewrite_map,
-        )
-        failures.extend(lib.validate_inventory(tests, overrides, manifest))
-        if failures:
-            for failure in failures:
-                print(failure, file=sys.stderr)
-            return 1
+    failures = lib.check_source_categories(manifest, tests, rewrite_map)
+    failures.extend(lib.validate_inventory(tests, overrides, manifest))
+    if failures:
+        for failure in failures:
+            print(failure, file=sys.stderr)
+        return 1
 
-        lib.print_summary(manifest)
-        return 0
-
-    if not args.skip_source_rewrite:
-        lib.rewrite_source_categories(root, tests, rewrite_map)
-
-    lib.write_json(paths["manifest_path"], lib.build_persisted_manifest(manifest))
     lib.print_summary(manifest)
     return 0
 

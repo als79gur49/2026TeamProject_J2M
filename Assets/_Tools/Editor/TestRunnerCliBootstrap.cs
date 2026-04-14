@@ -1,7 +1,6 @@
 using System;
 using System.Globalization;
 using System.IO;
-using System.Linq;
 using System.Security;
 using System.Xml;
 using UnityEditor;
@@ -13,9 +12,6 @@ public static class TestRunnerCliBootstrap
 {
     private const string SelectionArg = "-codexSelection";
     private const string ResultPathArg = "-codexResultPath";
-    private const string ManifestPathArg = "-codexManifestPath";
-    private const string PlayModeCoreCapArg = "-codexPlayModeCoreCap";
-    private const string AllowPlayModeCoreOverflowArg = "-codexAllowPlayModeCoreOverflow";
 
     private const string CoreSelection = "core";
     private const string FullSelection = "full";
@@ -24,10 +20,10 @@ public static class TestRunnerCliBootstrap
     private const string IntegrationFuzzSelection = "integration-fuzz";
     private const string CoreCategory = "Core";
     private const string CoreEditModeAssemblyName = "Game.Core.Tests";
+    private const string PlayModeAssemblyName = "Game.Feature.Gameplay.PlayModeTests";
     private const string IntegrationSimulationAssemblyName = "Game.Integration.Simulation.Tests";
     private const string IntegrationReplayAssemblyName = "Game.Integration.Replay.Tests";
     private const string IntegrationFuzzAssemblyName = "Game.Integration.Fuzz.Tests";
-    private const string DefaultManifestRelativePath = "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/TestSupport/GameplayTestStratificationManifest.json";
     private const int WatchdogTimeoutSeconds = 285;
 
     private const string SessionPrefix = "Codex.TestRunnerCliBootstrap.";
@@ -36,9 +32,6 @@ public static class TestRunnerCliBootstrap
     private const string ModeKey = SessionPrefix + "Mode";
     private const string SelectionKey = SessionPrefix + "Selection";
     private const string OutputPathKey = SessionPrefix + "OutputPath";
-    private const string ManifestPathKey = SessionPrefix + "ManifestPath";
-    private const string PlayModeCoreCapKey = SessionPrefix + "PlayModeCoreCap";
-    private const string AllowPlayModeCoreOverflowKey = SessionPrefix + "AllowPlayModeCoreOverflow";
     private const string WatchdogDeadlineKey = SessionPrefix + "WatchdogDeadlineUtcTicks";
 
     private static bool _hasRun;
@@ -49,9 +42,6 @@ public static class TestRunnerCliBootstrap
     private static TestMode _testMode;
     private static string _selection = string.Empty;
     private static string _outputPath = string.Empty;
-    private static string _manifestPath = string.Empty;
-    private static int _playModeCoreCap;
-    private static bool _allowPlayModeCoreOverflow;
     private static DateTime _watchdogDeadlineUtc = DateTime.MinValue;
 
     private static TestRunnerApi _api;
@@ -171,24 +161,16 @@ public static class TestRunnerCliBootstrap
             return;
         }
 
-        string[] selectedTestNames;
         string[] selectedAssemblyNames;
+        string[] selectedCategories;
         try
         {
-            ResolveSelection(out selectedTestNames, out selectedAssemblyNames);
+            ResolveSelection(out selectedAssemblyNames, out selectedCategories);
         }
         catch (Exception exception)
         {
             Debug.LogException(exception);
             WriteFailureXml(exception.Message);
-            ExitWithCode(2);
-            return;
-        }
-
-        if (_selection == CoreSelection && _testMode == TestMode.PlayMode && selectedTestNames.Length == 0)
-        {
-            Debug.LogError("No tests matched the requested selection.");
-            WriteFailureXml("No tests matched the requested selection");
             ExitWithCode(2);
             return;
         }
@@ -206,13 +188,14 @@ public static class TestRunnerCliBootstrap
 
         if (_selection == CoreSelection)
         {
-            if (_testMode == TestMode.EditMode)
+            if (selectedAssemblyNames.Length > 0)
             {
                 filter.assemblyNames = selectedAssemblyNames;
             }
-            else
+
+            if (selectedCategories.Length > 0)
             {
-                filter.testNames = selectedTestNames;
+                filter.categoryNames = selectedCategories;
             }
         }
         else if (selectedAssemblyNames.Length > 0)
@@ -488,10 +471,10 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         }
     }
 
-    private static void ResolveSelection(out string[] selectedTestNames, out string[] selectedAssemblyNames)
+    private static void ResolveSelection(out string[] selectedAssemblyNames, out string[] selectedCategories)
     {
-        selectedTestNames = Array.Empty<string>();
         selectedAssemblyNames = Array.Empty<string>();
+        selectedCategories = Array.Empty<string>();
 
         if (_selection == FullSelection)
         {
@@ -506,20 +489,8 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
                 return;
             }
 
-            selectedTestNames = ResolveManifestSelectedTestNames();
-            if (_playModeCoreCap > 0 && selectedTestNames.Length > _playModeCoreCap)
-            {
-                var message = $"PlayMode Core selection exceeds cap {_playModeCoreCap}: {selectedTestNames.Length}";
-                if (_allowPlayModeCoreOverflow)
-                {
-                    Debug.LogWarning(message);
-                }
-                else
-                {
-                    throw new InvalidOperationException(message);
-                }
-            }
-
+            selectedAssemblyNames = new[] { PlayModeAssemblyName };
+            selectedCategories = new[] { CoreCategory };
             return;
         }
 
@@ -542,32 +513,6 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
             default:
                 throw new InvalidOperationException($"Unsupported selection '{_selection}'.");
         }
-    }
-
-    private static string[] ResolveManifestSelectedTestNames()
-    {
-        if (!File.Exists(_manifestPath))
-        {
-            throw new FileNotFoundException($"Gameplay test stratification manifest is missing: {_manifestPath}", _manifestPath);
-        }
-
-        var manifest = JsonUtility.FromJson<StratificationManifest>(File.ReadAllText(_manifestPath));
-        if (manifest == null)
-        {
-            throw new InvalidOperationException($"Failed to deserialize gameplay test stratification manifest: {_manifestPath}");
-        }
-
-        manifest.tests ??= Array.Empty<StratificationTest>();
-
-        var modeName = _testMode == TestMode.EditMode ? "EditMode" : "PlayMode";
-        return manifest.tests
-            .Where(test => test != null)
-            .Where(test => string.Equals(test.category, CoreCategory, StringComparison.OrdinalIgnoreCase))
-            .Where(test => string.Equals(test.mode, modeName, StringComparison.OrdinalIgnoreCase))
-            .Select(test => test.fullyQualifiedName?.Trim() ?? string.Empty)
-            .Where(testName => !string.IsNullOrWhiteSpace(testName))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
     }
 
     private static bool TryLoadCommandLineState(TestMode testMode, out string error)
@@ -597,16 +542,6 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
             return false;
         }
 
-        var rawManifestPath = GetSingleArgumentValue(ManifestPathArg);
-        _manifestPath = string.IsNullOrWhiteSpace(rawManifestPath)
-            ? GetDefaultManifestPath()
-            : NormalizePath(rawManifestPath);
-        _playModeCoreCap = ParseOptionalIntArgument(PlayModeCoreCapArg);
-        _allowPlayModeCoreOverflow = string.Equals(
-            GetSingleArgumentValue(AllowPlayModeCoreOverflowArg),
-            "1",
-            StringComparison.Ordinal);
-
         error = string.Empty;
         return true;
     }
@@ -623,9 +558,6 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
 
         _selection = SessionState.GetString(SelectionKey, string.Empty);
         _outputPath = SessionState.GetString(OutputPathKey, GetFallbackOutputPath(_testMode));
-        _manifestPath = SessionState.GetString(ManifestPathKey, GetDefaultManifestPath());
-        _playModeCoreCap = SessionState.GetInt(PlayModeCoreCapKey, 0);
-        _allowPlayModeCoreOverflow = SessionState.GetBool(AllowPlayModeCoreOverflowKey, false);
 
         if (_selection != CoreSelection &&
             _selection != FullSelection &&
@@ -648,9 +580,6 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         SessionState.SetString(ModeKey, _testMode.ToString());
         SessionState.SetString(SelectionKey, _selection);
         SessionState.SetString(OutputPathKey, _outputPath);
-        SessionState.SetString(ManifestPathKey, _manifestPath);
-        SessionState.SetInt(PlayModeCoreCapKey, _playModeCoreCap);
-        SessionState.SetBool(AllowPlayModeCoreOverflowKey, _allowPlayModeCoreOverflow);
     }
 
     private static void ClearSessionState()
@@ -660,9 +589,6 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         SessionState.EraseString(ModeKey);
         SessionState.EraseString(SelectionKey);
         SessionState.EraseString(OutputPathKey);
-        SessionState.EraseString(ManifestPathKey);
-        SessionState.EraseInt(PlayModeCoreCapKey);
-        SessionState.EraseBool(AllowPlayModeCoreOverflowKey);
         SessionState.EraseString(WatchdogDeadlineKey);
     }
 
@@ -680,27 +606,9 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         return string.Empty;
     }
 
-    private static int ParseOptionalIntArgument(string argumentName)
-    {
-        var rawValue = GetSingleArgumentValue(argumentName);
-        if (string.IsNullOrWhiteSpace(rawValue))
-        {
-            return 0;
-        }
-
-        return int.TryParse(rawValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsedValue)
-            ? parsedValue
-            : 0;
-    }
-
     private static string NormalizePath(string path)
     {
         return Path.GetFullPath(path.Trim());
-    }
-
-    private static string GetDefaultManifestPath()
-    {
-        return Path.GetFullPath(Path.Combine(GetProjectRootPath(), DefaultManifestRelativePath));
     }
 
     private static string GetFallbackOutputPath(TestMode testMode)
@@ -750,19 +658,5 @@ $@"<?xml version=""1.0"" encoding=""utf-8""?>
         public void TestFinished(ITestResultAdaptor result)
         {
         }
-    }
-
-    [Serializable]
-    private sealed class StratificationManifest
-    {
-        public StratificationTest[] tests = Array.Empty<StratificationTest>();
-    }
-
-    [Serializable]
-    private sealed class StratificationTest
-    {
-        public string fullyQualifiedName = string.Empty;
-        public string category = string.Empty;
-        public string mode = string.Empty;
     }
 }

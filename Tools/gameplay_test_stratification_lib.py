@@ -4,8 +4,7 @@ import json
 import math
 import os
 import re
-import xml.etree.ElementTree as ET
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from functools import lru_cache
@@ -65,7 +64,6 @@ FORBIDDEN_CORE_IMPORTS = (
 FORBIDDEN_CORE_SYMBOLS = (
     "GameplayWorldStateTestFactory",
     "EnemyAiProfileTestFactory",
-    "GameplayTestStratificationLoader",
     "GameplayTestSourceDiscovery",
     "TickReplayHarness",
     "ReplayDivergenceArtifact",
@@ -198,7 +196,6 @@ def get_repo_paths(root: Path) -> Dict[str, Path]:
         "root": root,
         "test_root": test_root,
         "override_path": test_root / "EditMode/TestSupport/GameplayTestStratificationOverrides.json",
-        "manifest_path": test_root / "EditMode/TestSupport/GameplayTestStratificationManifest.json",
         "governance_history_path": result_root / ".governance/authoritative-history.json",
         "metrics_dir": result_root / ".metrics",
     }
@@ -399,11 +396,7 @@ def build_manifest(tests: List[TestMethod], overrides: Dict[str, dict], root: Pa
             }
         )
 
-    return {
-        "version": 1,
-        "generatedAtUtc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-        "tests": entries,
-    }
+    return {"tests": entries}
 
 
 def infer_contracts(test: TestMethod) -> List[str]:
@@ -501,66 +494,12 @@ def build_rewrite_map(manifest: dict) -> Dict[str, str]:
     }
 
 
-def rewrite_source_categories(root: Path, tests: List[TestMethod], rewrite_map: Dict[str, str]) -> None:
-    tests_by_file: Dict[Path, List[TestMethod]] = defaultdict(list)
-    for test in tests:
-        tests_by_file[test.absolute_path].append(test)
-
-    primary_category_re = re.compile(r'^\s*\[Category\("(Core|Extended|Full)"\)\]\s*$')
-    for path, file_tests in tests_by_file.items():
-        original_text = path.read_text(encoding="utf-8")
-        rewritten = original_text
-        for test in sorted(file_tests, key=lambda item: item.attribute_block_start, reverse=True):
-            category = rewrite_map[test.fully_qualified_name]
-            block_text = rewritten[test.attribute_block_start : test.attribute_block_end]
-            lines = [line for line in block_text.splitlines() if line.strip()]
-            filtered_lines = [line for line in lines if not primary_category_re.match(line.strip())]
-            indent = re.match(r"^(\s*)", lines[0]).group(1) if lines else "        "
-            filtered_lines.append(f'{indent}[Category("{category}")]')
-            replacement = test.newline.join(filtered_lines) + test.newline
-            rewritten = (
-                rewritten[: test.attribute_block_start]
-                + replacement
-                + rewritten[test.attribute_block_end :]
-            )
-        if rewritten != original_text:
-            path.write_text(rewritten, encoding="utf-8")
-
-
-def build_persisted_manifest(manifest: Mapping[str, object]) -> dict:
-    tests = [
-        {
-            "fullyQualifiedName": entry["fullyQualifiedName"],
-            "category": entry["category"],
-            "mode": entry["mode"],
-        }
-        for entry in manifest["tests"]
-    ]
-    return {
-        "version": manifest["version"],
-        "generatedAtUtc": manifest["generatedAtUtc"],
-        "tests": tests,
-    }
-
-
-def check_outputs(
-    manifest_path: Path,
+def check_source_categories(
     manifest: dict,
     tests: List[TestMethod],
     rewrite_map: Dict[str, str],
 ) -> List[str]:
     failures: List[str] = []
-    persisted_manifest = build_persisted_manifest(manifest)
-    if not manifest_path.exists():
-        failures.append(f"Missing manifest: {manifest_path}")
-    else:
-        existing_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        existing_manifest["generatedAtUtc"] = "<ignored>"
-        comparable_manifest = dict(persisted_manifest)
-        comparable_manifest["generatedAtUtc"] = "<ignored>"
-        if existing_manifest != comparable_manifest:
-            failures.append("Manifest is out of date.")
-
     for test in tests:
         current_categories = [
             match.group(1)
@@ -670,10 +609,6 @@ def resolve_integration_subtype(test: TestMethod) -> str | None:
         if subtype in matches:
             return subtype
     return None
-
-
-def load_manifest(path: Path) -> dict:
-    return json.loads(path.read_text(encoding="utf-8"))
 
 
 def structural_counts(tests: Sequence[TestMethod], assembly_map: Mapping[Path, str]) -> Dict[str, int]:
@@ -889,6 +824,10 @@ def build_governance_summary(
 
     if playmode_core_count == 0:
         failures.append("Core must include at least one PlayMode integration test.")
+    elif playmode_core_count > playmode_core_cap:
+        failures.append(
+            f"PlayMode Core count exceeds cap: {playmode_core_count} > {playmode_core_cap}."
+        )
 
     for test in tests:
         assembly_name = resolve_assembly_name(test.absolute_path, assembly_map)
@@ -1062,89 +1001,3 @@ def format_governance_summary(summary: GovernanceSummary) -> List[str]:
         f"PlayMode core ratio: {summary.playmode_core_count}/{summary.playmode_core_cap}",
         f"Core candidate count: {summary.candidate_count} (threshold={summary.candidate_threshold}, streak={summary.candidate_debt_streak})",
     ]
-
-
-def parse_test_result_xml(xml_path: Path) -> dict:
-    tree = ET.parse(xml_path)
-    root = tree.getroot()
-
-    total = int(root.attrib.get("total", "0") or 0)
-    failed = int(root.attrib.get("failed", "0") or 0)
-    duration_text = root.attrib.get("duration", root.attrib.get("time", "0")) or "0"
-    try:
-        duration_seconds = float(duration_text)
-    except ValueError:
-        duration_seconds = 0.0
-
-    failed_cases = []
-    for node in root.findall(".//test-case[@result='Failed']"):
-        failed_cases.append(
-            {
-                "full_name": node.attrib.get("fullname") or node.attrib.get("name") or "<unknown>",
-                "message": extract_failure_message(node),
-            }
-        )
-
-    return {
-        "total": total,
-        "failed": failed,
-        "failure_ratio": (failed / total) if total else 0.0,
-        "duration_seconds": duration_seconds,
-        "failed_cases": failed_cases,
-    }
-
-
-def extract_failure_message(node: ET.Element) -> str:
-    message_node = node.find("./failure/message")
-    if message_node is None or message_node.text is None:
-        return ""
-    return message_node.text.strip().splitlines()[0].strip()
-
-
-def read_stage_metrics(metrics_path: Path) -> List[dict]:
-    if not metrics_path.exists():
-        return []
-    payload = json.loads(metrics_path.read_text(encoding="utf-8"))
-    return payload.get("runs", [])
-
-
-def evaluate_reliability_metrics(current: Mapping[str, object], history: Sequence[Mapping[str, object]]) -> List[str]:
-    successful_history = [entry for entry in history[-3:] if entry.get("total", 0) > 0]
-    if len(successful_history) < 3:
-        return []
-
-    average_total = sum(int(entry.get("total", 0)) for entry in successful_history) / len(successful_history)
-    average_duration = sum(float(entry.get("duration_seconds", 0.0)) for entry in successful_history) / len(successful_history)
-    current_total = int(current.get("total", 0))
-    current_duration = float(current.get("duration_seconds", 0.0))
-
-    warnings = []
-    total_drop_threshold = max(2, math.ceil(average_total * 0.05))
-    if current_total < average_total - total_drop_threshold:
-        warnings.append(
-            f"test count dropped from moving average {average_total:.1f} to {current_total}"
-        )
-
-    if average_duration > 0 and current_duration < average_duration * 0.60:
-        warnings.append(
-            f"duration dropped from moving average {average_duration:.3f}s to {current_duration:.3f}s"
-        )
-
-    return warnings
-
-
-def update_stage_metrics(metrics_path: Path, current: Mapping[str, object], record_success: bool) -> None:
-    if not record_success:
-        return
-
-    history = read_stage_metrics(metrics_path)
-    history.append(
-        {
-            "timestampUtc": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-            "total": int(current.get("total", 0)),
-            "failed": int(current.get("failed", 0)),
-            "failure_ratio": float(current.get("failure_ratio", 0.0)),
-            "duration_seconds": float(current.get("duration_seconds", 0.0)),
-        }
-    )
-    write_json(metrics_path, {"schemaVersion": 1, "runs": history[-3:]})
