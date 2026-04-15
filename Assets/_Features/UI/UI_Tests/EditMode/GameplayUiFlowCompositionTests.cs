@@ -127,6 +127,44 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void GameplayUiFlowInstaller_InventoryScreen_ComposesCatalogDetailAndActionWithoutChangingScreenFlow()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_InventoryScreen_ComposesCatalogDetailAndActionWithoutChangingScreenFlow");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                installer.Install(UiTestPortFactory.CreatePorts());
+
+                installer.GameplayScreenView.ClickInventory();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
+                Assert.That(installer.InventoryScreenView, Is.Not.Null);
+                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Crystal Shard"));
+                Assert.That(installer.InventoryScreenView.GetCatalogRowLabel(3), Is.EqualTo("Recon Map"));
+
+                installer.InventoryScreenView.ClickItemRow(3);
+                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Recon Map"));
+
+                installer.InventoryScreenView.ClickPrimaryAction();
+                Assert.That(installer.InventoryScreenView.ActionFeedbackText, Does.Contain("Recon Map"));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+
+                installer.InventoryScreenView.ClickFilter();
+                Assert.That(installer.InventoryScreenView.CatalogSummaryText, Does.Contain("Consumable"));
+                Assert.That(installer.InventoryScreenView.DetailTitleText, Is.EqualTo("Crystal Shard"));
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Inventory));
+
+                installer.InventoryScreenView.ClickBack();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static void DestroyEventSystemIfPresent()
         {
             var eventSystem = Object.FindFirstObjectByType<EventSystem>();

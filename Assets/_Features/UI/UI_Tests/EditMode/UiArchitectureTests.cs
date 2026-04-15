@@ -113,6 +113,10 @@ namespace Game.Feature.UI.Tests
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
                 typeof(ObjectiveStatusPresenter),
+                typeof(InventoryScreenPresenter),
+                typeof(InventoryCatalogPresenter),
+                typeof(InventoryDetailPresenter),
+                typeof(InventoryActionPresenter),
             };
 
             foreach (var presenterType in presenterTypes)
@@ -402,6 +406,50 @@ namespace Game.Feature.UI.Tests
                         $"{presenterType.FullName} depends on {forbiddenType.FullName}");
                 }
             }
+        }
+
+        [Test]
+        public void InventoryPresenters_DoNotDependOnFlowPopupOrGameplayAuthorityTypes()
+        {
+            var presenterTypes = new[]
+            {
+                typeof(InventoryScreenPresenter),
+                typeof(InventoryCatalogPresenter),
+                typeof(InventoryDetailPresenter),
+                typeof(InventoryActionPresenter),
+            };
+            var forbiddenTypes = new[]
+            {
+                typeof(UIFlowCoordinator),
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(PopupRequest),
+                typeof(PopupId),
+                typeof(IGameplayQueryFacade),
+                typeof(IGameplayCommandGateway),
+            };
+
+            foreach (var presenterType in presenterTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(presenterType, forbiddenType),
+                        Is.False,
+                        $"{presenterType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
+        public void InventoryChildPresenters_DoNotFormSiblingMeshes()
+        {
+            Assert.That(TypeDependsOn(typeof(InventoryCatalogPresenter), typeof(InventoryDetailPresenter)), Is.False);
+            Assert.That(TypeDependsOn(typeof(InventoryCatalogPresenter), typeof(InventoryActionPresenter)), Is.False);
+            Assert.That(TypeDependsOn(typeof(InventoryDetailPresenter), typeof(InventoryCatalogPresenter)), Is.False);
+            Assert.That(TypeDependsOn(typeof(InventoryDetailPresenter), typeof(InventoryActionPresenter)), Is.False);
+            Assert.That(TypeDependsOn(typeof(InventoryActionPresenter), typeof(InventoryCatalogPresenter)), Is.False);
+            Assert.That(TypeDependsOn(typeof(InventoryActionPresenter), typeof(InventoryDetailPresenter)), Is.False);
         }
 
         [Test]
