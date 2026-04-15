@@ -1181,8 +1181,10 @@ GameObject:
   m_Component:
   - component: {fileID: 1179627482}
   - component: {fileID: 1179627481}
+  - component: {fileID: 1179627483}
+  - component: {fileID: 1179627484}
   m_Layer: 0
-  m_Name: Box Slide Test Scene
+  m_Name: TutorialSceneBootstrapRoot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -1277,6 +1279,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1179627483
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d7335ec577334edca1a90ae570c2443e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplaySceneHost
+--- !u!114 &1179627484
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd3dc38e5bcbfb749b2f859a01ae0db0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayUiFlowInstaller
+  _sceneHost: {fileID: 1179627483}
+  _rootView: {fileID: 0}
+  _installOnStart: 1
 --- !u!1 &1255821668
 GameObject:
   m_ObjectHideFlags: 0
