@@ -10,22 +10,28 @@
 ## Current Validation Baseline / 현재 검증 기준점
 ### 한국어
 - 현재 환경에서는 `./run_tests.sh core`와 `./run_tests.sh full`이 실제로 실행 가능하다.
+- Stage 5 HUD freeze 검증용으로 `./run_tests.sh ui` 경로가 추가되었다. 이 경로는 UI EditMode assembly만 대상으로 하는 집중 검증용이다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green
+  - `./run_tests.sh ui`: green, Unity UI EditMode `46 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
+- UI freeze evidence는 [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md)를 따른다.
 - generated stratification report는 더 이상 governance truth-source가 아니다.
 
 ### English Original
 - In the current environment, both `./run_tests.sh core` and `./run_tests.sh full` are runnable.
+- `./run_tests.sh ui` is now available as the targeted Stage 5 HUD freeze path for the UI EditMode assembly only.
 - The current baseline is:
   - `./run_tests.sh core`: green
+  - `./run_tests.sh ui`: green, Unity UI EditMode `46 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
+- Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 5 HUD freeze evidence.
 - The generated stratification report is no longer an active governance truth source.
 
 ## 1. Overview / 개요
@@ -139,6 +145,7 @@ WSL CLI
 #### 공개 명령
 ```bash
 ./run_tests.sh core
+./run_tests.sh ui
 ./run_tests.sh full
 ```
 
@@ -146,6 +153,11 @@ WSL CLI
   - 일반적인 로컬 개발 루프에서 사용한다.
   - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core PlayMode를 순서대로 실행한다.
   - pre-commit 훅이 사용하는 명령이다.
+- `./run_tests.sh ui`
+  - Stage 5 이후 HUD / UI architecture freeze 검증에 사용한다.
+  - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
+  - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
+  - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
 - `./run_tests.sh full`
   - 안정화 직전, 통합 직전, 혹은 넓은 회귀를 조사할 때 사용한다.
   - governance 검사 후 Windows solution build, Unity Full EditMode, Unity Full PlayMode를 실행한다.
@@ -164,6 +176,7 @@ WSL CLI
 #### Public commands
 ```bash
 ./run_tests.sh core
+./run_tests.sh ui
 ./run_tests.sh full
 ```
 
@@ -171,6 +184,11 @@ WSL CLI
   - Use for normal local development.
   - Runs governance first, then Windows `dotnet` core build, then Unity Core EditMode and Core PlayMode.
   - This is the command used by pre-commit.
+- `./run_tests.sh ui`
+  - Use for targeted Stage 5 HUD and UI architecture freeze validation.
+  - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
+  - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
+  - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.
 - `./run_tests.sh full`
   - Use before stabilization, integration, or when investigating broader regressions.
   - Runs governance first, then Windows solution build, then Unity Full EditMode and Full PlayMode.

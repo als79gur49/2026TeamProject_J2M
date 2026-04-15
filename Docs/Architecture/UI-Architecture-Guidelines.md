@@ -167,6 +167,16 @@ Tick-result presentation mapping rule:
 - `Default Guidance` Presenters and controllers consume mapped snapshots or query reads triggered by that source/store, not raw frame deltas.
 - `Default Guidance` The root presentation snapshot must stay bounded to durable cross-feature slices. Screen-local viewmodels remain feature-local.
 
+Persistent HUD hardening rule:
+
+- `Non-Negotiable` `HUDRootPresenter` is the sole HUD-side subscriber to mapped presentation state and owns shell-level fan-out only.
+- `Non-Negotiable` `HUDRootPresenter` must not absorb command dispatch, gameplay queries, widget retention/history, notification policy, slot policy, or widget formatting.
+- `Non-Negotiable` `HUDController` remains lifecycle, view binding, and bounded child-input relay only.
+- `Non-Negotiable` `HUDRootViewModel` stays shell-only. Child collections, widget strings, and convenience mirrors remain child-local.
+- `Non-Negotiable` Child HUD views bind only their own child-local viewmodels. Do not recreate `Bind(UIPresentationSnapshot)` through a composite root tree.
+- `Default Guidance` For new HUD semantics, keep projection local to the owning child presenter first, expand a child-local viewmodel second, and request Stage 4 mapped contract growth only when the semantic is authoritative, non-derivable, stable, and needed by more than one consumer.
+- `Default Guidance` Richer HUD read-only behavior must continue to flow through the mapped refresh seam. If multiple consumers need reason-specific behavior later, add one compact UI-safe interaction-mode field rather than parallel flow-owned HUD flags.
+
 ## 9. Final Layered Architecture
 
 The canonical UI architecture uses five layers.
@@ -261,7 +271,7 @@ Responsibilities:
 - `PopupController`
   - Owns popup stack and popup lifetime transitions.
 - `HUDController`
-  - Owns persistent HUD lifecycle and HUD configuration changes.
+  - Owns persistent HUD lifecycle, child-view binding, and bounded input relay to the owning HUD presenter.
 - `UIBlockPolicy`
   - Owns interaction blocking and modal policy evaluation.
 
