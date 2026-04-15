@@ -55,6 +55,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     AssetDatabase.GetAssetPath(serializedInstaller.FindProperty("_hudPrefab").objectReferenceValue),
                     Is.EqualTo(UiTestPrefabAssetUtility.HudPrefabPath));
+                Assert.That(serializedInstaller.FindProperty("_popupPrefabCatalog").objectReferenceValue, Is.Not.Null);
+                Assert.That(
+                    AssetDatabase.GetAssetPath(serializedInstaller.FindProperty("_popupPrefabCatalog").objectReferenceValue),
+                    Is.EqualTo(UiTestPrefabAssetUtility.PopupCatalogPath));
                 Assert.That(serializedInstaller.FindProperty("_installOnStart").boolValue, Is.True);
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
