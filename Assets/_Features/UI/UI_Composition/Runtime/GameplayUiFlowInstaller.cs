@@ -13,6 +13,8 @@ namespace Game.Feature.UI.Composition
     [DisallowMultipleComponent]
     public sealed class GameplayUiFlowInstaller : MonoBehaviour
     {
+        private const string RootShellObjectName = "GameplayUiCanvasRoot";
+        private const string RootShellPrefabResourcePath = "UI/GameplayUiCanvasRootShell";
         private static readonly InputSystemKeyboardBridge KeyboardBridge = new();
 
         [SerializeField] private GameplaySceneHost _sceneHost;
@@ -191,19 +193,41 @@ namespace Game.Feature.UI.Composition
         {
             if (_rootView == null)
             {
-                var child = transform.Find("GameplayUiCanvasRoot");
-                if (child == null)
+                var rootShellPrefab = Resources.Load<GameObject>(RootShellPrefabResourcePath);
+                if (rootShellPrefab == null)
                 {
-                    var childObject = new GameObject("GameplayUiCanvasRoot", typeof(RectTransform));
-                    childObject.transform.SetParent(transform, false);
-                    child = childObject.transform;
+                    throw new InvalidOperationException(
+                        $"Canonical UI root shell prefab was not found at Resources path '{RootShellPrefabResourcePath}'.");
                 }
 
-                _rootView = child.GetComponent<GameplayUiCanvasRootView>() ??
-                            child.gameObject.AddComponent<GameplayUiCanvasRootView>();
+                var rootShellInstance = Instantiate(rootShellPrefab, transform, false);
+                rootShellInstance.name = RootShellObjectName;
+                _rootView = rootShellInstance.GetComponent<GameplayUiCanvasRootView>();
+                if (_rootView == null)
+                {
+                    throw new InvalidOperationException("Canonical UI root shell prefab is missing GameplayUiCanvasRootView.");
+                }
             }
 
             _rootView.EnsureHierarchy();
+            EnsureHudView();
+        }
+
+        private void EnsureHudView()
+        {
+            if (_rootView.HudView != null)
+            {
+                return;
+            }
+
+            if (!UiPrefabMigrationInventory.AllowsLegacyHudBuilder)
+            {
+                throw new InvalidOperationException(
+                    "HUD legacy runtime builder is unavailable because the HUD layer is not allowlisted for mixed migration.");
+            }
+
+            var hudView = GameplayLegacyHudViewFactory.Create(_rootView.HudLayer);
+            _rootView.AttachHudView(hudView);
         }
 
         private void SetupDiagnostics()

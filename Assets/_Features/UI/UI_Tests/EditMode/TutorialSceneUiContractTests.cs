@@ -52,6 +52,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(serializedInstaller.FindProperty("_sceneHost").objectReferenceValue, Is.SameAs(sceneHost));
                 Assert.That(serializedInstaller.FindProperty("_rootView").objectReferenceValue, Is.Null);
                 Assert.That(serializedInstaller.FindProperty("_installOnStart").boolValue, Is.True);
+                Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
                 AssertSceneContainsNoSerializedComponent<Canvas>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<GraphicRaycaster>(rootObjects);

@@ -15,6 +15,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("## Scope"));
             Assert.That(baseline, Does.Contain("## Result"));
             Assert.That(baseline, Does.Contain("## Structural Delta"));
+            Assert.That(baseline, Does.Contain("## Prefab Migration Mixed-Mode Inventory"));
             Assert.That(baseline, Does.Contain("## Guard Evolution"));
             Assert.That(baseline, Does.Contain("## Runner Warning Status"));
             Assert.That(baseline, Does.Contain("## PlayMode Escalation"));
@@ -27,6 +28,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Obsolete guards"));
             Assert.That(baseline, Does.Contain("Runner warning changes"));
             Assert.That(baseline, Does.Contain("Public-surface change governance"));
+            Assert.That(baseline, Does.Contain("freeze evidence stays blocked while this allowlist remains non-empty"));
+            Assert.That(baseline, Does.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
+            Assert.That(baseline, Does.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
 
         [Test]

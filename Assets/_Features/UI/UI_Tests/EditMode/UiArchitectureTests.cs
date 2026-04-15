@@ -724,6 +724,88 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ScreenViews_AndInventoryChildViews_DoNotDependOnFlowOwnershipTypes()
+        {
+            var guardedViewTypes = new[]
+            {
+                typeof(GameplayScreenView),
+                typeof(HelpScreenView),
+                typeof(ObjectiveStatusScreenView),
+                typeof(InventoryScreenView),
+                typeof(SettingsScreenView),
+                typeof(StageResultScreenView),
+                typeof(InventoryCatalogView),
+                typeof(InventoryDetailView),
+                typeof(InventoryActionView),
+            };
+            var forbiddenTypes = new[]
+            {
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(UIFlowCoordinator),
+                typeof(ScreenRequest),
+                typeof(ScreenAction),
+                typeof(PopupRequest),
+            };
+
+            foreach (var viewType in guardedViewTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(viewType, forbiddenType),
+                        Is.False,
+                        $"{viewType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
+        public void ScreenViews_PublicSurface_RemainsLocalIntentOnly()
+        {
+            var guardedViewTypes = new[]
+            {
+                typeof(GameplayScreenView),
+                typeof(HelpScreenView),
+                typeof(ObjectiveStatusScreenView),
+                typeof(InventoryScreenView),
+                typeof(SettingsScreenView),
+                typeof(StageResultScreenView),
+                typeof(InventoryCatalogView),
+                typeof(InventoryDetailView),
+                typeof(InventoryActionView),
+            };
+            var forbiddenSurfaceTypes = new[]
+            {
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(UIFlowCoordinator),
+                typeof(ScreenRequest),
+                typeof(ScreenAction),
+                typeof(PopupRequest),
+                typeof(IGameplayQueryFacade),
+                typeof(IGameplayCommandGateway),
+            };
+
+            foreach (var viewType in guardedViewTypes)
+            {
+                var surfacedTypes = GetPublicSurfaceTypes(viewType)
+                    .Select(NormalizeType)
+                    .Where(type => type != null)
+                    .Distinct()
+                    .ToArray();
+
+                foreach (var forbiddenSurfaceType in forbiddenSurfaceTypes)
+                {
+                    Assert.That(
+                        surfacedTypes,
+                        Has.No.Member(forbiddenSurfaceType),
+                        $"{viewType.FullName} surfaces {forbiddenSurfaceType.FullName}");
+                }
+            }
+        }
+
+        [Test]
         public void DiagnosticsTypes_AreReferencedOnlyFromCompositionAssembly()
         {
             var diagnosticsTypes = new[]

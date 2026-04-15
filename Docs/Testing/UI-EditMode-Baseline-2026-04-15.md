@@ -5,12 +5,12 @@
 - Command: `./run_tests.sh ui`
 - Runner path: governance -> Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` -> Unity `TestRunnerCliBootstrap.RunEditMode -codexSelection ui`
 - Companion smoke lane: `./run_tests.sh core` on the same worktree
-- Recorded rerun: April 15, 2026 on the current Stage 9 worktree
+- Recorded rerun: April 16, 2026 on the current Stage 9 worktree
 - Result note: future updates to `## Result` and `## Companion Smoke Check` must not be bumped without updating the structural delta below.
 
 ## Result
 - Status: green
-- Unity UI EditMode: `89 total / 0 failed`
+- Unity UI EditMode: `104 total / 0 failed`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -24,10 +24,14 @@
   - Stage 8 structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
   - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
   - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
+  - canonical root-shell prefab structure guards proving the runtime shell contains only infrastructure children and no serialized feature views
+  - shell-migration guards proving `GameplayUiCanvasRootView` no longer synthesizes HUD feature content and the installer mounts the allowlisted HUD bridge under `HudLayer`
+  - mixed-mode inventory guards proving the current hybrid entries are explicit, root shell is no longer hybrid, and the allowlist remains mechanically inspectable
+  - stronger screen-view ownership guards proving screen and inventory child views do not surface navigation, popup, back-stack, or controller shortcuts
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `89 total / 0 failed`
-  - delta: `+25` tests, all targeted at seam hardening, diagnostics boundary checks, governance evidence, and canonical `TutorialScene` adoption guards
+  - current rerun: `104 total / 0 failed`
+  - delta: `+40` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, and mixed-mode drift detection
 - Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
 - Renamed / merged / split tests: none expected for Stage 9; if any change shape, the preserved seam owner must be stated here explicitly.
 - Replaced weak guards:
@@ -40,6 +44,31 @@
 - Runner warning changes:
   - governance warnings remain non-blocking unless the runner exit code changes
   - the current soft governance warning state must be recorded separately from UI regressions
+
+## Prefab Migration Mixed-Mode Inventory
+- Root shell status:
+  - canonical root shell is now migrated to the installer-instantiated prefab path
+  - no mixed-mode allowlist row remains for the root shell
+- Hybrid allowlist status:
+  - mixed mode remains temporary and explicitly allowlisted only for the entries below
+  - freeze evidence stays blocked while this allowlist remains non-empty
+- Allowlisted hybrid entries:
+  - `Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create`
+  - `Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup`
+  - `Popup:ObjectiveInfo -> GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup`
+  - `Popup:Confirm -> GameplayPopupRuntimeFactory.CreateConfirmPopup`
+  - `Popup:Tooltip -> GameplayPopupRuntimeFactory.CreateTooltipPopup`
+  - `Popup:Reward -> GameplayPopupRuntimeFactory.CreateRewardPopup`
+  - `Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen`
+  - `Screen:Help -> GameplayScreenRuntimeFactory.CreateHelpScreen`
+  - `Screen:ObjectiveStatus -> GameplayScreenRuntimeFactory.CreateObjectiveStatusScreen`
+  - `Screen:Inventory -> GameplayScreenRuntimeFactory.CreateInventoryScreen`
+  - `Screen:Settings -> GameplayScreenRuntimeFactory.CreateSettingsScreen`
+  - `Screen:StageResult -> GameplayScreenRuntimeFactory.CreateStageResultScreen`
+  - `ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built`
+- Governance rule:
+  - this section must shrink monotonically as entries migrate
+  - any reintroduced legacy builder for a non-listed entry is drift and blocks freeze
 
 ## Guard Evolution
 - Expected architectural evolution:
@@ -96,6 +125,8 @@
   - no popup/flow ownership or global child input-bag convenience is added to the action child
 - Stage 9 diagnostics remain read-only, bounded, editor/development-only, and non-reusable as runtime state aggregation
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
+- canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
+- mixed mode is now explicitly inventoried: root shell is migrated, while HUD/popup/screen legacy builders remain temporary allowlisted entries rather than implicit permanent hybrids
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 

@@ -11,9 +11,9 @@ namespace Game.Feature.UI.Tests
     public sealed class GameplayUiFlowCompositionTests
     {
         [Test]
-        public void GameplayUiFlowInstaller_ComposesDurableViews_AndMigratedPausePopup_WithFakePorts()
+        public void GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndAllowlistedLegacyPopupStack_WithFakePorts()
         {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_ComposesDurableViews_AndMigratedPausePopup_WithFakePorts");
+            var rootObject = new GameObject("GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndAllowlistedLegacyPopupStack_WithFakePorts");
 
             try
             {
@@ -26,6 +26,7 @@ namespace Game.Feature.UI.Tests
                 Assert.That(eventSystem.GetComponent<StandaloneInputModule>(), Is.Null);
 
                 Assert.That(installer.RootView, Is.Not.Null);
+                Assert.That(installer.RootView.name, Is.EqualTo("GameplayUiCanvasRoot"));
                 Assert.That(installer.RootView.GetComponent<Canvas>(), Is.Not.Null);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);

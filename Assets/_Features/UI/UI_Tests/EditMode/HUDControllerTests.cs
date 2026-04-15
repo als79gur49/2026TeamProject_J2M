@@ -4,6 +4,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -18,8 +19,7 @@ namespace Game.Feature.UI.Tests
 
             try
             {
-                var rootView = rootObject.AddComponent<GameplayUiCanvasRootView>();
-                rootView.EnsureHierarchy();
+                CreateCanonicalRootView(rootObject, out var hudView);
 
                 var commandGateway = new FakeGameplayCommandGateway();
                 var source = new ManualGameplayUiPresentationSource();
@@ -38,15 +38,15 @@ namespace Game.Feature.UI.Tests
                     notificationPresenter.ViewModel,
                     actionBarPresenter);
 
-                controller.AttachView(rootView.HudView);
+                controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot());
 
-                Assert.That(rootView.HudView.ViewModel, Is.SameAs(controller.RootViewModel));
-                Assert.That(rootView.HudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
-                Assert.That(rootView.HudView.ActionBarView.ViewModel, Is.SameAs(controller.ActionBarViewModel));
-                Assert.That(rootView.HudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
+                Assert.That(hudView.ViewModel, Is.SameAs(controller.RootViewModel));
+                Assert.That(hudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
+                Assert.That(hudView.ActionBarView.ViewModel, Is.SameAs(controller.ActionBarViewModel));
+                Assert.That(hudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
 
-                rootView.HudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
+                hudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
 
                 Assert.That(commandGateway.SetHeldMoveDirectionCallCount, Is.EqualTo(1));
                 Assert.That(controller.ActionBarViewModel.LastCommandResult.HasValue, Is.True);
@@ -65,8 +65,7 @@ namespace Game.Feature.UI.Tests
 
             try
             {
-                var rootView = rootObject.AddComponent<GameplayUiCanvasRootView>();
-                rootView.EnsureHierarchy();
+                CreateCanonicalRootView(rootObject, out var hudView);
 
                 var commandGateway = new FakeGameplayCommandGateway();
                 var source = new ManualGameplayUiPresentationSource();
@@ -85,18 +84,55 @@ namespace Game.Feature.UI.Tests
                     notificationPresenter.ViewModel,
                     actionBarPresenter);
 
-                controller.AttachView(rootView.HudView);
+                controller.AttachView(hudView);
                 controller.Dispose();
 
-                Assert.That(rootView.HudView.ViewModel, Is.Null);
-                Assert.That(rootView.HudView.PlayerStatusView.ViewModel, Is.Null);
-                Assert.That(rootView.HudView.ActionBarView.ViewModel, Is.Null);
-                Assert.That(rootView.HudView.NotificationView.ViewModel, Is.Null);
+                Assert.That(hudView.ViewModel, Is.Null);
+                Assert.That(hudView.PlayerStatusView.ViewModel, Is.Null);
+                Assert.That(hudView.ActionBarView.ViewModel, Is.Null);
+                Assert.That(hudView.NotificationView.ViewModel, Is.Null);
             }
             finally
             {
                 DestroySupportObjects(rootObject);
             }
+        }
+
+        private static GameplayUiCanvasRootView CreateCanonicalRootView(GameObject rootObject, out HUDRootView hudView)
+        {
+            var rootShellPrefab = Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell");
+            Assert.That(rootShellPrefab, Is.Not.Null);
+
+            var rootShellInstance = Object.Instantiate(rootShellPrefab, rootObject.transform, false);
+            var rootView = rootShellInstance.GetComponent<GameplayUiCanvasRootView>();
+            Assert.That(rootView, Is.Not.Null);
+            rootView.EnsureHierarchy();
+
+            var hudLayer = rootView.transform.Find("HudLayer");
+            Assert.That(hudLayer, Is.Not.Null);
+            hudView = CreateLegacyHudView(hudLayer.GetComponent<RectTransform>());
+            AttachHudView(rootView, hudView);
+            return rootView;
+        }
+
+        private static void AttachHudView(GameplayUiCanvasRootView rootView, HUDRootView hudView)
+        {
+            var attachMethod = typeof(GameplayUiCanvasRootView).GetMethod(
+                "AttachHudView",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(attachMethod, Is.Not.Null);
+            attachMethod.Invoke(rootView, new object[] { hudView });
+        }
+
+        private static HUDRootView CreateLegacyHudView(RectTransform hudLayer)
+        {
+            var factoryType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.GameplayLegacyHudViewFactory");
+            Assert.That(factoryType, Is.Not.Null);
+
+            var createMethod = factoryType.GetMethod("Create", BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.That(createMethod, Is.Not.Null);
+
+            return createMethod.Invoke(null, new object[] { hudLayer }) as HUDRootView;
         }
 
         private static UIPresentationSnapshot CreateSnapshot(
