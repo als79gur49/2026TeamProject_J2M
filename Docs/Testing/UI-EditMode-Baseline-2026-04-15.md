@@ -10,7 +10,7 @@
 
 ## Result
 - Status: green
-- Unity UI EditMode: `87 total / 0 failed`
+- Unity UI EditMode: `89 total / 0 failed`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -22,15 +22,18 @@
   - diagnostics boundary tests proving the Stage 9 overlay remains read-only, bounded, and opt-in for drill-down details
   - governance documentation tests for baseline structure, stale wording removal, and PlayMode escalation-marker enforcement
   - Stage 8 structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
+  - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
+  - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - Stage 9 rerun: `87 total / 0 failed`
-  - delta: `+23` tests, all targeted at seam hardening, diagnostics boundary checks, and governance evidence
+  - current rerun: `89 total / 0 failed`
+  - delta: `+25` tests, all targeted at seam hardening, diagnostics boundary checks, governance evidence, and canonical `TutorialScene` adoption guards
 - Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
 - Renamed / merged / split tests: none expected for Stage 9; if any change shape, the preserved seam owner must be stated here explicitly.
 - Replaced weak guards:
   - Stage 5-only freeze language is replaced with Stage 4–8 seam-preservation language
   - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
+  - legacy overlay-dependent stage-clear assumptions are replaced with canonical Stage 7 terminal-screen coverage and scene-bootstrap contract coverage
 - Obsolete guards:
   - none removed by default
   - if a guard becomes obsolete, record which stronger guard now protects the same seam
@@ -92,6 +95,8 @@
   - child presenters stay mesh-free and responsibility-specific
   - no popup/flow ownership or global child input-bag convenience is added to the action child
 - Stage 9 diagnostics remain read-only, bounded, editor/development-only, and non-reusable as runtime state aggregation
+- `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
+- stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 
 ## Companion Smoke Check

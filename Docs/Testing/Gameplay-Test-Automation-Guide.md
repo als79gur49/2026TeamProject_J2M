@@ -13,7 +13,7 @@
 - Stage 9 UI hardening 검증용으로 `./run_tests.sh ui` 경로를 유지한다. 이 경로는 UI EditMode assembly만 대상으로 하는 집중 검증용이며 Stage 4–8 seam preservation evidence를 담당한다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green, Unity UI EditMode `87 total / 0 failed`
+  - `./run_tests.sh ui`: green, Unity UI EditMode `89 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
@@ -26,7 +26,7 @@
 - `./run_tests.sh ui` remains the targeted Stage 9 UI hardening path for the UI EditMode assembly only, preserving Stage 4–8 seams on one Unity-backed evidence lane.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
-  - `./run_tests.sh ui`: green, Unity UI EditMode `87 total / 0 failed`
+  - `./run_tests.sh ui`: green, Unity UI EditMode `89 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
