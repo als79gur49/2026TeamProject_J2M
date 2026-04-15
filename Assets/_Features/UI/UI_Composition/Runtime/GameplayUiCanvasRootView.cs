@@ -14,15 +14,19 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private RectTransform _hudLayer;
         [SerializeField] private RectTransform _screenLayer;
         [SerializeField] private RectTransform _popupLayer;
+        [SerializeField] private RectTransform _diagnosticsLayer;
         [SerializeField] private HUDRootView _hudView;
         [SerializeField] private ScreenLayerView _screenLayerView;
         [SerializeField] private PopupLayerView _popupLayerView;
+        [SerializeField] private UiArchitectureDiagnosticsOverlayView _diagnosticsOverlayView;
 
         public HUDRootView HudView => _hudView;
 
         public ScreenLayerView ScreenLayerView => _screenLayerView;
 
         public PopupLayerView PopupLayerView => _popupLayerView;
+
+        internal UiArchitectureDiagnosticsOverlayView DiagnosticsOverlayView => _diagnosticsOverlayView;
 
         public void EnsureHierarchy()
         {
@@ -32,6 +36,7 @@ namespace Game.Feature.UI.Composition
             _hudLayer = _hudLayer != null ? _hudLayer : UiCanvasElementFactory.CreateLayer("HudLayer", transform);
             _screenLayer = _screenLayer != null ? _screenLayer : UiCanvasElementFactory.CreateLayer("ScreenLayer", transform);
             _popupLayer = _popupLayer != null ? _popupLayer : UiCanvasElementFactory.CreateLayer("PopupLayer", transform);
+            _diagnosticsLayer = _diagnosticsLayer != null ? _diagnosticsLayer : UiCanvasElementFactory.CreateLayer("DiagnosticsLayer", transform);
 
             if (_hudView == null)
             {
@@ -46,6 +51,11 @@ namespace Game.Feature.UI.Composition
             if (_popupLayerView == null)
             {
                 _popupLayerView = CreatePopupLayerView(_popupLayer);
+            }
+
+            if (_diagnosticsOverlayView == null)
+            {
+                _diagnosticsOverlayView = CreateDiagnosticsOverlayView(_diagnosticsLayer);
             }
         }
 
@@ -185,6 +195,64 @@ namespace Game.Feature.UI.Composition
             var contentRoot = UiCanvasElementFactory.CreateStretchRect("PopupContentRoot", root);
             view.Configure(root.gameObject, backdropCanvasGroup, backdropImage, backdropButton, contentRoot);
             view.SetState(false, false, false, PopupBackdropMode.None);
+            return view;
+        }
+
+        private static UiArchitectureDiagnosticsOverlayView CreateDiagnosticsOverlayView(Transform parent)
+        {
+            var panel = UiCanvasElementFactory.CreatePanel(
+                "UiDiagnosticsOverlay",
+                parent,
+                new Vector2(1f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(1f, 1f),
+                new Vector2(392f, 336f),
+                new Vector2(-16f, -16f));
+            var panelImage = panel.GetComponent<Image>();
+            if (panelImage != null)
+            {
+                panelImage.color = new Color(0.07f, 0.10f, 0.14f, 0.94f);
+            }
+
+            var canvasGroup = panel.gameObject.AddComponent<CanvasGroup>();
+            var view = panel.gameObject.AddComponent<UiArchitectureDiagnosticsOverlayView>();
+            var title = UiCanvasElementFactory.CreateLabel(
+                "Title",
+                panel,
+                new Vector2(12f, -12f),
+                new Vector2(364f, 22f),
+                TextAnchor.MiddleLeft,
+                16);
+            var summary = UiCanvasElementFactory.CreateLabel(
+                "Summary",
+                panel,
+                new Vector2(12f, -40f),
+                new Vector2(364f, 170f),
+                TextAnchor.UpperLeft,
+                13);
+            var detailPanel = UiCanvasElementFactory.CreatePanel(
+                "DetailPanel",
+                panel,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(364f, 104f),
+                new Vector2(12f, -218f));
+            var detailImage = detailPanel.GetComponent<Image>();
+            if (detailImage != null)
+            {
+                detailImage.color = new Color(0.12f, 0.16f, 0.22f, 0.96f);
+            }
+
+            var detail = UiCanvasElementFactory.CreateLabel(
+                "Details",
+                detailPanel,
+                new Vector2(8f, -8f),
+                new Vector2(348f, 88f),
+                TextAnchor.UpperLeft,
+                12);
+            view.Configure(panel.gameObject, canvasGroup, title, summary, detailPanel.gameObject, detail);
+            view.SetSupported(false);
             return view;
         }
     }

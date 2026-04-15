@@ -16,6 +16,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private GameplayUiCanvasRootView _rootView;
         [SerializeField] private bool _installOnStart = true;
 
+        private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
         private bool _isInstalled;
 
         public GameplayUiFlowPorts Ports { get; private set; }
@@ -77,6 +78,21 @@ namespace Game.Feature.UI.Composition
             if (_isInstalled && Input.GetKeyDown(KeyCode.Escape))
             {
                 Coordinator.HandleBackRequested();
+            }
+
+            if (!_isInstalled || _rootView == null || _rootView.DiagnosticsOverlayView == null)
+            {
+                return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.F3))
+            {
+                _rootView.DiagnosticsOverlayView.ToggleVisibility();
+            }
+
+            if (Input.GetKeyDown(KeyCode.F4))
+            {
+                _rootView.DiagnosticsOverlayView.ToggleExpanded();
             }
         }
 
@@ -150,6 +166,7 @@ namespace Game.Feature.UI.Composition
             WireControllerEvents();
             Coordinator.Initialize();
             SyncViews();
+            SetupDiagnostics();
 
             _isInstalled = true;
         }
@@ -158,6 +175,7 @@ namespace Game.Feature.UI.Composition
         {
             UnwireViewEvents();
             UnwireControllerEvents();
+            _diagnosticsTracker?.Dispose();
             Coordinator?.Dispose();
             PopupController?.Dispose();
             ScreenController?.Dispose();
@@ -183,6 +201,30 @@ namespace Game.Feature.UI.Composition
             }
 
             _rootView.EnsureHierarchy();
+        }
+
+        private void SetupDiagnostics()
+        {
+            if (_rootView == null || _rootView.DiagnosticsOverlayView == null)
+            {
+                return;
+            }
+
+            _rootView.DiagnosticsOverlayView.SetSupported(UiArchitectureDiagnosticsTracker.IsRuntimeSupported);
+            if (!UiArchitectureDiagnosticsTracker.IsRuntimeSupported)
+            {
+                return;
+            }
+
+            _diagnosticsTracker = new UiArchitectureDiagnosticsTracker(
+                PresentationSource,
+                Coordinator,
+                ScreenController,
+                PopupController,
+                isHudVisible: () => _rootView.HudView != null && _rootView.HudView.IsVisible,
+                isHudReadOnly: () => HudController != null && !HudController.ActionBarViewModel.IsInteractive,
+                inventoryViewAccessor: () => ScreenLayerView != null ? ScreenLayerView.FindScreenView<InventoryScreenView>() : null);
+            _rootView.DiagnosticsOverlayView.Bind(_diagnosticsTracker);
         }
 
         private void WireViewEvents()
