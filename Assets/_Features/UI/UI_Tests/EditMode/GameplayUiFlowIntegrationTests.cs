@@ -31,6 +31,7 @@ namespace Game.Feature.UI.Tests
                 }));
 
                 var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 installer.Install(host);
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -84,6 +85,7 @@ namespace Game.Feature.UI.Tests
                 }));
 
                 var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 installer.Install(host);
 
                 installer.GameplayScreenView.ClickObjectives();
@@ -166,6 +168,7 @@ namespace Game.Feature.UI.Tests
                     CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0))));
 
                 var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 installer.Install(host);
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));

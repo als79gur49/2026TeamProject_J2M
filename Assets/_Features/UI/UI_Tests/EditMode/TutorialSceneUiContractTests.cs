@@ -51,6 +51,10 @@ namespace Game.Feature.UI.Tests
                 var serializedInstaller = new SerializedObject(uiInstaller);
                 Assert.That(serializedInstaller.FindProperty("_sceneHost").objectReferenceValue, Is.SameAs(sceneHost));
                 Assert.That(serializedInstaller.FindProperty("_rootView").objectReferenceValue, Is.Null);
+                Assert.That(serializedInstaller.FindProperty("_hudPrefab").objectReferenceValue, Is.Not.Null);
+                Assert.That(
+                    AssetDatabase.GetAssetPath(serializedInstaller.FindProperty("_hudPrefab").objectReferenceValue),
+                    Is.EqualTo(UiTestPrefabAssetUtility.HudPrefabPath));
                 Assert.That(serializedInstaller.FindProperty("_installOnStart").boolValue, Is.True);
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
@@ -61,6 +65,9 @@ namespace Game.Feature.UI.Tests
                 AssertSceneContainsNoSerializedComponent<GameplayUiCanvasRootView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<UiArchitectureDiagnosticsOverlayView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<HUDRootView>(rootObjects);
+                AssertSceneContainsNoSerializedComponent<PlayerStatusView>(rootObjects);
+                AssertSceneContainsNoSerializedComponent<ActionBarView>(rootObjects);
+                AssertSceneContainsNoSerializedComponent<NotificationView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<ScreenLayerView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<PopupLayerView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<GameplayScreenView>(rootObjects);

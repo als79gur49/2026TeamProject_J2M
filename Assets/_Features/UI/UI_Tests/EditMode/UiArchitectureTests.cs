@@ -382,6 +382,60 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void HudViews_NoLongerExposeLegacyRuntimeConfigureEntryPoints()
+        {
+            var hudViewTypes = new[]
+            {
+                typeof(HUDRootView),
+                typeof(PlayerStatusView),
+                typeof(ActionBarView),
+                typeof(NotificationView),
+            };
+
+            foreach (var hudViewType in hudViewTypes)
+            {
+                Assert.That(
+                    hudViewType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                        .Select(method => method.Name),
+                    Does.Not.Contain("Configure"),
+                    hudViewType.FullName);
+            }
+        }
+
+        [Test]
+        public void HudViews_DoNotDependOnFlowGameplayAccessOrDiagnosticsTypes()
+        {
+            var hudViewTypes = new[]
+            {
+                typeof(HUDRootView),
+                typeof(PlayerStatusView),
+                typeof(ActionBarView),
+                typeof(NotificationView),
+            };
+            var forbiddenTypes = new[]
+            {
+                typeof(IGameplayQueryFacade),
+                typeof(IGameplayCommandGateway),
+                typeof(IGameplayUiPresentationSource),
+                typeof(UIFlowCoordinator),
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(UiArchitectureDiagnosticsTracker),
+            };
+
+            foreach (var hudViewType in hudViewTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(hudViewType, forbiddenType),
+                        Is.False,
+                        $"{hudViewType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
         public void PopupViews_BindOnlyLocalPopupViewModels()
         {
             AssertViewBindSignature(typeof(PausePopupView), typeof(PausePopupViewModel));

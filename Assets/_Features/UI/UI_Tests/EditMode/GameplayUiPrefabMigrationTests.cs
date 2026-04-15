@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.UI.Composition;
@@ -7,14 +8,18 @@ using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiPrefabMigrationTests
     {
         private const string RootShellResourcePath = "UI/GameplayUiCanvasRootShell";
+        private const string InstallerSourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs";
+        private const string BaselineNotePath = "Docs/Testing/UI-EditMode-Baseline-2026-04-15.md";
 
         [Test]
         public void CanonicalRootShellPrefab_HasOnlyAllowedInfrastructureChildren_AndNoFeatureViews()
@@ -97,13 +102,65 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_InstantiatesCanonicalRootShell_AndMountsAllowlistedLegacyHudBridge()
+        public void CanonicalRootShellPrefab_HudLayerStartsEmpty_AndContainsNoShellOwnedHudMarkup()
         {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_InstantiatesCanonicalRootShell_AndMountsAllowlistedLegacyHudBridge");
+            var rootShellPrefab = Resources.Load<GameObject>(RootShellResourcePath);
+            Assert.That(rootShellPrefab, Is.Not.Null);
+
+            var hudLayer = rootShellPrefab.transform.Find("HudLayer");
+            Assert.That(hudLayer, Is.Not.Null);
+            Assert.That(hudLayer.childCount, Is.Zero);
+            Assert.That(rootShellPrefab.GetComponentsInChildren<Button>(true), Is.Empty);
+            Assert.That(rootShellPrefab.GetComponentsInChildren<Text>(true), Is.Empty);
+            Assert.That(rootShellPrefab.GetComponentsInChildren<CanvasGroup>(true), Is.Empty);
+        }
+
+        [Test]
+        public void CanonicalHudPrefabAsset_UsesAuthoredChildViews_AndNoCrossLayerOwners()
+        {
+            var hudPrefab = UiTestPrefabAssetUtility.LoadHudPrefab();
+
+            Assert.That(hudPrefab, Is.Not.Null);
+            Assert.That(hudPrefab.PlayerStatusView, Is.Not.Null);
+            Assert.That(hudPrefab.ActionBarView, Is.Not.Null);
+            Assert.That(hudPrefab.NotificationView, Is.Not.Null);
+            Assert.That(hudPrefab.GetComponentsInChildren<GameplayUiCanvasRootView>(true), Is.Empty);
+            Assert.That(hudPrefab.GetComponentsInChildren<ScreenLayerView>(true), Is.Empty);
+            Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);
+            Assert.That(hudPrefab.GetComponentsInChildren<PausePopupView>(true), Is.Empty);
+            Assert.That(hudPrefab.GetComponentsInChildren<GameplayScreenView>(true), Is.Empty);
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_UsesSinglePhaseLocalHudPrefabReference_WithoutRegistryGrowth()
+        {
+            var installerType = typeof(GameplayUiFlowInstaller);
+            var instanceFieldNames = installerType
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .ToArray();
+            var hudPrefabFieldNames = installerType
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(field => field.FieldType == typeof(HUDRootView))
+                .Select(field => field.Name)
+                .ToArray();
+
+            Assert.That(hudPrefabFieldNames, Is.EqualTo(new[] { "_hudPrefab" }));
+            Assert.That(instanceFieldNames.Any(name => name.Contains("Catalog", StringComparison.OrdinalIgnoreCase)), Is.False);
+            Assert.That(instanceFieldNames.Any(name => name.Contains("Registry", StringComparison.OrdinalIgnoreCase)), Is.False);
+            Assert.That(typeof(GameplayUiFlowInstaller).Assembly.GetTypes().Select(type => type.Name), Has.No.Member("HudPrefabCatalog"));
+            Assert.That(typeof(GameplayUiFlowInstaller).Assembly.GetTypes().Select(type => type.Name), Has.No.Member("HudPrefabRegistry"));
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_InstantiatesCanonicalRootShell_AndMountsCanonicalHudPrefab()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_InstantiatesCanonicalRootShell_AndMountsCanonicalHudPrefab");
 
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
                 Assert.That(installer.RootView, Is.Not.Null);
@@ -113,6 +170,7 @@ namespace Game.Feature.UI.Tests
                     Is.EqualTo(new[] { "HudLayer", "ScreenLayer", "PopupLayer", "DiagnosticsLayer" }));
                 Assert.That(installer.HudView, Is.Not.Null);
                 Assert.That(installer.HudView.transform.parent, Is.EqualTo(installer.RootView.transform.Find("HudLayer")));
+                Assert.That(installer.HudView, Is.Not.SameAs(UiTestPrefabAssetUtility.LoadHudPrefab()));
             }
             finally
             {
@@ -121,10 +179,9 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void UiPrefabMigrationInventory_Allowlist_IsExplicit_AndRootShellRemainsMigrated()
+        public void UiPrefabMigrationInventory_Allowlist_IsExplicit_AndHudLegacyEntryIsGone()
         {
             Assert.That(ReadInventoryBoolProperty("IsRootShellMigrated"), Is.True);
-            Assert.That(ReadInventoryBoolProperty("AllowsLegacyHudBuilder"), Is.True);
             Assert.That(ReadInventoryBoolProperty("AllowsLegacyInventoryScreenSections"), Is.True);
 
             foreach (PopupId popupId in Enum.GetValues(typeof(PopupId)))
@@ -148,13 +205,13 @@ namespace Game.Feature.UI.Tests
             }
 
             var documentationTokens = ReadInventoryDocumentationTokens();
-            Assert.That(documentationTokens, Has.Length.EqualTo(13));
+            Assert.That(documentationTokens, Has.Length.EqualTo(12));
             Assert.That(documentationTokens.Any(token => token.StartsWith("RootShell:", StringComparison.Ordinal)), Is.False);
+            Assert.That(documentationTokens.Any(token => token.StartsWith("Hud:", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 documentationTokens,
                 Is.EqualTo(new[]
                 {
-                    "Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create",
                     "Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup",
                     "Popup:ObjectiveInfo -> GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup",
                     "Popup:Confirm -> GameplayPopupRuntimeFactory.CreateConfirmPopup",
@@ -168,6 +225,22 @@ namespace Game.Feature.UI.Tests
                     "Screen:StageResult -> GameplayScreenRuntimeFactory.CreateStageResultScreen",
                     "ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built",
                 }));
+        }
+
+        [Test]
+        public void HudLegacyBuilderSymbols_AreAbsent_FromAssemblyInstallerSource_AndBaselineEvidence()
+        {
+            var legacyBuilderType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.GameplayLegacyHudViewFactory");
+            Assert.That(legacyBuilderType, Is.Null);
+
+            var installerSource = ReadRepoFile(InstallerSourcePath);
+            Assert.That(installerSource, Does.Contain("_hudPrefab"));
+            Assert.That(installerSource, Does.Not.Contain("GameplayLegacyHudViewFactory"));
+            Assert.That(installerSource, Does.Not.Contain("AllowsLegacyHudBuilder"));
+
+            var baseline = ReadRepoFile(BaselineNotePath);
+            Assert.That(baseline, Does.Not.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
+            Assert.That(baseline, Does.Contain("HUD legacy runtime builder path was removed in the same phase"));
         }
 
         private static bool InvokeInventoryBooleanMethod(string methodName, object argument)
@@ -202,6 +275,12 @@ namespace Game.Feature.UI.Tests
             var inventoryType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.UiPrefabMigrationInventory");
             Assert.That(inventoryType, Is.Not.Null);
             return inventoryType;
+        }
+
+        private static string ReadRepoFile(string relativePath)
+        {
+            var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
+            return File.ReadAllText(absolutePath);
         }
 
         private static void DestroySupportObjects(UnityEngine.Object rootObject)

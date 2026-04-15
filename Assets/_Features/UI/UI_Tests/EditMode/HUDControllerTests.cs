@@ -110,7 +110,7 @@ namespace Game.Feature.UI.Tests
 
             var hudLayer = rootView.transform.Find("HudLayer");
             Assert.That(hudLayer, Is.Not.Null);
-            hudView = CreateLegacyHudView(hudLayer.GetComponent<RectTransform>());
+            hudView = UiTestPrefabAssetUtility.InstantiateHudPrefab(hudLayer.GetComponent<RectTransform>());
             AttachHudView(rootView, hudView);
             return rootView;
         }
@@ -122,17 +122,6 @@ namespace Game.Feature.UI.Tests
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(attachMethod, Is.Not.Null);
             attachMethod.Invoke(rootView, new object[] { hudView });
-        }
-
-        private static HUDRootView CreateLegacyHudView(RectTransform hudLayer)
-        {
-            var factoryType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.GameplayLegacyHudViewFactory");
-            Assert.That(factoryType, Is.Not.Null);
-
-            var createMethod = factoryType.GetMethod("Create", BindingFlags.Static | BindingFlags.NonPublic);
-            Assert.That(createMethod, Is.Not.Null);
-
-            return createMethod.Invoke(null, new object[] { hudLayer }) as HUDRootView;
         }
 
         private static UIPresentationSnapshot CreateSnapshot(
