@@ -16,6 +16,7 @@ mkdir -p "$RESULT_DIR" "$METRICS_DIR"
 STRATIFICATION_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_test_stratification.py"
 
 DOTNET_CORE_LOG="$RESULT_DIR/wsl-dotnet-core.log"
+DOTNET_UI_LOG="$RESULT_DIR/wsl-dotnet-ui.log"
 DOTNET_FULL_LOG="$RESULT_DIR/wsl-dotnet-full.log"
 DOTNET_INTEGRATION_SIMULATION_LOG="$RESULT_DIR/wsl-dotnet-integration-simulation.log"
 DOTNET_INTEGRATION_REPLAY_LOG="$RESULT_DIR/wsl-dotnet-integration-replay.log"
@@ -25,6 +26,9 @@ UNITY_CORE_EDITMODE_LOG="$RESULT_DIR/wsl-unity-core-editmode.log"
 UNITY_CORE_EDITMODE_XML="$RESULT_DIR/wsl-unity-core-editmode.xml"
 UNITY_CORE_PLAYMODE_LOG="$RESULT_DIR/wsl-unity-core-playmode.log"
 UNITY_CORE_PLAYMODE_XML="$RESULT_DIR/wsl-unity-core-playmode.xml"
+
+UNITY_UI_EDITMODE_LOG="$RESULT_DIR/wsl-unity-ui-editmode.log"
+UNITY_UI_EDITMODE_XML="$RESULT_DIR/wsl-unity-ui-editmode.xml"
 
 UNITY_FULL_EDITMODE_LOG="$RESULT_DIR/wsl-unity-full-editmode.log"
 UNITY_FULL_EDITMODE_XML="$RESULT_DIR/wsl-unity-full-editmode.xml"
@@ -305,6 +309,12 @@ run_dotnet_core() {
     run_dotnet_build "$DOTNET_CORE_LOG" Game.Feature.Gameplay.PlayModeTests.csproj -c Debug
 }
 
+run_dotnet_ui() {
+    : > "$DOTNET_UI_LOG"
+    echo "Running Windows dotnet UI build..."
+    run_dotnet_build "$DOTNET_UI_LOG" Game.Feature.UI.Tests.csproj -c Debug
+}
+
 run_dotnet_full() {
     : > "$DOTNET_FULL_LOG"
     echo "Running Windows dotnet full build..."
@@ -322,6 +332,10 @@ run_dotnet_integration() {
 run_unity_core() {
     run_unity_stage "core" "core-editmode" "core (EditMode)" "EditMode" "$UNITY_CORE_EDITMODE_LOG" "$UNITY_CORE_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
     run_unity_stage "core" "core-playmode" "core (PlayMode)" "PlayMode" "$UNITY_CORE_PLAYMODE_LOG" "$UNITY_CORE_PLAYMODE_XML" "TestRunnerCliBootstrap.RunPlayMode"
+}
+
+run_unity_ui() {
+    run_unity_stage "ui" "ui-editmode" "ui (EditMode)" "EditMode" "$UNITY_UI_EDITMODE_LOG" "$UNITY_UI_EDITMODE_XML" "TestRunnerCliBootstrap.RunEditMode"
 }
 
 run_unity_full() {
@@ -358,6 +372,10 @@ main() {
             run_dotnet_core
             run_unity_core
             ;;
+        ui)
+            run_dotnet_ui
+            run_unity_ui
+            ;;
         full)
             run_dotnet_full
             run_unity_full
@@ -375,7 +393,7 @@ main() {
             run_unity_integration_fuzz
             ;;
         *)
-            echo "Usage: ./run_tests.sh [core|full|--integration-simulation|--integration-replay|--integration-fuzz]"
+            echo "Usage: ./run_tests.sh [core|ui|full|--integration-simulation|--integration-replay|--integration-fuzz]"
             exit 1
             ;;
     esac
