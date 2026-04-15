@@ -1,4 +1,5 @@
 using System;
+using System.Reflection;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
@@ -12,6 +13,8 @@ namespace Game.Feature.UI.Composition
     [DisallowMultipleComponent]
     public sealed class GameplayUiFlowInstaller : MonoBehaviour
     {
+        private static readonly InputSystemKeyboardBridge KeyboardBridge = new();
+
         [SerializeField] private GameplaySceneHost _sceneHost;
         [SerializeField] private GameplayUiCanvasRootView _rootView;
         [SerializeField] private bool _installOnStart = true;
@@ -75,7 +78,7 @@ namespace Game.Feature.UI.Composition
 
         private void Update()
         {
-            if (_isInstalled && Input.GetKeyDown(KeyCode.Escape))
+            if (_isInstalled && KeyboardBridge.WasEscapePressedThisFrame())
             {
                 Coordinator.HandleBackRequested();
             }
@@ -85,12 +88,12 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            if (Input.GetKeyDown(KeyCode.F3))
+            if (KeyboardBridge.WasF3PressedThisFrame())
             {
                 _rootView.DiagnosticsOverlayView.ToggleVisibility();
             }
 
-            if (Input.GetKeyDown(KeyCode.F4))
+            if (KeyboardBridge.WasF4PressedThisFrame())
             {
                 _rootView.DiagnosticsOverlayView.ToggleExpanded();
             }
@@ -300,6 +303,55 @@ namespace Game.Feature.UI.Composition
                 Coordinator.CurrentBlockSnapshot.ShowsPopupDim,
                 Coordinator.CurrentBlockSnapshot.BlocksLowerLayerPointer,
                 Coordinator.CurrentBlockSnapshot.PopupBackdropMode);
+        }
+
+        // Resolve Input System keyboard state without relying on UnityEngine.Input.
+        private sealed class InputSystemKeyboardBridge
+        {
+            private static readonly Type KeyboardType = Type.GetType("UnityEngine.InputSystem.Keyboard, Unity.InputSystem");
+            private static readonly PropertyInfo CurrentKeyboardProperty = KeyboardType?.GetProperty("current", BindingFlags.Public | BindingFlags.Static);
+            private static readonly PropertyInfo EscapeKeyProperty = KeyboardType?.GetProperty("escapeKey", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo F3KeyProperty = KeyboardType?.GetProperty("f3Key", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo F4KeyProperty = KeyboardType?.GetProperty("f4Key", BindingFlags.Public | BindingFlags.Instance);
+            private static readonly PropertyInfo WasPressedThisFrameProperty =
+                EscapeKeyProperty?.PropertyType.GetProperty("wasPressedThisFrame", BindingFlags.Public | BindingFlags.Instance);
+
+            public bool WasEscapePressedThisFrame()
+            {
+                return WasPressedThisFrame(EscapeKeyProperty);
+            }
+
+            public bool WasF3PressedThisFrame()
+            {
+                return WasPressedThisFrame(F3KeyProperty);
+            }
+
+            public bool WasF4PressedThisFrame()
+            {
+                return WasPressedThisFrame(F4KeyProperty);
+            }
+
+            private static bool WasPressedThisFrame(PropertyInfo keyProperty)
+            {
+                if (CurrentKeyboardProperty == null || keyProperty == null || WasPressedThisFrameProperty == null)
+                {
+                    return false;
+                }
+
+                var keyboard = CurrentKeyboardProperty.GetValue(null);
+                if (keyboard == null)
+                {
+                    return false;
+                }
+
+                var keyControl = keyProperty.GetValue(keyboard);
+                if (keyControl == null)
+                {
+                    return false;
+                }
+
+                return WasPressedThisFrameProperty.GetValue(keyControl) is bool pressed && pressed;
+            }
         }
     }
 }

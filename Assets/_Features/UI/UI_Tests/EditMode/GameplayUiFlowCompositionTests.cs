@@ -20,6 +20,11 @@ namespace Game.Feature.UI.Tests
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
                 installer.Install(UiTestPortFactory.CreatePorts());
 
+                var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+                Assert.That(eventSystem, Is.Not.Null);
+                Assert.That(eventSystem.GetComponent("InputSystemUIInputModule"), Is.Not.Null);
+                Assert.That(eventSystem.GetComponent<StandaloneInputModule>(), Is.Null);
+
                 Assert.That(installer.RootView, Is.Not.Null);
                 Assert.That(installer.RootView.GetComponent<Canvas>(), Is.Not.Null);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));

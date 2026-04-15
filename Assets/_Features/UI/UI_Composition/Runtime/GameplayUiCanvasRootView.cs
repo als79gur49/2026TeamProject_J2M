@@ -1,3 +1,4 @@
+using System;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
@@ -86,14 +87,36 @@ namespace Game.Feature.UI.Composition
 
         private static void EnsureEventSystem()
         {
-            if (Object.FindFirstObjectByType<EventSystem>() != null)
+            var eventSystem = UnityEngine.Object.FindFirstObjectByType<EventSystem>();
+            if (eventSystem == null)
             {
-                return;
+                var eventSystemObject = new GameObject("EventSystem");
+                eventSystem = eventSystemObject.AddComponent<EventSystem>();
             }
 
-            var eventSystemObject = new GameObject("EventSystem");
-            eventSystemObject.AddComponent<EventSystem>();
-            eventSystemObject.AddComponent<StandaloneInputModule>();
+            var inputSystemUiModuleType = Type.GetType("UnityEngine.InputSystem.UI.InputSystemUIInputModule, Unity.InputSystem");
+            if (inputSystemUiModuleType == null)
+            {
+                throw new InvalidOperationException("Unity Input System UI module is unavailable. Verify that the Input System package is installed.");
+            }
+
+            if (eventSystem.GetComponent(inputSystemUiModuleType) == null)
+            {
+                eventSystem.gameObject.AddComponent(inputSystemUiModuleType);
+            }
+
+            var legacyModules = eventSystem.GetComponents<StandaloneInputModule>();
+            foreach (var legacyModule in legacyModules)
+            {
+                if (UnityEngine.Application.isPlaying)
+                {
+                    UnityEngine.Object.Destroy(legacyModule);
+                }
+                else
+                {
+                    UnityEngine.Object.DestroyImmediate(legacyModule);
+                }
+            }
         }
 
         private static HUDRootView CreateHudView(Transform parent)
