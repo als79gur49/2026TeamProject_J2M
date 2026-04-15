@@ -87,6 +87,42 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct UIRecoveryCooldownSlice : IEquatable<UIRecoveryCooldownSlice>
+    {
+        public UIRecoveryCooldownSlice(
+            GameplayUiActionKind actionKind,
+            int remainingRecoveryTicks,
+            int totalRecoveryTicks)
+        {
+            ActionKind = actionKind;
+            RemainingRecoveryTicks = remainingRecoveryTicks;
+            TotalRecoveryTicks = totalRecoveryTicks;
+        }
+
+        public GameplayUiActionKind ActionKind { get; }
+
+        public int RemainingRecoveryTicks { get; }
+
+        public int TotalRecoveryTicks { get; }
+
+        public bool Equals(UIRecoveryCooldownSlice other)
+        {
+            return ActionKind == other.ActionKind &&
+                   RemainingRecoveryTicks == other.RemainingRecoveryTicks &&
+                   TotalRecoveryTicks == other.TotalRecoveryTicks;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is UIRecoveryCooldownSlice other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(ActionKind, RemainingRecoveryTicks, TotalRecoveryTicks);
+        }
+    }
+
     public readonly struct UIPlayerActionSlice : IEquatable<UIPlayerActionSlice>
     {
         public UIPlayerActionSlice(
@@ -101,7 +137,8 @@ namespace Game.Feature.UI.Application
             int lastResolvedTickIndex,
             bool tookDamageThisTick,
             int lastDamageAmount,
-            int lastDamageTickIndex)
+            int lastDamageTickIndex,
+            UIRecoveryCooldownSlice? recoveryCooldown = null)
         {
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
@@ -115,6 +152,7 @@ namespace Game.Feature.UI.Application
             TookDamageThisTick = tookDamageThisTick;
             LastDamageAmount = lastDamageAmount;
             LastDamageTickIndex = lastDamageTickIndex;
+            RecoveryCooldown = recoveryCooldown;
         }
 
         public int PlayerEntityId { get; }
@@ -141,6 +179,8 @@ namespace Game.Feature.UI.Application
 
         public int LastDamageTickIndex { get; }
 
+        public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
+
         public bool Equals(UIPlayerActionSlice other)
         {
             return PlayerEntityId == other.PlayerEntityId &&
@@ -154,7 +194,8 @@ namespace Game.Feature.UI.Application
                    LastResolvedTickIndex == other.LastResolvedTickIndex &&
                    TookDamageThisTick == other.TookDamageThisTick &&
                    LastDamageAmount == other.LastDamageAmount &&
-                   LastDamageTickIndex == other.LastDamageTickIndex;
+                   LastDamageTickIndex == other.LastDamageTickIndex &&
+                   RecoveryCooldown.Equals(other.RecoveryCooldown);
         }
 
         public override bool Equals(object obj)
@@ -174,6 +215,7 @@ namespace Game.Feature.UI.Application
                 CanStartActionThisTick,
                 LastResolvedOutcome);
             hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
+            hash = HashCode.Combine(hash, RecoveryCooldown);
             return hash;
         }
     }

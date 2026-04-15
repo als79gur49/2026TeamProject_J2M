@@ -169,7 +169,22 @@ namespace Game.Feature.UI.Application
                 playerHud.ActiveActionKind,
                 hasFramePlayer ? player.IsRecoveryPhase : playerHud.IsActionInRecoveryPhase,
                 playerHud.CanMoveThisTick,
-                playerHud.CanStartActionThisTick);
+                playerHud.CanStartActionThisTick,
+                MapRecoveryCooldown(playerHud.RecoveryCooldown));
+        }
+
+        private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)
+        {
+            if (!recoveryCooldown.HasValue)
+            {
+                return null;
+            }
+
+            var value = recoveryCooldown.Value;
+            return new UIRecoveryCooldownSlice(
+                value.ActionKind,
+                value.RemainingRecoveryTicks,
+                value.TotalRecoveryTicks);
         }
 
         private void PublishSnapshot(UIPresentationSnapshot nextSnapshot)

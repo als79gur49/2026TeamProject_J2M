@@ -13,7 +13,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             bool isActionInProgress,
             bool isActionInRecoveryPhase,
             bool canMoveThisTick,
-            bool canStartActionThisTick)
+            bool canStartActionThisTick,
+            GameplayUiRecoveryCooldown? recoveryCooldown = null)
         {
             IsAvailable = isAvailable;
             PlayerEntityId = playerEntityId;
@@ -26,6 +27,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             IsActionInRecoveryPhase = isActionInRecoveryPhase;
             CanMoveThisTick = canMoveThisTick;
             CanStartActionThisTick = canStartActionThisTick;
+            RecoveryCooldown = recoveryCooldown;
         }
 
         public bool IsAvailable { get; }
@@ -49,5 +51,7 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public bool CanMoveThisTick { get; }
 
         public bool CanStartActionThisTick { get; }
+
+        public GameplayUiRecoveryCooldown? RecoveryCooldown { get; }
     }
 }

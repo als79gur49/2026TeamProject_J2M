@@ -43,6 +43,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             var nextTickIndex = _tickRunner?.NextTickIndex ?? 0;
             var canAcceptActionableCommands = _admissionPolicy.CanAcceptActionableCommands();
+            var recoveryCooldown = TryCreateRecoveryCooldown(playerControlState, nextTickIndex);
 
             return new GameplayPlayerHudReadModel(
                 isAvailable: true,
@@ -61,7 +62,38 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                                 snapshot.CanExecuteMovementIntent(playerEntityId, nextTickIndex),
                 canStartActionThisTick: nextTickIndex > 0 &&
                                         canAcceptActionableCommands &&
-                                        snapshot.CanStartAction(playerEntityId, nextTickIndex));
+                                        snapshot.CanStartAction(playerEntityId, nextTickIndex),
+                recoveryCooldown: recoveryCooldown);
+        }
+
+        private static GameplayUiRecoveryCooldown? TryCreateRecoveryCooldown(
+            in PlayerControlState playerControlState,
+            int nextTickIndex)
+        {
+            var activeAction = playerControlState.activeAction;
+            if (!activeAction.IsActive ||
+                nextTickIndex <= 0 ||
+                nextTickIndex <= activeAction.executeTick)
+            {
+                return null;
+            }
+
+            var totalRecoveryTicks = System.Math.Max(0, activeAction.recoveryEndTick - activeAction.executeTick);
+            if (totalRecoveryTicks <= 0)
+            {
+                return null;
+            }
+
+            var remainingRecoveryTicks = System.Math.Max(0, activeAction.recoveryEndTick - nextTickIndex + 1);
+            if (remainingRecoveryTicks <= 0)
+            {
+                return null;
+            }
+
+            return new GameplayUiRecoveryCooldown(
+                GameplayUiAccessMapper.ToUiActionKind(activeAction.kind),
+                remainingRecoveryTicks,
+                totalRecoveryTicks);
         }
     }
 }

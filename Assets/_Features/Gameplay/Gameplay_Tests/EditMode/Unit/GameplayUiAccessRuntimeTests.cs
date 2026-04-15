@@ -45,6 +45,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(playerHud.IsActionInRecoveryPhase, Is.False);
                 Assert.That(playerHud.CanMoveThisTick, Is.True);
                 Assert.That(playerHud.CanStartActionThisTick, Is.True);
+                Assert.That(playerHud.RecoveryCooldown.HasValue, Is.False);
 
                 Assert.That(objectives.HasObjective, Is.False);
                 Assert.That(objectives.IsCleared, Is.False);
@@ -196,10 +197,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_ExposesRecoveryCooldown_AsRecoveryOnlySemantic");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                        CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                    playerControlTiming: CreateRecoveryTimingSettings(
+                        pushExecuteDelayTicks: 1,
+                        pushInputLockDurationTicks: 3)));
+
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+
+                var startTick = host.InputHost.RunSingleTick();
+                var startHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var executeTick = host.InputHost.RunSingleTick();
+                var fullRecoveryHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var lastRecoveryTick = host.InputHost.RunSingleTick();
+                var lastRecoveryHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var postFinalRecoveryTick = host.InputHost.RunSingleTick();
+                var postFinalRecoveryHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var clearTick = host.InputHost.RunSingleTick();
+                var clearedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(startTick, Is.Not.Null);
+                Assert.That(startHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.Push));
+                Assert.That(startHud.IsActionInRecoveryPhase, Is.False);
+                Assert.That(startHud.RecoveryCooldown.HasValue, Is.False);
+
+                Assert.That(executeTick, Is.Not.Null);
+                Assert.That(fullRecoveryHud.IsActionInRecoveryPhase, Is.True);
+                Assert.That(fullRecoveryHud.RecoveryCooldown.HasValue, Is.True);
+                Assert.That(fullRecoveryHud.RecoveryCooldown.Value.ActionKind, Is.EqualTo(GameplayUiActionKind.Push));
+                Assert.That(fullRecoveryHud.RecoveryCooldown.Value.TotalRecoveryTicks, Is.EqualTo(2));
+                Assert.That(fullRecoveryHud.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(2));
+
+                Assert.That(lastRecoveryTick, Is.Not.Null);
+                Assert.That(lastRecoveryHud.IsActionInRecoveryPhase, Is.True);
+                Assert.That(lastRecoveryHud.RecoveryCooldown.HasValue, Is.True);
+                Assert.That(lastRecoveryHud.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(1));
+
+                Assert.That(postFinalRecoveryTick, Is.Not.Null);
+                Assert.That(postFinalRecoveryHud.IsActionInRecoveryPhase, Is.True);
+                Assert.That(postFinalRecoveryHud.RecoveryCooldown.HasValue, Is.False);
+
+                Assert.That(clearTick, Is.Not.Null);
+                Assert.That(clearedHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.None));
+                Assert.That(clearedHud.IsActionInRecoveryPhase, Is.False);
+                Assert.That(clearedHud.RecoveryCooldown.HasValue, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
         private static GameplaySceneHostConfiguration CreateConfiguration(
             EntityState[] initialEntities,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
-            BoardBounds? boardBounds = null)
+            BoardBounds? boardBounds = null,
+            PlayerControlTimingSettings playerControlTiming = null)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -210,6 +277,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
                 ObjectiveRuntimeDefinition = objectiveDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
+                PlayerControlTiming = playerControlTiming ?? PlayerControlTimingSettings.CreateDefault(),
+            };
+        }
+
+        private static PlayerControlTimingSettings CreateRecoveryTimingSettings(
+            int pushExecuteDelayTicks,
+            int pushInputLockDurationTicks)
+        {
+            var ticksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
+            return new PlayerControlTimingSettings
+            {
+                PushContactThresholdSeconds = 0f,
+                PushExecuteDelaySeconds = pushExecuteDelayTicks / (float)ticksPerSecond,
+                PushInputLockDurationSeconds = pushInputLockDurationTicks / (float)ticksPerSecond,
             };
         }
 

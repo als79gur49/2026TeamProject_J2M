@@ -149,6 +149,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIStateMapper_ReduceRefresh_MapsMinimalRecoveryCooldownSlice()
+        {
+            var mapper = new UIStateMapper();
+
+            var result = mapper.ReduceRefresh(
+                UIPresentationSnapshot.Empty,
+                CreateRefreshInput(
+                    tickIndex: 6,
+                    shouldUpdateTickIndex: true,
+                    activeActionKind: GameplayUiActionKind.Push,
+                    isRecoveryPhase: true,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    recoveryCooldown: new UIRecoveryCooldownSlice(
+                        GameplayUiActionKind.Push,
+                        remainingRecoveryTicks: 2,
+                        totalRecoveryTicks: 2)));
+
+            Assert.That(result.Snapshot.Player.RecoveryCooldown.HasValue, Is.True);
+            Assert.That(result.Snapshot.Player.RecoveryCooldown.Value.ActionKind, Is.EqualTo(GameplayUiActionKind.Push));
+            Assert.That(result.Snapshot.Player.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(2));
+            Assert.That(result.Snapshot.Player.RecoveryCooldown.Value.TotalRecoveryTicks, Is.EqualTo(2));
+        }
+
+        [Test]
         public void UIStateMapper_IdenticalInputSequences_ProduceIdenticalSnapshotsAndAppliedEvents()
         {
             var firstSequence = RunMapperSequence();
@@ -229,6 +254,45 @@ namespace Game.Feature.UI.Tests
             Assert.That(source.CurrentSnapshot.Interaction.IsPaused, Is.True);
             Assert.That(source.CurrentSnapshot.Tick.IsTopologyTransitionActive, Is.True);
             Assert.That(source.CurrentSnapshot.Notifications.ActiveNotifications, Is.Empty);
+        }
+
+        [Test]
+        public void GameplayUiPresentationSource_RefreshMapsRecoveryCooldownFromPlayerHudQuery()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                new GameplayPlayerHudReadModel(
+                    isAvailable: true,
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.Flip,
+                    activeActionDirection: GameplayUiDirection.Right,
+                    activeTargetEntityId: 20,
+                    isActionInProgress: true,
+                    isActionInRecoveryPhase: true,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    recoveryCooldown: new GameplayUiRecoveryCooldown(
+                        GameplayUiActionKind.Flip,
+                        remainingRecoveryTicks: 1,
+                        totalRecoveryTicks: 2)),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+
+            queryFacade.SetSession(new GameplaySessionReadModel(2, false, true, false));
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Front),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.HasValue, Is.True);
+            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.Value.ActionKind, Is.EqualTo(GameplayUiActionKind.Flip));
+            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.Value.RemainingRecoveryTicks, Is.EqualTo(1));
+            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.Value.TotalRecoveryTicks, Is.EqualTo(2));
         }
 
         [Test]
@@ -316,7 +380,8 @@ namespace Game.Feature.UI.Tests
             GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
             bool isRecoveryPhase = false,
             bool canMoveThisTick = true,
-            bool canStartActionThisTick = true)
+            bool canStartActionThisTick = true,
+            UIRecoveryCooldownSlice? recoveryCooldown = null)
         {
             return new UIStateRefreshInput(
                 tickIndex,
@@ -335,7 +400,8 @@ namespace Game.Feature.UI.Tests
                 activeActionKind,
                 isRecoveryPhase,
                 canMoveThisTick,
-                canStartActionThisTick);
+                canStartActionThisTick,
+                recoveryCooldown);
         }
 
         private static UITickEvent CreateEvent(

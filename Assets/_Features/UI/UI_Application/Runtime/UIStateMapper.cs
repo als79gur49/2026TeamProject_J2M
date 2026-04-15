@@ -23,7 +23,8 @@ namespace Game.Feature.UI.Application
             GameplayUiActionKind activeActionKind,
             bool isRecoveryPhase,
             bool canMoveThisTick,
-            bool canStartActionThisTick)
+            bool canStartActionThisTick,
+            UIRecoveryCooldownSlice? recoveryCooldown)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -42,6 +43,7 @@ namespace Game.Feature.UI.Application
             IsRecoveryPhase = isRecoveryPhase;
             CanMoveThisTick = canMoveThisTick;
             CanStartActionThisTick = canStartActionThisTick;
+            RecoveryCooldown = recoveryCooldown;
         }
 
         public int TickIndex { get; }
@@ -77,6 +79,8 @@ namespace Game.Feature.UI.Application
         public bool CanMoveThisTick { get; }
 
         public bool CanStartActionThisTick { get; }
+
+        public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
 
     public readonly struct UIStateReductionResult
@@ -175,7 +179,8 @@ namespace Game.Feature.UI.Application
                 previous.Player.LastResolvedTickIndex,
                 preserveTickScopedDamage && previous.Player.TookDamageThisTick,
                 previous.Player.LastDamageAmount,
-                previous.Player.LastDamageTickIndex);
+                previous.Player.LastDamageTickIndex,
+                refreshInput.RecoveryCooldown);
 
             return new UIPresentationSnapshot(
                 tick,
@@ -206,7 +211,8 @@ namespace Game.Feature.UI.Application
                             tickEvent.TickIndex,
                             snapshot.Player.TookDamageThisTick,
                             snapshot.Player.LastDamageAmount,
-                            snapshot.Player.LastDamageTickIndex),
+                            snapshot.Player.LastDamageTickIndex,
+                            snapshot.Player.RecoveryCooldown),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
@@ -225,7 +231,8 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.LastResolvedTickIndex,
                             true,
                             tickEvent.DamageAmount,
-                            tickEvent.TickIndex),
+                            tickEvent.TickIndex,
+                            snapshot.Player.RecoveryCooldown),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:

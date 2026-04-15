@@ -7,6 +7,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
+using Game.Feature.Gameplay.UIAccess.Models;
 using NUnit.Framework;
 
 namespace Game.Feature.Gameplay.Tests.Unit
@@ -112,6 +113,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 properties.Select(property => property.Name).ToArray());
             Assert.That(properties.All(property => property.PropertyType.IsInterface), Is.True);
             Assert.That(properties.All(property => property.PropertyType.Name.EndsWith("Query", StringComparison.Ordinal)), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiRecoveryCooldown_PublicSurface_RemainsMinimal()
+        {
+            var propertyNames = typeof(GameplayUiRecoveryCooldown)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(propertyNames, Is.EqualTo(new[]
+            {
+                "ActionKind",
+                "RemainingRecoveryTicks",
+                "TotalRecoveryTicks",
+            }));
         }
 
         private static IEnumerable<string> GetPublicNames(Type type)

@@ -274,6 +274,23 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIRecoveryCooldownSlice_PublicSurface_RemainsMinimal()
+        {
+            var propertyNames = typeof(UIRecoveryCooldownSlice)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(propertyNames, Is.EqualTo(new[]
+            {
+                "ActionKind",
+                "RemainingRecoveryTicks",
+                "TotalRecoveryTicks",
+            }));
+        }
+
+        [Test]
         public void HUDController_DoesNotDependOnMappedSnapshotOrFlowBlockContracts()
         {
             var forbiddenTypes = new[]
