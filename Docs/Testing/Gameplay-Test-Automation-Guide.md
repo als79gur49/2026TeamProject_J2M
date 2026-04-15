@@ -10,28 +10,28 @@
 ## Current Validation Baseline / 현재 검증 기준점
 ### 한국어
 - 현재 환경에서는 `./run_tests.sh core`와 `./run_tests.sh full`이 실제로 실행 가능하다.
-- Stage 5 HUD freeze 검증용으로 `./run_tests.sh ui` 경로가 추가되었다. 이 경로는 UI EditMode assembly만 대상으로 하는 집중 검증용이다.
+- Stage 9 UI hardening 검증용으로 `./run_tests.sh ui` 경로를 유지한다. 이 경로는 UI EditMode assembly만 대상으로 하는 집중 검증용이며 Stage 4–8 seam preservation evidence를 담당한다.
 - 현재 기준점은 다음과 같다.
-  - `./run_tests.sh core`: green
-  - `./run_tests.sh ui`: green, Unity UI EditMode `46 total / 0 failed`
+  - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
+  - `./run_tests.sh ui`: green, Unity UI EditMode `87 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode는 EditMode failure 때문에 아직 실행되지 않았다.
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
-- UI freeze evidence는 [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md)를 따른다.
+- UI freeze evidence는 [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md)를 따른다. 이 문서는 test count ledger가 아니라 structural delta, guard evolution, runner warning status, PlayMode escalation status를 함께 기록해야 한다.
 - generated stratification report는 더 이상 governance truth-source가 아니다.
 
 ### English Original
 - In the current environment, both `./run_tests.sh core` and `./run_tests.sh full` are runnable.
-- `./run_tests.sh ui` is now available as the targeted Stage 5 HUD freeze path for the UI EditMode assembly only.
+- `./run_tests.sh ui` remains the targeted Stage 9 UI hardening path for the UI EditMode assembly only, preserving Stage 4–8 seams on one Unity-backed evidence lane.
 - The current baseline is:
-  - `./run_tests.sh core`: green
-  - `./run_tests.sh ui`: green, Unity UI EditMode `46 total / 0 failed`
+  - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
+  - `./run_tests.sh ui`: green, Unity UI EditMode `87 total / 0 failed`
   - `./run_tests.sh full`: red, Unity Full EditMode `703 total / 101 failed`
   - Unity Full PlayMode has not run yet because EditMode failed first.
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
-- Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 5 HUD freeze evidence.
+- Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 9 UI hardening evidence, including structural delta and guard-evolution interpretation.
 - The generated stratification report is no longer an active governance truth source.
 
 ## 1. Overview / 개요
@@ -46,6 +46,50 @@
 - `Core` is the fast deterministic safety layer used for everyday development and pre-commit gating.
 - `Full` is the broader validation path that includes runtime behavior, structure checks, and asset-sensitive coverage.
 - `Governance` automatically enforces test boundaries so placement rules do not depend on memory or team habit.
+
+## UI baseline governance / UI baseline governance
+### 한국어
+- UI baseline note는 단순 count bump 문서가 아니다.
+- Stage 9 이후에는 다음 항목을 함께 기록해야 한다.
+  - added / removed / renamed / merged / split tests
+  - replaced weak guards / obsolete guards
+  - responsibility shifts between layers
+  - runner warning changes
+  - PlayMode escalation status
+- `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md`와 이 가이드는 같은 변경에서 함께 갱신해야 한다.
+
+### English Original
+- The UI baseline note is not a count-only ledger.
+- After Stage 9 it must record:
+  - added / removed / renamed / merged / split tests
+  - replaced weak guards / obsolete guards
+  - responsibility shifts between layers
+  - runner warning changes
+  - PlayMode escalation status
+- `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
+
+## PlayMode escalation triggers / PlayMode escalation triggers
+### 한국어
+- UI PlayMode는 EditMode만으로 ownership behavior를 신뢰성 있게 검증할 수 없을 때만 추가한다.
+- 허용 trigger:
+  - real play loop가 필요한 runtime-only input routing
+  - screen/popup/HUD ownership에 영향을 주는 scene lifecycle ordering / activation timing
+  - runtime-only execution에 의존하는 diagnostics visibility / toggle behavior
+  - EditMode 결과를 무효화할 수 있는 domain reload / play-loop behavior
+- 허용되지 않는 trigger:
+  - “PlayMode에서 한번 보면 좋겠다”
+  - mapper / policy / reflection / presenter interaction / direct EditMode composition test
+
+### English Original
+- UI PlayMode coverage is added only when EditMode cannot credibly verify the ownership behavior being protected.
+- Allowed triggers:
+  - runtime-only input routing that depends on the real play loop
+  - scene lifecycle ordering or activation timing that materially affects screen/popup/HUD ownership
+  - diagnostics visibility or toggle behavior that depends on runtime-only execution
+  - domain reload or play-loop behavior that can invalidate an EditMode-only result
+- Disallowed trigger:
+  - “it would be nice to see it in PlayMode”
+  - mapper / policy / reflection / presenter interaction / direct EditMode composition tests
 
 ## 2. Why This System Exists / 왜 이 시스템이 존재하는가
 ### 한국어
@@ -154,7 +198,7 @@ WSL CLI
   - governance 검사 후 Windows `dotnet` core build, Unity Core EditMode, Unity Core PlayMode를 순서대로 실행한다.
   - pre-commit 훅이 사용하는 명령이다.
 - `./run_tests.sh ui`
-  - Stage 5 이후 HUD / UI architecture freeze 검증에 사용한다.
+  - Stage 9 이후 UI architecture hardening 및 Stage 4–8 seam preservation 검증에 사용한다.
   - governance 검사 후 Windows `dotnet` UI test build, Unity UI EditMode assembly 실행만 수행한다.
   - `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, `TestResults/wsl-unity-ui-editmode.xml`을 남긴다.
   - `core`를 대체하지 않으며, UI slice를 넓히기 전 targeted evidence를 얻기 위한 명령이다.
@@ -185,7 +229,7 @@ WSL CLI
   - Runs governance first, then Windows `dotnet` core build, then Unity Core EditMode and Core PlayMode.
   - This is the command used by pre-commit.
 - `./run_tests.sh ui`
-  - Use for targeted Stage 5 HUD and UI architecture freeze validation.
+  - Use for targeted Stage 9 UI hardening and Stage 4–8 seam-preservation validation.
   - Runs governance first, then Windows `dotnet` build for `Game.Feature.UI.Tests.csproj`, then Unity EditMode with the `ui` selection in `TestRunnerCliBootstrap`.
   - Writes `TestResults/wsl-dotnet-ui.log`, `TestResults/wsl-unity-ui-editmode.log`, and `TestResults/wsl-unity-ui-editmode.xml`.
   - It does not replace `core`; it exists to provide explicit Unity-side evidence for the UI assembly before broader UI expansion.

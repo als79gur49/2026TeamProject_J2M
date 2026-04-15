@@ -1,41 +1,104 @@
 # UI EditMode Baseline 2026-04-15
 
 ## Scope
-- Purpose: preserve the Stage 5 HUD freeze while validating the Stage 6 popup stack, Stage 7 screen-flow architecture, and Stage 8 inventory presenter decomposition on the same runner path.
+- Purpose: preserve the Stage 4 mapped seam, Stage 5 HUD shell boundaries, Stage 6 popup stack ownership, Stage 7 screen runtime ownership, and the Stage 8 inventory presenter decomposition while Stage 9 adds test and diagnostic hardening.
 - Command: `./run_tests.sh ui`
 - Runner path: governance -> Windows `dotnet build Game.Feature.UI.Tests.csproj -c Debug` -> Unity `TestRunnerCliBootstrap.RunEditMode -codexSelection ui`
+- Companion smoke lane: `./run_tests.sh core` on the same worktree
+- Recorded rerun: April 15, 2026 on the current Stage 9 worktree
+- Result note: future updates to `## Result` and `## Companion Smoke Check` must not be bumped without updating the structural delta below.
 
 ## Result
 - Status: green
-- Unity UI EditMode: `64 total / 0 failed`
+- Unity UI EditMode: `87 total / 0 failed`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
 
+## Structural Delta
+- Added tests:
+  - controller/coordinator public-surface freeze tests for `UIFlowCoordinator`, `ScreenController`, `PopupController`, and `UIBlockPolicy`
+  - deterministic controller/policy guards for `PopTo`, runtime action relay, close-all ordering, backdrop routing, and older-frame refresh behavior
+  - diagnostics boundary tests proving the Stage 9 overlay remains read-only, bounded, and opt-in for drill-down details
+  - governance documentation tests for baseline structure, stale wording removal, and PlayMode escalation-marker enforcement
+  - Stage 8 structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
+- Test count delta:
+  - previous pinned UI EditMode baseline: `64 total / 0 failed`
+  - Stage 9 rerun: `87 total / 0 failed`
+  - delta: `+23` tests, all targeted at seam hardening, diagnostics boundary checks, and governance evidence
+- Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
+- Renamed / merged / split tests: none expected for Stage 9; if any change shape, the preserved seam owner must be stated here explicitly.
+- Replaced weak guards:
+  - Stage 5-only freeze language is replaced with Stage 4–8 seam-preservation language
+  - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
+- Obsolete guards:
+  - none removed by default
+  - if a guard becomes obsolete, record which stronger guard now protects the same seam
+- Runner warning changes:
+  - governance warnings remain non-blocking unless the runner exit code changes
+  - the current soft governance warning state must be recorded separately from UI regressions
+
+## Guard Evolution
+- Expected architectural evolution:
+  - legitimate public-surface evolution is allowed only when it is durable, architecture-relevant, and lands with the functional change, updated freeze expectation, matching behavior guard, and baseline/doc rationale in the same change
+- Stale baseline wording correction:
+  - the baseline note and `Docs/Testing/Gameplay-Test-Automation-Guide.md` must be updated together when the UI lane scope, interpretation, or counts change
+- Weak-to-strong guard replacement:
+  - replacing a weak guard is acceptable only when this note records the old seam, the stronger replacement guard, and the reason the replacement is stronger
+- Accidental seam erosion:
+  - any new public surface, cross-layer shortcut, or Stage 4–8 contract growth without matching guard updates is a regression, even if behavior tests still pass
+- Public-surface change governance:
+  - freeze-test updates land alongside the functional change, never as later cleanup
+  - temporary exceptions are not part of the Stage 9 freeze; unresolved needs become blockers instead of exemptions
+
+## Runner Warning Status
+- Governance mode: `soft`
+- Non-blocking governance warnings:
+  - `Core candidate debt is above threshold: candidates=7, threshold=5, streak=0`
+  - this warning was unchanged during the Stage 9 reruns
+  - do not collapse non-blocking warnings into the pass/fail summary
+- Regression distinction:
+  - a new UI seam failure is blocking
+  - an unchanged non-blocking governance warning is advisory and must not hide a new seam regression
+
+## PlayMode Escalation
+- Stage 9 default: no additional UI PlayMode coverage unless EditMode cannot credibly verify the protected ownership behavior.
+- Escalation triggers:
+  - runtime-only input routing that depends on the real play loop
+  - scene lifecycle ordering or activation timing that materially changes screen/popup/HUD ownership behavior
+  - diagnostics visibility/toggle behavior that depends on runtime-only execution
+  - domain reload or play-loop behavior that invalidates an EditMode-only result
+- Non-triggers:
+  - mapper/policy/controller tests
+  - reflection guards
+  - presenter interaction tests
+  - EditMode-composed UI hierarchy checks that can be driven directly
+- PlayMode escalation status:
+  - no additional UI PlayMode tests were added in Stage 9
+  - EditMode remained sufficient for mapper/policy/controller hardening, diagnostics toggles, and UI hierarchy ownership verification
+
 ## Covered Freeze Evidence
-- persistent HUD subtree composition
-- `HUDRootPresenter` mapped-source subscription lifecycle
-- child-view binding integrity
-- pause and blocking refresh propagation through mapped presentation state
-- action-bar input relay correctness
-- architecture guard tests for root growth, root binding, and raw gameplay boundary leakage
-- popup stack ownership centralized in flow and `PopupController`
-- top-popup-only interaction, dim, and blocking policy centralized outside popup prefabs
-- popup-first back handling across tooltip, confirm, reward, and migrated legacy popup paths
-- screen-transition cleanup remaining deterministic under the Stage 6 default without expanding Stage 4 mapped contracts
-- classification-sensitive popup behavior differences validated on one shared stack
-- explicit screen runtime ownership in `ScreenController` with current-screen plus history semantics
-- Stage 7 default retention and reuse policies validated without hard-coding them as permanent invariants
-- popup-first back order preserved while screens add push, pop, replace, and terminal result behavior
-- terminal `StageResultScreen` auto-opened from the existing tick-event seam without widening gameplay contracts
-- HUD shell visibility and HUD read-only policy kept on centralized flow/policy seams instead of screen-prefab control
-- `InventoryScreen` decomposed into a shell presenter plus bounded catalog, detail, and action child presenters on the existing Stage 7 runtime
-- inventory query, filter, sort, visible-result, empty-state, and summary computation kept local to `InventoryCatalogPresenter` instead of regrowing a root-state bottleneck
-- inventory detail and action projection kept on narrow selected-item inputs while canonical cross-child selection stayed root-owned
-- inventory action feedback remained presentation-local and did not gain popup, flow, HUD, or gameplay-authoritative ownership
-- no new gameplay-backed inventory UIAccess or Stage 4–7 seam expansion was introduced for the Stage 8 proof
+- architectural seams are guarded by tests, not only by convention
+- `Gameplay.UIAccess` remains bounded and gameplay-owned
+- `UIStateMapper` remains the only durable mapped presentation reduction path into UI-facing snapshot state
+- no raw gameplay feed or gameplay-authoritative type is reintroduced into presenters, views, or HUD/screen/popup contracts
+- `HUDRootPresenter` remains the sole mapped-state HUD subscriber and shell-level fan-out owner
+- `HUDController` remains lifecycle, child binding, and bounded input relay only
+- popup stack identity, topmost ownership, close ordering, and popup-first back handling remain centralized in `PopupController` and `UIFlowCoordinator`
+- screen runtime ownership remains centralized in `ScreenController` with deterministic show/push/replace/pop/pop-to/clear semantics
+- `UIFlowCoordinator` remains routing, popup-first-back, and cross-layer sequencing only
+- Stage 8 inventory decomposition remains representative rather than contractual:
+  - root presenter stays bounded to source items plus canonical selection
+  - child presenters stay mesh-free and responsibility-specific
+  - no popup/flow ownership or global child input-bag convenience is added to the action child
+- Stage 9 diagnostics remain read-only, bounded, editor/development-only, and non-reusable as runtime state aggregation
+- no Stage 4–8 contract is widened merely for test/debug convenience
 
 ## Companion Smoke Check
-- `./run_tests.sh core`: green on the same working tree after the UI run
+- Command: `./run_tests.sh core`
+- Status: green
 - Core EditMode: `13 total / 0 failed`
 - Core PlayMode: `2 total / 0 failed`
+- Interpretation:
+  - this remains a companion smoke lane, not a replacement for `./run_tests.sh ui`
+  - Stage 9 evidence is incomplete if the UI lane passes on a worktree where the companion core lane is not rerun
