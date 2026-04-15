@@ -23,12 +23,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.RootView.GetComponent<Canvas>(), Is.Not.Null);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
 
                 installer.GameplayScreenView.ClickHelp();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
                 Assert.That(installer.HelpScreenView.IsVisible, Is.True);
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
 
                 installer.HelpScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));

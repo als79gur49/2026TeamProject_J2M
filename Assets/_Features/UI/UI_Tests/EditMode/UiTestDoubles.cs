@@ -208,6 +208,64 @@ namespace Game.Feature.UI.Tests
         }
     }
 
+    internal sealed class ManualGameplayUiPresentationSource : IGameplayUiPresentationSource
+    {
+        private event Action<UIPresentationSnapshot> _snapshotChanged;
+        private event Action<UITickEventBatch> _tickEventsApplied;
+
+        public int SnapshotSubscriberCount { get; private set; }
+
+        public int TickEventSubscriberCount { get; private set; }
+
+        public event Action<UIPresentationSnapshot> SnapshotChanged
+        {
+            add
+            {
+                SnapshotSubscriberCount++;
+                _snapshotChanged += value;
+            }
+            remove
+            {
+                SnapshotSubscriberCount--;
+                _snapshotChanged -= value;
+            }
+        }
+
+        public event Action<UITickEventBatch> TickEventsApplied
+        {
+            add
+            {
+                TickEventSubscriberCount++;
+                _tickEventsApplied += value;
+            }
+            remove
+            {
+                TickEventSubscriberCount--;
+                _tickEventsApplied -= value;
+            }
+        }
+
+        public UIPresentationSnapshot CurrentSnapshot { get; private set; } = UIPresentationSnapshot.Empty;
+
+        public UITickEventBatch CurrentTickEvents { get; private set; } = UITickEventBatch.Empty;
+
+        public void PublishSnapshot(UIPresentationSnapshot snapshot)
+        {
+            CurrentSnapshot = snapshot;
+            _snapshotChanged?.Invoke(snapshot);
+        }
+
+        public void PublishTickEvents(UITickEventBatch tickEvents)
+        {
+            CurrentTickEvents = tickEvents;
+            _tickEventsApplied?.Invoke(tickEvents);
+        }
+
+        public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
+        {
+        }
+    }
+
     internal static class UiTestPortFactory
     {
         public static GameplayUiFlowPorts CreatePorts(

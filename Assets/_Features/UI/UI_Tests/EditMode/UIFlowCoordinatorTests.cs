@@ -11,7 +11,7 @@ namespace Game.Feature.UI.Tests
         public void UIFlowCoordinator_HandleBack_UsesPopupFirstThenScreenThenPausePopup()
         {
             var pauseService = new FakeGameplayPauseService();
-            using var coordinator = CreateCoordinator(pauseService, out var screenController, out var popupController, out var hudController);
+            using var coordinator = CreateCoordinator(pauseService, out var screenController, out var popupController);
 
             coordinator.Initialize();
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -33,20 +33,20 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(popupController.Contains(PopupId.Pause), Is.True);
             Assert.That(pauseService.IsPaused, Is.True);
-            Assert.That(hudController.ViewModel.IsInteractive, Is.False);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.True);
         }
 
         [Test]
         public void UIFlowCoordinator_OpensObjectiveScreen_AndNonPausingObjectiveInfoPopup()
         {
             var pauseService = new FakeGameplayPauseService();
-            using var coordinator = CreateCoordinator(pauseService, out var screenController, out var popupController, out var hudController);
+            using var coordinator = CreateCoordinator(pauseService, out var screenController, out var popupController);
 
             coordinator.Initialize();
 
             Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-            Assert.That(hudController.ViewModel.IsInteractive, Is.False);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.True);
 
             Assert.That(coordinator.RequestObjectiveInfoPopup(), Is.True);
             Assert.That(popupController.Contains(PopupId.ObjectiveInfo), Is.True);
@@ -58,43 +58,20 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-            Assert.That(hudController.ViewModel.IsInteractive, Is.True);
+            Assert.That(coordinator.CurrentBlockSnapshot.BlocksHudInteraction, Is.False);
         }
 
         private static UIFlowCoordinator CreateCoordinator(
             FakeGameplayPauseService pauseService,
             out ScreenController screenController,
-            out PopupController popupController,
-            out HUDController hudController)
+            out PopupController popupController)
         {
-            var queryFacade = new FakeGameplayQueryFacade(
-                new GameplaySessionReadModel(1, false, true, false),
-                new GameplayPlayerHudReadModel(
-                    isAvailable: true,
-                    playerEntityId: 10,
-                    currentHp: 3,
-                    facing: GameplayUiDirection.Up,
-                    activeActionKind: GameplayUiActionKind.None,
-                    activeActionDirection: GameplayUiDirection.None,
-                    activeTargetEntityId: 0,
-                    isActionInProgress: false,
-                    isActionInRecoveryPhase: false,
-                    canMoveThisTick: true,
-                    canStartActionThisTick: true),
-                new GameplayObjectiveReadModel(false, false, false, false));
-            var source = UiTestPortFactory.CreatePresentationSource(
-                queryFacade: queryFacade,
-                pauseService: pauseService);
-            var presenter = new GameplayHudPresenter(new FakeGameplayCommandGateway(), source);
-
             screenController = new ScreenController();
             popupController = new PopupController();
-            hudController = new HUDController(presenter);
 
             return new UIFlowCoordinator(
                 screenController,
                 popupController,
-                hudController,
                 new UIBlockPolicy(),
                 pauseService);
         }

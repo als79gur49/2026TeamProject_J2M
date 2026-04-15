@@ -42,7 +42,7 @@ namespace Game.Feature.UI.Tests
         public void OnlyApplicationAndCompositionUiAssembliesReferenceGameplayUiAccessAssembly()
         {
             var uiAccessAssemblyName = typeof(IGameplayQueryFacade).Assembly.GetName().Name;
-            var applicationAssembly = typeof(GameplayHudPresenter).Assembly;
+            var applicationAssembly = typeof(HUDRootPresenter).Assembly;
             var compositionAssembly = typeof(GameplayUiFlowInstaller).Assembly;
 
             foreach (var assembly in GetRuntimeUiAssemblies().Where(assembly => assembly != applicationAssembly && assembly != compositionAssembly))
@@ -68,7 +68,7 @@ namespace Game.Feature.UI.Tests
         public void ApplicationUiAssembly_DoesNotReferenceGameplayAssembly()
         {
             var gameplayAssemblyName = typeof(WorldState).Assembly.GetName().Name;
-            var references = typeof(GameplayHudPresenter).Assembly
+            var references = typeof(HUDRootPresenter).Assembly
                 .GetReferencedAssemblies()
                 .Select(reference => reference.Name)
                 .ToArray();
@@ -79,7 +79,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void ApplicationUiAssembly_OnlyGameplayUiPresentationSourceDependsOnGameplayPresentationFeed()
         {
-            var applicationAssembly = typeof(GameplayHudPresenter).Assembly;
+            var applicationAssembly = typeof(HUDRootPresenter).Assembly;
             var feedType = typeof(IGameplayPresentationFeed);
 
             var dependentTypes = applicationAssembly
@@ -108,7 +108,10 @@ namespace Game.Feature.UI.Tests
             };
             var presenterTypes = new[]
             {
-                typeof(GameplayHudPresenter),
+                typeof(HUDRootPresenter),
+                typeof(PlayerStatusPresenter),
+                typeof(ActionBarPresenter),
+                typeof(NotificationPresenter),
                 typeof(ObjectiveStatusPresenter),
             };
 
@@ -151,7 +154,7 @@ namespace Game.Feature.UI.Tests
 
             var assemblies = new[]
             {
-                typeof(GameplayHudView).Assembly,
+                typeof(HUDRootView).Assembly,
                 typeof(GameplayScreenView).Assembly,
                 typeof(PausePopupView).Assembly,
             };
@@ -182,13 +185,188 @@ namespace Game.Feature.UI.Tests
             Assert.That(propertyNames, Is.EqualTo(new[] { "Objectives", "PlayerHud", "Session" }));
         }
 
+        [Test]
+        public void HUDRootPresenter_DoesNotDependOnGameplayCommandGateway()
+        {
+            Assert.That(
+                TypeDependsOn(typeof(HUDRootPresenter), typeof(IGameplayCommandGateway)),
+                Is.False);
+        }
+
+        [Test]
+        public void HUDRootPresenter_PublicSurface_RemainsBoundedToMappedFanOut()
+        {
+            var publicPropertyNames = typeof(HUDRootPresenter)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+            Assert.That(publicPropertyNames, Is.EqualTo(new[] { "ViewModel" }));
+
+            var publicMethodNames = typeof(HUDRootPresenter)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => !method.IsSpecialName)
+                .Select(method => method.Name)
+                .OrderBy(name => name)
+                .ToArray();
+            Assert.That(publicMethodNames, Is.EqualTo(new[] { "Dispose" }));
+
+            var constructors = typeof(HUDRootPresenter).GetConstructors(BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(constructors, Has.Length.EqualTo(1));
+            Assert.That(
+                constructors[0].GetParameters().Select(parameter => parameter.ParameterType).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    typeof(IGameplayUiPresentationSource),
+                    typeof(PlayerStatusPresenter),
+                    typeof(ActionBarPresenter),
+                    typeof(NotificationPresenter),
+                }));
+
+            var forbiddenTypes = new[]
+            {
+                typeof(IGameplayCommandGateway),
+                typeof(IGameplayQueryFacade),
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(UIFlowCoordinator),
+                typeof(PlayerStatusViewModel),
+                typeof(ActionBarViewModel),
+                typeof(NotificationViewModel),
+            };
+
+            foreach (var forbiddenType in forbiddenTypes)
+            {
+                Assert.That(
+                    TypeDependsOn(typeof(HUDRootPresenter), forbiddenType),
+                    Is.False,
+                    $"{typeof(HUDRootPresenter).FullName} depends on {forbiddenType.FullName}");
+            }
+        }
+
+        [Test]
+        public void HUDRootPresenter_DoesNotExposeActionCommandEntryPoints()
+        {
+            var methodNames = typeof(HUDRootPresenter)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(method => method.Name)
+                .ToArray();
+
+            Assert.That(methodNames, Does.Not.Contain("RequestSlot"));
+            Assert.That(methodNames, Does.Not.Contain("RequestMoveUp"));
+            Assert.That(methodNames, Does.Not.Contain("RequestFlipRight"));
+        }
+
+        [Test]
+        public void HUDRootViewModel_PublicProperties_RemainShellOnly()
+        {
+            var propertyNames = typeof(HUDRootViewModel)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(propertyNames, Is.EqualTo(new[] { "IsDimmed", "IsPauseButtonEnabled", "IsVisible" }));
+        }
+
+        [Test]
+        public void HUDController_DoesNotDependOnMappedSnapshotOrFlowBlockContracts()
+        {
+            var forbiddenTypes = new[]
+            {
+                typeof(UIPresentationSnapshot),
+                typeof(IGameplayUiPresentationSource),
+                typeof(IGameplayPresentationFeed),
+                typeof(UIBlockSnapshot),
+            };
+
+            foreach (var forbiddenType in forbiddenTypes)
+            {
+                Assert.That(
+                    TypeDependsOn(typeof(HUDController), forbiddenType),
+                    Is.False,
+                    $"{typeof(HUDController).FullName} depends on {forbiddenType.FullName}");
+            }
+
+            Assert.That(
+                typeof(HUDController).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                    .Select(method => method.Name),
+                Does.Not.Contain("ApplyBlockSnapshot"));
+        }
+
+        [Test]
+        public void HUDController_PublicSurface_RemainsLifecycleAndBindingOnly()
+        {
+            var propertyNames = typeof(HUDController)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+            Assert.That(
+                propertyNames,
+                Is.EqualTo(new[]
+                {
+                    "ActionBarViewModel",
+                    "NotificationViewModel",
+                    "PlayerStatusViewModel",
+                    "RootViewModel",
+                }));
+
+            var methodNames = typeof(HUDController)
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => !method.IsSpecialName)
+                .Select(method => method.Name)
+                .OrderBy(name => name)
+                .ToArray();
+            Assert.That(methodNames, Is.EqualTo(new[] { "AttachView", "Dispose" }));
+        }
+
+        [Test]
+        public void HudPresenters_DoNotDependOnFlowPolicyTypes()
+        {
+            var presenterTypes = new[]
+            {
+                typeof(HUDRootPresenter),
+                typeof(PlayerStatusPresenter),
+                typeof(ActionBarPresenter),
+                typeof(NotificationPresenter),
+            };
+            var forbiddenTypes = new[]
+            {
+                typeof(UIFlowCoordinator),
+                typeof(UIBlockPolicy),
+                typeof(ScreenController),
+                typeof(PopupController),
+            };
+
+            foreach (var presenterType in presenterTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(presenterType, forbiddenType),
+                        Is.False,
+                        $"{presenterType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
+        public void HudViews_BindOnlyLocalViewModels()
+        {
+            AssertViewBindSignature(typeof(HUDRootView), typeof(HUDRootViewModel));
+            AssertViewBindSignature(typeof(PlayerStatusView), typeof(PlayerStatusViewModel));
+            AssertViewBindSignature(typeof(ActionBarView), typeof(ActionBarViewModel));
+            AssertViewBindSignature(typeof(NotificationView), typeof(NotificationViewModel));
+        }
+
         private static Assembly[] GetRuntimeUiAssemblies()
         {
             return new[]
             {
-                typeof(GameplayHudPresenter).Assembly,
+                typeof(HUDRootPresenter).Assembly,
                 typeof(HUDController).Assembly,
-                typeof(GameplayHudView).Assembly,
+                typeof(HUDRootView).Assembly,
                 typeof(GameplayScreenView).Assembly,
                 typeof(PausePopupView).Assembly,
                 typeof(GameplayUiFlowInstaller).Assembly,
@@ -227,6 +405,18 @@ namespace Game.Feature.UI.Tests
                     }
                 }
             }
+        }
+
+        private static void AssertViewBindSignature(Type viewType, Type expectedViewModelType)
+        {
+            var bindMethods = viewType
+                .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => method.Name == "Bind")
+                .ToArray();
+
+            Assert.That(bindMethods, Has.Length.EqualTo(1), viewType.FullName);
+            Assert.That(bindMethods[0].GetParameters().Select(parameter => parameter.ParameterType).ToArray(), Is.EqualTo(new[] { expectedViewModelType }));
+            Assert.That(TypeDependsOn(viewType, typeof(UIPresentationSnapshot)), Is.False, viewType.FullName);
         }
 
         private static IEnumerable<Type> ExpandType(Type type)

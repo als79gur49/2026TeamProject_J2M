@@ -1,115 +1,166 @@
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using NUnit.Framework;
+using UnityEngine;
+using UnityEngine.EventSystems;
 
 namespace Game.Feature.UI.Tests
 {
     public sealed class HUDControllerTests
     {
         [Test]
-        public void HUDController_RequestFlipRight_WhenLocallyBlocked_DoesNotForwardCommand()
+        public void HUDController_AttachView_BindsChildViewModels_AndRelaysActionBarInput()
         {
-            var commandGateway = new FakeGameplayCommandGateway();
-            var controller = CreateController(commandGateway, out var queryFacade);
+            var rootObject = new GameObject("HUDController_AttachView_BindsChildViewModels_AndRelaysActionBarInput");
 
-            controller.ApplyBlockSnapshot(new UIBlockSnapshot(blocksHudInteraction: true, blocksScreenInteraction: false, popupConsumesBack: false));
+            try
+            {
+                var rootView = rootObject.AddComponent<GameplayUiCanvasRootView>();
+                rootView.EnsureHierarchy();
 
-            var commandResult = controller.RequestFlipRight();
+                var commandGateway = new FakeGameplayCommandGateway();
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var actionBarPresenter = new ActionBarPresenter(commandGateway);
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    playerStatusPresenter,
+                    actionBarPresenter,
+                    notificationPresenter);
+                using var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    actionBarPresenter.ViewModel,
+                    notificationPresenter.ViewModel,
+                    actionBarPresenter);
 
-            Assert.That(commandResult.HasValue, Is.False);
-            Assert.That(commandGateway.RequestFlipCallCount, Is.EqualTo(0));
-            Assert.That(controller.ViewModel.FeedbackText, Is.EqualTo("HUD blocked"));
-            Assert.That(controller.ViewModel.LastCommandResult.HasValue, Is.False);
+                controller.AttachView(rootView.HudView);
+                source.PublishSnapshot(CreateSnapshot());
 
-            queryFacade.SetSession(new GameplaySessionReadModel(2, false, true, false));
-            controller.ApplyBlockSnapshot(new UIBlockSnapshot(blocksHudInteraction: false, blocksScreenInteraction: false, popupConsumesBack: false));
+                Assert.That(rootView.HudView.ViewModel, Is.SameAs(controller.RootViewModel));
+                Assert.That(rootView.HudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
+                Assert.That(rootView.HudView.ActionBarView.ViewModel, Is.SameAs(controller.ActionBarViewModel));
+                Assert.That(rootView.HudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
 
-            Assert.That(controller.ViewModel.FeedbackText, Is.EqualTo(string.Empty));
+                rootView.HudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
+
+                Assert.That(commandGateway.SetHeldMoveDirectionCallCount, Is.EqualTo(1));
+                Assert.That(controller.ActionBarViewModel.LastCommandResult.HasValue, Is.True);
+                Assert.That(controller.ActionBarViewModel.LastCommandResult.Value.Accepted, Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
         }
 
         [Test]
-        public void HUDController_RequestFlipRight_StoresMappedFeedbackForGameplayRejection()
+        public void HUDController_Dispose_DetachesAllHudBindings()
         {
-            var commandGateway = new FakeGameplayCommandGateway
+            var rootObject = new GameObject("HUDController_Dispose_DetachesAllHudBindings");
+
+            try
             {
-                OnRequestFlip = _ => GameplayCommandAcceptance.Reject(GameplayCommandRejectionReason.BlockingPresentation),
-            };
-            var controller = CreateController(commandGateway, out _);
+                var rootView = rootObject.AddComponent<GameplayUiCanvasRootView>();
+                rootView.EnsureHierarchy();
 
-            controller.ApplyBlockSnapshot(new UIBlockSnapshot(blocksHudInteraction: false, blocksScreenInteraction: false, popupConsumesBack: false));
-            var commandResult = controller.RequestFlipRight();
+                var commandGateway = new FakeGameplayCommandGateway();
+                var source = new ManualGameplayUiPresentationSource();
+                var playerStatusPresenter = new PlayerStatusPresenter();
+                var actionBarPresenter = new ActionBarPresenter(commandGateway);
+                var notificationPresenter = new NotificationPresenter();
+                using var rootPresenter = new HUDRootPresenter(
+                    source,
+                    playerStatusPresenter,
+                    actionBarPresenter,
+                    notificationPresenter);
+                var controller = new HUDController(
+                    rootPresenter.ViewModel,
+                    playerStatusPresenter.ViewModel,
+                    actionBarPresenter.ViewModel,
+                    notificationPresenter.ViewModel,
+                    actionBarPresenter);
 
-            Assert.That(commandResult.HasValue, Is.True);
-            Assert.That(commandResult.Value.Accepted, Is.False);
-            Assert.That(commandGateway.RequestFlipCallCount, Is.EqualTo(1));
-            Assert.That(controller.ViewModel.FeedbackText, Is.EqualTo("Busy"));
-            Assert.That(controller.ViewModel.LastCommandResult.HasValue, Is.True);
-            Assert.That(controller.ViewModel.LastCommandResult.Value.FailureKind, Is.EqualTo(GameplayHudCommandFailureKind.Busy));
+                controller.AttachView(rootView.HudView);
+                controller.Dispose();
+
+                Assert.That(rootView.HudView.ViewModel, Is.Null);
+                Assert.That(rootView.HudView.PlayerStatusView.ViewModel, Is.Null);
+                Assert.That(rootView.HudView.ActionBarView.ViewModel, Is.Null);
+                Assert.That(rootView.HudView.NotificationView.ViewModel, Is.Null);
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
         }
 
-        [Test]
-        public void HUDController_ClearsGameplayFeedback_WhenCommandReadyReturns()
+        private static UIPresentationSnapshot CreateSnapshot(
+            bool isPaused = false,
+            bool isUiBlocked = false,
+            bool hasBlockingPresentation = false,
+            GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
+            bool isRecoveryPhase = false,
+            bool canMoveThisTick = true,
+            bool canStartActionThisTick = true,
+            GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None)
         {
-            var commandGateway = new FakeGameplayCommandGateway
-            {
-                OnRequestFlip = _ => GameplayCommandAcceptance.Reject(GameplayCommandRejectionReason.BlockingPresentation),
-            };
-            var controller = CreateController(commandGateway, out var queryFacade);
-
-            controller.ApplyBlockSnapshot(new UIBlockSnapshot(blocksHudInteraction: false, blocksScreenInteraction: false, popupConsumesBack: false));
-            controller.RequestFlipRight();
-
-            Assert.That(controller.ViewModel.FeedbackText, Is.EqualTo("Busy"));
-
-            queryFacade.SetSession(new GameplaySessionReadModel(2, false, true, false));
-            queryFacade.SetPlayerHud(new GameplayPlayerHudReadModel(
-                isAvailable: true,
-                playerEntityId: 10,
-                currentHp: 3,
-                facing: GameplayUiDirection.Up,
-                activeActionKind: GameplayUiActionKind.None,
-                activeActionDirection: GameplayUiDirection.None,
-                activeTargetEntityId: 0,
-                isActionInProgress: false,
-                isActionInRecoveryPhase: false,
-                canMoveThisTick: true,
-                canStartActionThisTick: true));
-            controller.RequestMoveUp();
-
-            Assert.That(controller.ViewModel.FeedbackText, Is.EqualTo(string.Empty));
-            Assert.That(controller.ViewModel.LastCommandResult.HasValue, Is.True);
-        }
-
-        private static HUDController CreateController(
-            FakeGameplayCommandGateway commandGateway,
-            out FakeGameplayQueryFacade queryFacade)
-        {
-            queryFacade = new FakeGameplayQueryFacade(
-                new GameplaySessionReadModel(1, false, true, false),
-                new GameplayPlayerHudReadModel(
-                    isAvailable: true,
+            return new UIPresentationSnapshot(
+                new UITickSlice(
+                    lastReducedTickIndex: 4,
+                    finalTopology: new GameplayUiTopology(GameplayUiFace.Front),
+                    isStageCleared: false,
+                    isTopologyTransitionActive: false),
+                new UIInteractionSlice(
+                    isPaused,
+                    canAcceptGameplayCommands: !isPaused && !hasBlockingPresentation,
+                    hasBlockingGameplayPresentation: hasBlockingPresentation,
+                    isUiGameplayInputBlocked: isUiBlocked),
+                new UIPlayerActionSlice(
                     playerEntityId: 10,
                     currentHp: 3,
                     facing: GameplayUiDirection.Up,
-                    activeActionKind: GameplayUiActionKind.None,
-                activeActionDirection: GameplayUiDirection.None,
-                activeTargetEntityId: 0,
-                isActionInProgress: false,
-                isActionInRecoveryPhase: false,
-                canMoveThisTick: true,
-                canStartActionThisTick: true),
-                new GameplayObjectiveReadModel(false, false, false, false));
+                    activeActionKind: activeActionKind,
+                    isRecoveryPhase: isRecoveryPhase,
+                    canMoveThisTick: canMoveThisTick,
+                    canStartActionThisTick: canStartActionThisTick,
+                    lastResolvedOutcome: lastOutcome,
+                    lastResolvedTickIndex: lastOutcome == GameplayUiActionResolutionKind.None ? 0 : 4,
+                    tookDamageThisTick: false,
+                    lastDamageAmount: 0,
+                    lastDamageTickIndex: 0),
+                new UINotificationLedgerSlice(new[]
+                {
+                    new UINotificationRecord(
+                        new UITickEventKey(
+                            tickIndex: 4,
+                            eventKind: UITickEventKind.PlayerActionResolved,
+                            actorEntityId: 10,
+                            actionKind: GameplayUiActionKind.Flip,
+                            actionSequence: 2,
+                            resolutionKind: GameplayUiActionResolutionKind.Success),
+                        UITickEventKind.PlayerActionResolved,
+                        damageAmount: 0,
+                        expireAfterTickIndex: 8),
+                }));
+        }
 
-            var presentationSource = UiTestPortFactory.CreatePresentationSource(
-                queryFacade: queryFacade,
-                pauseService: new FakeGameplayPauseService());
-            var presenter = new GameplayHudPresenter(
-                commandGateway,
-                presentationSource);
+        private static void DestroySupportObjects(GameObject rootObject)
+        {
+            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            if (eventSystem != null)
+            {
+                Object.DestroyImmediate(eventSystem.gameObject);
+            }
 
-            return new HUDController(presenter);
+            if (rootObject != null)
+            {
+                Object.DestroyImmediate(rootObject);
+            }
         }
     }
 }

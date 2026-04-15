@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
+using Game.Feature.UI.HUD;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -32,41 +33,37 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudView.IsVisible, Is.True);
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
 
                 installer.GameplayScreenView.ClickHelp();
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
                 Assert.That(installer.HelpScreenView.IsVisible, Is.True);
 
                 installer.HelpScreenView.ClickBack();
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
 
-                installer.HudView.ClickMoveUp();
+                installer.HudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
 
-                Assert.That(installer.HudController.ViewModel.LastCommandResult.HasValue, Is.True);
-                Assert.That(installer.HudController.ViewModel.LastCommandResult.Value.Accepted, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.LastCommandResult.HasValue, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.LastCommandResult.Value.Accepted, Is.True);
 
                 host.InputHost.RunSingleTick();
 
                 Assert.That(host.UiAccess.PresentationFeed.CurrentState.HasBlockingPresentation, Is.True);
-
-                installer.HudView.ClickFlipRight();
-
-                Assert.That(installer.HudController.ViewModel.LastCommandResult.HasValue, Is.True);
-                Assert.That(installer.HudController.ViewModel.LastCommandResult.Value.Accepted, Is.False);
-                Assert.That(installer.HudController.ViewModel.LastCommandResult.Value.FailureKind, Is.EqualTo(Game.Feature.UI.HUD.GameplayHudCommandFailureKind.Busy));
-                Assert.That(installer.HudController.ViewModel.FeedbackText, Is.EqualTo("Busy"));
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.Slots[0].StateText, Is.EqualTo("Busy"));
+                Assert.That(installer.HudController.ActionBarViewModel.Slots[1].StateText, Is.EqualTo("Busy"));
 
                 installer.HudView.ClickPause();
 
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
                 Assert.That(installer.PausePopupView.IsVisible, Is.True);
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
 
                 installer.PausePopupView.ClickResume();
 
@@ -101,7 +98,7 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
                 Assert.That(installer.ObjectiveStatusScreenView.IsVisible, Is.True);
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
                 Assert.That(installer.ObjectiveStatusScreenController.ViewModel.SummaryText, Is.Not.Empty);
 
                 installer.ObjectiveStatusScreenView.ClickInfo();
@@ -120,7 +117,7 @@ namespace Game.Feature.UI.Tests
                 installer.ObjectiveStatusScreenView.ClickBack();
 
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-                Assert.That(installer.HudView.ViewModel.IsInteractive, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
             }
             finally
             {
