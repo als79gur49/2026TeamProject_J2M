@@ -6,32 +6,32 @@ namespace Game.Feature.UI.Flow
 {
     public sealed class HUDController : IDisposable
     {
-        private const string LocalBlockFeedback = "HUD blocked";
-        private const string BusyFeedback = "Busy";
-        private const string PausedFeedback = "Paused";
-        private const string UnavailableFeedback = "Unavailable";
+        private readonly ActionBarPresenter _actionBarPresenter;
+        private HUDRootView _view;
 
-        private readonly GameplayHudViewModel _viewModel;
-        private readonly GameplayHudPresenter _presenter;
-        private FeedbackSource _feedbackSource;
-        private GameplayHudCommandResult? _lastCommandResult;
-        private GameplayHudState _currentState;
-        private string _feedbackText = string.Empty;
-        private GameplayHudView _view;
-        private UIBlockSnapshot _currentBlockSnapshot;
-
-        public HUDController(GameplayHudPresenter presenter)
+        public HUDController(
+            HUDRootViewModel rootViewModel,
+            PlayerStatusViewModel playerStatusViewModel,
+            ActionBarViewModel actionBarViewModel,
+            NotificationViewModel notificationViewModel,
+            ActionBarPresenter actionBarPresenter)
         {
-            _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
-            _viewModel = new GameplayHudViewModel();
-            _presenter.StateChanged += HandlePresenterStateChanged;
-            _currentState = _presenter.CurrentState;
-            ApplyViewModel();
+            RootViewModel = rootViewModel ?? throw new ArgumentNullException(nameof(rootViewModel));
+            PlayerStatusViewModel = playerStatusViewModel ?? throw new ArgumentNullException(nameof(playerStatusViewModel));
+            ActionBarViewModel = actionBarViewModel ?? throw new ArgumentNullException(nameof(actionBarViewModel));
+            NotificationViewModel = notificationViewModel ?? throw new ArgumentNullException(nameof(notificationViewModel));
+            _actionBarPresenter = actionBarPresenter ?? throw new ArgumentNullException(nameof(actionBarPresenter));
         }
 
-        public GameplayHudViewModel ViewModel => _viewModel;
+        public HUDRootViewModel RootViewModel { get; }
 
-        public void AttachView(GameplayHudView view)
+        public PlayerStatusViewModel PlayerStatusViewModel { get; }
+
+        public ActionBarViewModel ActionBarViewModel { get; }
+
+        public NotificationViewModel NotificationViewModel { get; }
+
+        public void AttachView(HUDRootView view)
         {
             if (ReferenceEquals(_view, view))
             {
@@ -41,118 +41,17 @@ namespace Game.Feature.UI.Flow
             DetachView();
 
             _view = view ?? throw new ArgumentNullException(nameof(view));
-            _view.Bind(ViewModel);
-            _view.MoveUpRequested += HandleMoveUpRequested;
-            _view.FlipRightRequested += HandleFlipRightRequested;
+            _view.Bind(RootViewModel);
+            _view.PlayerStatusView.Bind(PlayerStatusViewModel);
+            _view.ActionBarView.Bind(ActionBarViewModel);
+            _view.NotificationView.Bind(NotificationViewModel);
+            _view.ActionBarView.SlotRequested += HandleSlotRequested;
             _view.IsVisible = true;
-        }
-
-        public void ApplyBlockSnapshot(UIBlockSnapshot blockSnapshot)
-        {
-            _currentBlockSnapshot = blockSnapshot;
-            if (_feedbackSource == FeedbackSource.LocalBlock && !blockSnapshot.BlocksHudInteraction)
-            {
-                ClearFeedback();
-            }
-
-            ApplyViewModel();
-        }
-
-        public GameplayHudCommandResult? RequestFlipRight()
-        {
-            if (_currentBlockSnapshot.BlocksHudInteraction)
-            {
-                ApplyLocalBlockFeedback();
-                return null;
-            }
-
-            var result = _presenter.RequestFlipRight();
-            ApplyCommandResult(result);
-            return result;
-        }
-
-        public GameplayHudCommandResult? RequestMoveUp()
-        {
-            if (_currentBlockSnapshot.BlocksHudInteraction)
-            {
-                ApplyLocalBlockFeedback();
-                return null;
-            }
-
-            var result = _presenter.RequestMoveUp();
-            ApplyCommandResult(result);
-            return result;
         }
 
         public void Dispose()
         {
             DetachView();
-            _presenter.StateChanged -= HandlePresenterStateChanged;
-            _presenter.Dispose();
-        }
-
-        private void ApplyCommandResult(GameplayHudCommandResult commandResult)
-        {
-            _lastCommandResult = commandResult;
-
-            if (commandResult.Accepted)
-            {
-                ClearFeedback();
-                return;
-            }
-
-            _feedbackSource = FeedbackSource.GameplayRejected;
-            _feedbackText = MapFeedback(commandResult.FailureKind);
-            ApplyViewModel();
-        }
-
-        private void ApplyLocalBlockFeedback()
-        {
-            _feedbackSource = FeedbackSource.LocalBlock;
-            _feedbackText = LocalBlockFeedback;
-            _lastCommandResult = null;
-            ApplyViewModel();
-        }
-
-        private void ApplyViewModel()
-        {
-            _viewModel.ApplyGameplayState(_currentState);
-            _viewModel.SetInteractivity(!_currentBlockSnapshot.BlocksHudInteraction);
-            _viewModel.SetFeedback(_feedbackText, _lastCommandResult);
-        }
-
-        private void ClearFeedback()
-        {
-            _feedbackSource = FeedbackSource.None;
-            _feedbackText = string.Empty;
-            ApplyViewModel();
-        }
-
-        private void HandlePresenterStateChanged(GameplayHudState state)
-        {
-            _currentState = state;
-
-            if ((_feedbackSource == FeedbackSource.GameplayRejected && state.CanAcceptGameplayCommands && !_currentBlockSnapshot.BlocksHudInteraction) ||
-                (_feedbackSource == FeedbackSource.LocalBlock && !_currentBlockSnapshot.BlocksHudInteraction))
-            {
-                _feedbackSource = FeedbackSource.None;
-                _feedbackText = string.Empty;
-            }
-
-            ApplyViewModel();
-        }
-
-        private static string MapFeedback(GameplayHudCommandFailureKind failureKind)
-        {
-            switch (failureKind)
-            {
-                case GameplayHudCommandFailureKind.Paused:
-                    return PausedFeedback;
-                case GameplayHudCommandFailureKind.Busy:
-                    return BusyFeedback;
-                default:
-                    return UnavailableFeedback;
-            }
         }
 
         private void DetachView()
@@ -162,27 +61,17 @@ namespace Game.Feature.UI.Flow
                 return;
             }
 
-            _view.MoveUpRequested -= HandleMoveUpRequested;
-            _view.FlipRightRequested -= HandleFlipRightRequested;
+            _view.ActionBarView.SlotRequested -= HandleSlotRequested;
+            _view.NotificationView.Bind(null);
+            _view.ActionBarView.Bind(null);
+            _view.PlayerStatusView.Bind(null);
             _view.Bind(null);
             _view = null;
         }
 
-        private void HandleMoveUpRequested()
+        private void HandleSlotRequested(HudActionSlotId slotId)
         {
-            RequestMoveUp();
-        }
-
-        private void HandleFlipRightRequested()
-        {
-            RequestFlipRight();
-        }
-
-        private enum FeedbackSource
-        {
-            None = 0,
-            LocalBlock = 1,
-            GameplayRejected = 2,
+            _actionBarPresenter.RequestSlot(slotId);
         }
     }
 }

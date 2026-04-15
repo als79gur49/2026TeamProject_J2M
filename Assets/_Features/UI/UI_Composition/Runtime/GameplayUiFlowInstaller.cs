@@ -30,13 +30,15 @@ namespace Game.Feature.UI.Composition
 
         public HUDController HudController { get; private set; }
 
+        public HUDRootPresenter HudRootPresenter { get; private set; }
+
         public ObjectiveStatusScreenController ObjectiveStatusScreenController { get; private set; }
 
         public UIBlockPolicy BlockPolicy { get; private set; }
 
         public UIFlowCoordinator Coordinator { get; private set; }
 
-        public GameplayHudView HudView => _rootView != null ? _rootView.HudView : null;
+        public HUDRootView HudView => _rootView != null ? _rootView.HudView : null;
 
         public GameplayScreenView GameplayScreenView => _rootView != null ? _rootView.GameplayScreenView : null;
 
@@ -99,22 +101,31 @@ namespace Game.Feature.UI.Composition
             EnsureRootView();
             PresentationSource = Ports.PresentationSource;
 
-            var hudPresenter = new GameplayHudPresenter(
-                Ports.CommandGateway,
-                PresentationSource);
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var actionBarPresenter = new ActionBarPresenter(Ports.CommandGateway);
+            var notificationPresenter = new NotificationPresenter();
             var objectivePresenter = new ObjectiveStatusPresenter(
                 Ports.QueryFacade,
                 PresentationSource);
+            HudRootPresenter = new HUDRootPresenter(
+                PresentationSource,
+                playerStatusPresenter,
+                actionBarPresenter,
+                notificationPresenter);
 
             ScreenController = new ScreenController();
             PopupController = new PopupController();
-            HudController = new HUDController(hudPresenter);
+            HudController = new HUDController(
+                HudRootPresenter.ViewModel,
+                playerStatusPresenter.ViewModel,
+                actionBarPresenter.ViewModel,
+                notificationPresenter.ViewModel,
+                actionBarPresenter);
             ObjectiveStatusScreenController = new ObjectiveStatusScreenController(objectivePresenter);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,
                 PopupController,
-                HudController,
                 BlockPolicy,
                 Ports.PauseService);
 
@@ -134,6 +145,7 @@ namespace Game.Feature.UI.Composition
             UnwireControllerEvents();
             Coordinator?.Dispose();
             HudController?.Dispose();
+            HudRootPresenter?.Dispose();
             ObjectiveStatusScreenController?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
         }

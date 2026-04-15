@@ -5,7 +5,6 @@ namespace Game.Feature.UI.Flow
 {
     public sealed class UIFlowCoordinator : IDisposable
     {
-        private readonly HUDController _hudController;
         private readonly IUiFlowPauseService _pauseService;
         private readonly PopupController _popupController;
         private readonly ScreenController _screenController;
@@ -14,13 +13,11 @@ namespace Game.Feature.UI.Flow
         public UIFlowCoordinator(
             ScreenController screenController,
             PopupController popupController,
-            HUDController hudController,
             UIBlockPolicy uiBlockPolicy,
             IUiFlowPauseService pauseService)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
-            _hudController = hudController ?? throw new ArgumentNullException(nameof(hudController));
             _uiBlockPolicy = uiBlockPolicy ?? throw new ArgumentNullException(nameof(uiBlockPolicy));
             _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
 
@@ -33,7 +30,7 @@ namespace Game.Feature.UI.Flow
         public void Initialize()
         {
             _screenController.SetRoot(ScreenId.Gameplay);
-            ApplyBlockSnapshot();
+            RefreshBlockSnapshot();
         }
 
         public bool OpenHelpScreen()
@@ -103,14 +100,13 @@ namespace Game.Feature.UI.Flow
             _popupController.StateChanged -= HandleFlowStateChanged;
         }
 
-        private void ApplyBlockSnapshot()
+        private void RefreshBlockSnapshot()
         {
             CurrentBlockSnapshot = _uiBlockPolicy.Evaluate(
                 new UIFlowStateSnapshot(
                     _screenController.CurrentScreenId,
                     _popupController.TopPopup,
                     _popupController.PopupCount));
-            _hudController.ApplyBlockSnapshot(CurrentBlockSnapshot);
         }
 
         private bool CloseTopPopup()
@@ -130,7 +126,7 @@ namespace Game.Feature.UI.Flow
 
         private void HandleFlowStateChanged()
         {
-            ApplyBlockSnapshot();
+            RefreshBlockSnapshot();
         }
     }
 }
