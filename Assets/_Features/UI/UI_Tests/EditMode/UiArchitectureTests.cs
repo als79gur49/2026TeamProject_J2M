@@ -360,6 +360,104 @@ namespace Game.Feature.UI.Tests
             AssertViewBindSignature(typeof(NotificationView), typeof(NotificationViewModel));
         }
 
+        [Test]
+        public void PopupViews_BindOnlyLocalPopupViewModels()
+        {
+            AssertViewBindSignature(typeof(PausePopupView), typeof(PausePopupViewModel));
+            AssertViewBindSignature(typeof(ObjectiveInfoPopupView), typeof(ObjectiveInfoPopupViewModel));
+            AssertViewBindSignature(typeof(ConfirmPopupView), typeof(ConfirmPopupViewModel));
+            AssertViewBindSignature(typeof(TooltipPopupView), typeof(TooltipPopupViewModel));
+            AssertViewBindSignature(typeof(RewardPopupView), typeof(RewardPopupViewModel));
+            Assert.That(TypeDependsOn(typeof(PopupLayerView), typeof(UIPresentationSnapshot)), Is.False);
+        }
+
+        [Test]
+        public void PopupPresenters_DoNotDependOnFlowOrRawGameplayPresentationTypes()
+        {
+            var presenterTypes = new[]
+            {
+                typeof(PausePopupPresenter),
+                typeof(ObjectiveInfoPopupPresenter),
+                typeof(ConfirmPopupPresenter),
+                typeof(TooltipPopupPresenter),
+                typeof(RewardPopupPresenter),
+            };
+            var forbiddenTypes = new[]
+            {
+                typeof(UIFlowCoordinator),
+                typeof(PopupController),
+                typeof(UIBlockPolicy),
+                typeof(IGameplayPresentationFeed),
+                typeof(GameplayPresentationFrame),
+                typeof(GameplayPresentationState),
+            };
+
+            foreach (var presenterType in presenterTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(presenterType, forbiddenType),
+                        Is.False,
+                        $"{presenterType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
+        public void UIFlowCoordinator_DoesNotDependOnPopupPresentersOrViewModels()
+        {
+            var forbiddenTypes = new[]
+            {
+                typeof(PausePopupPresenter),
+                typeof(ObjectiveInfoPopupPresenter),
+                typeof(ConfirmPopupPresenter),
+                typeof(TooltipPopupPresenter),
+                typeof(RewardPopupPresenter),
+                typeof(PausePopupViewModel),
+                typeof(ObjectiveInfoPopupViewModel),
+                typeof(ConfirmPopupViewModel),
+                typeof(TooltipPopupViewModel),
+                typeof(RewardPopupViewModel),
+                typeof(PausePopupView),
+                typeof(ObjectiveInfoPopupView),
+                typeof(ConfirmPopupView),
+                typeof(TooltipPopupView),
+                typeof(RewardPopupView),
+            };
+
+            foreach (var forbiddenType in forbiddenTypes)
+            {
+                Assert.That(
+                    TypeDependsOn(typeof(UIFlowCoordinator), forbiddenType),
+                    Is.False,
+                    $"{typeof(UIFlowCoordinator).FullName} depends on {forbiddenType.FullName}");
+            }
+        }
+
+        [Test]
+        public void UIBlockSnapshot_PublicSurface_RemainsPolicyOnly()
+        {
+            var propertyNames = typeof(UIBlockSnapshot)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(
+                propertyNames,
+                Is.EqualTo(new[]
+                {
+                    "BlocksHudInteraction",
+                    "BlocksLowerLayerPointer",
+                    "BlocksScreenInteraction",
+                    "BlocksUiGameplayInput",
+                    "PopupBackdropMode",
+                    "PopupConsumesBack",
+                    "ShowsPopupDim",
+                }));
+        }
+
         private static Assembly[] GetRuntimeUiAssemblies()
         {
             return new[]

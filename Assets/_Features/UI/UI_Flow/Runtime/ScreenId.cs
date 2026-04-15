@@ -6,5 +6,8 @@ namespace Game.Feature.UI.Flow
         Gameplay = 1,
         Help = 2,
         ObjectiveStatus = 3,
+        Inventory = 4,
+        Settings = 5,
+        StageResult = 6,
     }
 }

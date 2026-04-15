@@ -4,12 +4,15 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class HelpScreenView : MonoBehaviour
+    public sealed class HelpScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _descriptionLabel;
         [SerializeField] private Button _backButton;
+        [SerializeField] private Text _backButtonLabel;
+
+        private HelpScreenViewModel _viewModel;
 
         public event Action BackRequested;
 
@@ -31,11 +34,33 @@ namespace Game.Feature.UI.Screens
             _titleLabel = titleLabel;
             _descriptionLabel = descriptionLabel;
             _backButton = backButton;
+            _backButtonLabel = _backButton != null ? _backButton.GetComponentInChildren<Text>() : null;
 
             _backButton.onClick.RemoveListener(ClickBack);
             _backButton.onClick.AddListener(ClickBack);
 
             RefreshView();
+        }
+
+        public void Bind(HelpScreenViewModel viewModel)
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.Changed -= HandleViewModelChanged;
+            }
+
+            _viewModel = viewModel;
+            if (_viewModel != null)
+            {
+                _viewModel.Changed += HandleViewModelChanged;
+            }
+
+            RefreshView();
+        }
+
+        public void SetIsCurrent(bool isCurrent)
+        {
+            IsVisible = isCurrent;
         }
 
         public void ClickBack()
@@ -48,6 +73,19 @@ namespace Game.Feature.UI.Screens
             BackRequested?.Invoke();
         }
 
+        private void OnDestroy()
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.Changed -= HandleViewModelChanged;
+            }
+        }
+
+        private void HandleViewModelChanged()
+        {
+            RefreshView();
+        }
+
         private void RefreshView()
         {
             if (_root != null)
@@ -55,14 +93,24 @@ namespace Game.Feature.UI.Screens
                 _root.SetActive(IsVisible);
             }
 
+            if (_viewModel == null)
+            {
+                return;
+            }
+
             if (_titleLabel != null)
             {
-                _titleLabel.text = "Help & Controls";
+                _titleLabel.text = _viewModel.TitleText;
             }
 
             if (_descriptionLabel != null)
             {
-                _descriptionLabel.text = "Use Move Up to advance, Flip Right to rotate, Objectives to review stage status, and Back to return to gameplay.";
+                _descriptionLabel.text = _viewModel.DescriptionText;
+            }
+
+            if (_backButtonLabel != null)
+            {
+                _backButtonLabel.text = _viewModel.BackLabel;
             }
         }
     }

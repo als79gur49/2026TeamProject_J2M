@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Flow;
+using Game.Feature.UI.Popups;
+using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Tests
 {
@@ -263,6 +267,236 @@ namespace Game.Feature.UI.Tests
 
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)
         {
+        }
+    }
+
+    internal sealed class FakePopupRuntimeFactory : IPopupRuntimeFactory
+    {
+        private readonly Dictionary<PopupId, PopupPolicy> _policies = new()
+        {
+            {
+                PopupId.Pause,
+                new PopupPolicy(
+                    PopupPolicyClass.ModalBlocking,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true)
+            },
+            {
+                PopupId.ObjectiveInfo,
+                new PopupPolicy(
+                    PopupPolicyClass.NonModalInformational,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.None,
+                    showsDim: false,
+                    blocksLowerLayers: false)
+            },
+            {
+                PopupId.Confirm,
+                new PopupPolicy(
+                    PopupPolicyClass.ModalBlocking,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Cancel,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true)
+            },
+            {
+                PopupId.Tooltip,
+                new PopupPolicy(
+                    PopupPolicyClass.AnchoredEphemeral,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Close,
+                    PopupBackdropMode.None,
+                    showsDim: false,
+                    blocksLowerLayers: false)
+            },
+            {
+                PopupId.Reward,
+                new PopupPolicy(
+                    PopupPolicyClass.ExplicitCloseRewardResult,
+                    PopupLifetimeScope.CurrentScreen,
+                    PopupBackAction.Consume,
+                    PopupBackdropMode.Consume,
+                    showsDim: true,
+                    blocksLowerLayers: true)
+            },
+        };
+
+        public List<FakePopupRuntimeRecord> CreatedRuntimes { get; } = new();
+
+        public PopupRuntimeFactoryResult Create(PopupRequest request)
+        {
+            var runtime = new FakePopupRuntime();
+            CreatedRuntimes.Add(new FakePopupRuntimeRecord(request, runtime));
+            return new PopupRuntimeFactoryResult(_policies[request.PopupId], runtime);
+        }
+
+        public void SetPolicy(PopupId popupId, PopupPolicy policy)
+        {
+            _policies[popupId] = policy;
+        }
+    }
+
+    internal readonly struct FakePopupRuntimeRecord
+    {
+        public FakePopupRuntimeRecord(PopupRequest request, FakePopupRuntime runtime)
+        {
+            Request = request;
+            Runtime = runtime;
+        }
+
+        public PopupRequest Request { get; }
+
+        public FakePopupRuntime Runtime { get; }
+    }
+
+    internal sealed class FakePopupRuntime : IPopupRuntime
+    {
+        public event Action<PopupCompletionKind> CompletionRequested;
+
+        public bool IsDisposed { get; private set; }
+
+        public bool IsTopmost { get; private set; }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
+
+        public void Emit(PopupCompletionKind completionKind)
+        {
+            CompletionRequested?.Invoke(completionKind);
+        }
+
+        public void SetIsTopmost(bool isTopmost)
+        {
+            IsTopmost = isTopmost;
+        }
+    }
+
+    internal sealed class FakeScreenRuntimeFactory : IScreenRuntimeFactory
+    {
+        private readonly Dictionary<ScreenId, ScreenPolicy> _policies = new()
+        {
+            {
+                ScreenId.Gameplay,
+                new ScreenPolicy(
+                    ScreenPolicyClass.GameplayRoot,
+                    ScreenRetentionMode.RetainMountedHistory,
+                    ScreenBackAction.None,
+                    HudShellMode.Visible,
+                    blocksUiGameplayInput: false)
+            },
+            {
+                ScreenId.Help,
+                new ScreenPolicy(
+                    ScreenPolicyClass.InformationalOverlay,
+                    ScreenRetentionMode.RetainMountedHistory,
+                    ScreenBackAction.Pop,
+                    HudShellMode.Visible,
+                    blocksUiGameplayInput: true)
+            },
+            {
+                ScreenId.ObjectiveStatus,
+                new ScreenPolicy(
+                    ScreenPolicyClass.GameplayAdjacentOverlay,
+                    ScreenRetentionMode.RetainMountedHistory,
+                    ScreenBackAction.Pop,
+                    HudShellMode.Visible,
+                    blocksUiGameplayInput: true)
+            },
+            {
+                ScreenId.Inventory,
+                new ScreenPolicy(
+                    ScreenPolicyClass.GameplayAdjacentOverlay,
+                    ScreenRetentionMode.RetainMountedHistory,
+                    ScreenBackAction.Pop,
+                    HudShellMode.Visible,
+                    blocksUiGameplayInput: true)
+            },
+            {
+                ScreenId.Settings,
+                new ScreenPolicy(
+                    ScreenPolicyClass.Configuration,
+                    ScreenRetentionMode.RetainMountedHistory,
+                    ScreenBackAction.Pop,
+                    HudShellMode.Hidden,
+                    blocksUiGameplayInput: true)
+            },
+            {
+                ScreenId.StageResult,
+                new ScreenPolicy(
+                    ScreenPolicyClass.TerminalResult,
+                    ScreenRetentionMode.DisposeOnHide,
+                    ScreenBackAction.Consume,
+                    HudShellMode.Hidden,
+                    blocksUiGameplayInput: true)
+            },
+        };
+
+        public List<FakeScreenRuntimeRecord> CreatedRuntimes { get; } = new();
+
+        public ScreenRuntimeFactoryResult Create(ScreenRequest request)
+        {
+            var runtime = new FakeScreenRuntime();
+            CreatedRuntimes.Add(new FakeScreenRuntimeRecord(request, runtime));
+            return new ScreenRuntimeFactoryResult(_policies[request.ScreenId], runtime);
+        }
+
+        public void SetPolicy(ScreenId screenId, ScreenPolicy policy)
+        {
+            _policies[screenId] = policy;
+        }
+    }
+
+    internal readonly struct FakeScreenRuntimeRecord
+    {
+        public FakeScreenRuntimeRecord(ScreenRequest request, FakeScreenRuntime runtime)
+        {
+            Request = request;
+            Runtime = runtime;
+        }
+
+        public ScreenRequest Request { get; }
+
+        public FakeScreenRuntime Runtime { get; }
+    }
+
+    internal sealed class FakeScreenRuntime : IScreenRuntime
+    {
+        public event Action<ScreenAction> ActionRequested;
+
+        public bool IsCurrent { get; private set; }
+
+        public bool IsDisposed { get; private set; }
+
+        public int ApplyPayloadCallCount { get; private set; }
+
+        public IScreenPayload LastPayload { get; private set; }
+
+        public void ApplyPayload(IScreenPayload payload)
+        {
+            ApplyPayloadCallCount++;
+            LastPayload = payload;
+        }
+
+        public void Dispose()
+        {
+            IsDisposed = true;
+        }
+
+        public void Emit(ScreenAction action)
+        {
+            ActionRequested?.Invoke(action);
+        }
+
+        public void SetIsCurrent(bool isCurrent)
+        {
+            IsCurrent = isCurrent;
         }
     }
 

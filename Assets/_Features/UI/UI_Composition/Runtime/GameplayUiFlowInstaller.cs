@@ -32,23 +32,37 @@ namespace Game.Feature.UI.Composition
 
         public HUDRootPresenter HudRootPresenter { get; private set; }
 
-        public ObjectiveStatusScreenController ObjectiveStatusScreenController { get; private set; }
-
         public UIBlockPolicy BlockPolicy { get; private set; }
 
         public UIFlowCoordinator Coordinator { get; private set; }
 
         public HUDRootView HudView => _rootView != null ? _rootView.HudView : null;
 
-        public GameplayScreenView GameplayScreenView => _rootView != null ? _rootView.GameplayScreenView : null;
+        public ScreenLayerView ScreenLayerView => _rootView != null ? _rootView.ScreenLayerView : null;
 
-        public HelpScreenView HelpScreenView => _rootView != null ? _rootView.HelpScreenView : null;
+        public GameplayScreenView GameplayScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<GameplayScreenView>() : null;
 
-        public ObjectiveStatusScreenView ObjectiveStatusScreenView => _rootView != null ? _rootView.ObjectiveStatusScreenView : null;
+        public HelpScreenView HelpScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<HelpScreenView>() : null;
 
-        public PausePopupView PausePopupView => _rootView != null ? _rootView.PausePopupView : null;
+        public ObjectiveStatusScreenView ObjectiveStatusScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<ObjectiveStatusScreenView>() : null;
 
-        public ObjectiveInfoPopupView ObjectiveInfoPopupView => _rootView != null ? _rootView.ObjectiveInfoPopupView : null;
+        public InventoryScreenView InventoryScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<InventoryScreenView>() : null;
+
+        public SettingsScreenView SettingsScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<SettingsScreenView>() : null;
+
+        public StageResultScreenView StageResultScreenView => ScreenLayerView != null ? ScreenLayerView.FindScreenView<StageResultScreenView>() : null;
+
+        public PopupLayerView PopupLayerView => _rootView != null ? _rootView.PopupLayerView : null;
+
+        public PausePopupView PausePopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<PausePopupView>() : null;
+
+        public ObjectiveInfoPopupView ObjectiveInfoPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<ObjectiveInfoPopupView>() : null;
+
+        public ConfirmPopupView ConfirmPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<ConfirmPopupView>() : null;
+
+        public TooltipPopupView TooltipPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<TooltipPopupView>() : null;
+
+        public RewardPopupView RewardPopupView => PopupLayerView != null ? PopupLayerView.FindPopupView<RewardPopupView>() : null;
 
         private void Start()
         {
@@ -104,33 +118,34 @@ namespace Game.Feature.UI.Composition
             var playerStatusPresenter = new PlayerStatusPresenter();
             var actionBarPresenter = new ActionBarPresenter(Ports.CommandGateway);
             var notificationPresenter = new NotificationPresenter();
-            var objectivePresenter = new ObjectiveStatusPresenter(
-                Ports.QueryFacade,
-                PresentationSource);
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
                 playerStatusPresenter,
                 actionBarPresenter,
                 notificationPresenter);
 
-            ScreenController = new ScreenController();
-            PopupController = new PopupController();
+            var sessionSettingsStore = new UiSessionSettingsStore();
+            ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
+                _rootView.ScreenLayerView,
+                Ports.QueryFacade,
+                PresentationSource,
+                sessionSettingsStore));
+            PopupController = new PopupController(new GameplayPopupRuntimeFactory(_rootView.PopupLayerView));
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 actionBarPresenter.ViewModel,
                 notificationPresenter.ViewModel,
                 actionBarPresenter);
-            ObjectiveStatusScreenController = new ObjectiveStatusScreenController(objectivePresenter);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,
                 PopupController,
                 BlockPolicy,
-                Ports.PauseService);
+                Ports.PauseService,
+                PresentationSource);
 
             HudController.AttachView(_rootView.HudView);
-            ObjectiveStatusScreenController.AttachView(_rootView.ObjectiveStatusScreenView);
             WireViewEvents();
             WireControllerEvents();
             Coordinator.Initialize();
@@ -144,9 +159,10 @@ namespace Game.Feature.UI.Composition
             UnwireViewEvents();
             UnwireControllerEvents();
             Coordinator?.Dispose();
+            PopupController?.Dispose();
+            ScreenController?.Dispose();
             HudController?.Dispose();
             HudRootPresenter?.Dispose();
-            ObjectiveStatusScreenController?.Dispose();
             (PresentationSource as IDisposable)?.Dispose();
         }
 
@@ -172,13 +188,7 @@ namespace Game.Feature.UI.Composition
         private void WireViewEvents()
         {
             _rootView.HudView.PauseRequested += HandlePauseRequested;
-            _rootView.GameplayScreenView.HelpRequested += HandleHelpRequested;
-            _rootView.GameplayScreenView.ObjectivesRequested += HandleObjectiveStatusRequested;
-            _rootView.HelpScreenView.BackRequested += HandleBackRequested;
-            _rootView.PausePopupView.ResumeRequested += HandleResumeRequested;
-            _rootView.ObjectiveInfoPopupView.CloseRequested += HandleBackRequested;
-            ObjectiveStatusScreenController.BackRequested += HandleBackRequested;
-            ObjectiveStatusScreenController.InfoRequested += HandleObjectiveInfoRequested;
+            _rootView.PopupLayerView.BackdropClicked += HandlePopupBackdropClicked;
         }
 
         private void WireControllerEvents()
@@ -199,31 +209,9 @@ namespace Game.Feature.UI.Composition
                 _rootView.HudView.PauseRequested -= HandlePauseRequested;
             }
 
-            if (_rootView.GameplayScreenView != null)
+            if (_rootView.PopupLayerView != null)
             {
-                _rootView.GameplayScreenView.HelpRequested -= HandleHelpRequested;
-                _rootView.GameplayScreenView.ObjectivesRequested -= HandleObjectiveStatusRequested;
-            }
-
-            if (_rootView.HelpScreenView != null)
-            {
-                _rootView.HelpScreenView.BackRequested -= HandleBackRequested;
-            }
-
-            if (_rootView.PausePopupView != null)
-            {
-                _rootView.PausePopupView.ResumeRequested -= HandleResumeRequested;
-            }
-
-            if (_rootView.ObjectiveInfoPopupView != null)
-            {
-                _rootView.ObjectiveInfoPopupView.CloseRequested -= HandleBackRequested;
-            }
-
-            if (ObjectiveStatusScreenController != null)
-            {
-                ObjectiveStatusScreenController.BackRequested -= HandleBackRequested;
-                ObjectiveStatusScreenController.InfoRequested -= HandleObjectiveInfoRequested;
+                _rootView.PopupLayerView.BackdropClicked -= HandlePopupBackdropClicked;
             }
         }
 
@@ -245,50 +233,31 @@ namespace Game.Feature.UI.Composition
             Coordinator.RequestPausePopup();
         }
 
-        private void HandleHelpRequested()
+        private void HandlePopupBackdropClicked()
         {
-            Coordinator.OpenHelpScreen();
-        }
-
-        private void HandleObjectiveStatusRequested()
-        {
-            Coordinator.OpenObjectiveStatusScreen();
-        }
-
-        private void HandleObjectiveInfoRequested()
-        {
-            var content = ObjectiveStatusScreenController.BuildInfoContent();
-            _rootView.ObjectiveInfoPopupView.SetContent(content.Title, content.Body);
-            Coordinator.RequestObjectiveInfoPopup();
-        }
-
-        private void HandleBackRequested()
-        {
-            Coordinator.HandleBackRequested();
-        }
-
-        private void HandleResumeRequested()
-        {
-            Coordinator.HandleBackRequested();
+            Coordinator.HandlePopupBackdropClicked();
         }
 
         private void SyncViews()
         {
-            if (_rootView == null || ScreenController == null || PopupController == null)
+            if (_rootView == null ||
+                ScreenController == null ||
+                PopupController == null ||
+                Coordinator == null)
             {
                 return;
             }
 
             PresentationSource?.UpdateUiGameplayInputBlocked(
-                Coordinator != null &&
-                Coordinator.CurrentBlockSnapshot.BlocksHudInteraction);
+                Coordinator.CurrentBlockSnapshot.BlocksUiGameplayInput);
 
-            _rootView.HudView.IsVisible = true;
-            _rootView.GameplayScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Gameplay;
-            _rootView.HelpScreenView.IsVisible = ScreenController.CurrentScreenId == ScreenId.Help;
-            ObjectiveStatusScreenController.SetVisible(ScreenController.CurrentScreenId == ScreenId.ObjectiveStatus);
-            _rootView.PausePopupView.IsVisible = PopupController.Contains(PopupId.Pause);
-            _rootView.ObjectiveInfoPopupView.IsVisible = PopupController.Contains(PopupId.ObjectiveInfo);
+            _rootView.HudView.IsVisible = !ScreenController.CurrentEntry.HasValue ||
+                                          ScreenController.CurrentEntry.Value.Policy.HudShellMode != HudShellMode.Hidden;
+            _rootView.PopupLayerView.SetState(
+                PopupController.PopupCount > 0,
+                Coordinator.CurrentBlockSnapshot.ShowsPopupDim,
+                Coordinator.CurrentBlockSnapshot.BlocksLowerLayerPointer,
+                Coordinator.CurrentBlockSnapshot.PopupBackdropMode);
         }
     }
 }

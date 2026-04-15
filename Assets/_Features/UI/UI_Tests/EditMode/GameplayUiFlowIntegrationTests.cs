@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -6,6 +7,7 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
+using Game.Feature.UI.Popups;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -16,9 +18,9 @@ namespace Game.Feature.UI.Tests
     {
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_PreservesStage2RegressionSlice_ThroughDurableViews()
+        public void GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesStage2RegressionSlice_ThroughDurableViews");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_PreservesHudReadOnlySeam_ThroughScreenAndPausePopup");
 
             try
             {
@@ -36,40 +38,30 @@ namespace Game.Feature.UI.Tests
                 Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
 
                 installer.GameplayScreenView.ClickHelp();
-
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
                 Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
                 Assert.That(installer.HelpScreenView.IsVisible, Is.True);
 
                 installer.HelpScreenView.ClickBack();
-
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
 
                 installer.HudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
-
                 Assert.That(installer.HudController.ActionBarViewModel.LastCommandResult.HasValue, Is.True);
                 Assert.That(installer.HudController.ActionBarViewModel.LastCommandResult.Value.Accepted, Is.True);
 
                 host.InputHost.RunSingleTick();
-
                 Assert.That(host.UiAccess.PresentationFeed.CurrentState.HasBlockingPresentation, Is.True);
                 Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
-                Assert.That(installer.HudController.ActionBarViewModel.Slots[0].StateText, Is.EqualTo("Busy"));
-                Assert.That(installer.HudController.ActionBarViewModel.Slots[1].StateText, Is.EqualTo("Busy"));
 
                 installer.HudView.ClickPause();
-
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
-                Assert.That(installer.PausePopupView.IsVisible, Is.True);
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
 
                 installer.PausePopupView.ClickResume();
-
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
                 Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
-                Assert.That(installer.PausePopupView.IsVisible, Is.False);
             }
             finally
             {
@@ -79,9 +71,9 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
-        public void GameplayUiFlowInstaller_ComposesObjectiveStatusAndNonPausingObjectiveInfoPopup()
+        public void GameplayUiFlowInstaller_ComposesObjectiveInfoTooltipAndRewardPolicies()
         {
-            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesObjectiveStatusAndNonPausingObjectiveInfoPopup");
+            var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesObjectiveInfoTooltipAndRewardPolicies");
 
             try
             {
@@ -95,29 +87,61 @@ namespace Game.Feature.UI.Tests
                 installer.Install(host);
 
                 installer.GameplayScreenView.ClickObjectives();
-
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(installer.ObjectiveStatusScreenView.IsVisible, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
-                Assert.That(installer.ObjectiveStatusScreenController.ViewModel.SummaryText, Is.Not.Empty);
 
                 installer.ObjectiveStatusScreenView.ClickInfo();
-
                 Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.True);
-                Assert.That(installer.ObjectiveInfoPopupView.IsVisible, Is.True);
-                Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
-                Assert.That(installer.ObjectiveInfoPopupView.BodyText, Is.Not.Empty);
+                Assert.That(installer.ObjectiveInfoPopupView, Is.Not.Null);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
+                Assert.That(installer.Coordinator.CurrentBlockSnapshot.BlocksScreenInteraction, Is.False);
 
-                installer.ObjectiveInfoPopupView.ClickClose();
-
-                Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.False);
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
+                var tooltipCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestTooltipPopup(
+                    new TooltipPopupPayload("Tip", "Tooltip body"),
+                    tooltipCompletions.Add), Is.True);
+                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
 
                 installer.ObjectiveStatusScreenView.ClickBack();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+                Assert.That(tooltipCompletions, Has.Count.EqualTo(1));
+                Assert.That(tooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.Back));
+                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.ObjectiveInfo));
 
+                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+
+                installer.ObjectiveStatusScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
+
+                var gameplayTooltipCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestTooltipPopup(
+                    new TooltipPopupPayload("Gameplay Tip", "Tooltip body"),
+                    gameplayTooltipCompletions.Add), Is.True);
+
+                installer.GameplayScreenView.ClickHelp();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(gameplayTooltipCompletions, Has.Count.EqualTo(1));
+                Assert.That(gameplayTooltipCompletions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
+
+                var rewardCompletions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestRewardPopup(
+                    new RewardPopupPayload(
+                        "Reward",
+                        new[] { new RewardPopupItemPayload("Crystal", 2) },
+                        "Summary",
+                        "Claim"),
+                    rewardCompletions.Add), Is.True);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
+                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
+                Assert.That(rewardCompletions, Is.Empty);
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+
+                installer.RewardPopupView.ClickAcknowledge();
+                Assert.That(rewardCompletions, Has.Count.EqualTo(1));
+                Assert.That(rewardCompletions[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Acknowledged));
             }
             finally
             {

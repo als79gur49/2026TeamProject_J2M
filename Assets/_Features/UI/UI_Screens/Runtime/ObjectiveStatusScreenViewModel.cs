@@ -41,19 +41,6 @@ namespace Game.Feature.UI.Screens
         public bool IsStageCleared { get; }
     }
 
-    public readonly struct ObjectiveInfoPopupContent
-    {
-        public ObjectiveInfoPopupContent(string title, string body)
-        {
-            Title = title ?? string.Empty;
-            Body = body ?? string.Empty;
-        }
-
-        public string Title { get; }
-
-        public string Body { get; }
-    }
-
     public sealed class ObjectiveStatusScreenViewModel
     {
         public event Action Changed;
@@ -73,6 +60,7 @@ namespace Game.Feature.UI.Screens
         public bool IsSessionSelected { get; private set; }
 
         public void SetContent(
+            string titleText,
             string badgeText,
             string summaryText,
             string detailText,
@@ -80,6 +68,7 @@ namespace Game.Feature.UI.Screens
             bool isOverviewSelected,
             bool isSessionSelected)
         {
+            TitleText = titleText ?? string.Empty;
             BadgeText = badgeText ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;

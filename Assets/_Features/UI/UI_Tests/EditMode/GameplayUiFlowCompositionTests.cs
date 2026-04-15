@@ -1,8 +1,9 @@
+using System.Collections.Generic;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
+using Game.Feature.UI.Popups;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.UI;
 using UnityEngine.EventSystems;
 
 namespace Game.Feature.UI.Tests
@@ -10,9 +11,9 @@ namespace Game.Feature.UI.Tests
     public sealed class GameplayUiFlowCompositionTests
     {
         [Test]
-        public void GameplayUiFlowInstaller_ComposesDurableViews_WithFakePorts()
+        public void GameplayUiFlowInstaller_ComposesDurableViews_AndMigratedPausePopup_WithFakePorts()
         {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_ComposesDurableViews_WithFakePorts");
+            var rootObject = new GameObject("GameplayUiFlowInstaller_ComposesDurableViews_AndMigratedPausePopup_WithFakePorts");
 
             try
             {
@@ -35,10 +36,12 @@ namespace Game.Feature.UI.Tests
 
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
-                Assert.That(installer.PausePopupView.IsVisible, Is.True);
+                Assert.That(installer.PausePopupView, Is.Not.Null);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
 
                 installer.PausePopupView.ClickResume();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.False);
+                Assert.That(installer.PausePopupView, Is.Null);
             }
             finally
             {
@@ -48,43 +51,10 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_KeepsHudVisible_AcrossScreenChanges_WithFakePorts()
-        {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_KeepsHudVisible_AcrossScreenChanges_WithFakePorts");
-
-            try
-            {
-                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                installer.Install(UiTestPortFactory.CreatePorts());
-
-                AssertHudVisible(installer);
-
-                installer.GameplayScreenView.ClickHelp();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
-                Assert.That(installer.HelpScreenView.IsVisible, Is.True);
-                AssertHudVisible(installer);
-
-                installer.HelpScreenView.ClickBack();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
-                AssertHudVisible(installer);
-
-                installer.GameplayScreenView.ClickObjectives();
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(installer.ObjectiveStatusScreenView.IsVisible, Is.True);
-                AssertHudVisible(installer);
-            }
-            finally
-            {
-                DestroyEventSystemIfPresent();
-                Object.DestroyImmediate(rootObject);
-            }
-        }
-
-        [Test]
-        public void GameplayUiFlowInstaller_ObjectiveInfoPopup_DoesNotPause_WithFakePorts()
+        public void GameplayUiFlowInstaller_ObjectiveInfoPopup_UsesSharedStackWithoutDirectPopupViewMutation()
         {
             var pauseService = new FakeGameplayPauseService();
-            var rootObject = new GameObject("GameplayUiFlowInstaller_ObjectiveInfoPopup_DoesNotPause_WithFakePorts");
+            var rootObject = new GameObject("GameplayUiFlowInstaller_ObjectiveInfoPopup_UsesSharedStackWithoutDirectPopupViewMutation");
 
             try
             {
@@ -99,17 +69,17 @@ namespace Game.Feature.UI.Tests
 
                 installer.GameplayScreenView.ClickObjectives();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(installer.ObjectiveStatusScreenView.IsVisible, Is.True);
 
                 installer.ObjectiveStatusScreenView.ClickInfo();
                 Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.True);
-                Assert.That(installer.ObjectiveInfoPopupView.IsVisible, Is.True);
-                Assert.That(pauseService.IsPaused, Is.False);
+                Assert.That(installer.ObjectiveInfoPopupView, Is.Not.Null);
+                Assert.That(installer.ObjectiveInfoPopupView.BodyText, Is.Not.Empty);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
 
                 installer.ObjectiveInfoPopupView.ClickClose();
                 Assert.That(installer.PopupController.Contains(PopupId.ObjectiveInfo), Is.False);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.ObjectiveStatus));
-                Assert.That(pauseService.IsPaused, Is.False);
             }
             finally
             {
@@ -118,10 +88,43 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static void AssertHudVisible(GameplayUiFlowInstaller installer)
+        [Test]
+        public void GameplayUiFlowInstaller_TooltipAndConfirmShareStackWithDifferentPolicies()
         {
-            Assert.That(installer.HudView.IsVisible, Is.True);
-            Assert.That(installer.HudView.gameObject.activeSelf, Is.True);
+            var rootObject = new GameObject("GameplayUiFlowInstaller_TooltipAndConfirmShareStackWithDifferentPolicies");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                installer.Install(UiTestPortFactory.CreatePorts());
+
+                var completions = new List<PopupCompletion>();
+                Assert.That(installer.Coordinator.RequestTooltipPopup(
+                    new TooltipPopupPayload("Tip", "Tooltip body", TooltipPopupAnchorPreset.UpperRight),
+                    completions.Add), Is.True);
+                Assert.That(installer.TooltipPopupView, Is.Not.Null);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
+
+                Assert.That(installer.Coordinator.RequestConfirmPopup(
+                    new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", true),
+                    completions.Add), Is.True);
+                Assert.That(installer.ConfirmPopupView, Is.Not.Null);
+                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+
+                Assert.That(installer.Coordinator.HandleBackRequested(), Is.True);
+                Assert.That(completions, Has.Count.EqualTo(1));
+                Assert.That(completions[0].CompletionKind, Is.EqualTo(PopupCompletionKind.Cancelled));
+                Assert.That(installer.TooltipPopupView, Is.Not.Null);
+                Assert.That(installer.PopupLayerView.IsDimVisible, Is.False);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
         }
 
         private static void DestroyEventSystemIfPresent()

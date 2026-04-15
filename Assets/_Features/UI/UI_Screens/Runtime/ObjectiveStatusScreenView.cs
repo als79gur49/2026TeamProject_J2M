@@ -4,7 +4,7 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class ObjectiveStatusScreenView : MonoBehaviour
+    public sealed class ObjectiveStatusScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
@@ -71,6 +71,11 @@ namespace Game.Feature.UI.Screens
             _backButton.onClick.AddListener(ClickBack);
 
             RefreshView();
+        }
+
+        public void SetIsCurrent(bool isCurrent)
+        {
+            IsVisible = isCurrent;
         }
 
         public void Bind(ObjectiveStatusScreenViewModel viewModel)

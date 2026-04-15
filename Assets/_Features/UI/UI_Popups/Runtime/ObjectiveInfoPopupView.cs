@@ -4,16 +4,18 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Popups
 {
-    public sealed class ObjectiveInfoPopupView : MonoBehaviour
+    public sealed class ObjectiveInfoPopupView : MonoBehaviour, IPopupView
     {
         [SerializeField] private GameObject _root;
+        [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _bodyLabel;
         [SerializeField] private Button _closeButton;
 
+        private ObjectiveInfoPopupViewModel _viewModel;
         private bool _isVisible;
 
-        public event Action CloseRequested;
+        public event Action<PopupCompletionKind> CompletionRequested;
 
         public bool IsVisible
         {
@@ -25,13 +27,19 @@ namespace Game.Feature.UI.Popups
             }
         }
 
-        public string TitleText { get; private set; } = string.Empty;
+        public string TitleText => _viewModel != null ? _viewModel.TitleText : string.Empty;
 
-        public string BodyText { get; private set; } = string.Empty;
+        public string BodyText => _viewModel != null ? _viewModel.BodyText : string.Empty;
 
-        public void Configure(GameObject root, Text titleLabel, Text bodyLabel, Button closeButton)
+        public void Configure(
+            GameObject root,
+            CanvasGroup canvasGroup,
+            Text titleLabel,
+            Text bodyLabel,
+            Button closeButton)
         {
             _root = root;
+            _canvasGroup = canvasGroup;
             _titleLabel = titleLabel;
             _bodyLabel = bodyLabel;
             _closeButton = closeButton;
@@ -42,21 +50,54 @@ namespace Game.Feature.UI.Popups
             RefreshView();
         }
 
-        public void SetContent(string titleText, string bodyText)
+        public void Bind(ObjectiveInfoPopupViewModel viewModel)
         {
-            TitleText = titleText ?? string.Empty;
-            BodyText = bodyText ?? string.Empty;
+            if (_viewModel != null)
+            {
+                _viewModel.Changed -= HandleViewModelChanged;
+            }
+
+            _viewModel = viewModel;
+            if (_viewModel != null)
+            {
+                _viewModel.Changed += HandleViewModelChanged;
+            }
+
             RefreshView();
         }
 
-        public void ClickClose()
+        public void SetIsTopmost(bool isTopmost)
         {
-            if (!IsVisible)
+            if (_canvasGroup == null)
             {
                 return;
             }
 
-            CloseRequested?.Invoke();
+            _canvasGroup.interactable = isTopmost;
+            _canvasGroup.blocksRaycasts = isTopmost;
+        }
+
+        public void ClickClose()
+        {
+            if (!IsVisible || _canvasGroup == null || !_canvasGroup.interactable)
+            {
+                return;
+            }
+
+            CompletionRequested?.Invoke(PopupCompletionKind.Acknowledged);
+        }
+
+        private void OnDestroy()
+        {
+            if (_viewModel != null)
+            {
+                _viewModel.Changed -= HandleViewModelChanged;
+            }
+        }
+
+        private void HandleViewModelChanged()
+        {
+            RefreshView();
         }
 
         private void RefreshView()
@@ -66,14 +107,27 @@ namespace Game.Feature.UI.Popups
                 _root.SetActive(IsVisible);
             }
 
+            if (_viewModel == null)
+            {
+                return;
+            }
+
             if (_titleLabel != null)
             {
-                _titleLabel.text = TitleText;
+                _titleLabel.text = _viewModel.TitleText;
             }
 
             if (_bodyLabel != null)
             {
-                _bodyLabel.text = BodyText;
+                _bodyLabel.text = _viewModel.BodyText;
+            }
+
+            var buttonLabel = _closeButton != null
+                ? _closeButton.GetComponentInChildren<Text>()
+                : null;
+            if (buttonLabel != null)
+            {
+                buttonLabel.text = _viewModel.CloseLabel;
             }
         }
     }

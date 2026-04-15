@@ -2,14 +2,14 @@ namespace Game.Feature.UI.Flow
 {
     public readonly struct UIFlowStateSnapshot
     {
-        public UIFlowStateSnapshot(ScreenId currentScreenId, PopupEntry? topPopup, int popupCount)
+        public UIFlowStateSnapshot(ScreenEntry? currentScreen, PopupEntry? topPopup, int popupCount)
         {
-            CurrentScreenId = currentScreenId;
+            CurrentScreen = currentScreen;
             TopPopup = topPopup;
             PopupCount = popupCount;
         }
 
-        public ScreenId CurrentScreenId { get; }
+        public ScreenEntry? CurrentScreen { get; }
 
         public PopupEntry? TopPopup { get; }
 
@@ -22,22 +22,35 @@ namespace Game.Feature.UI.Flow
         {
             var popupConsumesBack = flowState.PopupCount > 0;
             var blocksScreenInteraction = BlocksScreenInteraction(flowState.TopPopup);
-            var blocksHudInteraction = BlocksHudInteraction(flowState.CurrentScreenId, blocksScreenInteraction);
+            var blocksUiGameplayInput = BlocksUiGameplayInput(flowState.CurrentScreen, blocksScreenInteraction);
+            var blocksHudInteraction = blocksUiGameplayInput;
+            var showsPopupDim = flowState.TopPopup.HasValue && flowState.TopPopup.Value.Policy.ShowsDim;
+            var blocksLowerLayerPointer = flowState.TopPopup.HasValue &&
+                                          (flowState.TopPopup.Value.Policy.BlocksLowerLayers ||
+                                           flowState.TopPopup.Value.Policy.BackdropMode != Game.Feature.UI.Popups.PopupBackdropMode.None);
+            var backdropMode = flowState.TopPopup.HasValue
+                ? flowState.TopPopup.Value.Policy.BackdropMode
+                : Game.Feature.UI.Popups.PopupBackdropMode.None;
 
             return new UIBlockSnapshot(
                 blocksHudInteraction,
                 blocksScreenInteraction,
-                popupConsumesBack);
+                blocksUiGameplayInput,
+                popupConsumesBack,
+                showsPopupDim,
+                blocksLowerLayerPointer,
+                backdropMode);
         }
 
-        private static bool BlocksHudInteraction(ScreenId currentScreenId, bool blocksScreenInteraction)
+        private static bool BlocksUiGameplayInput(ScreenEntry? currentScreen, bool blocksScreenInteraction)
         {
-            return currentScreenId != ScreenId.Gameplay || blocksScreenInteraction;
+            return blocksScreenInteraction ||
+                   (currentScreen.HasValue && currentScreen.Value.Policy.BlocksUiGameplayInput);
         }
 
         private static bool BlocksScreenInteraction(PopupEntry? topPopup)
         {
-            return topPopup.HasValue && topPopup.Value.IsModal;
+            return topPopup.HasValue && topPopup.Value.Policy.BlocksLowerLayers;
         }
     }
 }
