@@ -19,6 +19,8 @@ namespace Game.Feature.UI.Composition
 
         [SerializeField] private GameplaySceneHost _sceneHost;
         [SerializeField] private GameplayUiCanvasRootView _rootView;
+        // Phase-local HUD prefab seam only. Do not expand this into a general feature-prefab registry.
+        [SerializeField] private HUDRootView _hudPrefab;
         [SerializeField] private bool _installOnStart = true;
 
         private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
@@ -220,13 +222,14 @@ namespace Game.Feature.UI.Composition
                 return;
             }
 
-            if (!UiPrefabMigrationInventory.AllowsLegacyHudBuilder)
+            if (_hudPrefab == null)
             {
                 throw new InvalidOperationException(
-                    "HUD legacy runtime builder is unavailable because the HUD layer is not allowlisted for mixed migration.");
+                    "GameplayUiFlowInstaller is missing the canonical HUD prefab reference. " +
+                    "Assign the phase-local HUD prefab instead of reintroducing a runtime HUD builder.");
             }
 
-            var hudView = GameplayLegacyHudViewFactory.Create(_rootView.HudLayer);
+            var hudView = Instantiate(_hudPrefab, _rootView.HudLayer, false);
             _rootView.AttachHudView(hudView);
         }
 

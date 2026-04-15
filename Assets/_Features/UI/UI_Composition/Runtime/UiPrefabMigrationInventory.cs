@@ -39,7 +39,6 @@ namespace Game.Feature.UI.Composition
     {
         private static readonly UiPrefabMigrationEntry[] AllowedMixedModeEntries =
         {
-            new(UiPrefabMigrationEntryKind.Hud, "PersistentHud", "GameplayLegacyHudViewFactory.Create"),
             new(UiPrefabMigrationEntryKind.Popup, PopupId.Pause.ToString(), "GameplayPopupRuntimeFactory.CreatePausePopup"),
             new(UiPrefabMigrationEntryKind.Popup, PopupId.ObjectiveInfo.ToString(), "GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup"),
             new(UiPrefabMigrationEntryKind.Popup, PopupId.Confirm.ToString(), "GameplayPopupRuntimeFactory.CreateConfirmPopup"),
@@ -61,8 +60,6 @@ namespace Game.Feature.UI.Composition
             .ToArray();
 
         internal static bool IsRootShellMigrated => AllowedMixedModeEntries.All(entry => entry.Kind != UiPrefabMigrationEntryKind.RootShell);
-
-        internal static bool AllowsLegacyHudBuilder => HasEntry(UiPrefabMigrationEntryKind.Hud, "PersistentHud");
 
         internal static bool AllowsLegacyPopupBuilder(PopupId popupId)
         {

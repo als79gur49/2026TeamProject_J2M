@@ -62,6 +62,21 @@ namespace Game.Feature.UI.Composition
 
         internal void AttachHudView(HUDRootView hudView)
         {
+            if (hudView == null)
+            {
+                throw new ArgumentNullException(nameof(hudView));
+            }
+
+            if (_hudLayer == null)
+            {
+                throw new InvalidOperationException("Canonical HUD host anchor is unavailable.");
+            }
+
+            if (hudView.transform.parent != _hudLayer)
+            {
+                throw new InvalidOperationException("Canonical HUD prefab must mount directly beneath HudLayer.");
+            }
+
             _hudView = hudView;
         }
 

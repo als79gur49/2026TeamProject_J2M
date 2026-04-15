@@ -36,30 +36,6 @@ namespace Game.Feature.UI.HUD
             }
         }
 
-        public void Configure(
-            GameObject root,
-            CanvasGroup shellCanvasGroup,
-            Button pauseButton,
-            PlayerStatusView playerStatusView,
-            ActionBarView actionBarView,
-            NotificationView notificationView)
-        {
-            _root = root;
-            _shellCanvasGroup = shellCanvasGroup;
-            _pauseButton = pauseButton;
-            _playerStatusView = playerStatusView;
-            _actionBarView = actionBarView;
-            _notificationView = notificationView;
-
-            if (_pauseButton != null)
-            {
-                _pauseButton.onClick.RemoveListener(ClickPause);
-                _pauseButton.onClick.AddListener(ClickPause);
-            }
-
-            RefreshView();
-        }
-
         public void Bind(HUDRootViewModel viewModel)
         {
             if (_viewModel != null)
@@ -86,11 +62,47 @@ namespace Game.Feature.UI.HUD
             PauseRequested?.Invoke();
         }
 
+        private void OnEnable()
+        {
+            if (_pauseButton != null)
+            {
+                _pauseButton.onClick.RemoveListener(ClickPause);
+                _pauseButton.onClick.AddListener(ClickPause);
+            }
+
+            RefreshView();
+        }
+
+        private void OnDisable()
+        {
+            if (_pauseButton != null)
+            {
+                _pauseButton.onClick.RemoveListener(ClickPause);
+            }
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_shellCanvasGroup, nameof(_shellCanvasGroup));
+            ValidateSerializedReference(_pauseButton, nameof(_pauseButton));
+            ValidateSerializedReference(_playerStatusView, nameof(_playerStatusView));
+            ValidateSerializedReference(_actionBarView, nameof(_actionBarView));
+            ValidateSerializedReference(_notificationView, nameof(_notificationView));
+        }
+#endif
+
         private void OnDestroy()
         {
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
+            }
+
+            if (_pauseButton != null)
+            {
+                _pauseButton.onClick.RemoveListener(ClickPause);
             }
         }
 
@@ -116,5 +128,15 @@ namespace Game.Feature.UI.HUD
                 _pauseButton.interactable = _viewModel != null && _viewModel.IsPauseButtonEnabled;
             }
         }
+
+#if UNITY_EDITOR
+        private void ValidateSerializedReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                Debug.LogWarning($"{nameof(HUDRootView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+#endif
     }
 }

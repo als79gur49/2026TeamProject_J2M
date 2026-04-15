@@ -15,22 +15,6 @@ namespace Game.Feature.UI.HUD
 
         public NotificationViewModel ViewModel => _viewModel;
 
-        public void Configure(
-            GameObject root,
-            Text titleLabel,
-            Text firstLabel,
-            Text secondLabel,
-            Text thirdLabel)
-        {
-            _root = root;
-            _titleLabel = titleLabel;
-            _firstLabel = firstLabel;
-            _secondLabel = secondLabel;
-            _thirdLabel = thirdLabel;
-
-            RefreshView();
-        }
-
         public void Bind(NotificationViewModel viewModel)
         {
             if (_viewModel != null)
@@ -46,6 +30,17 @@ namespace Game.Feature.UI.HUD
 
             RefreshView();
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
+            ValidateSerializedReference(_firstLabel, nameof(_firstLabel));
+            ValidateSerializedReference(_secondLabel, nameof(_secondLabel));
+            ValidateSerializedReference(_thirdLabel, nameof(_thirdLabel));
+        }
+#endif
 
         private void OnDestroy()
         {
@@ -89,5 +84,15 @@ namespace Game.Feature.UI.HUD
                 ? items[index].MessageText
                 : string.Empty;
         }
+
+#if UNITY_EDITOR
+        private void ValidateSerializedReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                Debug.LogWarning($"{nameof(NotificationView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+#endif
     }
 }

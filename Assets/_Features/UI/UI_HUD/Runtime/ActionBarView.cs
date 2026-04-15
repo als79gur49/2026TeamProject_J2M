@@ -30,44 +30,6 @@ namespace Game.Feature.UI.HUD
 
         public ActionBarViewModel ViewModel => _viewModel;
 
-        public void Configure(
-            GameObject root,
-            Text titleLabel,
-            Text primaryLabel,
-            Text primaryStateLabel,
-            Button primaryButton,
-            Text secondaryLabel,
-            Text secondaryStateLabel,
-            Button secondaryButton,
-            Text outcomeLabel,
-            Text feedbackLabel)
-        {
-            _root = root;
-            _titleLabel = titleLabel;
-            _primaryLabel = primaryLabel;
-            _primaryStateLabel = primaryStateLabel;
-            _primaryButton = primaryButton;
-            _secondaryLabel = secondaryLabel;
-            _secondaryStateLabel = secondaryStateLabel;
-            _secondaryButton = secondaryButton;
-            _outcomeLabel = outcomeLabel;
-            _feedbackLabel = feedbackLabel;
-
-            if (_primaryButton != null)
-            {
-                _primaryButton.onClick.RemoveListener(ClickPrimary);
-                _primaryButton.onClick.AddListener(ClickPrimary);
-            }
-
-            if (_secondaryButton != null)
-            {
-                _secondaryButton.onClick.RemoveListener(ClickSecondary);
-                _secondaryButton.onClick.AddListener(ClickSecondary);
-            }
-
-            RefreshView();
-        }
-
         public void Bind(ActionBarViewModel viewModel)
         {
             if (_viewModel != null)
@@ -118,11 +80,67 @@ namespace Game.Feature.UI.HUD
             ClickSlot(HudActionSlotId.Secondary);
         }
 
+        private void OnEnable()
+        {
+            if (_primaryButton != null)
+            {
+                _primaryButton.onClick.RemoveListener(ClickPrimary);
+                _primaryButton.onClick.AddListener(ClickPrimary);
+            }
+
+            if (_secondaryButton != null)
+            {
+                _secondaryButton.onClick.RemoveListener(ClickSecondary);
+                _secondaryButton.onClick.AddListener(ClickSecondary);
+            }
+
+            RefreshView();
+        }
+
+        private void OnDisable()
+        {
+            if (_primaryButton != null)
+            {
+                _primaryButton.onClick.RemoveListener(ClickPrimary);
+            }
+
+            if (_secondaryButton != null)
+            {
+                _secondaryButton.onClick.RemoveListener(ClickSecondary);
+            }
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
+            ValidateSerializedReference(_primaryLabel, nameof(_primaryLabel));
+            ValidateSerializedReference(_primaryStateLabel, nameof(_primaryStateLabel));
+            ValidateSerializedReference(_primaryButton, nameof(_primaryButton));
+            ValidateSerializedReference(_secondaryLabel, nameof(_secondaryLabel));
+            ValidateSerializedReference(_secondaryStateLabel, nameof(_secondaryStateLabel));
+            ValidateSerializedReference(_secondaryButton, nameof(_secondaryButton));
+            ValidateSerializedReference(_outcomeLabel, nameof(_outcomeLabel));
+            ValidateSerializedReference(_feedbackLabel, nameof(_feedbackLabel));
+        }
+#endif
+
         private void OnDestroy()
         {
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
+            }
+
+            if (_primaryButton != null)
+            {
+                _primaryButton.onClick.RemoveListener(ClickPrimary);
+            }
+
+            if (_secondaryButton != null)
+            {
+                _secondaryButton.onClick.RemoveListener(ClickSecondary);
             }
 
             ClearTransientFeedback();
@@ -301,5 +319,15 @@ namespace Game.Feature.UI.HUD
             slotViewModel = default;
             return false;
         }
+
+#if UNITY_EDITOR
+        private void ValidateSerializedReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                Debug.LogWarning($"{nameof(ActionBarView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+#endif
     }
 }

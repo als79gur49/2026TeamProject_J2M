@@ -18,28 +18,6 @@ namespace Game.Feature.UI.HUD
 
         public PlayerStatusViewModel ViewModel => _viewModel;
 
-        public void Configure(
-            GameObject root,
-            Text titleLabel,
-            Text hpLabel,
-            Text facingLabel,
-            Text actionLabel,
-            Text topologyLabel,
-            Text statusLabel,
-            Text damageLabel)
-        {
-            _root = root;
-            _titleLabel = titleLabel;
-            _hpLabel = hpLabel;
-            _facingLabel = facingLabel;
-            _actionLabel = actionLabel;
-            _topologyLabel = topologyLabel;
-            _statusLabel = statusLabel;
-            _damageLabel = damageLabel;
-
-            RefreshView();
-        }
-
         public void Bind(PlayerStatusViewModel viewModel)
         {
             if (_viewModel != null)
@@ -55,6 +33,20 @@ namespace Game.Feature.UI.HUD
 
             RefreshView();
         }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
+            ValidateSerializedReference(_hpLabel, nameof(_hpLabel));
+            ValidateSerializedReference(_facingLabel, nameof(_facingLabel));
+            ValidateSerializedReference(_actionLabel, nameof(_actionLabel));
+            ValidateSerializedReference(_topologyLabel, nameof(_topologyLabel));
+            ValidateSerializedReference(_statusLabel, nameof(_statusLabel));
+            ValidateSerializedReference(_damageLabel, nameof(_damageLabel));
+        }
+#endif
 
         private void OnDestroy()
         {
@@ -116,5 +108,15 @@ namespace Game.Feature.UI.HUD
                 _damageLabel.text = $"Damage: {_viewModel.DamageText}";
             }
         }
+
+#if UNITY_EDITOR
+        private void ValidateSerializedReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                Debug.LogWarning($"{nameof(PlayerStatusView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+#endif
     }
 }
