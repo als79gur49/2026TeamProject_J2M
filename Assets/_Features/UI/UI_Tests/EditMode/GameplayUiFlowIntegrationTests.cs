@@ -149,6 +149,42 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen()
+        {
+            var hostObject = new GameObject("GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Up),
+                    },
+                    CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0))));
+
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                installer.Install(host);
+
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+
+                var result = host.InputHost.RunSingleTick();
+
+                Assert.That(result, Is.Not.Null);
+                Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
+                Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+                Assert.That(installer.StageResultScreenView, Is.Not.Null);
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
         private static void DestroySupportObjects(GameObject hostObject)
         {
             var eventSystem = Object.FindFirstObjectByType<EventSystem>();
@@ -163,7 +199,9 @@ namespace Game.Feature.UI.Tests
             }
         }
 
-        private static GameplaySceneHostConfiguration CreateConfiguration(EntityState[] initialEntities)
+        private static GameplaySceneHostConfiguration CreateConfiguration(
+            EntityState[] initialEntities,
+            StageObjectiveRuntimeDefinition objectiveRuntimeDefinition = null)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -172,9 +210,27 @@ namespace Game.Feature.UI.Tests
                 InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                 InitialEntities = initialEntities,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
-                ObjectiveRuntimeDefinition = StageObjectiveRuntimeDefinition.Disabled,
+                ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
             };
+        }
+
+        private static StageObjectiveRuntimeDefinition CreateSingleCellObjective(SurfaceCell goalCell)
+        {
+            var zone = new StageZoneRuntimeDefinition(
+                "goal",
+                goalCell.face,
+                new[]
+                {
+                    new StageZoneRuntimeRegion(goalCell.PlanarPosition, goalCell.PlanarPosition),
+                });
+
+            return new StageObjectiveRuntimeDefinition(
+                StageCompletionPolicy.RequirePlayerOnGoalWithAllConditions,
+                10,
+                new[] { zone },
+                new[] { zone },
+                System.Array.Empty<StageConditionRuntimeDefinition>());
         }
 
         private static EntityState CreatePlayerEntity(SurfaceCell position, Direction facing)

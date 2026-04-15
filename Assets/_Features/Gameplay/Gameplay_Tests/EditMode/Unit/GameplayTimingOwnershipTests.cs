@@ -71,9 +71,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplaySceneHost_Initialize_AddsStageClearOverlayComponent()
+        public void GameplaySceneHost_Initialize_DoesNotAddLegacyStageClearOverlayComponent()
         {
-            var hostObject = new GameObject("GameplaySceneHost_Initialize_AddsStageClearOverlayComponent");
+            var hostObject = new GameObject("GameplaySceneHost_Initialize_DoesNotAddLegacyStageClearOverlayComponent");
 
             try
             {
@@ -93,7 +93,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerEntityId = 10,
                     });
 
-                Assert.That(hostObject.GetComponent<GameplayStageClearOverlay>(), Is.Not.Null);
+                Assert.That(hostObject.GetComponent<GameplayStageClearOverlay>(), Is.Null);
             }
             finally
             {
@@ -103,9 +103,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_AndShowsOverlay()
+        public void GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_WithoutLegacyOverlayPath()
         {
-            var hostObject = new GameObject("GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_AndShowsOverlay");
+            var hostObject = new GameObject("GameplayInputHost_RunSingleTick_RaisesStageClearedEvent_WithoutLegacyOverlayPath");
 
             try
             {
@@ -129,13 +129,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 host.InputHost.StageCleared += () => stageClearedCallCount++;
 
                 var result = host.InputHost.RunSingleTick();
-                var overlay = hostObject.GetComponent<GameplayStageClearOverlay>();
-
                 Assert.That(result, Is.Not.Null);
                 Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
                 Assert.That(stageClearedCallCount, Is.EqualTo(1));
-                Assert.That(overlay, Is.Not.Null);
-                Assert.That(overlay.IsVisible, Is.True);
+                Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
+                Assert.That(hostObject.GetComponent<GameplayStageClearOverlay>(), Is.Null);
             }
             finally
             {
