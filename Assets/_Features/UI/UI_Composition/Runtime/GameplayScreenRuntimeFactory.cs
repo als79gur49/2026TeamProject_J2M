@@ -170,14 +170,115 @@ namespace Game.Feature.UI.Composition
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(380f, 210f),
+                new Vector2(584f, 330f),
                 new Vector2(0f, -20f));
             var view = panel.gameObject.AddComponent<InventoryScreenView>();
-            var title = UiCanvasElementFactory.CreateLabel("Title", panel, new Vector2(16f, -16f), new Vector2(348f, 24f), TextAnchor.MiddleCenter, 18);
-            var items = UiCanvasElementFactory.CreateLabel("Items", panel, new Vector2(24f, -56f), new Vector2(332f, 100f), TextAnchor.UpperLeft, 15);
-            var back = UiCanvasElementFactory.CreateButton("BackButton", panel, "Back", new Vector2(141f, -170f), new Vector2(98f, 28f));
-            view.Configure(panel.gameObject, title, items, back, UiCanvasElementFactory.GetButtonLabel(back));
+            var title = UiCanvasElementFactory.CreateLabel("Title", panel, new Vector2(16f, -16f), new Vector2(552f, 24f), TextAnchor.MiddleCenter, 18);
+
+            var catalogPanel = UiCanvasElementFactory.CreatePanel(
+                "CatalogPanel",
+                panel,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(248f, 220f),
+                new Vector2(16f, -52f));
+            var catalogView = catalogPanel.gameObject.AddComponent<InventoryCatalogView>();
+            var searchButton = UiCanvasElementFactory.CreateButton("SearchButton", catalogPanel, "Search", new Vector2(8f, -8f), new Vector2(72f, 24f));
+            var filterButton = UiCanvasElementFactory.CreateButton("FilterButton", catalogPanel, "Filter", new Vector2(86f, -8f), new Vector2(74f, 24f));
+            var sortButton = UiCanvasElementFactory.CreateButton("SortButton", catalogPanel, "Sort", new Vector2(166f, -8f), new Vector2(74f, 24f));
+            var summaryLabel = UiCanvasElementFactory.CreateLabel("Summary", catalogPanel, new Vector2(8f, -38f), new Vector2(232f, 18f), TextAnchor.MiddleLeft, 13);
+            var emptyLabel = UiCanvasElementFactory.CreateLabel("Empty", catalogPanel, new Vector2(8f, -188f), new Vector2(232f, 24f), TextAnchor.UpperLeft, 12);
+            var rowButtons = new Button[5];
+            var rowLabelTexts = new Text[5];
+            var rowMetaTexts = new Text[5];
+            for (var i = 0; i < rowButtons.Length; i++)
+            {
+                var rowY = -64f - (i * 26f);
+                rowButtons[i] = UiCanvasElementFactory.CreateButton(
+                    $"RowButton{i}",
+                    catalogPanel,
+                    $"Row {i + 1}",
+                    new Vector2(8f, rowY),
+                    new Vector2(122f, 24f));
+                rowLabelTexts[i] = UiCanvasElementFactory.GetButtonLabel(rowButtons[i]);
+                if (rowLabelTexts[i] != null)
+                {
+                    rowLabelTexts[i].alignment = TextAnchor.MiddleLeft;
+                }
+
+                rowMetaTexts[i] = UiCanvasElementFactory.CreateLabel(
+                    $"RowMeta{i}",
+                    catalogPanel,
+                    new Vector2(136f, rowY),
+                    new Vector2(104f, 24f),
+                    TextAnchor.MiddleLeft,
+                    12);
+            }
+            catalogView.Configure(
+                searchButton,
+                filterButton,
+                sortButton,
+                UiCanvasElementFactory.GetButtonLabel(searchButton),
+                UiCanvasElementFactory.GetButtonLabel(filterButton),
+                UiCanvasElementFactory.GetButtonLabel(sortButton),
+                summaryLabel,
+                emptyLabel,
+                rowButtons,
+                rowLabelTexts,
+                rowMetaTexts);
+
+            var detailPanel = UiCanvasElementFactory.CreatePanel(
+                "DetailPanel",
+                panel,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(288f, 120f),
+                new Vector2(280f, -52f));
+            var detailView = detailPanel.gameObject.AddComponent<InventoryDetailView>();
+            var detailTitle = UiCanvasElementFactory.CreateLabel("DetailTitle", detailPanel, new Vector2(12f, -10f), new Vector2(264f, 22f), TextAnchor.MiddleLeft, 16);
+            var detailBadge = UiCanvasElementFactory.CreateLabel("DetailBadge", detailPanel, new Vector2(12f, -36f), new Vector2(264f, 18f), TextAnchor.MiddleLeft, 13);
+            var detailDescription = UiCanvasElementFactory.CreateLabel("DetailDescription", detailPanel, new Vector2(12f, -58f), new Vector2(264f, 34f), TextAnchor.UpperLeft, 13);
+            var detailBody = UiCanvasElementFactory.CreateLabel("DetailBody", detailPanel, new Vector2(12f, -92f), new Vector2(264f, 24f), TextAnchor.UpperLeft, 12);
+            detailView.Configure(detailTitle, detailBadge, detailDescription, detailBody);
+
+            var actionPanel = UiCanvasElementFactory.CreatePanel(
+                "ActionPanel",
+                panel,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(288f, 112f),
+                new Vector2(280f, -180f));
+            var actionView = actionPanel.gameObject.AddComponent<InventoryActionView>();
+            var primaryButton = UiCanvasElementFactory.CreateButton("PrimaryActionButton", actionPanel, "Primary", new Vector2(12f, -12f), new Vector2(110f, 26f));
+            var secondaryButton = UiCanvasElementFactory.CreateButton("SecondaryActionButton", actionPanel, "Secondary", new Vector2(12f, -46f), new Vector2(110f, 26f));
+            var primaryState = UiCanvasElementFactory.CreateLabel("PrimaryState", actionPanel, new Vector2(130f, -12f), new Vector2(146f, 24f), TextAnchor.MiddleLeft, 12);
+            var secondaryState = UiCanvasElementFactory.CreateLabel("SecondaryState", actionPanel, new Vector2(130f, -46f), new Vector2(146f, 24f), TextAnchor.MiddleLeft, 12);
+            var feedback = UiCanvasElementFactory.CreateLabel("ActionFeedback", actionPanel, new Vector2(12f, -78f), new Vector2(264f, 24f), TextAnchor.UpperLeft, 12);
+            actionView.Configure(
+                primaryButton,
+                secondaryButton,
+                UiCanvasElementFactory.GetButtonLabel(primaryButton),
+                UiCanvasElementFactory.GetButtonLabel(secondaryButton),
+                primaryState,
+                secondaryState,
+                feedback);
+
+            var back = UiCanvasElementFactory.CreateButton("BackButton", panel, "Back", new Vector2(243f, -290f), new Vector2(98f, 28f));
+            view.Configure(
+                panel.gameObject,
+                title,
+                catalogView,
+                detailView,
+                actionView,
+                back,
+                UiCanvasElementFactory.GetButtonLabel(back));
             view.Bind(presenter.ViewModel);
+            catalogView.Bind(presenter.CatalogPresenter.ViewModel);
+            detailView.Bind(presenter.DetailPresenter.ViewModel);
+            actionView.Bind(presenter.ActionPresenter.ViewModel);
             view.SetIsCurrent(false);
 
             return new ScreenRuntimeFactoryResult(
@@ -478,6 +579,12 @@ namespace Game.Feature.UI.Composition
             {
                 _presenter = presenter;
                 view.BackRequested += HandleBackRequested;
+                view.CatalogView.SearchRequested += HandleSearchRequested;
+                view.CatalogView.FilterRequested += HandleFilterRequested;
+                view.CatalogView.SortRequested += HandleSortRequested;
+                view.CatalogView.RowRequested += HandleRowRequested;
+                view.ActionView.PrimaryActionRequested += HandlePrimaryActionRequested;
+                view.ActionView.SecondaryActionRequested += HandleSecondaryActionRequested;
             }
 
             public override void ApplyPayload(IScreenPayload payload)
@@ -488,13 +595,53 @@ namespace Game.Feature.UI.Composition
             public override void Dispose()
             {
                 View.BackRequested -= HandleBackRequested;
+                View.CatalogView.SearchRequested -= HandleSearchRequested;
+                View.CatalogView.FilterRequested -= HandleFilterRequested;
+                View.CatalogView.SortRequested -= HandleSortRequested;
+                View.CatalogView.RowRequested -= HandleRowRequested;
+                View.ActionView.PrimaryActionRequested -= HandlePrimaryActionRequested;
+                View.ActionView.SecondaryActionRequested -= HandleSecondaryActionRequested;
+                View.ActionView.Bind(null);
+                View.DetailView.Bind(null);
+                View.CatalogView.Bind(null);
                 View.Bind(null);
+                _presenter.Dispose();
                 base.Dispose();
             }
 
             private void HandleBackRequested()
             {
                 RaiseAction(ScreenAction.Back());
+            }
+
+            private void HandleFilterRequested()
+            {
+                _presenter.CatalogPresenter.CycleFilter();
+            }
+
+            private void HandlePrimaryActionRequested()
+            {
+                _presenter.ActionPresenter.RequestPrimaryAction();
+            }
+
+            private void HandleRowRequested(int visibleIndex)
+            {
+                _presenter.CatalogPresenter.SelectVisibleRow(visibleIndex);
+            }
+
+            private void HandleSearchRequested()
+            {
+                _presenter.CatalogPresenter.CycleSearch();
+            }
+
+            private void HandleSecondaryActionRequested()
+            {
+                _presenter.ActionPresenter.RequestSecondaryAction();
+            }
+
+            private void HandleSortRequested()
+            {
+                _presenter.CatalogPresenter.CycleSort();
             }
         }
 
