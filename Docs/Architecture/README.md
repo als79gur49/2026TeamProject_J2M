@@ -1,6 +1,6 @@
 # Architecture Docs
 
-이 디렉터리의 canonical entrypoint는 아래 네 문서다.
+이 디렉터리의 canonical architecture entrypoint는 아래 네 문서다.
 
 - [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
   - tick simulation의 canonical architecture spec
@@ -18,10 +18,14 @@
 3. [Gameplay-Rules-Appendix.md](./Gameplay-Rules-Appendix.md)
 4. [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
 
-운영 가이드와 baseline은 별도 truth-source다.
+운영 가이드와 baseline은 별도 supporting truth-source다. 이 문서들은 canonical architecture spec을 대체하지 않지만, 현재 runner/governance/evidence 기준을 고정하는 active truth-source로 함께 읽어야 한다.
 
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)
+  - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
+- [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
+  - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
+  - broader full-suite baseline context, not the defining truth-source for the Stage 1–9 UI freeze baseline
 
 historical/non-canonical 문서는 더 이상 이 디렉터리의 active truth-source가 아니다.
 

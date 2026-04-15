@@ -162,8 +162,10 @@ Tick-result presentation mapping rule:
 
 - `Non-Negotiable` `Gameplay.UIAccess` does not expose `TickResult` directly to UI.
 - `Non-Negotiable` `IGameplayPresentationFeed` is consumed by one UI-application-owned presentation source/store only.
+- `Non-Negotiable` `GameplayUiPresentationSource` is the sole application-owned bridge from gameplay presentation and gameplay-owned UI access reads into UI-facing state.
 - `Non-Negotiable` `UITickEventRouter` interprets one authoritative frame into semantic UI events without cross-frame memory.
 - `Non-Negotiable` `UIStateMapper` owns durable snapshot reduction, semantic notification retention, dedupe, and tick-based expiry.
+- `Non-Negotiable` `UIPresentationSnapshot` stays bounded to durable cross-feature UI state. Screen-local viewmodels and presenter-local state remain feature-local.
 - `Default Guidance` Presenters and controllers consume mapped snapshots or query reads triggered by that source/store, not raw frame deltas.
 - `Default Guidance` The root presentation snapshot must stay bounded to durable cross-feature slices. Screen-local viewmodels remain feature-local.
 
@@ -176,6 +178,13 @@ Persistent HUD hardening rule:
 - `Non-Negotiable` Child HUD views bind only their own child-local viewmodels. Do not recreate `Bind(UIPresentationSnapshot)` through a composite root tree.
 - `Default Guidance` For new HUD semantics, keep projection local to the owning child presenter first, expand a child-local viewmodel second, and request Stage 4 mapped contract growth only when the semantic is authoritative, non-derivable, stable, and needed by more than one consumer.
 - `Default Guidance` Richer HUD read-only behavior must continue to flow through the mapped refresh seam. If multiple consumers need reason-specific behavior later, add one compact UI-safe interaction-mode field rather than parallel flow-owned HUD flags.
+
+Composition root and gameplay-host bridge rule:
+
+- `Non-Negotiable` `UI_Composition` is the sole runtime composition root and gameplay-host bridge for the UI runtime.
+- `Non-Negotiable` `GameplayUiFlowInstaller` assembles the runtime from gameplay-owned `UIAccess` seams and remains the only UI boundary that depends on gameplay host initialization.
+- `Non-Negotiable` `GameplayUiCanvasRootView` owns runtime canvas and layer composition only. It must not become a gameplay, flow, or feature-state owner.
+- `Default Guidance` Screen runtime factories, popup runtime factories, and composition-owned diagnostics wiring belong in `UI_Composition`, not in feature presenters or gameplay access contracts.
 
 ## 9. Final Layered Architecture
 
@@ -202,6 +211,11 @@ Dependency rules:
 - `Non-Negotiable` UI views do not bypass the application layer to reach gameplay.
 - `Non-Negotiable` The gameplay access layer remains read-focused for UI use.
 - `Default Guidance` Keep Unity runtime object concerns in the view layer or in UI-specific controller code, not in gameplay access contracts.
+
+Module note:
+
+- `UI_Composition` is a runtime composition boundary that assembles controllers, presenters, views, runtime factories, and diagnostics from already-approved contracts.
+- `UI_Composition` is not a sixth ownership layer. It must not absorb gameplay truth, screen/popup/HUD policy ownership, or feature-local presentation logic.
 
 ## 10. Vocabulary and Naming Rules
 
@@ -232,8 +246,16 @@ Architectural vocabulary is locked. One term must map to one meaning.
   - The layer that exposes UI-safe gameplay reads and presentation-facing access seams.
 - `Application Layer`
   - The layer that owns UI use cases, flow decisions, and intent routing.
+- `Composition Root`
+  - The runtime-owned boundary that assembles the UI runtime from approved gameplay access seams, flow owners, presenters, views, and factories.
+- `Gameplay-Host Bridge`
+  - The composition-owned boundary that connects gameplay-owned `UIAccess` seams to the UI runtime without granting UI authoritative gameplay ownership.
+- `Mapped Presentation Seam`
+  - The single application-owned path from gameplay presentation frames and read models into bounded UI-facing snapshot state.
 - `Flow`
   - The controlled transition model for screens, popups, HUD, and interaction state.
+- `Screen Runtime`
+  - The runtime object owned by screen flow code that binds one screen request, payload, and policy to a mounted screen instance.
 - `Modal`
   - A UI state that blocks lower-layer interaction according to explicit policy.
 - `Overlay`
@@ -265,11 +287,12 @@ Responsibilities:
 
 - `UIFlowCoordinator`
   - Cross-layer flow authority.
-  - Decides how screen, popup, HUD, and input-blocking state work together.
+  - Owns routing, popup-first-back handling, and cross-layer sequencing for screen, popup, HUD, and input-blocking state.
+  - Does not own feature-local presentation logic, popup payload formatting, or screen-internal presenter behavior.
 - `ScreenController`
-  - Owns current screen and optional back stack.
+  - Owns current screen, optional back stack, reuse/restore semantics, and screen runtime lifecycle.
 - `PopupController`
-  - Owns popup stack and popup lifetime transitions.
+  - Owns the explicit identity-based popup stack, topmost state, and popup lifetime transitions.
 - `HUDController`
   - Owns persistent HUD lifecycle, child-view binding, and bounded input relay to the owning HUD presenter.
 - `UIBlockPolicy`
@@ -278,11 +301,17 @@ Responsibilities:
 Interaction rules:
 
 - `Non-Negotiable` Cross-cutting flow decisions go through `UIFlowCoordinator`.
+- `Non-Negotiable` Popup-first back handling is centralized in `UIFlowCoordinator`.
 - `Non-Negotiable` Screens do not directly open, close, or replace other screens.
 - `Non-Negotiable` Screens do not directly manage popup stack state.
 - `Non-Negotiable` HUD does not manage screen navigation.
+- `Non-Negotiable` Pause remains popup-owned. Gameplay-root back may open the pause popup, but pause is not a screen taxonomy example.
 - `Non-Negotiable` `UIBlockPolicy` decides interaction blocking. Visual hierarchy alone does not.
 - `Default Guidance` Keep controllers narrow. Put cross-controller rules in the coordinator, not duplicated in each controller.
+
+Composition note:
+
+- `GameplayUiFlowInstaller` and composition-owned runtime factories assemble the flow runtime around these owners but are not additional flow authorities.
 
 ## 12. Screen / Popup / HUD Policy
 
@@ -301,6 +330,9 @@ Policy rules:
 - `Non-Negotiable` HUD is not stored in the screen stack.
 - `Non-Negotiable` HUD is not stored in the popup stack.
 - `Non-Negotiable` A popup is opened and closed through popup flow control, not by ad hoc scene activation.
+- `Non-Negotiable` `PopupController` owns popup identity, stack order, lifetime, and completion routing rather than popup prefabs or popup views.
+- `Non-Negotiable` `ScreenController` owns the explicit screen runtime layer and current-screen/back-stack semantics.
+- `Non-Negotiable` Pause remains popup-owned and must not be reclassified as a screen just because gameplay-root back can route into it.
 - `Default Guidance` Screen transitions use replace, push, and pop semantics that are explicit in flow code.
 - `Default Guidance` Popup transitions use explicit push and pop semantics.
 - `Default Guidance` HUD persists across screen changes unless the coordinator intentionally reconfigures it.
@@ -326,6 +358,9 @@ Rules:
 - `Non-Negotiable` ViewModel never mutates gameplay state directly.
 - `Non-Negotiable` Presenter does not call gameplay committers directly.
 - `Non-Negotiable` Presenter must be split by responsibility when a screen grows across multiple concerns.
+- `Non-Negotiable` Complex screen decomposition remains screen-internal. It must not widen Stage 4 mapped presentation, Stage 5 HUD, Stage 6 popup, or Stage 7 screen-runtime seams.
+- `Non-Negotiable` A complex screen root presenter owns only root orchestration and canonical shared selection. Child presenters keep local projection, local viewmodels, and bounded child-local behavior.
+- `Non-Negotiable` Child presenters must not form sibling meshes or absorb popup, HUD, flow, or gameplay-authoritative ownership.
 - `Default Guidance` Split by bounded responsibility such as flow orchestration, feature-specific mapping, or persistent HUD slice ownership before one presenter accumulates all three.
 - `Default Guidance` Keep viewmodels shaped for binding, not for domain reuse.
 
@@ -348,11 +383,23 @@ HUD lifecycle:
 - `Non-Negotiable` HUD lifecycle is owned separately from screen and popup lifetime.
 - `Default Guidance` HUD stays resident unless coordinator flow changes require reconfiguration.
 
+Composition lifecycle:
+
+- `Non-Negotiable` `UI_Composition` owns runtime bootstrap, gameplay-host binding, runtime factory selection, canvas/layer assembly, and composition-only diagnostics registration.
+- `Non-Negotiable` `GameplayUiFlowInstaller` assembles `GameplayUiPresentationSource`, controllers, coordinator, presenters, and root view binding from gameplay-owned `UIAccess` seams.
+- `Default Guidance` `GameplayScreenRuntimeFactory` and `GameplayPopupRuntimeFactory` stay composition-owned because they translate flow/runtime requests into mounted Unity runtime objects.
+
 Subscription rules:
 
 - `Non-Negotiable` UI subscriptions to gameplay access contracts must be registered and removed in lifecycle-safe places.
 - `Non-Negotiable` Destroyed or hidden UI must not continue mutating presentation state through stale subscriptions.
 - `Default Guidance` Keep transient UI-local state disposable unless application-level persistence is explicitly required.
+
+Diagnostics lifecycle:
+
+- `Non-Negotiable` Stage 9 diagnostics remain composition-only, read-only, and non-owning.
+- `Non-Negotiable` Diagnostics must not be exposed as gameplay access seams, flow-owner APIs, presenter contracts, or feature query services.
+- `Default Guidance` Diagnostics may summarize current screen, popup, HUD, block, and mapped-event state for development visibility, but they must not become runtime aggregation or decision paths.
 
 ## 15. Tick-Based Presentation Rules
 
@@ -392,6 +439,8 @@ The canonical folder direction is:
 Assets/
   _Features/
     UI/
+      UI_Composition/
+        Runtime/
       UI_Flow/
         Runtime/
       UI_Application/
@@ -409,6 +458,8 @@ Assets/
 
 Folder intent:
 
+- `UI_Composition`
+  - runtime composition root, gameplay-host bridge, installer/bootstrap, canvas/layer assembly, runtime factories, and composition-only diagnostics
 - `UI_Flow`
   - coordinator, controllers, policy, and flow state
 - `UI_Application`
@@ -441,6 +492,7 @@ Required test directions:
 - `Non-Negotiable` Add unit tests for coordinator and controller flow ownership.
 - `Non-Negotiable` Add unit tests for `UIBlockPolicy`.
 - `Non-Negotiable` Add presenter or viewmodel tests for authoritative read-model to presentation mapping.
+- `Non-Negotiable` Add architecture guard tests for dependency direction, bounded public surfaces, and composition-only diagnostics boundaries.
 - `Default Guidance` Add integration tests for screen, popup, and HUD interaction boundaries.
 
 Required scenarios:
@@ -449,9 +501,12 @@ Required scenarios:
 - `Non-Negotiable` Popup push and pop ordering.
 - `Non-Negotiable` HUD persistence across screen changes.
 - `Non-Negotiable` Modal popup input blocking.
+- `Non-Negotiable` Popup-owned pause behavior and popup-first-back routing.
 - `Non-Negotiable` No direct screen-to-screen open or close path.
 - `Non-Negotiable` No direct UI-driven authoritative gameplay mutation path.
 - `Non-Negotiable` Tick-result-driven presentation refresh.
+- `Non-Negotiable` Representative complex screen decomposition remaining bounded and screen-internal.
+- `Non-Negotiable` Composition-only diagnostics remaining read-only and non-reusable as runtime state aggregation.
 
 ## 19. Anti-Patterns / Forbidden Patterns
 
@@ -511,10 +566,13 @@ Maintenance rule:
 - [ ] The document separates hard constraints from default guidance.
 - [ ] The document defines an explicit exception policy.
 - [ ] The document defines `UIFlowCoordinator`, `ScreenController`, `PopupController`, `HUDController`, and `UIBlockPolicy`.
+- [ ] The document defines `UI_Composition` as the sole runtime composition root and gameplay-host bridge.
 - [ ] The document defines `Screen`, `Popup`, `HUD`, `Presenter`, `View`, `ViewModel`, `Query`, `Reader`, `Facade`, `Access Layer`, and `Application Layer`.
 - [ ] The document locks vocabulary and naming intent tightly enough to prevent mixed terminology drift.
 - [ ] The document forbids direct UI-driven authoritative gameplay mutation.
 - [ ] The document preserves tick-result-based presentation separation.
+- [ ] The document states that pause remains popup-owned and is not a screen taxonomy exception.
+- [ ] The document states that Stage 9 diagnostics remain composition-only, read-only, and non-owning.
 - [ ] The document anchors major rules to current repo architecture facts and current folder boundaries.
 - [ ] The document includes folder and naming guidance concrete enough to drive implementation prompts.
 - [ ] The document includes testing guidance for flow, blocking, and authoritative presentation behavior.
