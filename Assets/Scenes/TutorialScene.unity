@@ -1305,6 +1305,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayUiFlowInstaller
   _sceneHost: {fileID: 1179627483}
   _rootView: {fileID: 0}
+  _hudPrefab: {fileID: 114100, guid: fa9c5047a8eb470483992e6b85ed3a2b, type: 3}
   _installOnStart: 1
 --- !u!1 &1255821668
 GameObject:
