@@ -23,6 +23,7 @@ namespace Game.Feature.UI.Application
 
             ViewModel = new HUDRootViewModel();
             _presentationSource.SnapshotChanged += HandleSnapshotChanged;
+            _presentationSource.TickEventsApplied += HandleTickEventsApplied;
 
             ApplySnapshot(_presentationSource.CurrentSnapshot);
         }
@@ -32,11 +33,17 @@ namespace Game.Feature.UI.Application
         public void Dispose()
         {
             _presentationSource.SnapshotChanged -= HandleSnapshotChanged;
+            _presentationSource.TickEventsApplied -= HandleTickEventsApplied;
         }
 
         private void HandleSnapshotChanged(UIPresentationSnapshot snapshot)
         {
             ApplySnapshot(snapshot);
+        }
+
+        private void HandleTickEventsApplied(UITickEventBatch batch)
+        {
+            _actionBarPresenter.HandleTickEvents(batch);
         }
 
         private void ApplySnapshot(UIPresentationSnapshot snapshot)

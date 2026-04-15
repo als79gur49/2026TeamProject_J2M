@@ -1,5 +1,6 @@
 using System.Linq;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Gameplay.UIAccess.Presentation;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
@@ -30,7 +31,7 @@ namespace Game.Feature.UI.Tests
                 actionBarPresenter);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
-            Assert.That(source.TickEventSubscriberCount, Is.EqualTo(0));
+            Assert.That(source.TickEventSubscriberCount, Is.EqualTo(1));
         }
 
         [Test]
@@ -47,6 +48,7 @@ namespace Game.Feature.UI.Tests
                 notificationPresenter);
 
             Assert.That(source.SnapshotSubscriberCount, Is.EqualTo(1));
+            Assert.That(source.TickEventSubscriberCount, Is.EqualTo(1));
 
             rootPresenter.Dispose();
 
@@ -125,6 +127,194 @@ namespace Game.Feature.UI.Tests
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.True);
             Assert.That(actionBarPresenter.ViewModel.IsInteractive, Is.True);
             Assert.That(actionBarPresenter.ViewModel.Slots[0].StateText, Is.EqualTo("Ready"));
+        }
+
+        [Test]
+        public void HUDRootPresenter_TickEvents_ForwardOnlyToActionBarLocalFeedback()
+        {
+            var source = new ManualGameplayUiPresentationSource();
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var actionBarPresenter = new ActionBarPresenter(new FakeGameplayCommandGateway());
+            var notificationPresenter = new NotificationPresenter();
+            using var rootPresenter = new HUDRootPresenter(
+                source,
+                playerStatusPresenter,
+                actionBarPresenter,
+                notificationPresenter);
+
+            source.PublishSnapshot(CreateSnapshot());
+
+            var rootIsDimmed = rootPresenter.ViewModel.IsDimmed;
+            var pauseButtonEnabled = rootPresenter.ViewModel.IsPauseButtonEnabled;
+            var playerActionText = playerStatusPresenter.ViewModel.ActionText;
+            var playerStatusText = playerStatusPresenter.ViewModel.StatusText;
+            var notificationMessages = notificationPresenter.ViewModel.Items.Select(item => item.MessageText).ToArray();
+
+            source.PublishTickEvents(new UITickEventBatch(
+                5,
+                new[]
+                {
+                    CreateActionEvent(5, UITickEventKind.PlayerActionStarted, GameplayUiActionKind.Flip),
+                }));
+
+            Assert.That(rootPresenter.ViewModel.IsDimmed, Is.EqualTo(rootIsDimmed));
+            Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.EqualTo(pauseButtonEnabled));
+            Assert.That(playerStatusPresenter.ViewModel.ActionText, Is.EqualTo(playerActionText));
+            Assert.That(playerStatusPresenter.ViewModel.StatusText, Is.EqualTo(playerStatusText));
+            Assert.That(notificationPresenter.ViewModel.Items.Select(item => item.MessageText).ToArray(), Is.EqualTo(notificationMessages));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].TransientFeedbackKind, Is.EqualTo(ActionSlotTransientFeedbackKind.Started));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].TransientFeedbackRevision, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void ActionBarPresenter_UsesAuthoritativeRecoveryCountdown_AndHidesZero()
+        {
+            var presenter = new ActionBarPresenter(new FakeGameplayCommandGateway());
+
+            presenter.Apply(
+                new UITickSlice(6, new GameplayUiTopology(GameplayUiFace.Front), false, false),
+                new UIInteractionSlice(false, true, false, false),
+                new UIPlayerActionSlice(
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.Flip,
+                    isRecoveryPhase: true,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    lastResolvedOutcome: GameplayUiActionResolutionKind.Success,
+                    lastResolvedTickIndex: 5,
+                    tookDamageThisTick: false,
+                    lastDamageAmount: 0,
+                    lastDamageTickIndex: 0,
+                    recoveryCooldown: new UIRecoveryCooldownSlice(
+                        GameplayUiActionKind.Flip,
+                        remainingRecoveryTicks: 2,
+                        totalRecoveryTicks: 2)));
+
+            Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 2"));
+
+            presenter.Apply(
+                new UITickSlice(7, new GameplayUiTopology(GameplayUiFace.Front), false, false),
+                new UIInteractionSlice(false, true, false, false),
+                new UIPlayerActionSlice(
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.Flip,
+                    isRecoveryPhase: true,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    lastResolvedOutcome: GameplayUiActionResolutionKind.Success,
+                    lastResolvedTickIndex: 5,
+                    tookDamageThisTick: false,
+                    lastDamageAmount: 0,
+                    lastDamageTickIndex: 0,
+                    recoveryCooldown: new UIRecoveryCooldownSlice(
+                        GameplayUiActionKind.Flip,
+                        remainingRecoveryTicks: 1,
+                        totalRecoveryTicks: 2)));
+
+            Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 1"));
+
+            presenter.Apply(
+                new UITickSlice(8, new GameplayUiTopology(GameplayUiFace.Front), false, false),
+                new UIInteractionSlice(false, true, false, false),
+                new UIPlayerActionSlice(
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.Flip,
+                    isRecoveryPhase: true,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    lastResolvedOutcome: GameplayUiActionResolutionKind.Success,
+                    lastResolvedTickIndex: 5,
+                    tookDamageThisTick: false,
+                    lastDamageAmount: 0,
+                    lastDamageTickIndex: 0));
+
+            Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering"));
+        }
+
+        [Test]
+        public void HUDRootPresenter_TickEvents_TriggerPushAndFlipTransientFeedback_WithoutSnapshotState()
+        {
+            var source = new ManualGameplayUiPresentationSource();
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var actionBarPresenter = new ActionBarPresenter(new FakeGameplayCommandGateway());
+            var notificationPresenter = new NotificationPresenter();
+            using var rootPresenter = new HUDRootPresenter(
+                source,
+                playerStatusPresenter,
+                actionBarPresenter,
+                notificationPresenter);
+
+            source.PublishSnapshot(CreateSnapshot());
+
+            source.PublishTickEvents(new UITickEventBatch(
+                5,
+                new[]
+                {
+                    CreateActionEvent(5, UITickEventKind.PlayerActionResolved, GameplayUiActionKind.Push, GameplayUiActionResolutionKind.Success),
+                    CreateActionEvent(5, UITickEventKind.PlayerActionCanceled, GameplayUiActionKind.Flip),
+                }));
+
+            Assert.That(actionBarPresenter.ViewModel.Slots[0].TransientFeedbackKind, Is.EqualTo(ActionSlotTransientFeedbackKind.Resolved));
+            Assert.That(actionBarPresenter.ViewModel.Slots[0].TransientFeedbackRevision, Is.EqualTo(1));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].TransientFeedbackKind, Is.EqualTo(ActionSlotTransientFeedbackKind.Canceled));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].TransientFeedbackRevision, Is.EqualTo(1));
+            Assert.That(source.CurrentSnapshot.Player.RecoveryCooldown.HasValue, Is.False);
+        }
+
+        [Test]
+        public void GameplayUiPresentationSource_DuplicateFramePublication_DoesNotReplayActionBarTransientFeedback()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+            var playerStatusPresenter = new PlayerStatusPresenter();
+            var actionBarPresenter = new ActionBarPresenter(new FakeGameplayCommandGateway());
+            var notificationPresenter = new NotificationPresenter();
+            using var rootPresenter = new HUDRootPresenter(
+                source,
+                playerStatusPresenter,
+                actionBarPresenter,
+                notificationPresenter);
+
+            var frame = new GameplayPresentationFrame(
+                tickIndex: 5,
+                finalTopology: new GameplayUiTopology(GameplayUiFace.Front),
+                player: new GameplayPlayerPresentationSlice(
+                    playerEntityId: 10,
+                    activeActionKind: GameplayUiActionKind.Flip,
+                    activeActionSequence: 3,
+                    actionDirection: GameplayUiDirection.Right,
+                    targetEntityId: 20,
+                    startedThisTick: true,
+                    executedThisTick: false,
+                    completedThisTick: false,
+                    canceledThisTick: false,
+                    isRecoveryPhase: false,
+                    resolutionKind: GameplayUiActionResolutionKind.None,
+                    shouldPlayWalkLoop: false,
+                    moveMotionGeneratedThisTick: false,
+                    waitingForNextMoveCadence: false,
+                    tookDamageThisTick: false,
+                    damageAmount: 0));
+
+            presentationFeed.PublishFrame(frame);
+            var firstRevision = actionBarPresenter.ViewModel.Slots[1].TransientFeedbackRevision;
+
+            presentationFeed.PublishFrame(frame);
+
+            Assert.That(firstRevision, Is.EqualTo(1));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].TransientFeedbackRevision, Is.EqualTo(1));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].TransientFeedbackKind, Is.EqualTo(ActionSlotTransientFeedbackKind.Started));
         }
 
         [Test]
@@ -264,11 +454,47 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.Slots.Select(slot => slot.LabelText).ToArray(), Is.EqualTo(new[] { "Advance", "Turn Left" }));
         }
 
+        [Test]
+        public void ActionBarPresenter_MapsRecoveryCooldown_ByActionKindThroughReplaceableSlotDefinitions()
+        {
+            var presenter = new ActionBarPresenter(
+                new FakeGameplayCommandGateway(),
+                new[]
+                {
+                    new ActionBarSlotDefinition(HudActionSlotId.Primary, "Flip First", GameplayUiActionKind.Flip, ActionBarSlotCommandKind.Flip, GameplayUiDirection.Left),
+                    new ActionBarSlotDefinition(HudActionSlotId.Secondary, "Push Second", GameplayUiActionKind.Push, ActionBarSlotCommandKind.HoldMove, GameplayUiDirection.Right),
+                });
+
+            presenter.Apply(
+                new UITickSlice(4, new GameplayUiTopology(GameplayUiFace.Front), false, false),
+                new UIInteractionSlice(false, true, false, false),
+                new UIPlayerActionSlice(
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.Push,
+                    isRecoveryPhase: true,
+                    canMoveThisTick: false,
+                    canStartActionThisTick: false,
+                    lastResolvedOutcome: GameplayUiActionResolutionKind.Success,
+                    lastResolvedTickIndex: 3,
+                    tookDamageThisTick: false,
+                    lastDamageAmount: 0,
+                    lastDamageTickIndex: 0,
+                    recoveryCooldown: new UIRecoveryCooldownSlice(
+                        GameplayUiActionKind.Push,
+                        remainingRecoveryTicks: 2,
+                        totalRecoveryTicks: 2)));
+
+            Assert.That(presenter.ViewModel.Slots[0].StateText, Is.EqualTo("Unavailable"));
+            Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 2"));
+        }
+
         private static string SerializeActionBar(ActionBarViewModel viewModel)
         {
             return string.Join(
                 "|",
-                viewModel.Slots.Select(slot => $"{slot.SlotId}:{slot.LabelText}:{slot.StateText}:{slot.IsInteractive}:{slot.IsHighlighted}")) +
+                viewModel.Slots.Select(slot => $"{slot.SlotId}:{slot.LabelText}:{slot.StateText}:{slot.IsInteractive}:{slot.IsHighlighted}:{slot.TransientFeedbackKind}:{slot.TransientFeedbackRevision}")) +
                    $"|{viewModel.FeedbackText}|{viewModel.OutcomeText}|{viewModel.IsInteractive}";
         }
 
@@ -283,7 +509,8 @@ namespace Game.Feature.UI.Tests
             GameplayUiActionResolutionKind lastOutcome = GameplayUiActionResolutionKind.None,
             UITickEventKind notificationEventKind = UITickEventKind.PlayerActionResolved,
             GameplayUiActionKind notificationActionKind = GameplayUiActionKind.Flip,
-            GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success)
+            GameplayUiActionResolutionKind notificationResolutionKind = GameplayUiActionResolutionKind.Success,
+            UIRecoveryCooldownSlice? recoveryCooldown = null)
         {
             var acceptsGameplayCommands = canAcceptGameplayCommands ?? (!isPaused && !hasBlockingPresentation);
 
@@ -310,7 +537,8 @@ namespace Game.Feature.UI.Tests
                     lastResolvedTickIndex: lastOutcome == GameplayUiActionResolutionKind.None ? 0 : 4,
                     tookDamageThisTick: true,
                     lastDamageAmount: 1,
-                    lastDamageTickIndex: 4),
+                    lastDamageTickIndex: 4,
+                    recoveryCooldown: recoveryCooldown),
                 new UINotificationLedgerSlice(new[]
                 {
                     new UINotificationRecord(
@@ -336,6 +564,22 @@ namespace Game.Feature.UI.Tests
                         damageAmount: 1,
                         expireAfterTickIndex: 7),
                 }));
+        }
+
+        private static UITickEvent CreateActionEvent(
+            int tickIndex,
+            UITickEventKind eventKind,
+            GameplayUiActionKind actionKind,
+            GameplayUiActionResolutionKind resolutionKind = GameplayUiActionResolutionKind.None)
+        {
+            return new UITickEvent(
+                new UITickEventKey(
+                    tickIndex,
+                    eventKind,
+                    actorEntityId: 10,
+                    actionKind,
+                    actionSequence: 2,
+                    resolutionKind));
         }
     }
 }

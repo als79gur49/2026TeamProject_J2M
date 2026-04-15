@@ -41,6 +41,15 @@ namespace Game.Feature.UI.HUD
         }
     }
 
+    public enum ActionSlotTransientFeedbackKind
+    {
+        None = 0,
+        Started = 1,
+        Resolved = 2,
+        Completed = 3,
+        Canceled = 4,
+    }
+
     public readonly struct ActionSlotViewModel
     {
         public ActionSlotViewModel(
@@ -48,13 +57,17 @@ namespace Game.Feature.UI.HUD
             string labelText,
             string stateText,
             bool isInteractive,
-            bool isHighlighted)
+            bool isHighlighted,
+            ActionSlotTransientFeedbackKind transientFeedbackKind,
+            int transientFeedbackRevision)
         {
             SlotId = slotId;
             LabelText = labelText ?? string.Empty;
             StateText = stateText ?? string.Empty;
             IsInteractive = isInteractive;
             IsHighlighted = isHighlighted;
+            TransientFeedbackKind = transientFeedbackKind;
+            TransientFeedbackRevision = transientFeedbackRevision;
         }
 
         public HudActionSlotId SlotId { get; }
@@ -66,6 +79,10 @@ namespace Game.Feature.UI.HUD
         public bool IsInteractive { get; }
 
         public bool IsHighlighted { get; }
+
+        public ActionSlotTransientFeedbackKind TransientFeedbackKind { get; }
+
+        public int TransientFeedbackRevision { get; }
     }
 
     public sealed class ActionBarViewModel

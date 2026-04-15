@@ -49,6 +49,8 @@ namespace Game.Feature.UI.Application
 
         private readonly IGameplayCommandGateway _commandGateway;
         private readonly ActionBarSlotDefinition[] _slotDefinitions;
+        private readonly ActionSlotTransientFeedbackKind[] _transientFeedbackKinds;
+        private readonly int[] _transientFeedbackRevisions;
 
         private UITickSlice _tick;
         private UIInteractionSlice _interaction;
@@ -64,6 +66,8 @@ namespace Game.Feature.UI.Application
             _slotDefinitions = slotDefinitions != null
                 ? CreateDefinitions(slotDefinitions)
                 : DefaultSlots;
+            _transientFeedbackKinds = new ActionSlotTransientFeedbackKind[_slotDefinitions.Length];
+            _transientFeedbackRevisions = new int[_slotDefinitions.Length];
             ViewModel = new ActionBarViewModel();
             Apply(UIPresentationSnapshot.Empty.Tick, UIPresentationSnapshot.Empty.Interaction, UIPresentationSnapshot.Empty.Player);
         }
@@ -111,6 +115,26 @@ namespace Game.Feature.UI.Application
             Publish();
         }
 
+        internal void HandleTickEvents(UITickEventBatch batch)
+        {
+            if (!batch.HasAnyEvents)
+            {
+                return;
+            }
+
+            var changed = false;
+            var events = batch.Events;
+            for (var i = 0; i < events.Count; i++)
+            {
+                changed |= TryApplyTransientFeedback(events[i]);
+            }
+
+            if (changed)
+            {
+                Publish();
+            }
+        }
+
         private void Publish()
         {
             var slots = new List<ActionSlotViewModel>(_slotDefinitions.Length);
@@ -127,7 +151,9 @@ namespace Game.Feature.UI.Application
                     definition.LabelText,
                     BuildStateText(definition, _tick, _interaction, _player),
                     isInteractive,
-                    isHighlighted));
+                    isHighlighted,
+                    _transientFeedbackKinds[i],
+                    _transientFeedbackRevisions[i]));
                 hasInteractiveSlot |= isInteractive;
             }
 
@@ -183,6 +209,11 @@ namespace Game.Feature.UI.Application
         {
             if (player.ActiveActionKind == definition.ActionKind)
             {
+                if (TryGetRecoveryCooldown(definition, player, out var recoveryCooldown))
+                {
+                    return $"Recovering: {recoveryCooldown.RemainingRecoveryTicks}";
+                }
+
                 return player.IsRecoveryPhase ? "Recovering" : "Active";
             }
 
@@ -221,6 +252,22 @@ namespace Game.Feature.UI.Application
             return player.LastResolvedOutcome == GameplayUiActionResolutionKind.None
                 ? string.Empty
                 : player.LastResolvedOutcome.ToString();
+        }
+
+        private static bool TryGetRecoveryCooldown(
+            ActionBarSlotDefinition definition,
+            UIPlayerActionSlice player,
+            out UIRecoveryCooldownSlice recoveryCooldown)
+        {
+            if (player.RecoveryCooldown.HasValue &&
+                player.RecoveryCooldown.Value.ActionKind == definition.ActionKind)
+            {
+                recoveryCooldown = player.RecoveryCooldown.Value;
+                return true;
+            }
+
+            recoveryCooldown = default;
+            return false;
         }
 
         private static bool IsSlotInteractive(
@@ -307,6 +354,43 @@ namespace Game.Feature.UI.Application
             }
         }
 
+        private bool TryApplyTransientFeedback(UITickEvent tickEvent)
+        {
+            if (!TryMapTransientFeedbackKind(tickEvent.EventKind, out var feedbackKind) ||
+                !TryGetDefinitionIndex(tickEvent.ActionKind, out var definitionIndex))
+            {
+                return false;
+            }
+
+            _transientFeedbackKinds[definitionIndex] = feedbackKind;
+            _transientFeedbackRevisions[definitionIndex]++;
+            return true;
+        }
+
+        private static bool TryMapTransientFeedbackKind(
+            UITickEventKind eventKind,
+            out ActionSlotTransientFeedbackKind transientFeedbackKind)
+        {
+            switch (eventKind)
+            {
+                case UITickEventKind.PlayerActionStarted:
+                    transientFeedbackKind = ActionSlotTransientFeedbackKind.Started;
+                    return true;
+                case UITickEventKind.PlayerActionResolved:
+                    transientFeedbackKind = ActionSlotTransientFeedbackKind.Resolved;
+                    return true;
+                case UITickEventKind.PlayerActionCompleted:
+                    transientFeedbackKind = ActionSlotTransientFeedbackKind.Completed;
+                    return true;
+                case UITickEventKind.PlayerActionCanceled:
+                    transientFeedbackKind = ActionSlotTransientFeedbackKind.Canceled;
+                    return true;
+                default:
+                    transientFeedbackKind = ActionSlotTransientFeedbackKind.None;
+                    return false;
+            }
+        }
+
         private bool TryGetDefinition(HudActionSlotId slotId, out ActionBarSlotDefinition definition)
         {
             for (var i = 0; i < _slotDefinitions.Length; i++)
@@ -319,6 +403,29 @@ namespace Game.Feature.UI.Application
             }
 
             definition = default;
+            return false;
+        }
+
+        private bool TryGetDefinitionIndex(
+            GameplayUiActionKind actionKind,
+            out int definitionIndex)
+        {
+            if (actionKind == GameplayUiActionKind.None)
+            {
+                definitionIndex = -1;
+                return false;
+            }
+
+            for (var i = 0; i < _slotDefinitions.Length; i++)
+            {
+                if (_slotDefinitions[i].ActionKind == actionKind)
+                {
+                    definitionIndex = i;
+                    return true;
+                }
+            }
+
+            definitionIndex = -1;
             return false;
         }
 
