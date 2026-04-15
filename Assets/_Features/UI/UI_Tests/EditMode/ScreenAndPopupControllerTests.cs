@@ -79,6 +79,45 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ScreenController_PopTo_PrunesLaterHistoryAndRestoresNamedEntry_Deterministically()
+        {
+            var runtimeFactory = new FakeScreenRuntimeFactory();
+            using var controller = new ScreenController(runtimeFactory);
+
+            controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayScreenPayload.Default, ScreenId.Gameplay.ToString()));
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Help, HelpScreenPayload.Default, ScreenId.Help.ToString())), Is.True);
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
+
+            Assert.That(controller.PopTo(ScreenId.Gameplay), Is.True);
+            Assert.That(controller.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(controller.BackStackCount, Is.EqualTo(0));
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.False);
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsCurrent, Is.True);
+            Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
+            Assert.That(runtimeFactory.CreatedRuntimes[2].Runtime.IsDisposed, Is.True);
+        }
+
+        [Test]
+        public void ScreenController_RelaysRuntimeRequestedActions_WithoutOwningFeatureLogic()
+        {
+            var runtimeFactory = new FakeScreenRuntimeFactory();
+            using var controller = new ScreenController(runtimeFactory);
+            ScreenAction? relayedAction = null;
+            controller.ActionRequested += action => relayedAction = action;
+
+            controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayScreenPayload.Default, ScreenId.Gameplay.ToString()));
+            var emittedAction = ScreenAction.Popup(new PopupRequest(
+                PopupId.Tooltip,
+                new TooltipPopupPayload("Tip", "Body")));
+
+            runtimeFactory.CreatedRuntimes[0].Runtime.Emit(emittedAction);
+
+            Assert.That(relayedAction.HasValue, Is.True);
+            Assert.That(relayedAction.Value.ActionKind, Is.EqualTo(ScreenActionKind.RequestPopup));
+            Assert.That(relayedAction.Value.PopupRequest.PopupId, Is.EqualTo(PopupId.Tooltip));
+        }
+
+        [Test]
         public void PopupController_PushCloseAndBackHandling_UseExplicitIdentityAndTopmostState()
         {
             var runtimeFactory = new FakePopupRuntimeFactory();
@@ -135,6 +174,54 @@ namespace Game.Feature.UI.Tests
             runtimeFactory.CreatedRuntimes[1].Runtime.Emit(PopupCompletionKind.Acknowledged);
             Assert.That(controller.PopupCount, Is.EqualTo(1));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsTopmost, Is.True);
+        }
+
+        [Test]
+        public void PopupController_CloseAll_NotifiesInTopDownOrder_AndClearsStack()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            var completions = new System.Collections.Generic.List<PopupCompletion>();
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body"), completions.Add),
+                out _), Is.True);
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false), completions.Add),
+                out _), Is.True);
+
+            controller.CloseAll(PopupCloseReason.ScreenTransition);
+
+            Assert.That(controller.PopupCount, Is.EqualTo(0));
+            Assert.That(completions, Has.Count.EqualTo(2));
+            Assert.That(completions[0].PopupId, Is.EqualTo(PopupId.Confirm));
+            Assert.That(completions[1].PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(completions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
+            Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.True);
+            Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
+        }
+
+        [Test]
+        public void PopupController_HandleBackdropClicked_UsesOnlyTopPopupPolicy()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Tooltip body")),
+                out _), Is.True);
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
+                out var confirmId), Is.True);
+
+            Assert.That(controller.HandleBackdropClicked(), Is.True);
+            Assert.That(controller.PopupCount, Is.EqualTo(2));
+
+            Assert.That(controller.Close(confirmId, PopupCloseReason.Programmatic), Is.True);
+            Assert.That(controller.TopPopup.HasValue, Is.True);
+            Assert.That(controller.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(controller.HandleBackdropClicked(), Is.False);
+            Assert.That(controller.PopupCount, Is.EqualTo(1));
         }
     }
 }

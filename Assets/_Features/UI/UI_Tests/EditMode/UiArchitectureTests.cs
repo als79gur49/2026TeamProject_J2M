@@ -484,6 +484,120 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_PublicSurface_RemainsRoutingOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(UIFlowCoordinator)),
+                Is.EqualTo(new[] { "CurrentBlockSnapshot" }));
+            Assert.That(GetPublicEventNames(typeof(UIFlowCoordinator)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(UIFlowCoordinator)),
+                Is.EqualTo(new[]
+                {
+                    "Dispose()",
+                    "HandleBackRequested()",
+                    "HandlePopupBackdropClicked()",
+                    "HandleScreenActionRequested(ScreenAction)",
+                    "Initialize()",
+                    "OpenHelpScreen()",
+                    "OpenInventoryScreen()",
+                    "OpenObjectiveStatusScreen()",
+                    "OpenSettingsScreen()",
+                    "RequestConfirmPopup(ConfirmPopupPayload, Action<PopupCompletion>)",
+                    "RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload)",
+                    "RequestPausePopup()",
+                    "RequestRewardPopup(RewardPopupPayload, Action<PopupCompletion>)",
+                    "RequestTooltipPopup(TooltipPopupPayload, Action<PopupCompletion>)",
+                }));
+            Assert.That(
+                GetConstructorSignatures(typeof(UIFlowCoordinator)),
+                Is.EqualTo(new[]
+                {
+                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource)",
+                }));
+        }
+
+        [Test]
+        public void ScreenController_PublicSurface_RemainsBoundedToRuntimeOwnership()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(ScreenController)),
+                Is.EqualTo(new[]
+                {
+                    "BackStackCount",
+                    "CanPop",
+                    "CurrentEntry",
+                    "CurrentScreenId",
+                }));
+            Assert.That(
+                GetPublicEventNames(typeof(ScreenController)),
+                Is.EqualTo(new[] { "ActionRequested", "StateChanged" }));
+            Assert.That(
+                GetPublicMethodSignatures(typeof(ScreenController)),
+                Is.EqualTo(new[]
+                {
+                    "Clear()",
+                    "Dispose()",
+                    "HandleBackRequested()",
+                    "Pop()",
+                    "PopTo(ScreenId)",
+                    "Push(ScreenRequest)",
+                    "Replace(ScreenRequest)",
+                    "SetRoot(ScreenRequest)",
+                    "Show(ScreenRequest)",
+                }));
+            Assert.That(
+                GetConstructorSignatures(typeof(ScreenController)),
+                Is.EqualTo(new[] { "ScreenController(IScreenRuntimeFactory)" }));
+        }
+
+        [Test]
+        public void PopupController_PublicSurface_RemainsBoundedToStackOwnership()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(PopupController)),
+                Is.EqualTo(new[]
+                {
+                    "CanPop",
+                    "PopupCount",
+                    "TopPopup",
+                }));
+            Assert.That(GetPublicEventNames(typeof(PopupController)), Is.EqualTo(new[] { "StateChanged" }));
+            Assert.That(
+                GetPublicMethodSignatures(typeof(PopupController)),
+                Is.EqualTo(new[]
+                {
+                    "Close(PopupInstanceId, PopupCloseReason)",
+                    "Close(PopupInstanceId, PopupCloseReason, PopupCompletionKind)",
+                    "CloseAll(PopupCloseReason)",
+                    "CloseTop(PopupCloseReason)",
+                    "CloseTop(PopupCloseReason, PopupCompletionKind)",
+                    "Contains(PopupId)",
+                    "Dispose()",
+                    "HandleBackdropClicked()",
+                    "HandleBackRequested()",
+                    "PopTop(out PopupEntry)",
+                    "Push(PopupRequest, out PopupInstanceId)",
+                }));
+            Assert.That(
+                GetConstructorSignatures(typeof(PopupController)),
+                Is.EqualTo(new[] { "PopupController(IPopupRuntimeFactory)" }));
+        }
+
+        [Test]
+        public void UIBlockPolicy_PublicSurface_RemainsSinglePolicyEntryPoint()
+        {
+            Assert.That(GetPublicPropertyNames(typeof(UIBlockPolicy)), Is.Empty);
+            Assert.That(GetPublicEventNames(typeof(UIBlockPolicy)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(UIBlockPolicy)),
+                Is.EqualTo(new[] { "Evaluate(UIFlowStateSnapshot)" }));
+            Assert.That(
+                GetConstructorSignatures(typeof(UIBlockPolicy)),
+                Is.EqualTo(new[] { "UIBlockPolicy()" }));
+        }
+
+        [Test]
         public void UIBlockSnapshot_PublicSurface_RemainsPolicyOnly()
         {
             var propertyNames = typeof(UIBlockSnapshot)
@@ -506,6 +620,179 @@ namespace Game.Feature.UI.Tests
                 }));
         }
 
+        [Test]
+        public void InventoryScreenPresenter_PublicSurface_RemainsBoundedToRootOrchestrationOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(InventoryScreenPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "ActionPresenter",
+                    "CatalogPresenter",
+                    "DetailPresenter",
+                    "ViewModel",
+                }));
+            Assert.That(GetPublicEventNames(typeof(InventoryScreenPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(InventoryScreenPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(InventoryScreenPayload)",
+                    "Dispose()",
+                }));
+            Assert.That(
+                GetConstructorSignatures(typeof(InventoryScreenPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "InventoryScreenPresenter()",
+                    "InventoryScreenPresenter(InventoryCatalogPresenter, InventoryDetailPresenter, InventoryActionPresenter)",
+                }));
+        }
+
+        [Test]
+        public void InventoryChildPresenters_PublicSurface_RemainsLocalAndBounded()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(InventoryCatalogPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(InventoryCatalogPresenter)), Is.EqualTo(new[] { "SelectionChanged" }));
+            Assert.That(
+                GetPublicMethodSignatures(typeof(InventoryCatalogPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(InventoryCatalogPresenterInput)",
+                    "CycleFilter()",
+                    "CycleSearch()",
+                    "CycleSort()",
+                    "SelectVisibleRow(Int32)",
+                }));
+
+            Assert.That(
+                GetPublicPropertyNames(typeof(InventoryDetailPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(InventoryDetailPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(InventoryDetailPresenter)),
+                Is.EqualTo(new[] { "Apply(InventoryDetailPresenterInput)" }));
+
+            Assert.That(
+                GetPublicPropertyNames(typeof(InventoryActionPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(InventoryActionPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(InventoryActionPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(InventoryActionPresenterInput)",
+                    "RequestPrimaryAction()",
+                    "RequestSecondaryAction()",
+                }));
+        }
+
+        [Test]
+        public void InventoryScreenPresenter_DoesNotStoreChildInputBagsOrCrossLayerActionTypes()
+        {
+            var storedTypes = typeof(InventoryScreenPresenter)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => NormalizeType(field.FieldType))
+                .Where(type => type != null)
+                .Distinct()
+                .ToArray();
+
+            Assert.That(storedTypes, Has.No.Member(typeof(InventoryCatalogPresenterInput)));
+            Assert.That(storedTypes, Has.No.Member(typeof(InventoryDetailPresenterInput)));
+            Assert.That(storedTypes, Has.No.Member(typeof(InventoryActionPresenterInput)));
+            Assert.That(storedTypes, Has.No.Member(typeof(PopupRequest)));
+            Assert.That(storedTypes, Has.No.Member(typeof(ScreenAction)));
+        }
+
+        [Test]
+        public void DiagnosticsTypes_AreReferencedOnlyFromCompositionAssembly()
+        {
+            var diagnosticsTypes = new[]
+            {
+                typeof(UiArchitectureDiagnosticsTracker),
+                typeof(UiArchitectureDiagnosticsSnapshot),
+                typeof(UiArchitectureDiagnosticsOverlayView),
+            };
+            var nonCompositionAssemblies = new[]
+            {
+                typeof(HUDRootPresenter).Assembly,
+                typeof(HUDController).Assembly,
+                typeof(HUDRootView).Assembly,
+                typeof(GameplayScreenView).Assembly,
+                typeof(PausePopupView).Assembly,
+            }.Distinct().ToArray();
+
+            foreach (var assembly in nonCompositionAssemblies)
+            {
+                foreach (var type in assembly.GetTypes().Where(type => !type.IsNested))
+                {
+                    foreach (var diagnosticsType in diagnosticsTypes)
+                    {
+                        Assert.That(
+                            TypeDependsOn(type, diagnosticsType),
+                            Is.False,
+                            $"{type.FullName} depends on {diagnosticsType.FullName}");
+                    }
+                }
+            }
+        }
+
+        [Test]
+        public void UiArchitectureDiagnosticsTracker_PublicSurface_RemainsObservationOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(UiArchitectureDiagnosticsTracker)),
+                Is.EqualTo(new[] { "CurrentSnapshot" }));
+            Assert.That(
+                typeof(UiArchitectureDiagnosticsTracker)
+                    .GetProperties(BindingFlags.Static | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                    .Select(property => property.Name)
+                    .OrderBy(name => name)
+                    .ToArray(),
+                Is.EqualTo(new[] { "IsRuntimeSupported" }));
+            Assert.That(
+                GetPublicEventNames(typeof(UiArchitectureDiagnosticsTracker)),
+                Is.EqualTo(new[] { "SnapshotChanged" }));
+            Assert.That(
+                GetPublicMethodSignatures(typeof(UiArchitectureDiagnosticsTracker)),
+                Is.EqualTo(new[] { "Dispose()" }));
+            Assert.That(
+                GetConstructorSignatures(typeof(UiArchitectureDiagnosticsTracker)),
+                Is.EqualTo(new[]
+                {
+                    "UiArchitectureDiagnosticsTracker(IGameplayUiPresentationSource, UIFlowCoordinator, ScreenController, PopupController, Func<Boolean>, Func<Boolean>, Func<InventoryScreenView>)",
+                }));
+        }
+
+        [Test]
+        public void GameplayUiPortsAndFeaturePublicSurfaces_DoNotExposeDiagnosticsTypes()
+        {
+            var diagnosticsTypes = new HashSet<Type>
+            {
+                typeof(UiArchitectureDiagnosticsTracker),
+                typeof(UiArchitectureDiagnosticsSnapshot),
+                typeof(UiArchitectureDiagnosticsOverlayView),
+            };
+            var surfacedTypes = new[]
+            {
+                typeof(GameplayUiFlowPorts),
+                typeof(GameplayUiFlowInstaller),
+                typeof(GameplayUiCanvasRootView),
+            }
+            .SelectMany(GetPublicSurfaceTypes)
+            .Select(NormalizeType)
+            .Where(type => type != null)
+            .Distinct()
+            .ToArray();
+
+            foreach (var diagnosticsType in diagnosticsTypes)
+            {
+                Assert.That(surfacedTypes, Has.No.Member(diagnosticsType));
+            }
+        }
+
         private static Assembly[] GetRuntimeUiAssemblies()
         {
             return new[]
@@ -517,6 +804,39 @@ namespace Game.Feature.UI.Tests
                 typeof(PausePopupView).Assembly,
                 typeof(GameplayUiFlowInstaller).Assembly,
             }.Distinct().ToArray();
+        }
+
+        private static string[] GetConstructorSignatures(Type type)
+        {
+            return type.GetConstructors(BindingFlags.Instance | BindingFlags.Public)
+                .Select(ctor => $"{type.Name}({string.Join(", ", ctor.GetParameters().Select(FormatParameterType))})")
+                .OrderBy(signature => signature)
+                .ToArray();
+        }
+
+        private static string[] GetPublicEventNames(Type type)
+        {
+            return type.GetEvents(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(evt => evt.Name)
+                .OrderBy(name => name)
+                .ToArray();
+        }
+
+        private static string[] GetPublicMethodSignatures(Type type)
+        {
+            return type.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Where(method => !method.IsSpecialName)
+                .Select(method => $"{method.Name}({string.Join(", ", method.GetParameters().Select(FormatParameterSignature))})")
+                .OrderBy(signature => signature)
+                .ToArray();
+        }
+
+        private static string[] GetPublicPropertyNames(Type type)
+        {
+            return type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
+                .ToArray();
         }
 
         private static IEnumerable<Type> GetPublicSurfaceTypes(Type type)
@@ -607,6 +927,40 @@ namespace Game.Feature.UI.Tests
             }
 
             return Nullable.GetUnderlyingType(type) ?? type;
+        }
+
+        private static string FormatParameterSignature(ParameterInfo parameter)
+        {
+            var prefix = parameter.IsOut ? "out " : parameter.ParameterType.IsByRef ? "ref " : string.Empty;
+            return prefix + FormatParameterType(parameter);
+        }
+
+        private static string FormatParameterType(ParameterInfo parameter)
+        {
+            return FormatTypeName(parameter.ParameterType);
+        }
+
+        private static string FormatTypeName(Type type)
+        {
+            var normalizedType = NormalizeType(type);
+            if (normalizedType == null)
+            {
+                return "Void";
+            }
+
+            if (!normalizedType.IsGenericType)
+            {
+                return normalizedType.Name;
+            }
+
+            var genericTypeName = normalizedType.Name;
+            var tickIndex = genericTypeName.IndexOf('`');
+            if (tickIndex >= 0)
+            {
+                genericTypeName = genericTypeName.Substring(0, tickIndex);
+            }
+
+            return $"{genericTypeName}<{string.Join(", ", normalizedType.GetGenericArguments().Select(FormatTypeName))}>";
         }
 
         private static bool TypeDependsOn(Type type, Type dependencyType)

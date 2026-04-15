@@ -106,5 +106,36 @@ namespace Game.Feature.UI.Tests
             Assert.That(snapshot.BlocksLowerLayerPointer, Is.False);
             Assert.That(snapshot.PopupBackdropMode, Is.EqualTo(PopupBackdropMode.None));
         }
+
+        [Test]
+        public void Evaluate_NonModalBackdropClose_BlocksPointerWithoutBlockingScreenOwnership()
+        {
+            var policy = new UIBlockPolicy();
+
+            var snapshot = policy.Evaluate(
+                new UIFlowStateSnapshot(
+                    GameplayScreenEntry,
+                    new PopupEntry(
+                        new PopupInstanceId(3),
+                        PopupId.Tooltip,
+                        new TooltipPopupPayload("Tip", "Body"),
+                        new PopupPolicy(
+                            PopupPolicyClass.AnchoredEphemeral,
+                            PopupLifetimeScope.CurrentScreen,
+                            PopupBackAction.Close,
+                            PopupBackdropMode.CloseTop,
+                            showsDim: false,
+                            blocksLowerLayers: false),
+                        completionCallback: null),
+                    popupCount: 1));
+
+            Assert.That(snapshot.BlocksHudInteraction, Is.False);
+            Assert.That(snapshot.BlocksScreenInteraction, Is.False);
+            Assert.That(snapshot.BlocksUiGameplayInput, Is.False);
+            Assert.That(snapshot.PopupConsumesBack, Is.True);
+            Assert.That(snapshot.ShowsPopupDim, Is.False);
+            Assert.That(snapshot.BlocksLowerLayerPointer, Is.True);
+            Assert.That(snapshot.PopupBackdropMode, Is.EqualTo(PopupBackdropMode.CloseTop));
+        }
     }
 }

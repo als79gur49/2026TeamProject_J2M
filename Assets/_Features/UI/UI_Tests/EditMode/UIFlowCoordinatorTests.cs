@@ -115,6 +115,61 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_HandleScreenActionRequested_UsesCentralizedTransitionRules()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                new ManualGameplayUiPresentationSource(),
+                out var screenController,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+            Assert.That(popupController.PopupCount, Is.EqualTo(1));
+
+            coordinator.HandleScreenActionRequested(ScreenAction.Push(
+                new ScreenRequest(ScreenId.Help, HelpScreenPayload.Default, ScreenId.Help.ToString())));
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+
+            coordinator.HandleScreenActionRequested(ScreenAction.Popup(
+                new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false))));
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+            Assert.That(popupController.PopupCount, Is.EqualTo(1));
+            Assert.That(popupController.TopPopup.HasValue, Is.True);
+            Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Confirm));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_RequestPausePopup_DoesNotDuplicateExistingPausePopup()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                new ManualGameplayUiPresentationSource(),
+                out _,
+                out var popupController);
+
+            coordinator.Initialize();
+
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            Assert.That(coordinator.RequestPausePopup(), Is.False);
+            Assert.That(popupController.PopupCount, Is.EqualTo(1));
+            Assert.That(pauseService.PauseCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
         public void UIFlowCoordinator_StageClearedAutoOpensTerminalStageResult_AndConsumesBack()
         {
             var pauseService = new FakeGameplayPauseService();

@@ -231,6 +231,43 @@ namespace Game.Feature.UI.Tests
             Assert.That(source.CurrentSnapshot.Notifications.ActiveNotifications, Is.Empty);
         }
 
+        [Test]
+        public void GameplayUiPresentationSource_OlderFramePublication_RefreshesWithoutTickRegressionOrNewEvents()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+            var appliedBatches = new List<UITickEventBatch>();
+
+            source.TickEventsApplied += batch => appliedBatches.Add(batch);
+
+            presentationFeed.PublishFrame(new GameplayPresentationFrame(
+                tickIndex: 6,
+                finalTopology: new GameplayUiTopology(GameplayUiFace.Front),
+                player: CreatePlayerSlice(
+                    activeActionKind: GameplayUiActionKind.Flip,
+                    actionSequence: 7,
+                    executedThisTick: true,
+                    resolutionKind: GameplayUiActionResolutionKind.Success)));
+
+            Assert.That(source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(6));
+            Assert.That(appliedBatches, Has.Count.EqualTo(1));
+
+            queryFacade.SetSession(new GameplaySessionReadModel(2, false, false, false));
+            presentationFeed.PublishFrame(new GameplayPresentationFrame(
+                tickIndex: 5,
+                finalTopology: new GameplayUiTopology(GameplayUiFace.Floor)));
+
+            Assert.That(source.CurrentSnapshot.Tick.LastReducedTickIndex, Is.EqualTo(6));
+            Assert.That(source.CurrentSnapshot.Interaction.CanAcceptGameplayCommands, Is.False);
+            Assert.That(source.CurrentSnapshot.Tick.FinalTopology, Is.EqualTo(new GameplayUiTopology(GameplayUiFace.Front)));
+            Assert.That(appliedBatches, Has.Count.EqualTo(1));
+        }
+
         private static GameplayPlayerPresentationSlice CreatePlayerSlice(
             GameplayUiActionKind activeActionKind = GameplayUiActionKind.None,
             int actionSequence = 0,
