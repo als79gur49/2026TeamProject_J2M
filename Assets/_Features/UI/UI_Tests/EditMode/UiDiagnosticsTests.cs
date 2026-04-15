@@ -16,7 +16,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
                 var overlay = rootObject.GetComponentInChildren<UiArchitectureDiagnosticsOverlayView>(true);
@@ -56,7 +56,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
                 var overlay = rootObject.GetComponentInChildren<UiArchitectureDiagnosticsOverlayView>(true);
 

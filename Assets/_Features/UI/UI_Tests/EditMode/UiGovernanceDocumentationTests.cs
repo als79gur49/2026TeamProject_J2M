@@ -32,7 +32,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Not.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
             Assert.That(baseline, Does.Contain("HUD legacy runtime builder path was removed in the same phase"));
             Assert.That(baseline, Does.Contain("bounded HUD proof"));
-            Assert.That(baseline, Does.Contain("must not be treated as precedent for popup/screen migration"));
+            Assert.That(baseline, Does.Contain("popup legacy runtime builder paths were removed in the same phase"));
+            Assert.That(baseline, Does.Contain("popup catalog remains fixed-shape and popup-only"));
+            Assert.That(baseline, Does.Contain("must not be treated as precedent for screen migration"));
+            Assert.That(baseline, Does.Not.Contain("Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup"));
             Assert.That(baseline, Does.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
 

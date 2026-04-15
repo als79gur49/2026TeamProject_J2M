@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -19,6 +20,12 @@ namespace Game.Feature.UI.Tests
     {
         private const string RootShellResourcePath = "UI/GameplayUiCanvasRootShell";
         private const string InstallerSourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayUiFlowInstaller.cs";
+        private const string PopupFactorySourcePath = "Assets/_Features/UI/UI_Composition/Runtime/GameplayPopupRuntimeFactory.cs";
+        private const string PausePopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/PausePopupView.cs";
+        private const string ObjectiveInfoPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/ObjectiveInfoPopupView.cs";
+        private const string ConfirmPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/ConfirmPopupView.cs";
+        private const string TooltipPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/TooltipPopupView.cs";
+        private const string RewardPopupViewSourcePath = "Assets/_Features/UI/UI_Popups/Runtime/RewardPopupView.cs";
         private const string BaselineNotePath = "Docs/Testing/UI-EditMode-Baseline-2026-04-15.md";
 
         [Test]
@@ -132,24 +139,121 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void GameplayUiFlowInstaller_UsesSinglePhaseLocalHudPrefabReference_WithoutRegistryGrowth()
+        public void PopupPrefabCatalog_PublicAndSerializedSurface_RemainsFixedShapePopupOnly()
         {
-            var installerType = typeof(GameplayUiFlowInstaller);
-            var instanceFieldNames = installerType
+            var popupCatalog = UiTestPrefabAssetUtility.LoadPopupCatalog();
+            var catalogType = typeof(PopupPrefabCatalog);
+            var instanceFields = catalogType
                 .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                .Select(field => field.Name)
+                .Where(field => !field.IsStatic)
                 .ToArray();
-            var hudPrefabFieldNames = installerType
-                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                .Where(field => field.FieldType == typeof(HUDRootView))
-                .Select(field => field.Name)
+            var publicPropertyNames = catalogType
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                .Select(property => property.Name)
+                .OrderBy(name => name)
                 .ToArray();
 
-            Assert.That(hudPrefabFieldNames, Is.EqualTo(new[] { "_hudPrefab" }));
-            Assert.That(instanceFieldNames.Any(name => name.Contains("Catalog", StringComparison.OrdinalIgnoreCase)), Is.False);
-            Assert.That(instanceFieldNames.Any(name => name.Contains("Registry", StringComparison.OrdinalIgnoreCase)), Is.False);
-            Assert.That(typeof(GameplayUiFlowInstaller).Assembly.GetTypes().Select(type => type.Name), Has.No.Member("HudPrefabCatalog"));
+            Assert.That(
+                instanceFields.Select(field => field.Name).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    "_pausePrefab",
+                    "_objectiveInfoPrefab",
+                    "_confirmPrefab",
+                    "_tooltipPrefab",
+                    "_rewardPrefab",
+                }));
+            Assert.That(
+                instanceFields.Select(field => field.FieldType).ToArray(),
+                Is.EqualTo(new[]
+                {
+                    typeof(PausePopupView),
+                    typeof(ObjectiveInfoPopupView),
+                    typeof(ConfirmPopupView),
+                    typeof(TooltipPopupView),
+                    typeof(RewardPopupView),
+                }));
+            Assert.That(
+                publicPropertyNames,
+                Is.EqualTo(new[]
+                {
+                    "ConfirmPrefab",
+                    "ObjectiveInfoPrefab",
+                    "PausePrefab",
+                    "RewardPrefab",
+                    "TooltipPrefab",
+                }));
+            Assert.That(instanceFields.Any(field => field.FieldType == typeof(UnityEngine.Object)), Is.False);
+            Assert.That(instanceFields.Any(field =>
+                typeof(IEnumerable).IsAssignableFrom(field.FieldType) &&
+                field.FieldType != typeof(string)), Is.False);
+            Assert.That(instanceFields.Any(field => field.FieldType == typeof(string)), Is.False);
+            Assert.That(catalogType.Name, Does.Not.Contain("Registry"));
+            Assert.That(catalogType.Name, Does.Not.Contain("Lookup"));
+            Assert.That(catalogType.Name, Does.Not.Contain("Variant"));
+
+            Assert.That(AssetDatabase.GetAssetPath(popupCatalog.PausePrefab), Is.EqualTo(UiTestPrefabAssetUtility.PausePopupPrefabPath));
+            Assert.That(AssetDatabase.GetAssetPath(popupCatalog.ObjectiveInfoPrefab), Is.EqualTo(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath));
+            Assert.That(AssetDatabase.GetAssetPath(popupCatalog.ConfirmPrefab), Is.EqualTo(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath));
+            Assert.That(AssetDatabase.GetAssetPath(popupCatalog.TooltipPrefab), Is.EqualTo(UiTestPrefabAssetUtility.TooltipPopupPrefabPath));
+            Assert.That(AssetDatabase.GetAssetPath(popupCatalog.RewardPrefab), Is.EqualTo(UiTestPrefabAssetUtility.RewardPopupPrefabPath));
+        }
+
+        [Test]
+        public void PausePopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
+        {
+            AssertPopupPrefabContract<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath);
+        }
+
+        [Test]
+        public void ObjectiveInfoPopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
+        {
+            AssertPopupPrefabContract<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath);
+        }
+
+        [Test]
+        public void ConfirmPopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
+        {
+            AssertPopupPrefabContract<ConfirmPopupView>(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
+        }
+
+        [Test]
+        public void TooltipPopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
+        {
+            AssertPopupPrefabContract<TooltipPopupView>(UiTestPrefabAssetUtility.TooltipPopupPrefabPath);
+        }
+
+        [Test]
+        public void RewardPopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
+        {
+            AssertPopupPrefabContract<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath);
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_UsesBoundedHudPrefabAndPopupCatalogReferences_WithoutRegistryGrowth()
+        {
+            var installerType = typeof(GameplayUiFlowInstaller);
+            var instanceFields = installerType
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(field => !field.IsStatic)
+                .ToArray();
+
+            Assert.That(
+                instanceFields.Where(field => field.FieldType == typeof(HUDRootView)).Select(field => field.Name).ToArray(),
+                Is.EqualTo(new[] { "_hudPrefab" }));
+            Assert.That(
+                instanceFields.Where(field => field.FieldType == typeof(PopupPrefabCatalog)).Select(field => field.Name).ToArray(),
+                Is.EqualTo(new[] { "_popupPrefabCatalog" }));
+            Assert.That(
+                instanceFields.Where(field => field.Name.Contains("Catalog", StringComparison.OrdinalIgnoreCase))
+                    .Select(field => field.Name)
+                    .ToArray(),
+                Is.EqualTo(new[] { "_popupPrefabCatalog" }));
+            Assert.That(instanceFields.Any(field => field.Name.Contains("Registry", StringComparison.OrdinalIgnoreCase)), Is.False);
+            Assert.That(instanceFields.Any(field => field.Name.Contains("Lookup", StringComparison.OrdinalIgnoreCase)), Is.False);
             Assert.That(typeof(GameplayUiFlowInstaller).Assembly.GetTypes().Select(type => type.Name), Has.No.Member("HudPrefabRegistry"));
+            Assert.That(typeof(GameplayUiFlowInstaller).Assembly.GetTypes().Select(type => type.Name), Has.No.Member("PopupPrefabRegistry"));
+            Assert.That(typeof(GameplayUiFlowInstaller).Assembly.GetTypes().Select(type => type.Name), Has.No.Member("UiAssetRegistry"));
         }
 
         [Test]
@@ -160,7 +264,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
                 Assert.That(installer.RootView, Is.Not.Null);
@@ -178,11 +282,86 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [TestCase(PopupId.Pause)]
+        [TestCase(PopupId.ObjectiveInfo)]
+        [TestCase(PopupId.Confirm)]
+        [TestCase(PopupId.Tooltip)]
+        [TestCase(PopupId.Reward)]
+        public void CanonicalPopupFactoryPath_InstantiatesCanonicalPopupPrefabUnderPopupLayer(PopupId popupId)
+        {
+            var rootObject = new GameObject($"CanonicalPopupFactoryPath_{popupId}");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(UiTestPortFactory.CreatePorts());
+
+                var popupView = OpenPopup(installer, popupId);
+                var popupPrefabView = LoadPopupPrefabView(popupId);
+
+                Assert.That(popupView, Is.Not.Null, popupId.ToString());
+                Assert.That(popupPrefabView, Is.Not.Null, popupId.ToString());
+                Assert.That(popupView.transform.parent, Is.EqualTo(installer.PopupLayerView.ContentRoot), popupId.ToString());
+                Assert.That(popupView, Is.Not.SameAs(popupPrefabView), popupId.ToString());
+                Assert.That(popupView.GetType(), Is.EqualTo(popupPrefabView.GetType()), popupId.ToString());
+                Assert.That(popupView.gameObject.name, Does.StartWith(popupPrefabView.gameObject.name), popupId.ToString());
+                Assert.That(popupView.gameObject.scene.IsValid(), Is.True, popupId.ToString());
+                Assert.That(installer.PopupController.Contains(popupId), Is.True, popupId.ToString());
+            }
+            finally
+            {
+                DestroySupportObjects(rootObject);
+            }
+        }
+
         [Test]
-        public void UiPrefabMigrationInventory_Allowlist_IsExplicit_AndHudLegacyEntryIsGone()
+        public void TooltipPopupPrefab_PreservesLocalAnchorPresentation_WithoutOwningLifecycle()
+        {
+            var parentObject = new GameObject("TooltipPopupPrefabParent", typeof(RectTransform));
+
+            try
+            {
+                var tooltipView = UnityEngine.Object.Instantiate(
+                    UiTestPrefabAssetUtility.LoadPopupPrefab<TooltipPopupView>(UiTestPrefabAssetUtility.TooltipPopupPrefabPath),
+                    parentObject.transform,
+                    false);
+                var viewModel = new TooltipPopupViewModel();
+
+                viewModel.SetContent("Tip", "Body", TooltipPopupAnchorPreset.UpperRight);
+                tooltipView.Bind(viewModel);
+                tooltipView.IsVisible = true;
+
+                var tooltipRect = (RectTransform)tooltipView.transform;
+                Assert.That(tooltipView.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.UpperRight));
+                Assert.That(tooltipRect.anchorMin, Is.EqualTo(new Vector2(1f, 1f)));
+                Assert.That(tooltipRect.anchorMax, Is.EqualTo(new Vector2(1f, 1f)));
+
+                viewModel.SetContent("Tip", "Body", TooltipPopupAnchorPreset.LowerLeft);
+
+                Assert.That(tooltipView.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.LowerLeft));
+                Assert.That(tooltipRect.anchorMin, Is.EqualTo(new Vector2(0f, 0f)));
+                Assert.That(tooltipRect.anchorMax, Is.EqualTo(new Vector2(0f, 0f)));
+            }
+            finally
+            {
+                if (parentObject != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(parentObject);
+                }
+            }
+        }
+
+        [Test]
+        public void UiPrefabMigrationInventory_Allowlist_IsExplicit_AndPopupLegacyEntriesAreGone()
         {
             Assert.That(ReadInventoryBoolProperty("IsRootShellMigrated"), Is.True);
             Assert.That(ReadInventoryBoolProperty("AllowsLegacyInventoryScreenSections"), Is.True);
+            Assert.That(
+                InvokeInventoryBooleanMethod(
+                    "LayerHasNoMixedModeEntries",
+                    ReadInventoryEnumValue("Game.Feature.UI.Composition.UiPrefabMigrationEntryKind", "Popup")),
+                Is.True);
 
             foreach (PopupId popupId in Enum.GetValues(typeof(PopupId)))
             {
@@ -191,7 +370,7 @@ namespace Game.Feature.UI.Tests
                     continue;
                 }
 
-                Assert.That(InvokeInventoryBooleanMethod("AllowsLegacyPopupBuilder", popupId), Is.True, popupId.ToString());
+                Assert.That(InvokeInventoryBooleanMethod("AllowsLegacyPopupBuilder", popupId), Is.False, popupId.ToString());
             }
 
             foreach (ScreenId screenId in Enum.GetValues(typeof(ScreenId)))
@@ -205,18 +384,14 @@ namespace Game.Feature.UI.Tests
             }
 
             var documentationTokens = ReadInventoryDocumentationTokens();
-            Assert.That(documentationTokens, Has.Length.EqualTo(12));
+            Assert.That(documentationTokens, Has.Length.EqualTo(7));
             Assert.That(documentationTokens.Any(token => token.StartsWith("RootShell:", StringComparison.Ordinal)), Is.False);
             Assert.That(documentationTokens.Any(token => token.StartsWith("Hud:", StringComparison.Ordinal)), Is.False);
+            Assert.That(documentationTokens.Any(token => token.StartsWith("Popup:", StringComparison.Ordinal)), Is.False);
             Assert.That(
                 documentationTokens,
                 Is.EqualTo(new[]
                 {
-                    "Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup",
-                    "Popup:ObjectiveInfo -> GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup",
-                    "Popup:Confirm -> GameplayPopupRuntimeFactory.CreateConfirmPopup",
-                    "Popup:Tooltip -> GameplayPopupRuntimeFactory.CreateTooltipPopup",
-                    "Popup:Reward -> GameplayPopupRuntimeFactory.CreateRewardPopup",
                     "Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen",
                     "Screen:Help -> GameplayScreenRuntimeFactory.CreateHelpScreen",
                     "Screen:ObjectiveStatus -> GameplayScreenRuntimeFactory.CreateObjectiveStatusScreen",
@@ -227,20 +402,74 @@ namespace Game.Feature.UI.Tests
                 }));
         }
 
-        [Test]
-        public void HudLegacyBuilderSymbols_AreAbsent_FromAssemblyInstallerSource_AndBaselineEvidence()
+        [TestCase(PopupId.Pause, "_popupPrefabCatalog.PausePrefab", "AddComponent<PausePopupView>")]
+        [TestCase(PopupId.ObjectiveInfo, "_popupPrefabCatalog.ObjectiveInfoPrefab", "AddComponent<ObjectiveInfoPopupView>")]
+        [TestCase(PopupId.Confirm, "_popupPrefabCatalog.ConfirmPrefab", "AddComponent<ConfirmPopupView>")]
+        [TestCase(PopupId.Tooltip, "_popupPrefabCatalog.TooltipPrefab", "AddComponent<TooltipPopupView>")]
+        [TestCase(PopupId.Reward, "_popupPrefabCatalog.RewardPrefab", "AddComponent<RewardPopupView>")]
+        public void PopupFactoryMigration_UsesCanonicalPrefabReference_AndRemovesLegacyBuilderMarker(
+            PopupId popupId,
+            string prefabReferenceToken,
+            string legacyBuilderToken)
         {
-            var legacyBuilderType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.GameplayLegacyHudViewFactory");
-            Assert.That(legacyBuilderType, Is.Null);
+            var popupFactorySource = ReadRepoFile(PopupFactorySourcePath);
 
+            Assert.That(popupFactorySource, Does.Contain(prefabReferenceToken), popupId.ToString());
+            Assert.That(popupFactorySource, Does.Not.Contain(legacyBuilderToken), popupId.ToString());
+            Assert.That(popupFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreatePanel("), popupId.ToString());
+        }
+
+        [Test]
+        public void PopupLegacyBuilderSymbols_AreAbsent_FromFactorySource_Inventory_AndBaselineEvidence()
+        {
             var installerSource = ReadRepoFile(InstallerSourcePath);
-            Assert.That(installerSource, Does.Contain("_hudPrefab"));
-            Assert.That(installerSource, Does.Not.Contain("GameplayLegacyHudViewFactory"));
-            Assert.That(installerSource, Does.Not.Contain("AllowsLegacyHudBuilder"));
-
+            var popupFactorySource = ReadRepoFile(PopupFactorySourcePath);
             var baseline = ReadRepoFile(BaselineNotePath);
-            Assert.That(baseline, Does.Not.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
-            Assert.That(baseline, Does.Contain("HUD legacy runtime builder path was removed in the same phase"));
+
+            Assert.That(installerSource, Does.Contain("_popupPrefabCatalog"));
+            Assert.That(installerSource, Does.Not.Contain("GameplayPopupPrefabRegistry"));
+            Assert.That(popupFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreatePanel("));
+            Assert.That(popupFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreateLabel("));
+            Assert.That(popupFactorySource, Does.Not.Contain("UiCanvasElementFactory.CreateButton("));
+            Assert.That(baseline, Does.Contain("popup legacy runtime builder paths were removed in the same phase"));
+            Assert.That(baseline, Does.Not.Contain("Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup"));
+        }
+
+        [Test]
+        public void PopupViewSource_RemainsLocalOnly_AndDoesNotIntroduceTimerOrLifecycleOwnershipApis()
+        {
+            var popupViewSources = new[]
+            {
+                ReadRepoFile(PausePopupViewSourcePath),
+                ReadRepoFile(ObjectiveInfoPopupViewSourcePath),
+                ReadRepoFile(ConfirmPopupViewSourcePath),
+                ReadRepoFile(TooltipPopupViewSourcePath),
+                ReadRepoFile(RewardPopupViewSourcePath),
+            };
+
+            foreach (var popupViewSource in popupViewSources)
+            {
+                Assert.That(popupViewSource, Does.Not.Contain("Object.Destroy("));
+                Assert.That(popupViewSource, Does.Not.Contain("DestroyImmediate("));
+                Assert.That(popupViewSource, Does.Not.Contain(".Dispose("));
+                Assert.That(popupViewSource, Does.Not.Contain("CloseTop"));
+                Assert.That(popupViewSource, Does.Not.Contain("CloseAll"));
+                Assert.That(popupViewSource, Does.Not.Contain("PopupController"));
+                Assert.That(popupViewSource, Does.Not.Contain("UIFlowCoordinator"));
+                Assert.That(popupViewSource, Does.Not.Contain("ScreenController"));
+                Assert.That(popupViewSource, Does.Not.Contain("IGameplayQueryFacade"));
+                Assert.That(popupViewSource, Does.Not.Contain("IGameplayCommandGateway"));
+                Assert.That(popupViewSource, Does.Not.Contain("StartCoroutine("));
+                Assert.That(popupViewSource, Does.Not.Contain("InvokeRepeating("));
+                Assert.That(popupViewSource, Does.Not.Contain("CancelInvoke("));
+                Assert.That(popupViewSource, Does.Not.Contain("Invoke(nameof("));
+                Assert.That(popupViewSource, Does.Not.Contain("Invoke(\""));
+                Assert.That(popupViewSource, Does.Not.Contain("WaitForSeconds"));
+            }
+
+            var tooltipPopupViewSource = ReadRepoFile(TooltipPopupViewSourcePath);
+            Assert.That(tooltipPopupViewSource.ToLowerInvariant(), Does.Not.Contain("autohide"));
+            Assert.That(tooltipPopupViewSource.ToLowerInvariant(), Does.Not.Contain("expiry"));
         }
 
         private static bool InvokeInventoryBooleanMethod(string methodName, object argument)
@@ -256,7 +485,7 @@ namespace Game.Feature.UI.Tests
             var inventoryType = GetInventoryType();
             var property = inventoryType.GetProperty("DocumentationTokens", BindingFlags.Static | BindingFlags.NonPublic);
             Assert.That(property, Is.Not.Null);
-            return ((System.Collections.IEnumerable)property.GetValue(null))
+            return ((IEnumerable)property.GetValue(null))
                 .Cast<object>()
                 .Select(value => value.ToString())
                 .ToArray();
@@ -270,11 +499,146 @@ namespace Game.Feature.UI.Tests
             return (bool)property.GetValue(null);
         }
 
+        private static object ReadInventoryEnumValue(string enumTypeName, string valueName)
+        {
+            var enumType = typeof(GameplayUiFlowInstaller).Assembly.GetType(enumTypeName);
+            Assert.That(enumType, Is.Not.Null, enumTypeName);
+            return Enum.Parse(enumType, valueName);
+        }
+
         private static Type GetInventoryType()
         {
             var inventoryType = typeof(GameplayUiFlowInstaller).Assembly.GetType("Game.Feature.UI.Composition.UiPrefabMigrationInventory");
             Assert.That(inventoryType, Is.Not.Null);
             return inventoryType;
+        }
+
+        private static void AssertPopupPrefabContract<TPopupView>(string assetPath)
+            where TPopupView : Component
+        {
+            var popupPrefab = UiTestPrefabAssetUtility.LoadPopupPrefab<TPopupView>(assetPath);
+
+            Assert.That(popupPrefab, Is.Not.Null, assetPath);
+            Assert.That(popupPrefab.GetComponent<CanvasGroup>(), Is.Not.Null, assetPath);
+            AssertPrefabHasNoCrossLayerOwners(popupPrefab.gameObject);
+        }
+
+        private static Component OpenPopup(GameplayUiFlowInstaller installer, PopupId popupId)
+        {
+            switch (popupId)
+            {
+                case PopupId.Pause:
+                    installer.HudView.ClickPause();
+                    return installer.PausePopupView;
+
+                case PopupId.ObjectiveInfo:
+                    installer.GameplayScreenView.ClickObjectives();
+                    installer.ObjectiveStatusScreenView.ClickInfo();
+                    return installer.ObjectiveInfoPopupView;
+
+                case PopupId.Confirm:
+                    installer.Coordinator.RequestConfirmPopup(
+                        new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false));
+                    return installer.ConfirmPopupView;
+
+                case PopupId.Tooltip:
+                    installer.Coordinator.RequestTooltipPopup(
+                        new TooltipPopupPayload("Tip", "Body", TooltipPopupAnchorPreset.UpperRight));
+                    return installer.TooltipPopupView;
+
+                case PopupId.Reward:
+                    installer.Coordinator.RequestRewardPopup(
+                        new RewardPopupPayload(
+                            "Reward",
+                            new[] { new RewardPopupItemPayload("Crystal", 2) },
+                            "Summary",
+                            "Claim"));
+                    return installer.RewardPopupView;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null);
+            }
+        }
+
+        private static string GetPrefabAssetPath(PopupId popupId)
+        {
+            switch (popupId)
+            {
+                case PopupId.Pause:
+                    return UiTestPrefabAssetUtility.PausePopupPrefabPath;
+
+                case PopupId.ObjectiveInfo:
+                    return UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath;
+
+                case PopupId.Confirm:
+                    return UiTestPrefabAssetUtility.ConfirmPopupPrefabPath;
+
+                case PopupId.Tooltip:
+                    return UiTestPrefabAssetUtility.TooltipPopupPrefabPath;
+
+                case PopupId.Reward:
+                    return UiTestPrefabAssetUtility.RewardPopupPrefabPath;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null);
+            }
+        }
+
+        private static Component LoadPopupPrefabView(PopupId popupId)
+        {
+            switch (popupId)
+            {
+                case PopupId.Pause:
+                    return UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath);
+
+                case PopupId.ObjectiveInfo:
+                    return UiTestPrefabAssetUtility.LoadPopupPrefab<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath);
+
+                case PopupId.Confirm:
+                    return UiTestPrefabAssetUtility.LoadPopupPrefab<ConfirmPopupView>(UiTestPrefabAssetUtility.ConfirmPopupPrefabPath);
+
+                case PopupId.Tooltip:
+                    return UiTestPrefabAssetUtility.LoadPopupPrefab<TooltipPopupView>(UiTestPrefabAssetUtility.TooltipPopupPrefabPath);
+
+                case PopupId.Reward:
+                    return UiTestPrefabAssetUtility.LoadPopupPrefab<RewardPopupView>(UiTestPrefabAssetUtility.RewardPopupPrefabPath);
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(popupId), popupId, null);
+            }
+        }
+
+        private static void AssertPrefabHasNoCrossLayerOwners(GameObject prefabRoot)
+        {
+            var forbiddenTypes = new[]
+            {
+                typeof(GameplayUiCanvasRootView),
+                typeof(HUDRootView),
+                typeof(PlayerStatusView),
+                typeof(ActionBarView),
+                typeof(NotificationView),
+                typeof(PopupLayerView),
+                typeof(GameplayScreenView),
+                typeof(HelpScreenView),
+                typeof(ObjectiveStatusScreenView),
+                typeof(InventoryScreenView),
+                typeof(SettingsScreenView),
+                typeof(StageResultScreenView),
+                typeof(ScreenLayerView),
+                typeof(UiArchitectureDiagnosticsOverlayView),
+                typeof(PopupController),
+                typeof(UIFlowCoordinator),
+                typeof(ScreenController),
+            };
+
+            var foundForbiddenComponents = prefabRoot
+                .GetComponentsInChildren<Component>(true)
+                .Where(component => component != null && forbiddenTypes.Contains(component.GetType()))
+                .Select(component => component.GetType().Name)
+                .Distinct()
+                .ToArray();
+
+            Assert.That(foundForbiddenComponents, Is.Empty);
         }
 
         private static string ReadRepoFile(string relativePath)

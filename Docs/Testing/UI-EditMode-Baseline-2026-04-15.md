@@ -10,7 +10,7 @@
 
 ## Result
 - Status: green
-- Unity UI EditMode: `110 total / 0 failed`
+- Unity UI EditMode: `131 total / 0 failed`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -27,12 +27,14 @@
   - canonical root-shell prefab structure guards proving the runtime shell contains only infrastructure children and no serialized feature views
   - HUD prefab migration guards proving the installer mounts one authored HUD prefab under `HudLayer`, the shell remains HUD-markup free, and the legacy HUD builder symbols are absent from code and docs
   - HUD view boundary guards proving HUD views no longer expose runtime `Configure(...)` entrypoints and stay free of flow/gameplay-access/diagnostics dependencies
-  - mixed-mode inventory guards proving the current hybrid entries are explicit, root shell is no longer hybrid, and the allowlist remains mechanically inspectable
+  - popup prefab migration guards proving the installer mounts one fixed-shape popup catalog, the popup factory instantiates one canonical authored prefab per popup kind under `PopupLayer`, and popup legacy builder symbols are absent from code and docs
+  - per-kind popup prefab contract and boundary guards proving `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` stay visual/local only, tooltip keeps bounded anchor/clamp behavior, and popup callbacks/timers do not acquire lifecycle ownership
+  - mixed-mode inventory guards proving the current hybrid entries are explicit, root shell/HUD/popup layers are no longer hybrid, and the remaining allowlist stays mechanically inspectable
   - stronger screen-view ownership guards proving screen and inventory child views do not surface navigation, popup, back-stack, or controller shortcuts
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `110 total / 0 failed`
-  - delta: `+46` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, and mixed-mode drift detection
+  - current rerun: `131 total / 0 failed`
+  - delta: `+67` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, per-kind popup boundary coverage, and mixed-mode drift detection
 - Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
 - Renamed / merged / split tests:
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
@@ -54,16 +56,17 @@
 - HUD status:
   - canonical HUD is now migrated to one installer-assigned prefab-authored path under `HudLayer`
   - HUD legacy runtime builder path was removed in the same phase
-  - this remains a bounded HUD proof and must not be treated as precedent for popup/screen migration
+  - this remains a bounded HUD proof and must not be treated as precedent for screen migration
+- Popup status:
+  - canonical popup layer is now migrated to one popup-catalog-backed prefab-authored path under `PopupLayer`
+  - popup legacy runtime builder paths were removed in the same phase
+  - the popup catalog remains fixed-shape and popup-only; it must not drift into a cross-layer asset registry or policy store
+  - tooltip remains a bounded special case for local anchor/clamp presentation only; auto-hide and timer-owned lifetime remain out of scope
+  - this remains a bounded popup proof and must not be treated as precedent for screen migration
 - Hybrid allowlist status:
   - mixed mode remains temporary and explicitly allowlisted only for the entries below
   - freeze evidence stays blocked while this allowlist remains non-empty
 - Allowlisted hybrid entries:
-  - `Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup`
-  - `Popup:ObjectiveInfo -> GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup`
-  - `Popup:Confirm -> GameplayPopupRuntimeFactory.CreateConfirmPopup`
-  - `Popup:Tooltip -> GameplayPopupRuntimeFactory.CreateTooltipPopup`
-  - `Popup:Reward -> GameplayPopupRuntimeFactory.CreateRewardPopup`
   - `Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen`
   - `Screen:Help -> GameplayScreenRuntimeFactory.CreateHelpScreen`
   - `Screen:ObjectiveStatus -> GameplayScreenRuntimeFactory.CreateObjectiveStatusScreen`
@@ -91,8 +94,8 @@
 ## Runner Warning Status
 - Governance mode: `soft`
 - Non-blocking governance warnings:
-  - `Core candidate debt is above threshold: candidates=7, threshold=5, streak=0`
-  - this warning was unchanged during the Stage 9 reruns
+  - `Core candidate debt is above threshold: candidates=8, threshold=5, streak=0`
+  - this warning remains non-blocking and separate from popup migration pass/fail interpretation
   - do not collapse non-blocking warnings into the pass/fail summary
 - Regression distinction:
   - a new UI seam failure is blocking
@@ -132,8 +135,11 @@
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
 - HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
-- HUD prefab migration is a bounded HUD proof and must not be treated as precedent for popup/screen migration without fresh review
-- mixed mode is now explicitly inventoried: root shell and HUD are migrated, while popup/screen legacy builders remain temporary allowlisted entries rather than implicit permanent hybrids
+- HUD prefab migration is a bounded HUD proof and must not be treated as precedent for screen migration without fresh review
+- popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog
+- popup prefab views remain visual/local only; popup callbacks, timers, and animation completions do not own lifecycle, stack mutation, or dismissibility policy
+- tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
+- mixed mode is now explicitly inventoried: root shell, HUD, and popup layers are migrated, while screen legacy builders remain temporary allowlisted entries rather than implicit permanent hybrids
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 

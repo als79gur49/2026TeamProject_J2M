@@ -18,7 +18,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
                 var eventSystem = Object.FindFirstObjectByType<EventSystem>();
@@ -70,7 +70,7 @@ namespace Game.Feature.UI.Tests
                     FakeGameplayQueryFacade.CreateDefaultPlayerHud(),
                     new Game.Feature.Gameplay.UIAccess.Models.GameplayObjectiveReadModel(true, true, false, false));
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts(
                     queryFacade: queryFacade,
                     pauseService: pauseService));
@@ -104,7 +104,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
                 var completions = new List<PopupCompletion>();
@@ -144,7 +144,7 @@ namespace Game.Feature.UI.Tests
             try
             {
                 var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
-                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
                 installer.Install(UiTestPortFactory.CreatePorts());
 
                 installer.GameplayScreenView.ClickInventory();

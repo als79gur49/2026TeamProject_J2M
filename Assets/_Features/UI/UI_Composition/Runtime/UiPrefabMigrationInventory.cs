@@ -39,11 +39,6 @@ namespace Game.Feature.UI.Composition
     {
         private static readonly UiPrefabMigrationEntry[] AllowedMixedModeEntries =
         {
-            new(UiPrefabMigrationEntryKind.Popup, PopupId.Pause.ToString(), "GameplayPopupRuntimeFactory.CreatePausePopup"),
-            new(UiPrefabMigrationEntryKind.Popup, PopupId.ObjectiveInfo.ToString(), "GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup"),
-            new(UiPrefabMigrationEntryKind.Popup, PopupId.Confirm.ToString(), "GameplayPopupRuntimeFactory.CreateConfirmPopup"),
-            new(UiPrefabMigrationEntryKind.Popup, PopupId.Tooltip.ToString(), "GameplayPopupRuntimeFactory.CreateTooltipPopup"),
-            new(UiPrefabMigrationEntryKind.Popup, PopupId.Reward.ToString(), "GameplayPopupRuntimeFactory.CreateRewardPopup"),
             new(UiPrefabMigrationEntryKind.Screen, ScreenId.Gameplay.ToString(), "GameplayScreenRuntimeFactory.CreateGameplayScreen"),
             new(UiPrefabMigrationEntryKind.Screen, ScreenId.Help.ToString(), "GameplayScreenRuntimeFactory.CreateHelpScreen"),
             new(UiPrefabMigrationEntryKind.Screen, ScreenId.ObjectiveStatus.ToString(), "GameplayScreenRuntimeFactory.CreateObjectiveStatusScreen"),

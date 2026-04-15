@@ -4,23 +4,22 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Popups
 {
-    public sealed class PausePopupView : MonoBehaviour, IPopupView
+    public sealed class RewardPopupView : MonoBehaviour, IPopupView
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
         [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _descriptionLabel;
-        [SerializeField] private Button _resumeButton;
-        [SerializeField] private Text _resumeButtonLabel;
+        [SerializeField] private Text _firstItemLabel;
+        [SerializeField] private Text _secondItemLabel;
+        [SerializeField] private Text _thirdItemLabel;
+        [SerializeField] private Text _summaryLabel;
+        [SerializeField] private Button _closeButton;
+        [SerializeField] private Text _closeButtonLabel;
 
-        private PausePopupViewModel _viewModel;
+        private RewardPopupViewModel _viewModel;
         private bool _isVisible;
 
         public event Action<PopupCompletionKind> CompletionRequested;
-
-        public string TitleText => _viewModel != null ? _viewModel.TitleText : string.Empty;
-
-        public string DescriptionText => _viewModel != null ? _viewModel.DescriptionText : string.Empty;
 
         public bool IsVisible
         {
@@ -32,7 +31,7 @@ namespace Game.Feature.UI.Popups
             }
         }
 
-        public void Bind(PausePopupViewModel viewModel)
+        public void Bind(RewardPopupViewModel viewModel)
         {
             if (_viewModel != null)
             {
@@ -50,10 +49,10 @@ namespace Game.Feature.UI.Popups
 
         private void OnEnable()
         {
-            if (_resumeButton != null)
+            if (_closeButton != null)
             {
-                _resumeButton.onClick.RemoveListener(ClickResume);
-                _resumeButton.onClick.AddListener(ClickResume);
+                _closeButton.onClick.RemoveListener(ClickAcknowledge);
+                _closeButton.onClick.AddListener(ClickAcknowledge);
             }
 
             RefreshView();
@@ -61,9 +60,9 @@ namespace Game.Feature.UI.Popups
 
         private void OnDisable()
         {
-            if (_resumeButton != null)
+            if (_closeButton != null)
             {
-                _resumeButton.onClick.RemoveListener(ClickResume);
+                _closeButton.onClick.RemoveListener(ClickAcknowledge);
             }
         }
 
@@ -78,14 +77,14 @@ namespace Game.Feature.UI.Popups
             _canvasGroup.blocksRaycasts = isTopmost;
         }
 
-        public void ClickResume()
+        public void ClickAcknowledge()
         {
-            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            if (!IsVisible || _canvasGroup == null || !_canvasGroup.interactable)
             {
                 return;
             }
 
-            CompletionRequested?.Invoke(PopupCompletionKind.Resumed);
+            CompletionRequested?.Invoke(PopupCompletionKind.Acknowledged);
         }
 
         private void OnDestroy()
@@ -95,9 +94,9 @@ namespace Game.Feature.UI.Popups
                 _viewModel.Changed -= HandleViewModelChanged;
             }
 
-            if (_resumeButton != null)
+            if (_closeButton != null)
             {
-                _resumeButton.onClick.RemoveListener(ClickResume);
+                _closeButton.onClick.RemoveListener(ClickAcknowledge);
             }
         }
 
@@ -123,14 +122,29 @@ namespace Game.Feature.UI.Popups
                 _titleLabel.text = _viewModel.TitleText;
             }
 
-            if (_descriptionLabel != null)
+            if (_summaryLabel != null)
             {
-                _descriptionLabel.text = _viewModel.DescriptionText;
+                _summaryLabel.text = _viewModel.SummaryText;
             }
 
-            if (_resumeButtonLabel != null)
+            if (_closeButtonLabel != null)
             {
-                _resumeButtonLabel.text = _viewModel.ResumeLabel;
+                _closeButtonLabel.text = _viewModel.CloseLabel;
+            }
+
+            if (_firstItemLabel != null)
+            {
+                _firstItemLabel.text = _viewModel.ItemLines.Length > 0 ? _viewModel.ItemLines[0] : string.Empty;
+            }
+
+            if (_secondItemLabel != null)
+            {
+                _secondItemLabel.text = _viewModel.ItemLines.Length > 1 ? _viewModel.ItemLines[1] : string.Empty;
+            }
+
+            if (_thirdItemLabel != null)
+            {
+                _thirdItemLabel.text = _viewModel.ItemLines.Length > 2 ? _viewModel.ItemLines[2] : string.Empty;
             }
         }
     }

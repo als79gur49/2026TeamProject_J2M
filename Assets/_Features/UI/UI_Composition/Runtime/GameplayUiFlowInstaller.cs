@@ -21,6 +21,8 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private GameplayUiCanvasRootView _rootView;
         // Phase-local HUD prefab seam only. Do not expand this into a general feature-prefab registry.
         [SerializeField] private HUDRootView _hudPrefab;
+        // Popup-prefab composition remains popup-only. Do not widen this into a cross-layer asset registry.
+        [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private bool _installOnStart = true;
 
         private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
@@ -136,6 +138,7 @@ namespace Game.Feature.UI.Composition
 
             Ports = ports;
             EnsureRootView();
+            EnsurePopupPrefabCatalog();
             PresentationSource = Ports.PresentationSource;
 
             var playerStatusPresenter = new PlayerStatusPresenter();
@@ -153,7 +156,9 @@ namespace Game.Feature.UI.Composition
                 Ports.QueryFacade,
                 PresentationSource,
                 sessionSettingsStore));
-            PopupController = new PopupController(new GameplayPopupRuntimeFactory(_rootView.PopupLayerView));
+            PopupController = new PopupController(new GameplayPopupRuntimeFactory(
+                _rootView.PopupLayerView,
+                _popupPrefabCatalog));
             HudController = new HUDController(
                 HudRootPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
@@ -231,6 +236,19 @@ namespace Game.Feature.UI.Composition
 
             var hudView = Instantiate(_hudPrefab, _rootView.HudLayer, false);
             _rootView.AttachHudView(hudView);
+        }
+
+        private void EnsurePopupPrefabCatalog()
+        {
+            if (_popupPrefabCatalog != null)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "GameplayUiFlowInstaller is missing the canonical popup prefab catalog reference. " +
+                "Assign the popup-only prefab catalog instead of reintroducing runtime popup builders " +
+                "or widening composition into a generic asset registry.");
         }
 
         private void SetupDiagnostics()

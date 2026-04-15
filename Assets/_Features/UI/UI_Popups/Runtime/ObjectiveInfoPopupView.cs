@@ -11,6 +11,7 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _bodyLabel;
         [SerializeField] private Button _closeButton;
+        [SerializeField] private Text _closeButtonLabel;
 
         private ObjectiveInfoPopupViewModel _viewModel;
         private bool _isVisible;
@@ -31,25 +32,6 @@ namespace Game.Feature.UI.Popups
 
         public string BodyText => _viewModel != null ? _viewModel.BodyText : string.Empty;
 
-        public void Configure(
-            GameObject root,
-            CanvasGroup canvasGroup,
-            Text titleLabel,
-            Text bodyLabel,
-            Button closeButton)
-        {
-            _root = root;
-            _canvasGroup = canvasGroup;
-            _titleLabel = titleLabel;
-            _bodyLabel = bodyLabel;
-            _closeButton = closeButton;
-
-            _closeButton.onClick.RemoveListener(ClickClose);
-            _closeButton.onClick.AddListener(ClickClose);
-
-            RefreshView();
-        }
-
         public void Bind(ObjectiveInfoPopupViewModel viewModel)
         {
             if (_viewModel != null)
@@ -66,6 +48,25 @@ namespace Game.Feature.UI.Popups
             RefreshView();
         }
 
+        private void OnEnable()
+        {
+            if (_closeButton != null)
+            {
+                _closeButton.onClick.RemoveListener(ClickClose);
+                _closeButton.onClick.AddListener(ClickClose);
+            }
+
+            RefreshView();
+        }
+
+        private void OnDisable()
+        {
+            if (_closeButton != null)
+            {
+                _closeButton.onClick.RemoveListener(ClickClose);
+            }
+        }
+
         public void SetIsTopmost(bool isTopmost)
         {
             if (_canvasGroup == null)
@@ -79,7 +80,7 @@ namespace Game.Feature.UI.Popups
 
         public void ClickClose()
         {
-            if (!IsVisible || _canvasGroup == null || !_canvasGroup.interactable)
+            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
             {
                 return;
             }
@@ -92,6 +93,11 @@ namespace Game.Feature.UI.Popups
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
+            }
+
+            if (_closeButton != null)
+            {
+                _closeButton.onClick.RemoveListener(ClickClose);
             }
         }
 
@@ -122,12 +128,9 @@ namespace Game.Feature.UI.Popups
                 _bodyLabel.text = _viewModel.BodyText;
             }
 
-            var buttonLabel = _closeButton != null
-                ? _closeButton.GetComponentInChildren<Text>()
-                : null;
-            if (buttonLabel != null)
+            if (_closeButtonLabel != null)
             {
-                buttonLabel.text = _viewModel.CloseLabel;
+                _closeButtonLabel.text = _viewModel.CloseLabel;
             }
         }
     }

@@ -447,6 +447,79 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PopupViews_NoLongerExposeLegacyRuntimeConfigureEntryPoints()
+        {
+            var popupViewTypes = new[]
+            {
+                typeof(PausePopupView),
+                typeof(ObjectiveInfoPopupView),
+                typeof(ConfirmPopupView),
+                typeof(TooltipPopupView),
+                typeof(RewardPopupView),
+            };
+
+            foreach (var popupViewType in popupViewTypes)
+            {
+                Assert.That(
+                    popupViewType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                        .Select(method => method.Name),
+                    Does.Not.Contain("Configure"),
+                    popupViewType.FullName);
+            }
+        }
+
+        [Test]
+        public void PopupViews_DoNotDependOnFlowGameplayAccessOrDiagnosticsTypes()
+        {
+            var popupViewTypes = new[]
+            {
+                typeof(PausePopupView),
+                typeof(ObjectiveInfoPopupView),
+                typeof(ConfirmPopupView),
+                typeof(TooltipPopupView),
+                typeof(RewardPopupView),
+            };
+            var forbiddenTypes = new[]
+            {
+                typeof(IGameplayQueryFacade),
+                typeof(IGameplayCommandGateway),
+                typeof(IGameplayUiPresentationSource),
+                typeof(UIFlowCoordinator),
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(UiArchitectureDiagnosticsTracker),
+            };
+
+            foreach (var popupViewType in popupViewTypes)
+            {
+                foreach (var forbiddenType in forbiddenTypes)
+                {
+                    Assert.That(
+                        TypeDependsOn(popupViewType, forbiddenType),
+                        Is.False,
+                        $"{popupViewType.FullName} depends on {forbiddenType.FullName}");
+                }
+            }
+        }
+
+        [Test]
+        public void PopupPrefabCatalog_PublicSurface_RemainsFixedShapePopupOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(PopupPrefabCatalog)),
+                Is.EqualTo(new[]
+                {
+                    "ConfirmPrefab",
+                    "ObjectiveInfoPrefab",
+                    "PausePrefab",
+                    "RewardPrefab",
+                    "TooltipPrefab",
+                }));
+            Assert.That(GetPublicEventNames(typeof(PopupPrefabCatalog)), Is.Empty);
+            Assert.That(GetPublicMethodSignatures(typeof(PopupPrefabCatalog)), Is.Empty);
+        }
+
+        [Test]
         public void PopupPresenters_DoNotDependOnFlowOrRawGameplayPresentationTypes()
         {
             var presenterTypes = new[]

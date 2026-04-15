@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6df2aa7874b9c064f988cc2bab4d42c7, type: 3}
+  m_Name: GameplayPopupPrefabCatalog
+  m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.PopupPrefabCatalog
+  _pausePrefab: {fileID: 8438809890590712221, guid: 9d7e88136e1546d478862dd16e82b931, type: 3}
+  _objectiveInfoPrefab: {fileID: 5613530688319659949, guid: fc48a7db19d86374ba6a432dfd699dad, type: 3}
+  _confirmPrefab: {fileID: 230156798764944720, guid: db44a1cb2da823f4386eb9628ad1f9e7, type: 3}
+  _tooltipPrefab: {fileID: 3085915511985081818, guid: 74c4ec6a23ac43149b8072802f83a2e0, type: 3}
+  _rewardPrefab: {fileID: 1123289439336959643, guid: 5f4bf5ee49ba6b14795abf377afba43a, type: 3}
