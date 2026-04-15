@@ -10,7 +10,7 @@
 
 ## Result
 - Status: green
-- Unity UI EditMode: `104 total / 0 failed`
+- Unity UI EditMode: `110 total / 0 failed`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -25,15 +25,17 @@
   - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
   - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
   - canonical root-shell prefab structure guards proving the runtime shell contains only infrastructure children and no serialized feature views
-  - shell-migration guards proving `GameplayUiCanvasRootView` no longer synthesizes HUD feature content and the installer mounts the allowlisted HUD bridge under `HudLayer`
+  - HUD prefab migration guards proving the installer mounts one authored HUD prefab under `HudLayer`, the shell remains HUD-markup free, and the legacy HUD builder symbols are absent from code and docs
+  - HUD view boundary guards proving HUD views no longer expose runtime `Configure(...)` entrypoints and stay free of flow/gameplay-access/diagnostics dependencies
   - mixed-mode inventory guards proving the current hybrid entries are explicit, root shell is no longer hybrid, and the allowlist remains mechanically inspectable
   - stronger screen-view ownership guards proving screen and inventory child views do not surface navigation, popup, back-stack, or controller shortcuts
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `104 total / 0 failed`
-  - delta: `+40` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, and mixed-mode drift detection
+  - current rerun: `110 total / 0 failed`
+  - delta: `+46` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, and mixed-mode drift detection
 - Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
-- Renamed / merged / split tests: none expected for Stage 9; if any change shape, the preserved seam owner must be stated here explicitly.
+- Renamed / merged / split tests:
+  - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
 - Replaced weak guards:
   - Stage 5-only freeze language is replaced with Stage 4–8 seam-preservation language
   - ad hoc “UI test count” bookkeeping is replaced with structural delta, guard evolution, and warning interpretation
@@ -49,11 +51,14 @@
 - Root shell status:
   - canonical root shell is now migrated to the installer-instantiated prefab path
   - no mixed-mode allowlist row remains for the root shell
+- HUD status:
+  - canonical HUD is now migrated to one installer-assigned prefab-authored path under `HudLayer`
+  - HUD legacy runtime builder path was removed in the same phase
+  - this remains a bounded HUD proof and must not be treated as precedent for popup/screen migration
 - Hybrid allowlist status:
   - mixed mode remains temporary and explicitly allowlisted only for the entries below
   - freeze evidence stays blocked while this allowlist remains non-empty
 - Allowlisted hybrid entries:
-  - `Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create`
   - `Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup`
   - `Popup:ObjectiveInfo -> GameplayPopupRuntimeFactory.CreateObjectiveInfoPopup`
   - `Popup:Confirm -> GameplayPopupRuntimeFactory.CreateConfirmPopup`
@@ -126,7 +131,9 @@
 - Stage 9 diagnostics remain read-only, bounded, editor/development-only, and non-reusable as runtime state aggregation
 - `TutorialScene` now preserves one canonical `GameplaySceneHost -> GameplayUiFlowInstaller` bootstrap path with no serialized duplicate UI roots, duplicate input-routing roots, or pre-authored popup/screen lifecycle trees
 - canonical UI bootstrap now instantiates one prefab-authored root shell named `GameplayUiCanvasRoot`, and that shell remains infrastructure-only at the top level
-- mixed mode is now explicitly inventoried: root shell is migrated, while HUD/popup/screen legacy builders remain temporary allowlisted entries rather than implicit permanent hybrids
+- HUD legacy runtime builder path was removed in the same phase, leaving one canonical prefab-authored HUD creation path beneath `HudLayer`
+- HUD prefab migration is a bounded HUD proof and must not be treated as precedent for popup/screen migration without fresh review
+- mixed mode is now explicitly inventoried: root shell and HUD are migrated, while popup/screen legacy builders remain temporary allowlisted entries rather than implicit permanent hybrids
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 

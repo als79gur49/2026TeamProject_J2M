@@ -29,7 +29,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Runner warning changes"));
             Assert.That(baseline, Does.Contain("Public-surface change governance"));
             Assert.That(baseline, Does.Contain("freeze evidence stays blocked while this allowlist remains non-empty"));
-            Assert.That(baseline, Does.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
+            Assert.That(baseline, Does.Not.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
+            Assert.That(baseline, Does.Contain("HUD legacy runtime builder path was removed in the same phase"));
+            Assert.That(baseline, Does.Contain("bounded HUD proof"));
+            Assert.That(baseline, Does.Contain("must not be treated as precedent for popup/screen migration"));
             Assert.That(baseline, Does.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
 
