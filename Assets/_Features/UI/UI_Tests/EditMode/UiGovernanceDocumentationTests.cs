@@ -28,15 +28,21 @@ namespace Game.Feature.UI.Tests
             Assert.That(baseline, Does.Contain("Obsolete guards"));
             Assert.That(baseline, Does.Contain("Runner warning changes"));
             Assert.That(baseline, Does.Contain("Public-surface change governance"));
-            Assert.That(baseline, Does.Contain("freeze evidence stays blocked while this allowlist remains non-empty"));
+            Assert.That(baseline, Does.Contain("root shell, HUD, popup, and screen migration allowlists are now empty"));
             Assert.That(baseline, Does.Not.Contain("Hud:PersistentHud -> GameplayLegacyHudViewFactory.Create"));
             Assert.That(baseline, Does.Contain("HUD legacy runtime builder path was removed in the same phase"));
             Assert.That(baseline, Does.Contain("bounded HUD proof"));
             Assert.That(baseline, Does.Contain("popup legacy runtime builder paths were removed in the same phase"));
             Assert.That(baseline, Does.Contain("popup catalog remains fixed-shape and popup-only"));
             Assert.That(baseline, Does.Contain("must not be treated as precedent for screen migration"));
+            Assert.That(baseline, Does.Contain("screen legacy runtime builder paths were removed in the same phase"));
+            Assert.That(baseline, Does.Contain("screen catalog remains fixed-shape and screen-only"));
+            Assert.That(baseline, Does.Contain("screen hybrid allowlist is now empty"));
+            Assert.That(baseline, Does.Contain("simple-shell checkpoint"));
+            Assert.That(baseline, Does.Contain("terminal-screen checkpoint"));
+            Assert.That(baseline, Does.Contain("complex-screen checkpoint"));
             Assert.That(baseline, Does.Not.Contain("Popup:Pause -> GameplayPopupRuntimeFactory.CreatePausePopup"));
-            Assert.That(baseline, Does.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
+            Assert.That(baseline, Does.Not.Contain("ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built"));
         }
 
         [Test]

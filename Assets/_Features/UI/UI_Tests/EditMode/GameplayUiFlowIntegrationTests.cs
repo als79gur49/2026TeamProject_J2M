@@ -180,6 +180,12 @@ namespace Game.Feature.UI.Tests
                 Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
                 Assert.That(installer.StageResultScreenView, Is.Not.Null);
+                Assert.That(installer.StageResultScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+
+                installer.StageResultScreenView.ClickContinue();
+
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
             }
             finally

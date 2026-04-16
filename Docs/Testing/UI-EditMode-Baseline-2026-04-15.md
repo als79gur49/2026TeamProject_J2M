@@ -10,7 +10,7 @@
 
 ## Result
 - Status: green
-- Unity UI EditMode: `131 total / 0 failed`
+- Unity UI EditMode: `155 total / 0 failed`
 - Result XML: `TestResults/wsl-unity-ui-editmode.xml`
 - Unity log: `TestResults/wsl-unity-ui-editmode.log`
 - Build log: `TestResults/wsl-dotnet-ui.log`
@@ -20,7 +20,7 @@
   - controller/coordinator public-surface freeze tests for `UIFlowCoordinator`, `ScreenController`, `PopupController`, and `UIBlockPolicy`
   - deterministic controller/policy guards for `PopTo`, runtime action relay, close-all ordering, backdrop routing, and older-frame refresh behavior
   - diagnostics boundary tests proving the Stage 9 overlay remains read-only, bounded, and opt-in for drill-down details
-  - governance documentation tests for baseline structure, stale wording removal, and PlayMode escalation-marker enforcement
+  - governance documentation tests for baseline structure, stale wording removal, PlayMode escalation-marker enforcement, and `TutorialScene` manual runtime smoke-plan governance
   - Stage 8 structural drift guards for root-owned state, child public surfaces, and input-bag/non-flow leakage
   - `TutorialScene` scene contract guard proving one canonical gameplay/bootstrap root path, one serialized installer/host binding, and no serialized duplicate UI residue
   - canonical stage-clear integration guard proving gameplay host + installer flow transitions into the Stage 7 `StageResult` screen without relying on the legacy overlay path
@@ -29,12 +29,13 @@
   - HUD view boundary guards proving HUD views no longer expose runtime `Configure(...)` entrypoints and stay free of flow/gameplay-access/diagnostics dependencies
   - popup prefab migration guards proving the installer mounts one fixed-shape popup catalog, the popup factory instantiates one canonical authored prefab per popup kind under `PopupLayer`, and popup legacy builder symbols are absent from code and docs
   - per-kind popup prefab contract and boundary guards proving `Pause`, `ObjectiveInfo`, `Confirm`, `Tooltip`, and `Reward` stay visual/local only, tooltip keeps bounded anchor/clamp behavior, and popup callbacks/timers do not acquire lifecycle ownership
-  - mixed-mode inventory guards proving the current hybrid entries are explicit, root shell/HUD/popup layers are no longer hybrid, and the remaining allowlist stays mechanically inspectable
-  - stronger screen-view ownership guards proving screen and inventory child views do not surface navigation, popup, back-stack, or controller shortcuts
+  - screen prefab migration guards proving the installer mounts one fixed-shape screen-only catalog, the screen factory instantiates one canonical authored prefab per screen id under `ScreenLayer`, and screen legacy builder symbols are absent from code and docs
+  - screen checkpoint guards proving the simple-shell, terminal-screen, and complex-screen checkpoints stay mechanically inspectable instead of hiding risk inside one broad migration phase
+  - stronger screen-view ownership guards proving screen and inventory child views do not surface navigation, popup, back-stack, controller, gameplay-access, or diagnostics shortcuts
 - Test count delta:
   - previous pinned UI EditMode baseline: `64 total / 0 failed`
-  - current rerun: `131 total / 0 failed`
-  - delta: `+67` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, per-kind popup boundary coverage, and mixed-mode drift detection
+  - current rerun: `155 total / 0 failed`
+  - delta: `+91` tests, targeted at seam hardening, diagnostics boundary checks, governance evidence, canonical `TutorialScene` adoption, canonical root-shell migration, HUD prefab sunset proof, popup prefab sunset proof, screen prefab sunset proof, checkpoint coverage for simple-shell/terminal/complex screens, mixed-mode drift detection, and manual smoke-plan governance
 - Removed tests: none expected for Stage 9; if any are removed, the replacement guard must be named here explicitly.
 - Renamed / merged / split tests:
   - renamed the installer HUD migration guard from the allowlisted legacy-bridge wording to canonical HUD prefab wording so the test name matches the surviving runtime path
@@ -63,20 +64,21 @@
   - the popup catalog remains fixed-shape and popup-only; it must not drift into a cross-layer asset registry or policy store
   - tooltip remains a bounded special case for local anchor/clamp presentation only; auto-hide and timer-owned lifetime remain out of scope
   - this remains a bounded popup proof and must not be treated as precedent for screen migration
+- Screen status:
+  - canonical screen layer is now migrated to one screen-catalog-backed prefab-authored path under `ScreenLayer`
+  - screen legacy runtime builder paths were removed in the same phase
+  - the screen catalog remains fixed-shape and screen-only; it must not drift into a theme registry, variant registry, child-section catalog, or cross-layer asset registry
+  - simple-shell checkpoint is complete for `Help`, `ObjectiveStatus`, and `Settings`
+  - `GameplayScreen` remains a gameplay-root-adjacent special case and must not be treated as the ordinary migration template
+  - terminal-screen checkpoint is complete for `StageResult`, which remains a runtime-owned terminal special case rather than a generic screen model
+  - complex-screen checkpoint is complete for `Inventory`, which remains one screen shell with nested child views and bounded child presenters
 - Hybrid allowlist status:
-  - mixed mode remains temporary and explicitly allowlisted only for the entries below
-  - freeze evidence stays blocked while this allowlist remains non-empty
+  - root shell, HUD, popup, and screen migration allowlists are now empty
+  - screen hybrid allowlist is now empty
 - Allowlisted hybrid entries:
-  - `Screen:Gameplay -> GameplayScreenRuntimeFactory.CreateGameplayScreen`
-  - `Screen:Help -> GameplayScreenRuntimeFactory.CreateHelpScreen`
-  - `Screen:ObjectiveStatus -> GameplayScreenRuntimeFactory.CreateObjectiveStatusScreen`
-  - `Screen:Inventory -> GameplayScreenRuntimeFactory.CreateInventoryScreen`
-  - `Screen:Settings -> GameplayScreenRuntimeFactory.CreateSettingsScreen`
-  - `Screen:StageResult -> GameplayScreenRuntimeFactory.CreateStageResultScreen`
-  - `ScreenInternal:InventoryScreen.Sections -> InventoryScreenView authored child sections remain runtime-built`
+  - none
 - Governance rule:
-  - this section must shrink monotonically as entries migrate
-  - any reintroduced legacy builder for a non-listed entry is drift and blocks freeze
+  - any reintroduced legacy builder, child-section runtime unit, or mixed-mode entry is drift and blocks freeze
 
 ## Guard Evolution
 - Expected architectural evolution:
@@ -139,7 +141,12 @@
 - popup legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored popup creation path beneath `PopupLayer` via a fixed-shape popup-only catalog
 - popup prefab views remain visual/local only; popup callbacks, timers, and animation completions do not own lifecycle, stack mutation, or dismissibility policy
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
-- mixed mode is now explicitly inventoried: root shell, HUD, and popup layers are migrated, while screen legacy builders remain temporary allowlisted entries rather than implicit permanent hybrids
+- screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
+- the screen catalog remains fixed-shape and screen-only and does not widen into a variant/theme/child-section registry
+- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so `GameplayScreen`, `StageResultScreen`, and `InventoryScreen` cannot distort the general migration model
+- `GameplayScreen` remains gameplay-root-adjacent and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
+- `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
+- `InventoryScreen` remains one runtime-managed screen shell with nested child views; child sections do not become separately runtime-managed units and the root presenter does not regrow into a monolith
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 

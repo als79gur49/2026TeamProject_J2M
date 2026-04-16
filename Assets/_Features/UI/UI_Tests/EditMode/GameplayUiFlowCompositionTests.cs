@@ -175,6 +175,39 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void GameplayUiFlowInstaller_InventoryScreen_KeepsChildViewsNestedUnderOneScreenShell()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_InventoryScreen_KeepsChildViewsNestedUnderOneScreenShell");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(UiTestPortFactory.CreatePorts());
+
+                installer.GameplayScreenView.ClickInventory();
+                var inventoryView = installer.InventoryScreenView;
+
+                Assert.That(inventoryView, Is.Not.Null);
+                Assert.That(inventoryView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(inventoryView.CatalogView, Is.Not.Null);
+                Assert.That(inventoryView.DetailView, Is.Not.Null);
+                Assert.That(inventoryView.ActionView, Is.Not.Null);
+                Assert.That(inventoryView.CatalogView.transform.IsChildOf(inventoryView.transform), Is.True);
+                Assert.That(inventoryView.DetailView.transform.IsChildOf(inventoryView.transform), Is.True);
+                Assert.That(inventoryView.ActionView.transform.IsChildOf(inventoryView.transform), Is.True);
+                Assert.That(inventoryView.CatalogView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(inventoryView.DetailView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(inventoryView.ActionView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static void DestroyEventSystemIfPresent()
         {
             var eventSystem = Object.FindFirstObjectByType<EventSystem>();

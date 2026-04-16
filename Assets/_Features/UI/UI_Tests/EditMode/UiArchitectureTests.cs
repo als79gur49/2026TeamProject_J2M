@@ -520,6 +520,24 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ScreenPrefabCatalog_PublicSurface_RemainsFixedShapeScreenOnly()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(ScreenPrefabCatalog)),
+                Is.EqualTo(new[]
+                {
+                    "GameplayPrefab",
+                    "HelpPrefab",
+                    "InventoryPrefab",
+                    "ObjectiveStatusPrefab",
+                    "SettingsPrefab",
+                    "StageResultPrefab",
+                }));
+            Assert.That(GetPublicEventNames(typeof(ScreenPrefabCatalog)), Is.Empty);
+            Assert.That(GetPublicMethodSignatures(typeof(ScreenPrefabCatalog)), Is.Empty);
+        }
+
+        [Test]
         public void PopupPresenters_DoNotDependOnFlowOrRawGameplayPresentationTypes()
         {
             var presenterTypes = new[]
@@ -851,7 +869,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void ScreenViews_AndInventoryChildViews_DoNotDependOnFlowOwnershipTypes()
+        public void ScreenViews_AndInventoryChildViews_DoNotDependOnFlowGameplayAccessOrDiagnosticsTypes()
         {
             var guardedViewTypes = new[]
             {
@@ -873,6 +891,9 @@ namespace Game.Feature.UI.Tests
                 typeof(ScreenRequest),
                 typeof(ScreenAction),
                 typeof(PopupRequest),
+                typeof(IGameplayQueryFacade),
+                typeof(IGameplayCommandGateway),
+                typeof(UiArchitectureDiagnosticsTracker),
             };
 
             foreach (var viewType in guardedViewTypes)
@@ -884,6 +905,32 @@ namespace Game.Feature.UI.Tests
                         Is.False,
                         $"{viewType.FullName} depends on {forbiddenType.FullName}");
                 }
+            }
+        }
+
+        [Test]
+        public void ScreenViews_NoLongerExposeLegacyRuntimeConfigureEntryPoints()
+        {
+            var guardedViewTypes = new[]
+            {
+                typeof(GameplayScreenView),
+                typeof(HelpScreenView),
+                typeof(ObjectiveStatusScreenView),
+                typeof(InventoryScreenView),
+                typeof(SettingsScreenView),
+                typeof(StageResultScreenView),
+                typeof(InventoryCatalogView),
+                typeof(InventoryDetailView),
+                typeof(InventoryActionView),
+            };
+
+            foreach (var viewType in guardedViewTypes)
+            {
+                Assert.That(
+                    viewType.GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+                        .Select(method => method.Name),
+                    Does.Not.Contain("Configure"),
+                    viewType.FullName);
             }
         }
 
