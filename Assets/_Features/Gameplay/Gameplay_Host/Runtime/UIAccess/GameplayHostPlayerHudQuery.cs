@@ -31,13 +31,12 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return default;
             }
 
-            var playerEntityId = _inputHost.PlayerEntityId;
-            if (playerEntityId <= 0 ||
-                !snapshot.TryGetEntity(playerEntityId, out var playerEntity))
+            if (!_admissionPolicy.TryGetCommittedControllableActor(out var playerEntity))
             {
                 return default;
             }
 
+            var playerEntityId = playerEntity.entityId;
             var playerControlState = default(PlayerControlState);
             snapshot.TryGetPlayerControlState(playerEntityId, out playerControlState);
 

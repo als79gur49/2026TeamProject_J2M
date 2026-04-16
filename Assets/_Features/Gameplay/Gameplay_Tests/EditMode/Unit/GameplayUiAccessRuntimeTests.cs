@@ -58,6 +58,57 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiAccess_SameWindowQueriesReuseCommittedPlayerFact_WhilePauseRemainsLiveGate()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_SameWindowQueriesReuseCommittedPlayerFact_WhilePauseRemainsLiveGate");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                }));
+
+                var freshSnapshot = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                Assert.That(freshSnapshot.TryGetEntity(10, out var freshPlayer), Is.True);
+
+                var session = host.UiAccess.QueryFacade.Session.Read();
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var moveAcceptance = host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right);
+
+                host.UiAccess.PauseService.Pause();
+
+                var pausedSession = host.UiAccess.QueryFacade.Session.Read();
+                var pausedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var pausedFlip = host.UiAccess.CommandGateway.RequestFlip(GameplayUiDirection.Right);
+
+                Assert.That(session.CanAcceptGameplayCommands, Is.True);
+                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(playerHud.PlayerEntityId, Is.EqualTo(freshPlayer.entityId));
+                Assert.That(playerHud.CurrentHp, Is.EqualTo(freshPlayer.hp));
+                Assert.That(playerHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
+                Assert.That(moveAcceptance.Accepted, Is.True);
+
+                Assert.That(pausedSession.IsPaused, Is.True);
+                Assert.That(pausedSession.CanAcceptGameplayCommands, Is.False);
+                Assert.That(pausedHud.IsAvailable, Is.True);
+                Assert.That(pausedHud.PlayerEntityId, Is.EqualTo(freshPlayer.entityId));
+                Assert.That(pausedHud.CurrentHp, Is.EqualTo(freshPlayer.hp));
+                Assert.That(pausedHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
+                Assert.That(pausedHud.CanMoveThisTick, Is.False);
+                Assert.That(pausedHud.CanStartActionThisTick, Is.False);
+                Assert.That(pausedFlip.Accepted, Is.False);
+                Assert.That(pausedFlip.RejectionReason, Is.EqualTo(GameplayCommandRejectionReason.Paused));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiAccess_PauseRejectsActionableCommands_AllowsClear_AndClearsPendingUiInput()
         {
             var hostObject = new GameObject("GameplayUiAccess_PauseRejectsActionableCommands_AllowsClear_AndClearsPendingUiInput");

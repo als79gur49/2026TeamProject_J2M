@@ -80,6 +80,52 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndRefreshesOnTickCompleted()
+        {
+            var hostObject = new GameObject("AdmissionPolicy_CommittedControllableActorAccessor_ReusesSameWindowFact_AndRefreshesOnTickCompleted");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
+
+                using var policy = CreatePolicy(host);
+
+                Assert.That(policy.TryGetCommittedControllableActor(out var firstActor), Is.True);
+                Assert.That(policy.TryGetCommittedControllableActor(out var secondActor), Is.True);
+
+                var freshBeforeTick = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                Assert.That(freshBeforeTick.TryGetEntity(10, out var freshBeforeActor), Is.True);
+
+                Assert.That(firstActor.entityId, Is.EqualTo(freshBeforeActor.entityId));
+                Assert.That(firstActor.position, Is.EqualTo(freshBeforeActor.position));
+                Assert.That(secondActor.entityId, Is.EqualTo(firstActor.entityId));
+                Assert.That(secondActor.position, Is.EqualTo(firstActor.position));
+
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+                Assert.That(policy.TryGetCommittedControllableActor(out var refreshedActor), Is.True);
+
+                var freshAfterTick = GameplayCompositionRoot.CreateSnapshot(host.WorldState);
+                Assert.That(freshAfterTick.TryGetEntity(10, out var freshAfterActor), Is.True);
+
+                Assert.That(refreshedActor.entityId, Is.EqualTo(freshAfterActor.entityId));
+                Assert.That(refreshedActor.position, Is.EqualTo(freshAfterActor.position));
+                Assert.That(refreshedActor.position, Is.Not.EqualTo(firstActor.position));
+            }
+            finally
+            {
+                Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged()
         {
             var hostObject = new GameObject("AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged");
