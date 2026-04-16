@@ -940,6 +940,15 @@ namespace Game.Feature.UI.Application
             Refresh();
         }
 
+        public TooltipPopupPayload BuildTooltipInfoPayload()
+        {
+            var tooltipsEnabledText = _settingsStore.State.AreTooltipsEnabled ? "Enabled" : "Disabled";
+            return new TooltipPopupPayload(
+                "Tooltips",
+                $"Tooltips show short contextual hints for UI controls. They are currently {tooltipsEnabledText} in this session; use {_payload.TooltipToggleLabel} to change that.",
+                TooltipPopupAnchorPreset.Center);
+        }
+
         private void Refresh()
         {
             var state = _settingsStore.State;

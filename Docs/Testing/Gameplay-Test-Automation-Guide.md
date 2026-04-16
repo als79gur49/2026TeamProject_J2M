@@ -19,6 +19,7 @@
 - 후속 PR은 per-class fail histogram 기준으로 direct touched cluster와 unrelated baseline cluster를 분리해 판정한다.
 - 자세한 baseline은 [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md)를 따른다.
 - UI freeze evidence는 [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md)를 따른다. 이 문서는 test count ledger가 아니라 structural delta, guard evolution, runner warning status, PlayMode escalation status를 함께 기록해야 한다.
+- `TutorialScene` 실씬 런타임 UI smoke가 필요할 때는 [TutorialScene-Manual-Runtime-Smoke-Plan.md](./TutorialScene-Manual-Runtime-Smoke-Plan.md)를 사용한다. 이 문서는 자동화 lane을 대체하지 않고 canonical runtime integration의 수동 companion evidence를 정의한다.
 - generated stratification report는 더 이상 governance truth-source가 아니다.
 
 ### English Original
@@ -32,6 +33,7 @@
 - Follow-up PRs are judged by per-class fail histograms split into direct touched clusters and unrelated baseline clusters.
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
 - Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 9 UI hardening evidence, including structural delta and guard-evolution interpretation.
+- Use [TutorialScene-Manual-Runtime-Smoke-Plan.md](./TutorialScene-Manual-Runtime-Smoke-Plan.md) when a real-scene `TutorialScene` UI smoke pass is needed; it is the manual companion for canonical runtime-integration evidence and does not replace the automated lanes.
 - The generated stratification report is no longer an active governance truth source.
 
 ## 1. Overview / 개요

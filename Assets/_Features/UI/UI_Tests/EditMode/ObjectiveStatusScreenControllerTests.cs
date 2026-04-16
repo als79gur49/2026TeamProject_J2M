@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.UI.Application;
+using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
 
@@ -31,6 +32,34 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.BadgeText, Is.EqualTo("Session"));
             Assert.That(presenter.ViewModel.SummaryText, Does.Contain("7"));
             Assert.That(presenter.BuildInfoPopupPayload().TitleText, Is.EqualTo("Session Info"));
+        }
+    }
+
+    public sealed class SettingsScreenPresenterTests
+    {
+        [Test]
+        public void SettingsScreenPresenter_BuildTooltipInfoPayload_RemainsBoundedAndStateAware()
+        {
+            var presenter = new SettingsScreenPresenter(new UiSessionSettingsStore());
+
+            presenter.Apply(SettingsScreenPayload.Default);
+
+            var enabledPayload = presenter.BuildTooltipInfoPayload();
+            Assert.That(enabledPayload.TitleText, Is.EqualTo("Tooltips"));
+            Assert.That(enabledPayload.BodyText, Does.Contain("short contextual hints"));
+            Assert.That(enabledPayload.BodyText, Does.Contain("Enabled"));
+            Assert.That(enabledPayload.BodyText, Does.Contain(SettingsScreenPayload.Default.TooltipToggleLabel));
+            Assert.That(enabledPayload.BodyText, Does.Not.Contain("\n"));
+            Assert.That(
+                enabledPayload.BodyText.Split('.').Count(segment => !string.IsNullOrWhiteSpace(segment)),
+                Is.LessThanOrEqualTo(2));
+            Assert.That(enabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
+
+            presenter.ToggleTooltips();
+
+            var disabledPayload = presenter.BuildTooltipInfoPayload();
+            Assert.That(disabledPayload.BodyText, Does.Contain("Disabled"));
+            Assert.That(disabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
         }
     }
 

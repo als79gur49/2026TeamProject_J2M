@@ -113,6 +113,7 @@ namespace Game.Feature.UI.Tests
                 typeof(ActionBarPresenter),
                 typeof(NotificationPresenter),
                 typeof(ObjectiveStatusPresenter),
+                typeof(SettingsScreenPresenter),
                 typeof(InventoryScreenPresenter),
                 typeof(InventoryCatalogPresenter),
                 typeof(InventoryDetailPresenter),
@@ -809,6 +810,56 @@ namespace Game.Feature.UI.Tests
                     "InventoryScreenPresenter()",
                     "InventoryScreenPresenter(InventoryCatalogPresenter, InventoryDetailPresenter, InventoryActionPresenter)",
                 }));
+        }
+
+        [Test]
+        public void SettingsScreenPresenter_PublicSurface_RemainsBoundedToScreenStateAndSingleTooltipPayloadBuilder()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(SettingsScreenPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(SettingsScreenPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(SettingsScreenPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(SettingsScreenPayload)",
+                    "BuildTooltipInfoPayload()",
+                    "ToggleLargeText()",
+                    "ToggleTooltips()",
+                }));
+            Assert.That(
+                GetConstructorSignatures(typeof(SettingsScreenPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "SettingsScreenPresenter(UiSessionSettingsStore)",
+                }));
+        }
+
+        [Test]
+        public void SettingsScreenPresenter_DoesNotDependOnFlowOrPopupOwnershipTypes()
+        {
+            var forbiddenTypes = new[]
+            {
+                typeof(UIFlowCoordinator),
+                typeof(ScreenController),
+                typeof(PopupController),
+                typeof(PopupLayerView),
+                typeof(PopupRequest),
+                typeof(PopupId),
+                typeof(IPopupRuntime),
+                typeof(IPopupRuntimeFactory),
+                typeof(TooltipPopupPresenter),
+                typeof(TooltipPopupView),
+            };
+
+            foreach (var forbiddenType in forbiddenTypes)
+            {
+                Assert.That(
+                    TypeDependsOn(typeof(SettingsScreenPresenter), forbiddenType),
+                    Is.False,
+                    $"{typeof(SettingsScreenPresenter).FullName} depends on {forbiddenType.FullName}");
+            }
         }
 
         [Test]

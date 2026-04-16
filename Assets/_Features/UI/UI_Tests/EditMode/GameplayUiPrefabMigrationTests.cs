@@ -356,6 +356,18 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void SettingsScreenPrefabAsset_AuthorsTooltipInfoAffordance_AsBoundedLocalIntent()
+        {
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var serializedView = new SerializedObject(settingsPrefab);
+            var tooltipInfoButton = serializedView.FindProperty("_tooltipInfoButton");
+
+            Assert.That(tooltipInfoButton, Is.Not.Null);
+            Assert.That(tooltipInfoButton.objectReferenceValue, Is.Not.Null);
+            Assert.That(((Button)tooltipInfoButton.objectReferenceValue).transform.parent, Is.EqualTo(settingsPrefab.transform));
+        }
+
         [TestCase(ScreenId.Gameplay)]
         [TestCase(ScreenId.Help)]
         [TestCase(ScreenId.ObjectiveStatus)]
@@ -788,8 +800,8 @@ namespace Game.Feature.UI.Tests
                     return installer.ConfirmPopupView;
 
                 case PopupId.Tooltip:
-                    installer.Coordinator.RequestTooltipPopup(
-                        new TooltipPopupPayload("Tip", "Body", TooltipPopupAnchorPreset.UpperRight));
+                    installer.GameplayScreenView.ClickSettings();
+                    installer.SettingsScreenView.ClickTooltipInfo();
                     return installer.TooltipPopupView;
 
                 case PopupId.Reward:

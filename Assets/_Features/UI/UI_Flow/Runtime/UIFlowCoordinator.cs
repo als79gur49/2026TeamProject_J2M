@@ -115,9 +115,7 @@ namespace Game.Feature.UI.Flow
                 return false;
             }
 
-            return _popupController.Push(
-                new PopupRequest(PopupId.Tooltip, payload, completionCallback),
-                out _);
+            return TryPushPopupRequest(new PopupRequest(PopupId.Tooltip, payload, completionCallback));
         }
 
         public bool RequestRewardPopup(
@@ -223,9 +221,21 @@ namespace Game.Feature.UI.Flow
                     break;
 
                 case ScreenActionKind.RequestPopup:
-                    _popupController.Push(action.PopupRequest, out _);
+                    TryPushPopupRequest(action.PopupRequest);
                     break;
             }
+        }
+
+        private bool TryPushPopupRequest(PopupRequest request)
+        {
+            if (request.PopupId == PopupId.Tooltip &&
+                _popupController.TopPopup.HasValue &&
+                _popupController.TopPopup.Value.PopupId == PopupId.Tooltip)
+            {
+                return false;
+            }
+
+            return _popupController.Push(request, out _);
         }
 
         private bool ShowScreen(ScreenRequest request)

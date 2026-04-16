@@ -54,7 +54,41 @@ namespace Game.Feature.UI.Tests
             Assert.That(guide, Does.Contain("UI hardening"));
             Assert.That(guide, Does.Contain("PlayMode escalation triggers"));
             Assert.That(guide, Does.Contain("UI-EditMode-Baseline-2026-04-15.md"));
+            Assert.That(guide, Does.Contain("TutorialScene-Manual-Runtime-Smoke-Plan.md"));
             Assert.That(guide, Does.Not.Contain("46 total / 0 failed"));
+        }
+
+        [Test]
+        public void TutorialSceneManualRuntimeSmokePlan_PreservesBoundedArchitectureFocusedSections()
+        {
+            var smokePlan = ReadRepoFile("Docs/Testing/TutorialScene-Manual-Runtime-Smoke-Plan.md");
+
+            Assert.That(smokePlan, Does.Contain("# TutorialScene Manual Runtime Smoke Plan"));
+            Assert.That(smokePlan, Does.Contain("## 1. Overall Evaluation"));
+            Assert.That(smokePlan, Does.Contain("## 2. Preserved Strengths"));
+            Assert.That(smokePlan, Does.Contain("## 3. Remaining Execution Risks"));
+            Assert.That(smokePlan, Does.Contain("## 4. Required Corrections"));
+            Assert.That(smokePlan, Does.Contain("## 5. High-Risk Runtime Flow Rules"));
+            Assert.That(smokePlan, Does.Contain("## 6. Tooltip Path Classification Rules"));
+            Assert.That(smokePlan, Does.Contain("## 7. Stage-Clear Validation Rules"));
+            Assert.That(smokePlan, Does.Contain("## 8. Diagnostics Priority Rules"));
+            Assert.That(smokePlan, Does.Contain("## 9. Evidence and Failure Classification Rules"));
+            Assert.That(smokePlan, Does.Contain("## 10. Freeze Gate"));
+            Assert.That(smokePlan, Does.Contain("Tier 1"));
+            Assert.That(smokePlan, Does.Contain("GameplayScreen"));
+            Assert.That(smokePlan, Does.Contain("PausePopup"));
+            Assert.That(smokePlan, Does.Contain("InventoryScreen"));
+            Assert.That(smokePlan, Does.Contain("StageResultScreen"));
+            Assert.That(smokePlan, Does.Contain("TooltipPopup"));
+            Assert.That(smokePlan, Does.Contain("SettingsScreen tooltip info icon"));
+            Assert.That(smokePlan, Does.Contain("future tooltip expansion requires separate plan/review"));
+            Assert.That(smokePlan, Does.Contain("Inconclusive/manual follow-up needed"));
+            Assert.That(smokePlan, Does.Contain("up to 3 deliberate attempts"));
+            Assert.That(smokePlan, Does.Contain("up to 10 focused minutes"));
+            Assert.That(smokePlan, Does.Contain("Diagnostics remain secondary"));
+            Assert.That(smokePlan, Does.Contain("architecture-focused"));
+            Assert.That(smokePlan, Does.Contain("Do not add scene-local helpers"));
+            Assert.That(smokePlan, Does.Contain("artificial debug triggers"));
         }
 
         [Test]

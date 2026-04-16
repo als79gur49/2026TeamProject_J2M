@@ -170,6 +170,34 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_TopmostTooltipRequest_IsSuppressedAcrossCoordinatorAndScreenActions()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                new ManualGameplayUiPresentationSource(),
+                out _,
+                out var popupController);
+
+            coordinator.Initialize();
+
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.False);
+            Assert.That(popupController.PopupCount, Is.EqualTo(1));
+
+            coordinator.HandleScreenActionRequested(ScreenAction.Popup(
+                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body"))));
+
+            Assert.That(popupController.PopupCount, Is.EqualTo(1));
+            Assert.That(popupController.TopPopup.HasValue, Is.True);
+            Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Tooltip));
+        }
+
+        [Test]
         public void UIFlowCoordinator_StageClearedAutoOpensTerminalStageResult_AndConsumesBack()
         {
             var pauseService = new FakeGameplayPauseService();

@@ -10,6 +10,7 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _tooltipStatusLabel;
         [SerializeField] private Text _largeTextStatusLabel;
+        [SerializeField] private Button _tooltipInfoButton;
         [SerializeField] private Button _tooltipToggleButton;
         [SerializeField] private Button _largeTextToggleButton;
         [SerializeField] private Button _backButton;
@@ -22,6 +23,7 @@ namespace Game.Feature.UI.Screens
 
         public event Action TooltipToggleRequested;
 
+        public event Action TooltipInfoRequested;
 
         public event Action LargeTextToggleRequested;
 
@@ -68,6 +70,16 @@ namespace Game.Feature.UI.Screens
             TooltipToggleRequested?.Invoke();
         }
 
+        public void ClickTooltipInfo()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            TooltipInfoRequested?.Invoke();
+        }
+
         public void ClickLargeTextToggle()
         {
             if (!IsVisible)
@@ -90,6 +102,7 @@ namespace Game.Feature.UI.Screens
 
         private void OnEnable()
         {
+            RebindButton(_tooltipInfoButton, ClickTooltipInfo);
             RebindButton(_tooltipToggleButton, ClickTooltipToggle);
             RebindButton(_largeTextToggleButton, ClickLargeTextToggle);
             RebindButton(_backButton, ClickBack);
@@ -98,6 +111,7 @@ namespace Game.Feature.UI.Screens
 
         private void OnDisable()
         {
+            UnbindButton(_tooltipInfoButton, ClickTooltipInfo);
             UnbindButton(_tooltipToggleButton, ClickTooltipToggle);
             UnbindButton(_largeTextToggleButton, ClickLargeTextToggle);
             UnbindButton(_backButton, ClickBack);
@@ -110,6 +124,7 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_tooltipStatusLabel, nameof(_tooltipStatusLabel));
             ValidateSerializedReference(_largeTextStatusLabel, nameof(_largeTextStatusLabel));
+            ValidateSerializedReference(_tooltipInfoButton, nameof(_tooltipInfoButton));
             ValidateSerializedReference(_tooltipToggleButton, nameof(_tooltipToggleButton));
             ValidateSerializedReference(_largeTextToggleButton, nameof(_largeTextToggleButton));
             ValidateSerializedReference(_backButton, nameof(_backButton));

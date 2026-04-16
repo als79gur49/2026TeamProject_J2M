@@ -485,6 +485,7 @@ namespace Game.Feature.UI.Composition
                 : base(view, dispose)
             {
                 _presenter = presenter;
+                view.TooltipInfoRequested += HandleTooltipInfoRequested;
                 view.TooltipToggleRequested += HandleTooltipToggleRequested;
                 view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
                 view.BackRequested += HandleBackRequested;
@@ -497,11 +498,17 @@ namespace Game.Feature.UI.Composition
 
             public override void Dispose()
             {
+                View.TooltipInfoRequested -= HandleTooltipInfoRequested;
                 View.TooltipToggleRequested -= HandleTooltipToggleRequested;
                 View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 View.BackRequested -= HandleBackRequested;
                 View.Bind(null);
                 base.Dispose();
+            }
+
+            private void HandleTooltipInfoRequested()
+            {
+                RaiseAction(ScreenAction.Popup(new PopupRequest(PopupId.Tooltip, _presenter.BuildTooltipInfoPayload())));
             }
 
             private void HandleTooltipToggleRequested()

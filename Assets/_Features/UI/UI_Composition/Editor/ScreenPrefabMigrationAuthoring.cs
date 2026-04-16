@@ -261,6 +261,7 @@ namespace Game.Feature.UI.Editor
 
             var title = CreateLabel("Title", rootRect, new Vector2(16f, -16f), new Vector2(368f, 24f), TextAnchor.MiddleCenter, 18);
             var tooltipStatus = CreateLabel("TooltipStatus", rootRect, new Vector2(24f, -58f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
+            var tooltipInfo = CreateButton("TooltipInfo", rootRect, "i", new Vector2(188f, -52f), new Vector2(24f, 28f));
             var tooltipToggle = CreateButton("TooltipToggle", rootRect, "Toggle Tooltips", new Vector2(220f, -52f), new Vector2(140f, 28f));
             var largeTextStatus = CreateLabel("LargeTextStatus", rootRect, new Vector2(24f, -104f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
             var largeTextToggle = CreateButton("LargeTextToggle", rootRect, "Toggle Large Text", new Vector2(220f, -98f), new Vector2(140f, 28f));
@@ -270,6 +271,7 @@ namespace Game.Feature.UI.Editor
             SetField(view, "_titleLabel", title);
             SetField(view, "_tooltipStatusLabel", tooltipStatus);
             SetField(view, "_largeTextStatusLabel", largeTextStatus);
+            SetField(view, "_tooltipInfoButton", tooltipInfo.Button);
             SetField(view, "_tooltipToggleButton", tooltipToggle.Button);
             SetField(view, "_largeTextToggleButton", largeTextToggle.Button);
             SetField(view, "_backButton", back.Button);
