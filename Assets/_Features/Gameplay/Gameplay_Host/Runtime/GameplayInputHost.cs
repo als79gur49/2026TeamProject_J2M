@@ -176,6 +176,7 @@ namespace Game.Feature.Gameplay.Host
 
             var result = _runner.RunNextTick();
             ApplyAcceptedBufferedInput(result);
+            // Presentation-state queries can run during Present before completed-snapshot caches refresh on TickCompleted.
             _presenter.Present(result);
             TickCompleted?.Invoke(result);
             ObjectiveResultUpdated?.Invoke(result.ObjectiveResult);

@@ -109,6 +109,59 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PreRefreshTransientQueries_ReadPreviousCommittedHudState_BeforeTickCompletedRefresh");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Up),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
+
+                var beforeTickHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var transientReadCount = 0;
+                var transientSession = default(GameplaySessionReadModel);
+                var transientHud = default(GameplayPlayerHudReadModel);
+
+                host.UiAccess.PresentationFeed.StateChanged += _ =>
+                {
+                    if (transientReadCount > 0)
+                    {
+                        return;
+                    }
+
+                    transientReadCount++;
+                    transientSession = host.UiAccess.QueryFacade.Session.Read();
+                    transientHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+                };
+
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+                Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+
+                var refreshedHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(transientReadCount, Is.GreaterThanOrEqualTo(1));
+                Assert.That(transientSession.NextTickIndex, Is.EqualTo(2));
+                Assert.That(transientHud.IsAvailable, Is.True);
+                Assert.That(transientHud.PlayerEntityId, Is.EqualTo(beforeTickHud.PlayerEntityId));
+                Assert.That(transientHud.CurrentHp, Is.EqualTo(beforeTickHud.CurrentHp));
+                Assert.That(transientHud.Facing, Is.EqualTo(beforeTickHud.Facing));
+                Assert.That(refreshedHud.Facing, Is.EqualTo(GameplayUiDirection.Right));
+                Assert.That(refreshedHud.Facing, Is.Not.EqualTo(transientHud.Facing));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiAccess_PauseRejectsActionableCommands_AllowsClear_AndClearsPendingUiInput()
         {
             var hostObject = new GameObject("GameplayUiAccess_PauseRejectsActionableCommands_AllowsClear_AndClearsPendingUiInput");

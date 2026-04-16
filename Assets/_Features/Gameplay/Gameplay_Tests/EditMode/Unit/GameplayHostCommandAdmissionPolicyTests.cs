@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Text;
-using System.Text.RegularExpressions;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -11,7 +10,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Models;
 using NUnit.Framework;
 using UnityEngine;
-using UnityEngine.TestTools;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
@@ -126,9 +124,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged()
+        public void AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged_WithoutFreshnessAssertions()
         {
-            var hostObject = new GameObject("AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged");
+            var hostObject = new GameObject("AdmissionPolicy_Dispose_StopsTickCompletedRefresh_AndLeavesCachedReferenceUnchanged_WithoutFreshnessAssertions");
 
             try
             {
@@ -148,7 +146,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 policy.Dispose();
 
                 Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
-                LogAssert.Expect(LogType.Assert, new Regex("Cached presentation snapshot tick invariant violated"));
                 Assert.That(policy.TryCreateSnapshot(out var snapshotAfterDispose), Is.True);
 
                 Assert.That(ReferenceEquals(refreshedSnapshot, snapshotAfterDispose), Is.True);
