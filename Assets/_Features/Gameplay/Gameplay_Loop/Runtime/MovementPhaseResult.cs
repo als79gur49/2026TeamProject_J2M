@@ -75,6 +75,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public IReadOnlyList<ResolutionRecord> ResolutionRecords => _resolutionRecords;
 
+        // Includes accepted impact follow-through movement-visible writes such as
+        // local vacate, box move, and contingent facing/state updates.
         public IReadOnlyList<FinalizationOperation> ResolvedOperations => _resolvedOperations;
 
         public IReadOnlyList<string> CommitEvents => _commitEvents;

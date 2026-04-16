@@ -1070,6 +1070,69 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
+        public void BoxImpactFollowThrough_UpdatesPostMovementBeforeJumpLandingResolve()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateSlidingPushBox(entityId: 50, position: new Vector2Int(2, 1), facing: Direction.Right, kineticInstigatorEntityId: 10, kineticInstigatorTeamId: 1),
+                CreateUnit(entityId: 60, teamId: 2, position: targetCell, hp: 1, facing: Direction.Left),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                var writeContext = worldState.CreateWriteContext();
+                writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+                writeContext.SetEnemyJumpState(
+                    40,
+                    new EnemyJumpRuntimeState
+                    {
+                        phase = EnemyJumpPhase.Airborne,
+                        sequence = 1,
+                        sourceCell = sourceCell,
+                        lockedTargetCell = targetCell,
+                        windupEndTick = 0,
+                        landingTick = 1,
+                        cooldownRemainingTicks = 0,
+                        retryCount = 0,
+                    });
+
+                var tick = pipeline.RunTick(new TickInput(1));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+
+                CollectionAssert.AreEqual(new[] { 60 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(tick.EventLog));
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        tick.MovementPhaseResult.CommitEvents,
+                        "MoveCommitted",
+                        "E=50",
+                        "To=(3,1)",
+                        "Facing=Right"),
+                    Is.True);
+                Assert.That(GetEntity(worldState, 50).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 50).state, Is.EqualTo(EntityPhaseState.Sliding));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.lockedTargetCell, Is.EqualTo(targetCell));
+                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(jumpState.landingTick, Is.EqualTo(2));
+                Assert.That(tick.Trace.Text, Does.Contain("Label=Retry"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Core")]
         public void EnemyAi_JumpLanding_BoxOnLockedCell_UsesTwoRingFallback()
         {

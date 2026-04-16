@@ -862,6 +862,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TickPresentationDataBuilder_UsesPostMovementSnapshotForFollowThroughMotion_AndPostAttackSnapshotForEnemyDeath()
+        {
+            const int tickIndex = 11;
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
+
+            var sourceBox = CreateEntity(20, EntityType.Box, sourceCell, Direction.Right);
+            sourceBox.boxCapabilities = BoxCapabilities.Push;
+
+            var movedBox = sourceBox;
+            movedBox.position = destinationCell;
+            movedBox.state = EntityPhaseState.Sliding;
+            movedBox.stateTimer = 11;
+
+            var enemyBeforeImpact = CreateEnemyEntity(40, destinationCell, EnemyAiMode.Attack, Direction.Left);
+            var enemyLocalVacated = enemyBeforeImpact;
+            enemyLocalVacated.boardPresence = EntityBoardPresence.Detached;
+            var enemyMarkedDead = enemyLocalVacated;
+            enemyMarkedDead.hp = 0;
+            enemyMarkedDead.markedForDeath = true;
+            enemyMarkedDead.aiMode = EnemyAiMode.Recover;
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    sourceBox,
+                    enemyBeforeImpact,
+                }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    movedBox,
+                    enemyLocalVacated,
+                }).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    movedBox,
+                    enemyMarkedDead,
+                }).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    movedBox,
+                }).CreateSnapshot();
+
+            var movementGroup = new ActionGroup(intentId: 1, sourceId: 20, priority: 5, ActionGroupKind.Push);
+            movementGroup.AssignGroupId(1);
+            movementGroup.BoardPresenceChanges.Add(new BoardPresenceChangeAction(40, EntityBoardPresence.Detached));
+            movementGroup.Moves.Add(new MoveAction(20, sourceCell, destinationCell, Direction.Right));
+
+            var attackGroup = new ActionGroup(intentId: 2, sourceId: 20, priority: 5, ActionGroupKind.Attack);
+            attackGroup.AssignGroupId(2);
+            attackGroup.Destroys.Add(new DestroyAction(40));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    CreateMovementPhaseResult(movementGroup, ResolvedActionSemanticKind.Push),
+                    CreateAttackPhaseResult(attackGroup),
+                    CleanupFixtureFactory.RemovedEntities(40),
+                    currentTickIndex: tickIndex));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 20, Kind: TickEntityMotionKind.Push, Source: sourceCell, Destination: destinationCell),
+                },
+                presentationData.EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+            Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.EntityExitSignals[0];
+            Assert.That(signal.ExitedEntityId, Is.EqualTo(40));
+            Assert.That(signal.ExitCause, Is.EqualTo(TickEntityExitCause.EnemyDeath));
+            Assert.That(signal.SourceActorEntityId, Is.EqualTo(20));
+            Assert.That(signal.SourceCell, Is.EqualTo(destinationCell));
+            Assert.That(signal.Topology, Is.EqualTo(postAttackSnapshot.Topology));
+            Assert.That(signal.PresentationSeed, Is.EqualTo(BuildExpectedPresentationSeed(tickIndex, 40, 20, TickEntityExitCause.EnemyDeath)));
+            Assert.That(presentationData.VisibilityChanges.Any(change => change.EntityId == 40 && change.ChangeKind == TickVisibilityChangeKind.Remove), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPresentationDataBuilder_BuildsTopologyAndVisibilityPresentationRecords()
         {
             var initialTopology = new CubeTopologyState(FaceId.Floor);

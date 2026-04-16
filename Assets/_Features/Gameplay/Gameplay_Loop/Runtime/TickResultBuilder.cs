@@ -307,8 +307,11 @@ namespace Game.Feature.Gameplay.Loop
 
         public WorldSnapshot PreMovementSnapshot { get; }
 
+        // Movement-visible surface after resolve. This may include accepted impact
+        // follow-through vacates/moves, but it is not the authoritative HP/destroy truth.
         public WorldSnapshot PostMovementSnapshot { get; }
 
+        // Attack-authoritative surface after damage/destroy has been resolved.
         public WorldSnapshot PostAttackSnapshot { get; }
 
         public WorldSnapshot FinalAuthoritativeSnapshot { get; }

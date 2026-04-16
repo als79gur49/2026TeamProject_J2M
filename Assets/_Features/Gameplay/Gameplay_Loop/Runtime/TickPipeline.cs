@@ -479,6 +479,8 @@ namespace Game.Feature.Gameplay.Loop
             var projectedWorld = new ProjectedWorld(planSnapshot);
             projectedWorld.ApplyBatch(planPhaseResult.PlanFinalizationBatch);
             projectedWorld.ApplyBatch(movementStageBatch);
+            // postMovementSnapshot is the movement-visible resolve surface. Accepted
+            // impact follow-through writes are materialized here before jump landing.
             var postMovementSnapshot = projectedWorld.CreateSnapshot();
 
             var beforeAttackAiBatch = new FinalizationBatch();
@@ -565,8 +567,8 @@ namespace Game.Feature.Gameplay.Loop
                 attackResolutionRecords,
                 attackPlanResult.ActionPlanPayloads);
             ResolveImpactSpaceContestsCanonical(
-                planSnapshot,
-                damageProjectionSnapshot,
+                attackSnapshot,
+                destroyResolutions,
                 planPhaseResult.OrderedMovementActionPlanIds,
                 planPhaseResult.MovementActionPlanPayloads,
                 impactSpaceContests,
@@ -708,6 +710,8 @@ namespace Game.Feature.Gameplay.Loop
             phaseTrace.Add("Resolve:Exit");
             completedPhases.Add(TickPhase.Resolve);
 
+            // MovementPhaseResult owns movement-visible resolve effects, including
+            // accepted impact follow-through detach/move/facing/state writes.
             var movementResolvedOperations = new List<FinalizationOperation>();
             for (var planOperationIndex = 0; planOperationIndex < planPhaseResult.PlanFinalizationBatch.Operations.Count; planOperationIndex++)
             {
@@ -1418,6 +1422,15 @@ namespace Game.Feature.Gameplay.Loop
             switch (group.GroupKind)
             {
                 case ActionGroupKind.Push:
+                    if (TryResolveMovementEntity(snapshot, group, out var pushEntity) &&
+                        pushEntity.type == EntityType.Box &&
+                        (pushEntity.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push &&
+                        (pushEntity.entityId != group.SourceId ||
+                         pushEntity.state == EntityPhaseState.Sliding))
+                    {
+                        return ResolvedActionSemanticKind.Slide;
+                    }
+
                     return ResolvedActionSemanticKind.Push;
 
                 case ActionGroupKind.Flip:
@@ -1637,6 +1650,7 @@ namespace Game.Feature.Gameplay.Loop
 
             impactReservationPayload = new MovementImpactReservationPayload(
                 impactSourceEntity.entityId,
+                group.SourceId,
                 impactSourceEntity.position,
                 group.ImpactTargetId,
                 impactCell,
@@ -1651,8 +1665,22 @@ namespace Game.Feature.Gameplay.Loop
                 hasSourceFacing: hasSourceFacing,
                 sourceFacingEntityId: hasSourceFacing ? group.SourceId : 0,
                 sourceFacing: sourceFacing,
-                contingentSemanticKind: isFlipImpact ? ResolvedActionSemanticKind.Flip : ResolvedActionSemanticKind.Push);
+                contingentSemanticKind: isFlipImpact
+                    ? ResolvedActionSemanticKind.Flip
+                    : ResolveImpactContingentSemanticKind(impactSourceEntity, group.SourceId));
             return true;
+        }
+
+        private static ResolvedActionSemanticKind ResolveImpactContingentSemanticKind(
+            EntityState impactSourceEntity,
+            int attackSourceEntityId)
+        {
+            return impactSourceEntity.type == EntityType.Box &&
+                   (impactSourceEntity.boxCapabilities & BoxCapabilities.Push) == BoxCapabilities.Push &&
+                   (impactSourceEntity.entityId != attackSourceEntityId ||
+                    impactSourceEntity.state == EntityPhaseState.Sliding)
+                ? ResolvedActionSemanticKind.Slide
+                : ResolvedActionSemanticKind.Push;
         }
 
         private static SurfaceCell FindImpactCell(WorldSnapshot snapshot, ActionGroup group)
@@ -1998,6 +2026,8 @@ namespace Game.Feature.Gameplay.Loop
 
         private static bool HasAcceptedContingentMovementResolution(IReadOnlyList<ResolutionRecord> resolutionRecords)
         {
+            // New contingent movement paths that reuse localActionIndex 1 must prove that
+            // their follow-through is cell-vacancy-safe on the surface they will materialize.
             for (var i = 0; i < resolutionRecords.Count; i++)
             {
                 if (resolutionRecords[i].Kind == ContestKind.Space &&
@@ -2153,41 +2183,25 @@ namespace Game.Feature.Gameplay.Loop
 
                 var hasContingentResolution = TryFindResolutionRecord(resolutionRecords, ContestKind.Space, actionPlanId, 1, out var contingentResolution) &&
                                              contingentResolution.Accepted;
+                var hasImpactFollowThrough = hasContingentResolution && payload.HasImpactReservationPayload;
 
-                if (hasContingentResolution &&
-                    payload.HasImpactReservationPayload &&
+                if (hasImpactFollowThrough &&
                     payload.ImpactReservationPayload.HasSourceFacing)
                 {
+                    var contingentMetadata = CreateMovementMetadata(
+                        payload,
+                        contingentResolution,
+                        localActionIndex: 1,
+                        semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind);
                     batch.SetFacing(
                         payload.ImpactReservationPayload.SourceFacingEntityId,
                         payload.ImpactReservationPayload.SourceFacing,
-                        CreateMovementMetadata(
-                            payload,
-                            contingentResolution,
-                            localActionIndex: 0,
-                            semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind));
+                        contingentMetadata);
                     commitEvents.Add(
                         $"FacingCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceFacingEntityId}|Facing={payload.ImpactReservationPayload.SourceFacing}");
                 }
 
-                if (hasContingentResolution &&
-                    payload.HasImpactReservationPayload &&
-                    payload.ImpactReservationPayload.HasContingentStateChange)
-                {
-                    batch.ApplyStateChange(
-                        payload.ImpactReservationPayload.SourceEntityId,
-                        payload.ImpactReservationPayload.ContingentState,
-                        payload.ImpactReservationPayload.ContingentStateTimer,
-                        CreateMovementMetadata(
-                            payload,
-                            contingentResolution,
-                            localActionIndex: 0,
-                            semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind));
-                    commitEvents.Add(
-                        $"StateChanged|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|State={payload.ImpactReservationPayload.ContingentState}|Timer={payload.ImpactReservationPayload.ContingentStateTimer}");
-                }
-
-                if (!hasContingentResolution)
+                if (!hasImpactFollowThrough)
                 {
                     for (var stateIndex = 0; stateIndex < payload.StateChangeWrites.Count; stateIndex++)
                     {
@@ -2231,27 +2245,41 @@ namespace Game.Feature.Gameplay.Loop
                         $"FacingCommitted|G={actionPlanId}|I={payload.IntentId}|E={facingWrite.EntityId}|Facing={facingWrite.Facing}");
                 }
 
-                if (hasContingentResolution &&
-                    payload.HasImpactReservationPayload)
+                if (hasImpactFollowThrough)
                 {
+                    var contingentMetadata = CreateMovementMetadata(
+                        payload,
+                        contingentResolution,
+                        localActionIndex: 1,
+                        semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind);
+                    // Keep the local vacate ahead of MoveEntity so the replay sees a
+                    // free destination cell without changing global cleanup semantics.
+                    batch.SetBoardPresence(
+                        payload.ImpactReservationPayload.TargetEntityId,
+                        EntityBoardPresence.Detached,
+                        contingentMetadata);
+                    commitEvents.Add(
+                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.TargetEntityId}|Presence={EntityBoardPresence.Detached}");
                     batch.MoveEntity(
                         payload.ImpactReservationPayload.SourceEntityId,
                         payload.ImpactReservationPayload.ContingentDestinationCell,
-                        CreateMovementMetadata(
-                            payload,
-                            contingentResolution,
-                            localActionIndex: 1,
-                            semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind));
+                        contingentMetadata);
                     batch.SetFacing(
                         payload.ImpactReservationPayload.SourceEntityId,
                         payload.ImpactReservationPayload.ContingentFacing,
-                        CreateMovementMetadata(
-                            payload,
-                            contingentResolution,
-                            localActionIndex: 1,
-                            semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind));
+                        contingentMetadata);
                     commitEvents.Add(
                         $"MoveCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|To={FormatCell(payload.ImpactReservationPayload.ContingentDestinationCell)}|Facing={payload.ImpactReservationPayload.ContingentFacing}");
+                    if (payload.ImpactReservationPayload.HasContingentStateChange)
+                    {
+                        batch.ApplyStateChange(
+                            payload.ImpactReservationPayload.SourceEntityId,
+                            payload.ImpactReservationPayload.ContingentState,
+                            payload.ImpactReservationPayload.ContingentStateTimer,
+                            contingentMetadata);
+                        commitEvents.Add(
+                            $"StateChanged|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|State={payload.ImpactReservationPayload.ContingentState}|Timer={payload.ImpactReservationPayload.ContingentStateTimer}");
+                    }
                 }
                 else
                 {
@@ -3090,8 +3118,8 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private void ResolveImpactSpaceContestsCanonical(
-            WorldSnapshot movementSnapshot,
-            WorldSnapshot damageProjectionSnapshot,
+            WorldSnapshot attackSnapshot,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
             IReadOnlyList<Contest> impactSpaceContests,
@@ -3137,10 +3165,13 @@ namespace Game.Feature.Gameplay.Loop
                 var accepted = false;
                 if (payloads.TryGetValue(contest.ActionPlanId, out var payload) &&
                     payload.HasImpactReservationPayload &&
-                    !IsImpactTargetSurviving(damageProjectionSnapshot, payload.ImpactReservationPayload.TargetEntityId) &&
                     !TryGetConflictingImpactPayloadDestination(payload.ImpactReservationPayload, reservedDestinations, out _) &&
                     !TryGetConflictingImpactPayloadEdge(payload.ImpactReservationPayload, reservedEdges, out _) &&
-                    !TryGetSharedImpactPayloadAffectedEntity(payload.ImpactReservationPayload, reservedAffectedEntities, out _))
+                    !TryGetSharedImpactPayloadAffectedEntity(payload.ImpactReservationPayload, reservedAffectedEntities, out _) &&
+                    CanAcceptImpactFollowThrough(
+                        attackSnapshot,
+                        destroyResolutions,
+                        payload.ImpactReservationPayload))
                 {
                     accepted = true;
                     ReserveImpactPayload(payload.ImpactReservationPayload, reservedDestinations, reservedBlockingDestinations, reservedEdges, reservedBlockingEdges, reservedAffectedEntities, contest.ActionPlanId);
@@ -3148,6 +3179,78 @@ namespace Game.Feature.Gameplay.Loop
 
                 resolutionRecords.Add(CreateResolutionRecord(contest, accepted));
             }
+        }
+
+        // Only the selected impact target is early-vacated for movement follow-through.
+        // attackSnapshot is still the pre-cleanup authority surface; the helper proves
+        // the cell becomes empty only after excluding that one accepted destroy target.
+        // The moving box and the accepted attack source may differ for immediate pushes.
+        // This is a local movement rule, not a change to global cleanup/remove semantics.
+        internal static bool CanAcceptImpactFollowThrough(
+            WorldSnapshot attackSnapshot,
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            MovementImpactReservationPayload payload)
+        {
+            if (attackSnapshot == null)
+            {
+                throw new ArgumentNullException(nameof(attackSnapshot));
+            }
+
+            if (destroyResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(destroyResolutions));
+            }
+
+            if (!attackSnapshot.TryGetEntity(payload.SourceEntityId, out _) ||
+                !attackSnapshot.TryGetEntity(payload.TargetEntityId, out _))
+            {
+                return false;
+            }
+
+            if (!HasAcceptedImpactDestroy(destroyResolutions, payload.AttackSourceEntityId, payload.TargetEntityId))
+            {
+                return false;
+            }
+
+            if (attackSnapshot.TryGetSolidOccupantAt(payload.ContingentDestinationCell, out var solidOccupant) &&
+                solidOccupant.entityId != payload.TargetEntityId)
+            {
+                return false;
+            }
+
+            var occupants = new List<EntityState>();
+            attackSnapshot.EnumerateUnitsAt(payload.ContingentDestinationCell, occupants);
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var occupant = occupants[i];
+                if (occupant.entityId == payload.TargetEntityId ||
+                    occupant.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                return false;
+            }
+
+            return true;
+        }
+
+        private static bool HasAcceptedImpactDestroy(
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            int sourceEntityId,
+            int targetEntityId)
+        {
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                if (destroyResolutions[i].Accepted &&
+                    destroyResolutions[i].SourceId == sourceEntityId &&
+                    destroyResolutions[i].TargetId == targetEntityId)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool PayloadHasTopologyChange(MovementActionPlanPayload payload)
@@ -4849,6 +4952,7 @@ namespace Game.Feature.Gameplay.Loop
     {
         public MovementImpactReservationPayload(
             int sourceEntityId,
+            int attackSourceEntityId,
             SurfaceCell sourceCell,
             int targetEntityId,
             SurfaceCell impactCell,
@@ -4866,6 +4970,7 @@ namespace Game.Feature.Gameplay.Loop
             ResolvedActionSemanticKind contingentSemanticKind)
         {
             SourceEntityId = sourceEntityId;
+            AttackSourceEntityId = attackSourceEntityId;
             SourceCell = sourceCell;
             TargetEntityId = targetEntityId;
             ImpactCell = impactCell;
@@ -4884,6 +4989,8 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         public int SourceEntityId { get; }
+
+        public int AttackSourceEntityId { get; }
 
         public SurfaceCell SourceCell { get; }
 

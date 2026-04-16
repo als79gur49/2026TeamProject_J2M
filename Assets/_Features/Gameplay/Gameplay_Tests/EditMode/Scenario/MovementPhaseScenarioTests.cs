@@ -372,6 +372,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     "To=(3,0)",
                     "Facing=Right"),
                 Is.True);
+            Assert.That(
+                secondTick.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 30 &&
+                              motion.MotionKind == TickEntityMotionKind.BoxSlide &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, 2, 0) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 3, 0)),
+                Is.True);
             Assert.That(laterIdleTicks.All(result => result.MovementPhaseResult.CommitEvents.Count == 0), Is.True);
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -717,7 +724,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void Impact_KillsEnemy_BoxStillDoesNotAdvanceSameTick()
+        public void Impact_KillsEnemy_BoxAdvancesSameTickWhenTargetCellBecomesEmpty()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -734,10 +741,100 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
+            var resolvedOperations = result.MovementPhaseResult.ResolvedOperations;
 
             CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "BoardPresenceCommitted",
+                    "E=30",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=20",
+                    "To=(2,0)",
+                    "Facing=Right"),
+                Is.True);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 20 &&
+                              motion.MotionKind == TickEntityMotionKind.BoxSlide &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, 1, 0) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 2, 0)),
+                Is.True);
+            Assert.That(
+                resolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                                 operation.EntityId == 30 &&
+                                 operation.BoardPresence == EntityBoardPresence.Detached &&
+                                 operation.Metadata.LocalActionIndex == 1),
+                Is.True);
+            Assert.That(
+                resolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.MoveEntity &&
+                                 operation.EntityId == 20 &&
+                                 operation.Destination == new SurfaceCell(FaceId.Floor, 2, 0) &&
+                                 operation.Metadata.LocalActionIndex == 1),
+                Is.True);
+            Assert.That(
+                resolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.SetFacing &&
+                                 operation.EntityId == 20 &&
+                                 operation.Facing == Direction.Right &&
+                                 operation.Metadata.LocalActionIndex == 1),
+                Is.True);
+            Assert.That(
+                resolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.ApplyStateChange &&
+                                 operation.EntityId == 20 &&
+                                 operation.PhaseState == EntityPhaseState.Sliding &&
+                                 operation.Metadata.LocalActionIndex == 1),
+                Is.True);
+            Assert.That(
+                result.AttackPhaseResult.ResolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.MarkDestroy &&
+                                 operation.EntityId == 30),
+                Is.True);
+            Assert.That(
+                result.AttackPhaseResult.ResolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                                 operation.EntityId == 30),
+                Is.False);
+            Assert.That(
+                result.AttackPhaseResult.ResolvedOperations.Any(
+                    operation => operation.Kind == FinalizationOperationKind.MoveEntity &&
+                                 operation.EntityId == 20),
+                Is.False);
+
+            var orderedOperations = resolvedOperations.ToList();
+            var detachIndex = orderedOperations.FindIndex(
+                operation => operation.Kind == FinalizationOperationKind.SetBoardPresence &&
+                             operation.EntityId == 30 &&
+                             operation.Metadata.LocalActionIndex == 1);
+            var moveIndex = orderedOperations.FindIndex(
+                operation => operation.Kind == FinalizationOperationKind.MoveEntity &&
+                             operation.EntityId == 20 &&
+                             operation.Metadata.LocalActionIndex == 1);
+            var boxFacingIndex = orderedOperations.FindIndex(
+                operation => operation.Kind == FinalizationOperationKind.SetFacing &&
+                             operation.EntityId == 20 &&
+                             operation.Metadata.LocalActionIndex == 1);
+            var stateIndex = orderedOperations.FindIndex(
+                operation => operation.Kind == FinalizationOperationKind.ApplyStateChange &&
+                             operation.EntityId == 20 &&
+                             operation.Metadata.LocalActionIndex == 1);
+
+            Assert.That(detachIndex, Is.GreaterThanOrEqualTo(0));
+            Assert.That(moveIndex, Is.GreaterThan(detachIndex));
+            Assert.That(boxFacingIndex, Is.GreaterThan(moveIndex));
+            Assert.That(stateIndex, Is.GreaterThan(boxFacingIndex));
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
-            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
         }
 
@@ -806,6 +903,50 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(hostile.hp, Is.EqualTo(2));
             Assert.That(snapshotAfter.TryGetEntity(40, out var friendly), Is.True);
             Assert.That(friendly.hp, Is.EqualTo(3));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Impact_LethalTargetWithinStackedUnits_BoxDoesNotAdvanceIntoRemainingOccupant()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 30, position: new Vector2Int(2, 0), hp: 1, teamId: 2),
+                CreateUnit(entityId: 40, position: new Vector2Int(2, 0), hp: 3, teamId: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 20, TargetId: 30, Position: new Vector2Int(2, 0), Damage: 1),
+                },
+                result.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.Position,
+                        reservation.Damage))
+                    .ToArray());
+            CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted")), Is.False);
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
+            Assert.That(snapshotAfter.TryGetEntity(40, out var survivingOccupant), Is.True);
+            Assert.That(survivingOccupant.hp, Is.EqualTo(3));
         }
 
         [Test]
@@ -1485,6 +1626,90 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Idle));
             Assert.That(snapshotAfter.TryGetEntity(40, out var enemy), Is.True);
             Assert.That(enemy.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlidingPush_BoxKillsLoneHostile_AdvancesSameTickAsBoxSlide()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 1, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
+            var impactTick = pipeline.RunTick(new TickInput(13));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 40 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(impactTick.EventLog));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    impactTick.MovementPhaseResult.CommitEvents,
+                    "BoardPresenceCommitted",
+                    "E=40",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    impactTick.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=30",
+                    "To=(3,0)",
+                    "Facing=Right"),
+                Is.True);
+            Assert.That(
+                impactTick.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 30 &&
+                              motion.MotionKind == TickEntityMotionKind.BoxSlide &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, 2, 0) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 3, 0)),
+                Is.True);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
+            Assert.That(snapshotAfter.TryGetEntity(40, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SlidingPush_BoxKillsHostileButPlayerRemainsStacked_DoesNotAdvanceIntoPlayer()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, position: new Vector2Int(3, 0), hp: 1, teamId: 2),
+                CreateUnit(entityId: 50, position: new Vector2Int(3, 0), hp: 3, teamId: 1),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
+            RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
+            var impactTick = pipeline.RunTick(new TickInput(13));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            CollectionAssert.AreEqual(new[] { 40 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(impactTick.EventLog));
+            Assert.That(impactTick.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted")), Is.False);
+            Assert.That(impactTick.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(box.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(snapshotAfter.TryGetEntity(50, out var playerOccupant), Is.True);
+            Assert.That(playerOccupant.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
         }
 
         [Test]
