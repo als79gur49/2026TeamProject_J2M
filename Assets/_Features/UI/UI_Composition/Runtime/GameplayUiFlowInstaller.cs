@@ -21,6 +21,8 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private GameplayUiCanvasRootView _rootView;
         // Phase-local HUD prefab seam only. Do not expand this into a general feature-prefab registry.
         [SerializeField] private HUDRootView _hudPrefab;
+        // Screen-prefab composition remains screen-only. Do not widen this into a cross-layer asset registry.
+        [SerializeField] private ScreenPrefabCatalog _screenPrefabCatalog;
         // Popup-prefab composition remains popup-only. Do not widen this into a cross-layer asset registry.
         [SerializeField] private PopupPrefabCatalog _popupPrefabCatalog;
         [SerializeField] private bool _installOnStart = true;
@@ -138,6 +140,7 @@ namespace Game.Feature.UI.Composition
 
             Ports = ports;
             EnsureRootView();
+            EnsureScreenPrefabCatalog();
             EnsurePopupPrefabCatalog();
             PresentationSource = Ports.PresentationSource;
 
@@ -155,7 +158,8 @@ namespace Game.Feature.UI.Composition
                 _rootView.ScreenLayerView,
                 Ports.QueryFacade,
                 PresentationSource,
-                sessionSettingsStore));
+                sessionSettingsStore,
+                _screenPrefabCatalog));
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
                 _popupPrefabCatalog));
@@ -248,6 +252,19 @@ namespace Game.Feature.UI.Composition
             throw new InvalidOperationException(
                 "GameplayUiFlowInstaller is missing the canonical popup prefab catalog reference. " +
                 "Assign the popup-only prefab catalog instead of reintroducing runtime popup builders " +
+                "or widening composition into a generic asset registry.");
+        }
+
+        private void EnsureScreenPrefabCatalog()
+        {
+            if (_screenPrefabCatalog != null)
+            {
+                return;
+            }
+
+            throw new InvalidOperationException(
+                "GameplayUiFlowInstaller is missing the canonical screen prefab catalog reference. " +
+                "Assign the screen-only prefab catalog instead of reintroducing runtime screen builders " +
                 "or widening composition into a generic asset registry.");
         }
 

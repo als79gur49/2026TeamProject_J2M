@@ -37,16 +37,7 @@ namespace Game.Feature.UI.Composition
 
     internal static class UiPrefabMigrationInventory
     {
-        private static readonly UiPrefabMigrationEntry[] AllowedMixedModeEntries =
-        {
-            new(UiPrefabMigrationEntryKind.Screen, ScreenId.Gameplay.ToString(), "GameplayScreenRuntimeFactory.CreateGameplayScreen"),
-            new(UiPrefabMigrationEntryKind.Screen, ScreenId.Help.ToString(), "GameplayScreenRuntimeFactory.CreateHelpScreen"),
-            new(UiPrefabMigrationEntryKind.Screen, ScreenId.ObjectiveStatus.ToString(), "GameplayScreenRuntimeFactory.CreateObjectiveStatusScreen"),
-            new(UiPrefabMigrationEntryKind.Screen, ScreenId.Inventory.ToString(), "GameplayScreenRuntimeFactory.CreateInventoryScreen"),
-            new(UiPrefabMigrationEntryKind.Screen, ScreenId.Settings.ToString(), "GameplayScreenRuntimeFactory.CreateSettingsScreen"),
-            new(UiPrefabMigrationEntryKind.Screen, ScreenId.StageResult.ToString(), "GameplayScreenRuntimeFactory.CreateStageResultScreen"),
-            new(UiPrefabMigrationEntryKind.ScreenInternal, "InventoryScreen.Sections", "InventoryScreenView authored child sections remain runtime-built"),
-        };
+        private static readonly UiPrefabMigrationEntry[] AllowedMixedModeEntries = Array.Empty<UiPrefabMigrationEntry>();
 
         internal static IReadOnlyList<UiPrefabMigrationEntry> AllowedMixedModeEntriesView => AllowedMixedModeEntries;
 

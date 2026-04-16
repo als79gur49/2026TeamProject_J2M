@@ -4,15 +4,17 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class HelpScreenView : MonoBehaviour, IScreenView
+    public sealed class InventoryScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _descriptionLabel;
+        [SerializeField] private InventoryCatalogView _catalogView;
+        [SerializeField] private InventoryDetailView _detailView;
+        [SerializeField] private InventoryActionView _actionView;
         [SerializeField] private Button _backButton;
         [SerializeField] private Text _backButtonLabel;
 
-        private HelpScreenViewModel _viewModel;
+        private InventoryScreenViewModel _viewModel;
         private bool _isVisible;
 
         public event Action BackRequested;
@@ -27,7 +29,23 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        public void Bind(HelpScreenViewModel viewModel)
+        public InventoryCatalogView CatalogView => _catalogView;
+
+        public InventoryDetailView DetailView => _detailView;
+
+        public InventoryActionView ActionView => _actionView;
+
+        public string CatalogSummaryText => _catalogView != null ? _catalogView.SummaryText : string.Empty;
+
+        public string CatalogEmptyStateText => _catalogView != null ? _catalogView.EmptyStateText : string.Empty;
+
+        public string DetailTitleText => _detailView != null ? _detailView.TitleText : string.Empty;
+
+        public string ActionFeedbackText => _actionView != null ? _actionView.FeedbackText : string.Empty;
+
+        public string PrimaryActionStateText => _actionView != null ? _actionView.PrimaryStateText : string.Empty;
+
+        public void Bind(InventoryScreenViewModel viewModel)
         {
             if (_viewModel != null)
             {
@@ -58,6 +76,71 @@ namespace Game.Feature.UI.Screens
             BackRequested?.Invoke();
         }
 
+        public void ClickSearch()
+        {
+            if (!IsVisible || _catalogView == null)
+            {
+                return;
+            }
+
+            _catalogView.ClickSearch();
+        }
+
+        public void ClickFilter()
+        {
+            if (!IsVisible || _catalogView == null)
+            {
+                return;
+            }
+
+            _catalogView.ClickFilter();
+        }
+
+        public void ClickSort()
+        {
+            if (!IsVisible || _catalogView == null)
+            {
+                return;
+            }
+
+            _catalogView.ClickSort();
+        }
+
+        public void ClickItemRow(int visibleIndex)
+        {
+            if (!IsVisible || _catalogView == null)
+            {
+                return;
+            }
+
+            _catalogView.ClickRow(visibleIndex);
+        }
+
+        public void ClickPrimaryAction()
+        {
+            if (!IsVisible || _actionView == null)
+            {
+                return;
+            }
+
+            _actionView.ClickPrimaryAction();
+        }
+
+        public void ClickSecondaryAction()
+        {
+            if (!IsVisible || _actionView == null)
+            {
+                return;
+            }
+
+            _actionView.ClickSecondaryAction();
+        }
+
+        public string GetCatalogRowLabel(int visibleIndex)
+        {
+            return _catalogView != null ? _catalogView.GetRowLabel(visibleIndex) : string.Empty;
+        }
+
         private void OnEnable()
         {
             RebindButton(_backButton, ClickBack);
@@ -74,7 +157,9 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_descriptionLabel, nameof(_descriptionLabel));
+            ValidateSerializedReference(_catalogView, nameof(_catalogView));
+            ValidateSerializedReference(_detailView, nameof(_detailView));
+            ValidateSerializedReference(_actionView, nameof(_actionView));
             ValidateSerializedReference(_backButton, nameof(_backButton));
             ValidateSerializedReference(_backButtonLabel, nameof(_backButtonLabel));
         }
@@ -110,11 +195,6 @@ namespace Game.Feature.UI.Screens
                 _titleLabel.text = _viewModel.TitleText;
             }
 
-            if (_descriptionLabel != null)
-            {
-                _descriptionLabel.text = _viewModel.DescriptionText;
-            }
-
             if (_backButtonLabel != null)
             {
                 _backButtonLabel.text = _viewModel.BackLabel;
@@ -147,7 +227,7 @@ namespace Game.Feature.UI.Screens
         {
             if (value == null)
             {
-                Debug.LogWarning($"{nameof(HelpScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+                Debug.LogWarning($"{nameof(InventoryScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
             }
         }
 #endif

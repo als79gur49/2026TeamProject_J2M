@@ -4,16 +4,26 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class HelpScreenView : MonoBehaviour, IScreenView
+    public sealed class SettingsScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _descriptionLabel;
+        [SerializeField] private Text _tooltipStatusLabel;
+        [SerializeField] private Text _largeTextStatusLabel;
+        [SerializeField] private Button _tooltipToggleButton;
+        [SerializeField] private Button _largeTextToggleButton;
         [SerializeField] private Button _backButton;
+        [SerializeField] private Text _tooltipToggleButtonLabel;
+        [SerializeField] private Text _largeTextToggleButtonLabel;
         [SerializeField] private Text _backButtonLabel;
 
-        private HelpScreenViewModel _viewModel;
+        private SettingsScreenViewModel _viewModel;
         private bool _isVisible;
+
+        public event Action TooltipToggleRequested;
+
+
+        public event Action LargeTextToggleRequested;
 
         public event Action BackRequested;
 
@@ -27,7 +37,7 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        public void Bind(HelpScreenViewModel viewModel)
+        public void Bind(SettingsScreenViewModel viewModel)
         {
             if (_viewModel != null)
             {
@@ -48,6 +58,26 @@ namespace Game.Feature.UI.Screens
             IsVisible = isCurrent;
         }
 
+        public void ClickTooltipToggle()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            TooltipToggleRequested?.Invoke();
+        }
+
+        public void ClickLargeTextToggle()
+        {
+            if (!IsVisible)
+            {
+                return;
+            }
+
+            LargeTextToggleRequested?.Invoke();
+        }
+
         public void ClickBack()
         {
             if (!IsVisible)
@@ -60,12 +90,16 @@ namespace Game.Feature.UI.Screens
 
         private void OnEnable()
         {
+            RebindButton(_tooltipToggleButton, ClickTooltipToggle);
+            RebindButton(_largeTextToggleButton, ClickLargeTextToggle);
             RebindButton(_backButton, ClickBack);
             RefreshView();
         }
 
         private void OnDisable()
         {
+            UnbindButton(_tooltipToggleButton, ClickTooltipToggle);
+            UnbindButton(_largeTextToggleButton, ClickLargeTextToggle);
             UnbindButton(_backButton, ClickBack);
         }
 
@@ -74,8 +108,13 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_descriptionLabel, nameof(_descriptionLabel));
+            ValidateSerializedReference(_tooltipStatusLabel, nameof(_tooltipStatusLabel));
+            ValidateSerializedReference(_largeTextStatusLabel, nameof(_largeTextStatusLabel));
+            ValidateSerializedReference(_tooltipToggleButton, nameof(_tooltipToggleButton));
+            ValidateSerializedReference(_largeTextToggleButton, nameof(_largeTextToggleButton));
             ValidateSerializedReference(_backButton, nameof(_backButton));
+            ValidateSerializedReference(_tooltipToggleButtonLabel, nameof(_tooltipToggleButtonLabel));
+            ValidateSerializedReference(_largeTextToggleButtonLabel, nameof(_largeTextToggleButtonLabel));
             ValidateSerializedReference(_backButtonLabel, nameof(_backButtonLabel));
         }
 #endif
@@ -110,9 +149,24 @@ namespace Game.Feature.UI.Screens
                 _titleLabel.text = _viewModel.TitleText;
             }
 
-            if (_descriptionLabel != null)
+            if (_tooltipStatusLabel != null)
             {
-                _descriptionLabel.text = _viewModel.DescriptionText;
+                _tooltipStatusLabel.text = _viewModel.TooltipStatusText;
+            }
+
+            if (_largeTextStatusLabel != null)
+            {
+                _largeTextStatusLabel.text = _viewModel.LargeTextStatusText;
+            }
+
+            if (_tooltipToggleButtonLabel != null)
+            {
+                _tooltipToggleButtonLabel.text = _viewModel.TooltipToggleLabel;
+            }
+
+            if (_largeTextToggleButtonLabel != null)
+            {
+                _largeTextToggleButtonLabel.text = _viewModel.LargeTextToggleLabel;
             }
 
             if (_backButtonLabel != null)
@@ -147,7 +201,7 @@ namespace Game.Feature.UI.Screens
         {
             if (value == null)
             {
-                Debug.LogWarning($"{nameof(HelpScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+                Debug.LogWarning($"{nameof(SettingsScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
             }
         }
 #endif

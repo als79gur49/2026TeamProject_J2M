@@ -38,41 +38,6 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        public void Configure(
-            GameObject root,
-            Text titleLabel,
-            Text badgeLabel,
-            Text summaryLabel,
-            Text detailLabel,
-            Text secondaryLabel,
-            Button overviewButton,
-            Button sessionButton,
-            Button infoButton,
-            Button backButton)
-        {
-            _root = root;
-            _titleLabel = titleLabel;
-            _badgeLabel = badgeLabel;
-            _summaryLabel = summaryLabel;
-            _detailLabel = detailLabel;
-            _secondaryLabel = secondaryLabel;
-            _overviewButton = overviewButton;
-            _sessionButton = sessionButton;
-            _infoButton = infoButton;
-            _backButton = backButton;
-
-            _overviewButton.onClick.RemoveListener(ClickOverview);
-            _sessionButton.onClick.RemoveListener(ClickSession);
-            _infoButton.onClick.RemoveListener(ClickInfo);
-            _backButton.onClick.RemoveListener(ClickBack);
-            _overviewButton.onClick.AddListener(ClickOverview);
-            _sessionButton.onClick.AddListener(ClickSession);
-            _infoButton.onClick.AddListener(ClickInfo);
-            _backButton.onClick.AddListener(ClickBack);
-
-            RefreshView();
-        }
-
         public void SetIsCurrent(bool isCurrent)
         {
             IsVisible = isCurrent;
@@ -134,6 +99,39 @@ namespace Game.Feature.UI.Screens
             BackRequested?.Invoke();
         }
 
+        private void OnEnable()
+        {
+            RebindButton(_overviewButton, ClickOverview);
+            RebindButton(_sessionButton, ClickSession);
+            RebindButton(_infoButton, ClickInfo);
+            RebindButton(_backButton, ClickBack);
+            RefreshView();
+        }
+
+        private void OnDisable()
+        {
+            UnbindButton(_overviewButton, ClickOverview);
+            UnbindButton(_sessionButton, ClickSession);
+            UnbindButton(_infoButton, ClickInfo);
+            UnbindButton(_backButton, ClickBack);
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
+            ValidateSerializedReference(_badgeLabel, nameof(_badgeLabel));
+            ValidateSerializedReference(_summaryLabel, nameof(_summaryLabel));
+            ValidateSerializedReference(_detailLabel, nameof(_detailLabel));
+            ValidateSerializedReference(_secondaryLabel, nameof(_secondaryLabel));
+            ValidateSerializedReference(_overviewButton, nameof(_overviewButton));
+            ValidateSerializedReference(_sessionButton, nameof(_sessionButton));
+            ValidateSerializedReference(_infoButton, nameof(_infoButton));
+            ValidateSerializedReference(_backButton, nameof(_backButton));
+        }
+#endif
+
         private void OnDestroy()
         {
             if (_viewModel != null)
@@ -194,5 +192,36 @@ namespace Game.Feature.UI.Screens
                 _sessionButton.interactable = !_viewModel.IsSessionSelected;
             }
         }
+
+        private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveListener(action);
+            button.onClick.AddListener(action);
+        }
+
+        private static void UnbindButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveListener(action);
+        }
+
+#if UNITY_EDITOR
+        private void ValidateSerializedReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                Debug.LogWarning($"{nameof(ObjectiveStatusScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+#endif
     }
 }

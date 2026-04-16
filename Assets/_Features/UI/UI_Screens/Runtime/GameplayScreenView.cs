@@ -17,6 +17,9 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Text _inventoryButtonLabel;
         [SerializeField] private Text _settingsButtonLabel;
 
+        private GameplayScreenViewModel _viewModel;
+        private bool _isVisible;
+
         public event Action HelpRequested;
 
         public event Action ObjectivesRequested;
@@ -24,8 +27,6 @@ namespace Game.Feature.UI.Screens
         public event Action InventoryRequested;
 
         public event Action SettingsRequested;
-
-        private GameplayScreenViewModel _viewModel;
 
         public bool IsVisible
         {
@@ -35,43 +36,6 @@ namespace Game.Feature.UI.Screens
                 _isVisible = value;
                 RefreshView();
             }
-        }
-
-        private bool _isVisible;
-
-        public void Configure(
-            GameObject root,
-            Text titleLabel,
-            Button helpButton,
-            Button objectiveButton,
-            Button inventoryButton,
-            Button settingsButton,
-            Text helpButtonLabel,
-            Text objectiveButtonLabel,
-            Text inventoryButtonLabel,
-            Text settingsButtonLabel)
-        {
-            _root = root;
-            _titleLabel = titleLabel;
-            _helpButton = helpButton;
-            _objectiveButton = objectiveButton;
-            _inventoryButton = inventoryButton;
-            _settingsButton = settingsButton;
-            _helpButtonLabel = helpButtonLabel;
-            _objectiveButtonLabel = objectiveButtonLabel;
-            _inventoryButtonLabel = inventoryButtonLabel;
-            _settingsButtonLabel = settingsButtonLabel;
-
-            _helpButton.onClick.RemoveListener(ClickHelp);
-            _objectiveButton.onClick.RemoveListener(ClickObjectives);
-            _inventoryButton.onClick.RemoveListener(ClickInventory);
-            _settingsButton.onClick.RemoveListener(ClickSettings);
-            _helpButton.onClick.AddListener(ClickHelp);
-            _objectiveButton.onClick.AddListener(ClickObjectives);
-            _inventoryButton.onClick.AddListener(ClickInventory);
-            _settingsButton.onClick.AddListener(ClickSettings);
-
-            RefreshView();
         }
 
         public void Bind(GameplayScreenViewModel viewModel)
@@ -135,6 +99,39 @@ namespace Game.Feature.UI.Screens
             SettingsRequested?.Invoke();
         }
 
+        private void OnEnable()
+        {
+            RebindButton(_helpButton, ClickHelp);
+            RebindButton(_objectiveButton, ClickObjectives);
+            RebindButton(_inventoryButton, ClickInventory);
+            RebindButton(_settingsButton, ClickSettings);
+            RefreshView();
+        }
+
+        private void OnDisable()
+        {
+            UnbindButton(_helpButton, ClickHelp);
+            UnbindButton(_objectiveButton, ClickObjectives);
+            UnbindButton(_inventoryButton, ClickInventory);
+            UnbindButton(_settingsButton, ClickSettings);
+        }
+
+#if UNITY_EDITOR
+        private void OnValidate()
+        {
+            ValidateSerializedReference(_root, nameof(_root));
+            ValidateSerializedReference(_helpButton, nameof(_helpButton));
+            ValidateSerializedReference(_objectiveButton, nameof(_objectiveButton));
+            ValidateSerializedReference(_inventoryButton, nameof(_inventoryButton));
+            ValidateSerializedReference(_settingsButton, nameof(_settingsButton));
+            ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
+            ValidateSerializedReference(_helpButtonLabel, nameof(_helpButtonLabel));
+            ValidateSerializedReference(_objectiveButtonLabel, nameof(_objectiveButtonLabel));
+            ValidateSerializedReference(_inventoryButtonLabel, nameof(_inventoryButtonLabel));
+            ValidateSerializedReference(_settingsButtonLabel, nameof(_settingsButtonLabel));
+        }
+#endif
+
         private void OnDestroy()
         {
             if (_viewModel != null)
@@ -185,5 +182,36 @@ namespace Game.Feature.UI.Screens
                 _settingsButtonLabel.text = _viewModel.SettingsLabel;
             }
         }
+
+        private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveListener(action);
+            button.onClick.AddListener(action);
+        }
+
+        private static void UnbindButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveListener(action);
+        }
+
+#if UNITY_EDITOR
+        private void ValidateSerializedReference(UnityEngine.Object value, string fieldName)
+        {
+            if (value == null)
+            {
+                Debug.LogWarning($"{nameof(GameplayScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+            }
+        }
+#endif
     }
 }

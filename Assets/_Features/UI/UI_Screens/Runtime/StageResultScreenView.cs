@@ -4,18 +4,19 @@ using UnityEngine.UI;
 
 namespace Game.Feature.UI.Screens
 {
-    public sealed class HelpScreenView : MonoBehaviour, IScreenView
+    public sealed class StageResultScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _descriptionLabel;
-        [SerializeField] private Button _backButton;
-        [SerializeField] private Text _backButtonLabel;
+        [SerializeField] private Text _summaryLabel;
+        [SerializeField] private Text _detailLabel;
+        [SerializeField] private Button _continueButton;
+        [SerializeField] private Text _continueButtonLabel;
 
-        private HelpScreenViewModel _viewModel;
+        private StageResultScreenViewModel _viewModel;
         private bool _isVisible;
 
-        public event Action BackRequested;
+        public event Action ContinueRequested;
 
         public bool IsVisible
         {
@@ -27,7 +28,7 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        public void Bind(HelpScreenViewModel viewModel)
+        public void Bind(StageResultScreenViewModel viewModel)
         {
             if (_viewModel != null)
             {
@@ -48,25 +49,25 @@ namespace Game.Feature.UI.Screens
             IsVisible = isCurrent;
         }
 
-        public void ClickBack()
+        public void ClickContinue()
         {
             if (!IsVisible)
             {
                 return;
             }
 
-            BackRequested?.Invoke();
+            ContinueRequested?.Invoke();
         }
 
         private void OnEnable()
         {
-            RebindButton(_backButton, ClickBack);
+            RebindButton(_continueButton, ClickContinue);
             RefreshView();
         }
 
         private void OnDisable()
         {
-            UnbindButton(_backButton, ClickBack);
+            UnbindButton(_continueButton, ClickContinue);
         }
 
 #if UNITY_EDITOR
@@ -74,9 +75,10 @@ namespace Game.Feature.UI.Screens
         {
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
-            ValidateSerializedReference(_descriptionLabel, nameof(_descriptionLabel));
-            ValidateSerializedReference(_backButton, nameof(_backButton));
-            ValidateSerializedReference(_backButtonLabel, nameof(_backButtonLabel));
+            ValidateSerializedReference(_summaryLabel, nameof(_summaryLabel));
+            ValidateSerializedReference(_detailLabel, nameof(_detailLabel));
+            ValidateSerializedReference(_continueButton, nameof(_continueButton));
+            ValidateSerializedReference(_continueButtonLabel, nameof(_continueButtonLabel));
         }
 #endif
 
@@ -110,14 +112,19 @@ namespace Game.Feature.UI.Screens
                 _titleLabel.text = _viewModel.TitleText;
             }
 
-            if (_descriptionLabel != null)
+            if (_summaryLabel != null)
             {
-                _descriptionLabel.text = _viewModel.DescriptionText;
+                _summaryLabel.text = _viewModel.SummaryText;
             }
 
-            if (_backButtonLabel != null)
+            if (_detailLabel != null)
             {
-                _backButtonLabel.text = _viewModel.BackLabel;
+                _detailLabel.text = _viewModel.DetailText;
+            }
+
+            if (_continueButtonLabel != null)
+            {
+                _continueButtonLabel.text = _viewModel.ContinueLabel;
             }
         }
 
@@ -147,7 +154,7 @@ namespace Game.Feature.UI.Screens
         {
             if (value == null)
             {
-                Debug.LogWarning($"{nameof(HelpScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
+                Debug.LogWarning($"{nameof(StageResultScreenView)} on '{name}' is missing serialized reference '{fieldName}'.", this);
             }
         }
 #endif

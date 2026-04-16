@@ -10,6 +10,13 @@ namespace Game.Feature.UI.Tests
     internal static class UiTestPrefabAssetUtility
     {
         internal const string HudPrefabPath = "Assets/_Features/UI/UI_HUD/Prefabs/GameplayHudRoot.prefab";
+        internal const string ScreenCatalogPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreenPrefabCatalog.asset";
+        internal const string GameplayScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/GameplayScreen.prefab";
+        internal const string HelpScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/HelpScreen.prefab";
+        internal const string ObjectiveStatusScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/ObjectiveStatusScreen.prefab";
+        internal const string InventoryScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/InventoryScreen.prefab";
+        internal const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
+        internal const string StageResultScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
         internal const string PausePopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         internal const string ObjectiveInfoPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ObjectiveInfoPopup.prefab";
@@ -40,6 +47,35 @@ namespace Game.Feature.UI.Tests
             var hudPrefabProperty = serializedInstaller.FindProperty("_hudPrefab");
             Assert.That(hudPrefabProperty, Is.Not.Null);
             hudPrefabProperty.objectReferenceValue = LoadHudPrefab();
+            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        internal static ScreenPrefabCatalog LoadScreenCatalog()
+        {
+            var screenCatalog = AssetDatabase.LoadAssetAtPath<ScreenPrefabCatalog>(ScreenCatalogPath);
+            Assert.That(screenCatalog, Is.Not.Null, ScreenCatalogPath);
+            return screenCatalog;
+        }
+
+        internal static TScreenView LoadScreenPrefab<TScreenView>(string assetPath)
+            where TScreenView : Component
+        {
+            var screenPrefabRoot = AssetDatabase.LoadAssetAtPath<GameObject>(assetPath);
+            Assert.That(screenPrefabRoot, Is.Not.Null, assetPath);
+
+            var screenPrefab = screenPrefabRoot.GetComponent<TScreenView>();
+            Assert.That(screenPrefab, Is.Not.Null, assetPath);
+            return screenPrefab;
+        }
+
+        internal static void AssignScreenPrefabCatalog(GameplayUiFlowInstaller installer)
+        {
+            Assert.That(installer, Is.Not.Null);
+
+            var serializedInstaller = new SerializedObject(installer);
+            var screenCatalogProperty = serializedInstaller.FindProperty("_screenPrefabCatalog");
+            Assert.That(screenCatalogProperty, Is.Not.Null);
+            screenCatalogProperty.objectReferenceValue = LoadScreenCatalog();
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
         }
 
@@ -75,6 +111,7 @@ namespace Game.Feature.UI.Tests
         internal static void AssignCanonicalUiPrefabs(GameplayUiFlowInstaller installer)
         {
             AssignHudPrefab(installer);
+            AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
         }
     }
