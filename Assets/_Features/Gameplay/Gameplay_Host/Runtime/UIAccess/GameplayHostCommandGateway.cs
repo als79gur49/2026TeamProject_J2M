@@ -3,7 +3,7 @@ using Game.Feature.Gameplay.UIAccess.Models;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
-    internal sealed class GameplayHostCommandGateway : IGameplayCommandGateway
+    internal sealed class GameplayHostCommandGateway : IGameplayCommandGateway, System.IDisposable
     {
         private readonly GameplayHostCommandAdmissionPolicy _admissionPolicy;
         private readonly GameplayInputHost _inputHost;
@@ -69,6 +69,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             _inputHost.BufferUiFlip(GameplayUiAccessMapper.ToGameplayDirection(direction));
             return GameplayCommandAcceptance.Accept();
+        }
+
+        public void Dispose()
+        {
+            _admissionPolicy?.Dispose();
         }
 
         private static bool IsOrthogonalDirection(GameplayUiDirection direction)

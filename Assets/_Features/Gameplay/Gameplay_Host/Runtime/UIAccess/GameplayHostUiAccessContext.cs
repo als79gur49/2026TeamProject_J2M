@@ -27,6 +27,11 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
         public void Dispose()
         {
+            if (CommandGateway is IDisposable disposableCommandGateway)
+            {
+                disposableCommandGateway.Dispose();
+            }
+
             if (PresentationFeed is IDisposable disposableFeed)
             {
                 disposableFeed.Dispose();

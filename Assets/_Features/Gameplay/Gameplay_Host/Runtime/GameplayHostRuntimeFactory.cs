@@ -149,7 +149,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.DirectionChangeConsumesDelay,
                 configuration.AutoAdvanceTicks);
             var pauseService = new GameplayHostPauseService(inputHost);
-            var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, inputHost, presenter, pauseService);
+            var admissionPolicy = new GameplayHostCommandAdmissionPolicy(worldState, tickRunner, inputHost, presenter, pauseService);
             var uiAccess = new GameplayHostUiAccessContext(
                 new GameplayHostCommandGateway(inputHost, admissionPolicy),
                 new GameplayQueryFacade(
