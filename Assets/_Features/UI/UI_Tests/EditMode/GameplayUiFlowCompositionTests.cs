@@ -11,9 +11,9 @@ namespace Game.Feature.UI.Tests
     public sealed class GameplayUiFlowCompositionTests
     {
         [Test]
-        public void GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndAllowlistedLegacyPopupStack_WithFakePorts()
+        public void GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndCanonicalPopupStack_WithFakePorts()
         {
-            var rootObject = new GameObject("GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndAllowlistedLegacyPopupStack_WithFakePorts");
+            var rootObject = new GameObject("GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndCanonicalPopupStack_WithFakePorts");
 
             try
             {
