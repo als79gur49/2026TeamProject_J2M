@@ -94,6 +94,28 @@ namespace Game.Feature.Gameplay.Loop
 
         public StageObjectiveTickResult CurrentObjectiveResult => _objectiveTracker.CurrentResult;
 
+        private static bool ShouldEmitTickTrace()
+        {
+#if UNITY_EDITOR && GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
+            return false;
+#elif UNITY_EDITOR || DEVELOPMENT_BUILD
+            return true;
+#else
+            return false;
+#endif
+        }
+
+        private static bool ShouldEmitDeterminismHash()
+        {
+#if UNITY_EDITOR && GAMEPLAY_DEBUG_OUTPUT_FORCE_OFF
+            return false;
+#elif UNITY_EDITOR || DEVELOPMENT_BUILD
+            return true;
+#else
+            return false;
+#endif
+        }
+
         public TickResult RunTick(in TickInput input)
         {
             _idAllocator.ResetForTick(input.TickIndex);
@@ -174,21 +196,25 @@ namespace Game.Feature.Gameplay.Loop
                 respawnPhaseResult,
                 objectiveResult,
                 presentationBuildContext);
-            var determinismHash = _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData);
-            var tickTrace = _tickTraceBuilder.Build(
-                input.TickIndex,
-                preMovementSnapshot,
-                aiPhaseResult,
-                resolvePhaseResult.EnemyActionPhaseResult,
-                preMovementStateResult,
-                movementPhaseResult,
-                resolvePhaseResult.PostMovementSnapshot,
-                attackPhaseResult,
-                cleanupPhaseResult,
-                respawnPhaseResult,
-                finalAuthoritativeSnapshot,
-                tickResultData,
-                determinismHash);
+            var determinismHash = ShouldEmitDeterminismHash()
+                ? _determinismHashBuilder.Build(input.TickIndex, finalAuthoritativeSnapshot, tickResultData)
+                : string.Empty;
+            var tickTrace = ShouldEmitTickTrace()
+                ? _tickTraceBuilder.Build(
+                    input.TickIndex,
+                    preMovementSnapshot,
+                    aiPhaseResult,
+                    resolvePhaseResult.EnemyActionPhaseResult,
+                    preMovementStateResult,
+                    movementPhaseResult,
+                    resolvePhaseResult.PostMovementSnapshot,
+                    attackPhaseResult,
+                    cleanupPhaseResult,
+                    respawnPhaseResult,
+                    finalAuthoritativeSnapshot,
+                    tickResultData,
+                    determinismHash)
+                : TickTrace.Empty;
 
             return new TickResult(
                 input.TickIndex,
