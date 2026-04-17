@@ -53,7 +53,6 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             }
 
             buffer.Clear();
-            rejectedReasons.Clear();
 
             for (var i = 0; i < sortedInputs.Count; i++)
             {

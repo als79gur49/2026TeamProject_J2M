@@ -2901,6 +2901,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 teamId = teamId,
                 type = EntityType.Unit,
                 facing = facing,
+                state = EntityPhaseState.Idle,
             };
         }
 
@@ -2947,6 +2948,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 teamId = 0,
                 type = EntityType.Box,
                 facing = facing,
+                state = EntityPhaseState.Idle,
                 boxCapabilities = capabilities,
             };
         }
@@ -2966,6 +2968,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = hp,
                 teamId = 1,
                 type = EntityType.Projectile,
+                state = EntityPhaseState.Idle,
             };
         }
 

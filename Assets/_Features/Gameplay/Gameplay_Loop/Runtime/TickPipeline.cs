@@ -1363,7 +1363,13 @@ namespace Game.Feature.Gameplay.Loop
 
         private static int CompareMovementCanonicalOrder(WorldSnapshot snapshot, ActionGroup left, ActionGroup right)
         {
-            var result = ResolveMovementSourceRank(snapshot, left).CompareTo(ResolveMovementSourceRank(snapshot, right));
+            var result = right.Priority.CompareTo(left.Priority);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ResolveMovementSourceRank(snapshot, left).CompareTo(ResolveMovementSourceRank(snapshot, right));
             if (result != 0)
             {
                 return result;
@@ -1392,7 +1398,13 @@ namespace Game.Feature.Gameplay.Loop
 
         private static int CompareAttackCanonicalOrder(WorldSnapshot snapshot, ActionGroup left, ActionGroup right)
         {
-            var result = ResolveAttackSourceRank(snapshot, left).CompareTo(ResolveAttackSourceRank(snapshot, right));
+            var result = right.Priority.CompareTo(left.Priority);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = ResolveAttackSourceRank(snapshot, left).CompareTo(ResolveAttackSourceRank(snapshot, right));
             if (result != 0)
             {
                 return result;
@@ -1755,7 +1767,7 @@ namespace Game.Feature.Gameplay.Loop
 
             impactReservationPayload = new MovementImpactReservationPayload(
                 impactSourceEntity.entityId,
-                group.SourceId,
+                impactSourceEntity.entityId,
                 impactSourceEntity.position,
                 group.ImpactTargetId,
                 impactCell,
@@ -2808,7 +2820,7 @@ namespace Game.Feature.Gameplay.Loop
 
                 impactReservations.Add(
                     new ImpactReservation(
-                        payload.SourceActorEntityId,
+                        payload.ImpactReservationPayload.SourceEntityId,
                         payload.ImpactReservationPayload.TargetEntityId,
                         payload.ImpactReservationPayload.ImpactCell,
                         payload.ImpactReservationPayload.DamageAmount,
@@ -2853,7 +2865,7 @@ namespace Game.Feature.Gameplay.Loop
 
                 impactReservations.Add(
                     new ImpactReservation(
-                        payload.SourceActorEntityId,
+                        payload.DeferredImpactPayload.SourceEntityId,
                         targetEntityId,
                         impactCell,
                         damageAmount,
@@ -3435,7 +3447,6 @@ namespace Game.Feature.Gameplay.Loop
                     payload.HasImpactReservationPayload &&
                     !TryGetConflictingImpactPayloadDestination(payload.ImpactReservationPayload, reservedDestinations, out _) &&
                     !TryGetConflictingImpactPayloadEdge(payload.ImpactReservationPayload, reservedEdges, out _) &&
-                    !TryGetSharedImpactPayloadAffectedEntity(payload.ImpactReservationPayload, reservedAffectedEntities, out _) &&
                     CanAcceptImpactFollowThrough(
                         attackSnapshot,
                         destroyResolutions,
@@ -3703,21 +3714,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             conflictingEdge = edge;
-            return true;
-        }
-
-        private static bool TryGetSharedImpactPayloadAffectedEntity(
-            MovementImpactReservationPayload payload,
-            ISet<int> reservedAffectedEntities,
-            out int sharedEntityId)
-        {
-            sharedEntityId = default;
-            if (!reservedAffectedEntities.Contains(payload.SourceEntityId))
-            {
-                return false;
-            }
-
-            sharedEntityId = payload.SourceEntityId;
             return true;
         }
 

@@ -59,7 +59,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         {
                             { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
                         }),
-                    new StubCombatLogic(
+                    new StubAttackLogic(
                         controlledEntityId: 10,
                         attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
                 },
@@ -124,7 +124,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         {
                             { 1, new RawMovementIntent(10, 5, new Vector2Int(1, 0)) },
                         }),
-                    new StubCombatLogic(
+                    new StubAttackLogic(
                         controlledEntityId: 10,
                         attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
                 },
@@ -182,7 +182,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(
+                    new StubAttackLogic(
                         controlledEntityId: 10,
                         attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 20, 5)),
                 });
@@ -237,8 +237,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             });
             var entityLogics = new IAttackEntityLogic[]
             {
-                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 30, 5)),
-                new StubCombatLogic(attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 20, 30, 5)),
+                new StubAttackLogic(attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 30, 5)),
+                new StubAttackLogic(attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 20, 30, 5)),
             };
 
             var attackPhaseResult = RunAttackPhaseOnly(worldState, entityLogics, tickIndex: 5);
@@ -348,8 +348,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 new IEntityLogic[]
                 {
                     CreateImmediatePushPlayerLogic(10),
-                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 30, 10)),
-                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 50, 10, 5)),
+                    new StubAttackLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 40, 30, 10)),
+                    new StubAttackLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 50, 10, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
@@ -483,7 +483,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => new RawAttackIntent(10, 5, 20)),
+                    new StubAttackLogic(controlledEntityId: 10, attackIntentFactory: _ => new RawAttackIntent(10, 5, 20)),
                 });
 
             var result = pipeline.RunTick(new TickInput(9));
@@ -524,7 +524,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
+                    new StubAttackLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
                 });
             var defaultTimingProfile = GameplayTimingProfile.CreateDefault();
 
@@ -578,7 +578,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
+                    new StubAttackLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
                 });
             var defaultTimingProfile = GameplayTimingProfile.CreateDefault();
 
@@ -628,8 +628,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
-                    new StubCombatLogic(controlledEntityId: 20, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(20, 10)),
+                    new StubAttackLogic(controlledEntityId: 10, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(10, 5)),
+                    new StubAttackLogic(controlledEntityId: 20, attackIntentFactory: _ => RawAttackIntent.CreateFireProjectile(20, 10)),
                 });
 
             var result = pipeline.RunTick(new TickInput(6));
@@ -1269,11 +1269,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5, unitRole: UnitRole.Player),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
             });
             var playerTiming = CreatePlayerControlTimingSnapshot(damageCooldownTicks: 1);
-            var attackLogic = new StubCombatLogic(
+            var attackLogic = new StubAttackLogic(
                 controlledEntityId: 40,
                 attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, 5));
 
@@ -1297,7 +1297,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5, unitRole: UnitRole.Player),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
                 CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
             });
@@ -1307,8 +1307,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IAttackEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, 5)),
-                    new StubCombatLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 50, 10, 5)),
+                    new StubAttackLogic(controlledEntityId: 40, attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 40, 10, 5)),
+                    new StubAttackLogic(controlledEntityId: 50, attackIntentFactory: snapshot => TryCreatePassiveContactAttack(snapshot, 50, 10, 5)),
                 },
                 tickIndex: 1,
                 playerControlTiming: playerTiming);
@@ -1331,7 +1331,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var worldState = CreateWorldState(new[]
             {
-                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5),
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 5, unitRole: UnitRole.Player),
                 CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3),
             });
             var playerTiming = CreatePlayerControlTimingSnapshot(damageCooldownTicks: 1);
@@ -1379,8 +1379,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 worldState,
                 new IEntityLogic[]
                 {
-                    new StubCombatLogic(controlledEntityId: 10, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 30, 5)),
-                    new StubCombatLogic(controlledEntityId: 20, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 20, 30, 5)),
+                    new StubAttackLogic(controlledEntityId: 10, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 10, 30, 5)),
+                    new StubAttackLogic(controlledEntityId: 20, attackIntentFactory: snapshot => TryCreateContactRangeAttack(snapshot, 20, 30, 5)),
                 });
 
             var result = pipeline.RunTick(new TickInput(5));
@@ -1532,9 +1532,10 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int teamId,
             Vector2Int position,
             int hp,
-            Direction facing = Direction.None)
+            Direction facing = Direction.None,
+            UnitRole unitRole = UnitRole.None)
         {
-            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, facing);
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, facing, unitRole);
         }
 
         private static EntityState CreateUnit(
@@ -1542,7 +1543,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int teamId,
             SurfaceCell position,
             int hp,
-            Direction facing = Direction.None)
+            Direction facing = Direction.None,
+            UnitRole unitRole = UnitRole.None)
         {
             return new EntityState
             {
@@ -1552,6 +1554,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitRole = unitRole,
                 state = EntityPhaseState.Idle,
                 facing = facing,
             };
@@ -1750,34 +1753,20 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return results;
         }
 
-        private sealed class StubCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding
+        private sealed class StubAttackLogic : IAttackEntityLogic, IEntityLogicSourceBinding
         {
             private readonly Func<WorldSnapshot, RawAttackIntent?> _attackIntentFactory;
             private readonly int _controlledEntityId;
-            private readonly RawMovementIntent? _movementIntent;
 
-            public StubCombatLogic(
+            public StubAttackLogic(
                 int controlledEntityId = 0,
-                RawMovementIntent? movementIntent = null,
                 Func<WorldSnapshot, RawAttackIntent?> attackIntentFactory = null)
             {
                 _controlledEntityId = controlledEntityId;
-                _movementIntent = movementIntent;
                 _attackIntentFactory = attackIntentFactory;
             }
 
-            public int ControlledEntityId => _movementIntent?.SourceId ?? _controlledEntityId;
-
-            public void CollectMovementIntents(
-                WorldSnapshot snapshot,
-                in TickInput input,
-                List<RawMovementIntent> buffer)
-            {
-                if (_movementIntent.HasValue)
-                {
-                    buffer.Add(_movementIntent.Value);
-                }
-            }
+            public int ControlledEntityId => _controlledEntityId;
 
             public void CollectAttackIntents(
                 WorldSnapshot snapshot,
@@ -1793,6 +1782,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 if (attackIntent.HasValue)
                 {
                     buffer.Add(attackIntent.Value);
+                }
+            }
+        }
+
+        private sealed class StubCombatLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _controlledEntityId;
+            private readonly RawMovementIntent? _movementIntent;
+
+            public StubCombatLogic(
+                int controlledEntityId = 0,
+                RawMovementIntent? movementIntent = null)
+            {
+                _controlledEntityId = controlledEntityId;
+                _movementIntent = movementIntent;
+            }
+
+            public int ControlledEntityId => _movementIntent?.SourceId ?? _controlledEntityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (_movementIntent.HasValue)
+                {
+                    buffer.Add(_movementIntent.Value);
                 }
             }
         }
