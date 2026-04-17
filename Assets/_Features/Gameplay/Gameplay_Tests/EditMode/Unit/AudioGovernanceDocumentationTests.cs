@@ -36,6 +36,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("binding-local validation rule의 canonical owner"));
             Assert.That(doc, Does.Contain("delegated `AudioBinding` diagnostics"));
             Assert.That(doc, Does.Contain("binding-local rule source는 `AudioBinding` 하나다"));
+            Assert.That(doc, Does.Contain("validation authority reuse의 immediate policy는 deferred다"));
+            Assert.That(doc, Does.Contain("shared `AudioBindingDiagnostics` facade"));
+            Assert.That(doc, Does.Contain("권위는 shared에, 조합은 feature에 둔다"));
+            Assert.That(doc, Does.Contain("`BGM lane -> source pool and active controller set -> attached registry`"));
+            Assert.That(doc, Does.Contain("fade/crossfade와 ducking은 `AudioBgmChannel` 또는 `AudioBgmController`"));
+            Assert.That(doc, Does.Contain("second feature map consumer"));
         }
 
         [Test]

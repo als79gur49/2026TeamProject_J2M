@@ -147,6 +147,11 @@ future policy rule:
 - v1에서는 `AudioBinding.Policy`가 reserved seam이며 반드시 `null`이어야 한다.
 - `AudioManager`가 가질 수 있는 policy는 pool size, category voice budget, BGM channel, source stealing rule 같은 infra-level rule뿐이다.
 - binding-local validation rule 추가는 `AudioBinding` diagnostics core만 수정한다.
+- validation authority reuse의 immediate policy는 deferred다.
+- direct consumer가 gameplay audio 하나뿐인 동안에는 current friend/internal path를 유지한다.
+- 두 번째 feature map consumer가 생기면 additional `InternalsVisibleTo` 확장 대신 shared `AudioBindingDiagnostics` facade를 우선 도입한다.
+- public `AudioBinding` surface는 그 전까지 넓히지 않는다.
+- 새 feature map은 binding-local rule을 직접 재구현하지 않는다. 권위는 shared에, 조합은 feature에 둔다.
 
 ## 7. PlayAttached Contract
 
@@ -250,3 +255,9 @@ PlayMode / runtime guard:
 - `AudioBinding`은 binding-local validation rule authority를 단독 소유한다.
 - `GameplayAudioMap`은 map-level validation만 소유하고 delegated binding diagnostics를 집계한다.
 - authoring/bootstrap/runtime은 failure mode가 달라도 binding-local rule source는 `AudioBinding` 하나다.
+- validation reuse가 실제로 gameplay audio 바깥으로 필요해지면 shared diagnostics facade를 추가하고 friend assembly를 기본 경로로 늘리지 않는다.
+- `AudioManager` internal extraction priority는 `BGM lane -> source pool and active controller set -> attached registry` 순서를 기본으로 삼는다.
+- fade/crossfade와 ducking은 `AudioBgmChannel` 또는 `AudioBgmController` 추출 시점에 수용한다.
+- category budget, stealing, pause-group 성격의 infra rule은 `AudioSourcePool` 또는 active playback/controller set 추출 시점에 수용한다.
+- attached semantic 확장이 실제로 필요해질 때만 `AttachedAudioRegistry`를 별도 collaborator로 분리한다.
+- 아래 조건이 생기면 Medium이 아니라 escalation 대상이다: second feature map consumer, 추가 friend assembly 요구, binding validation duplication 재발, 또는 fade/crossfade/ducking/stealing/category budget 중 둘 이상이 같은 `AudioManager.cs` 수정으로 들어오는 경우.
