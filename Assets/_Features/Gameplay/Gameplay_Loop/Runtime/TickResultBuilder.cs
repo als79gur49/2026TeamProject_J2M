@@ -528,7 +528,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (exitOwnedEntityIds.Contains(entityId) ||
                     !signaledEntityIds.Add(entityId) ||
                     !context.PostAttackSnapshot.TryGetEntity(entityId, out var removedEntity) ||
-                    !EntityRolePolicy.IsEnemyUnit(removedEntity) ||
+                    !IsEnemyUnit(context.PostAttackSnapshot, entityId) ||
                     !TryFindAttackDestroyOperation(context.AttackPhaseResult.ResolvedOperations, entityId, out var destroyOperation))
                 {
                     continue;
