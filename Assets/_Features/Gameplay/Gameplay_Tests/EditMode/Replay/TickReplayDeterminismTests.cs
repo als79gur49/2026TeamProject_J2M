@@ -377,6 +377,23 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_JumpLandingExactShrinkScenario_ProducesDeterministicRetryThenLanding()
+        {
+            var firstReplay = RunJumpLandingExactShrinkReplaySequence();
+            var secondReplay = RunJumpLandingExactShrinkReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("Label=Retry"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=10|Face=Floor"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=60|Face=Floor"));
+            Assert.That(firstReplay[0].OccupancyDump, Does.Not.Contain("Layer=Unit|Cell=(3,1)|E=40|Face=Floor"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("Label=Landing"));
+            Assert.That(firstReplay[1].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=10|Face=Floor"));
+            Assert.That(firstReplay[1].OccupancyDump, Does.Contain("Layer=Unit|Cell=(3,1)|E=40|Face=Floor"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_OccupancyDump_ListsLayeredEntriesForStackedUnitsInCellOrder()
         {
             var frames = new TickReplayHarness().Run(
@@ -1450,6 +1467,53 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 });
         }
 
+        private static IReadOnlyList<TickReplayFrame> RunJumpLandingExactShrinkReplaySequence()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var retreatCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 60, teamId: 2, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3),
+            });
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetPlayerControlState(10, default);
+            writeContext.SetBoardPresence(40, EntityBoardPresence.Detached);
+            writeContext.SetEnemyJumpState(
+                40,
+                new EnemyJumpRuntimeState
+                {
+                    phase = EnemyJumpPhase.Airborne,
+                    sequence = 1,
+                    sourceCell = sourceCell,
+                    lockedTargetCell = targetCell,
+                    windupEndTick = 0,
+                    landingTick = 1,
+                    cooldownRemainingTicks = 0,
+                    retryCount = 0,
+                });
+
+            return new TickReplayHarness().Run(
+                worldState,
+                new IEntityLogic[]
+                {
+                    new ScriptedJumpTimingLogic(40, cooldownTicks: 1),
+                    new ScriptedCombatLogic(
+                        sourceId: 60,
+                        movementIntentsByTick: new Dictionary<int, RawMovementIntent>
+                        {
+                            { 2, new RawMovementIntent(60, 5, retreatCell.PlanarPosition) },
+                        }),
+                },
+                new[]
+                {
+                    new TickInput(1),
+                    new TickInput(2),
+                });
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunEdgeReservationReplaySequence()
         {
             var worldState = CreateWorldState(new[]
@@ -1924,6 +1988,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 pushRecoveryTicks,
                 flipWindupTicks,
                 flipRecoveryTicks);
+        }
+
+        private sealed class ScriptedJumpTimingLogic : IMovementEntityLogic, IEnemyJumpTimingBinding
+        {
+            private readonly int _controlledEntityId;
+            private readonly int _cooldownTicks;
+
+            public ScriptedJumpTimingLogic(int controlledEntityId, int cooldownTicks)
+            {
+                _controlledEntityId = controlledEntityId;
+                _cooldownTicks = cooldownTicks;
+            }
+
+            public int ControlledEntityId => _controlledEntityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+            }
+
+            public bool TryGetJumpCooldownTicks(out int cooldownTicks)
+            {
+                cooldownTicks = _cooldownTicks;
+                return true;
+            }
         }
 
         private sealed class ScriptedCombatLogic : IMovementEntityLogic, IAttackEntityLogic, IReplayTickAwareEntityLogic, IEntityLogicSourceBinding

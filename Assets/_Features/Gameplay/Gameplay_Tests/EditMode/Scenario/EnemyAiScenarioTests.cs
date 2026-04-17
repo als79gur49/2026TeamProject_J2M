@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
+using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
@@ -1012,6 +1013,272 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
                 Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
                 Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAi_JumpLanding_OnLockedPlayerCell_WithHostileExtraOccupant_Retries()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 60, teamId: 2, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                var stackedUnits = new List<EntityState>();
+
+                worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                CollectionAssert.AreEqual(new[] { 10, 60 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpLanding_OnLockedPlayerCell_WithFriendlyExtraOccupant_Retries()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 20, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                var stackedUnits = new List<EntityState>();
+
+                worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                CollectionAssert.AreEqual(new[] { 10, 20 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(jumpState.landingTick, Is.EqualTo(4));
+                Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpLanding_RechecksResolveSnapshot_WhenExtraOccupantArrivesAfterPlan()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 60, teamId: 2, position: new Vector2Int(2, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = CreateEnemyPipeline(
+                worldState,
+                profile,
+                new TickScriptedMovementLogic(
+                    60,
+                    new Dictionary<int, RawMovementIntent>
+                    {
+                        { 3, new RawMovementIntent(60, 5, targetCell.PlanarPosition) },
+                    }));
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                var stackedUnits = new List<EntityState>();
+
+                worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 60).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                CollectionAssert.AreEqual(new[] { 10, 60 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.retryCount, Is.EqualTo(1));
+                Assert.That(landingTick.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Retry"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpLanding_ResolveUpgrade_WhenExtraOccupantLeavesBeforeResolve()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var retreatCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 60, teamId: 2, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = CreateEnemyPipeline(
+                worldState,
+                profile,
+                new TickScriptedMovementLogic(
+                    60,
+                    new Dictionary<int, RawMovementIntent>
+                    {
+                        { 3, new RawMovementIntent(60, 5, retreatCell.PlanarPosition) },
+                    }));
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var landingTick = pipeline.RunTick(new TickInput(3));
+                var stackedUnits = new List<EntityState>();
+
+                worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(GetEntity(worldState, 60).position, Is.EqualTo(retreatCell));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+                CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(GetEnemyJumpState(worldState, 40).phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Landing"));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Rule=TargetExact"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpLanding_ExactReject_LandsOnRetryAfterExtraOccupantLeaves()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var retreatCell = new SurfaceCell(FaceId.Floor, 4, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 60, teamId: 2, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var retryTick = pipeline.RunTick(new TickInput(3));
+                worldState.CreateWriteContext().MoveEntity(60, retreatCell);
+
+                var landingTick = pipeline.RunTick(new TickInput(4));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+                var stackedUnits = new List<EntityState>();
+
+                worldState.CreateSnapshot().EnumerateUnitsAt(targetCell, stackedUnits);
+
+                Assert.That(retryTick.AttackPhaseResult.RawIntents, Is.Empty);
+                Assert.That(GetEntity(worldState, 60).position, Is.EqualTo(retreatCell));
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(targetCell));
+                CollectionAssert.AreEqual(new[] { 10, 40 }, stackedUnits.Select(entity => entity.entityId).ToArray());
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Cooldown));
+                Assert.That(jumpState.retryCount, Is.EqualTo(0));
+                Assert.That(landingTick.Trace.Text, Does.Contain("Label=Landing"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_JumpLanding_ExactReject_WithPersistentExtraOccupant_RetriesMonotonically()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 0, 1);
+            var targetCell = new SurfaceCell(FaceId.Floor, 3, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: targetCell, hp: 3),
+                CreateUnit(entityId: 60, teamId: 2, position: targetCell, hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: sourceCell, hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+            });
+            var profile = CreateJumpChaserProfile(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            PrimePlayerControlState(worldState, 10);
+
+            try
+            {
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                var firstRetryTick = pipeline.RunTick(new TickInput(3));
+                var secondRetryTick = pipeline.RunTick(new TickInput(4));
+                var jumpState = GetEnemyJumpState(worldState, 40);
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(sourceCell));
+                Assert.That(GetEntity(worldState, 40).boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+                Assert.That(jumpState.phase, Is.EqualTo(EnemyJumpPhase.Airborne));
+                Assert.That(jumpState.retryCount, Is.EqualTo(2));
+                Assert.That(jumpState.landingTick, Is.EqualTo(5));
+                Assert.That(firstRetryTick.Trace.Text, Does.Contain("Label=Retry"));
+                Assert.That(secondRetryTick.Trace.Text, Does.Contain("Label=Retry"));
             }
             finally
             {
@@ -2212,6 +2479,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 playerTiming);
         }
 
+        private static TickPipeline CreateEnemyPipeline(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            params IEntityLogic[] entityLogics)
+        {
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                worldState,
+                entityLogics ?? Array.Empty<IEntityLogic>());
+        }
+
         private static EnemyAiProfile CreateJumpChaserProfile(
             int windupTicks,
             int airborneTicks,
@@ -2395,6 +2672,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 aiMode = EnemyAiMode.None,
                 aiStateTimer = 0,
             };
+        }
+
+        private sealed class TickScriptedMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding
+        {
+            private readonly int _controlledEntityId;
+            private readonly IReadOnlyDictionary<int, RawMovementIntent> _movementIntentsByTick;
+
+            public TickScriptedMovementLogic(
+                int controlledEntityId,
+                IReadOnlyDictionary<int, RawMovementIntent> movementIntentsByTick)
+            {
+                _controlledEntityId = controlledEntityId;
+                _movementIntentsByTick = movementIntentsByTick ?? throw new ArgumentNullException(nameof(movementIntentsByTick));
+            }
+
+            public int ControlledEntityId => _controlledEntityId;
+
+            public void CollectMovementIntents(
+                WorldSnapshot snapshot,
+                in TickInput input,
+                List<RawMovementIntent> buffer)
+            {
+                if (_movementIntentsByTick.TryGetValue(input.TickIndex, out var movementIntent))
+                {
+                    buffer.Add(movementIntent);
+                }
+            }
         }
 
         private sealed class ScriptedAttackLogic : IAttackEntityLogic
