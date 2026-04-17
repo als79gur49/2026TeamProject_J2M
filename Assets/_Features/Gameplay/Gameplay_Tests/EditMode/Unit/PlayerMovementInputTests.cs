@@ -41,6 +41,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerLogic_BufferedMoveCommand_DoesNotProduceImmediateIntent()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            var logic = new PlayerLogic(entityId: 10);
+            var buffer = new List<RawMovementIntent>();
+
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Move(Direction.Right, isMoveBuffered: true)),
+                buffer);
+
+            Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerLogic_FlipCommand_DoesNotProduceImmediateIntent()
         {
             var worldState = CreateWorldState(new[]
@@ -674,6 +693,117 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CompletedThisTick), Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_BufferedMove_PreservesExistingPushContactWithoutAccumulating()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    pushContactTicks = 1,
+                    pushTargetEntityId = 20,
+                    pushDirection = Direction.Right,
+                });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right, isMoveBuffered: true)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.EqualTo(1));
+            Assert.That(controlState.pushTargetEntityId, Is.EqualTo(20));
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.Right));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.nextMoveAllowedTick, Is.Zero);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_BufferedMove_ClearsStalePushContactWhenTargetIsGone()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    pushContactTicks = 1,
+                    pushTargetEntityId = 20,
+                    pushDirection = Direction.Right,
+                });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right, isMoveBuffered: true)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(controlState.pushTargetEntityId, Is.Zero);
+            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_CanceledPendingAction_BlocksSameTickMoveFallback()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+            });
+            worldState.CreateWriteContext().SetPlayerControlState(
+                10,
+                new PlayerControlState
+                {
+                    actionSequenceCounter = 4,
+                    activeAction = new PlayerActionRuntimeState
+                    {
+                        kind = PlayerActionKind.Flip,
+                        sequence = 4,
+                        direction = Direction.Right,
+                        targetEntityId = 20,
+                        startTick = 1,
+                        executeTick = 2,
+                        recoveryEndTick = 2,
+                    },
+                });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
+            Assert.That(controlState.pushContactTicks, Is.Zero);
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CanceledThisTick), Is.True);
         }
 
         [Test]

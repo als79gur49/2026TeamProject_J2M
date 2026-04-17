@@ -144,6 +144,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 {
                     nextState = PlayerControlQueries.ResetContact(nextState);
                     nextState.activeAction = default;
+                    nextState.nextMoveAllowedTick = Math.Max(nextState.nextMoveAllowedTick, input.TickIndex + 1);
                 }
                 else
                 {
@@ -169,7 +170,15 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
             else if (input.PlayerCommand.IsMoveBuffered)
             {
-                nextState = PlayerControlQueries.ResetContact(nextState);
+                if (!canStartAction ||
+                    !PlayerControlQueries.ShouldPreserveBufferedPushContact(
+                        snapshot,
+                        entity,
+                        nextState,
+                        input.PlayerCommand.MoveDirection))
+                {
+                    nextState = PlayerControlQueries.ResetContact(nextState);
+                }
             }
             else if (input.PlayerCommand.MoveDirection == Direction.None)
             {

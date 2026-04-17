@@ -253,6 +253,29 @@ namespace Game.Feature.Gameplay.PlayerControl
             return false;
         }
 
+        public static bool ShouldPreserveBufferedPushContact(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            in PlayerControlState state,
+            Direction inputDirection)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (state.pushContactTicks <= 0 ||
+                state.pushTargetEntityId <= 0 ||
+                state.pushDirection != inputDirection)
+            {
+                return false;
+            }
+
+            return TryResolvePushContact(snapshot, player, inputDirection, out var contact) &&
+                   contact.TargetEntityId == state.pushTargetEntityId &&
+                   contact.Direction == state.pushDirection;
+        }
+
         public static bool TryResolveFlipTarget(
             WorldSnapshot snapshot,
             in EntityState player,
