@@ -2553,6 +2553,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int aiStateTimer = 0,
             int enemyLocomotionCooldownTicks = 0)
         {
+            var unitRole = teamId switch
+            {
+                1 => UnitRole.Player,
+                2 => UnitRole.Enemy,
+                _ => UnitRole.None,
+            };
+
             return new EntityState
             {
                 entityId = entityId,
@@ -2561,6 +2568,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitRole = unitRole,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
@@ -2583,6 +2591,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int aiStateTimer = 0,
             int enemyLocomotionCooldownTicks = 0)
         {
+            var unitRole = teamId switch
+            {
+                1 => UnitRole.Player,
+                2 => UnitRole.Enemy,
+                _ => UnitRole.None,
+            };
+
             return new EntityState
             {
                 entityId = entityId,
@@ -2591,6 +2606,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 maxHp = hp,
                 teamId = teamId,
                 type = EntityType.Unit,
+                unitRole = unitRole,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
                 facing = facing,
