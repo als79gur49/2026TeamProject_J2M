@@ -3,7 +3,9 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests.PlayMode",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Audio",
     "Game.Feature.Gameplay.Host",
+    "Game.Shared.Audio",
     "Unity.Cinemachine",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",
