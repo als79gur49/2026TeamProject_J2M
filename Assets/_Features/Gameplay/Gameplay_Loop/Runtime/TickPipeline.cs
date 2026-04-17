@@ -6391,6 +6391,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var entities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(entities);
+            entities.Sort(CompareProjectedMaterializationOrder);
             var worldState = new WorldState(
                 entities,
                 snapshot.BoardBounds,
@@ -6428,6 +6429,32 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return worldState;
+        }
+
+        private static int CompareProjectedMaterializationOrder(EntityState left, EntityState right)
+        {
+            var leftPriority = ResolveProjectedMaterializationPriority(left);
+            var rightPriority = ResolveProjectedMaterializationPriority(right);
+            if (leftPriority != rightPriority)
+            {
+                return leftPriority.CompareTo(rightPriority);
+            }
+
+            return left.entityId.CompareTo(right.entityId);
+        }
+
+        private static int ResolveProjectedMaterializationPriority(EntityState entity)
+        {
+            // Projection rehydrates already-authoritative snapshots. Occupying projectiles
+            // must materialize ahead of solids so box/projectile overlap states that are
+            // legal in the live world can be reconstructed without relaxing placement
+            // invariants for normal world writes.
+            if (entity.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return 2;
+            }
+
+            return entity.type == EntityType.Projectile ? 0 : 1;
         }
     }
 }

@@ -91,7 +91,11 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             entity.enemyLocomotionCooldownTicks = Mathf.Max(0, entity.enemyLocomotionCooldownTicks);
-            EnsurePlacementIsLegal(entity, entity.position, ignoredEntityId: 0);
+            if (ShouldStoreEntityInOccupancy(entity))
+            {
+                EnsurePlacementIsLegal(entity, entity.position, ignoredEntityId: 0);
+            }
+
             _entitiesById.Add(entity.entityId, entity);
             if (EntityRolePolicy.IsPlayerUnit(entity))
             {

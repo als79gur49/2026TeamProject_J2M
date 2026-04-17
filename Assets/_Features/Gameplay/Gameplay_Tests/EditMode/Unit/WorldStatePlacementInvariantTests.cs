@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Tests;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using NUnit.Framework;
@@ -258,6 +259,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void CreateSnapshot_DetachedBoxSharingUnitCell_RemainsMaterializableAndDoesNotBlockOccupancy()
+        {
+            var detachedBox = CreateBox(entityId: 20, position: Vector2Int.zero);
+            detachedBox.boardPresence = EntityBoardPresence.Detached;
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: Vector2Int.zero),
+                    detachedBox,
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEntity(10, out var unit), Is.True);
+            Assert.That(unit.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(snapshot.TryGetEntity(20, out var detachedEntity), Is.True);
+            Assert.That(detachedEntity.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
+            Assert.That(snapshot.TryGetSolidOccupantAt(Vector2Int.zero, out _), Is.False);
+            Assert.That(snapshot.TryPickImpactTargetAt(Vector2Int.zero, sourceTeamId: 2, out var impactTarget), Is.True);
+            Assert.That(impactTarget.entityId, Is.EqualTo(10));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SpawnEntity_BoxOccupiedDestination_ThrowsAndLeavesWorldUnchanged()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -338,6 +364,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(box.type, Is.EqualTo(EntityType.Box));
             Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
             Assert.That(snapshot.TryGetProjectileAt(Vector2Int.zero, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProjectedWorld_BoxMovedOntoProjectileCell_RemainsMaterializable()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 10, position: new Vector2Int(1, 0)),
+                    CreateProjectile(entityId: 20, position: new Vector2Int(2, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
+                GameplayTerrainData.Empty);
+            worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(2, 0));
+
+            var projectedSnapshot = new ProjectedWorld(worldState.CreateSnapshot()).CreateSnapshot();
+
+            Assert.That(projectedSnapshot.TryGetSolidOccupantAt(new Vector2Int(2, 0), out var boxOccupant), Is.True);
+            Assert.That(boxOccupant.entityId, Is.EqualTo(10));
+            Assert.That(projectedSnapshot.TryGetProjectileAt(new Vector2Int(2, 0), out var projectileOccupant), Is.True);
+            Assert.That(projectileOccupant.entityId, Is.EqualTo(20));
         }
 
         [Test]
