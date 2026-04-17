@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using UnityEngine;
+
+[assembly: InternalsVisibleTo("Game.Feature.Gameplay.Audio")]
 
 namespace Game.Shared.Audio
 {
@@ -22,14 +25,14 @@ namespace Game.Shared.Audio
         public void ValidateOrThrow(string ownerDescription, string semanticId)
         {
             var validationErrors = new List<string>();
-            CollectValidationErrors(ownerDescription, semanticId, validationErrors);
+            AppendValidationErrors(ownerDescription, semanticId, validationErrors);
             if (validationErrors.Count > 0)
             {
                 throw new InvalidOperationException(validationErrors[0]);
             }
         }
 
-        internal void CollectValidationErrors(
+        internal void AppendValidationErrors(
             string ownerDescription,
             string semanticId,
             ICollection<string> validationErrors)

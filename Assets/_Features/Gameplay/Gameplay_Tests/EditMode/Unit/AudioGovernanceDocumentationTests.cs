@@ -33,6 +33,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("v1 public contract는 fade/crossfade를 포함하지 않는다"));
             Assert.That(doc, Does.Contain("must remain null"));
             Assert.That(doc, Does.Contain("setup defect"));
+            Assert.That(doc, Does.Contain("binding-local validation rule의 canonical owner"));
+            Assert.That(doc, Does.Contain("delegated `AudioBinding` diagnostics"));
+            Assert.That(doc, Does.Contain("binding-local rule source는 `AudioBinding` 하나다"));
         }
 
         [Test]

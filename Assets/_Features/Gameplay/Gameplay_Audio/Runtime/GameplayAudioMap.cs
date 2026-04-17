@@ -103,17 +103,7 @@ namespace Game.Feature.Gameplay.Audio
                     continue;
                 }
 
-                if (binding.Definition == null)
-                {
-                    validationErrors.Add(
-                        $"{name} semantic '{semanticLabel}' is missing an AudioDefinition binding.");
-                }
-
-                if (binding.Policy != null)
-                {
-                    validationErrors.Add(
-                        $"{name} semantic '{semanticLabel}' configures AudioBinding.Policy, but v1 keeps policy reserved and it must remain null.");
-                }
+                binding.AppendValidationErrors(name, semanticLabel, validationErrors);
             }
 
             return validationErrors;

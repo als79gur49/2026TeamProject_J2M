@@ -70,9 +70,11 @@ TickResult
   - feature semantic -> definition binding owner
   - optional attached slot metadata
   - optional future `AudioPlaybackPolicy` seam
+  - binding-local validation rule의 canonical owner
 - `GameplayAudioMap`
   - feature semantic dictionary
   - authoring 단계에서는 visible validation error를 남기고, bootstrap/runtime에서는 hard-fail 한다
+  - binding-local validation은 직접 재구현하지 않고 delegated `AudioBinding` diagnostics를 수집한다
 - `GameplayAudioPresenter`
   - `TickResult.PresentationData`와 public final seams만 읽는다
   - semantic-to-binding projection과 `IAudioService` 호출만 담당한다
@@ -144,6 +146,7 @@ future policy rule:
 - `AudioPlaybackPolicy`는 `AudioBinding.Policy` reserved seam에만 둔다.
 - v1에서는 `AudioBinding.Policy`가 reserved seam이며 반드시 `null`이어야 한다.
 - `AudioManager`가 가질 수 있는 policy는 pool size, category voice budget, BGM channel, source stealing rule 같은 infra-level rule뿐이다.
+- binding-local validation rule 추가는 `AudioBinding` diagnostics core만 수정한다.
 
 ## 7. PlayAttached Contract
 
@@ -244,3 +247,6 @@ PlayMode / runtime guard:
 - implementation과 이 문서가 diverge하면 mismatch는 defect다.
 - audio는 UI mapped seam을 재사용하는 별도 presentation system으로 확장하지 않는다.
 - future infra extensions는 feature-facing API를 먼저 부풀리지 않고 internal collaborator seam에 배치한다.
+- `AudioBinding`은 binding-local validation rule authority를 단독 소유한다.
+- `GameplayAudioMap`은 map-level validation만 소유하고 delegated binding diagnostics를 집계한다.
+- authoring/bootstrap/runtime은 failure mode가 달라도 binding-local rule source는 `AudioBinding` 하나다.

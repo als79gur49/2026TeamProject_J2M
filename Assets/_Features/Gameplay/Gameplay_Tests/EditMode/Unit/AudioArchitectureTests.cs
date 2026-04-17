@@ -176,6 +176,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayAudioMap_ValidateOrThrow_FailsOnEmptySemantic()
+        {
+            var map = ScriptableObject.CreateInstance<GameplayAudioMap>();
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            try
+            {
+                SetEntriesDirect(map, (string.Empty, definition, default));
+
+                var exception = Assert.Throws<InvalidOperationException>(() => map.ValidateOrThrow());
+                StringAssert.Contains("contains an empty gameplay audio semantic", exception.Message);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(map);
+                UnityEngine.Object.DestroyImmediate(definition);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayAudioPresenter_ProjectsPresentationData_WithoutUiMappedSeamReuse()
         {
             var map = ScriptableObject.CreateInstance<GameplayAudioMap>();
@@ -226,16 +246,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayAudioPresenter_Ctor_FailsFast_OnInvalidMap()
+        public void GameplayAudioValidation_UsesSharedBindingRule_ForMissingDefinition()
         {
             var map = ScriptableObject.CreateInstance<GameplayAudioMap>();
+            const string semanticId = "player.move";
             try
             {
-                SetEntriesDirect(map, ("player.move", null, default));
+                var binding = CreateBinding(null, default, null);
+                SetBindingsDirect(map, (semanticId, binding));
+                var expectedMessage = GetSingleBindingValidationError(binding, map.name, semanticId);
 
-                var exception = Assert.Throws<InvalidOperationException>(
+                var bindingException = Assert.Throws<InvalidOperationException>(
+                    () => binding.ValidateOrThrow(map.name, semanticId));
+                Assert.That(bindingException.Message, Is.EqualTo(expectedMessage));
+
+                var validateException = Assert.Throws<InvalidOperationException>(() => map.ValidateOrThrow());
+                Assert.That(validateException.Message, Is.EqualTo(expectedMessage));
+
+                var resolveException = Assert.Throws<InvalidOperationException>(() => map.ResolveOrThrow(semanticId));
+                Assert.That(resolveException.Message, Is.EqualTo(expectedMessage));
+
+                var presenterException = Assert.Throws<InvalidOperationException>(
                     () => new GameplayAudioPresenter(new RecordingAudioService(), map, new RecordingProjector(Array.Empty<GameplayAudioCue>())));
-                StringAssert.Contains("missing an AudioDefinition binding", exception.Message);
+                Assert.That(presenterException.Message, Is.EqualTo(expectedMessage));
+
+                LogAssert.Expect(LogType.Error, new Regex(Regex.Escape(expectedMessage)));
+                InvokeOnValidate(map);
             }
             finally
             {
@@ -268,41 +304,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayAudioMap_OnValidate_LogsAuthoringError_ForUnsupportedPolicy()
+        public void GameplayAudioValidation_UsesSharedBindingRule_ForUnsupportedPolicy()
         {
             var map = ScriptableObject.CreateInstance<GameplayAudioMap>();
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            const string semanticId = "player.move";
             try
             {
-                SetEntriesDirect(
-                    map,
-                    ("player.move", definition, default, new TestAudioPolicy()));
+                var binding = CreateBinding(definition, default, new TestAudioPolicy());
+                SetBindingsDirect(map, (semanticId, binding));
+                var expectedMessage = GetSingleBindingValidationError(binding, map.name, semanticId);
 
-                LogAssert.Expect(LogType.Error, new Regex("AudioBinding\\.Policy.*must remain null"));
+                var bindingException = Assert.Throws<InvalidOperationException>(
+                    () => binding.ValidateOrThrow(map.name, semanticId));
+                Assert.That(bindingException.Message, Is.EqualTo(expectedMessage));
+
+                var validateException = Assert.Throws<InvalidOperationException>(() => map.ValidateOrThrow());
+                Assert.That(validateException.Message, Is.EqualTo(expectedMessage));
+
+                var resolveException = Assert.Throws<InvalidOperationException>(() => map.ResolveOrThrow(semanticId));
+                Assert.That(resolveException.Message, Is.EqualTo(expectedMessage));
+
+                var presenterException = Assert.Throws<InvalidOperationException>(
+                    () => new GameplayAudioPresenter(new RecordingAudioService(), map, new RecordingProjector(Array.Empty<GameplayAudioCue>())));
+                Assert.That(presenterException.Message, Is.EqualTo(expectedMessage));
+
+                LogAssert.Expect(LogType.Error, new Regex(Regex.Escape(expectedMessage)));
                 InvokeOnValidate(map);
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(map);
-                UnityEngine.Object.DestroyImmediate(definition);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void AudioBinding_ValidateOrThrow_FailsWhenPolicyIsConfigured()
-        {
-            var map = ScriptableObject.CreateInstance<GameplayAudioMap>();
-            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
-            try
-            {
-                SetEntriesDirect(
-                    map,
-                    ("player.move", definition, default, new TestAudioPolicy()));
-
-                var exception = Assert.Throws<InvalidOperationException>(() => map.ValidateOrThrow());
-                StringAssert.Contains("AudioBinding.Policy", exception.Message);
-                StringAssert.Contains("must remain null", exception.Message);
             }
             finally
             {
@@ -392,6 +420,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetSerializedField(typeof(GameplayAudioMap), map, "entries", entryArray);
         }
 
+        private static void SetBindingsDirect(
+            GameplayAudioMap map,
+            params (string semanticId, AudioBinding binding)[] entries)
+        {
+            var entryType = typeof(GameplayAudioMap).GetNestedType("Entry", BindingFlags.NonPublic);
+            Assert.That(entryType, Is.Not.Null, "Missing GameplayAudioMap.Entry type.");
+
+            var semanticIdField = entryType.GetField("SemanticId", BindingFlags.Instance | BindingFlags.Public);
+            var bindingField = entryType.GetField("Binding", BindingFlags.Instance | BindingFlags.Public);
+            Assert.That(semanticIdField, Is.Not.Null);
+            Assert.That(bindingField, Is.Not.Null);
+
+            var entryArray = Array.CreateInstance(entryType, entries.Length);
+            for (var i = 0; i < entries.Length; i++)
+            {
+                var entryValue = Activator.CreateInstance(entryType);
+                semanticIdField.SetValue(entryValue, entries[i].semanticId);
+                bindingField.SetValue(entryValue, entries[i].binding);
+                entryArray.SetValue(entryValue, i);
+            }
+
+            SetSerializedField(typeof(GameplayAudioMap), map, "entries", entryArray);
+        }
+
         private static AudioBinding CreateBinding(
             AudioDefinition definition,
             AudioAttachmentSlot slot,
@@ -416,6 +468,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var method = target.GetType().GetMethod("OnValidate", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(method, Is.Not.Null, $"Missing OnValidate on {target.GetType().Name}.");
             method.Invoke(target, null);
+        }
+
+        private static string GetSingleBindingValidationError(
+            AudioBinding binding,
+            string ownerDescription,
+            string semanticId)
+        {
+            var method = typeof(AudioBinding).GetMethod("AppendValidationErrors", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, "Missing AudioBinding.AppendValidationErrors.");
+
+            var errors = new List<string>();
+            method.Invoke(binding, new object[] { ownerDescription, semanticId, errors });
+
+            Assert.That(errors, Has.Count.EqualTo(1), "Expected exactly one binding validation error.");
+            return errors[0];
         }
 
         private sealed class RecordingProjector : IGameplayAudioCueProjector
