@@ -1760,7 +1760,7 @@ namespace Game.Feature.Gameplay.Loop
                 var occupants = new List<EntityState>();
                 snapshot.EnumerateUnitsAt(landingCell, occupants);
                 var isExactLockedPlayerStack = landingCell == jumpState.lockedTargetCell &&
-                                               HasPlayerOccupant(occupants, jumpEntry.EntityId);
+                                               IsExclusiveLockedPlayerStack(snapshot, landingCell, jumpEntry.EntityId);
                 if (TryResolveContestedJumpLandingTarget(occupants, jumpEntry.EntityId, out var impactTargetId) &&
                     !isExactLockedPlayerStack)
                 {
@@ -1803,7 +1803,7 @@ namespace Game.Feature.Gameplay.Loop
                         openLandingContestId,
                         jumpEntry.EntityId,
                         priority: 0,
-                        targetId: isExactLockedPlayerStack ? jumpEntry.EntityId : 0,
+                        targetId: 0,
                         destinationCell: landingCell,
                         landingRule,
                         landedState,
@@ -1842,27 +1842,48 @@ namespace Game.Feature.Gameplay.Loop
             return false;
         }
 
-        private static bool HasPlayerOccupant(
-            IReadOnlyList<EntityState> occupants,
+        internal static bool IsExclusiveLockedPlayerStack(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
             int sourceEntityId)
         {
+            // Exact stack is a gameplay-visible, live, exclusive player stack on the locked cell.
+            var occupants = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, occupants);
+            var sawLockedPlayer = false;
+
             for (var i = 0; i < occupants.Count; i++)
             {
-                if (occupants[i].entityId == sourceEntityId ||
-                    occupants[i].boardPresence != EntityBoardPresence.Occupying ||
-                    occupants[i].hp <= 0 ||
-                    occupants[i].markedForDeath)
+                var occupant = occupants[i];
+                if (!ShouldCountJumpLandingOccupant(occupant, sourceEntityId))
                 {
                     continue;
                 }
 
-                if (EntityRolePolicy.IsPlayerUnit(occupants[i]))
+                if (!snapshot.TryGetPlayerControlState(occupant.entityId, out _))
                 {
-                    return true;
+                    return false;
                 }
+
+                if (sawLockedPlayer)
+                {
+                    return false;
+                }
+
+                sawLockedPlayer = true;
             }
 
-            return false;
+            return sawLockedPlayer;
+        }
+
+        private static bool ShouldCountJumpLandingOccupant(
+            in EntityState occupant,
+            int sourceEntityId)
+        {
+            return occupant.entityId != sourceEntityId &&
+                   occupant.boardPresence == EntityBoardPresence.Occupying &&
+                   occupant.hp > 0 &&
+                   !occupant.markedForDeath;
         }
 
         private static bool TryResolveContestedJumpLandingTarget(
@@ -1872,10 +1893,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             for (var i = 0; i < occupants.Count; i++)
             {
-                if (occupants[i].entityId == sourceEntityId ||
-                    occupants[i].boardPresence != EntityBoardPresence.Occupying ||
-                    occupants[i].hp <= 0 ||
-                    occupants[i].markedForDeath)
+                if (!ShouldCountJumpLandingOccupant(occupants[i], sourceEntityId))
                 {
                     continue;
                 }
@@ -1909,19 +1927,35 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
+                // Plan-time exact classification is provisional. Resolve recomputes against the
+                // movement-visible snapshot so same-tick occupancy drift can both veto and upgrade.
+                var lockedTargetCell = payload.SuccessJumpState.lockedTargetCell;
+                var isExactLockedPlayerStack = payload.DestinationCell == lockedTargetCell &&
+                                               IsExclusiveLockedPlayerStack(
+                                                   movementSnapshot,
+                                                   payload.DestinationCell,
+                                                   payload.SourceActorEntityId);
+                var occupants = new List<EntityState>();
+                movementSnapshot.EnumerateUnitsAt(payload.DestinationCell, occupants);
+                TryResolveContestedJumpLandingTarget(
+                    occupants,
+                    payload.SourceActorEntityId,
+                    out var resolvedContestedTargetId);
+
                 var accepted = payload.LandingKind switch
                 {
-                    JumpLandingKind.ExactStack => true,
                     JumpLandingKind.RetryOnly => false,
-                    _ => (payload.ContestedTargetEntityId == 0 ||
-                          !IsImpactTargetSurviving(damageProjectionSnapshot, payload.ContestedTargetEntityId)) &&
+                    _ when isExactLockedPlayerStack => true,
+                    _ => (resolvedContestedTargetId == 0 ||
+                          !IsImpactTargetSurviving(damageProjectionSnapshot, resolvedContestedTargetId)) &&
                          CanAcceptJumpLandingCell(
                              movementSnapshot,
                              damageProjectionSnapshot,
                              payload.DestinationCell,
                              payload.SourceActorEntityId,
-                             payload.ContestedTargetEntityId)
+                             resolvedContestedTargetId)
                 };
+                var resolvedTargetId = isExactLockedPlayerStack ? 0 : resolvedContestedTargetId;
 
                 var resolutionRecord = CreateResolutionRecord(contest, accepted);
                 movementResolutionRecords.Add(resolutionRecord);
@@ -1940,7 +1974,7 @@ namespace Game.Feature.Gameplay.Loop
                             payload.SourceActorEntityId,
                             "Landing",
                             payload.SuccessJumpState,
-                            $"Cell={payload.DestinationCell}|Rule={payload.LandingRule}|Target={payload.ContestedTargetEntityId}"));
+                            $"Cell={payload.DestinationCell}|Rule={payload.LandingRule}|Target={resolvedTargetId}"));
                 }
                 else
                 {
@@ -1950,7 +1984,7 @@ namespace Game.Feature.Gameplay.Loop
                             payload.SourceActorEntityId,
                             "Retry",
                             payload.RetryJumpState,
-                            $"Rule={payload.LandingRule}|Target={payload.ContestedTargetEntityId}|Reason=ResolveRejected"));
+                            $"Rule={payload.LandingRule}|Target={resolvedTargetId}|Reason=ResolveRejected"));
                 }
             }
 
@@ -1986,7 +2020,7 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                if (occupant.hp > 0 && !occupant.markedForDeath)
+                if (ShouldCountJumpLandingOccupant(occupant, sourceId))
                 {
                     return false;
                 }
