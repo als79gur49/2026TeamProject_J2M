@@ -1,4 +1,4 @@
-using UnityEngine;
+using Game.Feature.Gameplay.BoardState;
 
 namespace Game.Feature.Gameplay.Attack
 {
@@ -7,13 +7,13 @@ namespace Game.Feature.Gameplay.Attack
         public ImpactReservation(
             int sourceId,
             int targetId,
-            Vector2Int position,
+            SurfaceCell impactCell,
             int damage,
             int tickGenerated)
             : this(
                 sourceId,
                 targetId,
-                position,
+                impactCell,
                 damage,
                 tickGenerated,
                 default)
@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Attack
         internal ImpactReservation(
             int sourceId,
             int targetId,
-            Vector2Int position,
+            SurfaceCell impactCell,
             int damage,
             int tickGenerated,
             int sourceActionPlanId,
@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.Attack
             : this(
                 sourceId,
                 targetId,
-                position,
+                impactCell,
                 damage,
                 tickGenerated,
                 new InternalMetadata(sourceActionPlanId, localActionIndex))
@@ -41,14 +41,14 @@ namespace Game.Feature.Gameplay.Attack
         private ImpactReservation(
             int sourceId,
             int targetId,
-            Vector2Int position,
+            SurfaceCell impactCell,
             int damage,
             int tickGenerated,
             InternalMetadata metadata)
         {
             SourceId = sourceId;
             TargetId = targetId;
-            Position = position;
+            ImpactCell = impactCell;
             Damage = damage;
             TickGenerated = tickGenerated;
             Metadata = metadata;
@@ -58,7 +58,7 @@ namespace Game.Feature.Gameplay.Attack
 
         public int TargetId { get; }
 
-        public Vector2Int Position { get; }
+        public SurfaceCell ImpactCell { get; }
 
         public int Damage { get; }
 

@@ -378,7 +378,12 @@ namespace Game.Feature.Gameplay.Loop
             _movementExpander.Expand(planSnapshot, sortedIntents, playerTraversalSourceIds, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
-            var movementActionPlanPayloads = BuildMovementActionPlanPayloads(planSnapshot, sortedIntents, expandedCandidates, input.TickIndex);
+            var movementActionPlanPayloads = BuildMovementActionPlanPayloads(
+                planSnapshot,
+                sortedIntents,
+                expandedCandidates,
+                rejectedReasons,
+                input.TickIndex);
             var orderedMovementActionPlanIds = BuildOrderedMovementActionPlanIds(planSnapshot, expandedCandidates);
             var jumpLandingActionPlanPayloads = BuildJumpLandingActionPlanPayloads(jumpLandingPlans);
             var orderedJumpLandingActionPlanIds = BuildOrderedJumpLandingActionPlanIds(jumpLandingPlans);
@@ -944,6 +949,7 @@ namespace Game.Feature.Gameplay.Loop
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
             IReadOnlyList<ActionGroup> expandedCandidates,
+            List<string> rejectedReasons,
             int tickIndex)
         {
             var payloads = new Dictionary<int, MovementActionPlanPayload>(expandedCandidates.Count);
@@ -1060,7 +1066,15 @@ namespace Game.Feature.Gameplay.Loop
                 var reservationKind = ResolveMovementReservationKind(snapshot, group);
                 var blockingType = ResolveMovementBlockingType(snapshot, group);
                 var destroyWrites = BuildDestroyWritePayloads(group.Destroys, snapshot, group, TickEntityExitCause.None);
-                var hasImpactReservationPayload = TryBuildImpactReservationPayload(snapshot, sortedIntents, group, out var impactReservationPayload);
+                var hasImpactReservationPayload = TryBuildImpactReservationPayload(
+                    snapshot,
+                    group,
+                    out var impactReservationPayload,
+                    out var impactRejectedReason);
+                if (!string.IsNullOrEmpty(impactRejectedReason))
+                {
+                    rejectedReasons.Add(impactRejectedReason);
+                }
 
                 payloads[group.GroupId] = new MovementActionPlanPayload(
                     group.GroupId,
@@ -1623,30 +1637,33 @@ namespace Game.Feature.Gameplay.Loop
 
         private bool TryBuildImpactReservationPayload(
             WorldSnapshot snapshot,
-            IReadOnlyList<MoveIntent> sortedIntents,
             ActionGroup group,
-            out MovementImpactReservationPayload impactReservationPayload)
+            out MovementImpactReservationPayload impactReservationPayload,
+            out string rejectedReason)
         {
             if (!group.HasResolvedImpact ||
                 !snapshot.TryGetEntity(group.ImpactSourceId, out var impactSourceEntity))
             {
                 impactReservationPayload = default;
+                rejectedReason = string.Empty;
                 return false;
             }
 
             var impactCell = FindImpactCell(snapshot, group);
-            var impactReservation = new ImpactReservation(
-                group.SourceId,
-                group.ImpactTargetId,
-                new UnityEngine.Vector2Int(impactCell.x, impactCell.y),
-                ResolveImpactDamageAmount(group),
-                tickGenerated: 0,
-                sourceActionPlanId: group.GroupId,
-                localActionIndex: 0);
-            var moveFacing = ResolveImpactMoveFacing(impactSourceEntity.position, impactReservation);
-            var isFlipImpact = IsFlipImpact(impactSourceEntity.position, impactReservation);
-            var hasSourceFacing = isFlipImpact;
-            var sourceFacing = hasSourceFacing ? ResolveOpposite(moveFacing) : Direction.None;
+            if (!ImpactGeometryResolver.TryResolve(
+                    impactSourceEntity.position,
+                    impactCell,
+                    out var geometry,
+                    out var rejectReason))
+            {
+                impactReservationPayload = default;
+                rejectedReason = BuildImpactReservationRejectedReason(
+                    group,
+                    impactSourceEntity.position,
+                    impactCell,
+                    rejectReason);
+                return false;
+            }
 
             impactReservationPayload = new MovementImpactReservationPayload(
                 impactSourceEntity.entityId,
@@ -1656,19 +1673,30 @@ namespace Game.Feature.Gameplay.Loop
                 impactCell,
                 ResolveImpactDamageAmount(group),
                 sequence: 0,
-                contingentDestinationCell: new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y),
+                contingentDestinationCell: geometry.ImpactCell,
                 contingentSourceCell: impactSourceEntity.position,
-                contingentFacing: moveFacing,
-                hasContingentStateChange: !isFlipImpact,
+                contingentFacing: geometry.MoveFacing,
+                hasContingentStateChange: !geometry.IsFlipImpact,
                 contingentState: EntityPhaseState.Sliding,
-                contingentStateTimer: !isFlipImpact ? _slidingStateTimerTicks : 0,
-                hasSourceFacing: hasSourceFacing,
-                sourceFacingEntityId: hasSourceFacing ? group.SourceId : 0,
-                sourceFacing: sourceFacing,
-                contingentSemanticKind: isFlipImpact
+                contingentStateTimer: !geometry.IsFlipImpact ? _slidingStateTimerTicks : 0,
+                hasSourceFacing: geometry.HasSourceFacing,
+                sourceFacingEntityId: geometry.HasSourceFacing ? group.SourceId : 0,
+                sourceFacing: geometry.SourceFacing,
+                contingentSemanticKind: geometry.IsFlipImpact
                     ? ResolvedActionSemanticKind.Flip
                     : ResolveImpactContingentSemanticKind(impactSourceEntity, group.SourceId));
+            rejectedReason = string.Empty;
             return true;
+        }
+
+        private static string BuildImpactReservationRejectedReason(
+            ActionGroup group,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            ImpactGeometryRejectReason rejectReason)
+        {
+            return
+                $"ImpactReservationRejected|Stage=Plan|G={group.GroupId}|I={group.IntentId}|Source={group.ImpactSourceId}|Target={group.ImpactTargetId}|Reason={rejectReason}|SourceCell={FormatCell(sourceCell)}|ImpactCell={FormatCell(impactCell)}";
         }
 
         private static ResolvedActionSemanticKind ResolveImpactContingentSemanticKind(
@@ -2212,7 +2240,7 @@ namespace Game.Feature.Gameplay.Loop
                 if (impactReservationsByActionPlanId.TryGetValue(actionPlanId, out var impactReservation))
                 {
                     commitEvents.Add(
-                        $"ImpactReservationCreated|G={actionPlanId}|I={payload.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y))}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
+                        $"ImpactReservationCreated|G={actionPlanId}|I={payload.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.ImpactCell)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
                 }
 
                 var hasContingentResolution = TryFindResolutionRecord(resolutionRecords, ContestKind.Space, actionPlanId, 1, out var contingentResolution) &&
@@ -2694,7 +2722,7 @@ namespace Game.Feature.Gameplay.Loop
                     new ImpactReservation(
                         payload.SourceActorEntityId,
                         payload.ImpactReservationPayload.TargetEntityId,
-                        new UnityEngine.Vector2Int(payload.ImpactReservationPayload.ImpactCell.x, payload.ImpactReservationPayload.ImpactCell.y),
+                        payload.ImpactReservationPayload.ImpactCell,
                         payload.ImpactReservationPayload.DamageAmount,
                         tickIndex,
                         payload.ActionPlanId,
@@ -3617,56 +3645,6 @@ namespace Game.Feature.Gameplay.Loop
                 $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
         }
 
-        private static Direction ResolveImpactMoveFacing(
-            SurfaceCell sourceCell,
-            ImpactReservation impactReservation)
-        {
-            var delta = new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y) - sourceCell;
-            if (delta.x > 0)
-            {
-                return Direction.Right;
-            }
-
-            if (delta.x < 0)
-            {
-                return Direction.Left;
-            }
-
-            if (delta.y > 0)
-            {
-                return Direction.Up;
-            }
-
-            if (delta.y < 0)
-            {
-                return Direction.Down;
-            }
-
-            throw new InvalidOperationException(
-                $"Impact move requires a distinct destination. Source={sourceCell}|ImpactAt=({impactReservation.Position.x},{impactReservation.Position.y})");
-        }
-
-        private static bool IsFlipImpact(
-            SurfaceCell sourceCell,
-            ImpactReservation impactReservation)
-        {
-            var destinationCell = new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y);
-            var delta = destinationCell - sourceCell;
-            return Math.Abs(delta.x) + Math.Abs(delta.y) > 1;
-        }
-
-        private static Direction ResolveOpposite(Direction facing)
-        {
-            return facing switch
-            {
-                Direction.Up => Direction.Down,
-                Direction.Right => Direction.Left,
-                Direction.Down => Direction.Up,
-                Direction.Left => Direction.Right,
-                _ => Direction.None,
-            };
-        }
-
         private static string BuildSourceKindSuffix(AttackSourceKind sourceKind)
         {
             return sourceKind == AttackSourceKind.PassiveContact
@@ -3835,7 +3813,7 @@ namespace Game.Feature.Gameplay.Loop
                         reservation.SourceId,
                         priority: 0,
                         reservation.TargetId,
-                        new SurfaceCell(FaceId.Floor, reservation.Position.x, reservation.Position.y),
+                        reservation.ImpactCell,
                         hasAffectedCell: true,
                         localActionIndex: reservation.LocalActionIndex));
             }

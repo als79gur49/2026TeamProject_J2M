@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Expansion;
 using Game.Feature.Gameplay.Attack.Intents;
+using Game.Feature.Gameplay.Attack.Sorting;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
 using Game.Feature.Gameplay.Entities;
@@ -36,7 +37,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new[] { new RawAttackIntent(10, 5, 20) },
                 new[]
                 {
-                    new ImpactReservation(30, 20, new Vector2Int(1, 0), 1, 5, 2, 1),
+                    new ImpactReservation(30, 20, new SurfaceCell(FaceId.Floor, 1, 0), 1, 5, 2, 1),
                 },
                 normalizedInputs);
 
@@ -91,7 +92,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CreateProjectile(entityId: 30, teamId: 1, position: new Vector2Int(2, 0), hp: 1),
             });
             var snapshot = SnapshotBuilder.Create(worldState);
-            var reservation = new ImpactReservation(30, 20, new Vector2Int(1, 0), 1, 7, 2, 1);
+            var reservation = new ImpactReservation(30, 20, new SurfaceCell(FaceId.Floor, 1, 0), 1, 7, 2, 1);
             var finalEntities = new List<EntityState>();
             snapshot.EnumerateEntitiesOrdered(finalEntities);
 
@@ -123,6 +124,106 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(trace.Text, Does.Contain("Attack.DrainedImpacts"));
             Assert.That(trace.Text, Does.Contain("Reservation|Source=30|Target=20|Position=(1,0)|Damage=1|Tick=7"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickTraceBuilder_FormatsNonFloorReservationsWithFace()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(1, 0), hp: 3),
+            });
+            var snapshot = SnapshotBuilder.Create(worldState);
+            var reservation = new ImpactReservation(30, 20, new SurfaceCell(FaceId.Front, 1, 0), 1, 7, 2, 1);
+            var finalEntities = new List<EntityState>();
+            snapshot.EnumerateEntitiesOrdered(finalEntities);
+
+            var attackPhaseResult = new AttackPhaseResult(
+                Array.Empty<RawAttackIntent>(),
+                new[] { reservation },
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<DamageResolutionRecord>(),
+                Array.Empty<ResolutionRecord>(),
+                Array.Empty<FinalizationOperation>(),
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                Array.Empty<string>());
+
+            var trace = new TickTraceBuilder().Build(
+                7,
+                snapshot,
+                new EnemyAiPhaseResult(new List<string>(), new List<string>(), new List<string>()),
+                new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()),
+                new PreMovementStatePhaseResult(new List<string>()),
+                MovementPhaseResult.Empty,
+                snapshot,
+                attackPhaseResult,
+                CleanupFixtureFactory.None(),
+                snapshot,
+                new TickResultData(finalEntities, Array.Empty<DelayedAttackEffectRecord>(), Array.Empty<string>()),
+                "0123456789ABCDEF");
+
+            Assert.That(trace.Text, Does.Contain("Reservation|Source=30|Target=20|Position=Front(1,0)|Damage=1|Tick=7"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ImpactGeometryResolver_SameFaceFrontImpact_ComputesFacingWithoutReject()
+        {
+            var resolved = ImpactGeometryResolver.TryResolve(
+                new SurfaceCell(FaceId.Front, 0, 0),
+                new SurfaceCell(FaceId.Front, 0, 1),
+                out var geometry,
+                out var rejectReason);
+
+            Assert.That(resolved, Is.True);
+            Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.None));
+            Assert.That(geometry.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(geometry.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 1)));
+            Assert.That(geometry.MoveFacing, Is.EqualTo(Direction.Up));
+            Assert.That(geometry.IsFlipImpact, Is.False);
+            Assert.That(geometry.HasSourceFacing, Is.False);
+            Assert.That(geometry.SourceFacing, Is.EqualTo(Direction.None));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ImpactGeometryResolver_TrueCrossFaceImpact_Rejects()
+        {
+            var resolved = ImpactGeometryResolver.TryResolve(
+                new SurfaceCell(FaceId.Floor, 0, 0),
+                new SurfaceCell(FaceId.Front, 0, 0),
+                out _,
+                out var rejectReason);
+
+            Assert.That(resolved, Is.False);
+            Assert.That(rejectReason, Is.EqualTo(ImpactGeometryRejectReason.CrossFaceUnsupported));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ImpactReservationComparer_PreservesFaceBeforePlanarOrder()
+        {
+            var reservations = new List<ImpactReservation>
+            {
+                new ImpactReservation(10, 20, new SurfaceCell(FaceId.Front, 0, 0), 1, 1, 1, 1),
+                new ImpactReservation(10, 20, new SurfaceCell(FaceId.Floor, 1, 0), 1, 1, 2, 1),
+                new ImpactReservation(10, 20, new SurfaceCell(FaceId.Floor, 0, 1), 1, 1, 3, 1),
+            };
+
+            reservations.Sort(ImpactReservationComparer.Instance);
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    new SurfaceCell(FaceId.Floor, 0, 1),
+                    new SurfaceCell(FaceId.Floor, 1, 0),
+                    new SurfaceCell(FaceId.Front, 0, 0),
+                },
+                reservations.Select(reservation => reservation.ImpactCell).ToArray());
         }
 
         private static EntityState CreateUnit(int entityId, int teamId, Vector2Int position, int hp)

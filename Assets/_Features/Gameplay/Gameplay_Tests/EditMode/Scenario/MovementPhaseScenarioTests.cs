@@ -702,14 +702,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, TargetId: 30, Position: new Vector2Int(2, 0), Damage: 1),
+                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage))
                     .ToArray());
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
@@ -889,14 +889,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, TargetId: 30, Position: new Vector2Int(2, 0), Damage: 1),
+                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage))
                     .ToArray());
             Assert.That(snapshotAfter.TryGetEntity(30, out var hostile), Is.True);
@@ -929,14 +929,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, TargetId: 30, Position: new Vector2Int(2, 0), Damage: 1),
+                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, 2, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage))
                     .ToArray());
             CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
@@ -1392,14 +1392,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 30, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1),
+                    (SourceId: 30, TargetId: 20, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage))
                     .ToArray());
             Assert.That(result.PresentationData.EntityMotions, Is.Empty);
@@ -2057,6 +2057,66 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Full")]
+        public void Movement_PushSlideImpactOnFrontFace_CreatesFaceAwareReservationAndStopsBeforeTarget()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                    CreateUnit(entityId: 30, position: new SurfaceCell(FaceId.Front, 0, 1), hp: 3, teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(0, 1)),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediatePushPlayerLogic(10),
+                });
+
+            var firstTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Up)));
+            var idleTicks = RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
+            var impactTick = pipeline.RunTick(new TickInput(13));
+            var snapshotAfter = CreateSnapshot(worldState);
+
+            Assert.That(
+                firstTick.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("To=Front(0,0)", StringComparison.Ordinal)),
+                Is.True);
+            Assert.That(idleTicks.All(result => result.MovementPhaseResult.CommitEvents.Count == 0), Is.True);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationCreated|G=1|I=1|Source=20|Target=30|At=Front(0,1)|Damage=1|Sequence=1",
+                },
+                impactTick.MovementPhaseResult.CommitEvents
+                    .Where(evt => evt.StartsWith("ImpactReservationCreated|", StringComparison.Ordinal))
+                    .ToArray());
+            Assert.That(impactTick.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted", StringComparison.Ordinal)), Is.False);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Front, 0, 1), Damage: 1, Tick: 13),
+                },
+                impactTick.AttackPhaseResult
+                    .DrainedImpactReservations
+                    .Select(reservation => (
+                        reservation.SourceId,
+                        reservation.TargetId,
+                        reservation.ImpactCell,
+                        reservation.Damage,
+                        Tick: reservation.TickGenerated))
+                    .ToArray());
+            Assert.That(impactTick.Trace.Text, Does.Contain("Reservation|Source=20|Target=30|Position=Front(0,1)|Damage=1|Tick=13"));
+            Assert.That(snapshotAfter.TryGetEntity(20, out var pushedBox), Is.True);
+            Assert.That(pushedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Front, 0, 0)));
+            Assert.That(pushedBox.state, Is.EqualTo(EntityPhaseState.Idle));
+            Assert.That(snapshotAfter.TryGetEntity(30, out var enemy), Is.True);
+            Assert.That(enemy.hp, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Full")]
         public void Movement_PushInputPushBox_ContinuesAcrossFrontBottomSharedEdgeBackToBottom()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -2413,7 +2473,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, TargetId: 20, Damage: 1, Tick: 1, Position: new Vector2Int(1, 0)),
+                    (SourceId: 10, TargetId: 20, Damage: 1, Tick: 1, Position: new SurfaceCell(FaceId.Floor, 1, 0)),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
@@ -2422,7 +2482,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         reservation.TargetId,
                         reservation.Damage,
                         Tick: reservation.TickGenerated,
-                        reservation.Position))
+                        reservation.ImpactCell))
                     .ToArray());
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -2489,7 +2549,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, TargetId: 30, Damage: 1, Tick: 1, Position: new Vector2Int(1, 0)),
+                    (SourceId: 10, TargetId: 30, Damage: 1, Tick: 1, Position: new SurfaceCell(FaceId.Floor, 1, 0)),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
@@ -2498,7 +2558,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         reservation.TargetId,
                         reservation.Damage,
                         Tick: reservation.TickGenerated,
-                        reservation.Position))
+                        reservation.ImpactCell))
                     .ToArray());
 
             Assert.That(finalSnapshot.TryGetEntity(20, out var friendlyUnit), Is.True);
@@ -2545,13 +2605,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1, Tick: 1),
+                    (SourceId: 10, TargetId: 20, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1, Tick: 1),
                 },
                 reservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage,
                         Tick: reservation.TickGenerated))
                     .ToArray());
@@ -2601,8 +2661,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, TargetId: 30, Damage: 1, Tick: 7, Position: new Vector2Int(1, 0)),
-                    (SourceId: 20, TargetId: 40, Damage: 1, Tick: 7, Position: new Vector2Int(3, 0)),
+                    (SourceId: 10, TargetId: 30, Damage: 1, Tick: 7, Position: new SurfaceCell(FaceId.Floor, 1, 0)),
+                    (SourceId: 20, TargetId: 40, Damage: 1, Tick: 7, Position: new SurfaceCell(FaceId.Floor, 3, 0)),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
@@ -2611,8 +2671,64 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         reservation.TargetId,
                         reservation.Damage,
                         Tick: reservation.TickGenerated,
-                        reservation.Position))
+                        reservation.ImpactCell))
                     .ToArray());
+        }
+
+        [Test]
+        [Category("Full")]
+        public void Movement_CrossFaceImpactReservation_IsRejectedBeforePayloadCreation()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), capabilities: BoxCapabilities.Push),
+                    CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, teamId: 2),
+                },
+                new BoardBounds(Vector2Int.zero, Vector2Int.zero),
+                GameplayTerrainData.Empty);
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, Array.Empty<IEntityLogic>());
+            var snapshot = CreateSnapshot(worldState);
+            var group = new ActionGroup(intentId: 1, sourceId: 10, priority: 5, ActionGroupKind.BoxImpact);
+            group.AssignGroupId(1);
+            group.AssignImpactReservation(10, 20);
+            var rejectedReasons = new List<string>();
+            var payloads = InvokeBuildMovementActionPlanPayloads(
+                pipeline,
+                snapshot,
+                Array.Empty<MoveIntent>(),
+                new[] { group },
+                rejectedReasons,
+                tickIndex: 1);
+
+            Assert.That(payloads.ContainsKey(1), Is.True);
+            Assert.That(payloads[1].HasImpactReservationPayload, Is.False);
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "ImpactReservationRejected|Stage=Plan|G=1|I=1|Source=10|Target=20|Reason=CrossFaceUnsupported|SourceCell=(0,0)|ImpactCell=Front(0,0)",
+                },
+                rejectedReasons);
+
+            var impactReservations = InvokeResolveMovementImpactReservationsCanonical(
+                pipeline,
+                tickIndex: 1,
+                orderedActionPlanIds: new[] { 1 },
+                payloads,
+                new[]
+                {
+                    new ResolutionRecord(
+                        contestId: 1,
+                        ContestKind.Space,
+                        accepted: true,
+                        sourceId: 10,
+                        priority: 5,
+                        actionPlanId: 1,
+                        affectedEntityId: 0,
+                        localActionIndex: 0),
+                });
+
+            Assert.That(impactReservations, Is.Empty);
         }
 
         private static (TickResult Result, string OccupancyAfter) RunDeterministicMovementTick()
@@ -2916,6 +3032,56 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(createSnapshotMethod, Is.Not.Null);
 
             return (WorldSnapshot)createSnapshotMethod.Invoke(worldState, null);
+        }
+
+        private static Dictionary<int, MovementActionPlanPayload> InvokeBuildMovementActionPlanPayloads(
+            TickPipeline pipeline,
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            IReadOnlyList<ActionGroup> expandedCandidates,
+            List<string> rejectedReasons,
+            int tickIndex)
+        {
+            var method = typeof(TickPipeline).GetMethod(
+                "BuildMovementActionPlanPayloads",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+
+            return (Dictionary<int, MovementActionPlanPayload>)method.Invoke(
+                pipeline,
+                new object[]
+                {
+                    snapshot,
+                    sortedIntents,
+                    expandedCandidates,
+                    rejectedReasons,
+                    tickIndex,
+                });
+        }
+
+        private static List<ImpactReservation> InvokeResolveMovementImpactReservationsCanonical(
+            TickPipeline pipeline,
+            int tickIndex,
+            IReadOnlyList<int> orderedActionPlanIds,
+            IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
+            IReadOnlyList<ResolutionRecord> resolutionRecords)
+        {
+            var method = typeof(TickPipeline).GetMethod(
+                "ResolveMovementImpactReservationsCanonical",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(method, Is.Not.Null);
+
+            return (List<ImpactReservation>)method.Invoke(
+                pipeline,
+                new object[]
+                {
+                    tickIndex,
+                    orderedActionPlanIds,
+                    payloads,
+                    resolutionRecords,
+                });
         }
 
         private sealed class StubMovementLogic : IMovementEntityLogic, IEntityLogicSourceBinding

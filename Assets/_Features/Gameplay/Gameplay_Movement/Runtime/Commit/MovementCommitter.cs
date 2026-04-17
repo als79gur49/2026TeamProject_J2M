@@ -290,7 +290,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 if (TryFindImpactReservation(impactReservations, group.GroupId, out var impactReservation))
                 {
                     commitEvents.Add(
-                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.Position)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
+                        $"ImpactReservationCreated|G={group.GroupId}|I={group.IntentId}|Source={impactReservation.SourceId}|Target={impactReservation.TargetId}|At={FormatCell(impactReservation.ImpactCell)}|Damage={impactReservation.Damage}|Sequence={impactReservation.LocalActionIndex}");
 
                     if (group.GroupKind == ActionGroupKind.ProjectileImpact)
                     {
@@ -463,8 +463,11 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     continue;
                 }
 
-                impactReservations.Add(CreateImpactReservation(snapshot, tickIndex, group, reservationSequence));
-                reservationSequence++;
+                if (TryCreateImpactReservation(snapshot, tickIndex, group, reservationSequence, out var impactReservation))
+                {
+                    impactReservations.Add(impactReservation);
+                    reservationSequence++;
+                }
             }
 
             return impactReservations;
@@ -743,23 +746,24 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     $"Impact space resolution requires a valid impact source box. ImpactSource={group.ImpactSourceId}, Group={group.GroupId}, Intent={group.IntentId}");
             }
 
-            var moveFacing = ResolveImpactMoveFacing(impactSourceBox.position, impactReservation);
-            var isFlipImpact = IsFlipImpact(impactSourceBox.position, impactReservation);
-            var hasSourceFacing = isFlipImpact;
-            var sourceFacing = hasSourceFacing ? ResolveOpposite(moveFacing) : Direction.None;
+            if (!ImpactGeometryResolver.TryResolve(impactSourceBox.position, impactReservation.ImpactCell, out var geometry))
+            {
+                resolution = default;
+                return false;
+            }
 
             resolution = new MovementImpactSpaceResolutionRecord(
                 group.GroupId,
                 impactSourceBox.entityId,
                 impactSourceBox.position,
-                new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y),
-                moveFacing,
-                hasStateChange: !isFlipImpact,
+                geometry.ImpactCell,
+                geometry.MoveFacing,
+                hasStateChange: !geometry.IsFlipImpact,
                 state: EntityPhaseState.Sliding,
-                stateTimer: !isFlipImpact ? _slidingStateTimerTicks : 0,
-                hasSourceFacing,
-                sourceFacingEntityId: hasSourceFacing ? group.SourceId : 0,
-                sourceFacing);
+                stateTimer: !geometry.IsFlipImpact ? _slidingStateTimerTicks : 0,
+                geometry.HasSourceFacing,
+                sourceFacingEntityId: geometry.HasSourceFacing ? group.SourceId : 0,
+                geometry.SourceFacing);
             return true;
         }
 
@@ -907,11 +911,12 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return false;
         }
 
-        private static ImpactReservation CreateImpactReservation(
+        private static bool TryCreateImpactReservation(
             WorldSnapshot snapshot,
             int tickIndex,
             ActionGroup group,
-            int reservationSequence)
+            int reservationSequence,
+            out ImpactReservation impactReservation)
         {
             if (!snapshot.TryGetEntity(group.ImpactSourceId, out var source))
             {
@@ -938,7 +943,13 @@ namespace Game.Feature.Gameplay.Movement.Commit
                     $"Impact group target no longer exists in the authoritative snapshot. Source={group.SourceId}, Intent={group.IntentId}, Target={group.ImpactTargetId}");
             }
 
-            return new ImpactReservation(
+            if (!ImpactGeometryResolver.TryResolve(source.position, target.position, out _))
+            {
+                impactReservation = default;
+                return false;
+            }
+
+            impactReservation = new ImpactReservation(
                 source.entityId,
                 target.entityId,
                 target.position,
@@ -948,6 +959,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 tickIndex,
                 group.GroupId,
                 reservationSequence);
+            return true;
         }
 
         private static MoveIntent FindIntent(IReadOnlyList<MoveIntent> sortedIntents, int intentId)
@@ -1004,56 +1016,6 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
             throw new InvalidOperationException(
                 $"Flip group requires an orthogonal adjacent direction. Source={group.SourceId}, Intent={group.IntentId}");
-        }
-
-        private static Direction ResolveImpactMoveFacing(
-            SurfaceCell sourceCell,
-            ImpactReservation impactReservation)
-        {
-            var delta = new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y) - sourceCell;
-            if (delta.x > 0)
-            {
-                return Direction.Right;
-            }
-
-            if (delta.x < 0)
-            {
-                return Direction.Left;
-            }
-
-            if (delta.y > 0)
-            {
-                return Direction.Up;
-            }
-
-            if (delta.y < 0)
-            {
-                return Direction.Down;
-            }
-
-            throw new InvalidOperationException(
-                $"Impact move requires a distinct destination. Source={sourceCell}|ImpactAt=({impactReservation.Position.x},{impactReservation.Position.y})");
-        }
-
-        private static bool IsFlipImpact(
-            SurfaceCell sourceCell,
-            ImpactReservation impactReservation)
-        {
-            var destinationCell = new SurfaceCell(FaceId.Floor, impactReservation.Position.x, impactReservation.Position.y);
-            var delta = destinationCell - sourceCell;
-            return Math.Abs(delta.x) + Math.Abs(delta.y) > 1;
-        }
-
-        private static Direction ResolveOpposite(Direction facing)
-        {
-            return facing switch
-            {
-                Direction.Up => Direction.Down,
-                Direction.Right => Direction.Left,
-                Direction.Down => Direction.Up,
-                Direction.Left => Direction.Right,
-                _ => Direction.None,
-            };
         }
 
         private static string FormatCell(SurfaceCell cell)

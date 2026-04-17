@@ -32,13 +32,19 @@ namespace Game.Feature.Gameplay.Attack.Sorting
                 return result;
             }
 
-            result = left.Position.x.CompareTo(right.Position.x);
+            result = ((int)left.ImpactCell.face).CompareTo((int)right.ImpactCell.face);
             if (result != 0)
             {
                 return result;
             }
 
-            result = left.Position.y.CompareTo(right.Position.y);
+            result = left.ImpactCell.x.CompareTo(right.ImpactCell.x);
+            if (result != 0)
+            {
+                return result;
+            }
+
+            result = left.ImpactCell.y.CompareTo(right.ImpactCell.y);
             if (result != 0)
             {
                 return result;

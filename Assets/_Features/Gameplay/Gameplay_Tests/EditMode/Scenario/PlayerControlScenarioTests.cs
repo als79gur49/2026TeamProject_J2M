@@ -532,14 +532,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 20, TargetId: 30, Position: new Vector2Int(-1, 0), Damage: 1),
+                    (SourceId: 20, TargetId: 30, Position: new SurfaceCell(FaceId.Floor, -1, 0), Damage: 1),
                 },
                 executeTick.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage))
                     .ToArray());
             Assert.That(signal.ExecutedThisTick, Is.True);

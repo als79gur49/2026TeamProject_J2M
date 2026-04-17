@@ -1006,14 +1006,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 5, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1, TickGenerated: 1),
+                    (SourceId: 5, TargetId: 20, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1, TickGenerated: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage,
                         reservation.TickGenerated))
                     .ToArray());
@@ -1042,14 +1042,14 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(
                 new[]
                 {
-                    (SourceId: 10, TargetId: 20, Position: new Vector2Int(1, 0), Damage: 1, TickGenerated: 1),
+                    (SourceId: 10, TargetId: 20, Position: new SurfaceCell(FaceId.Floor, 1, 0), Damage: 1, TickGenerated: 1),
                 },
                 result.AttackPhaseResult
                     .DrainedImpactReservations
                     .Select(reservation => (
                         reservation.SourceId,
                         reservation.TargetId,
-                        reservation.Position,
+                        reservation.ImpactCell,
                         reservation.Damage,
                         reservation.TickGenerated))
                     .ToArray());

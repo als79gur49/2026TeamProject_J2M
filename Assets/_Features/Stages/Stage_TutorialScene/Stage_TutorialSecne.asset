@@ -442,7 +442,7 @@ MonoBehaviour:
       y: 2
     Facing: 2
     Hp: 1
-    BoxCapabilities: 2
+    BoxCapabilities: 11
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -455,7 +455,7 @@ MonoBehaviour:
       y: 2
     Facing: 2
     Hp: 1
-    BoxCapabilities: 2
+    BoxCapabilities: 11
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -468,7 +468,7 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
-    BoxCapabilities: 2
+    BoxCapabilities: 11
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -481,7 +481,7 @@ MonoBehaviour:
       y: 1
     Facing: 2
     Hp: 1
-    BoxCapabilities: 9
+    BoxCapabilities: 11
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
@@ -546,7 +546,7 @@ MonoBehaviour:
       x: 4
       y: 4
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
@@ -559,7 +559,7 @@ MonoBehaviour:
       x: 8
       y: 4
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
@@ -572,7 +572,7 @@ MonoBehaviour:
       x: 13
       y: 2
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
@@ -585,7 +585,7 @@ MonoBehaviour:
       x: 13
       y: 1
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
@@ -598,7 +598,7 @@ MonoBehaviour:
       x: 11
       y: 5
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
@@ -611,7 +611,7 @@ MonoBehaviour:
       x: 6
       y: 4
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
@@ -624,7 +624,7 @@ MonoBehaviour:
       x: 8
       y: 1
     Facing: 4
-    Hp: 3
+    Hp: 1
     BoxCapabilities: 0
     EnemyAiMode: 1
     EnemyAiStateTimer: 0

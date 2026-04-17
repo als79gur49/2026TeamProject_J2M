@@ -390,7 +390,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatImpactReservation(ImpactReservation reservation)
         {
             return
-                $"Reservation|Source={reservation.SourceId}|Target={reservation.TargetId}|Position=({reservation.Position.x},{reservation.Position.y})|Damage={reservation.Damage}|Tick={reservation.TickGenerated}";
+                $"Reservation|Source={reservation.SourceId}|Target={reservation.TargetId}|Position={FormatCell(reservation.ImpactCell)}|Damage={reservation.Damage}|Tick={reservation.TickGenerated}";
         }
 
         private static string FormatDelayedAttackEffectRecord(DelayedAttackEffectRecord effectRecord)

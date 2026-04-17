@@ -4,6 +4,7 @@ using System.Linq;
 using Game.Feature.Gameplay.Attack;
 using Game.Feature.Gameplay.Attack.Collection;
 using Game.Feature.Gameplay.Attack.Intents;
+using Game.Feature.Gameplay.BoardState;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -17,8 +18,8 @@ namespace Game.Feature.Gameplay.Tests.Core
         {
             var impactReservations = new[]
             {
-                new ImpactReservation(10, 20, new Vector2Int(1, 0), 1, 5, 1, 1),
-                new ImpactReservation(10, 30, new Vector2Int(1, 1), 1, 5, 2, 1),
+                new ImpactReservation(10, 20, new SurfaceCell(FaceId.Floor, 1, 0), 1, 5, 1, 1),
+                new ImpactReservation(10, 30, new SurfaceCell(FaceId.Floor, 1, 1), 1, 5, 2, 1),
             };
 
             var exception = Assert.Throws<InvalidOperationException>(
