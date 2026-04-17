@@ -375,7 +375,7 @@ namespace Game.Feature.Gameplay.Loop
             var sortedIntents = BuildMovementIntents(executableMovementIntents);
             var playerTraversalSourceIds = CollectPlayerTraversalSourceIds(entityLogicsForTick.MovementLogics);
             var expandedCandidates = new List<ActionGroup>();
-            _movementExpander.Expand(planSnapshot, sortedIntents, playerTraversalSourceIds, expandedCandidates, rejectedReasons);
+            _movementExpander.Expand(planSnapshot, input.TickIndex, sortedIntents, playerTraversalSourceIds, expandedCandidates, rejectedReasons);
             expandedCandidates.Sort(ActionGroupComparer.Instance);
             AssignMovementGroupIds(expandedCandidates);
             var movementActionPlanPayloads = BuildMovementActionPlanPayloads(
@@ -665,6 +665,71 @@ namespace Game.Feature.Gameplay.Loop
                     new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()));
                 finalizationBatch.MergeFrom(enemyActionBeforeAttackBatch);
                 projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
+
+                drainedImpactReservations = SortImpactReservations(
+                    MergeImpactReservations(
+                        movementImpactReservations,
+                        ResolveDeferredMovementImpactReservationsAgainstSnapshot(
+                            postMovementSnapshot,
+                            tickIndex,
+                            planPhaseResult.OrderedMovementActionPlanIds,
+                            planPhaseResult.MovementActionPlanPayloads,
+                            movementResolutionRecords)));
+
+                attackSnapshot = projectedWorld.CreateSnapshot();
+                attackPlanResult = BuildAttackPlan(
+                    attackSnapshot,
+                    in input,
+                    entityLogicsForTick.AttackLogics,
+                    drainedImpactReservations,
+                    drainedDelayedAttackEffects,
+                    tickIndex);
+                rawAttackIntents = attackPlanResult.RawAttackIntents;
+                attackRejectedReasons = attackPlanResult.RejectedReasons;
+                attackResolutionRecords = new List<ResolutionRecord>();
+
+                var refreshedAttackPlanContests = BuildAttackPlanContestsCanonical(
+                    attackPlanResult.OrderedActionPlanIds,
+                    attackPlanResult.ActionPlanPayloads,
+                    ref nextContestId);
+                ResolveAttackActionPlansCanonical(
+                    attackPlanResult.OrderedActionPlanIds,
+                    attackPlanResult.ActionPlanPayloads,
+                    refreshedAttackPlanContests,
+                    attackResolutionRecords,
+                    attackRejectedReasons);
+
+                var refreshedDamageContests = BuildDamageContestsCanonical(
+                    attackPlanResult.OrderedActionPlanIds,
+                    attackPlanResult.ActionPlanPayloads,
+                    attackResolutionRecords,
+                    ref nextContestId);
+                damageResolutions = ResolveDamageResolutionsCanonical(
+                    attackSnapshot,
+                    attackPlanResult.OrderedActionPlanIds,
+                    attackPlanResult.ActionPlanPayloads,
+                    attackResolutionRecords,
+                    tickIndex);
+                RecordDamageResolutionRecords(
+                    refreshedDamageContests,
+                    damageResolutions,
+                    attackResolutionRecords);
+
+                var refreshedAttackDestroyContests = BuildAttackDestroyContestsCanonical(
+                    attackPlanResult.OrderedActionPlanIds,
+                    attackPlanResult.ActionPlanPayloads,
+                    attackResolutionRecords,
+                    ref nextContestId);
+                destroyResolutions = ResolveDestroyResolutionsCanonical(
+                    attackSnapshot,
+                    attackPlanResult.OrderedActionPlanIds,
+                    attackPlanResult.ActionPlanPayloads,
+                    attackResolutionRecords,
+                    damageResolutions);
+                RecordDestroyResolutionRecords(
+                    refreshedAttackDestroyContests,
+                    destroyResolutions,
+                    attackResolutionRecords);
             }
 
             AddRange(resolutionRecords, movementResolutionRecords);
@@ -1075,6 +1140,9 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     rejectedReasons.Add(impactRejectedReason);
                 }
+                var hasDeferredImpactPayload = TryBuildDeferredImpactPayload(
+                    group,
+                    out var deferredImpactPayload);
 
                 payloads[group.GroupId] = new MovementActionPlanPayload(
                     group.GroupId,
@@ -1101,10 +1169,30 @@ namespace Game.Feature.Gameplay.Loop
                     playerControlWrites,
                     destroyWrites,
                     hasImpactReservationPayload,
-                    impactReservationPayload);
+                    impactReservationPayload,
+                    hasDeferredImpactPayload,
+                    deferredImpactPayload);
             }
 
             return payloads;
+        }
+
+        private static bool TryBuildDeferredImpactPayload(
+            ActionGroup group,
+            out MovementDeferredImpactPayload deferredImpactPayload)
+        {
+            if (!group.HasDeferredImpact)
+            {
+                deferredImpactPayload = default;
+                return false;
+            }
+
+            deferredImpactPayload = new MovementDeferredImpactPayload(
+                group.DeferredImpactSourceId,
+                group.DeferredImpactCell,
+                damageAmount: 1,
+                sequence: 0);
+            return true;
         }
 
         private Dictionary<int, AttackActionPlanPayload> BuildAttackActionPlanPayloads(
@@ -2730,6 +2818,124 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return impactReservations;
+        }
+
+        private static List<ImpactReservation> MergeImpactReservations(
+            IReadOnlyList<ImpactReservation> existingReservations,
+            IReadOnlyList<ImpactReservation> deferredReservations)
+        {
+            var merged = new List<ImpactReservation>(existingReservations.Count + deferredReservations.Count);
+            AddRange(merged, existingReservations);
+            AddRange(merged, deferredReservations);
+            return merged;
+        }
+
+        private List<ImpactReservation> ResolveDeferredMovementImpactReservationsAgainstSnapshot(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            IReadOnlyList<int> orderedActionPlanIds,
+            IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
+            IReadOnlyList<ResolutionRecord> resolutionRecords)
+        {
+            var impactReservations = new List<ImpactReservation>();
+            var reservationSequence = 1;
+
+            for (var i = 0; i < orderedActionPlanIds.Count; i++)
+            {
+                var actionPlanId = orderedActionPlanIds[i];
+                if (!HasAcceptedResolution(resolutionRecords, ContestKind.Space, actionPlanId, localActionIndex: 0) ||
+                    !payloads.TryGetValue(actionPlanId, out var payload) ||
+                    !payload.HasDeferredImpactPayload ||
+                    !TryResolveImpactReservationAgainstSnapshot(snapshot, payload, out var impactCell, out var damageAmount, out var targetEntityId))
+                {
+                    continue;
+                }
+
+                impactReservations.Add(
+                    new ImpactReservation(
+                        payload.SourceActorEntityId,
+                        targetEntityId,
+                        impactCell,
+                        damageAmount,
+                        tickIndex,
+                        payload.ActionPlanId,
+                        reservationSequence++));
+            }
+
+            return impactReservations;
+        }
+
+        private static bool TryResolveImpactReservationAgainstSnapshot(
+            WorldSnapshot snapshot,
+            MovementActionPlanPayload payload,
+            out SurfaceCell impactCell,
+            out int damageAmount,
+            out int targetEntityId)
+        {
+            impactCell = default;
+            damageAmount = 0;
+            targetEntityId = 0;
+
+            var sourceEntityId = 0;
+            if (payload.HasImpactReservationPayload)
+            {
+                sourceEntityId = payload.ImpactReservationPayload.SourceEntityId;
+                impactCell = payload.ImpactReservationPayload.ImpactCell;
+                damageAmount = payload.ImpactReservationPayload.DamageAmount;
+            }
+            else if (payload.HasDeferredImpactPayload)
+            {
+                sourceEntityId = payload.DeferredImpactPayload.SourceEntityId;
+                impactCell = payload.DeferredImpactPayload.ImpactCell;
+                damageAmount = payload.DeferredImpactPayload.DamageAmount;
+            }
+            else
+            {
+                return false;
+            }
+
+            if (!snapshot.TryGetEntity(sourceEntityId, out var impactSourceEntity))
+            {
+                return false;
+            }
+
+            var sourceTeamId = ResolveImpactReservationSourceTeamId(
+                snapshot,
+                payload.SourceActorEntityId,
+                impactSourceEntity);
+            if (sourceTeamId <= 0 ||
+                !snapshot.TryPickHostileUnitImpactTargetAt(
+                    impactCell,
+                    sourceTeamId,
+                    out var target))
+            {
+                return false;
+            }
+
+            targetEntityId = target.entityId;
+            return true;
+        }
+
+        private static int ResolveImpactReservationSourceTeamId(
+            WorldSnapshot snapshot,
+            int sourceActorEntityId,
+            in EntityState impactSourceEntity)
+        {
+            if (impactSourceEntity.kineticInstigatorTeamId > 0)
+            {
+                return impactSourceEntity.kineticInstigatorTeamId;
+            }
+
+            if (impactSourceEntity.teamId > 0)
+            {
+                return impactSourceEntity.teamId;
+            }
+
+            return snapshot.TryGetEntity(sourceActorEntityId, out var sourceActorEntity) &&
+                   sourceActorEntity.type == EntityType.Unit &&
+                   sourceActorEntity.teamId > 0
+                ? sourceActorEntity.teamId
+                : 0;
         }
 
         private static List<Contest> BuildImpactSpaceContestsCanonical(
@@ -5071,6 +5277,29 @@ namespace Game.Feature.Gameplay.Loop
         public ResolvedActionSemanticKind ContingentSemanticKind { get; }
     }
 
+    internal readonly struct MovementDeferredImpactPayload
+    {
+        public MovementDeferredImpactPayload(
+            int sourceEntityId,
+            SurfaceCell impactCell,
+            int damageAmount,
+            int sequence)
+        {
+            SourceEntityId = sourceEntityId;
+            ImpactCell = impactCell;
+            DamageAmount = damageAmount;
+            Sequence = sequence;
+        }
+
+        public int SourceEntityId { get; }
+
+        public SurfaceCell ImpactCell { get; }
+
+        public int DamageAmount { get; }
+
+        public int Sequence { get; }
+    }
+
     internal sealed class MovementActionPlanPayload : ActionPlanPayload
     {
         public MovementActionPlanPayload(
@@ -5098,7 +5327,9 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<PlayerControlWritePayload> playerControlWrites,
             IReadOnlyList<DestroyWritePayload> destroyWrites,
             bool hasImpactReservationPayload,
-            MovementImpactReservationPayload impactReservationPayload)
+            MovementImpactReservationPayload impactReservationPayload,
+            bool hasDeferredImpactPayload,
+            MovementDeferredImpactPayload deferredImpactPayload)
             : base(actionPlanId, intentId, sourceActorEntityId, priority, semanticKind)
         {
             MovementCandidateKind = movementCandidateKind;
@@ -5121,6 +5352,8 @@ namespace Game.Feature.Gameplay.Loop
             DestroyWrites = destroyWrites ?? throw new ArgumentNullException(nameof(destroyWrites));
             HasImpactReservationPayload = hasImpactReservationPayload;
             ImpactReservationPayload = impactReservationPayload;
+            HasDeferredImpactPayload = hasDeferredImpactPayload;
+            DeferredImpactPayload = deferredImpactPayload;
         }
 
         public MovementCandidateKind MovementCandidateKind { get; }
@@ -5162,6 +5395,10 @@ namespace Game.Feature.Gameplay.Loop
         public bool HasImpactReservationPayload { get; }
 
         public MovementImpactReservationPayload ImpactReservationPayload { get; }
+
+        public bool HasDeferredImpactPayload { get; }
+
+        public MovementDeferredImpactPayload DeferredImpactPayload { get; }
     }
 
     internal readonly struct StateChangeWritePayload

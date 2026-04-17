@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Actions;
 using Game.Feature.Gameplay.Model.Groups;
@@ -33,11 +34,32 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
-            Expand(snapshot, sortedIntents, null, buffer, rejectedReasons);
+            Expand(snapshot, tickIndex: 0, sortedIntents, null, buffer, rejectedReasons);
         }
 
         public void Expand(
             WorldSnapshot snapshot,
+            int tickIndex,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            Expand(snapshot, tickIndex, sortedIntents, null, buffer, rejectedReasons);
+        }
+
+        public void Expand(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            ISet<int> playerTraversalSourceIds,
+            List<ActionGroup> buffer,
+            List<string> rejectedReasons)
+        {
+            Expand(snapshot, tickIndex: 0, sortedIntents, playerTraversalSourceIds, buffer, rejectedReasons);
+        }
+
+        public void Expand(
+            WorldSnapshot snapshot,
+            int tickIndex,
             IReadOnlyList<MoveIntent> sortedIntents,
             ISet<int> playerTraversalSourceIds,
             List<ActionGroup> buffer,
@@ -89,7 +111,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 {
                     case MovementCommandKind.Push:
                     case MovementCommandKind.Move:
-                        ExpandMoveLike(snapshot, entity, intent, playerTraversalSourceIds, buffer, rejectedReasons);
+                        ExpandMoveLike(snapshot, entity, intent, tickIndex, playerTraversalSourceIds, buffer, rejectedReasons);
                         break;
 
                     case MovementCommandKind.Flip:
@@ -108,13 +130,14 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
+            int tickIndex,
             ISet<int> playerTraversalSourceIds,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
             if (IsSlidingPushBox(source))
             {
-                ExpandSlidingPushBoxMove(snapshot, source, intent, buffer, rejectedReasons);
+                ExpandSlidingPushBoxMove(snapshot, source, intent, tickIndex, buffer, rejectedReasons);
                 return;
             }
 
@@ -489,6 +512,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
+            int tickIndex,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -512,6 +536,17 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         stopper.Cell,
                         stopSliding: true,
                         assignKineticOwner: false,
+                        buffer))
+                {
+                    return;
+                }
+
+                if (TryExpandDeferredSlidingImpact(
+                        snapshot,
+                        source,
+                        intent,
+                        stopper.Cell,
+                        tickIndex,
                         buffer))
                 {
                     return;
@@ -548,6 +583,70 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                     destination,
                     stepFacing));
             buffer.Add(actionGroup);
+        }
+
+        private static bool TryExpandDeferredSlidingImpact(
+            WorldSnapshot snapshot,
+            EntityState source,
+            MoveIntent intent,
+            SurfaceCell impactCell,
+            int tickIndex,
+            List<ActionGroup> buffer)
+        {
+            if (tickIndex <= 0 ||
+                !TryResolveBoxImpactTeamId(source, source, out var sourceTeamId) ||
+                !HasSameTickHostileJumpLandingAt(snapshot, impactCell, sourceTeamId, tickIndex))
+            {
+                return false;
+            }
+
+            var actionGroup = new ActionGroup(
+                intent.IntentId,
+                intent.SourceId,
+                intent.Priority,
+                ActionGroupKind.Stop);
+            actionGroup.StateChanges.Add(
+                new StateChangeAction(
+                    source.entityId,
+                    EntityPhaseState.Idle,
+                    stateTimer: 0));
+            actionGroup.AssignDeferredImpact(source.entityId, impactCell);
+            buffer.Add(actionGroup);
+            return true;
+        }
+
+        private static bool HasSameTickHostileJumpLandingAt(
+            WorldSnapshot snapshot,
+            SurfaceCell impactCell,
+            int sourceTeamId,
+            int tickIndex)
+        {
+            var jumpEntries = new List<EnemyJumpSnapshotEntry>();
+            snapshot.EnumerateEnemyJumpStatesOrdered(jumpEntries);
+
+            for (var i = 0; i < jumpEntries.Count; i++)
+            {
+                var jumpEntry = jumpEntries[i];
+                var jumpState = jumpEntry.State;
+                if (jumpState.phase != EnemyJumpPhase.Airborne ||
+                    tickIndex < jumpState.landingTick ||
+                    !snapshot.TryGetEntity(jumpEntry.EntityId, out var jumper) ||
+                    jumper.teamId <= 0 ||
+                    jumper.teamId == sourceTeamId ||
+                    jumper.hp <= 0 ||
+                    jumper.markedForDeath ||
+                    !EnemyJumpQueries.TryResolveLandingCell(snapshot, jumper, jumpState, out var landingCell, out _))
+                {
+                    continue;
+                }
+
+                if (landingCell == impactCell)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool TryExpandBoxImpact(

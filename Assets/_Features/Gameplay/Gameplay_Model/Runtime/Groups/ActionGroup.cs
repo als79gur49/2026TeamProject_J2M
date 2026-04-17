@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack;
+using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Model.Actions;
 
 namespace Game.Feature.Gameplay.Model.Groups
@@ -50,6 +51,10 @@ namespace Game.Feature.Gameplay.Model.Groups
 
         public int ImpactTargetId { get; private set; }
 
+        public int DeferredImpactSourceId { get; private set; }
+
+        public SurfaceCell DeferredImpactCell { get; private set; }
+
         public int ProjectileImpactTargetId => GroupKind == ActionGroupKind.ProjectileImpact ? ImpactTargetId : 0;
 
         public int BoxKineticTargetId { get; private set; }
@@ -75,6 +80,8 @@ namespace Game.Feature.Gameplay.Model.Groups
         public List<DelayedAttackAction> DelayedAttacks { get; }
 
         public bool HasResolvedImpact => ImpactSourceId > 0 && ImpactTargetId > 0;
+
+        public bool HasDeferredImpact => DeferredImpactSourceId > 0;
 
         public void AssignProjectileImpactTarget(int targetId)
         {
@@ -116,6 +123,22 @@ namespace Game.Feature.Gameplay.Model.Groups
 
             ImpactSourceId = impactSourceId;
             ImpactTargetId = impactTargetId;
+        }
+
+        public void AssignDeferredImpact(int impactSourceId, SurfaceCell impactCell)
+        {
+            if (impactSourceId <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(impactSourceId), "Deferred impact source must be a positive entity ID.");
+            }
+
+            if (HasResolvedImpact || HasDeferredImpact)
+            {
+                throw new InvalidOperationException("Impact has already been assigned.");
+            }
+
+            DeferredImpactSourceId = impactSourceId;
+            DeferredImpactCell = impactCell;
         }
 
         public void AssignBoxKineticOwner(int targetBoxId, int instigatorEntityId, int instigatorTeamId)
