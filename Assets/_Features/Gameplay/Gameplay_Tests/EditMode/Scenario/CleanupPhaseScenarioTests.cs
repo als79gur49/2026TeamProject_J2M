@@ -198,6 +198,81 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         }
 
         [Test]
+        [Category("Extended")]
+        public void Respawn_InactiveFaceSolidAtSpawn_DoesNotThrow_AndSkipsDeterministically()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            worldState.CreateWriteContext().ApplyDamage(10, amount: 3);
+            var deathTick = pipeline.RunTick(new TickInput(60));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+            writeContext.SpawnEntity(CreateWall(entityId: 90, position: spawnCell));
+
+            var preRespawnSnapshot = CreateSnapshot(worldState);
+            Assert.That(preRespawnSnapshot.TryGetPlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out _), Is.False);
+            Assert.That(preRespawnSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out var blocker), Is.True);
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Entity));
+            Assert.That(blocker.EntityId, Is.EqualTo(90));
+
+            TickResult blockedRespawnTick = default;
+            Assert.DoesNotThrow(() => blockedRespawnTick = pipeline.RunTick(new TickInput(61)));
+
+            var blockedSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
+            Assert.That(
+                blockedRespawnTick.EventLog,
+                Does.Contain("RespawnSkipped|E=10|Pos=(2,1)|Face=Front|Tick=61|Reason=Entity|BlockerEntity=90|BlockerType=None"));
+            Assert.That(blockedSnapshot.TryGetEntity(10, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Respawn_InactiveFaceDetachedHiddenOccupant_Commits()
+        {
+            var spawnCell = new SurfaceCell(FaceId.Front, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreatePlayerUnit(entityId: 10, position: spawnCell, hp: 3, facing: Direction.Left),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState);
+
+            worldState.CreateWriteContext().ApplyDamage(10, amount: 3);
+            var deathTick = pipeline.RunTick(new TickInput(70));
+            var writeContext = worldState.CreateWriteContext();
+            writeContext.SetTopology(new CubeTopologyState(FaceId.Back));
+            writeContext.SpawnEntity(
+                CreateUnit(
+                    entityId: 60,
+                    position: spawnCell,
+                    hp: 2,
+                    boardPresence: EntityBoardPresence.Detached));
+
+            var preRespawnSnapshot = CreateSnapshot(worldState);
+            Assert.That(preRespawnSnapshot.TryGetPlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out _), Is.False);
+            Assert.That(preRespawnSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, spawnCell, ignoredEntityId: 0, out _), Is.False);
+
+            TickResult respawnTick = default;
+            Assert.DoesNotThrow(() => respawnTick = pipeline.RunTick(new TickInput(71)));
+
+            var respawnedSnapshot = CreateSnapshot(worldState);
+
+            Assert.That(SemanticEventAssertions.GetCleanupRemovedEntityIds(deathTick.EventLog), Has.Member(10));
+            Assert.That(respawnTick.EventLog, Does.Contain("RespawnCommitted|E=10|Pos=(2,1)|Face=Front|Facing=Left|Tick=71"));
+            Assert.That(respawnedSnapshot.TryGetEntity(10, out var respawnedPlayer), Is.True);
+            Assert.That(respawnedPlayer.position, Is.EqualTo(spawnCell));
+            Assert.That(respawnedPlayer.boardPresence, Is.EqualTo(EntityBoardPresence.Occupying));
+            Assert.That(respawnedSnapshot.TryGetEntity(60, out var detachedOccupant), Is.True);
+            Assert.That(detachedOccupant.boardPresence, Is.EqualTo(EntityBoardPresence.Detached));
+        }
+
+        [Test]
         [Category("Core")]
         public void Respawn_PlayerControlState_IsResetWhenPlayerReturns()
         {

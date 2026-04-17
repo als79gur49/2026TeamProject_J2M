@@ -254,6 +254,38 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetPlacementBlocker(entityType, CreateDefaultQueryCell(cell), ignoredEntityId, out blocker);
         }
 
+        internal bool TryGetAuthoritativePlacementBlocker(
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return WorldPlacementPolicy.TryGetAuthoritativePlacementBlocker(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                _projectileOccupancy,
+                _boardBounds,
+                _terrainData,
+                entityType,
+                cell,
+                ignoredEntityId,
+                out blocker);
+        }
+
+        internal bool TryGetAuthoritativePlacementBlocker(
+            EntityType entityType,
+            Vector2Int cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return TryGetAuthoritativePlacementBlocker(
+                entityType,
+                CreateDefaultQueryCell(cell),
+                ignoredEntityId,
+                out blocker);
+        }
+
         public bool TryResolvePlayerStep(
             SurfaceCell origin,
             Direction direction,

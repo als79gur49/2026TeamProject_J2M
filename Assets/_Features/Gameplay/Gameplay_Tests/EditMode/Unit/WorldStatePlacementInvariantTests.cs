@@ -156,6 +156,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SpawnEntity_InactiveFaceSolidDestination_StillThrowsForAuthoritativeStateValidation()
+        {
+            var blockedCell = new SurfaceCell(FaceId.Ceiling, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 10, position: blockedCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                GameplayTerrainData.Empty);
+
+            Assert.Throws<InvalidOperationException>(
+                () => worldState.CreateWriteContext().SpawnEntity(
+                    CreateUnit(entityId: 20, position: blockedCell)));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(10, out var solid), Is.True);
+            Assert.That(solid.position, Is.EqualTo(blockedCell));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SpawnEntity_InactiveFaceOccupiedDestination_AllowsAuthoritativeUnitStacking()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(

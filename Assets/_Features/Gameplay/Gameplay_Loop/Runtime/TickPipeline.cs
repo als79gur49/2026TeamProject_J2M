@@ -1998,7 +1998,7 @@ namespace Game.Feature.Gameplay.Loop
             int sourceId,
             int ignoredDeadTargetId)
         {
-            if (movementSnapshot.TryGetPlacementBlocker(EntityType.Unit, destinationCell, sourceId, out _))
+            if (movementSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, destinationCell, sourceId, out _))
             {
                 return false;
             }
@@ -4474,7 +4474,7 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var respawnEntity = BuildRespawnEntity(template, tickIndex);
-                if (postCleanupSnapshot.TryGetPlacementBlocker(
+                if (postCleanupSnapshot.TryGetAuthoritativePlacementBlocker(
                         respawnEntity.type,
                         respawnEntity.position,
                         ignoredEntityId: 0,
