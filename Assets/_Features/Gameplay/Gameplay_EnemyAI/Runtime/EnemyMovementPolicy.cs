@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Movement.Collection;
 using UnityEngine;
@@ -480,12 +481,17 @@ namespace Game.Feature.Gameplay.Entities
                 ? snapshot.Topology
                 : updatedTopology;
 
-            return !snapshot.TryGetPlacementBlocker(
-                movementTopology,
-                source.type,
-                destinationCell,
-                source.entityId,
-                out _);
+            if (snapshot.TryGetPlacementBlocker(
+                    movementTopology,
+                    source.type,
+                    destinationCell,
+                    source.entityId,
+                    out _))
+            {
+                return false;
+            }
+
+            return IsTraversableUnitDestination(snapshot, source, destinationCell);
         }
 
         public static Vector2Int? ResolveDelta(Direction direction)
@@ -995,6 +1001,44 @@ namespace Game.Feature.Gameplay.Entities
                 _ => Direction.None,
             };
         }
+
+        private static bool IsTraversableUnitDestination(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            SurfaceCell destinationCell)
+        {
+            var occupants = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(destinationCell, occupants);
+
+            var hasRelevantOccupant = false;
+            var hasHostilePlayer = false;
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var occupant = occupants[i];
+                if (occupant.entityId == source.entityId ||
+                    occupant.boardPresence != EntityBoardPresence.Occupying ||
+                    occupant.hp <= 0 ||
+                    occupant.markedForDeath)
+                {
+                    continue;
+                }
+
+                hasRelevantOccupant = true;
+                if (occupant.teamId == source.teamId)
+                {
+                    return false;
+                }
+
+                if (!EntityRolePolicy.IsPlayerUnit(occupant))
+                {
+                    return false;
+                }
+
+                hasHostilePlayer = true;
+            }
+
+            return !hasRelevantOccupant || hasHostilePlayer;
+        }
     }
 
     internal static class EnemyChargeStrategyShared
@@ -1124,7 +1168,25 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            return snapshot.TryGetSolidOccupantAt(cell, out _);
+            if (snapshot.TryGetSolidOccupantAt(cell, out _))
+            {
+                return true;
+            }
+
+            var occupants = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, occupants);
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var occupant = occupants[i];
+                if (occupant.boardPresence == EntityBoardPresence.Occupying &&
+                    occupant.hp > 0 &&
+                    !occupant.markedForDeath)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

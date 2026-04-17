@@ -725,6 +725,18 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (stage == EnemyAiTransitionStage.BeforeMovement &&
+                _patrolStrategy is WallFollowPatrolStrategy &&
+                _patrolStrategy.TryBuildMovementIntent(
+                    snapshot,
+                    source,
+                    _commonSettings,
+                    _patrolSettings,
+                    out _))
+            {
+                return null;
+            }
+
+            if (stage == EnemyAiTransitionStage.BeforeMovement &&
                 _patrolStrategy is IPatrolFacingStrategy patrolFacingStrategy &&
                 patrolFacingStrategy.TryResolveFacing(snapshot, source, _patrolSettings, out var patrolFacing))
             {
