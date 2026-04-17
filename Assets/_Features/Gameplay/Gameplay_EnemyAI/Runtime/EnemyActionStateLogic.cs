@@ -118,6 +118,13 @@ namespace Game.Feature.Gameplay.Entities
             int tickIndex)
         {
             var workingAction = previousAction;
+            if (workingAction.IsActive &&
+                workingAction.executionAttempted &&
+                workingAction.executeTick < tickIndex)
+            {
+                workingAction = EnemyActionQueries.Clear(workingAction);
+            }
+
             if (UsesReceiverOwnedContactCadence() &&
                 workingAction.IsActive &&
                 workingAction.executionAttempted)
@@ -174,7 +181,7 @@ namespace Game.Feature.Gameplay.Entities
                 return EnemyActionQueries.Clear(previousAction);
             }
 
-            if (!snapshot.CanStartAction(_entityId, tickIndex))
+            if (!CanStartCombatActionThisTick(snapshot, tickIndex))
             {
                 return workingAction;
             }
@@ -233,6 +240,24 @@ namespace Game.Feature.Gameplay.Entities
         {
             return _combatCapability != null &&
                    _combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
+        }
+
+        private bool CanStartCombatActionThisTick(WorldSnapshot snapshot, int tickIndex)
+        {
+            if (snapshot.CanStartAction(_entityId, tickIndex))
+            {
+                return true;
+            }
+
+            if (_combatCapability == null ||
+                _combatCapability.AttackTimingSettings.WindupTicks != 0 ||
+                !snapshot.TryGetEntityExecutionLockState(_entityId, out var executionLockState))
+            {
+                return false;
+            }
+
+            return executionLockState.phase == EntityExecutionPhase.Move &&
+                   EntityExecutionLockQueries.IsLocked(executionLockState, tickIndex);
         }
 
         private static bool ShouldWriteActionState(

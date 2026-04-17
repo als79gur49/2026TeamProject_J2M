@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Entities
         EnemyAiTransitionDecision Resolve(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
@@ -133,6 +134,7 @@ namespace Game.Feature.Gameplay.Entities
             var decision = _stateResolver.Resolve(
                 snapshot,
                 source,
+                input.TickIndex,
                 stage,
                 _detectionStrategy,
                 _combatCapability,
@@ -414,6 +416,30 @@ namespace Game.Feature.Gameplay.Entities
                 _locomotionTimingSettings.MoveCooldownTicks);
         }
 
+        private bool ShouldHoldChargingProfileAtAdjacentTarget(
+            WorldSnapshot snapshot,
+            in EntityState source)
+        {
+            if (_stateResolver is not ChargingEnemyAiStateResolver ||
+                !_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
+                source.position.face != target.position.face)
+            {
+                return false;
+            }
+
+            var planarDelta = target.position.PlanarPosition - source.position.PlanarPosition;
+            return Mathf.Abs(planarDelta.x) + Mathf.Abs(planarDelta.y) == 1;
+        }
+
+        private bool ShouldHoldWallFollowForSameCellPassiveContact(
+            WorldSnapshot snapshot,
+            in EntityState source)
+        {
+            return _patrolStrategy is WallFollowPatrolStrategy &&
+                   _passiveContactCapability != null &&
+                   TryResolvePassiveContactTarget(snapshot, source, out _);
+        }
+
         private bool CommitJumpState(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -505,6 +531,11 @@ namespace Game.Feature.Gameplay.Entities
             switch (source.aiMode)
             {
                 case EnemyAiMode.Patrol:
+                    if (ShouldHoldWallFollowForSameCellPassiveContact(snapshot, source))
+                    {
+                        return default;
+                    }
+
                     if (_patrolStrategy.TryBuildMovementIntent(
                             snapshot,
                             source,
@@ -520,6 +551,11 @@ namespace Game.Feature.Gameplay.Entities
                     return default;
 
                 case EnemyAiMode.Chase:
+                    if (ShouldHoldChargingProfileAtAdjacentTarget(snapshot, source))
+                    {
+                        return default;
+                    }
+
                     if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
                     {
                         return default;
@@ -766,6 +802,7 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyAiTransitionDecision Resolve(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
@@ -796,7 +833,7 @@ namespace Game.Feature.Gameplay.Entities
                     return ResolveBeforeAttack(snapshot, source, detectionStrategy, combatCapability, commonSettings, detectionSettings);
 
                 case EnemyAiTransitionStage.AfterAttack:
-                    return ResolveAfterAttack(snapshot, source, combatCapability, commonSettings);
+                    return ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings);
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage.");
@@ -877,12 +914,13 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveAfterAttack(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings)
         {
-            if (!snapshot.TryGetEnemyActionState(source.entityId, out var actionState) ||
-                !actionState.IsActive ||
-                !actionState.executionAttempted)
+            var didCommit = DidCommitCombatAttackThisTick(snapshot, source.entityId, tickIndex);
+            if (source.aiMode != EnemyAiMode.Attack ||
+                !didCommit)
             {
                 return Keep(source, "NoAfterAttackTransition");
             }
@@ -953,6 +991,16 @@ namespace Game.Feature.Gameplay.Entities
             return combatCapability != null &&
                    combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
         }
+
+        private static bool DidCommitCombatAttackThisTick(
+            WorldSnapshot snapshot,
+            int entityId,
+            int tickIndex)
+        {
+            return snapshot.TryGetEnemyActionState(entityId, out var actionState) &&
+                   actionState.IsActive &&
+                   (actionState.executionAttempted || actionState.executeTick == tickIndex);
+        }
     }
 
     public sealed class ChargingEnemyAiStateResolver : IEnemyAiStateResolver
@@ -962,6 +1010,7 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyAiTransitionDecision Resolve(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             EnemyAiTransitionStage stage,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
@@ -999,7 +1048,7 @@ namespace Game.Feature.Gameplay.Entities
                     combatCapability,
                     commonSettings,
                     detectionSettings),
-                EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, combatCapability, commonSettings),
+                EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
             };
         }
@@ -1007,12 +1056,13 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveAfterAttack(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings)
         {
-            if (!snapshot.TryGetEnemyActionState(source.entityId, out var actionState) ||
-                !actionState.IsActive ||
-                !actionState.executionAttempted)
+            var didCommit = DidCommitCombatAttackThisTick(snapshot, source.entityId, tickIndex);
+            if (source.aiMode != EnemyAiMode.Attack ||
+                !didCommit)
             {
                 return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoAfterAttackTransition");
             }
@@ -1029,6 +1079,16 @@ namespace Game.Feature.Gameplay.Entities
         {
             return combatCapability != null &&
                    combatCapability.AttackDecisionStrategy is ContactSameCellAttackDecisionStrategy;
+        }
+
+        private static bool DidCommitCombatAttackThisTick(
+            WorldSnapshot snapshot,
+            int entityId,
+            int tickIndex)
+        {
+            return snapshot.TryGetEnemyActionState(entityId, out var actionState) &&
+                   actionState.IsActive &&
+                   (actionState.executionAttempted || actionState.executeTick == tickIndex);
         }
 
         private static EnemyAiTransitionDecision ResolveBeforeMovement(
@@ -1062,14 +1122,17 @@ namespace Game.Feature.Gameplay.Entities
                         return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
                     }
 
+                    if (source.aiStateTimer == 0)
+                    {
+                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeComplete");
+                    }
+
                     if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source))
                     {
                         return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeBlocked");
                     }
 
-                    return source.aiStateTimer > 0
-                        ? new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer - 1, "ChargeContinue")
-                        : new EnemyAiTransitionDecision(EnemyAiMode.Charge, 0, "ChargeFinalStep");
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer - 1, "ChargeContinue");
 
                 case EnemyAiMode.Attack:
                     return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
@@ -1104,9 +1167,10 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
                 }
 
-                return source.aiStateTimer == 0
-                    ? ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeComplete")
-                    : new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeInProgress");
+                return new EnemyAiTransitionDecision(
+                    EnemyAiMode.Charge,
+                    source.aiStateTimer,
+                    source.aiStateTimer == 0 ? "ChargeFinalStep" : "ChargeInProgress");
             }
 
             if (source.aiMode == EnemyAiMode.Chase || source.aiMode == EnemyAiMode.Attack)
