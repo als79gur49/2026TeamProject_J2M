@@ -868,11 +868,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings)
         {
-            if (source.aiMode != EnemyAiMode.Attack)
-            {
-                return Keep(source, "NoAfterAttackTransition");
-            }
-
             if (!snapshot.TryGetEnemyActionState(source.entityId, out var actionState) ||
                 !actionState.IsActive ||
                 !actionState.executionAttempted)
@@ -1003,11 +998,6 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings)
         {
-            if (source.aiMode != EnemyAiMode.Attack)
-            {
-                return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "NoAfterAttackTransition");
-            }
-
             if (!snapshot.TryGetEnemyActionState(source.entityId, out var actionState) ||
                 !actionState.IsActive ||
                 !actionState.executionAttempted)

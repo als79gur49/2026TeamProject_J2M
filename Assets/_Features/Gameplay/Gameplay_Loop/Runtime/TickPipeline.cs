@@ -4313,7 +4313,8 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < rawAttackIntents.Count; i++)
             {
                 var rawIntent = rawAttackIntents[i];
-                if (snapshot.CanExecuteIntent(rawIntent.SourceId, tickIndex))
+                if (snapshot.CanExecuteIntent(rawIntent.SourceId, tickIndex) ||
+                    CanExecuteExecutionLockedPassiveContact(snapshot, rawIntent, tickIndex))
                 {
                     filteredIntents.Add(rawIntent);
                     continue;
@@ -4328,6 +4329,21 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return filteredIntents;
+        }
+
+        private static bool CanExecuteExecutionLockedPassiveContact(
+            WorldSnapshot snapshot,
+            in RawAttackIntent rawIntent,
+            int tickIndex)
+        {
+            if (rawIntent.SourceKind != AttackSourceKind.PassiveContact ||
+                !snapshot.TryGetEntityExecutionLockState(rawIntent.SourceId, out var lockState))
+            {
+                return false;
+            }
+
+            return lockState.phase == EntityExecutionPhase.Move &&
+                   EntityExecutionLockQueries.IsLocked(lockState, tickIndex);
         }
 
         private static string BuildExecutionLockRejectedReason(

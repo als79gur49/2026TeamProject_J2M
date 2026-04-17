@@ -836,15 +836,15 @@ namespace Game.Feature.Gameplay.Loop
             var seenEntityIds = new HashSet<int>();
             var executedEntityIds = new HashSet<int>();
             var preMovementEntries = new List<EnemyActionSnapshotEntry>();
-            var postMovementEntries = new List<EnemyActionSnapshotEntry>();
+            var postAttackEntries = new List<EnemyActionSnapshotEntry>();
             var finalEntries = new List<EnemyActionSnapshotEntry>();
 
             context.PreMovementSnapshot.EnumerateEnemyActionStatesOrdered(preMovementEntries);
-            context.PostMovementSnapshot.EnumerateEnemyActionStatesOrdered(postMovementEntries);
+            context.PostAttackSnapshot.EnumerateEnemyActionStatesOrdered(postAttackEntries);
             context.FinalAuthoritativeSnapshot.EnumerateEnemyActionStatesOrdered(finalEntries);
 
             CollectEnemyActionCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
-            CollectEnemyActionCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyActionCandidateIds(postAttackEntries, seenEntityIds, candidateEntityIds);
             CollectEnemyActionCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
 
             for (var i = 0; i < context.AttackPhaseResult.ResolutionRecords.Count; i++)
@@ -868,7 +868,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entityId = candidateEntityIds[i];
                 context.PreMovementSnapshot.TryGetEnemyActionState(entityId, out var previousAction);
-                context.PostMovementSnapshot.TryGetEnemyActionState(entityId, out var currentAction);
+                context.PostAttackSnapshot.TryGetEnemyActionState(entityId, out var currentAction);
 
                 var transition = new EnemyActionTransition(entityId, previousAction, currentAction);
                 var activeActionKind = EnemyActionKind.None;

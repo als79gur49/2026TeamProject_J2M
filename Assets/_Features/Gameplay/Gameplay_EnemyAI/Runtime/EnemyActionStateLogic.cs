@@ -201,8 +201,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (source.hp <= 0 ||
-                source.markedForDeath ||
-                source.aiMode != EnemyAiMode.Attack)
+                source.markedForDeath)
             {
                 return EnemyActionQueries.Clear(previousAction);
             }
