@@ -1,5 +1,6 @@
 > Archived historical document.
 > This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
+> Active audio companion: [Docs/Architecture/Audio-Architecture-Guidelines.md](../../Architecture/Audio-Architecture-Guidelines.md)
 > Archive index: [Docs/Archive/README.md](../README.md).
 
 # Unity Audio System Blueprint
