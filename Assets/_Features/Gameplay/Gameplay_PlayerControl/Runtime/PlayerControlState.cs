@@ -342,11 +342,14 @@ namespace Game.Feature.Gameplay.PlayerControl
             SurfaceCell targetCell,
             out EntityState target)
         {
-            if (!snapshot.TryGetBoxAt(movementTopology, targetCell, out target))
+            if (!snapshot.TryGetSolidSemanticAt(movementTopology, targetCell, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box)
             {
+                target = default;
                 return false;
             }
 
+            target = targetSemantic.Entity;
             return HasBoxCapability(target, BoxCapabilities.Push) &&
                    snapshot.Topology.IsFaceActive(target.position.face);
         }
@@ -357,12 +360,15 @@ namespace Game.Feature.Gameplay.PlayerControl
             SurfaceCell landingCell,
             out EntityState entity)
         {
-            if (!snapshot.TryGetBoxAt(targetCell, out entity) ||
-                !HasBoxCapability(entity, BoxCapabilities.Flip))
+            if (!snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box ||
+                !HasBoxCapability(targetSemantic.Entity, BoxCapabilities.Flip))
             {
+                entity = default;
                 return false;
             }
 
+            entity = targetSemantic.Entity;
             return true;
         }
 
@@ -402,11 +408,13 @@ namespace Game.Feature.Gameplay.PlayerControl
             Vector2Int delta)
         {
             if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology) ||
-                !snapshot.TryGetBoxAt(movementTopology, targetCell, out var target))
+                !snapshot.TryGetSolidSemanticAt(movementTopology, targetCell, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box)
             {
                 return false;
             }
 
+            var target = targetSemantic.Entity;
             return target.entityId == targetEntityId &&
                    HasBoxCapability(target, BoxCapabilities.Push);
         }
@@ -418,11 +426,13 @@ namespace Game.Feature.Gameplay.PlayerControl
             Vector2Int delta)
         {
             if (!snapshot.TryResolveLocalFlipCells(player.position, delta, out var targetCell, out _) ||
-                !snapshot.TryGetBoxAt(targetCell, out var target))
+                !snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box)
             {
                 return false;
             }
 
+            var target = targetSemantic.Entity;
             return target.entityId == targetEntityId &&
                    HasBoxCapability(target, BoxCapabilities.Flip);
         }

@@ -164,10 +164,13 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 ? snapshot.Topology
                 : updatedTopology;
 
-            var hasTargetBox = snapshot.TryGetBoxAt(movementTopology, destinationCell, out var targetBox);
-            var solidOccupant = default(EntityState);
-            var hasSolidOccupant = hasTargetBox ||
-                                   snapshot.TryGetSolidOccupantAt(movementTopology, destinationCell, out solidOccupant);
+            var hasSolidOccupant = snapshot.TryGetSolidSemanticAt(
+                movementTopology,
+                destinationCell,
+                out var solidOccupantSemantic);
+            var hasTargetBox = hasSolidOccupant && solidOccupantSemantic.Kind == SolidKind.Box;
+            var targetBox = hasTargetBox ? solidOccupantSemantic.Entity : default;
+            var solidOccupant = hasSolidOccupant ? solidOccupantSemantic.Entity : default;
 
             if (hasTargetBox)
             {
@@ -281,14 +284,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (!snapshot.TryGetBoxAt(targetCell, out var target) ||
-                !HasBoxCapability(target, BoxCapabilities.Flip))
+            if (!snapshot.TryGetSolidSemanticAt(targetCell, out var targetSemantic) ||
+                targetSemantic.Kind != SolidKind.Box ||
+                !HasBoxCapability(targetSemantic.Entity, BoxCapabilities.Flip))
             {
-                TryGetNonProjectileOccupantForDiagnostics(snapshot, snapshot.Topology, targetCell, out target);
+                EntityState diagnosticTarget;
+                TryGetNonProjectileOccupantForDiagnostics(snapshot, snapshot.Topology, targetCell, out diagnosticTarget);
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotFlippableBox|Cell={FormatCell(targetCell)}|Target={target.entityId}|Type={target.type}|Capabilities={target.boxCapabilities}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetNotFlippableBox|Cell={FormatCell(targetCell)}|Target={diagnosticTarget.entityId}|Type={diagnosticTarget.type}|Capabilities={diagnosticTarget.boxCapabilities}");
                 return;
             }
+
+            var target = targetSemantic.Entity;
 
             if (snapshot.TryGetPlacementBlocker(snapshot.Topology, target.type, landingCell, target.entityId, out var landingBlocker))
             {
@@ -787,12 +794,22 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             SurfaceCell cell,
             out EntityState entity)
         {
-            if (snapshot.TryGetSolidOccupantAt(topology, cell, out entity))
+            if (snapshot.TryGetSolidSemanticAt(topology, cell, out var solidSemantic))
             {
+                entity = solidSemantic.Entity;
                 return true;
             }
 
-            return snapshot.TryGetPrimaryUnitAt(topology, cell, out entity);
+            var occupants = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(topology, cell, occupants);
+            if (occupants.Count > 0)
+            {
+                entity = occupants[0];
+                return true;
+            }
+
+            entity = default;
+            return false;
         }
 
         private static bool IsGameplayImpactBlocker(WorldSnapshot snapshot, int entityId)

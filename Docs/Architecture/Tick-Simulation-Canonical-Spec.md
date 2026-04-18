@@ -37,7 +37,8 @@
 ## Query Layer
 - Canonical query boundary는 다음 순서를 따른다.
   - `Storage Query`: raw occupancy, raw terrain, deterministic ordered enumeration
-  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetPrimaryUnitAt(...)`
+  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetTerrain(...)`, `IsTerrainBlockedForUnit(...)`
+  - `Semantic Convenience`: `TryGetPrimaryUnitAt(...)` 같은 representative-only helper
   - `Legality Query`: placement/traversal/settlement verdict만 반환하는 판정 계층
   - `Resolver`: action-specific branch, fallback, target 선택
   - `Committer`: 이미 resolve된 payload만 authoritative state에 적용
@@ -45,6 +46,7 @@
   - storage/semantic query는 명사형 질문만 가진다.
   - legality query는 allowed/blocked verdict만 가진다.
   - action 이름이 들어간 helper는 canonical semantic vocabulary에 포함하지 않는다.
+  - gameplay core는 semantic helper를 file-local로 조합해 composite legality verdict를 재조립하지 않는다. actor/action이 들어간 allowed/blocked 판단은 legality owner에 둔다.
 
 ## Stage Contract
 - `Plan`과 `Resolve`는 phase-entry snapshot과 published reservation read model만 읽는다.
@@ -62,19 +64,20 @@
 - terrain canonical storage는 `TerrainData`의 `SurfaceCell -> TerrainCellState`다.
 - Canonical query vocabulary는 `WorldSnapshot`의 layered API를 기준으로 한다.
   - `EnumerateUnitsAt(...)`
-  - `TryGetSolidOccupantAt(...)`
   - `TryGetSolidSemanticAt(...)`
   - `IsWallAt(...)`
   - `IsBoxAt(...)`
   - `TryGetTerrain(...)`
+  - `IsTerrainBlockedForUnit(...)`
   - `TryPickImpactTargetAt(...)`
   - `TryGetUnitTraversalBlocker(...)`
 - Legacy compatibility API는 canonical vocabulary가 아니다.
   - `TryGetUnitAt(...)`
+  - `TryGetSolidOccupantAt(...)`
   - `IsBlockedForUnit(...)`
   - `BlocksMovement(...)`
-- `TryGetBoxAt(...)`와 planar terrain API는 compatibility helper다. 새 code path의 canonical vocabulary는 solid semantic / terrain semantic / validity policy다.
-- `TryGetPrimaryUnitAt(...)`는 helper/convenience API로만 취급한다. stacked-unit 모델의 대표 vocabulary로 쓰지 않는다.
+- `TryGetBoxAt(...)`, `CreateDefaultQueryCell(...)`, `SurfaceCell.FromPlanar(...)`, terrain `Vector2Int` overload는 compatibility helper다. 새 gameplay core path는 사용하지 않는다.
+- `TryGetPrimaryUnitAt(...)`는 helper/convenience API로만 취급한다. stacked-unit 모델의 대표 vocabulary로 쓰지 않으며, gameplay core에서는 post-legality 대표값 조회 외에 승격하지 않는다.
 
 ## Layer Rules
 - Unit layer는 stacked 허용이다.

@@ -125,6 +125,11 @@ namespace Game.Feature.Gameplay.BoardState
             EnumerateUnitsAt(CreateDefaultQueryCell(cell), buffer);
         }
 
+        internal void EnumerateUnitsAt(CubeTopologyState topology, SurfaceCell cell, List<EntityState> buffer)
+        {
+            SnapshotReadQueries.EnumerateUnitsAt(_entitiesById, _stackedUnitsByCell, topology, cell, buffer);
+        }
+
         public bool TryGetPrimaryUnitAt(SurfaceCell cell, out EntityState entity)
         {
             return TryGetPrimaryUnitAt(_topology, cell, out entity);

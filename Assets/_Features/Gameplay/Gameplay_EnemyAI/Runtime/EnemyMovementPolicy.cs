@@ -909,10 +909,12 @@ namespace Game.Feature.Gameplay.Entities
                 return WallFollowAnchorKind.None;
             }
 
-            return GetWallFollowAnchorKind(blocker, settings);
+            return GetWallFollowAnchorKind(snapshot, adjacentCell, blocker, settings);
         }
 
         private static WallFollowAnchorKind GetWallFollowAnchorKind(
+            WorldSnapshot snapshot,
+            SurfaceCell adjacentCell,
             SlideStopper blocker,
             in PatrolSettings settings)
         {
@@ -921,17 +923,18 @@ namespace Game.Feature.Gameplay.Entities
                 return WallFollowAnchorKind.BoardEdge;
             }
 
-            if (blocker.Kind != SlideStopperKind.Entity)
+            if (blocker.Kind != SlideStopperKind.Entity ||
+                !snapshot.TryGetSolidSemanticAt(adjacentCell, out var adjacentSolid))
             {
                 return WallFollowAnchorKind.None;
             }
 
-            if (settings.FollowWalls && blocker.EntityType == EntityType.None)
+            if (settings.FollowWalls && adjacentSolid.Kind == SolidKind.Wall)
             {
                 return WallFollowAnchorKind.Wall;
             }
 
-            if (settings.FollowBoxes && blocker.EntityType == EntityType.Box)
+            if (settings.FollowBoxes && adjacentSolid.Kind == SolidKind.Box)
             {
                 return WallFollowAnchorKind.Box;
             }
@@ -1168,7 +1171,7 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            if (snapshot.TryGetSolidOccupantAt(cell, out _))
+            if (snapshot.TryGetSolidSemanticAt(cell, out _))
             {
                 return true;
             }

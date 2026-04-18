@@ -3491,8 +3491,8 @@ namespace Game.Feature.Gameplay.Loop
                 return false;
             }
 
-            if (attackSnapshot.TryGetSolidOccupantAt(payload.ContingentDestinationCell, out var solidOccupant) &&
-                solidOccupant.entityId != payload.TargetEntityId)
+            if (attackSnapshot.TryGetSolidSemanticAt(payload.ContingentDestinationCell, out var solidOccupant) &&
+                solidOccupant.Entity.entityId != payload.TargetEntityId)
             {
                 return false;
             }
