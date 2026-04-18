@@ -210,6 +210,65 @@ Canonical ownership:
 - global instance search
 - feature-side runtime root creation
 
+### 8.1 Audio-Settings Bridge Mapping
+
+- visible settings UI는 `Main`, `Background Music`, `Effects` 3개 channel만 노출한다.
+- `UI.Application`은 shared audio enum을 모르고 `IAudioSettingsPort`만 안다.
+- `UI.Composition`은 `UIAudioChannelMapper` 하나만 통해 visible UI enum과 shared runtime enum을 연결한다.
+- canonical mapping은 아래 셋뿐이다.
+  - `Main -> AudioChannel.Master`
+  - `Bgm -> AudioChannel.Bgm`
+  - `Sfx -> AudioChannel.Sfx`
+- presenter, tests, composition runtime은 이 mapping을 inline `switch` 또는 `if`로 재구현하지 않는다.
+
+### 8.2 Playback Registry Lifecycle
+
+- live playback register는 source 획득, definition resolve, source configure, successful `Play` 이후에만 발생한다.
+- live playback unregister는 controller `Stop()` 단일 경로만 canonical owner다.
+- natural completion은 controller `Tick()`에서 `Stop()`으로 수렴해야 한다.
+- pooled source release는 unregister 이후에만 수행한다.
+- every live record는 `leaf AudioChannel`, `base clip volume`, `AudioSource` reference validity, controller validity를 유지한다.
+- destroyed source, invalid controller, manager teardown은 stale live record를 남기지 않아야 한다.
+- BGM도 별도 lane을 쓰지만 registry lifecycle rule은 동일하다.
+
+### 8.3 Reserved Master Category Rule
+
+- `AudioCategory.Master`는 mixer-only reserved category다.
+- `AudioDefinition` authoring category로는 사용할 수 없다.
+- rule truth-source는 `AudioDefinitionCategoryRules` 하나다.
+- `AudioDefinition.OnValidate()` authoring warning과 runtime defensive validation은 같은 shared rule helper를 호출해야 한다.
+- 이 규칙을 authoring path, binding path, runtime path에서 각각 다시 encode하지 않는다.
+
+### 8.4 Canonical Bootstrap Root Contract
+
+- audio-first settings를 노출하는 scene에서 `GameplayUiFlowInstaller`가 존재하면 같은 canonical bootstrap root `GameObject`에 정확히 하나의 `AudioRuntimeInstaller`가 co-located 되어야 한다.
+- current canonical scenes는 `TutorialScene`과 `UIAudioScene`이다.
+- 여기서 co-located의 의미는 scene-wide search가 아니라 `GameplayUiFlowInstaller`가 붙은 바로 그 same `GameObject`다.
+- missing installer fail-fast message는 아래 exact string으로 고정한다.
+  - `GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls.`
+- duplicate installer policy:
+  - same-root duplicate는 `DisallowMultipleComponent`로 차단한다.
+  - canonical scene contract test는 each canonical scene에 installer가 정확히 1개인지 검증한다.
+  - scene-global fallback lookup은 금지다.
+
+### 8.5 Immediate Apply And Deferred Flush
+
+- slider/toggle interaction은 runtime gain을 즉시 갱신한다.
+- persistence write는 transient drag step마다 수행하지 않는다.
+- dirty snapshot은 아래 bounded flush policy로만 저장한다.
+  - slider interaction end
+  - settings screen close or dispose
+  - application pause
+  - application quit
+- discrete mute toggle은 runtime state를 즉시 바꾸되 drag-step처럼 per-frame persistence write를 만들지 않는다.
+
+### 8.6 Hidden Internal Channels
+
+- internal runtime channel은 `Master`, `Bgm`, `Sfx`, `Ui`, `Voice`, `Ambience`다.
+- `Ui`, `Voice`, `Ambience`는 v1에서 user-facing control이 없다.
+- hidden channel leaf state는 내부 snapshot에 존재하지만 default `volume=1`, `muted=false`를 유지한다.
+- hidden channel은 `Master`에는 반응하지만 `Bgm` 또는 `Sfx` control에는 반응하지 않는다.
+
 ## 9. Required Enforcement
 
 EditMode / structure guard:
