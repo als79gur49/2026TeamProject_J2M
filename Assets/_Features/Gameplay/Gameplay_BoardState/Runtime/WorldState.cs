@@ -93,7 +93,7 @@ namespace Game.Feature.Gameplay.BoardState
             entity.enemyLocomotionCooldownTicks = Mathf.Max(0, entity.enemyLocomotionCooldownTicks);
             if (ShouldStoreEntityInOccupancy(entity))
             {
-                EnsurePlacementIsLegal(entity, entity.position, ignoredEntityId: 0);
+                EnsurePlacementIsRepresentable(entity, entity.position, ignoredEntityId: 0);
             }
 
             _entitiesById.Add(entity.entityId, entity);
@@ -114,7 +114,7 @@ namespace Game.Feature.Gameplay.BoardState
             var updatedEntity = entity;
             updatedEntity.position = destination;
 
-            EnsurePlacementIsLegal(updatedEntity, destination, entityId);
+            EnsurePlacementIsRepresentable(updatedEntity, destination, entityId);
 
             ClearOccupancyForEntity(entity);
             UpdateStoredEntity(updatedEntity);
@@ -235,7 +235,7 @@ namespace Game.Feature.Gameplay.BoardState
             entity.boardPresence = boardPresence;
             if (boardPresence == EntityBoardPresence.Occupying)
             {
-                EnsurePlacementIsLegal(entity, entity.position, entityId);
+                EnsurePlacementIsRepresentable(entity, entity.position, entityId);
             }
 
             UpdateStoredEntity(entity);
@@ -349,9 +349,9 @@ namespace Game.Feature.Gameplay.BoardState
             return _entitiesById.TryGetValue(entityId, out entity);
         }
 
-        private void EnsurePlacementIsLegal(EntityState entity, SurfaceCell cell, int ignoredEntityId)
+        private void EnsurePlacementIsRepresentable(EntityState entity, SurfaceCell cell, int ignoredEntityId)
         {
-            var legality = RuntimePlacementValidityPolicy.EvaluateAuthoritativePlacement(
+            if (!WorldPlacementPolicy.TryGetRepresentablePlacementBlocker(
                 _entitiesById,
                 _stackedUnitsByCell,
                 _solidOccupancy,
@@ -361,8 +361,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entity.type,
                 cell,
                 ignoredEntityId,
-                out var blocker);
-            if (legality.Verdict != LegalityVerdict.Blocked)
+                out var blocker))
             {
                 return;
             }

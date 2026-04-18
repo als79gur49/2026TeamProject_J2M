@@ -267,10 +267,15 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             }
 
             var spawnPosition = source.position + spawnDelta.Value;
-            if (snapshot.TryGetPlacementBlocker(EntityType.Projectile, spawnPosition, ignoredEntityId: 0, out var placementBlocker))
+            var spawnLegality = RuntimePlacementValidityPolicy.EvaluateGameplayPlacement(
+                snapshot,
+                EntityType.Projectile,
+                spawnPosition,
+                ignoredEntityId: 0);
+            if (spawnLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={ResolveSpawnBlockerReason(placementBlocker)}|{FormatPlacementBlocker(placementBlocker)}");
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={ResolveSpawnBlockerReason(spawnLegality)}|{FormatPlacementBlocker(spawnLegality)}|{FormatLegality(spawnLegality)}");
                 return;
             }
 
@@ -307,20 +312,24 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             };
         }
 
-        private static string ResolveSpawnBlockerReason(SlideStopper blocker)
+        private static string ResolveSpawnBlockerReason(LegalityResult legality)
         {
+            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
             switch (blocker.Kind)
             {
-                case SlideStopperKind.BoardEdge:
+                case LegalityBlockerKind.BoardEdge:
                     return "SpawnDestinationOutsideBoard";
 
-                case SlideStopperKind.Terrain:
+                case LegalityBlockerKind.Terrain:
                     return "SpawnDestinationBlockedByTerrain";
 
-                case SlideStopperKind.Entity:
+                case LegalityBlockerKind.Solid:
                     return blocker.EntityType == EntityType.Projectile
                         ? "SpawnDestinationBlockedByProjectile"
                         : "SpawnDestinationBlockedByEntity";
+
+                case LegalityBlockerKind.Unit:
+                    return "SpawnDestinationBlockedByEntity";
 
                 default:
                     return "SpawnDestinationBlocked";
@@ -333,16 +342,27 @@ namespace Game.Feature.Gameplay.Attack.Expansion
                    source.PlanarPosition == target.PlanarPosition;
         }
 
-        private static string FormatPlacementBlocker(SlideStopper blocker)
+        private static string FormatPlacementBlocker(LegalityResult legality)
         {
+            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
             switch (blocker.Kind)
             {
-                case SlideStopperKind.Entity:
-                    return $"Cell=({blocker.Cell.x},{blocker.Cell.y})|Occupant={blocker.EntityId}|OccupantType={blocker.EntityType}";
+                case LegalityBlockerKind.Solid:
+                case LegalityBlockerKind.Unit:
+                    return $"Cell=({legality.Cell.x},{legality.Cell.y})|Occupant={blocker.EntityId}|OccupantType={blocker.EntityType}";
 
                 default:
-                    return $"Cell=({blocker.Cell.x},{blocker.Cell.y})";
+                    return $"Cell=({legality.Cell.x},{legality.Cell.y})";
             }
+        }
+
+        private static string FormatLegality(LegalityResult legality)
+        {
+            var requiredBottomFace = legality.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate
+                ? legality.TransitionRequirement.UpdatedTopology.BottomFace.ToString()
+                : "None";
+            return
+                $"LegalityDomain={legality.Domain}|LegalityVerdict={legality.Verdict}|ReservationStatus={legality.Reservation}|TransitionRequirementKind={legality.TransitionRequirement.Kind}|RotationKind={legality.TransitionRequirement.RotationKind}|RequiredTopologyBottomFace={requiredBottomFace}|LegalityBlockerKinds={RuntimeLegalityBlockerFactory.FormatKinds(legality.Blockers)}";
         }
 
         private static Vector2Int? ResolveDelta(Direction direction)

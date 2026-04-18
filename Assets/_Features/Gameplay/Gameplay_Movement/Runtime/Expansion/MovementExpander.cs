@@ -216,10 +216,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (snapshot.TryGetPlacementBlocker(movementTopology, source.type, destinationCell, source.entityId, out var blocker))
+            var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                source.type,
+                destinationCell,
+                source.entityId,
+                movementTopology,
+                rotationKind,
+                updatedTopology);
+            if (movementLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(blocker.Cell)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(movementLegality.Cell)}|{FormatLegality(movementLegality)}");
                 return;
             }
 
@@ -297,7 +305,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             var target = targetSemantic.Entity;
 
-            if (snapshot.TryGetPlacementBlocker(snapshot.Topology, target.type, landingCell, target.entityId, out var landingBlocker))
+            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                snapshot,
+                target.type,
+                landingCell,
+                target.entityId);
+            if (landingLegality.Verdict == LegalityVerdict.Blocked)
             {
                 if (TryExpandBoxImpact(
                         snapshot,
@@ -313,7 +326,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 }
 
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|{FormatStopper(landingBlocker)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell={FormatCell(landingLegality.Cell)}|{FormatLegality(landingLegality)}");
                 return;
             }
 
@@ -361,10 +374,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            if (snapshot.TryGetPlacementBlocker(snapshot.Topology, entity.type, destinationCell, entity.entityId, out var blocker))
+            var projectileLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                entity.type,
+                destinationCell,
+                entity.entityId,
+                snapshot.Topology,
+                CubeRotationKind.None,
+                snapshot.Topology);
+            if (projectileLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(blocker.Cell)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(projectileLegality.Cell)}|{FormatLegality(projectileLegality)}");
                 return;
             }
 
@@ -756,6 +777,15 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 default:
                     return $"StopperKind=None|Cell={FormatCell(stopper.Cell)}";
             }
+        }
+
+        private static string FormatLegality(LegalityResult legality)
+        {
+            var requiredBottomFace = legality.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate
+                ? legality.TransitionRequirement.UpdatedTopology.BottomFace.ToString()
+                : "None";
+            return
+                $"LegalityDomain={legality.Domain}|LegalityVerdict={legality.Verdict}|ReservationStatus={legality.Reservation}|TransitionRequirementKind={legality.TransitionRequirement.Kind}|RotationKind={legality.TransitionRequirement.RotationKind}|RequiredTopologyBottomFace={requiredBottomFace}|LegalityBlockerKinds={RuntimeLegalityBlockerFactory.FormatKinds(legality.Blockers)}";
         }
 
         private static bool TryExpandProjectileImpact(

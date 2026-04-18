@@ -13,7 +13,8 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell,
             CubeTopologyState topology,
             ReservationStatus reservation,
-            IReadOnlyList<LegalityBlocker> blockers)
+            IReadOnlyList<LegalityBlocker> blockers,
+            TransitionRequirement transitionRequirement)
         {
             Domain = domain;
             Verdict = verdict;
@@ -21,6 +22,7 @@ namespace Game.Feature.Gameplay.BoardState
             Topology = topology;
             Reservation = reservation;
             Blockers = blockers ?? EmptyBlockers;
+            TransitionRequirement = transitionRequirement;
         }
 
         public LegalityDomain Domain { get; }
@@ -35,13 +37,41 @@ namespace Game.Feature.Gameplay.BoardState
 
         public IReadOnlyList<LegalityBlocker> Blockers { get; }
 
+        public TransitionRequirement TransitionRequirement { get; }
+
         public static LegalityResult Allowed(
             LegalityDomain domain,
             SurfaceCell cell,
             CubeTopologyState topology,
-            ReservationStatus reservation = ReservationStatus.None)
+            ReservationStatus reservation = ReservationStatus.None,
+            TransitionRequirement transitionRequirement = default)
         {
-            return new LegalityResult(domain, LegalityVerdict.Allowed, cell, topology, reservation, EmptyBlockers);
+            return new LegalityResult(
+                domain,
+                LegalityVerdict.Allowed,
+                cell,
+                topology,
+                reservation,
+                EmptyBlockers,
+                transitionRequirement);
+        }
+
+        public static LegalityResult Blocked(
+            LegalityDomain domain,
+            SurfaceCell cell,
+            CubeTopologyState topology,
+            IReadOnlyList<LegalityBlocker> blockers,
+            ReservationStatus reservation = ReservationStatus.None,
+            TransitionRequirement transitionRequirement = default)
+        {
+            return new LegalityResult(
+                domain,
+                LegalityVerdict.Blocked,
+                cell,
+                topology,
+                reservation,
+                blockers,
+                transitionRequirement);
         }
     }
 }

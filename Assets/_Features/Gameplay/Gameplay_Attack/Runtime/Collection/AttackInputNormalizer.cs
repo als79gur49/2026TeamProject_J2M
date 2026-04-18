@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Attack.Intents;
 using Game.Feature.Gameplay.Attack.Sorting;
+using Game.Feature.Gameplay.BoardState;
+using Game.Feature.Gameplay.Loop;
 
 namespace Game.Feature.Gameplay.Attack.Collection
 {
@@ -13,6 +15,24 @@ namespace Game.Feature.Gameplay.Attack.Collection
             List<AttackIntent> buffer)
         {
             Normalize(rawAttackIntents, impactReservations, Array.Empty<DelayedAttackEffectRecord>(), buffer);
+        }
+
+        public void Normalize(
+            IReadOnlyList<RawAttackIntent> rawAttackIntents,
+            FrozenMovementReservationExport movementReservationExport,
+            IReadOnlyList<DelayedAttackEffectRecord> delayedAttackEffects,
+            List<AttackIntent> buffer)
+        {
+            if (movementReservationExport == null)
+            {
+                throw new ArgumentNullException(nameof(movementReservationExport));
+            }
+
+            Normalize(
+                rawAttackIntents,
+                movementReservationExport.ImpactReservations,
+                delayedAttackEffects,
+                buffer);
         }
 
         public void Normalize(

@@ -13,7 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void CanAcceptImpactFollowThrough_AcceptedDestroyFromActorSourceAndSoleTargetOccupant_ReturnsTrue()
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_AcceptedDestroyFromActorSourceAndSoleTargetOccupant_ReturnsAllowed()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -24,16 +24,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(
-                TickPipeline.CanAcceptImpactFollowThrough(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)),
-                Is.True);
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Allowed));
         }
 
         [Test]
         [Category("Extended")]
-        public void CanAcceptImpactFollowThrough_RemainingStackedOccupant_ReturnsFalse()
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_RemainingStackedOccupant_ReturnsBlocked()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -45,16 +45,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(
-                TickPipeline.CanAcceptImpactFollowThrough(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)),
-                Is.False);
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
         }
 
         [Test]
         [Category("Extended")]
-        public void CanAcceptImpactFollowThrough_DestroyRejected_ReturnsFalse()
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_DestroyRejected_ReturnsBlocked()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -65,16 +65,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(
-                TickPipeline.CanAcceptImpactFollowThrough(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: false) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)),
-                Is.False);
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
         }
 
         [Test]
         [Category("Extended")]
-        public void CanAcceptImpactFollowThrough_MissingSourceOrTarget_ReturnsFalse()
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_MissingSourceOrTarget_ReturnsBlocked()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -84,16 +84,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(
-                TickPipeline.CanAcceptImpactFollowThrough(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)),
-                Is.False);
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
         }
 
         [Test]
         [Category("Extended")]
-        public void CanAcceptImpactFollowThrough_UnrelatedLethalOccupantStillBlocks_ReturnsFalse()
+        public void RuntimeSettlementLegalityPolicy_EvaluateImpactFollowThrough_UnrelatedLethalOccupantStillBlocks_ReturnsBlocked()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
             var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
@@ -105,11 +105,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
 
             Assert.That(
-                TickPipeline.CanAcceptImpactFollowThrough(
+                RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                     snapshot,
                     new[] { CreateDestroyResolution(sourceId: 10, targetId: 30, accepted: true) },
-                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)),
-                Is.False);
+                    CreateImpactReservationPayload(20, 10, sourceCell, 30, destinationCell)).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
         }
 
         private static WorldSnapshot CreateSnapshot(IEnumerable<EntityState> initialEntities)

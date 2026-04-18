@@ -72,13 +72,15 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<DelayedAttackEffectRecord>(),
             Array.Empty<string>(),
             Array.Empty<string>(),
-            Array.Empty<string>());
+            Array.Empty<string>(),
+            FrozenMovementReservationExport.Empty);
 
         private readonly ReadOnlyCollection<string> _commitEvents;
         private readonly ReadOnlyCollection<DamageResolutionRecord> _damageResolutions;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _drainedDelayedAttackEffects;
         private readonly ReadOnlyCollection<ImpactReservation> _drainedImpactReservations;
         private readonly ReadOnlyCollection<string> _eventLogEntries;
+        private readonly FrozenMovementReservationExport _frozenMovementReservationExport;
         private readonly ReadOnlyCollection<DelayedAttackEffectRecord> _queuedDelayedAttackEffects;
         private readonly ReadOnlyCollection<RawAttackIntent> _rawIntents;
         private readonly ReadOnlyCollection<string> _rejectedReasons;
@@ -96,6 +98,33 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<string> commitEvents,
             IEnumerable<string> eventLogEntries,
             IEnumerable<string> rejectedReasons)
+            : this(
+                rawIntents,
+                drainedImpactReservations,
+                drainedDelayedAttackEffects,
+                damageResolutions,
+                resolutionRecords,
+                resolvedOperations,
+                queuedDelayedAttackEffects,
+                commitEvents,
+                eventLogEntries,
+                rejectedReasons,
+                FrozenMovementReservationExport.Empty)
+        {
+        }
+
+        public AttackPhaseResult(
+            IEnumerable<RawAttackIntent> rawIntents,
+            IEnumerable<ImpactReservation> drainedImpactReservations,
+            IEnumerable<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
+            IEnumerable<DamageResolutionRecord> damageResolutions,
+            IEnumerable<ResolutionRecord> resolutionRecords,
+            IEnumerable<FinalizationOperation> resolvedOperations,
+            IEnumerable<DelayedAttackEffectRecord> queuedDelayedAttackEffects,
+            IEnumerable<string> commitEvents,
+            IEnumerable<string> eventLogEntries,
+            IEnumerable<string> rejectedReasons,
+            FrozenMovementReservationExport frozenMovementReservationExport)
         {
             if (rawIntents == null)
             {
@@ -147,6 +176,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(rejectedReasons));
             }
 
+            if (frozenMovementReservationExport == null)
+            {
+                throw new ArgumentNullException(nameof(frozenMovementReservationExport));
+            }
+
             _rawIntents = new ReadOnlyCollection<RawAttackIntent>(new List<RawAttackIntent>(rawIntents));
             _drainedImpactReservations = new ReadOnlyCollection<ImpactReservation>(new List<ImpactReservation>(drainedImpactReservations));
             _drainedDelayedAttackEffects = new ReadOnlyCollection<DelayedAttackEffectRecord>(new List<DelayedAttackEffectRecord>(drainedDelayedAttackEffects));
@@ -157,11 +191,14 @@ namespace Game.Feature.Gameplay.Loop
             _commitEvents = new ReadOnlyCollection<string>(new List<string>(commitEvents));
             _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries));
             _rejectedReasons = new ReadOnlyCollection<string>(new List<string>(rejectedReasons));
+            _frozenMovementReservationExport = frozenMovementReservationExport;
         }
 
         public IReadOnlyList<RawAttackIntent> RawIntents => _rawIntents;
 
         public IReadOnlyList<ImpactReservation> DrainedImpactReservations => _drainedImpactReservations;
+
+        internal FrozenMovementReservationExport FrozenMovementReservationExport => _frozenMovementReservationExport;
 
         public IReadOnlyList<DelayedAttackEffectRecord> DrainedDelayedAttackEffects => _drainedDelayedAttackEffects;
 

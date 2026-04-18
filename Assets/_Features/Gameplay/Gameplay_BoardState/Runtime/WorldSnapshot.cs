@@ -57,6 +57,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal TerrainData TerrainData => _terrainData;
 
+        internal IReadOnlyDictionary<int, EntityState> EntitiesById => _entitiesById;
+
         public bool TryGetEntity(int entityId, out EntityState entity)
         {
             return _entitiesById.TryGetValue(entityId, out entity);

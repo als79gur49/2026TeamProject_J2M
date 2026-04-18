@@ -50,6 +50,14 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "EnemyAi.BeforeAttackTransitions", enemyAiPhaseResult.BeforeAttackTransitions, FormatString);
             AppendSection(builder, "EnemyAction.BeforeAttackCollectionTransitions", enemyActionPhaseResult.BeforeAttackCollectionTransitions, FormatEnemyActionTransition);
             AppendSection(builder, "Attack.RawIntents", attackPhaseResult.RawIntents, FormatRawAttackIntent);
+            AppendSection(
+                builder,
+                "Attack.MovementReservationExport",
+                new[]
+                {
+                    $"FreezeVersion={attackPhaseResult.FrozenMovementReservationExport.FreezeVersion}|ImpactCount={attackPhaseResult.FrozenMovementReservationExport.ImpactReservations.Count}",
+                },
+                FormatString);
             AppendSection(builder, "Attack.DrainedImpacts", attackPhaseResult.DrainedImpactReservations, FormatImpactReservation);
             AppendSection(builder, "Attack.DrainedDelayedEffects", attackPhaseResult.DrainedDelayedAttackEffects, FormatDelayedAttackEffectRecord);
             AppendSection(builder, "Attack.RejectedReasons", attackPhaseResult.RejectedReasons, FormatString);

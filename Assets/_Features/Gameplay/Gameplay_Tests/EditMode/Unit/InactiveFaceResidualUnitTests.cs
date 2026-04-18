@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -71,7 +70,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [TestCase("solid")]
         [TestCase("terrain")]
         [Category("Extended")]
-        public void CanAcceptJumpLandingCell_InactiveFaceSolidOrTerrainBlocker_ReturnsFalse(string blockerKind)
+        public void RuntimeSettlementLegalityPolicy_EvaluateJumpLandingCell_InactiveFaceSolidOrTerrainBlocker_ReturnsBlocked(string blockerKind)
         {
             var snapshot = CreateInactiveFaceJumpSnapshot(blockerKind);
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
@@ -79,18 +78,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetPlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.False);
             Assert.That(snapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.True);
             Assert.That(
-                InvokeCanAcceptJumpLandingCell(
+                RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
                     snapshot,
                     snapshot,
                     targetCell,
                     sourceId: 40,
-                    ignoredDeadTargetId: 0),
-                Is.False);
+                    ignoredDeadTargetId: 0).Verdict,
+                Is.EqualTo(LegalityVerdict.Blocked));
         }
 
         [Test]
         [Category("Extended")]
-        public void CanAcceptJumpLandingCell_InactiveFaceDetachedHiddenOccupant_ReturnsTrue()
+        public void RuntimeSettlementLegalityPolicy_EvaluateJumpLandingCell_InactiveFaceDetachedHiddenOccupant_ReturnsAllowed()
         {
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
@@ -114,13 +113,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(snapshot.TryGetPlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.False);
             Assert.That(snapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, targetCell, ignoredEntityId: 40, out _), Is.False);
             Assert.That(
-                InvokeCanAcceptJumpLandingCell(
+                RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
                     snapshot,
                     snapshot,
                     targetCell,
                     sourceId: 40,
-                    ignoredDeadTargetId: 0),
-                Is.True);
+                    ignoredDeadTargetId: 0).Verdict,
+                Is.EqualTo(LegalityVerdict.Allowed));
         }
 
         [TestCase("solid")]
@@ -166,31 +165,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new CubeTopologyState(FaceId.Back));
 
             return worldState.CreateSnapshot();
-        }
-
-        private static bool InvokeCanAcceptJumpLandingCell(
-            WorldSnapshot movementSnapshot,
-            WorldSnapshot damageProjectionSnapshot,
-            SurfaceCell destinationCell,
-            int sourceId,
-            int ignoredDeadTargetId)
-        {
-            var method = typeof(TickPipeline).GetMethod(
-                "CanAcceptJumpLandingCell",
-                BindingFlags.Static | BindingFlags.NonPublic);
-
-            Assert.That(method, Is.Not.Null);
-
-            return (bool)method.Invoke(
-                null,
-                new object[]
-                {
-                    movementSnapshot,
-                    damageProjectionSnapshot,
-                    destinationCell,
-                    sourceId,
-                    ignoredDeadTargetId,
-                });
         }
 
         private static EntityState GetEntity(WorldSnapshot snapshot, int entityId)

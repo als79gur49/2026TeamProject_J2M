@@ -343,10 +343,10 @@ namespace Game.Feature.Gameplay.Entities
 
             if (tryHorizontalFirst)
             {
-                return EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, horizontalStep, out delta);
+                return EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, horizontalStep, out delta);
             }
 
-            return EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, verticalStep, out delta);
+            return EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, verticalStep, out delta);
         }
 
         private static bool ShouldTryHorizontalFirst(
@@ -419,7 +419,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             intent = default;
 
-            if (!CanOccupyStep(snapshot, source, delta))
+            if (!CanTraverseStep(snapshot, source, delta))
             {
                 return false;
             }
@@ -431,7 +431,7 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
-        public static bool CanOccupyStep(
+        public static bool CanTraverseStep(
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int? candidate,
@@ -439,7 +439,7 @@ namespace Game.Feature.Gameplay.Entities
         {
             delta = Vector2Int.zero;
 
-            if (!candidate.HasValue || !CanOccupyStep(snapshot, source, candidate.Value))
+            if (!candidate.HasValue || !CanTraverseStep(snapshot, source, candidate.Value))
             {
                 return false;
             }
@@ -448,7 +448,7 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
-        public static bool CanOccupyStep(
+        public static bool CanTraverseStep(
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int delta)
@@ -472,21 +472,16 @@ namespace Game.Feature.Gameplay.Entities
                 updatedTopology = snapshot.Topology;
             }
 
-            if (rotationKind != CubeRotationKind.None)
-            {
-                return false;
-            }
-
-            var movementTopology = rotationKind == CubeRotationKind.None
-                ? snapshot.Topology
-                : updatedTopology;
-
-            if (snapshot.TryGetPlacementBlocker(
-                    movementTopology,
-                    source.type,
-                    destinationCell,
-                    source.entityId,
-                    out _))
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                snapshot,
+                source.type,
+                destinationCell,
+                source.entityId,
+                rotationKind == CubeRotationKind.None ? snapshot.Topology : updatedTopology,
+                rotationKind,
+                updatedTopology);
+            if (legality.Verdict != LegalityVerdict.Allowed ||
+                legality.TransitionRequirement.Kind != TransitionRequirementKind.None)
             {
                 return false;
             }
@@ -787,7 +782,7 @@ namespace Game.Feature.Gameplay.Entities
             destinationCell = default;
 
             if (!TryResolveWallFollowDirection(source.facing, settings.TurnPreference, choice, out direction, out delta) ||
-                !CanOccupyStep(snapshot, source, delta) ||
+                !CanTraverseStep(snapshot, source, delta) ||
                 !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out destinationCell))
             {
                 direction = Direction.None;
@@ -1060,7 +1055,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            if (!EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, delta))
+            if (!EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, delta))
             {
                 return false;
             }
@@ -1074,7 +1069,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source)
         {
             var delta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
-            return delta.HasValue && EnemyMovementStrategyShared.CanOccupyStep(snapshot, source, delta.Value);
+            return delta.HasValue && EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, delta.Value);
         }
 
         private static bool TryResolveChargeDirection(
@@ -1130,7 +1125,9 @@ namespace Game.Feature.Gameplay.Entities
             var current = source.position;
             while (TryResolveChargeScanStep(snapshot, current, delta, out var nextCell))
             {
-                if (IsChargeStoppingObstacle(snapshot, nextCell))
+                if (RuntimeTraversalLegalityPolicy.EvaluateChargeStopCell(
+                        snapshot,
+                        nextCell).Verdict == LegalityVerdict.Blocked)
                 {
                     return reachableSteps > 0;
                 }
@@ -1160,36 +1157,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return rotationKind == CubeRotationKind.None;
-        }
-
-        private static bool IsChargeStoppingObstacle(
-            WorldSnapshot snapshot,
-            SurfaceCell cell)
-        {
-            if (!snapshot.IsInsideBoard(cell) || snapshot.IsTerrainBlockedForUnit(cell))
-            {
-                return true;
-            }
-
-            if (snapshot.TryGetSolidSemanticAt(cell, out _))
-            {
-                return true;
-            }
-
-            var occupants = new List<EntityState>();
-            snapshot.EnumerateUnitsAt(cell, occupants);
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (occupant.boardPresence == EntityBoardPresence.Occupying &&
-                    occupant.hp > 0 &&
-                    !occupant.markedForDeath)
-                {
-                    return true;
-                }
-            }
-
-            return false;
         }
     }
 }

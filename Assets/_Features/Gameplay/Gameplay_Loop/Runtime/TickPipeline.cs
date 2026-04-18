@@ -430,6 +430,7 @@ namespace Game.Feature.Gameplay.Loop
             var resolutionRecords = new List<ResolutionRecord>();
             var nextContestId = planPhaseResult.NextContestId;
             var movementResolutionRecords = new List<ResolutionRecord>();
+            var movementReservationBook = new MovementReservationBook();
 
             var movementRejectedReasons = new List<string>(planPhaseResult.RejectedReasons);
             ResolveMovementActionPlansCanonical(
@@ -437,6 +438,7 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.OrderedMovementActionPlanIds,
                 planPhaseResult.MovementActionPlanPayloads,
                 planPhaseResult.SpaceContests,
+                movementReservationBook,
                 movementResolutionRecords,
                 movementRejectedReasons);
             var movementImpactReservations = ResolveMovementImpactReservationsCanonical(
@@ -444,8 +446,8 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.OrderedMovementActionPlanIds,
                 planPhaseResult.MovementActionPlanPayloads,
                 movementResolutionRecords);
-            var drainedImpactReservations = SortImpactReservations(movementImpactReservations);
-            var impactContests = BuildImpactContests(drainedImpactReservations, ref nextContestId);
+            var plannedImpactReservations = SortImpactReservations(movementImpactReservations);
+            var impactContests = BuildImpactContests(plannedImpactReservations, ref nextContestId);
             AddRange(contests, impactContests);
             RecordAcceptedResolutionRecords(impactContests, movementResolutionRecords);
             var impactSpaceContests = BuildImpactSpaceContestsCanonical(
@@ -517,7 +519,7 @@ namespace Game.Feature.Gameplay.Loop
                 attackSnapshot,
                 in input,
                 entityLogicsForTick.AttackLogics,
-                drainedImpactReservations,
+                plannedImpactReservations,
                 drainedDelayedAttackEffects,
                 tickIndex);
 
@@ -577,6 +579,7 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.OrderedMovementActionPlanIds,
                 planPhaseResult.MovementActionPlanPayloads,
                 impactSpaceContests,
+                movementReservationBook,
                 movementResolutionRecords);
 
             if (HasAcceptedContingentMovementResolution(movementResolutionRecords))
@@ -628,6 +631,7 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.OrderedJumpLandingActionPlanIds,
                 planPhaseResult.JumpLandingActionPlanPayloads,
                 planPhaseResult.JumpLandingSpaceContests,
+                movementReservationBook,
                 movementResolutionRecords,
                 movementCommitEvents);
             if (jumpLandingResolveBatch.Operations.Count > 0)
@@ -665,72 +669,74 @@ namespace Game.Feature.Gameplay.Loop
                     new EnemyActionPhaseResult(new List<EnemyActionTransition>(), new List<EnemyActionTransition>()));
                 finalizationBatch.MergeFrom(enemyActionBeforeAttackBatch);
                 projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
-
-                drainedImpactReservations = SortImpactReservations(
-                    MergeImpactReservations(
-                        movementImpactReservations,
-                        ResolveDeferredMovementImpactReservationsAgainstSnapshot(
-                            postMovementSnapshot,
-                            tickIndex,
-                            planPhaseResult.OrderedMovementActionPlanIds,
-                            planPhaseResult.MovementActionPlanPayloads,
-                            movementResolutionRecords)));
-
-                attackSnapshot = projectedWorld.CreateSnapshot();
-                attackPlanResult = BuildAttackPlan(
-                    attackSnapshot,
-                    in input,
-                    entityLogicsForTick.AttackLogics,
-                    drainedImpactReservations,
-                    drainedDelayedAttackEffects,
-                    tickIndex);
-                rawAttackIntents = attackPlanResult.RawAttackIntents;
-                attackRejectedReasons = attackPlanResult.RejectedReasons;
-                attackResolutionRecords = new List<ResolutionRecord>();
-
-                var refreshedAttackPlanContests = BuildAttackPlanContestsCanonical(
-                    attackPlanResult.OrderedActionPlanIds,
-                    attackPlanResult.ActionPlanPayloads,
-                    ref nextContestId);
-                ResolveAttackActionPlansCanonical(
-                    attackPlanResult.OrderedActionPlanIds,
-                    attackPlanResult.ActionPlanPayloads,
-                    refreshedAttackPlanContests,
-                    attackResolutionRecords,
-                    attackRejectedReasons);
-
-                var refreshedDamageContests = BuildDamageContestsCanonical(
-                    attackPlanResult.OrderedActionPlanIds,
-                    attackPlanResult.ActionPlanPayloads,
-                    attackResolutionRecords,
-                    ref nextContestId);
-                damageResolutions = ResolveDamageResolutionsCanonical(
-                    attackSnapshot,
-                    attackPlanResult.OrderedActionPlanIds,
-                    attackPlanResult.ActionPlanPayloads,
-                    attackResolutionRecords,
-                    tickIndex);
-                RecordDamageResolutionRecords(
-                    refreshedDamageContests,
-                    damageResolutions,
-                    attackResolutionRecords);
-
-                var refreshedAttackDestroyContests = BuildAttackDestroyContestsCanonical(
-                    attackPlanResult.OrderedActionPlanIds,
-                    attackPlanResult.ActionPlanPayloads,
-                    attackResolutionRecords,
-                    ref nextContestId);
-                destroyResolutions = ResolveDestroyResolutionsCanonical(
-                    attackSnapshot,
-                    attackPlanResult.OrderedActionPlanIds,
-                    attackPlanResult.ActionPlanPayloads,
-                    attackResolutionRecords,
-                    damageResolutions);
-                RecordDestroyResolutionRecords(
-                    refreshedAttackDestroyContests,
-                    destroyResolutions,
-                    attackResolutionRecords);
             }
+
+            var finalImpactReservations = MergeImpactReservations(
+                movementImpactReservations,
+                ResolveDeferredMovementImpactReservationsAgainstSnapshot(
+                    postMovementSnapshot,
+                    tickIndex,
+                    planPhaseResult.OrderedMovementActionPlanIds,
+                    planPhaseResult.MovementActionPlanPayloads,
+                    movementResolutionRecords));
+            var frozenMovementReservationExport = movementReservationBook.Freeze(finalImpactReservations);
+            movementCommitEvents.Add(
+                $"ReservationExported|FreezeVersion={frozenMovementReservationExport.FreezeVersion}|ImpactCount={frozenMovementReservationExport.ImpactReservations.Count}");
+
+            attackSnapshot = projectedWorld.CreateSnapshot();
+            attackPlanResult = BuildAttackPlan(
+                attackSnapshot,
+                in input,
+                entityLogicsForTick.AttackLogics,
+                frozenMovementReservationExport,
+                drainedDelayedAttackEffects,
+                tickIndex);
+            rawAttackIntents = attackPlanResult.RawAttackIntents;
+            attackRejectedReasons = attackPlanResult.RejectedReasons;
+            attackResolutionRecords = new List<ResolutionRecord>();
+
+            var finalAttackPlanContests = BuildAttackPlanContestsCanonical(
+                attackPlanResult.OrderedActionPlanIds,
+                attackPlanResult.ActionPlanPayloads,
+                ref nextContestId);
+            ResolveAttackActionPlansCanonical(
+                attackPlanResult.OrderedActionPlanIds,
+                attackPlanResult.ActionPlanPayloads,
+                finalAttackPlanContests,
+                attackResolutionRecords,
+                attackRejectedReasons);
+
+            var finalDamageContests = BuildDamageContestsCanonical(
+                attackPlanResult.OrderedActionPlanIds,
+                attackPlanResult.ActionPlanPayloads,
+                attackResolutionRecords,
+                ref nextContestId);
+            damageResolutions = ResolveDamageResolutionsCanonical(
+                attackSnapshot,
+                attackPlanResult.OrderedActionPlanIds,
+                attackPlanResult.ActionPlanPayloads,
+                attackResolutionRecords,
+                tickIndex);
+            RecordDamageResolutionRecords(
+                finalDamageContests,
+                damageResolutions,
+                attackResolutionRecords);
+
+            var finalAttackDestroyContests = BuildAttackDestroyContestsCanonical(
+                attackPlanResult.OrderedActionPlanIds,
+                attackPlanResult.ActionPlanPayloads,
+                attackResolutionRecords,
+                ref nextContestId);
+            destroyResolutions = ResolveDestroyResolutionsCanonical(
+                attackSnapshot,
+                attackPlanResult.OrderedActionPlanIds,
+                attackPlanResult.ActionPlanPayloads,
+                attackResolutionRecords,
+                damageResolutions);
+            RecordDestroyResolutionRecords(
+                finalAttackDestroyContests,
+                destroyResolutions,
+                attackResolutionRecords);
 
             AddRange(resolutionRecords, movementResolutionRecords);
             var delayedAttackEffects = ResolveDelayedAttackEffectsCanonical(
@@ -809,7 +815,7 @@ namespace Game.Feature.Gameplay.Loop
 
             var attackPhaseResult = new AttackPhaseResult(
                 rawAttackIntents,
-                drainedImpactReservations,
+                frozenMovementReservationExport.ImpactReservations,
                 drainedDelayedAttackEffects,
                 damageResolutions,
                 attackResolutionRecords,
@@ -817,7 +823,8 @@ namespace Game.Feature.Gameplay.Loop
                 delayedAttackEffects,
                 attackCommitEvents,
                 attackEventLogEntries,
-                attackRejectedReasons);
+                attackRejectedReasons,
+                frozenMovementReservationExport);
 
             return new ResolvePhaseResult(
                 movementPhaseResult,
@@ -988,6 +995,23 @@ namespace Game.Feature.Gameplay.Loop
             return sortedInputs;
         }
 
+        private List<AttackIntent> NormalizeAttackInputs(
+            List<RawAttackIntent> rawAttackIntents,
+            FrozenMovementReservationExport movementReservationExport,
+            List<DelayedAttackEffectRecord> delayedAttackEffects)
+        {
+            var sortedInputs = new List<AttackIntent>(
+                rawAttackIntents.Count + movementReservationExport.ImpactReservations.Count + delayedAttackEffects.Count);
+            _attackInputNormalizer.Normalize(rawAttackIntents, movementReservationExport, delayedAttackEffects, sortedInputs);
+
+            for (var i = 0; i < sortedInputs.Count; i++)
+            {
+                sortedInputs[i].AssignIntentId(_idAllocator.AllocateIntentId());
+            }
+
+            return sortedInputs;
+        }
+
         private AttackPlanBuildResult BuildAttackPlan(
             WorldSnapshot snapshot,
             in TickInput input,
@@ -1001,6 +1025,28 @@ namespace Game.Feature.Gameplay.Loop
             var rejectedReasons = new List<string>();
             var executableAttackIntents = FilterExecutionLockedAttackIntents(snapshot, tickIndex, rawAttackIntents, rejectedReasons);
             var sortedInputs = NormalizeAttackInputs(executableAttackIntents, impactReservations, drainedDelayedAttackEffects);
+            var expandedAttackCandidates = new List<ActionGroup>();
+            _attackExpander.Expand(snapshot, sortedInputs, expandedAttackCandidates, rejectedReasons);
+            expandedAttackCandidates.Sort(ActionGroupComparer.Instance);
+            AssignAttackGroupIds(expandedAttackCandidates);
+            var actionPlanPayloads = BuildAttackActionPlanPayloads(snapshot, expandedAttackCandidates, tickIndex);
+            var orderedActionPlanIds = BuildOrderedAttackActionPlanIds(snapshot, expandedAttackCandidates);
+            return new AttackPlanBuildResult(rawAttackIntents, expandedAttackCandidates, actionPlanPayloads, orderedActionPlanIds, rejectedReasons);
+        }
+
+        private AttackPlanBuildResult BuildAttackPlan(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            IReadOnlyList<IAttackEntityLogic> entityLogics,
+            FrozenMovementReservationExport movementReservationExport,
+            List<DelayedAttackEffectRecord> drainedDelayedAttackEffects,
+            int tickIndex)
+        {
+            var rawAttackIntents = new List<RawAttackIntent>();
+            _attackIntentCollector.Collect(snapshot, in input, entityLogics, rawAttackIntents);
+            var rejectedReasons = new List<string>();
+            var executableAttackIntents = FilterExecutionLockedAttackIntents(snapshot, tickIndex, rawAttackIntents, rejectedReasons);
+            var sortedInputs = NormalizeAttackInputs(executableAttackIntents, movementReservationExport, drainedDelayedAttackEffects);
             var expandedAttackCandidates = new List<ActionGroup>();
             _attackExpander.Expand(snapshot, sortedInputs, expandedAttackCandidates, rejectedReasons);
             expandedAttackCandidates.Sort(ActionGroupComparer.Instance);
@@ -2040,6 +2086,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, JumpLandingActionPlanPayload> jumpLandingActionPlanPayloads,
             IReadOnlyList<Contest> jumpLandingSpaceContests,
+            MovementReservationBook reservationBook,
             List<ResolutionRecord> movementResolutionRecords,
             List<string> movementCommitEvents)
         {
@@ -2069,6 +2116,14 @@ namespace Game.Feature.Gameplay.Loop
                     occupants,
                     payload.SourceActorEntityId,
                     out var resolvedContestedTargetId);
+                var reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
+                var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
+                    movementSnapshot,
+                    damageProjectionSnapshot,
+                    payload.DestinationCell,
+                    payload.SourceActorEntityId,
+                    resolvedContestedTargetId,
+                    reservationStatus);
 
                 var accepted = payload.LandingKind switch
                 {
@@ -2076,12 +2131,7 @@ namespace Game.Feature.Gameplay.Loop
                     _ when isExactLockedPlayerStack => true,
                     _ => (resolvedContestedTargetId == 0 ||
                           !IsImpactTargetSurviving(damageProjectionSnapshot, resolvedContestedTargetId)) &&
-                         CanAcceptJumpLandingCell(
-                             movementSnapshot,
-                             damageProjectionSnapshot,
-                             payload.DestinationCell,
-                             payload.SourceActorEntityId,
-                             resolvedContestedTargetId)
+                         landingLegality.Verdict == LegalityVerdict.Allowed
                 };
                 var resolvedTargetId = isExactLockedPlayerStack ? 0 : resolvedContestedTargetId;
 
@@ -2094,6 +2144,7 @@ namespace Game.Feature.Gameplay.Loop
 
                 if (accepted)
                 {
+                    reservationBook.ReserveJumpLanding(payload.SourceActorEntityId, payload.DestinationCell);
                     batch.MoveEntity(payload.SourceActorEntityId, payload.DestinationCell, metadata);
                     batch.SetBoardPresence(payload.SourceActorEntityId, EntityBoardPresence.Occupying, metadata);
                     batch.SetEnemyJumpState(payload.SourceActorEntityId, payload.SuccessJumpState, metadata);
@@ -2117,44 +2168,6 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
-        }
-
-        private static bool CanAcceptJumpLandingCell(
-            WorldSnapshot movementSnapshot,
-            WorldSnapshot damageProjectionSnapshot,
-            SurfaceCell destinationCell,
-            int sourceId,
-            int ignoredDeadTargetId)
-        {
-            if (movementSnapshot.TryGetAuthoritativePlacementBlocker(EntityType.Unit, destinationCell, sourceId, out _))
-            {
-                return false;
-            }
-
-            var occupants = new List<EntityState>();
-            movementSnapshot.EnumerateUnitsAt(destinationCell, occupants);
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (occupant.entityId == sourceId ||
-                    occupant.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                if (occupant.entityId == ignoredDeadTargetId &&
-                    !IsImpactTargetSurviving(damageProjectionSnapshot, ignoredDeadTargetId))
-                {
-                    continue;
-                }
-
-                if (ShouldCountJumpLandingOccupant(occupant, sourceId))
-                {
-                    return false;
-                }
-            }
-
-            return true;
         }
 
         private static Contest TryFindJumpLandingContest(
@@ -2712,17 +2725,11 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
             IReadOnlyList<Contest> spaceContests,
+            MovementReservationBook reservationBook,
             List<ResolutionRecord> resolutionRecords,
             List<string> rejectedReasons)
         {
             var selectedIntentIds = new HashSet<int>();
-            var reservedDestinations = new HashSet<SurfaceCell>();
-            var reservedBlockingDestinations = new HashSet<SurfaceCell>();
-            var reservedEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
-            var reservedBlockingEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
-            var reservedAffectedEntities = new HashSet<int>();
-            var firstSelectedReservation = (ActionPlanId: 0, CandidateKind: MovementCandidateKind.Move, HasTopologyChange: false, HasValue: false);
-            var topologyExclusiveReservation = (ActionPlanId: 0, CandidateKind: MovementCandidateKind.Move, HasTopologyChange: false, HasValue: false);
             var contestsByActionPlanId = BuildContestLookup(spaceContests);
 
             for (var i = 0; i < orderedActionPlanIds.Count; i++)
@@ -2746,52 +2753,37 @@ namespace Game.Feature.Gameplay.Loop
                     accepted = true;
                     selectedIntentIds.Add(payload.IntentId);
                 }
-                else if (TryGetPayloadTopologyExclusiveConflict(
-                             payload,
-                             firstSelectedReservation,
-                             topologyExclusiveReservation,
-                             out var exclusiveConflict))
-                {
-                    rejectedReasons.Add(
-                        $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=TopologyExclusive|BlockedBy={exclusiveConflict.ActionPlanId}|BlockingKind={exclusiveConflict.CandidateKind}|BlockingTopologyChange={exclusiveConflict.HasTopologyChange}");
-                }
                 else
                 {
-                    var destinationsToCheck = payload.BlockingType == MovementBlockingType.NonBlocking
-                        ? reservedBlockingDestinations
-                        : reservedDestinations;
-                    var edgesToCheck = payload.BlockingType == MovementBlockingType.NonBlocking
-                        ? reservedBlockingEdges
-                        : reservedEdges;
-
-                    if (TryGetConflictingPayloadDestination(payload, destinationsToCheck, out var conflictingDestination))
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=DestinationReserved|Cell={FormatCell(conflictingDestination)}");
-                    }
-                    else if (TryGetConflictingPayloadEdge(payload, edgesToCheck, out var conflictingEdge))
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=EdgeReserved|From={FormatCell(conflictingEdge.First)}|To={FormatCell(conflictingEdge.Second)}");
-                    }
-                    else if (TryGetSharedPayloadAffectedEntity(payload, reservedAffectedEntities, out var sharedEntityId))
-                    {
-                        rejectedReasons.Add(
-                            $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=SharedMovedEntity|Entity={sharedEntityId}");
-                    }
-                    else
+                    if (reservationBook.TryAcceptPayload(payload, out var conflict))
                     {
                         accepted = true;
                         selectedIntentIds.Add(payload.IntentId);
-                        ReservePayload(
-                            payload,
-                            reservedDestinations,
-                            reservedBlockingDestinations,
-                            reservedEdges,
-                            reservedBlockingEdges,
-                            reservedAffectedEntities,
-                            ref firstSelectedReservation,
-                            ref topologyExclusiveReservation);
+                    }
+                    else
+                    {
+                        switch (conflict.Kind)
+                        {
+                            case MovementReservationConflictKind.TopologyExclusive:
+                                rejectedReasons.Add(
+                                    $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=TopologyExclusive|BlockedBy={conflict.BlockingActionPlanId}|BlockingKind={conflict.BlockingCandidateKind}|BlockingTopologyChange={conflict.BlockingTopologyChange}");
+                                break;
+
+                            case MovementReservationConflictKind.Destination:
+                                rejectedReasons.Add(
+                                    $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=DestinationReserved|Cell={FormatCell(conflict.Destination)}");
+                                break;
+
+                            case MovementReservationConflictKind.Edge:
+                                rejectedReasons.Add(
+                                    $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=EdgeReserved|From={FormatCell(conflict.Edge.First)}|To={FormatCell(conflict.Edge.Second)}");
+                                break;
+
+                            case MovementReservationConflictKind.AffectedEntity:
+                                rejectedReasons.Add(
+                                    $"MovementRejected|Stage=Resolve|G={payload.ActionPlanId}|I={payload.IntentId}|Source={payload.SourceActorEntityId}|Reason=SharedMovedEntity|Entity={conflict.EntityId}");
+                                break;
+                        }
                     }
                 }
 
@@ -3403,40 +3395,12 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
             IReadOnlyList<Contest> impactSpaceContests,
+            MovementReservationBook reservationBook,
             List<ResolutionRecord> resolutionRecords)
         {
             if (impactSpaceContests.Count == 0)
             {
                 return;
-            }
-            var reservedDestinations = new HashSet<SurfaceCell>();
-            var reservedBlockingDestinations = new HashSet<SurfaceCell>();
-            var reservedEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
-            var reservedBlockingEdges = new Dictionary<UndirectedEdgeKey, EdgeReservation>();
-            var reservedAffectedEntities = new HashSet<int>();
-
-            for (var i = 0; i < orderedActionPlanIds.Count; i++)
-            {
-                var actionPlanId = orderedActionPlanIds[i];
-                if (!HasAcceptedResolution(resolutionRecords, ContestKind.Space, actionPlanId, localActionIndex: 0) ||
-                    !payloads.TryGetValue(actionPlanId, out var payload) ||
-                    payload.MovementCandidateKind == MovementCandidateKind.BoxImpact ||
-                    payload.MovementCandidateKind == MovementCandidateKind.ProjectileImpact)
-                {
-                    continue;
-                }
-
-                var firstSelectedReservation = (ActionPlanId: 0, CandidateKind: MovementCandidateKind.Move, HasTopologyChange: false, HasValue: false);
-                var topologyExclusiveReservation = (ActionPlanId: 0, CandidateKind: MovementCandidateKind.Move, HasTopologyChange: false, HasValue: false);
-                ReservePayload(
-                    payload,
-                    reservedDestinations,
-                    reservedBlockingDestinations,
-                    reservedEdges,
-                    reservedBlockingEdges,
-                    reservedAffectedEntities,
-                    ref firstSelectedReservation,
-                    ref topologyExclusiveReservation);
             }
 
             for (var i = 0; i < impactSpaceContests.Count; i++)
@@ -3444,307 +3408,23 @@ namespace Game.Feature.Gameplay.Loop
                 var contest = impactSpaceContests[i];
                 var accepted = false;
                 if (payloads.TryGetValue(contest.ActionPlanId, out var payload) &&
-                    payload.HasImpactReservationPayload &&
-                    !TryGetConflictingImpactPayloadDestination(payload.ImpactReservationPayload, reservedDestinations, out _) &&
-                    !TryGetConflictingImpactPayloadEdge(payload.ImpactReservationPayload, reservedEdges, out _) &&
-                    CanAcceptImpactFollowThrough(
+                    payload.HasImpactReservationPayload)
+                {
+                    var reservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
+                    var impactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
                         attackSnapshot,
                         destroyResolutions,
-                        payload.ImpactReservationPayload))
-                {
-                    accepted = true;
-                    ReserveImpactPayload(payload.ImpactReservationPayload, reservedDestinations, reservedBlockingDestinations, reservedEdges, reservedBlockingEdges, reservedAffectedEntities, contest.ActionPlanId);
+                        payload.ImpactReservationPayload,
+                        reservationStatus);
+                    if (impactLegality.Verdict == LegalityVerdict.Allowed)
+                    {
+                        accepted = true;
+                        reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                    }
                 }
 
                 resolutionRecords.Add(CreateResolutionRecord(contest, accepted));
             }
-        }
-
-        // Only the selected impact target is early-vacated for movement follow-through.
-        // attackSnapshot is still the pre-cleanup authority surface; the helper proves
-        // the cell becomes empty only after excluding that one accepted destroy target.
-        // The moving box and the accepted attack source may differ for immediate pushes.
-        // This is a local movement rule, not a change to global cleanup/remove semantics.
-        internal static bool CanAcceptImpactFollowThrough(
-            WorldSnapshot attackSnapshot,
-            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
-            MovementImpactReservationPayload payload)
-        {
-            if (attackSnapshot == null)
-            {
-                throw new ArgumentNullException(nameof(attackSnapshot));
-            }
-
-            if (destroyResolutions == null)
-            {
-                throw new ArgumentNullException(nameof(destroyResolutions));
-            }
-
-            if (!attackSnapshot.TryGetEntity(payload.SourceEntityId, out _) ||
-                !attackSnapshot.TryGetEntity(payload.TargetEntityId, out _))
-            {
-                return false;
-            }
-
-            if (!HasAcceptedImpactDestroy(destroyResolutions, payload.AttackSourceEntityId, payload.TargetEntityId))
-            {
-                return false;
-            }
-
-            if (attackSnapshot.TryGetSolidSemanticAt(payload.ContingentDestinationCell, out var solidOccupant) &&
-                solidOccupant.Entity.entityId != payload.TargetEntityId)
-            {
-                return false;
-            }
-
-            var occupants = new List<EntityState>();
-            attackSnapshot.EnumerateUnitsAt(payload.ContingentDestinationCell, occupants);
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (occupant.entityId == payload.TargetEntityId ||
-                    occupant.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                return false;
-            }
-
-            return true;
-        }
-
-        private static bool HasAcceptedImpactDestroy(
-            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
-            int sourceEntityId,
-            int targetEntityId)
-        {
-            for (var i = 0; i < destroyResolutions.Count; i++)
-            {
-                if (destroyResolutions[i].Accepted &&
-                    destroyResolutions[i].SourceId == sourceEntityId &&
-                    destroyResolutions[i].TargetId == targetEntityId)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static bool PayloadHasTopologyChange(MovementActionPlanPayload payload)
-        {
-            return payload.TopologyWrites.Count > 0;
-        }
-
-        private static bool TryGetPayloadTopologyExclusiveConflict(
-            MovementActionPlanPayload payload,
-            (int ActionPlanId, MovementCandidateKind CandidateKind, bool HasTopologyChange, bool HasValue) firstSelectedReservation,
-            (int ActionPlanId, MovementCandidateKind CandidateKind, bool HasTopologyChange, bool HasValue) topologyExclusiveReservation,
-            out (int ActionPlanId, MovementCandidateKind CandidateKind, bool HasTopologyChange) conflictingReservation)
-        {
-            conflictingReservation = default;
-            if (PayloadHasTopologyChange(payload))
-            {
-                if (!firstSelectedReservation.HasValue)
-                {
-                    return false;
-                }
-
-                conflictingReservation = (firstSelectedReservation.ActionPlanId, firstSelectedReservation.CandidateKind, firstSelectedReservation.HasTopologyChange);
-                return true;
-            }
-
-            if (!topologyExclusiveReservation.HasValue)
-            {
-                return false;
-            }
-
-            conflictingReservation = (topologyExclusiveReservation.ActionPlanId, topologyExclusiveReservation.CandidateKind, topologyExclusiveReservation.HasTopologyChange);
-            return true;
-        }
-
-        private static bool TryGetConflictingPayloadDestination(
-            MovementActionPlanPayload payload,
-            HashSet<SurfaceCell> reservedDestinations,
-            out SurfaceCell conflictingDestination)
-        {
-            conflictingDestination = default;
-            if (payload.MoveWrites.Count == 0)
-            {
-                return false;
-            }
-
-            if (reservedDestinations.Contains(payload.DestinationCell))
-            {
-                conflictingDestination = payload.DestinationCell;
-                return true;
-            }
-
-            return false;
-        }
-
-        private static bool TryGetConflictingPayloadEdge(
-            MovementActionPlanPayload payload,
-            IReadOnlyDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
-            out UndirectedEdgeKey conflictingEdge)
-        {
-            conflictingEdge = default;
-            if (payload.ReservationKind != MovementReservationKind.Edge ||
-                !payload.HasMovementEdge ||
-                payload.MovementEdge.FromCell == payload.MovementEdge.ToCell)
-            {
-                return false;
-            }
-
-            var edge = UndirectedEdgeKey.Create(payload.MovementEdge.FromCell, payload.MovementEdge.ToCell);
-            if (!reservedEdges.ContainsKey(edge))
-            {
-                return false;
-            }
-
-            conflictingEdge = edge;
-            return true;
-        }
-
-        private static bool TryGetSharedPayloadAffectedEntity(
-            MovementActionPlanPayload payload,
-            ISet<int> reservedAffectedEntities,
-            out int sharedEntityId)
-        {
-            sharedEntityId = default;
-            for (var i = 0; i < payload.AffectedEntityIds.Count; i++)
-            {
-                if (reservedAffectedEntities.Contains(payload.AffectedEntityIds[i]))
-                {
-                    sharedEntityId = payload.AffectedEntityIds[i];
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static void ReservePayload(
-            MovementActionPlanPayload payload,
-            HashSet<SurfaceCell> reservedDestinations,
-            ISet<SurfaceCell> reservedBlockingDestinations,
-            IDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
-            IDictionary<UndirectedEdgeKey, EdgeReservation> reservedBlockingEdges,
-            ISet<int> reservedAffectedEntities,
-            ref (int ActionPlanId, MovementCandidateKind CandidateKind, bool HasTopologyChange, bool HasValue) firstSelectedReservation,
-            ref (int ActionPlanId, MovementCandidateKind CandidateKind, bool HasTopologyChange, bool HasValue) topologyExclusiveReservation)
-        {
-            var blocksSharedUnitMoves = payload.BlockingType == MovementBlockingType.Blocking;
-
-            if (payload.MoveWrites.Count > 0)
-            {
-                reservedDestinations.Add(payload.DestinationCell);
-                if (blocksSharedUnitMoves)
-                {
-                    reservedBlockingDestinations.Add(payload.DestinationCell);
-                }
-
-                if (payload.ReservationKind == MovementReservationKind.Edge &&
-                    payload.HasMovementEdge &&
-                    payload.MovementEdge.FromCell != payload.MovementEdge.ToCell)
-                {
-                    var edgeReservation = new EdgeReservation(
-                        payload.MoveWrites[0].EntityId,
-                        payload.MovementEdge.FromCell,
-                        payload.MovementEdge.ToCell,
-                        payload.ActionPlanId);
-                    var edgeKey = UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To);
-                    reservedEdges[edgeKey] = edgeReservation;
-                    if (blocksSharedUnitMoves)
-                    {
-                        reservedBlockingEdges[edgeKey] = edgeReservation;
-                    }
-                }
-            }
-
-            for (var i = 0; i < payload.AffectedEntityIds.Count; i++)
-            {
-                reservedAffectedEntities.Add(payload.AffectedEntityIds[i]);
-            }
-
-            if (!firstSelectedReservation.HasValue)
-            {
-                firstSelectedReservation = (payload.ActionPlanId, payload.MovementCandidateKind, PayloadHasTopologyChange(payload), true);
-            }
-
-            if (!topologyExclusiveReservation.HasValue && PayloadHasTopologyChange(payload))
-            {
-                topologyExclusiveReservation = (payload.ActionPlanId, payload.MovementCandidateKind, true, true);
-            }
-        }
-
-        private static bool TryGetConflictingImpactPayloadDestination(
-            MovementImpactReservationPayload payload,
-            ISet<SurfaceCell> reservedDestinations,
-            out SurfaceCell conflictingDestination)
-        {
-            conflictingDestination = default;
-            if (!reservedDestinations.Contains(payload.ContingentDestinationCell))
-            {
-                return false;
-            }
-
-            conflictingDestination = payload.ContingentDestinationCell;
-            return true;
-        }
-
-        private static bool TryGetConflictingImpactPayloadEdge(
-            MovementImpactReservationPayload payload,
-            IReadOnlyDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
-            out UndirectedEdgeKey conflictingEdge)
-        {
-            conflictingEdge = default;
-            if (Math.Abs(payload.ContingentDestinationCell.x - payload.ContingentSourceCell.x) +
-                Math.Abs(payload.ContingentDestinationCell.y - payload.ContingentSourceCell.y) > 1 ||
-                payload.ContingentDestinationCell == payload.ContingentSourceCell)
-            {
-                return false;
-            }
-
-            var edge = UndirectedEdgeKey.Create(payload.ContingentSourceCell, payload.ContingentDestinationCell);
-            if (!reservedEdges.ContainsKey(edge))
-            {
-                return false;
-            }
-
-            conflictingEdge = edge;
-            return true;
-        }
-
-        private static void ReserveImpactPayload(
-            MovementImpactReservationPayload payload,
-            HashSet<SurfaceCell> reservedDestinations,
-            ISet<SurfaceCell> reservedBlockingDestinations,
-            IDictionary<UndirectedEdgeKey, EdgeReservation> reservedEdges,
-            IDictionary<UndirectedEdgeKey, EdgeReservation> reservedBlockingEdges,
-            ISet<int> reservedAffectedEntities,
-            int actionPlanId)
-        {
-            reservedDestinations.Add(payload.ContingentDestinationCell);
-            reservedBlockingDestinations.Add(payload.ContingentDestinationCell);
-            reservedAffectedEntities.Add(payload.SourceEntityId);
-
-            if (Math.Abs(payload.ContingentDestinationCell.x - payload.ContingentSourceCell.x) +
-                Math.Abs(payload.ContingentDestinationCell.y - payload.ContingentSourceCell.y) > 1 ||
-                payload.ContingentDestinationCell == payload.ContingentSourceCell)
-            {
-                return;
-            }
-
-            var edgeReservation = new EdgeReservation(
-                payload.SourceEntityId,
-                payload.ContingentSourceCell,
-                payload.ContingentDestinationCell,
-                actionPlanId);
-            var edgeKey = UndirectedEdgeKey.Create(edgeReservation.From, edgeReservation.To);
-            reservedEdges[edgeKey] = edgeReservation;
-            reservedBlockingEdges[edgeKey] = edgeReservation;
         }
 
         private static List<ImpactReservation> SortImpactReservations(IReadOnlyList<ImpactReservation> impactReservations)
@@ -4690,13 +4370,14 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var respawnEntity = BuildRespawnEntity(template, tickIndex);
-                if (postCleanupSnapshot.TryGetAuthoritativePlacementBlocker(
-                        respawnEntity.type,
-                        respawnEntity.position,
-                        ignoredEntityId: 0,
-                        out var blocker))
+                var respawnLegality = RuntimePlacementValidityPolicy.EvaluateAuthoritativePlacement(
+                    postCleanupSnapshot,
+                    respawnEntity.type,
+                    respawnEntity.position,
+                    ignoredEntityId: 0);
+                if (respawnLegality.Verdict == LegalityVerdict.Blocked)
                 {
-                    eventLogEntries.Add(FormatRespawnSkippedEvent(respawnEntity, blocker, tickIndex));
+                    eventLogEntries.Add(FormatRespawnSkippedEvent(respawnEntity, respawnLegality, tickIndex));
                     continue;
                 }
 
@@ -4732,12 +4413,22 @@ namespace Game.Feature.Gameplay.Loop
 
         private static string FormatRespawnSkippedEvent(
             EntityState entity,
-            SlideStopper blocker,
+            LegalityResult legality,
             int tickIndex)
         {
+            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
+            var reason = blocker.Kind switch
+            {
+                LegalityBlockerKind.BoardEdge => "BoardEdge",
+                LegalityBlockerKind.Terrain => "Terrain",
+                LegalityBlockerKind.Unit => "Entity",
+                LegalityBlockerKind.Solid => "Entity",
+                LegalityBlockerKind.Reservation => "Reservation",
+                _ => blocker.Kind.ToString(),
+            };
             var prefix =
-                $"RespawnSkipped|E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Face={entity.position.face}|Tick={tickIndex}|Reason={blocker.Kind}";
-            return blocker.Kind == SlideStopperKind.Entity
+                $"RespawnSkipped|E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Face={entity.position.face}|Tick={tickIndex}|Reason={reason}";
+            return blocker.Kind == LegalityBlockerKind.Unit || blocker.Kind == LegalityBlockerKind.Solid
                 ? $"{prefix}|BlockerEntity={blocker.EntityId}|BlockerType={blocker.EntityType}"
                 : prefix;
         }

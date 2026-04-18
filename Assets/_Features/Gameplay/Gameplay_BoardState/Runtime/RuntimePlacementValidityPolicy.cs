@@ -4,6 +4,78 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class RuntimePlacementValidityPolicy
     {
+        public static LegalityResult EvaluateGameplayPlacement(
+            WorldSnapshot snapshot,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            CubeTopologyState? evaluatedTopology = null,
+            ReservationStatus reservationStatus = ReservationStatus.None,
+            TransitionRequirement transitionRequirement = default)
+        {
+            if (snapshot == null)
+            {
+                throw new System.ArgumentNullException(nameof(snapshot));
+            }
+
+            var topology = evaluatedTopology ?? snapshot.Topology;
+            if (!snapshot.TryGetPlacementBlocker(
+                    topology,
+                    entityType,
+                    cell,
+                    ignoredEntityId,
+                    out var blocker))
+            {
+                return LegalityResult.Allowed(
+                    LegalityDomain.Placement,
+                    cell,
+                    topology,
+                    reservationStatus,
+                    transitionRequirement);
+            }
+
+            return LegalityResult.Blocked(
+                LegalityDomain.Placement,
+                cell,
+                topology,
+                RuntimeLegalityBlockerFactory.Create(snapshot.EntitiesById, blocker),
+                reservationStatus,
+                transitionRequirement);
+        }
+
+        public static LegalityResult EvaluateAuthoritativePlacement(
+            WorldSnapshot snapshot,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            ReservationStatus reservationStatus = ReservationStatus.None)
+        {
+            if (snapshot == null)
+            {
+                throw new System.ArgumentNullException(nameof(snapshot));
+            }
+
+            if (!snapshot.TryGetAuthoritativePlacementBlocker(
+                    entityType,
+                    cell,
+                    ignoredEntityId,
+                    out var blocker))
+            {
+                return LegalityResult.Allowed(
+                    LegalityDomain.Placement,
+                    cell,
+                    snapshot.Topology,
+                    reservationStatus);
+            }
+
+            return LegalityResult.Blocked(
+                LegalityDomain.Placement,
+                cell,
+                snapshot.Topology,
+                RuntimeLegalityBlockerFactory.Create(snapshot.EntitiesById, blocker),
+                reservationStatus);
+        }
+
         public static LegalityResult EvaluateAuthoritativePlacement(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
@@ -34,53 +106,11 @@ namespace Game.Feature.Gameplay.BoardState
                     default);
             }
 
-            return new LegalityResult(
+            return LegalityResult.Blocked(
                 LegalityDomain.Placement,
-                LegalityVerdict.Blocked,
                 cell,
                 default,
-                ReservationStatus.None,
-                new[]
-                {
-                    CreateBlockerFact(entitiesById, blocker),
-                });
-        }
-
-        private static LegalityBlocker CreateBlockerFact(
-            IReadOnlyDictionary<int, EntityState> entitiesById,
-            SlideStopper blocker)
-        {
-            switch (blocker.Kind)
-            {
-                case SlideStopperKind.BoardEdge:
-                    return new LegalityBlocker(LegalityBlockerKind.BoardEdge);
-
-                case SlideStopperKind.Terrain:
-                    return new LegalityBlocker(
-                        LegalityBlockerKind.Terrain,
-                        terrainFlags: TerrainFlags.BlocksGroundTraversal);
-
-                case SlideStopperKind.Entity:
-                    if (blocker.EntityId != 0 &&
-                        entitiesById != null &&
-                        entitiesById.TryGetValue(blocker.EntityId, out var entity))
-                    {
-                        if (entity.type == EntityType.Unit)
-                        {
-                            return new LegalityBlocker(LegalityBlockerKind.Unit, entity.entityId);
-                        }
-
-                        return new LegalityBlocker(
-                            LegalityBlockerKind.Solid,
-                            entity.entityId,
-                            SnapshotReadQueries.ResolveSolidKind(entity));
-                    }
-
-                    return new LegalityBlocker(LegalityBlockerKind.Solid, blocker.EntityId);
-
-                default:
-                    return new LegalityBlocker(LegalityBlockerKind.Solid, blocker.EntityId);
-            }
+                RuntimeLegalityBlockerFactory.Create(entitiesById, blocker));
         }
     }
 }

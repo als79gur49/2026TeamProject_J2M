@@ -132,7 +132,11 @@ namespace Game.Feature.Gameplay.Entities
             landingCell = default;
             landingRule = string.Empty;
 
-            if (IsLegalJumpLandingCell(snapshot, jumpState.lockedTargetCell, source.entityId))
+            if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                    snapshot,
+                    EntityType.Unit,
+                    jumpState.lockedTargetCell,
+                    source.entityId).Verdict == LegalityVerdict.Allowed)
             {
                 landingCell = jumpState.lockedTargetCell;
                 landingRule = "TargetExact";
@@ -154,7 +158,11 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
-            if (IsLegalJumpLandingCell(snapshot, jumpState.sourceCell, source.entityId))
+            if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                    snapshot,
+                    EntityType.Unit,
+                    jumpState.sourceCell,
+                    source.entityId).Verdict == LegalityVerdict.Allowed)
             {
                 landingCell = jumpState.sourceCell;
                 landingRule = "SourceExact";
@@ -183,7 +191,11 @@ namespace Game.Feature.Gameplay.Entities
             for (var i = 0; i < orderedOffsets.Count; i++)
             {
                 var candidate = centerCell + orderedOffsets[i].Offset;
-                if (!IsLegalJumpLandingCell(snapshot, candidate, entityId))
+                if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                        snapshot,
+                        EntityType.Unit,
+                        candidate,
+                        entityId).Verdict != LegalityVerdict.Allowed)
                 {
                     continue;
                 }
@@ -197,12 +209,6 @@ namespace Game.Feature.Gameplay.Entities
             landingRule = string.Empty;
             return false;
         }
-
-        private static bool IsLegalJumpLandingCell(WorldSnapshot snapshot, SurfaceCell cell, int entityId)
-        {
-            return !snapshot.TryGetPlacementBlocker(EntityType.Unit, cell, entityId, out _);
-        }
-
         private static List<(Vector2Int Offset, string Rule)> BuildOrderedJumpFallbackOffsets(Direction basisFacing)
         {
             var forward = ResolveJumpDelta(basisFacing);

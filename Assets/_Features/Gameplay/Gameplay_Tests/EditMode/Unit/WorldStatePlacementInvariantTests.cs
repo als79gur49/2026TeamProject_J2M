@@ -14,7 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void MoveEntity_TerrainBlockedDestination_Throws()
+        public void MoveEntity_TerrainBlockedDestination_AllowsRepresentableAuthoritativeMove()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -24,15 +24,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)),
                 new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
 
-            var exception = Assert.Throws<InvalidOperationException>(
+            Assert.DoesNotThrow(
                 () => worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(1, 0)));
-
-            StringAssert.Contains("Terrain blocks", exception.Message);
         }
 
         [Test]
         [Category("Extended")]
-        public void MoveEntity_TerrainBlockedDestination_LeavesEntityStateAndOccupancyUnchanged()
+        public void MoveEntity_TerrainBlockedDestination_UpdatesEntityStateAndOccupancy()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new[]
@@ -42,31 +40,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)),
                 new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
 
-            Assert.Throws<InvalidOperationException>(
-                () => worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(1, 0)));
+            worldState.CreateWriteContext().MoveEntity(10, new Vector2Int(1, 0));
 
             var snapshot = worldState.CreateSnapshot();
             Assert.That(snapshot.TryGetEntity(10, out var entity), Is.True);
-            Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
-            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, Vector2Int.zero));
-            Assert.That(GetUnitIdsAt(snapshot, new Vector2Int(1, 0)), Is.Empty);
+            Assert.That(entity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(GetUnitIdsAt(snapshot, Vector2Int.zero), Is.Empty);
+            CollectionAssert.AreEqual(new[] { 10 }, GetUnitIdsAt(snapshot, new Vector2Int(1, 0)));
         }
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_TerrainBlockedDestination_ThrowsAndLeavesWorldUnchanged()
+        public void SpawnEntity_TerrainBlockedDestination_AllowsRepresentableAuthoritativeSpawn()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 new EntityState[0],
                 new BoardBounds(new Vector2Int(-1, -1), new Vector2Int(2, 2)),
                 new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
 
-            Assert.Throws<InvalidOperationException>(
+            Assert.DoesNotThrow(
                 () => worldState.CreateWriteContext().SpawnEntity(CreateUnit(entityId: 20, position: new Vector2Int(1, 0))));
 
             var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
-            Assert.That(GetUnitIdsAt(snapshot, new Vector2Int(1, 0)), Is.Empty);
+            Assert.That(snapshot.TryGetEntity(20, out var spawnedEntity), Is.True);
+            Assert.That(spawnedEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            CollectionAssert.AreEqual(new[] { 20 }, GetUnitIdsAt(snapshot, new Vector2Int(1, 0)));
         }
 
         [Test]
@@ -140,19 +138,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void SpawnEntity_InactiveFaceTerrainBlockedDestination_StillThrowsForAuthoritativeStateValidation()
+        public void SpawnEntity_InactiveFaceTerrainBlockedDestination_AllowsRepresentableAuthoritativeState()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
                 Array.Empty<EntityState>(),
                 new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
                 new GameplayTerrainData(new[] { new Vector2Int(1, 0) }));
 
-            Assert.Throws<InvalidOperationException>(
+            Assert.DoesNotThrow(
                 () => worldState.CreateWriteContext().SpawnEntity(
                     CreateUnit(entityId: 20, position: new SurfaceCell(FaceId.Ceiling, 1, 0))));
 
             var snapshot = worldState.CreateSnapshot();
-            Assert.That(snapshot.TryGetEntity(20, out _), Is.False);
+            Assert.That(snapshot.TryGetEntity(20, out var spawnedEntity), Is.True);
+            Assert.That(spawnedEntity.position, Is.EqualTo(new SurfaceCell(FaceId.Ceiling, 1, 0)));
         }
 
         [Test]

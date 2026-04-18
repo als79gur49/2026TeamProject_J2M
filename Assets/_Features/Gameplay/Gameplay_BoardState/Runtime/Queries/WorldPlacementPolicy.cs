@@ -88,6 +88,58 @@ namespace Game.Feature.Gameplay.BoardState
                 out blocker);
         }
 
+        public static bool TryGetRepresentablePlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return TryGetRepresentablePlacementBlocker(
+                entitiesById,
+                CreateStackedUnitQueryView(stackedUnitsByCell),
+                solidOccupancyByCell,
+                projectileOccupancy,
+                boardBounds,
+                terrainData,
+                entityType,
+                cell,
+                ignoredEntityId,
+                out blocker);
+        }
+
+        public static bool TryGetRepresentablePlacementBlocker(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            EntityType entityType,
+            SurfaceCell cell,
+            int ignoredEntityId,
+            out SlideStopper blocker)
+        {
+            return TryGetPlacementBlockerCore(
+                entitiesById,
+                stackedUnitsByCell,
+                solidOccupancyByCell,
+                projectileOccupancy,
+                boardBounds,
+                terrainData,
+                entityType,
+                cell,
+                ignoredEntityId,
+                default,
+                PlacementQueryMode.Representable,
+                out blocker);
+        }
+
         public static bool TryGetUnitBlocker(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
@@ -161,7 +213,8 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            if (TerrainBlocksPlacement(entityType, terrainData, cell))
+            if (queryMode != PlacementQueryMode.Representable &&
+                TerrainBlocksPlacement(entityType, terrainData, cell))
             {
                 blocker = SlideStopper.CreateTerrain(cell);
                 return true;
@@ -380,6 +433,7 @@ namespace Game.Feature.Gameplay.BoardState
         {
             Authoritative = 0,
             Gameplay = 1,
+            Representable = 2,
         }
     }
 }
