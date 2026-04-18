@@ -24,13 +24,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var allowlist = ReadRepoFile("Tools/semantic_query_migration_allowlist.json");
 
-            Assert.That(allowlist, Does.Contain("\"reason\""));
-            Assert.That(allowlist, Does.Contain("\"remove_by_stage\""));
-            Assert.That(allowlist, Does.Contain("IsLegalJumpLandingCell"));
-            Assert.That(allowlist, Does.Contain("CanOccupyStep"));
-            Assert.That(allowlist, Does.Contain("IsChargeStoppingObstacle"));
-            Assert.That(allowlist, Does.Contain("CanAcceptJumpLandingCell"));
-            Assert.That(allowlist, Does.Contain("CanAcceptImpactFollowThrough"));
+            Assert.That(allowlist, Does.Contain("\"entries\": []"));
+            Assert.That(allowlist, Does.Not.Contain("IsLegalJumpLandingCell"));
+            Assert.That(allowlist, Does.Not.Contain("CanOccupyStep"));
+            Assert.That(allowlist, Does.Not.Contain("IsChargeStoppingObstacle"));
+            Assert.That(allowlist, Does.Not.Contain("CanAcceptJumpLandingCell"));
+            Assert.That(allowlist, Does.Not.Contain("CanAcceptImpactFollowThrough"));
         }
 
         private static string ReadRepoFile(string relativePath)

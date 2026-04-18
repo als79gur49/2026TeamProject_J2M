@@ -321,6 +321,9 @@ WSL CLI
   - `Tools/check_gameplay_test_stratification.py`
   - `Tools/generate_gameplay_test_stratification.py --check`
   - `Tools/semantic_query_migration_allowlist.json`
+- Runtime wiring stage note:
+  - `Tools/semantic_query_migration_allowlist.json` is expected to be empty after post-semantic-migration runtime wiring lands.
+  - Any new entry is a temporary quarantine and must be removed in the same staged migration thread that introduced it.
 - Runner integration:
   - `run_tests.sh` invokes the checker but no longer imports `gameplay_test_stratification_lib.py` directly.
   - `TestRunnerCliBootstrap` now uses `assemblyNames + categoryNames("Core")` for Core PlayMode selection instead of a persisted manifest.
