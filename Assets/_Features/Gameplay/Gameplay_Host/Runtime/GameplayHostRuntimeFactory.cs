@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host.UIAccess;
@@ -7,6 +8,7 @@ using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Shared.Audio;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using Unity.Cinemachine;
 using UnityEngine;
@@ -16,6 +18,8 @@ namespace Game.Feature.Gameplay.Host
     public static class GameplayHostRuntimeFactory
     {
         private const string BoardRootObjectName = "GameplayBoardRoot";
+        private const string MissingGameplayAudioRuntimeInstallerMessage =
+            "GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.";
 
         public static GameplayHostRuntimeContext Create(
             GameplaySceneHost host,
@@ -109,6 +113,7 @@ namespace Game.Feature.Gameplay.Host
                 configuration.TopologyRotationVisualMapping,
                 configuration.TopologyRotationTween,
                 faceSeamGap);
+            AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
 
             boardSurfaceRenderer.Initialize(
                 configuration.InitialBoardBounds,
@@ -342,6 +347,33 @@ namespace Game.Feature.Gameplay.Host
         private static Camera ResolveViewCamera(GameplaySceneHostConfiguration configuration)
         {
             return configuration.ViewCamera ?? (configuration.SnapViewCameraToTarget ? Camera.main : null);
+        }
+
+        private static void AttachGameplayAudioRuntimeIfConfigured(
+            GameObject hostObject,
+            GameplayTickViewPresenter presenter,
+            GameplaySceneHostConfiguration configuration)
+        {
+            if (configuration?.GameplayAudioMap == null)
+            {
+                return;
+            }
+
+            var audioRuntimeInstaller = hostObject.GetComponent<AudioRuntimeInstaller>();
+            if (audioRuntimeInstaller == null)
+            {
+                throw new InvalidOperationException(MissingGameplayAudioRuntimeInstallerMessage);
+            }
+
+            audioRuntimeInstaller.Install();
+            if (audioRuntimeInstaller.AudioService == null)
+            {
+                throw new InvalidOperationException(MissingGameplayAudioRuntimeInstallerMessage);
+            }
+
+            presenter.AttachGameplayAudioRuntime(
+                new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService),
+                configuration.GameplayAudioMap);
         }
 
         private static Camera ResolveOutputCamera(GameplaySceneHostConfiguration configuration)

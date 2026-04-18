@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -143,6 +144,7 @@ namespace Game.Feature.Gameplay.Host
         public Texture2D BoardSurfaceTexture;
         public bool SnapViewCameraToTarget;
         public InputActionAsset Actions;
+        public GameplayAudioMap GameplayAudioMap;
         public IEntityLogic[] StaticEntityLogics = Array.Empty<IEntityLogic>();
         public GameplayEntityView PlayerViewPrefab;
         public Camera ViewCamera;
