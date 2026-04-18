@@ -14,6 +14,7 @@ METRICS_DIR="$RESULT_DIR/.metrics"
 mkdir -p "$RESULT_DIR" "$METRICS_DIR"
 
 STRATIFICATION_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_test_stratification.py"
+SEMANTIC_QUERY_CHECKER_PATH="$PROJECT_PATH_WSL/Tools/check_gameplay_semantic_query_migration.py"
 
 DOTNET_CORE_LOG="$RESULT_DIR/wsl-dotnet-core.log"
 DOTNET_UI_LOG="$RESULT_DIR/wsl-dotnet-ui.log"
@@ -107,6 +108,19 @@ run_governance_check() {
     else
         exit_code=$?
         echo "Stratification governance check failed"
+        exit "$exit_code"
+    fi
+}
+
+run_semantic_query_migration_check() {
+    local exit_code
+
+    echo "Running semantic query migration governance check..."
+    if python3 "$SEMANTIC_QUERY_CHECKER_PATH" --root "$PROJECT_PATH_WSL"; then
+        :
+    else
+        exit_code=$?
+        echo "Semantic query migration governance check failed"
         exit "$exit_code"
     fi
 }
@@ -364,8 +378,10 @@ main() {
     require_file "$DOTNET_PATH" "dotnet executable"
     require_file "$UNITY_PATH" "Unity executable"
     require_file "$STRATIFICATION_CHECKER_PATH" "stratification governance checker"
+    require_file "$SEMANTIC_QUERY_CHECKER_PATH" "semantic query governance checker"
 
     run_governance_check
+    run_semantic_query_migration_check
 
     case "$mode" in
         core)

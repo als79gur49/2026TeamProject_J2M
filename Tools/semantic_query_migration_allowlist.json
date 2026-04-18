@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "path": "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyJumpState.cs",
+      "symbol": "IsLegalJumpLandingCell",
+      "pattern": "composite_legality_owner",
+      "reason": "Existing jump-landing legality owner remains quarantined until legality shell consolidation.",
+      "remove_by_stage": "LegalityResult canonical wiring"
+    },
+    {
+      "path": "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyMovementPolicy.cs",
+      "symbol": "CanOccupyStep",
+      "pattern": "composite_legality_owner",
+      "reason": "Existing enemy movement legality owner remains quarantined until legality shell consolidation.",
+      "remove_by_stage": "LegalityResult canonical wiring"
+    },
+    {
+      "path": "Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyMovementPolicy.cs",
+      "symbol": "IsChargeStoppingObstacle",
+      "pattern": "composite_legality_owner",
+      "reason": "Existing enemy charge-stop legality owner remains quarantined until legality shell consolidation.",
+      "remove_by_stage": "LegalityResult canonical wiring"
+    },
+    {
+      "path": "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs",
+      "symbol": "CanAcceptJumpLandingCell",
+      "pattern": "composite_legality_owner",
+      "reason": "Existing jump-landing acceptance owner remains quarantined until legality shell consolidation.",
+      "remove_by_stage": "LegalityResult canonical wiring"
+    },
+    {
+      "path": "Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs",
+      "symbol": "CanAcceptImpactFollowThrough",
+      "pattern": "composite_legality_owner",
+      "reason": "Existing contingent-destination legality owner remains quarantined until legality shell consolidation.",
+      "remove_by_stage": "LegalityResult canonical wiring"
+    }
+  ]
+}

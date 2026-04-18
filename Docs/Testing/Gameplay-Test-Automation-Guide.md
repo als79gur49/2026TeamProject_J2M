@@ -271,6 +271,7 @@ WSL CLI
 - Governance가 검사하는 대상:
   - 테스트 배치 경계
   - Core purity 규칙
+  - gameplay semantic query migration boundary
   - Integration 밖에 놓인 execution-based test
   - source category / override inventory 일관성
   - PlayMode Core category count / cap
@@ -280,11 +281,14 @@ WSL CLI
   - pinned baseline doc
   - touched cluster readout
   - grep gate for removed structural vocabulary
+  - semantic query migration source-scan gate
 - 규칙 정의 위치:
   - `Tools/gameplay_test_stratification_lib.py`
+  - `Tools/check_gameplay_semantic_query_migration.py`
 - 규칙 소비 위치:
   - `Tools/check_gameplay_test_stratification.py`
   - `Tools/generate_gameplay_test_stratification.py --check`
+  - `Tools/semantic_query_migration_allowlist.json`
 - runner integration:
   - `run_tests.sh`는 checker를 실행하지만 `gameplay_test_stratification_lib.py`를 직접 import하지 않는다.
   - `TestRunnerCliBootstrap`의 Core PlayMode selection은 persisted manifest가 아니라 `assemblyNames + categoryNames("Core")`를 사용한다.
@@ -299,6 +303,7 @@ WSL CLI
 - Governance checks:
   - test placement boundaries
   - Core purity rules
+  - gameplay semantic query migration boundary
   - execution-based tests outside Integration
   - source category / override inventory consistency
   - PlayMode Core category count / cap
@@ -308,11 +313,14 @@ WSL CLI
   - the pinned baseline doc
   - touched-cluster readouts
   - grep gates for removed structural vocabulary
+  - the semantic query migration source-scan gate
 - Rule source:
   - `Tools/gameplay_test_stratification_lib.py`
+  - `Tools/check_gameplay_semantic_query_migration.py`
 - Rule consumers:
   - `Tools/check_gameplay_test_stratification.py`
   - `Tools/generate_gameplay_test_stratification.py --check`
+  - `Tools/semantic_query_migration_allowlist.json`
 - Runner integration:
   - `run_tests.sh` invokes the checker but no longer imports `gameplay_test_stratification_lib.py` directly.
   - `TestRunnerCliBootstrap` now uses `assemblyNames + categoryNames("Core")` for Core PlayMode selection instead of a persisted manifest.
