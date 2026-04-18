@@ -294,6 +294,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 GameplayAudioSemanticCatalog.Format(GameplayAudioSemanticId.EnemyDamage),
                 GameplayAudioSemanticCatalog.Format(GameplayAudioSemanticId.EntityExitEnemyDeath),
             }));
+            GameplayAudioGovernanceAssertions.AssertOnlyApprovedHostFamilies(
+                requests.Select(request => request.SemanticId),
+                "Planner output");
         }
 
         [Test]
@@ -315,48 +318,118 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayAudioSemanticCatalog_RequiredOneShotV1_IsCanonicalTypedSource()
+        public void GameplayAudioSemanticCatalog_CatalogsEveryNonNoneSemanticExactlyOnce()
         {
+            var enumValues = Enum.GetValues(typeof(GameplayAudioSemanticId))
+                .Cast<GameplayAudioSemanticId>()
+                .Where(semanticId => semanticId != GameplayAudioSemanticId.None)
+                .OrderBy(semanticId => semanticId)
+                .ToArray();
+            var catalogedValues = GameplayAudioSemanticCatalog.GovernedSemantics
+                .Select(descriptor => descriptor.SemanticId)
+                .OrderBy(semanticId => semanticId)
+                .ToArray();
+
             Assert.That(
-                GameplayAudioSemanticCatalog.RequiredOneShotV1.ToArray(),
-                Is.EqualTo(new[]
-                {
-                    GameplayAudioSemanticId.PlayerDamage,
-                    GameplayAudioSemanticId.EnemyDamage,
-                    GameplayAudioSemanticId.EntityExitItemConsume,
-                    GameplayAudioSemanticId.EntityExitBoxDestroy,
-                    GameplayAudioSemanticId.EntityExitEnemyDeath,
-                    GameplayAudioSemanticId.EntityExitOutOfBounds,
-                }));
+                catalogedValues,
+                Is.EqualTo(enumValues),
+                $"Every non-None gameplay audio semantic id must have catalog metadata. {GameplayAudioGovernanceAssertions.ExpansionGuidance}");
         }
 
         [Test]
         [Category("Extended")]
-        public void GameplayAudioRuntimeCode_HasNoInlineGameplaySemanticStringLiterals_OutsideCatalogFormatter()
+        public void GameplayAudioSemanticCatalog_RequiredOneShotV1_MatchesApprovedGovernedSet()
         {
-            var runtimeRoot = Path.GetFullPath(Path.Combine(Application.dataPath, "_Features/Gameplay"));
-            var semanticTokens = new[]
+            var descriptorDerivedSet = GameplayAudioSemanticCatalog.GovernedSemantics
+                .Where(descriptor => descriptor.IsRequiredForHostOneShotV1)
+                .Select(descriptor => descriptor.SemanticId)
+                .ToArray();
+
+            Assert.That(
+                GameplayAudioSemanticCatalog.RequiredOneShotV1.ToArray(),
+                Is.EqualTo(descriptorDerivedSet),
+                $"Required gameplay host one-shot set must stay descriptor-derived. {GameplayAudioGovernanceAssertions.ExpansionGuidance}");
+            GameplayAudioGovernanceAssertions.AssertExactRequiredHostOneShotSet(GameplayAudioSemanticCatalog.RequiredOneShotV1);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioSemanticCatalog_RequiredOneShotV1_ContainsOnlyApprovedHostFamilies()
+        {
+            GameplayAudioGovernanceAssertions.AssertOnlyApprovedHostFamilies(
+                GameplayAudioSemanticCatalog.RequiredOneShotV1,
+                "Required gameplay host one-shot set");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioSemanticCatalog_NonApprovedFamilies_AreExcludedFromRequiredOneShotV1()
+        {
+            var disallowedRequiredDescriptors = GameplayAudioSemanticCatalog.GovernedSemantics
+                .Where(descriptor => descriptor.IsRequiredForHostOneShotV1)
+                .Where(descriptor => !GameplayAudioSemanticCatalog.IsApprovedHostOneShotFamily(descriptor.Family))
+                .Select(descriptor => $"{GameplayAudioSemanticCatalog.Format(descriptor.SemanticId)} ({descriptor.Family})")
+                .ToArray();
+
+            Assert.That(
+                disallowedRequiredDescriptors,
+                Is.Empty,
+                $"Only approved gameplay host one-shot families may enter the required set. {GameplayAudioGovernanceAssertions.ExpansionGuidance}");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageAssembly_DoesNotReferenceGameplayHostAssembly()
+        {
+            var stageReferences = LoadRequiredAssembly("Game.Feature.Stages")
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(stageReferences, Does.Not.Contain(typeof(GameplayTickViewPresenter).Assembly.GetName().Name));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UiRuntimeAssemblies_OutsideComposition_DoNotReferenceGameplayHostAssembly()
+        {
+            var hostAssemblyName = typeof(GameplayTickViewPresenter).Assembly.GetName().Name;
+            var uiAssemblyNames = new[]
             {
-                "\"player.damage\"",
-                "\"enemy.damage\"",
-                "\"entity.exit.item_consume\"",
-                "\"entity.exit.box_destroy\"",
-                "\"entity.exit.enemy_death\"",
-                "\"entity.exit.out_of_bounds\"",
-                "\"PlayerDamage\"",
-                "\"EnemyDamage\"",
-                "\"EntityExitItemConsume\"",
-                "\"EntityExitBoxDestroy\"",
-                "\"EntityExitEnemyDeath\"",
-                "\"EntityExitOutOfBounds\"",
+                "Game.Feature.UI.Application",
+                "Game.Feature.UI.Flow",
+                "Game.Feature.UI.HUD",
+                "Game.Feature.UI.Popups",
+                "Game.Feature.UI.Screens",
             };
 
-            var offendingFiles = Directory
-                .GetFiles(runtimeRoot, "*.cs", SearchOption.AllDirectories)
-                .Where(path => !path.Contains("_Tests", StringComparison.Ordinal))
-                .Where(path => !path.EndsWith("GameplayAudioSemantics.cs", StringComparison.Ordinal))
-                .Where(path => semanticTokens.Any(token => File.ReadAllText(path).Contains(token, StringComparison.Ordinal)))
+            foreach (var assemblyName in uiAssemblyNames)
+            {
+                var references = LoadRequiredAssembly(assemblyName)
+                    .GetReferencedAssemblies()
+                    .Select(reference => reference.Name)
+                    .ToArray();
+                Assert.That(references, Does.Not.Contain(hostAssemblyName), assemblyName);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UiCompositionAndStageRuntime_DoNotReferenceGameplayAudioPresentationController_AsSecondaryGuard()
+        {
+            // Assembly/reference-level checks are the primary guard.
+            // This narrow scan exists only because UI composition legally references the host assembly for other reasons.
+            var searchRoots = new[]
+            {
+                Path.Combine(Application.dataPath, "_Features/UI/UI_Composition/Runtime"),
+                Path.Combine(Application.dataPath, "_Features/UI/UI_Flow/Runtime"),
+                Path.Combine(Application.dataPath, "_Features/Stages/Runtime"),
+            };
+            var offendingFiles = searchRoots
+                .SelectMany(root => Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+                .Where(path => File.ReadAllText(path).Contains(nameof(GameplayAudioPresentationController), StringComparison.Ordinal))
                 .Select(Path.GetFileName)
+                .OrderBy(name => name)
                 .ToArray();
 
             Assert.That(offendingFiles, Is.Empty);
@@ -448,6 +521,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.FullName}.");
             field.SetValue(instance, value);
+        }
+
+        private static Assembly LoadRequiredAssembly(string assemblyName)
+        {
+            return AppDomain.CurrentDomain.GetAssemblies()
+                       .FirstOrDefault(assembly => assembly.GetName().Name == assemblyName) ??
+                   Assembly.Load(assemblyName);
+        }
+    }
+
+    internal static class GameplayAudioGovernanceAssertions
+    {
+        private const string ExpansionRemediationMessage =
+            "Gameplay audio semantic expansion requires governance, docs, and test updates in the same change.";
+
+        private static readonly GameplayAudioSemanticId[] ExpectedRequiredHostOneShotV1 =
+        {
+            GameplayAudioSemanticId.PlayerDamage,
+            GameplayAudioSemanticId.EnemyDamage,
+            GameplayAudioSemanticId.EntityExitItemConsume,
+            GameplayAudioSemanticId.EntityExitBoxDestroy,
+            GameplayAudioSemanticId.EntityExitEnemyDeath,
+            GameplayAudioSemanticId.EntityExitOutOfBounds,
+        };
+
+        public static string ExpansionGuidance => ExpansionRemediationMessage;
+
+        public static void AssertExactRequiredHostOneShotSet(IReadOnlyList<GameplayAudioSemanticId> actual)
+        {
+            Assert.That(
+                actual.ToArray(),
+                Is.EqualTo(ExpectedRequiredHostOneShotV1),
+                $"Approved v1 gameplay host one-shot set drifted. {ExpansionRemediationMessage}");
+        }
+
+        public static void AssertOnlyApprovedHostFamilies(IEnumerable<GameplayAudioSemanticId> semanticIds, string subject)
+        {
+            var rejected = semanticIds
+                .Distinct()
+                .Where(semanticId => !GameplayAudioSemanticCatalog.IsAllowedInHostOneShotV1(semanticId))
+                .Select(semanticId => $"{GameplayAudioSemanticCatalog.Format(semanticId)} ({GameplayAudioSemanticCatalog.GetFamily(semanticId)})")
+                .ToArray();
+
+            Assert.That(
+                rejected,
+                Is.Empty,
+                $"{subject} must stay within approved gameplay host one-shot families. {ExpansionRemediationMessage}");
         }
     }
 }

@@ -129,14 +129,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 controller.AttachRuntime(new RecordingGameplayAudioPlaybackPort(), mapBundle.Map);
-                controller.RefreshAudioPlan(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+                controller.ReplacePendingPlan(new[]
+                {
+                    CreateRequest(GameplayAudioSemanticId.PlayerDamage, ownerEntityId: 10),
+                });
 
                 Assert.That(controller.PendingRequestCount, Is.EqualTo(1));
 
                 controller.ResetSession();
                 Assert.That(controller.PendingRequestCount, Is.Zero);
 
-                controller.RefreshAudioPlan(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+                controller.ReplacePendingPlan(new[]
+                {
+                    CreateRequest(GameplayAudioSemanticId.PlayerDamage, ownerEntityId: 10),
+                });
                 Assert.That(controller.PendingRequestCount, Is.EqualTo(1));
 
                 controller.DetachRuntime();
@@ -169,6 +175,70 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioPresentationController_ReplacePendingPlan_IsLastWriteWins_AndClearsAfterPlayback()
+        {
+            var mapBundle = CreateGameplayAudioMap();
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            var controller = new GameplayAudioPresentationController(new GameplayPresentationStateStore());
+            try
+            {
+                controller.AttachRuntime(playbackPort, mapBundle.Map);
+                controller.ReplacePendingPlan(new[]
+                {
+                    CreateRequest(GameplayAudioSemanticId.PlayerDamage, ownerEntityId: 10),
+                });
+                controller.ReplacePendingPlan(new[]
+                {
+                    CreateRequest(GameplayAudioSemanticId.EnemyDamage, ownerEntityId: 20),
+                    CreateRequest(GameplayAudioSemanticId.EnemyDamage, ownerEntityId: 20),
+                });
+
+                controller.PlayPlannedAudio();
+
+                Assert.That(controller.PendingRequestCount, Is.Zero);
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+                Assert.That(playbackPort.TwoDCalls.Select(call => call.Context.DebugTag).ToArray(), Is.EqualTo(new[]
+                {
+                    "EnemyDamage",
+                    "EnemyDamage",
+                }));
+
+                controller.PlayPlannedAudio();
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(2));
+            }
+            finally
+            {
+                mapBundle.Dispose();
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioPresentationController_EmptyReplaceAndClear_AreSafeAndIdempotent()
+        {
+            var mapBundle = CreateGameplayAudioMap();
+            var playbackPort = new RecordingGameplayAudioPlaybackPort();
+            var controller = new GameplayAudioPresentationController(new GameplayPresentationStateStore());
+            try
+            {
+                controller.AttachRuntime(playbackPort, mapBundle.Map);
+                controller.ReplacePendingPlan(Array.Empty<GameplayAudioRequest>());
+                controller.ClearPendingPlan();
+                controller.ClearPendingPlan();
+                controller.PlayPlannedAudio();
+
+                Assert.That(controller.PendingRequestCount, Is.Zero);
+                Assert.That(playbackPort.TwoDCalls, Is.Empty);
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+            }
+            finally
+            {
+                mapBundle.Dispose();
             }
         }
 
@@ -237,16 +307,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void GameplayAudioSemanticCatalog_ContainsNoUiOrBgmGameplaySemanticIds()
+        public void GameplayAudioSemanticCatalog_RequiredSemantics_StayInsideApprovedHostFamilies()
         {
-            var semanticNames = GameplayAudioSemanticCatalog.RequiredOneShotV1
-                .Select(GameplayAudioSemanticCatalog.Format)
+            GameplayAudioGovernanceAssertions.AssertOnlyApprovedHostFamilies(
+                GameplayAudioSemanticCatalog.RequiredOneShotV1,
+                "Gameplay audio host required semantics");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioPresentationController_RemainsOneShotOnly_WithoutPlannerOrContinuousHandleState()
+        {
+            var fieldTypes = typeof(GameplayAudioPresentationController)
+                .GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                .Select(field => field.FieldType)
                 .ToArray();
 
-            Assert.That(semanticNames, Does.Not.Contain("UiButtonClick"));
-            Assert.That(semanticNames, Does.Not.Contain("BgmMain"));
-            Assert.That(semanticNames.Any(name => name.Contains("Ui", StringComparison.Ordinal)), Is.False);
-            Assert.That(semanticNames.Any(name => name.Contains("Bgm", StringComparison.Ordinal)), Is.False);
+            Assert.That(fieldTypes, Has.No.Member(typeof(GameplayAudioRequestPlanner)));
+            Assert.That(fieldTypes, Has.No.Member(typeof(IAudioService)));
+            Assert.That(fieldTypes, Has.No.Member(typeof(AudioPlaybackHandle)));
         }
 
         private static GameplayTickViewPresenter CreatePresenter(GameObject rootObject)
@@ -357,6 +436,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 string.Empty,
                 TickTrace.Empty,
                 StageObjectiveTickResult.NoObjective);
+        }
+
+        private static GameplayAudioRequest CreateRequest(GameplayAudioSemanticId semanticId, int? ownerEntityId)
+        {
+            return new GameplayAudioRequest(
+                semanticId,
+                ownerEntityId,
+                new AudioPlaybackContext(debugTag: GameplayAudioSemanticCatalog.Format(semanticId)));
         }
 
         private static EntityState CreateUnit(int entityId, UnitRole unitRole, SurfaceCell cell)

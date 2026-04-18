@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var readme = ReadRepoFile("Docs/Architecture/README.md");
 
             Assert.That(readme, Does.Contain("Audio-Architecture-Guidelines.md"));
+            Assert.That(readme, Does.Contain("Gameplay-Audio-Governance.md"));
             Assert.That(readme, Does.Contain("2D non-spatial audio contracts"));
         }
 
@@ -28,6 +29,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("GameplayAudioSemanticId"));
             Assert.That(doc, Does.Contain("GameplayAudioSemanticCatalog"));
             Assert.That(doc, Does.Contain("RequiredOneShotV1"));
+            Assert.That(doc, Does.Contain("Gameplay-Audio-Governance.md"));
+            Assert.That(doc, Does.Contain("DamageOneShot"));
+            Assert.That(doc, Does.Contain("EntityExitOneShot"));
+            Assert.That(doc, Does.Contain("UI audio는 UI presenter/controller path에 남는다"));
+            Assert.That(doc, Does.Contain("BGM/scene-flow audio는 stage/scene flow presenter path에 남는다"));
             Assert.That(doc, Does.Contain("GameplayAudioRequestPlanner"));
             Assert.That(doc, Does.Contain("GameplayAudioPresentationController"));
             Assert.That(doc, Does.Contain("IGameplayAudioPlaybackPort"));
@@ -55,6 +61,46 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Not.Contain("GameplayAudioPresenter"));
             Assert.That(doc, Does.Not.Contain("IGameplayAudioCueProjector"));
             Assert.That(doc, Does.Not.Contain("GameplayAudioCue"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioGovernanceDoc_DefinesSafeExpansionChecklist_AndPendingPlanLifecycle()
+        {
+            var doc = ReadRepoFile("Docs/Architecture/Gameplay-Audio-Governance.md");
+
+            Assert.That(doc, Does.Contain("# Gameplay Audio Governance"));
+            Assert.That(doc, Does.Contain("How To Add A New Gameplay Audio Semantic Safely"));
+            Assert.That(doc, Does.Contain("catalog entry"));
+            Assert.That(doc, Does.Contain("family metadata"));
+            Assert.That(doc, Does.Contain("required-set review"));
+            Assert.That(doc, Does.Contain("planner review"));
+            Assert.That(doc, Does.Contain("tests update"));
+            Assert.That(doc, Does.Contain("docs/governance note update"));
+            Assert.That(doc, Does.Contain("DamageOneShot"));
+            Assert.That(doc, Does.Contain("EntityExitOneShot"));
+            Assert.That(doc, Does.Contain("Locomotion"));
+            Assert.That(doc, Does.Contain("UiInteraction"));
+            Assert.That(doc, Does.Contain("BgmFlow"));
+            Assert.That(doc, Does.Contain("ReplacePendingPlan"));
+            Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
+            Assert.That(doc, Does.Contain("last-write-wins"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTestAutomationGuide_UsesScopedGameplayAudioVerificationVocabulary()
+        {
+            var doc = ReadRepoFile("Docs/Testing/Gameplay-Test-Automation-Guide.md");
+
+            Assert.That(doc, Does.Contain("build verified"));
+            Assert.That(doc, Does.Contain("core lane validated"));
+            Assert.That(doc, Does.Contain("targeted orchestration/architecture validated"));
+            Assert.That(doc, Does.Contain("full gameplay-wide regression validated"));
+            Assert.That(doc, Does.Contain("The new gameplay audio structure/contracts are validated in core lanes."));
+            Assert.That(doc, Does.Contain("Gameplay audio host orchestration and governance contracts are validated by targeted architecture tests."));
+            Assert.That(doc, Does.Contain("all gameplay-wide regressions are closed"));
+            Assert.That(doc, Does.Contain("is not enough to use this claim"));
         }
 
         [Test]
