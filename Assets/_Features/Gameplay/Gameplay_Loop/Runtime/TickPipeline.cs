@@ -4434,21 +4434,7 @@ namespace Game.Feature.Gameplay.Loop
             LegalityResult legality,
             int tickIndex)
         {
-            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
-            var reason = blocker.Kind switch
-            {
-                LegalityBlockerKind.BoardEdge => "BoardEdge",
-                LegalityBlockerKind.Terrain => "Terrain",
-                LegalityBlockerKind.Unit => "Entity",
-                LegalityBlockerKind.Solid => "Entity",
-                LegalityBlockerKind.Reservation => "Reservation",
-                _ => blocker.Kind.ToString(),
-            };
-            var prefix =
-                $"RespawnSkipped|E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Face={entity.position.face}|Tick={tickIndex}|Reason={reason}";
-            return blocker.Kind == LegalityBlockerKind.Unit || blocker.Kind == LegalityBlockerKind.Solid
-                ? $"{prefix}|BlockerEntity={blocker.EntityId}|BlockerType={blocker.EntityType}"
-                : prefix;
+            return LegalityDiagnosticsFormatter.FormatRespawnSkippedEvent(entity, legality, tickIndex);
         }
     }
 

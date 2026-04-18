@@ -227,7 +227,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (movementLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(movementLegality.Cell)}|{FormatLegality(movementLegality, movementContext.Actor.SpatialState)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(movementLegality.Cell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(movementLegality, movementContext.Actor.SpatialState)}");
                 return;
             }
 
@@ -323,7 +323,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 }
 
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell={FormatCell(landingLegality.Cell)}|{FormatLegality(landingLegality, landingContext.Actor.SpatialState)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell={FormatCell(landingLegality.Cell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(landingLegality, landingContext.Actor.SpatialState)}");
                 return;
             }
 
@@ -382,7 +382,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             if (projectileLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(projectileLegality.Cell)}|{FormatLegality(projectileLegality, projectileContext.Actor.SpatialState)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(projectileLegality.Cell)}|{LegalityDiagnosticsFormatter.FormatStableSummary(projectileLegality, projectileContext.Actor.SpatialState)}");
                 return;
             }
 
@@ -776,17 +776,6 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
         }
 
-        private static string FormatLegality(
-            LegalityResult legality,
-            in ResolvedSpatialState actorSpatialState)
-        {
-            var requiredBottomFace = legality.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate
-                ? legality.TransitionRequirement.UpdatedTopology.BottomFace.ToString()
-                : "None";
-            return
-                $"LegalityDomain={legality.Domain}|LegalityVerdict={legality.Verdict}|ReservationStatus={legality.Reservation}|TransitionRequirementKind={legality.TransitionRequirement.Kind}|RotationKind={legality.TransitionRequirement.RotationKind}|RequiredTopologyBottomFace={requiredBottomFace}|ActorSpatialKind={actorSpatialState.Kind}|ActorSpatialSource={actorSpatialState.Source}|ActorSpatialOccClaim={(actorSpatialState.ClaimsAuthoritativeOccupancy ? 1 : 0)}|ActorSpatialGameplayVisible={(actorSpatialState.IsGameplayVisible ? 1 : 0)}|LegalityBlockerKinds={RuntimeLegalityBlockerFactory.FormatKinds(legality.Blockers)}";
-        }
-
         private static TraverseContext CreateTraverseContext(
             WorldSnapshot snapshot,
             in EntityState actor,
@@ -823,15 +812,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
         private static LegalityActorRef BuildActorRef(WorldSnapshot snapshot, in EntityState actor)
         {
-            if (snapshot.TryGetResolvedSpatialState(actor.entityId, out var spatialState))
-            {
-                return new LegalityActorRef(actor.entityId, actor.type, spatialState);
-            }
-
-            return new LegalityActorRef(
-                actor.entityId,
-                actor.type,
-                SpatialStateResolver.Resolve(actor, snapshot.Topology, jumpState: null));
+            return StateQuery.BuildActorRef(snapshot, actor);
         }
 
         private static bool TryExpandProjectileImpact(

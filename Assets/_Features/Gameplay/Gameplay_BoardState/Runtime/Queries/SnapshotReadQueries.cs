@@ -300,7 +300,7 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var entityId in entityIds)
             {
                 if (!entitiesById.TryGetValue(entityId, out var candidate) ||
-                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
+                    !GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
                         ResolveSpatialState(enemyJumpStatesByEntityId, candidate, topology)))
                 {
                     continue;
@@ -387,7 +387,7 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var entityId in entityIds)
             {
                 if (!entitiesById.TryGetValue(entityId, out var candidate) ||
-                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
+                    !GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
                         ResolveSpatialState(enemyJumpStatesByEntityId, candidate, topology)) ||
                     candidate.teamId == sourceTeamId)
                 {
@@ -544,7 +544,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             return entitiesById.TryGetValue(entityId, out var entity) &&
                    !entity.markedForDeath &&
-                   GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
+                   GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
                        ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology));
         }
 

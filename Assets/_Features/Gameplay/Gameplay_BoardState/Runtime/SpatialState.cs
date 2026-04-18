@@ -124,8 +124,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool ParticipatesInGameplayQueries(in ResolvedSpatialState spatialState)
         {
             EnsureProductionSupported(spatialState.Kind);
-            return spatialState.Kind == SpatialState.Anchored &&
-                   spatialState.ClaimsAuthoritativeOccupancy &&
+            return spatialState.ClaimsAuthoritativeOccupancy &&
                    spatialState.IsGameplayVisible;
         }
 
@@ -137,8 +136,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool ParticipatesInSettlementBlocking(in ResolvedSpatialState spatialState)
         {
             EnsureProductionSupported(spatialState.Kind);
-            return spatialState.Kind == SpatialState.Anchored &&
-                   spatialState.ClaimsAuthoritativeOccupancy;
+            return spatialState.ClaimsAuthoritativeOccupancy;
         }
 
         public static bool ParticipatesInTargetSelection(in ResolvedSpatialState spatialState)
@@ -148,10 +146,19 @@ namespace Game.Feature.Gameplay.BoardState
 
         public static void EnsureProductionSupported(SpatialState kind)
         {
+            if (kind == SpatialState.Attached)
+            {
+                throw new InvalidOperationException(
+                    $"SpatialState {kind} is reserved for future runtime support and must not be consumed by current legality/query code.");
+            }
+        }
+
+        public static void EnsureLiveProducerClosed(SpatialState kind)
+        {
             if (kind == SpatialState.Phased || kind == SpatialState.Attached)
             {
                 throw new InvalidOperationException(
-                    $"SpatialState {kind} is reserved for future runtime support and must not be consumed by production legality/query code.");
+                    $"SpatialState {kind} is consumer-open only and must not be emitted by live runtime producers yet.");
             }
         }
     }

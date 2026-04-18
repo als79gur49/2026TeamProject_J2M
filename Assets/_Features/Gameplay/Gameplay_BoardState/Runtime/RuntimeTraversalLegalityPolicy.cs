@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static LegalityResult EvaluateDestination(TraverseContext context)
         {
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+            var capabilities = ModifierQuery.GetTraversalCapabilities(context.Actor);
 
             if (!context.Snapshot.TryGetPlacementBlocker(
                     context.EvaluationTopology,
@@ -24,11 +25,22 @@ namespace Game.Feature.Gameplay.BoardState
                     context.TransitionRequirement);
             }
 
+            var blockers = RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker);
+            if (ModifierQuery.IgnoresTraversalBlocker(capabilities, blockers[0]))
+            {
+                return LegalityResult.Allowed(
+                    LegalityDomain.Traversal,
+                    context.CandidateCell,
+                    context.EvaluationTopology,
+                    context.ReservationStatus,
+                    context.TransitionRequirement);
+            }
+
             return LegalityResult.Blocked(
                 LegalityDomain.Traversal,
                 context.CandidateCell,
                 context.EvaluationTopology,
-                RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker),
+                blockers,
                 context.ReservationStatus,
                 context.TransitionRequirement);
         }
@@ -79,7 +91,7 @@ namespace Game.Feature.Gameplay.BoardState
                     LegalityDomain.Traversal,
                     cell,
                     snapshot.Topology,
-                    new[] { new LegalityBlocker(LegalityBlockerKind.BoardEdge) },
+                    RuntimeLegalityBlockerFactory.CreateBoardEdge(),
                     reservationStatus);
             }
 
@@ -89,12 +101,7 @@ namespace Game.Feature.Gameplay.BoardState
                     LegalityDomain.Traversal,
                     cell,
                     snapshot.Topology,
-                    new[]
-                    {
-                        new LegalityBlocker(
-                            LegalityBlockerKind.Terrain,
-                            terrainFlags: TerrainFlags.BlocksGroundTraversal),
-                    },
+                    RuntimeLegalityBlockerFactory.CreateTerrain(TerrainFlags.BlocksGroundTraversal),
                     reservationStatus);
             }
 
@@ -114,7 +121,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 var occupant = occupants[i];
                 if (!snapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
-                    !SpatialStateSemantics.ParticipatesInTraversalBlocking(spatialState) ||
+                    !ModifierQuery.ShouldParticipateInTraversalBlocking(spatialState) ||
                     occupant.hp <= 0 ||
                     occupant.markedForDeath)
                 {
@@ -141,19 +148,7 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId,
             EntityType entityType)
         {
-            if (entityId > 0 &&
-                snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
-            {
-                return new LegalityActorRef(entityId, entityType, spatialState);
-            }
-
-            return new LegalityActorRef(
-                entityId,
-                entityType,
-                SpatialStateResolver.Resolve(
-                    EntityBoardPresence.Detached,
-                    jumpState: null,
-                    isFaceActive: false));
+            return StateQuery.BuildActorRef(snapshot, entityId, entityType);
         }
     }
 }

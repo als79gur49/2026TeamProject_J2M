@@ -275,7 +275,7 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             if (spawnLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={ResolveSpawnBlockerReason(spawnLegality)}|{FormatPlacementBlocker(spawnLegality)}|{FormatLegality(spawnLegality)}");
+                    $"AttackRejected|Stage=Expand|I={intent.IntentId}|Source={intent.SourceId}|Target={intent.TargetId}|Reason={LegalityDiagnosticsFormatter.ResolveSpawnBlockedReason(spawnLegality)}|{LegalityDiagnosticsFormatter.FormatPlacementBlocker(spawnLegality)}|{LegalityDiagnosticsFormatter.FormatStableSummary(spawnLegality)}");
                 return;
             }
 
@@ -312,57 +312,10 @@ namespace Game.Feature.Gameplay.Attack.Expansion
             };
         }
 
-        private static string ResolveSpawnBlockerReason(LegalityResult legality)
-        {
-            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
-            switch (blocker.Kind)
-            {
-                case LegalityBlockerKind.BoardEdge:
-                    return "SpawnDestinationOutsideBoard";
-
-                case LegalityBlockerKind.Terrain:
-                    return "SpawnDestinationBlockedByTerrain";
-
-                case LegalityBlockerKind.Solid:
-                    return blocker.EntityType == EntityType.Projectile
-                        ? "SpawnDestinationBlockedByProjectile"
-                        : "SpawnDestinationBlockedByEntity";
-
-                case LegalityBlockerKind.Unit:
-                    return "SpawnDestinationBlockedByEntity";
-
-                default:
-                    return "SpawnDestinationBlocked";
-            }
-        }
-
         private static bool IsExactSameCell(SurfaceCell source, SurfaceCell target)
         {
             return source.face == target.face &&
                    source.PlanarPosition == target.PlanarPosition;
-        }
-
-        private static string FormatPlacementBlocker(LegalityResult legality)
-        {
-            var blocker = legality.Blockers.Count > 0 ? legality.Blockers[0] : default;
-            switch (blocker.Kind)
-            {
-                case LegalityBlockerKind.Solid:
-                case LegalityBlockerKind.Unit:
-                    return $"Cell=({legality.Cell.x},{legality.Cell.y})|Occupant={blocker.EntityId}|OccupantType={blocker.EntityType}";
-
-                default:
-                    return $"Cell=({legality.Cell.x},{legality.Cell.y})";
-            }
-        }
-
-        private static string FormatLegality(LegalityResult legality)
-        {
-            var requiredBottomFace = legality.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate
-                ? legality.TransitionRequirement.UpdatedTopology.BottomFace.ToString()
-                : "None";
-            return
-                $"LegalityDomain={legality.Domain}|LegalityVerdict={legality.Verdict}|ReservationStatus={legality.Reservation}|TransitionRequirementKind={legality.TransitionRequirement.Kind}|RotationKind={legality.TransitionRequirement.RotationKind}|RequiredTopologyBottomFace={requiredBottomFace}|LegalityBlockerKinds={RuntimeLegalityBlockerFactory.FormatKinds(legality.Blockers)}";
         }
 
         private static Vector2Int? ResolveDelta(Direction direction)

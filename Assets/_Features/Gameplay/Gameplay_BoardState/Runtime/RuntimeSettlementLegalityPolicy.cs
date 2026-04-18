@@ -61,8 +61,9 @@ namespace Game.Feature.Gameplay.BoardState
         {
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+            var modifiers = ModifierQuery.GetJumpLandingModifiers(context, evidence);
 
-            if (context.TerminalCell == evidence.LockedTargetCell &&
+            if (modifiers.Has(LegalityModifierId.ExclusiveLockedPlayerExactStackAllowance) &&
                 IsExclusiveLockedPlayerStack(
                     context.OccupancySnapshot,
                     context.TerminalCell,
@@ -96,7 +97,7 @@ namespace Game.Feature.Gameplay.BoardState
                 var occupant = occupants[i];
                 if (occupant.entityId == context.Actor.EntityId ||
                     !context.OccupancySnapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
-                    !SpatialStateSemantics.ParticipatesInSettlementBlocking(spatialState))
+                    !ModifierQuery.ShouldParticipateInSettlementBlocking(spatialState))
                 {
                     continue;
                 }
@@ -156,8 +157,9 @@ namespace Game.Feature.Gameplay.BoardState
         {
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+            var modifiers = ModifierQuery.GetImpactFollowThroughModifiers(evidence);
 
-            if (context.ReservationStatus == ReservationStatus.Conflicted)
+            if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -178,10 +180,7 @@ namespace Game.Feature.Gameplay.BoardState
                     context.ReservationStatus);
             }
 
-            if (!HasAcceptedImpactDestroy(
-                    evidence.DestroyResolutions,
-                    evidence.AttackSourceId,
-                    evidence.TargetId))
+            if (!modifiers.Has(LegalityModifierId.AcceptedDestroyVacatesTarget))
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
@@ -209,7 +208,7 @@ namespace Game.Feature.Gameplay.BoardState
                 var occupant = occupants[i];
                 if (occupant.entityId == evidence.TargetId ||
                     !context.OccupancySnapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
-                    !SpatialStateSemantics.ParticipatesInSettlementBlocking(spatialState))
+                    !ModifierQuery.ShouldParticipateInSettlementBlocking(spatialState))
                 {
                     continue;
                 }
@@ -259,24 +258,6 @@ namespace Game.Feature.Gameplay.BoardState
                     destroyResolutions));
         }
 
-        private static bool HasAcceptedImpactDestroy(
-            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
-            int sourceEntityId,
-            int targetEntityId)
-        {
-            for (var i = 0; i < destroyResolutions.Count; i++)
-            {
-                if (destroyResolutions[i].Accepted &&
-                    destroyResolutions[i].SourceId == sourceEntityId &&
-                    destroyResolutions[i].TargetId == targetEntityId)
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
         private static bool IsImpactTargetSurviving(WorldSnapshot snapshot, int targetEntityId)
         {
             return snapshot.TryGetEntity(targetEntityId, out var targetEntity) &&
@@ -300,7 +281,7 @@ namespace Game.Feature.Gameplay.BoardState
                     occupant.hp <= 0 ||
                     occupant.markedForDeath ||
                     !snapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
-                    !SpatialStateSemantics.ParticipatesInSettlementBlocking(spatialState))
+                    !ModifierQuery.ShouldParticipateInSettlementBlocking(spatialState))
                 {
                     continue;
                 }
@@ -326,19 +307,7 @@ namespace Game.Feature.Gameplay.BoardState
             int entityId,
             EntityType entityType)
         {
-            if (entityId > 0 &&
-                snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
-            {
-                return new LegalityActorRef(entityId, entityType, spatialState);
-            }
-
-            return new LegalityActorRef(
-                entityId,
-                entityType,
-                SpatialStateResolver.Resolve(
-                    EntityBoardPresence.Detached,
-                    jumpState: null,
-                    isFaceActive: false));
+            return StateQuery.BuildActorRef(snapshot, entityId, entityType);
         }
     }
 }

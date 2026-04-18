@@ -5,6 +5,24 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class RuntimeLegalityBlockerFactory
     {
+        public static IReadOnlyList<LegalityBlocker> CreateBoardEdge()
+        {
+            return new[]
+            {
+                new LegalityBlocker(LegalityBlockerKind.BoardEdge),
+            };
+        }
+
+        public static IReadOnlyList<LegalityBlocker> CreateTerrain(TerrainFlags terrainFlags)
+        {
+            return new[]
+            {
+                new LegalityBlocker(
+                    LegalityBlockerKind.Terrain,
+                    terrainFlags: terrainFlags),
+            };
+        }
+
         public static IReadOnlyList<LegalityBlocker> Create(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             SlideStopper blocker)
@@ -27,6 +45,9 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return new[]
             {
+                // Reservation stays a single top-level blocker kind for this phase.
+                // Future cell/edge/entity/payload sub-facets must extend this path instead
+                // of creating file-local legality enums.
                 new LegalityBlocker(LegalityBlockerKind.Reservation),
             };
         }
