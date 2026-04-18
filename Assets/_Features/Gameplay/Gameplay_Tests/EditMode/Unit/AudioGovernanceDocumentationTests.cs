@@ -25,6 +25,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("# Audio Architecture Guidelines"));
             Assert.That(doc, Does.Contain("Authoritative Presentation Signal Seam"));
             Assert.That(doc, Does.Contain("Mapped Presentation Seam"));
+            Assert.That(doc, Does.Contain("GameplayAudioSemanticId"));
+            Assert.That(doc, Does.Contain("GameplayAudioSemanticCatalog"));
+            Assert.That(doc, Does.Contain("RequiredOneShotV1"));
+            Assert.That(doc, Does.Contain("GameplayAudioRequestPlanner"));
+            Assert.That(doc, Does.Contain("GameplayAudioPresentationController"));
+            Assert.That(doc, Does.Contain("IGameplayAudioPlaybackPort"));
             Assert.That(doc, Does.Contain("Owner-Bound Persistent Playback"));
             Assert.That(doc, Does.Contain("Audio Runtime Installer"));
             Assert.That(doc, Does.Contain("Audio Runtime Root"));
@@ -42,6 +48,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("`BGM lane -> source pool and active controller set -> attached registry`"));
             Assert.That(doc, Does.Contain("fade/crossfade와 ducking은 `AudioBgmChannel` 또는 `AudioBgmController`"));
             Assert.That(doc, Does.Contain("second feature map consumer"));
+            Assert.That(doc, Does.Contain("PlayEntityExitEffects()"));
+            Assert.That(doc, Does.Contain("PlayPlayerHitEffects(result)"));
+            Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
+            Assert.That(doc, Does.Contain("ApplyEntityExitOwnership()"));
+            Assert.That(doc, Does.Not.Contain("GameplayAudioPresenter"));
+            Assert.That(doc, Does.Not.Contain("IGameplayAudioCueProjector"));
+            Assert.That(doc, Does.Not.Contain("GameplayAudioCue"));
         }
 
         [Test]
