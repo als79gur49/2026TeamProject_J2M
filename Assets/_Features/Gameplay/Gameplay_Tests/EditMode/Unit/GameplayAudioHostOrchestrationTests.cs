@@ -53,6 +53,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_ExecutesGameplayAudioPlayback_BetweenVfxAndExitOwnershipApplication()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_ExecutesGameplayAudioPlayback_BetweenVfxAndExitOwnershipApplication));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+                var trace = new List<string>();
+                var playbackPort = new RecordingGameplayAudioPlaybackPort(trace.Add);
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.SetPresentationTraceSink(trace.Add);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+
+                Assert.That(trace, Is.EqualTo(new[]
+                {
+                    "RefreshAudioPlan",
+                    "PlayEntityExitEffects",
+                    "PlayPlayerHitEffects",
+                    "PlayPlannedAudio",
+                    "Playback:Play2D",
+                    "ApplyEntityExitOwnership",
+                }));
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_Present_ExitOwnedEntityAudio_AttachesBeforeOwnershipRemoval()
         {
             var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_ExitOwnedEntityAudio_AttachesBeforeOwnershipRemoval));
@@ -104,6 +138,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
                 presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(player.entityId)));
+
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls[0].Context.DebugTag, Is.EqualTo("PlayerDamage"));
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_LiveOwnerWithoutUsableAttachmentSlot_FallsBackToTwoD()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_LiveOwnerWithoutUsableAttachmentSlot_FallsBackToTwoD));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+                var player = CreateUnit(10, UnitRole.Player, new SurfaceCell(FaceId.Floor, 0, 0));
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(new[] { player }, new CubeTopologyState(FaceId.Floor));
                 presenter.Present(CreateTickResult(
                     CreatePlayerDamagePresentationData(player.entityId),
                     new[] { player }));
@@ -170,6 +231,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
                 Assert.That(presenter.PendingGameplayAudioRequestCount, Is.Zero);
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_Present_DoesNotReplayConsumedPlan_OnLaterCycleWithoutNewRequests()
+        {
+            var rootObject = new GameObject(nameof(GameplayTickViewPresenter_Present_DoesNotReplayConsumedPlan_OnLaterCycleWithoutNewRequests));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var presenter = CreatePresenter(rootObject);
+                var playbackPort = new RecordingGameplayAudioPlaybackPort();
+
+                presenter.AttachGameplayAudioRuntime(playbackPort, mapBundle.Map);
+                presenter.PresentInitial(Array.Empty<EntityState>(), new CubeTopologyState(FaceId.Floor));
+                presenter.Present(CreateTickResult(CreatePlayerDamagePresentationData(10)));
+                presenter.Present(CreateTickResult(TickPresentationData.Empty));
+
+                Assert.That(playbackPort.AttachedCalls, Is.Empty);
+                Assert.That(playbackPort.TwoDCalls, Has.Count.EqualTo(1));
+                Assert.That(playbackPort.TwoDCalls[0].Context.DebugTag, Is.EqualTo("PlayerDamage"));
             }
             finally
             {
@@ -286,6 +374,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_Initialize_AllowsNullGameplayAudioMap_WithoutAudioRuntimeInstaller()
+        {
+            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_AllowsNullGameplayAudioMap_WithoutAudioRuntimeInstaller));
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                Assert.DoesNotThrow(() => host.Initialize(CreateHostConfiguration(null)));
+                Assert.That(host.Presenter, Is.Not.Null);
+                Assert.DoesNotThrow(() => host.Presenter.Present(CreateTickResult(TickPresentationData.Empty)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_Initialize_SucceedsWithAssignedMap_AndSameRootAudioRuntimeInstaller()
+        {
+            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_SucceedsWithAssignedMap_AndSameRootAudioRuntimeInstaller));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                var installer = hostObject.AddComponent<AudioRuntimeInstaller>();
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                Assert.DoesNotThrow(() => host.Initialize(CreateHostConfiguration(mapBundle.Map)));
+                Assert.That(host.Presenter, Is.Not.Null);
+                Assert.That(installer.RuntimeRoot, Is.Not.Null);
+                Assert.That(installer.AudioService, Is.Not.Null);
+                Assert.That(installer.AudioSettingsService, Is.Not.Null);
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplaySceneHost_Initialize_DoesNotUseSceneGlobalAudioRuntimeInstallerFallback()
+        {
+            var otherRoot = new GameObject(nameof(GameplaySceneHost_Initialize_DoesNotUseSceneGlobalAudioRuntimeInstallerFallback) + "_OtherRoot");
+            var hostObject = new GameObject(nameof(GameplaySceneHost_Initialize_DoesNotUseSceneGlobalAudioRuntimeInstallerFallback));
+            var mapBundle = CreateGameplayAudioMap();
+            try
+            {
+                otherRoot.AddComponent<AudioRuntimeInstaller>();
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+
+                var exception = Assert.Throws<InvalidOperationException>(
+                    () => host.Initialize(CreateHostConfiguration(mapBundle.Map)));
+
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned."));
+            }
+            finally
+            {
+                mapBundle.Dispose();
+                UnityEngine.Object.DestroyImmediate(otherRoot);
                 UnityEngine.Object.DestroyImmediate(hostObject);
             }
         }
@@ -528,11 +686,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private sealed class RecordingGameplayAudioPlaybackPort : IGameplayAudioPlaybackPort
         {
+            private readonly Action<string> _traceSink;
+
+            public RecordingGameplayAudioPlaybackPort(Action<string> traceSink = null)
+            {
+                _traceSink = traceSink;
+            }
+
             public readonly List<(AudioDefinition Definition, AudioPlaybackContext Context)> TwoDCalls = new();
             public readonly List<(AudioDefinition Definition, GameplayEntityView Owner, AudioAttachmentSlot Slot, AudioPlaybackContext Context)> AttachedCalls = new();
 
             public void Play2D(AudioDefinition definition, in AudioPlaybackContext context)
             {
+                _traceSink?.Invoke("Playback:Play2D");
                 TwoDCalls.Add((definition, context));
             }
 
@@ -542,6 +708,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 AudioAttachmentSlot slot,
                 in AudioPlaybackContext context)
             {
+                _traceSink?.Invoke("Playback:PlayAttached");
                 AttachedCalls.Add((definition, (GameplayEntityView)owner, slot, context));
             }
         }
