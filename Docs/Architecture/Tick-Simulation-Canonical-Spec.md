@@ -34,20 +34,46 @@
 - `TickResult -> TickPresentationData -> ViewPresenter`로 logic/view가 분리된다.
 - Movement가 만든 `ImpactReservation`은 Attack이 소비한다.
 
+## Query Layer
+- Canonical query boundary는 다음 순서를 따른다.
+  - `Storage Query`: raw occupancy, raw terrain, deterministic ordered enumeration
+  - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetPrimaryUnitAt(...)`
+  - `Legality Query`: placement/traversal/settlement verdict만 반환하는 판정 계층
+  - `Resolver`: action-specific branch, fallback, target 선택
+  - `Committer`: 이미 resolve된 payload만 authoritative state에 적용
+- naming rule:
+  - storage/semantic query는 명사형 질문만 가진다.
+  - legality query는 allowed/blocked verdict만 가진다.
+  - action 이름이 들어간 helper는 canonical semantic vocabulary에 포함하지 않는다.
+
+## Stage Contract
+- `Plan`과 `Resolve`는 phase-entry snapshot과 published reservation read model만 읽는다.
+- `Finalize`만 `WorldState`를 mutate할 수 있다.
+- `Finalize`는 legality를 재평가하거나 target을 다시 고르지 않는다.
+- semantic slice handoff는 오직 두 가지다.
+  - 이전 slice `Finalize` 이후의 새 snapshot
+  - 이전 slice가 publish한 finalized reservation output
+
 ## Occupancy And Queries
 - 현재 authoritative occupancy storage는 `WorldState`의 세 레이어다.
   - `_stackedUnitsByCell`
   - `_solidOccupancy`
   - `_projectileOccupancy`
+- terrain canonical storage는 `TerrainData`의 `SurfaceCell -> TerrainCellState`다.
 - Canonical query vocabulary는 `WorldSnapshot`의 layered API를 기준으로 한다.
   - `EnumerateUnitsAt(...)`
   - `TryGetSolidOccupantAt(...)`
+  - `TryGetSolidSemanticAt(...)`
+  - `IsWallAt(...)`
+  - `IsBoxAt(...)`
+  - `TryGetTerrain(...)`
   - `TryPickImpactTargetAt(...)`
   - `TryGetUnitTraversalBlocker(...)`
 - Legacy compatibility API는 canonical vocabulary가 아니다.
   - `TryGetUnitAt(...)`
   - `IsBlockedForUnit(...)`
   - `BlocksMovement(...)`
+- `TryGetBoxAt(...)`와 planar terrain API는 compatibility helper다. 새 code path의 canonical vocabulary는 solid semantic / terrain semantic / validity policy다.
 - `TryGetPrimaryUnitAt(...)`는 helper/convenience API로만 취급한다. stacked-unit 모델의 대표 vocabulary로 쓰지 않는다.
 
 ## Layer Rules
@@ -59,6 +85,17 @@
   - `Unit + Box/Wall` 금지
   - `Box + Box` 금지
   - `Projectile + Unit` 허용
+
+## Validity Taxonomy
+- `RepresentableState`: storage invariant를 깨지 않는 상태
+- `RuntimeReachableState`: commit path가 실제로 만들 수 있는 상태
+- `AuthorableInitialState`: stage authoring이 허용하는 초기 상태
+- `DebugSpawnableState`: representable이지만 runtime reachable은 아닐 수 있는 debug/test 주입 상태
+- 이번 단계 구현:
+  - `RuntimePlacementValidityPolicy`
+  - `AuthoringStageValidityPolicy`
+  - `DebugSpawnValidityPolicy`
+- `ImportableState / ReplayableState / SaveableState`는 taxonomy에 포함되지만 이번 단계에서는 문서 contract만 가진다.
 
 ## Gameplay Flow
 - 상위 흐름은 `Input -> TickPipeline -> Movement -> Attack -> Cleanup -> Respawn`이다.
