@@ -40,7 +40,7 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SettingsScreenPresenter_BuildTooltipInfoPayload_RemainsBoundedAndStateAware()
         {
-            var presenter = new SettingsScreenPresenter(new UiSessionSettingsStore());
+            var presenter = new SettingsScreenPresenter(new AccessibilitySettingsStore(), new FakeAudioSettingsPort());
 
             presenter.Apply(SettingsScreenPayload.Default);
 
@@ -60,6 +60,22 @@ namespace Game.Feature.UI.Tests
             var disabledPayload = presenter.BuildTooltipInfoPayload();
             Assert.That(disabledPayload.BodyText, Does.Contain("Disabled"));
             Assert.That(disabledPayload.AnchorPreset, Is.EqualTo(TooltipPopupAnchorPreset.Center));
+        }
+
+        [Test]
+        public void SettingsScreenPresenter_AudioRows_RefreshFromPortState_AndFlushExplicitly()
+        {
+            var audioPort = new FakeAudioSettingsPort();
+            var presenter = new SettingsScreenPresenter(new AccessibilitySettingsStore(), audioPort);
+
+            presenter.Apply(SettingsScreenPayload.Default);
+            presenter.SetAudioVolume(AudioSettingsChannel.Bgm, 0.42f);
+            presenter.SetAudioMuted(AudioSettingsChannel.Sfx, true);
+            presenter.FlushAudioSettings();
+
+            Assert.That(presenter.ViewModel.BgmAudio.ValueText, Does.Contain("42"));
+            Assert.That(presenter.ViewModel.SfxAudio.IsMuted, Is.True);
+            Assert.That(audioPort.FlushCallCount, Is.EqualTo(1));
         }
     }
 

@@ -65,6 +65,25 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void OnlyCompositionUiAssemblyReferencesSharedAudioAssembly()
+        {
+            var sharedAudioAssemblyName = typeof(Game.Shared.Audio.IAudioService).Assembly.GetName().Name;
+            var compositionAssembly = typeof(GameplayUiFlowInstaller).Assembly;
+
+            foreach (var assembly in GetRuntimeUiAssemblies().Where(assembly => assembly != compositionAssembly))
+            {
+                var references = assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
+                Assert.That(references, Does.Not.Contain(sharedAudioAssemblyName), assembly.GetName().Name);
+            }
+
+            var compositionReferences = compositionAssembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+            Assert.That(compositionReferences, Does.Contain(sharedAudioAssemblyName));
+        }
+
+        [Test]
         public void ApplicationUiAssembly_DoesNotReferenceGameplayAssembly()
         {
             var gameplayAssemblyName = typeof(WorldState).Assembly.GetName().Name;
@@ -825,6 +844,9 @@ namespace Game.Feature.UI.Tests
                 {
                     "Apply(SettingsScreenPayload)",
                     "BuildTooltipInfoPayload()",
+                    "FlushAudioSettings()",
+                    "SetAudioMuted(AudioSettingsChannel, Boolean)",
+                    "SetAudioVolume(AudioSettingsChannel, Single)",
                     "ToggleLargeText()",
                     "ToggleTooltips()",
                 }));
@@ -832,7 +854,7 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "SettingsScreenPresenter(UiSessionSettingsStore)",
+                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort)",
                 }));
         }
 

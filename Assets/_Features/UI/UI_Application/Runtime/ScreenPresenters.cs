@@ -5,6 +5,64 @@ using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Application
 {
+    public readonly struct AudioSettingsPortChannelState
+    {
+        public AudioSettingsPortChannelState(float volume, bool isMuted)
+        {
+            Volume = volume;
+            IsMuted = isMuted;
+        }
+
+        public float Volume { get; }
+
+        public bool IsMuted { get; }
+    }
+
+    public readonly struct AudioSettingsPortSnapshot
+    {
+        public AudioSettingsPortSnapshot(
+            AudioSettingsPortChannelState main,
+            AudioSettingsPortChannelState bgm,
+            AudioSettingsPortChannelState sfx)
+        {
+            Main = main;
+            Bgm = bgm;
+            Sfx = sfx;
+        }
+
+        public AudioSettingsPortChannelState Main { get; }
+
+        public AudioSettingsPortChannelState Bgm { get; }
+
+        public AudioSettingsPortChannelState Sfx { get; }
+
+        public AudioSettingsPortChannelState GetChannelState(AudioSettingsChannel channel)
+        {
+            switch (channel)
+            {
+                case AudioSettingsChannel.Main:
+                    return Main;
+                case AudioSettingsChannel.Bgm:
+                    return Bgm;
+                case AudioSettingsChannel.Sfx:
+                    return Sfx;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(channel), channel, null);
+            }
+        }
+    }
+
+    public interface IAudioSettingsPort
+    {
+        AudioSettingsPortSnapshot Read();
+
+        void SetVolume(AudioSettingsChannel channel, float volume);
+
+        void SetMuted(AudioSettingsChannel channel, bool isMuted);
+
+        void Flush();
+    }
+
     public sealed class GameplayScreenPresenter
     {
         public GameplayScreenViewModel ViewModel { get; } = new GameplayScreenViewModel();
@@ -893,7 +951,7 @@ namespace Game.Feature.UI.Application
         }
     }
 
-    public sealed class UiSessionSettingsStore
+    public sealed class AccessibilitySettingsStore
     {
         public SettingsScreenState State { get; private set; } = new SettingsScreenState(
             areTooltipsEnabled: true,
@@ -912,12 +970,16 @@ namespace Game.Feature.UI.Application
 
     public sealed class SettingsScreenPresenter
     {
-        private readonly UiSessionSettingsStore _settingsStore;
+        private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
+        private readonly IAudioSettingsPort _audioSettingsPort;
         private SettingsScreenPayload _payload = SettingsScreenPayload.Default;
 
-        public SettingsScreenPresenter(UiSessionSettingsStore settingsStore)
+        public SettingsScreenPresenter(
+            AccessibilitySettingsStore accessibilitySettingsStore,
+            IAudioSettingsPort audioSettingsPort)
         {
-            _settingsStore = settingsStore ?? throw new ArgumentNullException(nameof(settingsStore));
+            _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
+            _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
         }
 
         public SettingsScreenViewModel ViewModel { get; } = new SettingsScreenViewModel();
@@ -930,19 +992,37 @@ namespace Game.Feature.UI.Application
 
         public void ToggleTooltips()
         {
-            _settingsStore.ToggleTooltips();
+            _accessibilitySettingsStore.ToggleTooltips();
             Refresh();
         }
 
         public void ToggleLargeText()
         {
-            _settingsStore.ToggleLargeText();
+            _accessibilitySettingsStore.ToggleLargeText();
+            Refresh();
+        }
+
+        public void SetAudioVolume(AudioSettingsChannel channel, float volume)
+        {
+            _audioSettingsPort.SetVolume(channel, volume);
+            Refresh();
+        }
+
+        public void SetAudioMuted(AudioSettingsChannel channel, bool isMuted)
+        {
+            _audioSettingsPort.SetMuted(channel, isMuted);
+            Refresh();
+        }
+
+        public void FlushAudioSettings()
+        {
+            _audioSettingsPort.Flush();
             Refresh();
         }
 
         public TooltipPopupPayload BuildTooltipInfoPayload()
         {
-            var tooltipsEnabledText = _settingsStore.State.AreTooltipsEnabled ? "Enabled" : "Disabled";
+            var tooltipsEnabledText = _accessibilitySettingsStore.State.AreTooltipsEnabled ? "Enabled" : "Disabled";
             return new TooltipPopupPayload(
                 "Tooltips",
                 $"Tooltips show short contextual hints for UI controls. They are currently {tooltipsEnabledText} in this session; use {_payload.TooltipToggleLabel} to change that.",
@@ -951,14 +1031,45 @@ namespace Game.Feature.UI.Application
 
         private void Refresh()
         {
-            var state = _settingsStore.State;
+            var accessibilityState = _accessibilitySettingsStore.State;
+            var audioSnapshot = _audioSettingsPort.Read();
             ViewModel.SetContent(
                 _payload.TitleText,
-                state.AreTooltipsEnabled ? "Enabled" : "Disabled",
-                state.IsLargeTextEnabled ? "Enabled" : "Disabled",
+                BuildAudioRow(_payload.MainAudioLabel, audioSnapshot.Main),
+                BuildAudioRow(_payload.BgmAudioLabel, audioSnapshot.Bgm),
+                BuildAudioRow(_payload.SfxAudioLabel, audioSnapshot.Sfx),
+                accessibilityState.AreTooltipsEnabled ? "Enabled" : "Disabled",
+                accessibilityState.IsLargeTextEnabled ? "Enabled" : "Disabled",
                 _payload.TooltipToggleLabel,
                 _payload.LargeTextToggleLabel,
                 _payload.BackLabel);
+        }
+
+        private static AudioSettingsRowViewModel BuildAudioRow(
+            string labelText,
+            AudioSettingsPortChannelState state)
+        {
+            var normalizedVolume = Clamp01(state.Volume);
+            var percent = (int)Math.Round(normalizedVolume * 100f, MidpointRounding.AwayFromZero);
+            var valueText = state.IsMuted
+                ? $"{percent}% (Muted)"
+                : $"{percent}%";
+            return new AudioSettingsRowViewModel(labelText, valueText, normalizedVolume, state.IsMuted);
+        }
+
+        private static float Clamp01(float value)
+        {
+            if (value < 0f)
+            {
+                return 0f;
+            }
+
+            if (value > 1f)
+            {
+                return 1f;
+            }
+
+            return value;
         }
     }
 

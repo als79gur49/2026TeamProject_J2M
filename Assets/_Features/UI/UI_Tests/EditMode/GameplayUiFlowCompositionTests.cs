@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
+using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -10,6 +11,63 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class GameplayUiFlowCompositionTests
     {
+        [Test]
+        public void AudioRuntimeInstaller_IsGuardedAgainstSameRootDuplicates()
+        {
+            Assert.That(typeof(AudioRuntimeInstaller).GetCustomAttributes(typeof(DisallowMultipleComponent), true), Is.Not.Empty);
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_RequiresCoLocatedAudioRuntimeInstaller_ForSettingsAudio()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_RequiresCoLocatedAudioRuntimeInstaller_ForSettingsAudio");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+
+                var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls."));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_DoesNotUseSceneGlobalAudioInstallerFallback()
+        {
+            var canonicalRoot = new GameObject("GameplayUiFlowInstaller_DoesNotUseSceneGlobalAudioInstallerFallback");
+            var strayRoot = new GameObject("StrayAudioInstallerRoot");
+
+            try
+            {
+                var installer = canonicalRoot.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                strayRoot.AddComponent<AudioRuntimeInstaller>();
+
+                var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls."));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(canonicalRoot);
+                Object.DestroyImmediate(strayRoot);
+            }
+        }
+
         [Test]
         public void GameplayUiFlowInstaller_ComposesCanonicalRootShell_AndCanonicalPopupStack_WithFakePorts()
         {
