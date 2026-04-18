@@ -191,6 +191,250 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator AudioManager_Play2D_OneShotCompletion_UnregistersLivePlayback()
+        {
+            var rootObject = new GameObject("AudioOneShotCompletionRoot");
+            var clip = AudioClip.Create("OneShotCompletion", 64, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: false);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var handle = manager.Play2D(definition);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+
+                yield return null;
+
+                Assert.That(handle.IsValid, Is.False);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioManager_PooledSourceReuse_DoesNotLeaveStaleRegistryEntries()
+        {
+            var rootObject = new GameObject("AudioPooledSourceReuseRoot");
+            var clip = AudioClip.Create("Reuse", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var firstHandle = manager.Play2D(definition);
+                var firstSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(firstSnapshot, Has.Length.EqualTo(1));
+
+                firstHandle.Stop();
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+
+                manager.Play2D(definition);
+                var secondSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(secondSnapshot, Has.Length.EqualTo(1));
+                Assert.That(secondSnapshot[0].Source, Is.SameAs(firstSnapshot[0].Source));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator AudioManager_DestroyedSource_IsPrunedFromLiveRegistry()
+        {
+            var rootObject = new GameObject("AudioDestroyedSourceCleanupRoot");
+            var clip = AudioClip.Create("DestroyedSource", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var handle = manager.Play2D(definition);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].IsSourceReferenceValid, Is.True);
+
+                UnityEngine.Object.DestroyImmediate(snapshot[0].Source.gameObject);
+                yield return null;
+
+                Assert.That(handle.IsValid, Is.False);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioManager_Destroy_CleansUpLiveHandleState()
+        {
+            var rootObject = new GameObject("AudioManagerDestroyCleanupRoot");
+            var clip = AudioClip.Create("DestroyCleanup", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var handle = manager.Play2D(definition);
+                Assert.That(handle.IsValid, Is.True);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+
+                UnityEngine.Object.DestroyImmediate(manager);
+
+                Assert.That(handle.IsValid, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioManager_RuntimeMixUpdatesImmediately_WhilePersistenceFlushRemainsBounded()
+        {
+            var rootObject = new GameObject("AudioImmediateApplyAndFlushRoot");
+            var clip = AudioClip.Create("BoundedFlush", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var persistenceStore = new RecordingAudioSettingsPersistenceStore();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                SetSerializedField(typeof(AudioDefinition), definition, "category", AudioCategory.Bgm);
+                var manager = CreateInitializedManager(rootObject, persistenceStore);
+
+                manager.Play2D(definition);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+
+                manager.SetChannelVolume(AudioChannel.Bgm, 0.5f);
+
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+                Assert.That(persistenceStore.SaveCallCount, Is.EqualTo(0));
+
+                manager.FlushSettings();
+                Assert.That(persistenceStore.SaveCallCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioManager_HiddenInternalChannels_FollowMasterOnly()
+        {
+            var rootObject = new GameObject("AudioHiddenChannelsRoot");
+            var clip = AudioClip.Create("UiLeaf", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                SetSerializedField(typeof(AudioDefinition), definition, "category", AudioCategory.Ui);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                manager.Play2D(definition);
+                var snapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshot, Has.Length.EqualTo(1));
+                Assert.That(snapshot[0].LeafChannel, Is.EqualTo(AudioChannel.Ui));
+
+                manager.SetChannelVolume(AudioChannel.Master, 0.5f);
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+
+                manager.SetChannelVolume(AudioChannel.Bgm, 0.1f);
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+
+                manager.SetChannelVolume(AudioChannel.Sfx, 0.2f);
+                Assert.That(snapshot[0].Source.volume, Is.EqualTo(0.5f).Within(0.0001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioManager_PlayBgm_Replacement_UnregistersPreviousLiveRecordBeforeRegisteringNewOne()
+        {
+            var rootObject = new GameObject("AudioBgmReplacementRoot");
+            var clipA = AudioClip.Create("BgmA", 4410, 1, 44100, false);
+            var clipB = AudioClip.Create("BgmB", 4410, 1, 44100, false);
+            var definitionA = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var definitionB = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definitionA, clipA, loop: true);
+                ConfigureDefinition(definitionB, clipB, loop: true);
+                SetSerializedField(typeof(AudioDefinition), definitionA, "category", AudioCategory.Bgm);
+                SetSerializedField(typeof(AudioDefinition), definitionB, "category", AudioCategory.Bgm);
+                var manager = CreateInitializedManager(rootObject, new RecordingAudioSettingsPersistenceStore());
+
+                var firstHandle = manager.PlayBgm(definitionA);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+
+                var secondHandle = manager.PlayBgm(definitionB);
+                var snapshots = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(firstHandle.IsValid, Is.False);
+                Assert.That(secondHandle.IsValid, Is.True);
+                Assert.That(snapshots, Has.Length.EqualTo(1));
+                Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Bgm));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definitionA);
+                UnityEngine.Object.DestroyImmediate(definitionB);
+                UnityEngine.Object.DestroyImmediate(clipA);
+                UnityEngine.Object.DestroyImmediate(clipB);
+            }
+        }
+
+        private static AudioManager CreateInitializedManager(
+            GameObject rootObject,
+            RecordingAudioSettingsPersistenceStore persistenceStore)
+        {
+            var runtimeRoot = rootObject.AddComponent<AudioRuntimeRoot>();
+            var manager = rootObject.AddComponent<AudioManager>();
+            manager.SetPersistenceStoreOverrideForTesting(persistenceStore);
+            runtimeRoot.InitializeRuntime();
+            return manager;
+        }
+
         private static void ConfigureDefinition(
             SingleAudioDefinition definition,
             AudioClip clip,
@@ -210,6 +454,24 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.Name}.");
             field.SetValue(target, value);
+        }
+
+        private sealed class RecordingAudioSettingsPersistenceStore : IAudioSettingsPersistenceStore
+        {
+            public int SaveCallCount { get; private set; }
+
+            public AudioSettingsSnapshot Snapshot { get; private set; } = AudioSettingsSnapshot.Default;
+
+            public AudioSettingsSnapshot Load()
+            {
+                return Snapshot;
+            }
+
+            public void Save(AudioSettingsSnapshot snapshot)
+            {
+                SaveCallCount++;
+                Snapshot = snapshot;
+            }
         }
 
         private sealed class TestOwner : MonoBehaviour

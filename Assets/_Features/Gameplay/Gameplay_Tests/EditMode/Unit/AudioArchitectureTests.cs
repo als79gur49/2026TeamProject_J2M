@@ -18,6 +18,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
+        public void AudioDefinition_OnValidate_AndResolve_ShareReservedMasterCategoryRule()
+        {
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+            var clip = AudioClip.Create("ReservedMaster", 4410, 1, 44100, false);
+            try
+            {
+                SetSerializedField(typeof(AudioDefinition), definition, "category", AudioCategory.Master);
+                SetSerializedField(typeof(SingleAudioDefinition), definition, "clip", clip);
+
+                Assert.That(
+                    AudioDefinitionCategoryRules.TryGetReservedCategoryMessage(
+                        AudioCategory.Master,
+                        $"AudioDefinition '{definition.name}'",
+                        out var expectedMessage),
+                    Is.True);
+
+                LogAssert.Expect(LogType.Warning, new Regex(Regex.Escape(expectedMessage)));
+                InvokeOnValidate(definition);
+
+                var exception = Assert.Throws<InvalidOperationException>(() => definition.Resolve(default));
+                Assert.That(exception.Message, Is.EqualTo(expectedMessage));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SharedAudioAssembly_PublicSurface_IsTwoDimensionalOnly()
         {
             var methods = typeof(IAudioService)

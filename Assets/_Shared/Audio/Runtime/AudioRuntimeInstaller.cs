@@ -14,6 +14,8 @@ namespace Game.Shared.Audio
 
         public IAudioService AudioService => runtimeRoot?.AudioService;
 
+        public IAudioSettingsService AudioSettingsService => runtimeRoot?.AudioSettingsService;
+
         private void Awake()
         {
             if (installOnAwake)

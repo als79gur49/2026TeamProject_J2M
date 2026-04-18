@@ -4,6 +4,8 @@ using System.Runtime.CompilerServices;
 using UnityEngine;
 
 [assembly: InternalsVisibleTo("Game.Feature.Gameplay.Audio")]
+[assembly: InternalsVisibleTo("Game.Feature.Gameplay.Tests")]
+[assembly: InternalsVisibleTo("Game.Feature.Gameplay.PlayModeTests")]
 
 namespace Game.Shared.Audio
 {
@@ -41,6 +43,13 @@ namespace Game.Shared.Audio
             {
                 validationErrors.Add(
                     $"{ownerDescription} semantic '{semanticId}' is missing an AudioDefinition binding.");
+            }
+            else if (AudioDefinitionCategoryRules.TryGetReservedCategoryMessage(
+                         definition.Category,
+                         $"{ownerDescription} semantic '{semanticId}' definition '{definition.name}'",
+                         out var message))
+            {
+                validationErrors.Add(message);
             }
 
             if (policy != null)

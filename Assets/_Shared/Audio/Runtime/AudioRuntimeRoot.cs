@@ -13,6 +13,8 @@ namespace Game.Shared.Audio
 
         public IAudioService AudioService => audioManager;
 
+        public IAudioSettingsService AudioSettingsService => audioManager;
+
         public void InitializeRuntime()
         {
             var managers = GetComponentsInChildren<AudioManager>(includeInactive: true);
