@@ -75,8 +75,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("family metadata"));
             Assert.That(doc, Does.Contain("required-set review"));
             Assert.That(doc, Does.Contain("planner review"));
-            Assert.That(doc, Does.Contain("tests update"));
-            Assert.That(doc, Does.Contain("docs/governance note update"));
+            Assert.That(doc, Does.Contain("tests를 갱신한다"));
+            Assert.That(doc, Does.Contain("docs/governance note를 갱신한다"));
             Assert.That(doc, Does.Contain("DamageOneShot"));
             Assert.That(doc, Does.Contain("EntityExitOneShot"));
             Assert.That(doc, Does.Contain("Locomotion"));
@@ -99,6 +99,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("full gameplay-wide regression validated"));
             Assert.That(doc, Does.Contain("The new gameplay audio structure/contracts are validated in core lanes."));
             Assert.That(doc, Does.Contain("Gameplay audio host orchestration and governance contracts are validated by targeted architecture tests."));
+            Assert.That(doc, Does.Contain("Targeted gameplay-audio integration validation"));
+            Assert.That(doc, Does.Contain("host ordering vs VFX / exit ownership timing"));
+            Assert.That(doc, Does.Contain("attachment vs 2D fallback at exit boundaries"));
+            Assert.That(doc, Does.Contain("bootstrap / authored map invariants"));
+            Assert.That(doc, Does.Contain("settings / mixing coexistence with gameplay one-shot SFX"));
+            Assert.That(doc, Does.Contain("UI / BGM separation from gameplay host orchestration"));
+            Assert.That(doc, Does.Contain("Gameplay audio host-orchestration is validated against adjacent presentation and runtime boundaries via targeted integration tests."));
+            Assert.That(doc, Does.Contain("This pass does not validate:"));
+            Assert.That(doc, Does.Contain("full gameplay-wide regression closure"));
             Assert.That(doc, Does.Contain("all gameplay-wide regressions are closed"));
             Assert.That(doc, Does.Contain("is not enough to use this claim"));
         }
