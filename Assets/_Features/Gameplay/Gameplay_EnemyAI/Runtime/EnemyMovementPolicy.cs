@@ -472,14 +472,20 @@ namespace Game.Feature.Gameplay.Entities
                 updatedTopology = snapshot.Topology;
             }
 
+            var evaluationTopology = rotationKind == CubeRotationKind.None ? snapshot.Topology : updatedTopology;
+            var actorSpatialState = snapshot.TryGetResolvedSpatialState(source.entityId, out var spatialState)
+                ? spatialState
+                : SpatialStateResolver.Resolve(source, snapshot.Topology, jumpState: null);
             var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
-                snapshot,
-                source.type,
-                destinationCell,
-                source.entityId,
-                rotationKind == CubeRotationKind.None ? snapshot.Topology : updatedTopology,
-                rotationKind,
-                updatedTopology);
+                new TraverseContext(
+                    snapshot,
+                    new LegalityActorRef(source.entityId, source.type, actorSpatialState),
+                    source.position,
+                    destinationCell,
+                    evaluationTopology,
+                    rotationKind == CubeRotationKind.None
+                        ? TransitionRequirement.None
+                        : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology)));
             if (legality.Verdict != LegalityVerdict.Allowed ||
                 legality.TransitionRequirement.Kind != TransitionRequirementKind.None)
             {

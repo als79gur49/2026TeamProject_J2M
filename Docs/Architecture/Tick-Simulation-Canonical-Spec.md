@@ -39,7 +39,7 @@
   - `Storage Query`: raw occupancy, raw terrain, deterministic ordered enumeration
   - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetTerrain(...)`, `IsTerrainBlockedForUnit(...)`
   - `Semantic Convenience`: `TryGetPrimaryUnitAt(...)` 같은 representative-only helper
-  - `Legality Query`: placement/traversal/settlement verdict만 반환하는 판정 계층
+  - `Legality Query`: `Placement / Traversal / Settlement` verdict만 반환하는 판정 계층
   - `Resolver`: action-specific branch, fallback, target 선택
   - `Committer`: 이미 resolve된 payload만 authoritative state에 적용
 - naming rule:
@@ -47,6 +47,87 @@
   - legality query는 allowed/blocked verdict만 가진다.
   - action 이름이 들어간 helper는 canonical semantic vocabulary에 포함하지 않는다.
   - gameplay core는 semantic helper를 file-local로 조합해 composite legality verdict를 재조립하지 않는다. actor/action이 들어간 allowed/blocked 판단은 legality owner에 둔다.
+
+## Traverse / Settle Seam
+- `Traverse`는 actor가 현재 snapshot과 topology transition requirement 위에서 next step을 통과할 수 있는지 묻는 runtime legality seam이다.
+- `Settle`는 actor가 same-tick effects와 reservation status를 반영한 뒤 terminal cell에 끝날 수 있는지 묻는 runtime legality seam이다.
+- canonical legality owners:
+  - `RuntimePlacementValidityPolicy`: spawn/respawn/debug authoritative placement legality
+  - `RuntimeTraversalLegalityPolicy`: traversal legality
+  - `RuntimeSettlementLegalityPolicy`: settlement legality
+- caller rule:
+  - resolver와 `TickPipeline`은 candidate ordering, `TraverseContext`/`SettlementContext` 조립, typed evidence 전달만 수행한다.
+  - resolver와 `TickPipeline`은 file-local helper로 legality 의미를 재조립하지 않는다.
+- `TickPipeline`은 orchestration-only owner다. legality owner가 아니며 `SpatialState` source aggregation owner도 아니다.
+
+## SpatialState Read Model
+- `SpatialState`는 storage replacement가 아니라 internal canonical read-model axis다.
+- authoritative occupancy storage는 계속 `WorldState` layered occupancy와 `boardPresence`에 남는다.
+- current production runtime에서 legality/query code가 소비하는 state는 `Anchored`와 `Airborne`뿐이다.
+- `Phased`와 `Attached`는 vocabulary slot을 고정하기 위한 reserved future state이며 current production runtime에서는 non-emittable이다.
+- `SpatialStateResolver`는 query/state layer의 유일한 spatial aggregation owner다.
+  - 읽는 source:
+    - `EntityState.boardPresence`
+    - `EnemyJumpRuntimeState`
+    - `CubeTopologyState` face visibility
+  - 읽지 않는 source:
+    - reservation
+    - modifier/blocker facts
+    - caller-local booleans
+    - action target selection results
+- canonical resolver outputs:
+  - `ResolvedSpatialState.Kind`
+  - `ResolvedSpatialState.ClaimsAuthoritativeOccupancy`
+  - `ResolvedSpatialState.IsGameplayVisible`
+  - `ResolvedSpatialState.Source`
+- canonical mapping:
+  - `Occupying + jump none + active face -> Anchored`
+  - `Occupying + jump none + inactive face -> AnchoredHiddenByTopology`
+  - `Occupying + jump windup/cooldown -> Anchored`
+  - `Detached + jump airborne -> Airborne`
+  - `Detached + jump none -> Anchored` with no authoritative occupancy claim
+  - `Detached + jump windup/cooldown` and `Occupying + jump airborne` are invalid source combinations
+- forbidden rule:
+  - `Detached == Airborne` 자동 승격 금지
+  - caller별 `boardPresence + jumpState` ad-hoc switch 금지
+  - inactive-face hidden state를 `Airborne`로 근사 해석하는 shortcut 금지
+
+## Legality Contexts
+- base legality context는 core field budget을 유지한다.
+  - `TraverseContext`
+    - `Snapshot`
+    - `Actor`
+    - `OriginCell`
+    - `CandidateCell`
+    - `EvaluationTopology`
+    - `TransitionRequirement`
+    - `ReservationStatus`
+  - `SettlementContext`
+    - `OccupancySnapshot`
+    - `Actor`
+    - `TerminalCell`
+    - `TerminalTopology`
+    - `RequestedTerminalState`
+    - `ReservationStatus`
+- feature-specific semantics는 base context를 늘리지 않고 typed evidence로 전달한다.
+  - `JumpLandingEvidence`
+  - `ImpactFollowThroughEvidence`
+- context rule:
+  - raw blocker list, raw occupant enumeration, semantic fact cache, mutation handle, caller-specific boolean은 base context에 넣지 않는다.
+  - `LegalityActorRef`는 raw `boardPresence`나 raw jump phase가 아니라 `ResolvedSpatialState`만 운반한다.
+
+## Boundary Inventory
+- canonical boundary-case inventory는 다음 ID로 유지한다.
+  - `TS-01`: traverse allowed / settle allowed
+  - `TS-02`: traverse allowed / settle blocked
+  - `TS-03`: traverse blocked / settle not asked
+  - `TS-04`: traverse allowed with topology transition / settle allowed
+  - `TS-05`: traverse allowed with topology transition / settle blocked
+  - `TS-06`: traverse allowed / settle blocked due to reservation conflict
+  - `TS-07`: traverse allowed / settle blocked due to accepted-destroy/vacate evidence absence
+  - `TS-08`: airborne actor / anchored blocker interaction
+  - `TS-09`: anchored actor / airborne blocker interaction
+- tests와 docs는 같은 ID를 공유한다. 새 traversal/settlement legality case를 추가할 때는 inventory row와 test coverage를 함께 갱신한다.
 
 ## Stage Contract
 - `Plan`과 `Resolve`는 phase-entry snapshot과 published reservation read model만 읽는다.
@@ -78,6 +159,10 @@
   - `BlocksMovement(...)`
 - `TryGetBoxAt(...)`, `CreateDefaultQueryCell(...)`, `SurfaceCell.FromPlanar(...)`, terrain `Vector2Int` overload는 compatibility helper다. 새 gameplay core path는 사용하지 않는다.
 - `TryGetPrimaryUnitAt(...)`는 helper/convenience API로만 취급한다. stacked-unit 모델의 대표 vocabulary로 쓰지 않으며, gameplay core에서는 post-legality 대표값 조회 외에 승격하지 않는다.
+- query interpretation rule:
+  - occupancy truth와 `SpatialState` truth는 다르다.
+  - `ClaimsAuthoritativeOccupancy`는 storage truth에 대한 read fact다.
+  - gameplay traversal blocking, settlement blocking, target selection 참여 여부는 `SpatialState` semantics table이 해석한다.
 
 ## Layer Rules
 - Unit layer는 stacked 허용이다.

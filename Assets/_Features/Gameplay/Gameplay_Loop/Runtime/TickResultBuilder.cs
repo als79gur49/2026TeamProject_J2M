@@ -1154,13 +1154,15 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var entity = finalEntities[i];
                 if (excludedEntityIds.Contains(entity.entityId) ||
-                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, destinationTopology))
+                    !context.FinalAuthoritativeSnapshot.TryGetResolvedSpatialState(entity.entityId, out var destinationSpatialState) ||
+                    !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(destinationSpatialState))
                 {
                     continue;
                 }
 
                 if (context.PreMovementSnapshot.TryGetEntity(entity.entityId, out var sourceEntity) &&
-                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(sourceEntity, sourceTopology))
+                    context.PreMovementSnapshot.TryGetResolvedSpatialState(sourceEntity.entityId, out var sourceSpatialState) &&
+                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(sourceSpatialState))
                 {
                     continue;
                 }

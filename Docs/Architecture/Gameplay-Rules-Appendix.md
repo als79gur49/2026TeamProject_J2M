@@ -23,6 +23,28 @@
   - landing cell이 wall, solid box, terrain, board edge면 `blocked`다.
   - `blocked`에서는 impact가 생기지 않는다.
 
+## Traverse vs Settle
+- `Traverse`는 actor가 이동 step 또는 topology transition을 통과할 수 있는지 묻는다.
+- `Settle`는 통과 후 terminal cell에 끝날 수 있는지 묻는다.
+- runtime legality owner는 다음처럼 분리한다.
+  - `Placement`: spawn/respawn/debug authoritative placement legality
+  - `Traversal`: movement step legality
+  - `Settlement`: landing/follow-through legality
+- 대표 distinction:
+  - traverse는 allowed지만 settlement는 blocked일 수 있다.
+  - traverse가 blocked면 settlement는 묻지 않는다.
+
+## SpatialState
+- current production runtime에서 legality/query consumer가 실제로 읽는 state는 `Anchored`와 `Airborne`뿐이다.
+- `Airborne`는 jump owner가 만든 explicit non-anchored state일 때만 인정한다.
+- `Phased`와 `Attached`는 reserved future state다. current production runtime behavior로 해석하지 않는다.
+- `Anchored`는 기본 spatial mode다. `Detached`라고 해서 자동으로 `Airborne`가 되지 않는다.
+
+## Airborne Jump Landing
+- `Airborne` actor는 traversal 중에는 일반 occupancy blocker로 취급되지 않는다.
+- jump landing settlement에서는 requested terminal state가 `Anchored`로 돌아오며 landing cell legality를 다시 판정한다.
+- anchored blocker가 landing cell을 차지하고 있으면 settlement가 blocked일 수 있다.
+
 ## Common Execute Outcomes
 - canonical public rule text는 `success / impact / blocked` 축을 사용한다.
 - 이 축은 semantic summary다. internal resolver는 더 많은 payload를 가질 수 있다.

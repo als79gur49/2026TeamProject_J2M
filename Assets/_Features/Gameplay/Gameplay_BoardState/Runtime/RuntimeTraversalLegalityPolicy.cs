@@ -5,6 +5,34 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class RuntimeTraversalLegalityPolicy
     {
+        public static LegalityResult EvaluateDestination(TraverseContext context)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+
+            if (!context.Snapshot.TryGetPlacementBlocker(
+                    context.EvaluationTopology,
+                    context.Actor.EntityType,
+                    context.CandidateCell,
+                    context.Actor.EntityId,
+                    out var blocker))
+            {
+                return LegalityResult.Allowed(
+                    LegalityDomain.Traversal,
+                    context.CandidateCell,
+                    context.EvaluationTopology,
+                    context.ReservationStatus,
+                    context.TransitionRequirement);
+            }
+
+            return LegalityResult.Blocked(
+                LegalityDomain.Traversal,
+                context.CandidateCell,
+                context.EvaluationTopology,
+                RuntimeLegalityBlockerFactory.Create(context.Snapshot.EntitiesById, blocker),
+                context.ReservationStatus,
+                context.TransitionRequirement);
+        }
+
         public static LegalityResult EvaluateDestination(
             WorldSnapshot snapshot,
             EntityType entityType,
@@ -20,32 +48,19 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            var transitionRequirement = rotationKind == CubeRotationKind.None
-                ? TransitionRequirement.None
-                : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology);
-
-            if (!snapshot.TryGetPlacementBlocker(
-                    evaluatedTopology,
-                    entityType,
-                    cell,
-                    ignoredEntityId,
-                    out var blocker))
-            {
-                return LegalityResult.Allowed(
-                    LegalityDomain.Traversal,
-                    cell,
-                    evaluatedTopology,
-                    reservationStatus,
-                    transitionRequirement);
-            }
-
-            return LegalityResult.Blocked(
-                LegalityDomain.Traversal,
-                cell,
-                evaluatedTopology,
-                RuntimeLegalityBlockerFactory.Create(snapshot.EntitiesById, blocker),
-                reservationStatus,
-                transitionRequirement);
+            return EvaluateDestination(
+                new TraverseContext(
+                    snapshot,
+                    BuildActorRef(snapshot, ignoredEntityId, entityType),
+                    originCell: ignoredEntityId > 0 && snapshot.TryGetEntity(ignoredEntityId, out var actor)
+                        ? actor.position
+                        : default,
+                    candidateCell: cell,
+                    evaluationTopology: evaluatedTopology,
+                    transitionRequirement: rotationKind == CubeRotationKind.None
+                        ? TransitionRequirement.None
+                        : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology),
+                    reservationStatus: reservationStatus));
         }
 
         public static LegalityResult EvaluateChargeStopCell(
@@ -98,7 +113,8 @@ namespace Game.Feature.Gameplay.BoardState
             for (var i = 0; i < occupants.Count; i++)
             {
                 var occupant = occupants[i];
-                if (occupant.boardPresence != EntityBoardPresence.Occupying ||
+                if (!snapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
+                    !SpatialStateSemantics.ParticipatesInTraversalBlocking(spatialState) ||
                     occupant.hp <= 0 ||
                     occupant.markedForDeath)
                 {
@@ -118,6 +134,26 @@ namespace Game.Feature.Gameplay.BoardState
                 cell,
                 snapshot.Topology,
                 reservationStatus);
+        }
+
+        private static LegalityActorRef BuildActorRef(
+            WorldSnapshot snapshot,
+            int entityId,
+            EntityType entityType)
+        {
+            if (entityId > 0 &&
+                snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
+            {
+                return new LegalityActorRef(entityId, entityType, spatialState);
+            }
+
+            return new LegalityActorRef(
+                entityId,
+                entityType,
+                SpatialStateResolver.Resolve(
+                    EntityBoardPresence.Detached,
+                    jumpState: null,
+                    isFaceActive: false));
         }
     }
 }

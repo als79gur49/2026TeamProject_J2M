@@ -73,11 +73,19 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Cleanup.TimerChanges", cleanupPhaseResult.TimerChanges, FormatString);
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
             AppendSection(builder, "Respawn.Events", respawnPhaseResult.EventLogEntries, FormatString);
-            AppendSection(builder, "Respawn.Entities", respawnPhaseResult.RespawnedEntities, FormatEntityState);
+            AppendSection(
+                builder,
+                "Respawn.Entities",
+                respawnPhaseResult.RespawnedEntities,
+                entity => FormatEntityState(finalSnapshot, entity));
 
             AppendSnapshotSections(builder, "Final", finalSnapshot);
             AppendSection(builder, "Final.PendingDelayedEffects", tickResultData.PendingDelayedAttackEffects, FormatDelayedAttackEffectRecord);
-            AppendSection(builder, "TickResult.FinalEntities", tickResultData.FinalEntities, FormatEntityState);
+            AppendSection(
+                builder,
+                "TickResult.FinalEntities",
+                tickResultData.FinalEntities,
+                entity => FormatEntityState(finalSnapshot, entity));
             AppendSection(builder, "TickResult.EventLog", tickResultData.EventLog, FormatString);
             AppendSection(builder, "DeterminismHash", new[] { determinismHash }, FormatString);
 
@@ -89,7 +97,11 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.Topology", new[] { snapshot.Topology.ToString() }, FormatString);
             AppendSection(builder, $"{label}.BoardBounds", new[] { FormatBoardBounds(snapshot.BoardBounds) }, FormatString);
             AppendSection(builder, $"{label}.Terrain", GetTerrainEntries(snapshot), FormatString);
-            AppendSection(builder, $"{label}.Entities", GetOrderedEntities(snapshot), FormatEntityState);
+            AppendSection(
+                builder,
+                $"{label}.Entities",
+                GetOrderedEntities(snapshot),
+                entity => FormatEntityState(snapshot, entity));
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.PlayerDamage", GetPlayerDamageEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
@@ -455,10 +467,17 @@ namespace Game.Feature.Gameplay.Debug
             }
         }
 
-        private static string FormatEntityState(EntityState entity)
+        private static string FormatEntityState(WorldSnapshot snapshot, EntityState entity)
         {
+            var spatialState = default(ResolvedSpatialState);
+            var hasSpatialState = snapshot != null &&
+                                  snapshot.TryGetResolvedSpatialState(entity.entityId, out spatialState);
+            var spatialKind = hasSpatialState ? spatialState.Kind.ToString() : "Unknown";
+            var spatialOccClaim = hasSpatialState ? (spatialState.ClaimsAuthoritativeOccupancy ? 1 : 0) : -1;
+            var spatialGameplayVisible = hasSpatialState ? (spatialState.IsGameplayVisible ? 1 : 0) : -1;
+            var spatialSource = hasSpatialState ? spatialState.Source.ToString() : "Unknown";
             return
-                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|KineticInstigator={entity.kineticInstigatorEntityId}|KineticTeam={entity.kineticInstigatorTeamId}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}";
+                $"E={entity.entityId}|Pos=({entity.position.x},{entity.position.y})|Hp={entity.hp}/{entity.maxHp}|Team={entity.teamId}|Type={entity.type}|State={entity.state}|Timer={entity.stateTimer}|Facing={entity.facing}|Marked={entity.markedForDeath}|SpawnTick={entity.spawnTick}|BoxCapabilities={entity.boxCapabilities}|KineticInstigator={entity.kineticInstigatorEntityId}|KineticTeam={entity.kineticInstigatorTeamId}|AiMode={entity.aiMode}|AiTimer={entity.aiStateTimer}|LocomotionCooldown={entity.enemyLocomotionCooldownTicks}|Face={entity.position.face}|Presence={entity.boardPresence}|SpatialKind={spatialKind}|SpatialOccClaim={spatialOccClaim}|SpatialGameplayVisible={spatialGameplayVisible}|SpatialSource={spatialSource}";
         }
 
         private static string FormatCell(SurfaceCell cell)

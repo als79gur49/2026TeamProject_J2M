@@ -2,29 +2,28 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class GameplayEntityQueryPolicy
     {
-        public static bool IsEntityOnActiveFace(EntityState entity, CubeTopologyState topology)
+        public static bool IsEntityOnActiveFace(in ResolvedSpatialState spatialState)
         {
-            return topology.IsFaceActive(entity.position.face);
+            return spatialState.IsGameplayVisible;
         }
 
-        public static bool IsEntityOccupyingBoard(EntityState entity)
+        public static bool IsEntityOccupyingBoard(in ResolvedSpatialState spatialState)
         {
-            return entity.boardPresence == EntityBoardPresence.Occupying;
+            return SpatialStateSemantics.ClaimsAuthoritativeOccupancy(spatialState);
         }
 
-        public static bool ShouldParticipateInGameplayQueries(EntityState entity, CubeTopologyState topology)
+        public static bool ShouldParticipateInGameplayQueries(in ResolvedSpatialState spatialState)
         {
-            return IsEntityOccupyingBoard(entity) && IsEntityOnActiveFace(entity, topology);
+            return SpatialStateSemantics.ParticipatesInGameplayQueries(spatialState);
         }
 
         public static bool IsBlockingPlacementEntity(
-            EntityState entity,
-            CubeTopologyState topology,
+            in ResolvedSpatialState spatialState,
             bool requireGameplayVisibility)
         {
             return requireGameplayVisibility
-                ? ShouldParticipateInGameplayQueries(entity, topology)
-                : IsEntityOccupyingBoard(entity);
+                ? ShouldParticipateInGameplayQueries(spatialState)
+                : IsEntityOccupyingBoard(spatialState);
         }
     }
 }

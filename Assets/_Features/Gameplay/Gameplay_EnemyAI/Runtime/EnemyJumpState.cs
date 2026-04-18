@@ -131,12 +131,15 @@ namespace Game.Feature.Gameplay.Entities
         {
             landingCell = default;
             landingRule = string.Empty;
+            var actorRef = BuildActorRef(snapshot, source);
 
             if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
-                    snapshot,
-                    EntityType.Unit,
-                    jumpState.lockedTargetCell,
-                    source.entityId).Verdict == LegalityVerdict.Allowed)
+                    new SettlementContext(
+                        snapshot,
+                        actorRef,
+                        jumpState.lockedTargetCell,
+                        snapshot.Topology,
+                        SpatialState.Anchored)).Verdict == LegalityVerdict.Allowed)
             {
                 landingCell = jumpState.lockedTargetCell;
                 landingRule = "TargetExact";
@@ -149,7 +152,7 @@ namespace Game.Feature.Gameplay.Entities
             if (TryFindLandingInFallbackOffsets(
                     snapshot,
                     jumpState.lockedTargetCell,
-                    source.entityId,
+                    actorRef,
                     orderedOffsets,
                     "Target",
                     out landingCell,
@@ -159,10 +162,12 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
-                    snapshot,
-                    EntityType.Unit,
-                    jumpState.sourceCell,
-                    source.entityId).Verdict == LegalityVerdict.Allowed)
+                    new SettlementContext(
+                        snapshot,
+                        actorRef,
+                        jumpState.sourceCell,
+                        snapshot.Topology,
+                        SpatialState.Anchored)).Verdict == LegalityVerdict.Allowed)
             {
                 landingCell = jumpState.sourceCell;
                 landingRule = "SourceExact";
@@ -172,7 +177,7 @@ namespace Game.Feature.Gameplay.Entities
             return TryFindLandingInFallbackOffsets(
                 snapshot,
                 jumpState.sourceCell,
-                source.entityId,
+                actorRef,
                 orderedOffsets,
                 "Source",
                 out landingCell,
@@ -182,7 +187,7 @@ namespace Game.Feature.Gameplay.Entities
         private static bool TryFindLandingInFallbackOffsets(
             WorldSnapshot snapshot,
             SurfaceCell centerCell,
-            int entityId,
+            LegalityActorRef actorRef,
             IReadOnlyList<(Vector2Int Offset, string Rule)> orderedOffsets,
             string prefix,
             out SurfaceCell landingCell,
@@ -192,10 +197,12 @@ namespace Game.Feature.Gameplay.Entities
             {
                 var candidate = centerCell + orderedOffsets[i].Offset;
                 if (RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
-                        snapshot,
-                        EntityType.Unit,
-                        candidate,
-                        entityId).Verdict != LegalityVerdict.Allowed)
+                        new SettlementContext(
+                            snapshot,
+                            actorRef,
+                            candidate,
+                            snapshot.Topology,
+                            SpatialState.Anchored)).Verdict != LegalityVerdict.Allowed)
                 {
                     continue;
                 }
@@ -208,6 +215,19 @@ namespace Game.Feature.Gameplay.Entities
             landingCell = default;
             landingRule = string.Empty;
             return false;
+        }
+
+        private static LegalityActorRef BuildActorRef(WorldSnapshot snapshot, in EntityState actor)
+        {
+            if (snapshot.TryGetResolvedSpatialState(actor.entityId, out var spatialState))
+            {
+                return new LegalityActorRef(actor.entityId, actor.type, spatialState);
+            }
+
+            return new LegalityActorRef(
+                actor.entityId,
+                actor.type,
+                SpatialStateResolver.Resolve(actor, snapshot.Topology, jumpState: null));
         }
         private static List<(Vector2Int Offset, string Rule)> BuildOrderedJumpFallbackOffsets(Direction basisFacing)
         {

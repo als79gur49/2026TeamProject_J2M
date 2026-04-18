@@ -14,13 +14,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         [Test]
         [Category("Extended")]
-        public void RuntimePlacementValidityPolicy_EvaluateGameplayPlacement_TerrainBlockedButAuthoritativeAllows_PreservesCanonicalFields()
+        public void RuntimePlacementValidityPolicy_EvaluateGameplayPlacement_InactiveFaceTerrainBlockedAuthoritativeOnly_PreservesCanonicalFields()
         {
-            var blockedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var blockedCell = new SurfaceCell(FaceId.Front, 1, 0);
             var snapshot = GameplayWorldStateTestFactory.CreateBounded(
                     new List<EntityState>(),
                     new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
-                    new GameplayTerrainData(new[] { blockedCell.PlanarPosition }))
+                    new GameplayTerrainData(new[] { blockedCell.PlanarPosition }),
+                    new CubeTopologyState(FaceId.Back))
                 .CreateSnapshot();
 
             var gameplayLegality = RuntimePlacementValidityPolicy.EvaluateGameplayPlacement(
@@ -35,14 +36,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 ignoredEntityId: 0);
 
             Assert.That(gameplayLegality.Domain, Is.EqualTo(LegalityDomain.Placement));
-            Assert.That(gameplayLegality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(gameplayLegality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
             Assert.That(gameplayLegality.Cell, Is.EqualTo(blockedCell));
             Assert.That(gameplayLegality.Topology, Is.EqualTo(snapshot.Topology));
             Assert.That(gameplayLegality.Reservation, Is.EqualTo(ReservationStatus.None));
             Assert.That(gameplayLegality.TransitionRequirement.Kind, Is.EqualTo(TransitionRequirementKind.None));
-            Assert.That(gameplayLegality.Blockers, Has.Count.EqualTo(1));
-            Assert.That(gameplayLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Terrain));
-            Assert.That(authoritativeLegality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(gameplayLegality.Blockers, Is.Empty);
+            Assert.That(authoritativeLegality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(authoritativeLegality.Blockers.Count, Is.EqualTo(1));
+            Assert.That(authoritativeLegality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Terrain));
         }
 
         [Test]
@@ -95,7 +97,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
             Assert.That(legality.Reservation, Is.EqualTo(ReservationStatus.Conflicted));
             Assert.That(legality.TransitionRequirement.Kind, Is.EqualTo(TransitionRequirementKind.None));
-            Assert.That(legality.Blockers, Has.Count.EqualTo(1));
+            Assert.That(legality.Blockers.Count, Is.EqualTo(1));
             Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Reservation));
         }
 

@@ -6,6 +6,33 @@ namespace Game.Feature.Gameplay.BoardState
 {
     internal static class RuntimeSettlementLegalityPolicy
     {
+        public static LegalityResult EvaluateLandingPlacement(SettlementContext context)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+            SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+
+            if (!context.OccupancySnapshot.TryGetPlacementBlocker(
+                    context.TerminalTopology,
+                    context.Actor.EntityType,
+                    context.TerminalCell,
+                    context.Actor.EntityId,
+                    out var blocker))
+            {
+                return LegalityResult.Allowed(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    context.ReservationStatus);
+            }
+
+            return LegalityResult.Blocked(
+                LegalityDomain.Settlement,
+                context.TerminalCell,
+                context.TerminalTopology,
+                RuntimeLegalityBlockerFactory.Create(context.OccupancySnapshot.EntitiesById, blocker),
+                context.ReservationStatus);
+        }
+
         public static LegalityResult EvaluateLandingPlacement(
             WorldSnapshot snapshot,
             EntityType entityType,
@@ -18,26 +45,80 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            if (!snapshot.TryGetPlacementBlocker(
-                    snapshot.Topology,
-                    entityType,
+            return EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    BuildActorRef(snapshot, ignoredEntityId, entityType),
                     cell,
-                    ignoredEntityId,
-                    out var blocker))
+                    snapshot.Topology,
+                    SpatialState.Anchored,
+                    reservationStatus));
+        }
+
+        public static LegalityResult EvaluateJumpLandingCell(
+            SettlementContext context,
+            JumpLandingEvidence evidence)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+            SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+
+            if (context.TerminalCell == evidence.LockedTargetCell &&
+                IsExclusiveLockedPlayerStack(
+                    context.OccupancySnapshot,
+                    context.TerminalCell,
+                    context.Actor.EntityId))
             {
                 return LegalityResult.Allowed(
                     LegalityDomain.Settlement,
-                    cell,
-                    snapshot.Topology,
-                    reservationStatus);
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    context.ReservationStatus);
             }
 
-            return LegalityResult.Blocked(
+            if (context.OccupancySnapshot.TryGetAuthoritativePlacementBlocker(
+                    context.Actor.EntityType,
+                    context.TerminalCell,
+                    context.Actor.EntityId,
+                    out var blocker))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.Create(context.OccupancySnapshot.EntitiesById, blocker),
+                    context.ReservationStatus);
+            }
+
+            var occupants = new List<EntityState>();
+            context.OccupancySnapshot.EnumerateUnitsAt(context.TerminalCell, occupants);
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var occupant = occupants[i];
+                if (occupant.entityId == context.Actor.EntityId ||
+                    !context.OccupancySnapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
+                    !SpatialStateSemantics.ParticipatesInSettlementBlocking(spatialState))
+                {
+                    continue;
+                }
+
+                if (!IsImpactTargetSurviving(evidence.DamageProjectionSnapshot, occupant.entityId))
+                {
+                    continue;
+                }
+
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.Create(occupant),
+                    context.ReservationStatus);
+            }
+
+            return LegalityResult.Allowed(
                 LegalityDomain.Settlement,
-                cell,
-                snapshot.Topology,
-                RuntimeLegalityBlockerFactory.Create(snapshot.EntitiesById, blocker),
-                reservationStatus);
+                context.TerminalCell,
+                context.TerminalTopology,
+                context.ReservationStatus);
         }
 
         public static LegalityResult EvaluateJumpLandingCell(
@@ -58,50 +139,94 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(damageProjectionSnapshot));
             }
 
-            if (movementSnapshot.TryGetAuthoritativePlacementBlocker(
-                    EntityType.Unit,
+            return EvaluateJumpLandingCell(
+                new SettlementContext(
+                    movementSnapshot,
+                    BuildActorRef(movementSnapshot, sourceId, EntityType.Unit),
                     destinationCell,
-                    sourceId,
-                    out var blocker))
+                    movementSnapshot.Topology,
+                    SpatialState.Anchored,
+                    reservationStatus),
+                new JumpLandingEvidence(damageProjectionSnapshot, destinationCell));
+        }
+
+        public static LegalityResult EvaluateImpactFollowThrough(
+            SettlementContext context,
+            ImpactFollowThroughEvidence evidence)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
+            SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
+
+            if (context.ReservationStatus == ReservationStatus.Conflicted)
             {
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
-                    destinationCell,
-                    movementSnapshot.Topology,
-                    RuntimeLegalityBlockerFactory.Create(movementSnapshot.EntitiesById, blocker),
-                    reservationStatus);
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                    context.ReservationStatus);
+            }
+
+            if (!context.OccupancySnapshot.TryGetEntity(context.Actor.EntityId, out _) ||
+                !context.OccupancySnapshot.TryGetEntity(evidence.TargetId, out _))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                    context.ReservationStatus);
+            }
+
+            if (!HasAcceptedImpactDestroy(
+                    evidence.DestroyResolutions,
+                    evidence.AttackSourceId,
+                    evidence.TargetId))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                    context.ReservationStatus);
+            }
+
+            if (context.OccupancySnapshot.TryGetSolidSemanticAt(context.TerminalCell, out var solidOccupant) &&
+                solidOccupant.Entity.entityId != evidence.TargetId)
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.Create(solidOccupant.Entity),
+                    context.ReservationStatus);
             }
 
             var occupants = new List<EntityState>();
-            movementSnapshot.EnumerateUnitsAt(destinationCell, occupants);
+            context.OccupancySnapshot.EnumerateUnitsAt(context.TerminalCell, occupants);
             for (var i = 0; i < occupants.Count; i++)
             {
                 var occupant = occupants[i];
-                if (occupant.entityId == sourceId ||
-                    occupant.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                if (occupant.entityId == ignoredDeadTargetId &&
-                    !IsImpactTargetSurviving(damageProjectionSnapshot, ignoredDeadTargetId))
+                if (occupant.entityId == evidence.TargetId ||
+                    !context.OccupancySnapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
+                    !SpatialStateSemantics.ParticipatesInSettlementBlocking(spatialState))
                 {
                     continue;
                 }
 
                 return LegalityResult.Blocked(
                     LegalityDomain.Settlement,
-                    destinationCell,
-                    movementSnapshot.Topology,
+                    context.TerminalCell,
+                    context.TerminalTopology,
                     RuntimeLegalityBlockerFactory.Create(occupant),
-                    reservationStatus);
+                    context.ReservationStatus);
             }
 
             return LegalityResult.Allowed(
                 LegalityDomain.Settlement,
-                destinationCell,
-                movementSnapshot.Topology,
-                reservationStatus);
+                context.TerminalCell,
+                context.TerminalTopology,
+                context.ReservationStatus);
         }
 
         public static LegalityResult EvaluateImpactFollowThrough(
@@ -120,75 +245,18 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(destroyResolutions));
             }
 
-            if (reservationStatus == ReservationStatus.Conflicted)
-            {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
+            return EvaluateImpactFollowThrough(
+                new SettlementContext(
+                    attackSnapshot,
+                    BuildActorRef(attackSnapshot, payload.SourceEntityId, EntityType.Unit),
                     payload.ContingentDestinationCell,
                     attackSnapshot.Topology,
-                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
-                    reservationStatus);
-            }
-
-            if (!attackSnapshot.TryGetEntity(payload.SourceEntityId, out _) ||
-                !attackSnapshot.TryGetEntity(payload.TargetEntityId, out _))
-            {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    payload.ContingentDestinationCell,
-                    attackSnapshot.Topology,
-                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
-                    reservationStatus);
-            }
-
-            if (!HasAcceptedImpactDestroy(
-                    destroyResolutions,
+                    SpatialState.Anchored,
+                    reservationStatus),
+                new ImpactFollowThroughEvidence(
                     payload.AttackSourceEntityId,
-                    payload.TargetEntityId))
-            {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    payload.ContingentDestinationCell,
-                    attackSnapshot.Topology,
-                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
-                    reservationStatus);
-            }
-
-            if (attackSnapshot.TryGetSolidSemanticAt(payload.ContingentDestinationCell, out var solidOccupant) &&
-                solidOccupant.Entity.entityId != payload.TargetEntityId)
-            {
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    payload.ContingentDestinationCell,
-                    attackSnapshot.Topology,
-                    RuntimeLegalityBlockerFactory.Create(solidOccupant.Entity),
-                    reservationStatus);
-            }
-
-            var occupants = new List<EntityState>();
-            attackSnapshot.EnumerateUnitsAt(payload.ContingentDestinationCell, occupants);
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (occupant.entityId == payload.TargetEntityId ||
-                    occupant.boardPresence != EntityBoardPresence.Occupying)
-                {
-                    continue;
-                }
-
-                return LegalityResult.Blocked(
-                    LegalityDomain.Settlement,
-                    payload.ContingentDestinationCell,
-                    attackSnapshot.Topology,
-                    RuntimeLegalityBlockerFactory.Create(occupant),
-                    reservationStatus);
-            }
-
-            return LegalityResult.Allowed(
-                LegalityDomain.Settlement,
-                payload.ContingentDestinationCell,
-                attackSnapshot.Topology,
-                reservationStatus);
+                    payload.TargetEntityId,
+                    destroyResolutions));
         }
 
         private static bool HasAcceptedImpactDestroy(
@@ -214,6 +282,63 @@ namespace Game.Feature.Gameplay.BoardState
             return snapshot.TryGetEntity(targetEntityId, out var targetEntity) &&
                    targetEntity.hp > 0 &&
                    !targetEntity.markedForDeath;
+        }
+
+        private static bool IsExclusiveLockedPlayerStack(
+            WorldSnapshot snapshot,
+            SurfaceCell cell,
+            int sourceEntityId)
+        {
+            var occupants = new List<EntityState>();
+            snapshot.EnumerateUnitsAt(cell, occupants);
+            var sawLockedPlayer = false;
+
+            for (var i = 0; i < occupants.Count; i++)
+            {
+                var occupant = occupants[i];
+                if (occupant.entityId == sourceEntityId ||
+                    occupant.hp <= 0 ||
+                    occupant.markedForDeath ||
+                    !snapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
+                    !SpatialStateSemantics.ParticipatesInSettlementBlocking(spatialState))
+                {
+                    continue;
+                }
+
+                if (!snapshot.TryGetPlayerControlState(occupant.entityId, out _))
+                {
+                    return false;
+                }
+
+                if (sawLockedPlayer)
+                {
+                    return false;
+                }
+
+                sawLockedPlayer = true;
+            }
+
+            return sawLockedPlayer;
+        }
+
+        private static LegalityActorRef BuildActorRef(
+            WorldSnapshot snapshot,
+            int entityId,
+            EntityType entityType)
+        {
+            if (entityId > 0 &&
+                snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
+            {
+                return new LegalityActorRef(entityId, entityType, spatialState);
+            }
+
+            return new LegalityActorRef(
+                entityId,
+                entityType,
+                SpatialStateResolver.Resolve(
+                    EntityBoardPresence.Detached,
+                    jumpState: null,
+                    isFaceActive: false));
         }
     }
 }

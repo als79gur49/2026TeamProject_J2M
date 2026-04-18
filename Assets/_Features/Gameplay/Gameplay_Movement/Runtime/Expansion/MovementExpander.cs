@@ -216,18 +216,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+            var movementContext = CreateTraverseContext(
                 snapshot,
-                source.type,
+                source,
                 destinationCell,
-                source.entityId,
                 movementTopology,
                 rotationKind,
                 updatedTopology);
+            var movementLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(movementContext);
             if (movementLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(movementLegality.Cell)}|{FormatLegality(movementLegality)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(movementLegality.Cell)}|{FormatLegality(movementLegality, movementContext.Actor.SpatialState)}");
                 return;
             }
 
@@ -305,11 +305,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             var target = targetSemantic.Entity;
 
-            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
-                snapshot,
-                target.type,
-                landingCell,
-                target.entityId);
+            var landingContext = CreateSettlementContext(snapshot, target, landingCell);
+            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(landingContext);
             if (landingLegality.Verdict == LegalityVerdict.Blocked)
             {
                 if (TryExpandBoxImpact(
@@ -326,7 +323,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 }
 
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell={FormatCell(landingLegality.Cell)}|{FormatLegality(landingLegality)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipLandingBlocked|Cell={FormatCell(landingLegality.Cell)}|{FormatLegality(landingLegality, landingContext.Actor.SpatialState)}");
                 return;
             }
 
@@ -374,18 +371,18 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                 return;
             }
 
-            var projectileLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+            var projectileContext = CreateTraverseContext(
                 snapshot,
-                entity.type,
+                entity,
                 destinationCell,
-                entity.entityId,
                 snapshot.Topology,
                 CubeRotationKind.None,
                 snapshot.Topology);
+            var projectileLegality = RuntimeTraversalLegalityPolicy.EvaluateDestination(projectileContext);
             if (projectileLegality.Verdict == LegalityVerdict.Blocked)
             {
                 rejectedReasons.Add(
-                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(projectileLegality.Cell)}|{FormatLegality(projectileLegality)}");
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=BlockedDestination|Cell={FormatCell(projectileLegality.Cell)}|{FormatLegality(projectileLegality, projectileContext.Actor.SpatialState)}");
                 return;
             }
 
@@ -779,13 +776,62 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
         }
 
-        private static string FormatLegality(LegalityResult legality)
+        private static string FormatLegality(
+            LegalityResult legality,
+            in ResolvedSpatialState actorSpatialState)
         {
             var requiredBottomFace = legality.TransitionRequirement.Kind == TransitionRequirementKind.TopologyUpdate
                 ? legality.TransitionRequirement.UpdatedTopology.BottomFace.ToString()
                 : "None";
             return
-                $"LegalityDomain={legality.Domain}|LegalityVerdict={legality.Verdict}|ReservationStatus={legality.Reservation}|TransitionRequirementKind={legality.TransitionRequirement.Kind}|RotationKind={legality.TransitionRequirement.RotationKind}|RequiredTopologyBottomFace={requiredBottomFace}|LegalityBlockerKinds={RuntimeLegalityBlockerFactory.FormatKinds(legality.Blockers)}";
+                $"LegalityDomain={legality.Domain}|LegalityVerdict={legality.Verdict}|ReservationStatus={legality.Reservation}|TransitionRequirementKind={legality.TransitionRequirement.Kind}|RotationKind={legality.TransitionRequirement.RotationKind}|RequiredTopologyBottomFace={requiredBottomFace}|ActorSpatialKind={actorSpatialState.Kind}|ActorSpatialSource={actorSpatialState.Source}|ActorSpatialOccClaim={(actorSpatialState.ClaimsAuthoritativeOccupancy ? 1 : 0)}|ActorSpatialGameplayVisible={(actorSpatialState.IsGameplayVisible ? 1 : 0)}|LegalityBlockerKinds={RuntimeLegalityBlockerFactory.FormatKinds(legality.Blockers)}";
+        }
+
+        private static TraverseContext CreateTraverseContext(
+            WorldSnapshot snapshot,
+            in EntityState actor,
+            SurfaceCell candidateCell,
+            CubeTopologyState evaluationTopology,
+            CubeRotationKind rotationKind,
+            CubeTopologyState updatedTopology)
+        {
+            return new TraverseContext(
+                snapshot,
+                BuildActorRef(snapshot, actor),
+                actor.position,
+                candidateCell,
+                evaluationTopology,
+                rotationKind == CubeRotationKind.None
+                    ? TransitionRequirement.None
+                    : TransitionRequirement.TopologyUpdate(rotationKind, updatedTopology));
+        }
+
+        private static SettlementContext CreateSettlementContext(
+            WorldSnapshot snapshot,
+            in EntityState actor,
+            SurfaceCell terminalCell,
+            ReservationStatus reservationStatus = ReservationStatus.None)
+        {
+            return new SettlementContext(
+                snapshot,
+                BuildActorRef(snapshot, actor),
+                terminalCell,
+                snapshot.Topology,
+                SpatialState.Anchored,
+                reservationStatus);
+        }
+
+        private static LegalityActorRef BuildActorRef(WorldSnapshot snapshot, in EntityState actor)
+        {
+            if (snapshot.TryGetResolvedSpatialState(actor.entityId, out var spatialState))
+            {
+                return new LegalityActorRef(actor.entityId, actor.type, spatialState);
+            }
+
+            return new LegalityActorRef(
+                actor.entityId,
+                actor.type,
+                SpatialStateResolver.Resolve(actor, snapshot.Topology, jumpState: null));
         }
 
         private static bool TryExpandProjectileImpact(
@@ -846,7 +892,8 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         {
             return snapshot.TryGetEntity(entityId, out var entity) &&
                    entity.type != EntityType.Projectile &&
-                   GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(entity, snapshot.Topology);
+                   snapshot.TryGetResolvedSpatialState(entityId, out var spatialState) &&
+                   GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(spatialState);
         }
 
         private static Vector2Int ResolveIntentDelta(SurfaceCell source, Vector2Int destination)

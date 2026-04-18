@@ -2102,38 +2102,29 @@ namespace Game.Feature.Gameplay.Loop
                     continue;
                 }
 
-                // Plan-time exact classification is provisional. Resolve recomputes against the
-                // movement-visible snapshot so same-tick occupancy drift can both veto and upgrade.
-                var lockedTargetCell = payload.SuccessJumpState.lockedTargetCell;
-                var isExactLockedPlayerStack = payload.DestinationCell == lockedTargetCell &&
-                                               IsExclusiveLockedPlayerStack(
-                                                   movementSnapshot,
-                                                   payload.DestinationCell,
-                                                   payload.SourceActorEntityId);
-                var occupants = new List<EntityState>();
-                movementSnapshot.EnumerateUnitsAt(payload.DestinationCell, occupants);
-                TryResolveContestedJumpLandingTarget(
-                    occupants,
-                    payload.SourceActorEntityId,
-                    out var resolvedContestedTargetId);
                 var reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
                 var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateJumpLandingCell(
-                    movementSnapshot,
-                    damageProjectionSnapshot,
-                    payload.DestinationCell,
-                    payload.SourceActorEntityId,
-                    resolvedContestedTargetId,
-                    reservationStatus);
+                    new SettlementContext(
+                        movementSnapshot,
+                        BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                        payload.DestinationCell,
+                        movementSnapshot.Topology,
+                        SpatialState.Anchored,
+                        reservationStatus),
+                    new JumpLandingEvidence(
+                        damageProjectionSnapshot,
+                        payload.SuccessJumpState.lockedTargetCell));
 
-                var accepted = payload.LandingKind switch
-                {
-                    JumpLandingKind.RetryOnly => false,
-                    _ when isExactLockedPlayerStack => true,
-                    _ => (resolvedContestedTargetId == 0 ||
-                          !IsImpactTargetSurviving(damageProjectionSnapshot, resolvedContestedTargetId)) &&
-                         landingLegality.Verdict == LegalityVerdict.Allowed
-                };
-                var resolvedTargetId = isExactLockedPlayerStack ? 0 : resolvedContestedTargetId;
+                var accepted = payload.LandingKind != JumpLandingKind.RetryOnly &&
+                               landingLegality.Verdict == LegalityVerdict.Allowed;
+                var resolvedTargetId = accepted &&
+                                       payload.LandingKind != JumpLandingKind.ExactStack &&
+                                       payload.ContestedTargetEntityId > 0 &&
+                                       IsImpactTargetSurviving(
+                                           damageProjectionSnapshot,
+                                           payload.ContestedTargetEntityId)
+                    ? payload.ContestedTargetEntityId
+                    : 0;
 
                 var resolutionRecord = CreateResolutionRecord(contest, accepted);
                 movementResolutionRecords.Add(resolutionRecord);
@@ -3412,10 +3403,17 @@ namespace Game.Feature.Gameplay.Loop
                 {
                     var reservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
                     var impactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
-                        attackSnapshot,
-                        destroyResolutions,
-                        payload.ImpactReservationPayload,
-                        reservationStatus);
+                        new SettlementContext(
+                            attackSnapshot,
+                            BuildLegalityActorRef(attackSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                            payload.ImpactReservationPayload.ContingentDestinationCell,
+                            attackSnapshot.Topology,
+                            SpatialState.Anchored,
+                            reservationStatus),
+                        new ImpactFollowThroughEvidence(
+                            payload.ImpactReservationPayload.AttackSourceEntityId,
+                            payload.ImpactReservationPayload.TargetEntityId,
+                            destroyResolutions));
                     if (impactLegality.Verdict == LegalityVerdict.Allowed)
                     {
                         accepted = true;
@@ -3831,6 +3829,26 @@ namespace Game.Feature.Gameplay.Loop
             return snapshot.TryGetEntity(targetId, out var target) &&
                    !target.markedForDeath &&
                    target.hp > 0;
+        }
+
+        private static LegalityActorRef BuildLegalityActorRef(
+            WorldSnapshot snapshot,
+            int entityId,
+            EntityType entityType)
+        {
+            if (entityId > 0 &&
+                snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
+            {
+                return new LegalityActorRef(entityId, entityType, spatialState);
+            }
+
+            return new LegalityActorRef(
+                entityId,
+                entityType,
+                SpatialStateResolver.Resolve(
+                    EntityBoardPresence.Detached,
+                    jumpState: null,
+                    isFaceActive: false));
         }
 
         private static bool TryGetConflictingImpactDestination(

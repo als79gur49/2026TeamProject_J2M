@@ -89,6 +89,22 @@ namespace Game.Feature.Gameplay.BoardState
             return _enemyJumpStatesByEntityId.TryGetValue(entityId, out state);
         }
 
+        internal bool TryGetResolvedSpatialState(int entityId, out ResolvedSpatialState spatialState)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity))
+            {
+                spatialState = default;
+                return false;
+            }
+
+            var hasJumpState = _enemyJumpStatesByEntityId.TryGetValue(entityId, out var jumpState);
+            spatialState = SpatialStateResolver.Resolve(
+                entity,
+                _topology,
+                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null);
+            return true;
+        }
+
         public bool CanStartAction(int entityId, int tickIndex)
         {
             return !TryGetEntityExecutionLockState(entityId, out var state) ||
@@ -119,7 +135,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         public void EnumerateUnitsAt(SurfaceCell cell, List<EntityState> buffer)
         {
-            SnapshotReadQueries.EnumerateUnitsAt(_entitiesById, _stackedUnitsByCell, _topology, cell, buffer);
+            SnapshotReadQueries.EnumerateUnitsAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                _topology,
+                cell,
+                buffer);
         }
 
         public void EnumerateUnitsAt(Vector2Int cell, List<EntityState> buffer)
@@ -129,7 +151,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal void EnumerateUnitsAt(CubeTopologyState topology, SurfaceCell cell, List<EntityState> buffer)
         {
-            SnapshotReadQueries.EnumerateUnitsAt(_entitiesById, _stackedUnitsByCell, topology, cell, buffer);
+            SnapshotReadQueries.EnumerateUnitsAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                topology,
+                cell,
+                buffer);
         }
 
         public bool TryGetPrimaryUnitAt(SurfaceCell cell, out EntityState entity)
@@ -281,6 +309,7 @@ namespace Game.Feature.Gameplay.BoardState
             return WorldPlacementPolicy.TryGetGameplayPlacementBlocker(
                 _entitiesById,
                 _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
                 topology,
@@ -310,6 +339,7 @@ namespace Game.Feature.Gameplay.BoardState
             return WorldPlacementPolicy.TryGetAuthoritativePlacementBlocker(
                 _entitiesById,
                 _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
                 _boardBounds,
@@ -430,7 +460,11 @@ namespace Game.Feature.Gameplay.BoardState
 
         public bool CanBeTargetedForNewSelection(int entityId)
         {
-            return SnapshotReadQueries.CanBeTargetedForNewSelection(_entitiesById, _topology, entityId);
+            return SnapshotReadQueries.CanBeTargetedForNewSelection(
+                _entitiesById,
+                _enemyJumpStatesByEntityId,
+                _topology,
+                entityId);
         }
 
         public void EnumerateEntitiesOrdered(List<EntityState> buffer)
@@ -451,6 +485,7 @@ namespace Game.Feature.Gameplay.BoardState
             return WorldPlacementPolicy.TryGetUnitBlocker(
                 _entitiesById,
                 _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
                 _solidOccupancy,
                 topology,
                 _boardBounds,
@@ -479,13 +514,19 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotReadQueries.EnumerateStackedUnitOccupancyOrdered(
                 _entitiesById,
                 _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
                 _topology,
                 buffer);
         }
 
         internal void EnumerateSolidOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
-            SnapshotReadQueries.EnumerateOccupancyOrdered(_entitiesById, _solidOccupancy, _topology, buffer);
+            SnapshotReadQueries.EnumerateOccupancyOrdered(
+                _entitiesById,
+                _solidOccupancy,
+                _enemyJumpStatesByEntityId,
+                _topology,
+                buffer);
         }
 
         internal void EnumeratePlayerControlStatesOrdered(List<PlayerControlSnapshotEntry> buffer)
@@ -580,12 +621,23 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal bool HasAnyUnitAt(CubeTopologyState topology, SurfaceCell cell)
         {
-            return SnapshotReadQueries.HasAnyUnitAt(_entitiesById, _stackedUnitsByCell, topology, cell);
+            return SnapshotReadQueries.HasAnyUnitAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                topology,
+                cell);
         }
 
         internal bool TryGetPrimaryUnitAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
-            return SnapshotReadQueries.TryGetPrimaryUnitAt(_entitiesById, _stackedUnitsByCell, topology, cell, out entity);
+            return SnapshotReadQueries.TryGetPrimaryUnitAt(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _enemyJumpStatesByEntityId,
+                topology,
+                cell,
+                out entity);
         }
 
         internal bool TryGetBoxAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
@@ -623,6 +675,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _solidOccupancy,
+                _enemyJumpStatesByEntityId,
                 topology,
                 cell,
                 sourceTeamId,
@@ -639,6 +692,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _solidOccupancy,
+                _enemyJumpStatesByEntityId,
                 topology,
                 cell,
                 sourceTeamId,
@@ -647,7 +701,13 @@ namespace Game.Feature.Gameplay.BoardState
 
         internal bool TryGetProjectileAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
-            return SnapshotReadQueries.TryGetEntityAt(_entitiesById, _projectileOccupancy, topology, cell, out entity);
+            return SnapshotReadQueries.TryGetEntityAt(
+                _entitiesById,
+                _projectileOccupancy,
+                _enemyJumpStatesByEntityId,
+                topology,
+                cell,
+                out entity);
         }
 
         private SurfaceCell CreateDefaultQueryCell(Vector2Int cell)

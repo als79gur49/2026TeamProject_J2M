@@ -122,12 +122,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(LegalityVerdict.Allowed));
         }
 
-        [TestCase("solid")]
-        [TestCase("terrain")]
+        [Test]
         [Category("Extended")]
-        public void ProjectedWorld_JumpLandingBatch_MoveIntoInactiveFaceSolidOrTerrain_StillThrows(string blockerKind)
+        public void ProjectedWorld_JumpLandingBatch_MoveIntoInactiveFaceSolid_StillThrows()
         {
-            var baseSnapshot = CreateInactiveFaceJumpSnapshot(blockerKind);
+            var baseSnapshot = CreateInactiveFaceJumpSnapshot("solid");
             var batch = new FinalizationBatch();
             var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
             batch.MoveEntity(40, targetCell);
@@ -139,6 +138,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var exception = Assert.Throws<InvalidOperationException>(() => projectedWorld.CreateSnapshot());
             Assert.That(exception, Is.Not.Null);
             StringAssert.Contains("cannot occupy", exception.Message);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void ProjectedWorld_JumpLandingBatch_MoveIntoInactiveFaceTerrain_RemainsRepresentable_ButAuthoritativePlacementStaysBlocked()
+        {
+            var baseSnapshot = CreateInactiveFaceJumpSnapshot("terrain");
+            var batch = new FinalizationBatch();
+            var targetCell = new SurfaceCell(FaceId.Front, 2, 1);
+            batch.MoveEntity(40, targetCell);
+            batch.SetBoardPresence(40, EntityBoardPresence.Occupying);
+
+            var projectedWorld = new ProjectedWorld(baseSnapshot);
+            projectedWorld.ApplyBatch(batch);
+
+            WorldSnapshot projectedSnapshot = null;
+            Assert.DoesNotThrow(() => projectedSnapshot = projectedWorld.CreateSnapshot());
+            Assert.That(projectedSnapshot, Is.Not.Null);
+            Assert.That(projectedSnapshot.TryGetEntity(40, out var actor), Is.True);
+            Assert.That(actor.position, Is.EqualTo(targetCell));
+            Assert.That(
+                projectedSnapshot.TryGetAuthoritativePlacementBlocker(
+                    EntityType.Unit,
+                    targetCell,
+                    ignoredEntityId: 40,
+                    out var blocker),
+                Is.True);
+            Assert.That(blocker.Kind, Is.EqualTo(SlideStopperKind.Terrain));
         }
 
         private static WorldSnapshot CreateInactiveFaceJumpSnapshot(string blockerKind)
