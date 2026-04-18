@@ -81,3 +81,7 @@ nul
 # Local test outputs
 /[Tt]est[Rr]esult/
 /[Tt]est[Rr]esults/
+
+# Unity PlayMode test runner temporary scenes
+/[Aa]ssets/InitTestScene*.unity
+/[Aa]ssets/InitTestScene*.unity.meta
