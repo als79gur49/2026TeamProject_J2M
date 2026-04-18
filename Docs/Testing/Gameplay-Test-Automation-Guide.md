@@ -119,6 +119,33 @@
   - `all gameplay-wide regressions are closed`
     - build verification plus core lanes plus targeted governance/orchestration tests is not enough to use this claim.
 
+## Targeted gameplay-audio integration validation / 타겟 게임플레이 오디오 통합 검증
+### 한국어
+- 이 pass는 gameplay audio host-orchestration이 인접 presentation/runtime boundary와 정상적으로 합성되는지 검증하는 targeted integration validation이다.
+- 이 pass가 검증하는 것:
+  - host ordering vs VFX / exit ownership timing
+  - attachment vs 2D fallback at exit boundaries
+  - bootstrap / authored map invariants
+  - settings / mixing coexistence with gameplay one-shot SFX
+  - UI / BGM separation from gameplay host orchestration
+- 이 pass가 검증하지 않는 것:
+  - full gameplay-wide regression closure
+- approved example:
+  - `Gameplay audio host-orchestration is validated against adjacent presentation and runtime boundaries via targeted integration tests.`
+
+### English Original
+- This pass is a targeted integration validation that proves gameplay-audio host orchestration composes correctly with adjacent presentation and runtime boundaries.
+- This pass validates:
+  - host ordering vs VFX / exit ownership timing
+  - attachment vs 2D fallback at exit boundaries
+  - bootstrap / authored map invariants
+  - settings / mixing coexistence with gameplay one-shot SFX
+  - UI / BGM separation from gameplay host orchestration
+- This pass does not validate:
+  - full gameplay-wide regression closure
+- Approved example:
+  - `Gameplay audio host-orchestration is validated against adjacent presentation and runtime boundaries via targeted integration tests.`
+
 ## PlayMode escalation triggers / PlayMode escalation triggers
 ### 한국어
 - UI PlayMode는 EditMode만으로 ownership behavior를 신뢰성 있게 검증할 수 없을 때만 추가한다.
