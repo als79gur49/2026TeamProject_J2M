@@ -11,6 +11,7 @@
 - [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
 - [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
+- [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
 
 Conflict rule:
 
@@ -52,8 +53,9 @@ TickResult
   -> TickPresentationData + public final seams
      [Authoritative Presentation Signal Seam]
       -> GameplayTickViewPresenter
-          -> GameplayAudioPresentationController
+          -> GameplayTickPresentationCoordinator
               -> GameplayAudioRequestPlanner
+              -> GameplayAudioPresentationController
               -> GameplayAudioMap
               -> IGameplayAudioPlaybackPort
                   -> IAudioService
@@ -83,18 +85,23 @@ TickResult
   - gameplay-origin one-shot SFX vocabulary의 canonical typed id
   - raw string semantic literal을 대체한다
 - `GameplayAudioSemanticCatalog`
-  - `RequiredOneShotV1`의 single source of truth owner
+  - semantic descriptor metadata의 canonical owner
+  - `RequiredOneShotV1`는 descriptor metadata에서 derive된다
   - planner emission vocabulary, bootstrap validation, tests, logs/error formatting에 공통 사용된다
+  - allowed/disallowed family governance는 [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md) 가 canonical owner다
 - `GameplayAudioRequestPlanner`
   - `TickResult.PresentationData`와 public final seams만 읽는다
   - supported damage/exit presentation fact를 typed gameplay audio request로 변환한다
   - `GameplayAudioMap`, `IAudioService`, owner view resolution, continuous handle state를 소유하지 않는다
-  - locomotion loop, windup/recovery loop, UI audio, BGM은 intentionally excluded v1 scope다
+  - allowed family는 `DamageOneShot`, `EntityExitOneShot`뿐이다
+  - locomotion loop, jump loop, windup/recovery loop, ambient gameplay bed, UI audio, BGM은 intentionally excluded v1 scope다
 - `GameplayAudioPresentationController`
   - host-owned orchestration controller다
   - `GameplayTickPresentationCoordinator` 내부 collaborator로 존재한다
+  - precomputed typed request list만 받는다
   - typed request를 `GameplayAudioMap`과 `IGameplayAudioPlaybackPort`를 통해 runtime playback으로 내린다
   - missing owner view는 failure가 아니라 `Play2D` fallback으로 degrade한다
+  - gameplay presentation one-shot audio 외의 domain은 다루지 않는다
 - `IGameplayAudioPlaybackPort`
   - gameplay host-local narrow playback port다
   - `Play2D`와 `PlayAttached`만 가진다
@@ -118,6 +125,11 @@ TickResult
   5. `ApplyEntityExitOwnership()`
 - attached owner resolution은 exit ownership removal 이전에만 수행한다.
 - pending gameplay audio plan은 `PresentInitial`, session reset, presenter teardown에서 반드시 비워진다.
+- pending gameplay audio plan lifecycle은 아래 rule로 고정한다.
+  - `ReplacePendingPlan(...)`은 last-write-wins replacement다.
+  - empty replace는 legal이며 pending state를 clear한다.
+  - `PlayPlannedAudio()`는 current plan을 한 번만 재생하고 즉시 clear한다.
+  - explicit clear는 idempotent다.
 - gameplay audio host path는 generic dispatcher가 아니다.
   - UI audio는 UI presenter/controller path에 남는다.
   - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
@@ -132,6 +144,7 @@ TickResult
 - `GameplayAudioMap.ValidateRequiredSemanticsOrThrow(GameplayAudioSemanticCatalog.RequiredOneShotV1)`는 host attach/init에서 first gameplay playback 이전에 수행되어야 한다.
 - missing required semantic fail-fast message는 아래 format으로 고정한다.
   - `GameplayAudioMap '<MapName>' is missing required gameplay audio semantics: <Id1>, <Id2>.`
+- semantic family growth protocol과 required-set review checklist는 [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md) 를 따른다.
 
 ## 5. 2D-Only Playback Contract
 

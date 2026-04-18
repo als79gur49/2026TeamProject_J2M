@@ -24,6 +24,8 @@
   - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
 - [Audio-Architecture-Guidelines.md](./Audio-Architecture-Guidelines.md)
   - current supporting truth for 2D non-spatial audio contracts, runtime ownership, and audio seam vocabulary
+- [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
+  - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
