@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickPresentationCoordinator
     {
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
+        private readonly GameplayAudioRequestPlanner _audioRequestPlanner = new();
         private readonly GameplayAudioPresentationController _audioPresentationController;
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
@@ -168,7 +169,7 @@ namespace Game.Feature.Gameplay.Host
             var previousCommittedTopology = _stateStore.CommittedTopology;
 
             TraceStep("RefreshAudioPlan");
-            _audioPresentationController.RefreshAudioPlan(result);
+            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
                 result.FinalTopology,
@@ -276,7 +277,12 @@ namespace Game.Feature.Gameplay.Host
 
         internal void DebugRefreshGameplayAudioPlan(TickResult result)
         {
-            _audioPresentationController.RefreshAudioPlan(result);
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
         }
 
         internal void SetTraceSink(Action<string> traceSink)

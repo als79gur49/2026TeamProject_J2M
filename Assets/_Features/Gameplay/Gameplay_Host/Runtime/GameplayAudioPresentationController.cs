@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Game.Feature.Gameplay.Audio;
-using Game.Feature.Gameplay.Loop;
 using Game.Shared.Audio;
 using UnityEngine;
 
@@ -45,7 +44,6 @@ namespace Game.Feature.Gameplay.Host
     internal sealed class GameplayAudioPresentationController
     {
         private readonly List<GameplayAudioRequest> _pendingRequests = new();
-        private readonly GameplayAudioRequestPlanner _planner = new();
         private readonly GameplayPresentationStateStore _stateStore;
 
         private GameplayAudioMap _audioMap;
@@ -80,20 +78,14 @@ namespace Game.Feature.Gameplay.Host
             ClearPendingPlan();
         }
 
-        public void RefreshAudioPlan(TickResult result)
+        public void ReplacePendingPlan(IReadOnlyList<GameplayAudioRequest> plannedRequests)
         {
-            if (result == null)
+            if (plannedRequests == null)
             {
-                throw new ArgumentNullException(nameof(result));
+                throw new ArgumentNullException(nameof(plannedRequests));
             }
 
             ClearPendingPlan();
-            if (_audioMap == null || _playbackPort == null)
-            {
-                return;
-            }
-
-            var plannedRequests = _planner.BuildRequests(result);
             for (var i = 0; i < plannedRequests.Count; i++)
             {
                 _pendingRequests.Add(plannedRequests[i]);
@@ -108,12 +100,17 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            for (var i = 0; i < _pendingRequests.Count; i++)
+            try
             {
-                PlayRequest(_pendingRequests[i]);
+                for (var i = 0; i < _pendingRequests.Count; i++)
+                {
+                    PlayRequest(_pendingRequests[i]);
+                }
             }
-
-            ClearPendingPlan();
+            finally
+            {
+                ClearPendingPlan();
+            }
         }
 
         public void ClearPendingPlan()
