@@ -11,6 +11,26 @@ Rules
 - `Deferred classification` means the current failure still needs an upstream semantic checkpoint before it can move to either bucket.
 - Rows promoted out of stale lanes should be removed from this ledger and tracked in the dated lane snapshot document instead.
 
+Current operating plan
+- Use [Remaining-55-Non-Runtime-Lane-Lock-Refinement-2026-04-18.md](./Testing/Remaining-55-Non-Runtime-Lane-Lock-Refinement-2026-04-18.md) as the current lane-lock execution plan for the open `55` rows.
+- `stale-contract` execution is split into `stale-contract/public-contract` and `stale-contract/fixture-cleanup`.
+- `stale-literal` execution is split into `stale-literal/trace-dump-serialized-literal` and `stale-literal/comparer-order-wording`.
+- This ledger continues to track stale rows only. `consumer/view` and `topology/view/post-fx` rows stay in the dated lane snapshot and follow-up host/view backlog, not here.
+
+Limited deferred gate
+- Default target remains `Deferred classification = 0`.
+- Deferred rows are allowed only for three ambiguity classes:
+  - insufficient downstream winner/occupancy guard for comparer/order rows
+  - mixed `PresentationData` vs geometry oracle
+  - mixed public-contract vs fixture drift
+- Maximum deferred carry: `3` rows total, one reason per row.
+- Every deferred row must carry:
+  - one current-caller control
+  - one guard/control test near the suspected oracle
+  - one minimum missing-oracle evidence capture
+- Deferred rows are not runtime candidates. Runtime promotion still requires a current-caller authoritative snapshot/query/final-state mismatch.
+- No deferred row should survive past the adjacent step recheck or the final verification pass.
+
 2026-04-18 lane-lock sync
 - Promoted out of stale tracking and into the dated lane snapshot:
   - `CombinedGameplayShowcaseInstallerTests.GameplayBoxCapabilityLabelViewFactory_StaticBoxPrefab_KeepsCapabilityLabelDecorator` -> `topology/view/post-fx`

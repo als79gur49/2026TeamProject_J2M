@@ -5,6 +5,8 @@ Historical note:
 - That row has since been closed by updating the test to the current canonical `TryPickImpactTargetAt(...)` friendly-fallback contract.
 - After the confirming rerun on `2026-04-18`, `./run_tests.sh full` moved from `944 total / 56 failed` to `944 total / 55 failed`.
 - Treat this document as a pre-close snapshot rather than the latest open-failure ledger.
+- The current operating plan for the still-open `55` non-runtime rows lives in [Remaining-55-Non-Runtime-Lane-Lock-Refinement-2026-04-18.md](./Remaining-55-Non-Runtime-Lane-Lock-Refinement-2026-04-18.md).
+- Do not use this file as the current execution checklist for open backlog handling because it still preserves the historical `runtime authoritative bug = 1` snapshot and the pre-refinement step structure.
 
 This document executes the approved reclassification plan against the current `./run_tests.sh full` checkpoint and locks each of the remaining `56` failed rows into one primary lane.
 
