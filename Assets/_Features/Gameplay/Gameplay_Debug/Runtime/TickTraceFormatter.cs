@@ -214,12 +214,13 @@ namespace Game.Feature.Gameplay.Debug
         private static List<string> GetTerrainEntries(WorldSnapshot snapshot)
         {
             var terrainLines = new List<string>();
-            var blockedCells = new List<Vector2Int>();
-            snapshot.EnumerateTerrainBlockedCellsOrdered(blockedCells);
+            var terrainCells = new List<TerrainCellState>();
+            snapshot.EnumerateTerrainCellsOrdered(terrainCells);
 
-            for (var i = 0; i < blockedCells.Count; i++)
+            for (var i = 0; i < terrainCells.Count; i++)
             {
-                terrainLines.Add($"Cell=({blockedCells[i].x},{blockedCells[i].y})|BlocksUnit=1");
+                terrainLines.Add(
+                    $"Cell={terrainCells[i].Cell}|Kind={terrainCells[i].Kind}|Flags={terrainCells[i].Flags}");
             }
 
             return terrainLines;

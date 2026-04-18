@@ -145,6 +145,16 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetBoxAt(CreateDefaultQueryCell(cell), out entity);
         }
 
+        public bool TryGetSolidSemanticAt(SurfaceCell cell, out SolidSemantic semantic)
+        {
+            return TryGetSolidSemanticAt(_topology, cell, out semantic);
+        }
+
+        public bool TryGetSolidSemanticAt(Vector2Int cell, out SolidSemantic semantic)
+        {
+            return TryGetSolidSemanticAt(CreateDefaultQueryCell(cell), out semantic);
+        }
+
         public bool TryGetSolidOccupantAt(SurfaceCell cell, out EntityState entity)
         {
             return TryGetSolidOccupantAt(_topology, cell, out entity);
@@ -153,6 +163,26 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetSolidOccupantAt(Vector2Int cell, out EntityState entity)
         {
             return TryGetSolidOccupantAt(CreateDefaultQueryCell(cell), out entity);
+        }
+
+        public bool IsWallAt(SurfaceCell cell)
+        {
+            return IsWallAt(_topology, cell);
+        }
+
+        public bool IsWallAt(Vector2Int cell)
+        {
+            return IsWallAt(CreateDefaultQueryCell(cell));
+        }
+
+        public bool IsBoxAt(SurfaceCell cell)
+        {
+            return IsBoxAt(_topology, cell);
+        }
+
+        public bool IsBoxAt(Vector2Int cell)
+        {
+            return IsBoxAt(CreateDefaultQueryCell(cell));
         }
 
         public bool TryPickImpactTargetAt(SurfaceCell cell, int sourceTeamId, out EntityState entity)
@@ -203,6 +233,16 @@ namespace Game.Feature.Gameplay.BoardState
         public bool IsTerrainBlockedForUnit(Vector2Int cell)
         {
             return IsTerrainBlockedForUnit(CreateDefaultQueryCell(cell));
+        }
+
+        public bool TryGetTerrain(SurfaceCell cell, out TerrainCellState terrainCell)
+        {
+            return SnapshotReadQueries.TryGetTerrain(_terrainData, cell, out terrainCell);
+        }
+
+        public bool TryGetTerrain(Vector2Int cell, out TerrainCellState terrainCell)
+        {
+            return TryGetTerrain(CreateDefaultQueryCell(cell), out terrainCell);
         }
 
         public bool TryGetUnitTraversalBlocker(SurfaceCell cell, out SlideStopper blocker)
@@ -422,6 +462,11 @@ namespace Game.Feature.Gameplay.BoardState
             SnapshotReadQueries.EnumerateTerrainBlockedCellsOrdered(_terrainData, buffer);
         }
 
+        internal void EnumerateTerrainCellsOrdered(List<TerrainCellState> buffer)
+        {
+            SnapshotReadQueries.EnumerateTerrainCellsOrdered(_terrainData, buffer);
+        }
+
         internal void EnumerateUnitOccupancyOrdered(List<SnapshotOccupancyEntry> buffer)
         {
             SnapshotReadQueries.EnumerateStackedUnitOccupancyOrdered(
@@ -541,9 +586,24 @@ namespace Game.Feature.Gameplay.BoardState
             return SnapshotReadQueries.TryGetBoxAt(_entitiesById, _solidOccupancy, topology, cell, out entity);
         }
 
+        internal bool TryGetSolidSemanticAt(CubeTopologyState topology, SurfaceCell cell, out SolidSemantic semantic)
+        {
+            return SnapshotReadQueries.TryGetSolidSemanticAt(_entitiesById, _solidOccupancy, topology, cell, out semantic);
+        }
+
         internal bool TryGetSolidOccupantAt(CubeTopologyState topology, SurfaceCell cell, out EntityState entity)
         {
             return SnapshotReadQueries.TryGetSolidOccupantAt(_entitiesById, _solidOccupancy, topology, cell, out entity);
+        }
+
+        internal bool IsWallAt(CubeTopologyState topology, SurfaceCell cell)
+        {
+            return SnapshotReadQueries.IsWallAt(_entitiesById, _solidOccupancy, topology, cell);
+        }
+
+        internal bool IsBoxAt(CubeTopologyState topology, SurfaceCell cell)
+        {
+            return SnapshotReadQueries.IsBoxAt(_entitiesById, _solidOccupancy, topology, cell);
         }
 
         internal bool TryPickImpactTargetAt(

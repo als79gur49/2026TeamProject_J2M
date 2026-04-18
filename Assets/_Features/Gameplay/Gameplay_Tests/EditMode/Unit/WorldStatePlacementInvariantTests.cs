@@ -157,6 +157,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void SpawnEntity_FaceAwareTerrain_AllowsSamePlanarCellOnDifferentFace()
+        {
+            var floorBlockedCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var frontOpenCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                Array.Empty<EntityState>(),
+                new BoardBounds(Vector2Int.zero, new Vector2Int(1, 1)),
+                new GameplayTerrainData(new[]
+                {
+                    new TerrainCellState(
+                        floorBlockedCell,
+                        TerrainKind.Generic,
+                        TerrainFlags.BlocksGroundTraversal),
+                }));
+
+            worldState.CreateWriteContext().SpawnEntity(CreateUnit(entityId: 20, position: frontOpenCell));
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(20, out var entity), Is.True);
+            Assert.That(entity.position, Is.EqualTo(frontOpenCell));
+            Assert.That(snapshot.IsTerrainBlockedForUnit(floorBlockedCell), Is.True);
+            Assert.That(snapshot.IsTerrainBlockedForUnit(frontOpenCell), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void SpawnEntity_InactiveFaceSolidDestination_StillThrowsForAuthoritativeStateValidation()
         {
             var blockedCell = new SurfaceCell(FaceId.Ceiling, 1, 0);

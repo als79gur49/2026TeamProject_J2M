@@ -338,12 +338,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AppendTerrainEntries(StringBuilder builder, WorldSnapshot snapshot)
         {
-            var entries = new List<Vector2Int>();
-            snapshot.EnumerateTerrainBlockedCellsOrdered(entries);
+            var entries = new List<TerrainCellState>();
+            snapshot.EnumerateTerrainCellsOrdered(entries);
             builder.Append("Terrain=").Append(entries.Count).Append('\n');
             for (var i = 0; i < entries.Count; i++)
             {
-                builder.Append(entries[i].x).Append('|').Append(entries[i].y).Append('\n');
+                builder
+                    .Append((int)entries[i].Cell.face).Append('|')
+                    .Append(entries[i].Cell.x).Append('|')
+                    .Append(entries[i].Cell.y).Append('|')
+                    .Append((int)entries[i].Kind).Append('|')
+                    .Append((int)entries[i].Flags).Append('\n');
             }
         }
 

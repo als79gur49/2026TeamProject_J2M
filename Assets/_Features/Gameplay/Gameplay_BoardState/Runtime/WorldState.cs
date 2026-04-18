@@ -351,17 +351,18 @@ namespace Game.Feature.Gameplay.BoardState
 
         private void EnsurePlacementIsLegal(EntityState entity, SurfaceCell cell, int ignoredEntityId)
         {
-            if (!WorldPlacementPolicy.TryGetAuthoritativePlacementBlocker(
-                    _entitiesById,
-                    _stackedUnitsByCell,
-                    _solidOccupancy,
-                    _projectileOccupancy,
-                    _boardBounds,
-                    _terrainData,
-                    entity.type,
-                    cell,
-                    ignoredEntityId,
-                    out var blocker))
+            var legality = RuntimePlacementValidityPolicy.EvaluateAuthoritativePlacement(
+                _entitiesById,
+                _stackedUnitsByCell,
+                _solidOccupancy,
+                _projectileOccupancy,
+                _boardBounds,
+                _terrainData,
+                entity.type,
+                cell,
+                ignoredEntityId,
+                out var blocker);
+            if (legality.Verdict != LegalityVerdict.Blocked)
             {
                 return;
             }
@@ -385,16 +386,16 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
-            var blockingCells = _terrainData.OrderedUnitBlockingCells;
-            for (var i = 0; i < blockingCells.Count; i++)
+            var terrainCells = _terrainData.OrderedTerrainCells;
+            for (var i = 0; i < terrainCells.Count; i++)
             {
-                if (_boardBounds.Contains(blockingCells[i]))
+                if (_boardBounds.Contains(terrainCells[i].Cell.PlanarPosition))
                 {
                     continue;
                 }
 
                 throw new InvalidOperationException(
-                    $"Terrain cell ({blockingCells[i].x},{blockingCells[i].y}) is outside the configured board bounds.");
+                    $"Terrain cell {terrainCells[i].Cell} is outside the configured board bounds.");
             }
         }
 

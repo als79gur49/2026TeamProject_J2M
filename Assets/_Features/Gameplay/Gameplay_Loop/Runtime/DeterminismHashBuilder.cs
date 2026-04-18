@@ -180,10 +180,10 @@ namespace Game.Feature.Gameplay.Loop
             return occupancyEntries;
         }
 
-        private static List<Vector2Int> GetOrderedTerrain(WorldSnapshot finalSnapshot)
+        private static List<TerrainCellState> GetOrderedTerrain(WorldSnapshot finalSnapshot)
         {
-            var terrainEntries = new List<Vector2Int>();
-            finalSnapshot.EnumerateTerrainBlockedCellsOrdered(terrainEntries);
+            var terrainEntries = new List<TerrainCellState>();
+            finalSnapshot.EnumerateTerrainCellsOrdered(terrainEntries);
             return terrainEntries;
         }
 
@@ -225,7 +225,7 @@ namespace Game.Feature.Gameplay.Loop
 
         private static void AppendTerrainLines(
             StringBuilder builder,
-            IReadOnlyList<Vector2Int> terrainEntries)
+            IReadOnlyList<TerrainCellState> terrainEntries)
         {
             if (terrainEntries.Count == 0)
             {
@@ -236,8 +236,11 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < terrainEntries.Count; i++)
             {
                 builder
-                    .Append(terrainEntries[i].x).Append('|')
-                    .Append(terrainEntries[i].y).Append('\n');
+                    .Append((int)terrainEntries[i].Cell.face).Append('|')
+                    .Append(terrainEntries[i].Cell.x).Append('|')
+                    .Append(terrainEntries[i].Cell.y).Append('|')
+                    .Append((int)terrainEntries[i].Kind).Append('|')
+                    .Append((int)terrainEntries[i].Flags).Append('\n');
             }
         }
 

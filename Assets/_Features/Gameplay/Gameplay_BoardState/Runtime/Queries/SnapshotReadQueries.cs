@@ -116,6 +116,44 @@ namespace Game.Feature.Gameplay.BoardState
             return TryGetEntityAt(entitiesById, solidOccupancyByCell, topology, cell, out entity);
         }
 
+        public static bool TryGetSolidSemanticAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out SolidSemantic semantic)
+        {
+            semantic = default;
+
+            if (!TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out var entity))
+            {
+                return false;
+            }
+
+            semantic = new SolidSemantic(entity, ResolveSolidKind(entity));
+            return true;
+        }
+
+        public static bool IsWallAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell)
+        {
+            return TryGetSolidSemanticAt(entitiesById, solidOccupancyByCell, topology, cell, out var semantic) &&
+                   semantic.Kind == SolidKind.Wall;
+        }
+
+        public static bool IsBoxAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell)
+        {
+            return TryGetSolidSemanticAt(entitiesById, solidOccupancyByCell, topology, cell, out var semantic) &&
+                   semantic.Kind == SolidKind.Box;
+        }
+
         public static bool TryGetBoxAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
@@ -123,9 +161,10 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell,
             out EntityState entity)
         {
-            if (TryGetSolidOccupantAt(entitiesById, solidOccupancyByCell, topology, cell, out entity) &&
-                entity.type == EntityType.Box)
+            if (TryGetSolidSemanticAt(entitiesById, solidOccupancyByCell, topology, cell, out var semantic) &&
+                semantic.Kind == SolidKind.Box)
             {
+                entity = semantic.Entity;
                 return true;
             }
 
@@ -301,7 +340,22 @@ namespace Game.Feature.Gameplay.BoardState
                 throw new ArgumentNullException(nameof(terrainData));
             }
 
-            return topology.IsFaceActive(cell.face) && terrainData.BlocksUnitMovement(cell.PlanarPosition);
+            return topology.IsFaceActive(cell.face) &&
+                   TryGetTerrain(terrainData, cell, out var terrainCell) &&
+                   (terrainCell.Flags & TerrainFlags.BlocksGroundTraversal) != 0;
+        }
+
+        public static bool TryGetTerrain(
+            TerrainData terrainData,
+            SurfaceCell cell,
+            out TerrainCellState terrainCell)
+        {
+            if (terrainData == null)
+            {
+                throw new ArgumentNullException(nameof(terrainData));
+            }
+
+            return terrainData.TryGetTerrain(cell, out terrainCell);
         }
 
         public static bool BlocksMovement(
@@ -483,6 +537,29 @@ namespace Game.Feature.Gameplay.BoardState
             }
         }
 
+        public static void EnumerateTerrainCellsOrdered(
+            TerrainData terrainData,
+            List<TerrainCellState> buffer)
+        {
+            if (terrainData == null)
+            {
+                throw new ArgumentNullException(nameof(terrainData));
+            }
+
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            var orderedCells = terrainData.OrderedTerrainCells;
+            for (var i = 0; i < orderedCells.Count; i++)
+            {
+                buffer.Add(orderedCells[i]);
+            }
+        }
+
         public static void EnumerateTerrainBlockedCellsOrdered(
             TerrainData terrainData,
             List<Vector2Int> buffer)
@@ -552,6 +629,11 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             return false;
+        }
+
+        internal static SolidKind ResolveSolidKind(EntityState entity)
+        {
+            return entity.type == EntityType.Box ? SolidKind.Box : SolidKind.Wall;
         }
 
         private static void ValidateQueryDictionaries(

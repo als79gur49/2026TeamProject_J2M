@@ -72,7 +72,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(solidOccupant.entityId, Is.EqualTo(40));
             Assert.That(snapshot.TryGetBoxAt(boxCell, out var box), Is.True);
             Assert.That(box.entityId, Is.EqualTo(40));
+            Assert.That(snapshot.TryGetSolidSemanticAt(boxCell, out var solidSemantic), Is.True);
+            Assert.That(solidSemantic.Kind, Is.EqualTo(SolidKind.Box));
+            Assert.That(snapshot.IsBoxAt(boxCell), Is.True);
+            Assert.That(snapshot.IsWallAt(boxCell), Is.False);
             Assert.That(snapshot.TryGetPrimaryUnitAt(boxCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_SolidSemanticQueries_DistinguishWallsFromBoxes()
+        {
+            var wallCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var boxCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateBox(entityId: 40, position: boxCell),
+                    CreateWall(entityId: 50, position: wallCell),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty);
+            var snapshot = CreateSnapshot(worldState);
+
+            Assert.That(snapshot.TryGetSolidSemanticAt(boxCell, out var boxSemantic), Is.True);
+            Assert.That(boxSemantic.Kind, Is.EqualTo(SolidKind.Box));
+            Assert.That(boxSemantic.Entity.entityId, Is.EqualTo(40));
+
+            Assert.That(snapshot.TryGetSolidSemanticAt(wallCell, out var wallSemantic), Is.True);
+            Assert.That(wallSemantic.Kind, Is.EqualTo(SolidKind.Wall));
+            Assert.That(wallSemantic.Entity.entityId, Is.EqualTo(50));
+            Assert.That(snapshot.IsWallAt(wallCell), Is.True);
+            Assert.That(snapshot.IsBoxAt(wallCell), Is.False);
+            Assert.That(snapshot.TryGetBoxAt(wallCell, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_TerrainQueries_AreFaceAwareWhileLegacyPlanarTerrainRemainsExpanded()
+        {
+            var floorCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var frontCell = new SurfaceCell(FaceId.Front, 1, 0);
+            var faceAwareTerrain = new GameplayTerrainData(new[]
+            {
+                new TerrainCellState(floorCell, TerrainKind.Generic, TerrainFlags.BlocksGroundTraversal),
+            });
+            var faceAwareSnapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    System.Array.Empty<EntityState>(),
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                    faceAwareTerrain));
+
+            Assert.That(faceAwareSnapshot.TryGetTerrain(floorCell, out var floorTerrain), Is.True);
+            Assert.That(floorTerrain.Cell, Is.EqualTo(floorCell));
+            Assert.That(faceAwareSnapshot.TryGetTerrain(frontCell, out _), Is.False);
+            Assert.That(faceAwareSnapshot.IsTerrainBlockedForUnit(floorCell), Is.True);
+            Assert.That(faceAwareSnapshot.IsTerrainBlockedForUnit(frontCell), Is.False);
+
+            var legacySnapshot = CreateSnapshot(
+                GameplayWorldStateTestFactory.CreateBounded(
+                    System.Array.Empty<EntityState>(),
+                    new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)),
+                    new GameplayTerrainData(new[] { floorCell.PlanarPosition })));
+
+            Assert.That(legacySnapshot.IsTerrainBlockedForUnit(floorCell), Is.True);
+            Assert.That(legacySnapshot.IsTerrainBlockedForUnit(frontCell), Is.True);
         }
 
         [Test]

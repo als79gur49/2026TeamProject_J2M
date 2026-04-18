@@ -161,7 +161,7 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            if (TerrainBlocksPlacement(entityType, terrainData, cell.PlanarPosition))
+            if (TerrainBlocksPlacement(entityType, terrainData, cell))
             {
                 blocker = SlideStopper.CreateTerrain(cell);
                 return true;
@@ -345,7 +345,7 @@ namespace Game.Feature.Gameplay.BoardState
         private static bool TerrainBlocksPlacement(
             EntityType entityType,
             TerrainData terrainData,
-            Vector2Int cell)
+            SurfaceCell cell)
         {
             switch (entityType)
             {
@@ -353,7 +353,8 @@ namespace Game.Feature.Gameplay.BoardState
                 case EntityType.Unit:
                 case EntityType.Projectile:
                 case EntityType.Box:
-                    return terrainData.BlocksUnitMovement(cell);
+                    return terrainData.TryGetTerrain(cell, out var terrainCell) &&
+                           (terrainCell.Flags & TerrainFlags.BlocksGroundTraversal) != 0;
 
                 default:
                     throw new InvalidOperationException($"Unsupported placement entity type: {entityType}");

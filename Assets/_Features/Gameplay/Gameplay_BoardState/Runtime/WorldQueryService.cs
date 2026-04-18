@@ -56,6 +56,21 @@ namespace Game.Feature.Gameplay.BoardState
             return SnapshotReadQueries.TryGetBoxAt(entitiesById, solidOccupancyByCell, topology, cell, out entity);
         }
 
+        public static bool TryGetSolidSemanticAt(
+            IReadOnlyDictionary<int, EntityState> entitiesById,
+            IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
+            CubeTopologyState topology,
+            SurfaceCell cell,
+            out SolidSemantic semantic)
+        {
+            return SnapshotReadQueries.TryGetSolidSemanticAt(
+                entitiesById,
+                solidOccupancyByCell,
+                topology,
+                cell,
+                out semantic);
+        }
+
         public static bool TryGetSolidOccupantAt(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
@@ -101,6 +116,14 @@ namespace Game.Feature.Gameplay.BoardState
             SurfaceCell cell)
         {
             return SnapshotReadQueries.IsTerrainBlockedForUnit(topology, terrainData, cell);
+        }
+
+        public static bool TryGetTerrain(
+            TerrainData terrainData,
+            SurfaceCell cell,
+            out TerrainCellState terrainCell)
+        {
+            return SnapshotReadQueries.TryGetTerrain(terrainData, cell, out terrainCell);
         }
 
         public static bool TryGetUnitTraversalBlocker(
@@ -205,6 +228,13 @@ namespace Game.Feature.Gameplay.BoardState
             List<Vector2Int> buffer)
         {
             SnapshotReadQueries.EnumerateTerrainBlockedCellsOrdered(terrainData, buffer);
+        }
+
+        public static void EnumerateTerrainCellsOrdered(
+            TerrainData terrainData,
+            List<TerrainCellState> buffer)
+        {
+            SnapshotReadQueries.EnumerateTerrainCellsOrdered(terrainData, buffer);
         }
 
         public static bool TryGetUnitBlocker(
