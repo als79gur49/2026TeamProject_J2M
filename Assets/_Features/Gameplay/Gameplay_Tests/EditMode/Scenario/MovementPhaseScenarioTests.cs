@@ -1114,7 +1114,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(units.Select(entity => entity.entityId).ToArray(), Is.EqualTo(new[] { 10 }));
             Assert.That(movementOnly.SnapshotAfterMovement.TryPickImpactTargetAt(new SurfaceCell(FaceId.Floor, 1, 0), sourceTeamId: 2, out var occupyingUnit), Is.True);
             Assert.That(occupyingUnit.entityId, Is.EqualTo(10));
-            Assert.That(movementOnly.SnapshotAfterMovement.TryPickImpactTargetAt(new SurfaceCell(FaceId.Floor, 1, 0), sourceTeamId: 1, out _), Is.False);
+            Assert.That(movementOnly.SnapshotAfterMovement.TryPickImpactTargetAt(new SurfaceCell(FaceId.Floor, 1, 0), sourceTeamId: 1, out var sameTeamFallbackTarget), Is.True);
+            Assert.That(sameTeamFallbackTarget.entityId, Is.EqualTo(10));
         }
 
         [Test]
