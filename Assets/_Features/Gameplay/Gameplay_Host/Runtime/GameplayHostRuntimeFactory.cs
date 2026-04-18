@@ -57,6 +57,10 @@ namespace Game.Feature.Gameplay.Host
             var faceSeamGap = configuration.ResolveFaceSeamGap();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
             var normalizedInitialEntities = NormalizeInitialEntitiesForRuntime(initialEntities, generalTimingProfile);
+            DebugSpawnValidityPolicy.EnsureRepresentable(
+                configuration.InitialBoardBounds,
+                initialTerrain,
+                normalizedInitialEntities);
 
             var worldState = GameplayCompositionRoot.CreateWorldState(
                 normalizedInitialEntities,

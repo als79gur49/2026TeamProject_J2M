@@ -82,11 +82,16 @@ namespace Game.Feature.Gameplay.Tests
             var normalizedInitialEntities = SessionStartEntityNormalizer.Normalize(
                 initialEntities,
                 timingProfile ?? GameplayTimingProfile.CreateDefault());
+            var resolvedTerrain = terrainData ?? GameplayTerrainData.Empty;
+            DebugSpawnValidityPolicy.EnsureRepresentable(
+                boardBounds,
+                resolvedTerrain,
+                normalizedInitialEntities);
 
             return GameplayCompositionRoot.CreateWorldState(
                 normalizedInitialEntities,
                 boardBounds,
-                terrainData ?? GameplayTerrainData.Empty,
+                resolvedTerrain,
                 topology);
         }
     }

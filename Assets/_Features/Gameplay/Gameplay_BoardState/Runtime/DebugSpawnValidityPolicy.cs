@@ -1,9 +1,61 @@
 using System;
+using System.Collections.Generic;
 
 namespace Game.Feature.Gameplay.BoardState
 {
     internal static class DebugSpawnValidityPolicy
     {
+        public static void EnsureRepresentable(
+            BoardBounds boardBounds,
+            TerrainData terrainData,
+            IEnumerable<EntityState> entities)
+        {
+            if (terrainData == null)
+            {
+                throw new ArgumentNullException(nameof(terrainData));
+            }
+
+            if (entities == null)
+            {
+                throw new ArgumentNullException(nameof(entities));
+            }
+
+            var entitiesById = new Dictionary<int, EntityState>();
+            var stackedUnitsByCell = new Dictionary<SurfaceCell, SortedSet<int>>();
+            var solidOccupancyByCell = new Dictionary<SurfaceCell, int>();
+            var projectileOccupancy = new Dictionary<SurfaceCell, int>();
+
+            foreach (var entity in entities)
+            {
+                EnsureRepresentable(boardBounds, terrainData, entity);
+
+                if (entitiesById.ContainsKey(entity.entityId))
+                {
+                    throw new InvalidOperationException(
+                        $"Debug spawns must use unique entity ids. Duplicate entity id {entity.entityId}.");
+                }
+
+                if (WorldPlacementPolicy.TryGetRepresentablePlacementBlocker(
+                        entitiesById,
+                        stackedUnitsByCell,
+                        solidOccupancyByCell,
+                        projectileOccupancy,
+                        boardBounds,
+                        terrainData,
+                        entity.type,
+                        entity.position,
+                        ignoredEntityId: 0,
+                        out var blocker))
+                {
+                    throw new InvalidOperationException(
+                        $"Debug spawn entity {entity.entityId} is not representable at {entity.position}: {FormatBlocker(blocker)}.");
+                }
+
+                entitiesById.Add(entity.entityId, entity);
+                ReserveEntityOccupancy(entity, stackedUnitsByCell, solidOccupancyByCell, projectileOccupancy);
+            }
+        }
+
         public static void EnsureRepresentable(BoardBounds boardBounds, TerrainData terrainData, EntityState entity)
         {
             if (entity.entityId <= 0)
@@ -21,6 +73,51 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 throw new ArgumentNullException(nameof(terrainData));
             }
+        }
+
+        private static void ReserveEntityOccupancy(
+            EntityState entity,
+            IDictionary<SurfaceCell, SortedSet<int>> stackedUnitsByCell,
+            IDictionary<SurfaceCell, int> solidOccupancyByCell,
+            IDictionary<SurfaceCell, int> projectileOccupancy)
+        {
+            if (entity.boardPresence != EntityBoardPresence.Occupying)
+            {
+                return;
+            }
+
+            switch (entity.type)
+            {
+                case EntityType.Unit:
+                    if (!stackedUnitsByCell.TryGetValue(entity.position, out var occupants))
+                    {
+                        occupants = new SortedSet<int>();
+                        stackedUnitsByCell[entity.position] = occupants;
+                    }
+
+                    occupants.Add(entity.entityId);
+                    break;
+
+                case EntityType.Box:
+                    solidOccupancyByCell[entity.position] = entity.entityId;
+                    break;
+
+                case EntityType.Projectile:
+                    projectileOccupancy[entity.position] = entity.entityId;
+                    break;
+            }
+        }
+
+        private static string FormatBlocker(SlideStopper blocker)
+        {
+            if (blocker.Kind != SlideStopperKind.Entity)
+            {
+                return blocker.Kind.ToString();
+            }
+
+            return blocker.EntityId > 0
+                ? $"{blocker.Kind}|BlockerEntity={blocker.EntityId}|BlockerType={blocker.EntityType}"
+                : blocker.Kind.ToString();
         }
     }
 }
