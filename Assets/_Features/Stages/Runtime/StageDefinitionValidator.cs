@@ -54,74 +54,7 @@ namespace Game.Feature.Stages
             IReadOnlyList<ExplicitSpawnEntry> spawnEntries,
             BoardBounds boardBounds)
         {
-            var occupiedCells = new HashSet<SurfaceCell>();
-            var explicitEntityIds = new HashSet<int>();
-            var playerCount = 0;
-            var playerEntityId = 0;
-
-            for (var i = 0; i < spawnEntries.Count; i++)
-            {
-                var spawnEntry = spawnEntries[i];
-                var spawn = spawnEntry.Spawn;
-                var spawnLabel = FormatSpawnLabel(spawnEntry);
-
-                if (spawn.Kind != spawnEntry.ExpectedKind)
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' {spawnEntry.GroupName}[{spawnEntry.GroupIndex}] must use Kind {spawnEntry.ExpectedKind}, but found {spawn.Kind}.");
-                }
-
-                if (spawn.EntityId <= 0)
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' {spawnLabel} must use a positive entity id.");
-                }
-
-                if (!explicitEntityIds.Add(spawn.EntityId))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' contains duplicate entity id {spawn.EntityId}.");
-                }
-
-                if (!boardBounds.Contains(spawn.Cell.PlanarPosition))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' {spawnLabel} is outside the configured board bounds at {spawn.Cell}.");
-                }
-
-                if (!occupiedCells.Add(spawn.Cell))
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' contains duplicate occupied cell {spawn.Cell}.");
-                }
-
-                if (spawn.Hp <= 0)
-                {
-                    throw new InvalidOperationException(
-                        $"Stage '{stageName}' {spawnLabel} must use a positive Hp value.");
-                }
-
-                if (spawn.Kind != StageSpawnKind.Player)
-                {
-                    continue;
-                }
-
-                playerCount++;
-                playerEntityId = spawn.EntityId;
-            }
-
-            if (playerCount == 0)
-            {
-                throw new InvalidOperationException($"Stage '{stageName}' must contain exactly one player spawn, but found none.");
-            }
-
-            if (playerCount > 1)
-            {
-                throw new InvalidOperationException(
-                    $"Stage '{stageName}' must contain exactly one player spawn, but found {playerCount}.");
-            }
-
-            return playerEntityId;
+            return AuthoringStageValidityPolicy.ValidateEntities(stageName, spawnEntries, boardBounds);
         }
 
         private static StageZoneDefinition[] ValidateZones(
@@ -320,7 +253,7 @@ namespace Game.Feature.Stages
             return spawns;
         }
 
-        private static string FormatSpawnLabel(ExplicitSpawnEntry spawnEntry)
+        internal static string FormatSpawnLabel(ExplicitSpawnEntry spawnEntry)
         {
             var spawn = spawnEntry.Spawn;
             return $"{spawnEntry.GroupName}[{spawnEntry.GroupIndex}] ({spawn.Kind}, EntityId={spawn.EntityId}, Cell={spawn.Cell})";

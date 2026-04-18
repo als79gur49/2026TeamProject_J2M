@@ -37,6 +37,7 @@ namespace Game.Feature.Stages
         public EnemyAiProfile EnemyAiProfile;
         [FormerlySerializedAs("EnemyPresentationId")]
         public string PresentationId;
+        public string UnitStackGroup;
     }
 
     [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Definition", fileName = "StageDefinition")]

@@ -57,6 +57,72 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void StageRuntimeBuilder_StackedUnitAuthoring_AllowsExplicitOptInGroup()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var stage = CreateStage(
+                "StackedUnitOptIn",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(
+                    10,
+                    StageSpawnKind.Player,
+                    sharedCell,
+                    hp: 3,
+                    facing: Direction.Up,
+                    unitStackGroup: "spawn-stack"),
+                CreateSpawn(
+                    20,
+                    StageSpawnKind.Enemy,
+                    sharedCell,
+                    hp: 2,
+                    enemyAiMode: EnemyAiMode.Patrol,
+                    unitStackGroup: "spawn-stack"));
+
+            try
+            {
+                var buildResult = StageRuntimeBuilder.Build(stage);
+                var snapshot = GameplayCompositionRoot.CreateWorldState(
+                        buildResult.InitialEntities,
+                        buildResult.BoardBounds,
+                        buildResult.InitialTerrain,
+                        buildResult.InitialTopology)
+                    .CreateSnapshot();
+                var units = new System.Collections.Generic.List<EntityState>();
+
+                snapshot.EnumerateUnitsAt(sharedCell, units);
+
+                CollectionAssert.AreEqual(new[] { 10, 20 }, units.ConvertAll(entity => entity.entityId));
+                Assert.That(snapshot.TryGetPrimaryUnitAt(sharedCell, out var primaryUnit), Is.True);
+                Assert.That(primaryUnit.entityId, Is.EqualTo(10));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(stage);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void StageRuntimeBuilder_StackedUnitAuthoring_RejectsMissingOrDifferentOptInGroup()
+        {
+            var sharedCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var missingGroupStage = CreateStage(
+                "StackedUnitMissingGroup",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, sharedCell, hp: 3, facing: Direction.Up, unitStackGroup: "spawn-stack"),
+                CreateSpawn(20, StageSpawnKind.Enemy, sharedCell, hp: 2, enemyAiMode: EnemyAiMode.Patrol));
+            var differentGroupStage = CreateStage(
+                "StackedUnitDifferentGroup",
+                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
+                CreateSpawn(10, StageSpawnKind.Player, sharedCell, hp: 3, facing: Direction.Up, unitStackGroup: "spawn-stack"),
+                CreateSpawn(20, StageSpawnKind.Enemy, sharedCell, hp: 2, enemyAiMode: EnemyAiMode.Patrol, unitStackGroup: "other-stack"));
+
+            AssertBuildThrows(missingGroupStage, "duplicate occupied cell");
+            AssertBuildThrows(differentGroupStage, "duplicate occupied cell");
+        }
+
+        [Test]
+        [Category("Extended")]
         public void StageRuntimeBuilder_OutOfBoundsRejects()
         {
             var stage = CreateStage(
@@ -383,7 +449,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiMode enemyAiMode = EnemyAiMode.None,
             int enemyAiStateTimer = 0,
             EnemyAiProfile enemyAiProfile = null,
-            string presentationId = null)
+            string presentationId = null,
+            string unitStackGroup = null)
         {
             return new StageSpawnDefinition
             {
@@ -397,6 +464,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 EnemyAiStateTimer = enemyAiStateTimer,
                 EnemyAiProfile = enemyAiProfile,
                 PresentationId = presentationId,
+                UnitStackGroup = unitStackGroup,
             };
         }
 
