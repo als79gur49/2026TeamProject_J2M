@@ -52,7 +52,11 @@ TickResult
   -> TickPresentationData + public final seams
      [Authoritative Presentation Signal Seam]
       -> GameplayTickViewPresenter
-      -> GameplayAudioPresenter
+          -> GameplayAudioPresentationController
+              -> GameplayAudioRequestPlanner
+              -> GameplayAudioMap
+              -> IGameplayAudioPlaybackPort
+                  -> IAudioService
       -> GameplayHostPresentationFeed
           -> GameplayUiPresentationSource
               -> UITickEventRouter
@@ -72,13 +76,29 @@ TickResult
   - optional future `AudioPlaybackPolicy` seam
   - binding-local validation rule의 canonical owner
 - `GameplayAudioMap`
-  - feature semantic dictionary
+  - typed feature semantic dictionary
   - authoring 단계에서는 visible validation error를 남기고, bootstrap/runtime에서는 hard-fail 한다
   - binding-local validation은 직접 재구현하지 않고 delegated `AudioBinding` diagnostics를 수집한다
-- `GameplayAudioPresenter`
+- `GameplayAudioSemanticId`
+  - gameplay-origin one-shot SFX vocabulary의 canonical typed id
+  - raw string semantic literal을 대체한다
+- `GameplayAudioSemanticCatalog`
+  - `RequiredOneShotV1`의 single source of truth owner
+  - planner emission vocabulary, bootstrap validation, tests, logs/error formatting에 공통 사용된다
+- `GameplayAudioRequestPlanner`
   - `TickResult.PresentationData`와 public final seams만 읽는다
-  - semantic-to-binding projection과 `IAudioService` 호출만 담당한다
-  - `EventLog`, phase-private result, raw world diff 재해석 금지
+  - supported damage/exit presentation fact를 typed gameplay audio request로 변환한다
+  - `GameplayAudioMap`, `IAudioService`, owner view resolution, continuous handle state를 소유하지 않는다
+  - locomotion loop, windup/recovery loop, UI audio, BGM은 intentionally excluded v1 scope다
+- `GameplayAudioPresentationController`
+  - host-owned orchestration controller다
+  - `GameplayTickPresentationCoordinator` 내부 collaborator로 존재한다
+  - typed request를 `GameplayAudioMap`과 `IGameplayAudioPlaybackPort`를 통해 runtime playback으로 내린다
+  - missing owner view는 failure가 아니라 `Play2D` fallback으로 degrade한다
+- `IGameplayAudioPlaybackPort`
+  - gameplay host-local narrow playback port다
+  - `Play2D`와 `PlayAttached`만 가진다
+  - gameplay host orchestration path에서 `PlayBgm`을 compile-time으로 차단한다
 - `IAudioService`
   - feature-facing playback contract
 - `AudioManager`
@@ -86,6 +106,32 @@ TickResult
   - definition resolution, source lease, attached registry delegation, BGM routing만 담당한다
   - feature semantic branching 금지
   - runtime root initialization 이전 service entrypoint 호출은 setup defect로 즉시 실패한다
+
+### 4.1 Gameplay Host-Orchestration Contract
+
+- gameplay-origin one-shot SFX는 `GameplayTickPresentationCoordinator`가 orchestration owner다.
+- canonical ordering은 아래 exact sequence로 고정한다.
+  1. `RefreshAudioPlan(result)`
+  2. `PlayEntityExitEffects()`
+  3. `PlayPlayerHitEffects(result)`
+  4. `PlayPlannedAudio()`
+  5. `ApplyEntityExitOwnership()`
+- attached owner resolution은 exit ownership removal 이전에만 수행한다.
+- pending gameplay audio plan은 `PresentInitial`, session reset, presenter teardown에서 반드시 비워진다.
+- gameplay audio host path는 generic dispatcher가 아니다.
+  - UI audio는 UI presenter/controller path에 남는다.
+  - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
+  - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
+
+### 4.2 Gameplay Audio Bootstrap Validation
+
+- `GameplaySceneHostConfiguration.GameplayAudioMap`이 assigned되면 `GameplaySceneHost` canonical host root same `GameObject`에 co-located `AudioRuntimeInstaller`가 있어야 한다.
+- `GameplayHostRuntimeFactory`는 scene-global lookup을 하지 않는다.
+- missing installer fail-fast message는 아래 exact string으로 고정한다.
+  - `GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.`
+- `GameplayAudioMap.ValidateRequiredSemanticsOrThrow(GameplayAudioSemanticCatalog.RequiredOneShotV1)`는 host attach/init에서 first gameplay playback 이전에 수행되어야 한다.
+- missing required semantic fail-fast message는 아래 format으로 고정한다.
+  - `GameplayAudioMap '<MapName>' is missing required gameplay audio semantics: <Id1>, <Id2>.`
 
 ## 5. 2D-Only Playback Contract
 
