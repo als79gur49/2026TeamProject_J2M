@@ -4,6 +4,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -16,12 +17,25 @@ namespace Game.Feature.UI.Tests
     public sealed class TutorialSceneUiContractTests
     {
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
+        private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
 
         [Test]
         [Category("Extended")]
         public void TutorialScene_UsesSingleCanonicalBootstrapPath_WithoutSerializedUiResidue()
         {
-            var scene = EditorSceneManager.OpenScene(TutorialScenePath, OpenSceneMode.Single);
+            AssertCanonicalBootstrapScene(TutorialScenePath, "TutorialSceneBootstrapRoot");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void UiAudioScene_UsesCoLocatedAudioRuntimeInstaller_OnCanonicalBootstrapRoot()
+        {
+            AssertCanonicalBootstrapScene(UiAudioScenePath, "UIAudioSceneBootstrapRoot");
+        }
+
+        private static void AssertCanonicalBootstrapScene(string scenePath, string expectedRootName)
+        {
+            var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
             try
             {
@@ -39,14 +53,17 @@ namespace Game.Feature.UI.Tests
                 var showcaseInstaller = bootstrapRoot.GetComponent<CombinedGameplayShowcaseInstaller>();
                 var sceneHost = bootstrapRoot.GetComponent<GameplaySceneHost>();
                 var uiInstaller = bootstrapRoot.GetComponent<GameplayUiFlowInstaller>();
+                var audioInstaller = bootstrapRoot.GetComponent<AudioRuntimeInstaller>();
 
-                Assert.That(bootstrapRoot.name, Is.EqualTo("TutorialSceneBootstrapRoot"));
+                Assert.That(bootstrapRoot.name, Is.EqualTo(expectedRootName));
                 Assert.That(showcaseInstaller, Is.Not.Null);
                 Assert.That(sceneHost, Is.Not.Null);
                 Assert.That(uiInstaller, Is.Not.Null);
+                Assert.That(audioInstaller, Is.Not.Null);
                 Assert.That(CountComponentsInScene<CombinedGameplayShowcaseInstaller>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplaySceneHost>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplayUiFlowInstaller>(rootObjects), Is.EqualTo(1));
+                Assert.That(CountComponentsInScene<AudioRuntimeInstaller>(rootObjects), Is.EqualTo(1));
 
                 var serializedInstaller = new SerializedObject(uiInstaller);
                 Assert.That(serializedInstaller.FindProperty("_sceneHost").objectReferenceValue, Is.SameAs(sceneHost));
