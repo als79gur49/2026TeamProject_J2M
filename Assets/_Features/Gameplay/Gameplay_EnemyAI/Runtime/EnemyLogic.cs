@@ -925,6 +925,8 @@ namespace Game.Feature.Gameplay.Entities
 
     internal static class EnemyPhaseThroughLockedTargetQueries
     {
+        // Baseline validator-only chooser. This current lock-based rule is not a reusable
+        // template for generalized phase movement.
         public const string RuleLabel = "LockedTargetCrossThrough";
 
         public static bool TryResolveValidatorWindow(
@@ -958,6 +960,7 @@ namespace Game.Feature.Gameplay.Entities
             Direction direction,
             out SurfaceCell terminalCell)
         {
+            // Keep the chooser local and deterministic: same-face, committed line, behind-target +1.
             terminalCell = default;
             if (source.position.face != lockedTarget.position.face ||
                 !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta))

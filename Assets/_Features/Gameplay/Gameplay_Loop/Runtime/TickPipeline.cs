@@ -2355,7 +2355,9 @@ namespace Game.Feature.Gameplay.Loop
                         }
                         else
                         {
-                            reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
+                            reservationStatus = ReadPhaseRelocationTerminalReservationStatus(
+                                reservationBook,
+                                payload.DestinationCell);
                             var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
                                 new SettlementContext(
                                     movementSnapshot,
@@ -2400,6 +2402,15 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return batch;
+        }
+
+        private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(
+            MovementReservationBook reservationBook,
+            SurfaceCell terminalCell)
+        {
+            // Semantic contract: read exactly one fixed terminal cell and do not inspect
+            // edge/entity/topology reservation detail from this validator consumer.
+            return reservationBook.GetCellStatus(terminalCell);
         }
 
         private static Contest TryFindJumpLandingContest(
