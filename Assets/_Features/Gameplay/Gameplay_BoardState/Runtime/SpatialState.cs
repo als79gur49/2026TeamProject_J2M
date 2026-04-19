@@ -28,6 +28,7 @@ namespace Game.Feature.Gameplay.BoardState
         MovementPreMovement = 1,
         EnemyPreMovement = 2,
         DebugForced = 3,
+        SystemPreMovementValidation = 4,
     }
 
     internal struct PhasedRuntimeState
@@ -86,6 +87,18 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return CreateActive(
                 PhasedRuntimeStateOwnerKind.DebugForced,
+                previousState,
+                tickIndex,
+                exitTickExclusive);
+        }
+
+        public static PhasedRuntimeState BeginSystemPreMovementValidation(
+            in PhasedRuntimeState previousState,
+            int tickIndex,
+            int exitTickExclusive = 0)
+        {
+            return CreateActive(
+                PhasedRuntimeStateOwnerKind.SystemPreMovementValidation,
                 previousState,
                 tickIndex,
                 exitTickExclusive);
@@ -254,6 +267,19 @@ namespace Game.Feature.Gameplay.BoardState
                         PhasedEarliestObservableSnapshot.AuthoritativeWrite,
                         cancelReplaceRule: "DebugWriteMayClearOnlyItsOwnOrInactiveState",
                         lifecycleRule: "ManualEnterExitOnly");
+                    return true;
+
+                case PhasedRuntimeStateOwnerKind.SystemPreMovementValidation:
+                    metadata = new PhasedSourceMetadata(
+                        ownerKind,
+                        PhasedSourceEmittingStage.PreMovementState,
+                        "SystemPreMovementValidation",
+                        PhasedTargetabilityMode.FreshSelectionSuppressed,
+                        PhasedRequestedTerminalSettleMode.AnchoredLikeDefault,
+                        PhasedReservationReadClass.None,
+                        PhasedEarliestObservableSnapshot.PlanSnapshot,
+                        cancelReplaceRule: "ExplicitClearRequiredForForeignOwnerReplace",
+                        lifecycleRule: "EnterOnDeterministicValidationWindow|SustainWhileWindowRemainsOpen|ExitOnWindowCloseOrForcedCancel");
                     return true;
 
                 default:

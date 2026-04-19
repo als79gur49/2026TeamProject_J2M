@@ -149,6 +149,10 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.hp -= amount;
             UpdateStoredEntity(entity);
+            if (entity.hp <= 0)
+            {
+                _phasedStatesByEntityId.Remove(entityId);
+            }
         }
 
         private void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer)
