@@ -9,8 +9,10 @@
 - rule:
   - push execute tick에서 다음 칸이 비어 있으면 box를 이동 commit한다.
   - 다음 칸이 적 유닛이면 `impact`다.
-  - `impact`에서는 box가 그 칸에 들어가지 않는다.
   - Movement는 `ImpactReservation`만 만들고, Attack이 same-tick damage를 적용한다.
+  - target dies + landing accepted면 current runtime lethal follow-through formalization으로 same-tick advance를 commit한다.
+  - target survives면 `Stay`다.
+  - target dies + landing denied면 `Stay`다.
 
 ## Flip
 - 관련 코드:
@@ -19,9 +21,29 @@
 - rule:
   - flip execute tick에서 landing cell을 다시 판정한다.
   - landing cell이 적 유닛이면 `impact`다.
-  - `impact`에서는 box가 source cell에 남는다.
+  - current contract에서 flip impact는 impact-result-dependent action uplift다.
+  - target dies + landing accepted면 `FollowThrough`다.
+  - target survives면 `DestroySelf`다.
+  - target dies + landing denied면 `Stay`다.
   - landing cell이 wall, solid box, terrain, board edge면 `blocked`다.
   - `blocked`에서는 impact가 생기지 않는다.
+
+## Push / Flip Impact Disposition Table
+- `ImpactDisposition`은 narrow internal Push/Flip-only contract, not a generalized impact framework다.
+- 허용 family는 current `Push`, `Sliding Push`, `Flip` hostile `BoxImpact` path뿐이다.
+- `ProjectileImpact`, jump landing, melee/contact, delayed effect, item consume, broader impact family generalization은 이번 단계 non-goal이다.
+
+| Family | Attack outcome | Settlement outcome | Disposition | Note |
+| --- | --- | --- | --- | --- |
+| Push / Sliding Push | target survives | not asked | `Stay` | current runtime lethal follow-through formalization |
+| Push / Sliding Push | target dies | landing accepted | `FollowThrough` | current runtime lethal follow-through formalization |
+| Push / Sliding Push | target dies | landing denied | `Stay` | current runtime lethal follow-through formalization |
+| Flip | target survives | not asked | `DestroySelf` | impact-result-dependent action uplift |
+| Flip | target dies | landing accepted | `FollowThrough` | impact-result-dependent action uplift |
+| Flip | target dies | landing denied | `Stay` | current contract decision |
+
+- `Flip lethal but landing denied = Stay` is a current contract decision for the current Push/Flip impact-disposition plan. It is not a generalized impact principle.
+- Transient collision/break is a presentation-only track.
 
 ## Traverse vs Settle
 - `Traverse`는 actor가 이동 step 또는 topology transition을 통과할 수 있는지 묻는다.
@@ -126,6 +148,13 @@
 - push/flip의 `impact`와 `blocked`는 둘 다 execute attempted failure다.
 - 둘 다 cancel이 아니라 recovery로 진입한다.
 - view는 `TickPresentationData.PlayerActionSignals`만 보고 recovery를 표현한다.
+
+### Push/Flip Impact Handoff Note
+- Push change is formalization, not a new framework.
+- Do not redesign Push around a new disposition framework; formalize what runtime already does.
+- Flip change is a narrow impact-result-dependent uplift.
+- `Flip lethal but landing denied = Stay` is a current contract decision.
+- Transient collision/break is presentation-only and must not be used as gameplay truth.
 
 ## Cleanup Occupancy Policy
 - `markedForDeath` 또는 `hp <= 0` entity는 Cleanup 전까지 snapshot query에 남아 있을 수 있다.

@@ -1006,6 +1006,115 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_FlipDestroySelfImpactTransient_HidesAuthoritativeView_WithoutCommittedMove()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_FlipDestroySelfImpactTransient_HidesAuthoritativeView_WithoutCommittedMove");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                const float flipMotionDurationSeconds = 0.2f;
+                const float boxDestroyEffectDurationSeconds = 0.18f;
+                var timingProfile = new GameplayTimingProfile(
+                    simulationTicksPerSecond: 60,
+                    initialMoveDelaySeconds: 0f,
+                    repeatedMoveIntervalSeconds: 0.4f,
+                    boxSlideStepIntervalSeconds: 0.2f,
+                    projectileStepIntervalSeconds: 0.2f,
+                    moveMotionDurationSeconds: 0.1f,
+                    pushMotionDurationSeconds: 0.05f,
+                    topologyMotionDurationSeconds: 0.05f,
+                    flipMotionDurationSeconds: flipMotionDurationSeconds,
+                    flipArcHeightInCells: 0.65f,
+                    maxTicksPerFrame: 8,
+                    itemConsumeEffectDurationSeconds: 0.25f,
+                    boxDestroyEffectDurationSeconds: boxDestroyEffectDurationSeconds);
+                var boardBounds = new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0));
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, -1, 0);
+                var impactCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10));
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreateBox(20, sourceCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(20, out var boxView), Is.True);
+                presenter.Present(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            entityExitSignals: new[]
+                            {
+                                new TickEntityExitPresentationSignal(
+                                    20,
+                                    TickEntityExitCause.BoxDestroy,
+                                    sourceCell,
+                                    topology,
+                                    Direction.Left,
+                                    EntityType.Box,
+                                    sourceActorEntityId: 10),
+                            },
+                            impactTransientSignals: new[]
+                            {
+                                new TickImpactTransientPresentationSignal(
+                                    20,
+                                    EntityType.Box,
+                                    sourceCell,
+                                    impactCell,
+                                    topology,
+                                    Direction.Left,
+                                    presentationSeed: 123),
+                            }),
+                        string.Empty,
+                        TickTrace.Empty));
+
+                Assert.That(boxView.gameObject.activeSelf, Is.False);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation(Mathf.Max(flipMotionDurationSeconds, boxDestroyEffectDurationSeconds) + 0.05f);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void GameplayTickPresentationCoordinator_PlayerAcceptedHit_WithHitVfxPrefab_SpawnsTransientHitEffect()
         {

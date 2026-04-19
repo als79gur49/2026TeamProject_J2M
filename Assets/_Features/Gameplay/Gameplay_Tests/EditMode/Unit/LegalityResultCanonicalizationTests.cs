@@ -147,6 +147,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hasSourceFacing: false,
                 sourceFacingEntityId: 0,
                 sourceFacing: Direction.None,
+                dispositionPolicyKind: ImpactDispositionPolicyKind.PushLike,
                 contingentSemanticKind: ResolvedActionSemanticKind.Push);
         }
 

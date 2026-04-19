@@ -742,6 +742,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Move(Direction.Right)));
             var snapshotAfter = CreateSnapshot(worldState);
             var resolvedOperations = result.MovementPhaseResult.ResolvedOperations;
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 20);
 
             CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(
@@ -832,6 +833,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(moveIndex, Is.GreaterThan(detachIndex));
             Assert.That(boxFacingIndex, Is.GreaterThan(moveIndex));
             Assert.That(stateIndex, Is.GreaterThan(boxFacingIndex));
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
             Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
@@ -1368,7 +1374,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Flip_LandingHasHostileUnit_CreatesImpactAndBoxRemainsAtSource()
+        public void Flip_LandingHasHostileUnit_NonLethalImpact_DestroysSelfWithoutCommittedMove()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -1385,11 +1391,26 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
             var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
 
             Assert.That(
                 result.MovementPhaseResult.CommitEvents.Any(evt => evt.StartsWith("ImpactReservationCreated|", StringComparison.Ordinal)),
                 Is.True);
             Assert.That(result.MovementPhaseResult.CommitEvents.Any(evt => evt.Contains("MoveCommitted")), Is.False);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "BoardPresenceCommitted",
+                    "E=30",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "DestroyMarked",
+                    "Target=30",
+                    "Reason=ImpactDestroySelf"),
+                Is.True);
             CollectionAssert.AreEqual(
                 new[]
                 {
@@ -1403,10 +1424,106 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                         reservation.ImpactCell,
                         reservation.Damage))
                     .ToArray());
+            CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(result.PresentationData.EntityMotions, Is.Empty);
-            Assert.That(GetEntityCell(worldState, 30), Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(result.PresentationData.EntityExitSignals.Select(signal => signal.ExitedEntityId).ToArray(), Is.EqualTo(new[] { 30 }));
+            Assert.That(result.PresentationData.ImpactTransientSignals.Count, Is.EqualTo(1));
+            Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(20, out var enemy), Is.True);
             Assert.That(enemy.hp, Is.EqualTo(2));
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.Flip));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.DestroySelf));
+            Assert.That(disposition.TargetDestroyed, Is.False);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.False);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_LethalImpact_LandingAccepted_FollowsThroughSameTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
+
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "BoardPresenceCommitted",
+                    "E=20",
+                    "Presence=Detached"),
+                Is.True);
+            Assert.That(
+                SemanticEventAssertions.ContainsEvent(
+                    result.MovementPhaseResult.CommitEvents,
+                    "MoveCommitted",
+                    "E=30",
+                    "To=(1,0)"),
+                Is.True);
+            Assert.That(
+                result.PresentationData.EntityMotions.Any(
+                    motion => motion.EntityId == 30 &&
+                              motion.MotionKind == TickEntityMotionKind.Flip &&
+                              motion.SourceCell == new SurfaceCell(FaceId.Floor, -1, 0) &&
+                              motion.DestinationCell == new SurfaceCell(FaceId.Floor, 1, 0)),
+                Is.True);
+            Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var flippedBox), Is.True);
+            Assert.That(flippedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void Flip_LethalImpact_LandingDenied_CurrentContract_StaysAtSource()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new Vector2Int(0, 0), teamId: 1),
+                CreateBox(entityId: 30, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 20, position: new Vector2Int(1, 0), hp: 1, teamId: 2),
+                CreateUnit(entityId: 21, position: new Vector2Int(1, 0), hp: 3, teamId: 2),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
+                worldState,
+                new IEntityLogic[]
+                {
+                    CreateImmediateFlipPlayerLogic(10),
+                });
+
+            var result = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+            var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = result.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
+
+            CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
+            Assert.That(result.PresentationData.EntityMotions, Is.Empty);
+            Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
+            Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(snapshotAfter.TryGetEntity(21, out var survivingOccupant), Is.True);
+            Assert.That(survivingOccupant.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.Stay));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.False);
         }
 
         [Test]
@@ -1650,6 +1767,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             RunTicks(pipeline, startTickIndex: 2, endTickIndex: 12);
             var impactTick = pipeline.RunTick(new TickInput(13));
             var snapshotAfter = CreateSnapshot(worldState);
+            var disposition = impactTick.MovementPhaseResult.ImpactDispositionRecords.Single(record => record.ImpactSourceEntityId == 30);
 
             CollectionAssert.AreEqual(new[] { 40 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(impactTick.EventLog));
             Assert.That(
@@ -1678,6 +1796,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
             Assert.That(box.state, Is.EqualTo(EntityPhaseState.Sliding));
             Assert.That(snapshotAfter.TryGetEntity(40, out _), Is.False);
+            Assert.That(disposition.PolicyKind, Is.EqualTo(ImpactDispositionPolicyKind.PushLike));
+            Assert.That(disposition.DispositionKind, Is.EqualTo(ImpactDispositionKind.FollowThrough));
+            Assert.That(disposition.TargetDestroyed, Is.True);
+            Assert.That(disposition.FollowThroughLegalityChecked, Is.True);
+            Assert.That(disposition.FollowThroughAccepted, Is.True);
         }
 
         [Test]

@@ -58,6 +58,25 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        internal void PlayImpactBreakEffect(
+            TickImpactTransientPresentationSignal signal,
+            GameplayEntityView sourceView,
+            GameplayEntityPose sourceLocalPose,
+            GameplayEntityPose impactLocalPose,
+            float durationSeconds)
+        {
+            var track = _effectFactory.CreateImpactBreakEffect(
+                signal,
+                sourceView,
+                sourceLocalPose,
+                impactLocalPose,
+                durationSeconds);
+            if (track != null)
+            {
+                _activeTracks.Add(track);
+            }
+        }
+
         public void PlayHitEffect(
             int entityId,
             GameplayEntityPose localPose,
@@ -371,6 +390,122 @@ namespace Game.Feature.Gameplay.Host
                     GameplayTransientEffectTrackUtility.SetMaterialAlpha(materials[materialIndex], alpha);
                 }
             }
+        }
+    }
+
+    internal sealed class ImpactBreakEffectTrack : IGameplayTransientEffectTrack
+    {
+        private readonly float _arcHeight;
+        private readonly Vector3 _arcLocalDirection;
+        private readonly float _breakStartNormalizedTime;
+        private readonly float _durationSeconds;
+        private readonly Material[][] _instancedMaterials;
+        private readonly Renderer[] _renderers;
+        private readonly Transform _root;
+        private readonly Vector3 _rootStartLocalPosition;
+        private readonly Quaternion _rootStartLocalRotation;
+        private readonly Vector3 _rootStartLocalScale;
+        private readonly Vector3 _targetLocalPosition;
+        private float _elapsedSeconds;
+
+        public ImpactBreakEffectTrack(
+            Transform root,
+            Renderer[] renderers,
+            Material[][] instancedMaterials,
+            float durationSeconds,
+            Vector3 targetLocalPosition,
+            Vector3 arcLocalDirection,
+            float arcHeight)
+        {
+            _root = root != null ? root : throw new ArgumentNullException(nameof(root));
+            _renderers = renderers ?? Array.Empty<Renderer>();
+            _instancedMaterials = instancedMaterials ?? Array.Empty<Material[]>();
+            _durationSeconds = Mathf.Max(0.0001f, durationSeconds);
+            _rootStartLocalPosition = root.localPosition;
+            _rootStartLocalRotation = root.localRotation;
+            _rootStartLocalScale = root.localScale;
+            _targetLocalPosition = targetLocalPosition;
+            _arcLocalDirection = arcLocalDirection.sqrMagnitude > 0.000001f
+                ? arcLocalDirection.normalized
+                : Vector3.up;
+            _arcHeight = Mathf.Max(0f, arcHeight);
+            _breakStartNormalizedTime = 0.62f;
+            ApplyVisualState(normalizedTime: 0f);
+        }
+
+        public bool IsComplete => _elapsedSeconds >= _durationSeconds - 0.0001f;
+
+        public void Advance(float deltaTime)
+        {
+            if (deltaTime > 0f)
+            {
+                _elapsedSeconds = Mathf.Min(_durationSeconds, _elapsedSeconds + deltaTime);
+            }
+
+            ApplyVisualState(Mathf.Clamp01(_elapsedSeconds / _durationSeconds));
+        }
+
+        public void Dispose()
+        {
+            for (var rendererIndex = 0; rendererIndex < _instancedMaterials.Length; rendererIndex++)
+            {
+                var materials = _instancedMaterials[rendererIndex];
+                if (materials == null)
+                {
+                    continue;
+                }
+
+                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+                {
+                    GameplayTransientEffectTrackUtility.SafeDestroy(materials[materialIndex]);
+                }
+            }
+
+            GameplayTransientEffectTrackUtility.SafeDestroy(_root != null ? _root.gameObject : null);
+        }
+
+        private void ApplyVisualState(float normalizedTime)
+        {
+            var travelTime = Mathf.Clamp01(normalizedTime / _breakStartNormalizedTime);
+            var breakTime = Mathf.Clamp01((normalizedTime - _breakStartNormalizedTime) / (1f - _breakStartNormalizedTime));
+            var easedTravelTime = 1f - Mathf.Pow(1f - travelTime, 2f);
+            var arcOffset = _arcLocalDirection * (_arcHeight * Mathf.Sin(travelTime * Mathf.PI));
+            var localPosition = Vector3.LerpUnclamped(_rootStartLocalPosition, _targetLocalPosition, easedTravelTime) + arcOffset;
+            _root.localPosition = localPosition;
+            _root.localRotation = _rootStartLocalRotation;
+            _root.localScale = ResolveScale(breakTime);
+
+            var alpha = breakTime <= 0f
+                ? 1f
+                : 1f - (breakTime * breakTime);
+            for (var rendererIndex = 0; rendererIndex < _renderers.Length; rendererIndex++)
+            {
+                var materials = _instancedMaterials[rendererIndex];
+                if (materials == null)
+                {
+                    continue;
+                }
+
+                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+                {
+                    GameplayTransientEffectTrackUtility.SetMaterialAlpha(materials[materialIndex], alpha);
+                }
+            }
+        }
+
+        private Vector3 ResolveScale(float breakTime)
+        {
+            if (breakTime <= 0f)
+            {
+                return _rootStartLocalScale;
+            }
+
+            return Vector3.Scale(
+                _rootStartLocalScale,
+                new Vector3(
+                    Mathf.Lerp(1f, 1.12f, breakTime),
+                    Mathf.Lerp(1f, 1.12f, breakTime),
+                    Mathf.Lerp(1f, 0.18f, breakTime)));
         }
     }
 
@@ -759,6 +894,60 @@ namespace Game.Feature.Gameplay.Host
                 renderers,
                 instancedMaterials,
                 durationSeconds);
+        }
+
+        internal IGameplayTransientEffectTrack CreateImpactBreakEffect(
+            TickImpactTransientPresentationSignal signal,
+            GameplayEntityView sourceView,
+            GameplayEntityPose sourceLocalPose,
+            GameplayEntityPose impactLocalPose,
+            float durationSeconds)
+        {
+            if (_parent == null)
+            {
+                return null;
+            }
+
+            var effectRoot = new GameObject($"TransientImpactBreakEffect_{signal.EntityId}");
+            effectRoot.transform.SetParent(_parent, worldPositionStays: false);
+            effectRoot.transform.localPosition = sourceLocalPose.Position;
+            effectRoot.transform.localRotation = sourceLocalPose.Rotation;
+            effectRoot.transform.localScale = Vector3.one;
+
+            var visualRoot = CreateVisualRoot(effectRoot.transform, sourceView, signal.EntityType);
+            visualRoot.gameObject.SetActive(true);
+
+            var colliders = visualRoot.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (var i = 0; i < colliders.Length; i++)
+            {
+                if (Application.isPlaying)
+                {
+                    Object.Destroy(colliders[i]);
+                }
+                else
+                {
+                    Object.DestroyImmediate(colliders[i]);
+                }
+            }
+
+            var renderers = visualRoot.GetComponentsInChildren<Renderer>(includeInactive: true);
+            var instancedMaterials = CreateInstancedMaterials(renderers);
+            var localDirection = impactLocalPose.Position - sourceLocalPose.Position;
+            var arcLocalDirection = sourceLocalPose.Rotation * Vector3.up;
+            if (arcLocalDirection.sqrMagnitude <= 0.000001f)
+            {
+                arcLocalDirection = Vector3.up;
+            }
+
+            var arcHeight = Mathf.Max(0.06f, _cellSize * 0.18f);
+            return new ImpactBreakEffectTrack(
+                effectRoot.transform,
+                renderers,
+                instancedMaterials,
+                durationSeconds,
+                impactLocalPose.Position + (localDirection.sqrMagnitude <= 0.000001f ? Vector3.zero : localDirection.normalized * (_cellSize * 0.06f)),
+                arcLocalDirection,
+                arcHeight);
         }
 
         internal IGameplayTransientEffectTrack CreateHitEffect(

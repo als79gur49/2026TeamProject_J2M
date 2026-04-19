@@ -445,6 +445,7 @@ namespace Game.Feature.Gameplay.Loop
             var resolutionRecords = new List<ResolutionRecord>();
             var nextContestId = planPhaseResult.NextContestId;
             var movementResolutionRecords = new List<ResolutionRecord>();
+            var impactDispositionRecords = new List<ImpactDispositionResolutionRecord>();
             var movementReservationBook = new MovementReservationBook();
 
             var movementRejectedReasons = new List<string>(planPhaseResult.RejectedReasons);
@@ -492,6 +493,7 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.OrderedMovementActionPlanIds,
                 planPhaseResult.MovementActionPlanPayloads,
                 movementResolutionRecords,
+                impactDispositionRecords,
                 movementImpactReservations,
                 movementCommitEvents);
 
@@ -595,15 +597,17 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.MovementActionPlanPayloads,
                 impactSpaceContests,
                 movementReservationBook,
-                movementResolutionRecords);
+                movementResolutionRecords,
+                impactDispositionRecords);
 
-            if (HasAcceptedContingentMovementResolution(movementResolutionRecords))
+            if (HasImpactDispositionRematerialization(impactDispositionRecords))
             {
                 movementCommitEvents = new List<string>();
                 movementStageBatch = MaterializeMovementOperations(
                     planPhaseResult.OrderedMovementActionPlanIds,
                     planPhaseResult.MovementActionPlanPayloads,
                     movementResolutionRecords,
+                    impactDispositionRecords,
                     movementImpactReservations,
                     movementCommitEvents);
 
@@ -836,6 +840,7 @@ namespace Game.Feature.Gameplay.Loop
                 planPhaseResult.RawIntents,
                 planPhaseResult.SortedIntents,
                 movementResolutionRecords,
+                impactDispositionRecords,
                 movementResolvedOperations,
                 movementCommitEvents,
                 movementRejectedReasons);
@@ -1892,6 +1897,9 @@ namespace Game.Feature.Gameplay.Loop
                 hasSourceFacing: geometry.HasSourceFacing,
                 sourceFacingEntityId: geometry.HasSourceFacing ? group.SourceId : 0,
                 sourceFacing: geometry.SourceFacing,
+                dispositionPolicyKind: geometry.IsFlipImpact
+                    ? ImpactDispositionPolicyKind.Flip
+                    : ImpactDispositionPolicyKind.PushLike,
                 contingentSemanticKind: geometry.IsFlipImpact
                     ? ResolvedActionSemanticKind.Flip
                     : ResolveImpactContingentSemanticKind(impactSourceEntity, group.SourceId));
@@ -2442,15 +2450,32 @@ namespace Game.Feature.Gameplay.Loop
             return lookup;
         }
 
-        private static bool HasAcceptedContingentMovementResolution(IReadOnlyList<ResolutionRecord> resolutionRecords)
+        private static bool HasImpactDispositionRematerialization(
+            IReadOnlyList<ImpactDispositionResolutionRecord> impactDispositionRecords)
         {
-            // New contingent movement paths that reuse localActionIndex 1 must prove that
-            // their follow-through is cell-vacancy-safe on the surface they will materialize.
-            for (var i = 0; i < resolutionRecords.Count; i++)
+            for (var i = 0; i < impactDispositionRecords.Count; i++)
             {
-                if (resolutionRecords[i].Kind == ContestKind.Space &&
-                    resolutionRecords[i].LocalActionIndex == 1 &&
-                    resolutionRecords[i].Accepted)
+                var disposition = impactDispositionRecords[i].DispositionKind;
+                if (disposition == ImpactDispositionKind.FollowThrough ||
+                    disposition == ImpactDispositionKind.DestroySelf)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool HasAcceptedImpactDestroy(
+            IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
+            int sourceEntityId,
+            int targetEntityId)
+        {
+            for (var i = 0; i < destroyResolutions.Count; i++)
+            {
+                if (destroyResolutions[i].Accepted &&
+                    destroyResolutions[i].SourceId == sourceEntityId &&
+                    destroyResolutions[i].TargetId == targetEntityId)
                 {
                     return true;
                 }
@@ -2590,15 +2615,22 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<int> orderedActionPlanIds,
             IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
             IReadOnlyList<ResolutionRecord> resolutionRecords,
+            IReadOnlyList<ImpactDispositionResolutionRecord> impactDispositionRecords,
             IReadOnlyList<ImpactReservation> impactReservations,
             List<string> commitEvents)
         {
             var batch = new FinalizationBatch();
             commitEvents.Clear();
             var impactReservationsByActionPlanId = new Dictionary<int, ImpactReservation>(impactReservations.Count);
+            var impactDispositionByActionPlanId = new Dictionary<int, ImpactDispositionResolutionRecord>(impactDispositionRecords.Count);
             for (var i = 0; i < impactReservations.Count; i++)
             {
                 impactReservationsByActionPlanId[impactReservations[i].SourceActionPlanId] = impactReservations[i];
+            }
+
+            for (var i = 0; i < impactDispositionRecords.Count; i++)
+            {
+                impactDispositionByActionPlanId[impactDispositionRecords[i].ActionPlanId] = impactDispositionRecords[i];
             }
 
             for (var i = 0; i < orderedActionPlanIds.Count; i++)
@@ -2619,7 +2651,13 @@ namespace Game.Feature.Gameplay.Loop
 
                 var hasContingentResolution = TryFindResolutionRecord(resolutionRecords, ContestKind.Space, actionPlanId, 1, out var contingentResolution) &&
                                              contingentResolution.Accepted;
-                var hasImpactFollowThrough = hasContingentResolution && payload.HasImpactReservationPayload;
+                var hasImpactDisposition = impactDispositionByActionPlanId.TryGetValue(actionPlanId, out var impactDisposition);
+                var hasImpactFollowThrough = hasImpactDisposition &&
+                                             payload.HasImpactReservationPayload &&
+                                             impactDisposition.DispositionKind == ImpactDispositionKind.FollowThrough;
+                var hasDestroySelfDisposition = hasImpactDisposition &&
+                                               payload.HasImpactReservationPayload &&
+                                               impactDisposition.DispositionKind == ImpactDispositionKind.DestroySelf;
 
                 if (hasImpactFollowThrough &&
                     payload.ImpactReservationPayload.HasSourceFacing)
@@ -2727,6 +2765,27 @@ namespace Game.Feature.Gameplay.Loop
                         commitEvents.Add(
                             $"MoveCommitted|G={actionPlanId}|I={payload.IntentId}|E={moveWrite.EntityId}|To={FormatCell(moveWrite.DestinationCell)}|Facing={moveWrite.FacingAfterMove}");
                     }
+                }
+
+                if (hasDestroySelfDisposition)
+                {
+                    var destroySelfMetadata = CreateMovementMetadata(
+                        payload,
+                        baseResolution,
+                        localActionIndex: 1,
+                        semanticKindOverride: payload.ImpactReservationPayload.ContingentSemanticKind,
+                        exitCauseHint: TickEntityExitCause.DestroyedByImpact);
+                    batch.SetBoardPresence(
+                        payload.ImpactReservationPayload.SourceEntityId,
+                        EntityBoardPresence.Detached,
+                        destroySelfMetadata);
+                    batch.MarkDestroy(
+                        payload.ImpactReservationPayload.SourceEntityId,
+                        destroySelfMetadata);
+                    commitEvents.Add(
+                        $"BoardPresenceCommitted|G={actionPlanId}|I={payload.IntentId}|E={payload.ImpactReservationPayload.SourceEntityId}|Presence={EntityBoardPresence.Detached}");
+                    commitEvents.Add(
+                        $"DestroyMarked|G={actionPlanId}|I={payload.IntentId}|Target={payload.ImpactReservationPayload.SourceEntityId}|Reason=ImpactDestroySelf");
                 }
 
                 for (var kineticIndex = 0; kineticIndex < payload.BoxKineticOwnerWrites.Count; kineticIndex++)
@@ -3657,7 +3716,8 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyDictionary<int, MovementActionPlanPayload> payloads,
             IReadOnlyList<Contest> impactSpaceContests,
             MovementReservationBook reservationBook,
-            List<ResolutionRecord> resolutionRecords)
+            List<ResolutionRecord> resolutionRecords,
+            List<ImpactDispositionResolutionRecord> impactDispositionRecords)
         {
             if (impactSpaceContests.Count == 0)
             {
@@ -3668,27 +3728,91 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var contest = impactSpaceContests[i];
                 var accepted = false;
+                var followThroughLegalityChecked = false;
+                var followThroughAccepted = false;
+                var targetDestroyed = false;
+                var dispositionKind = ImpactDispositionKind.Stay;
                 if (payloads.TryGetValue(contest.ActionPlanId, out var payload) &&
                     payload.HasImpactReservationPayload)
                 {
-                    var reservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
-                    var impactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
-                        new SettlementContext(
-                            attackSnapshot,
-                            BuildLegalityActorRef(attackSnapshot, payload.SourceActorEntityId, EntityType.Unit),
-                            payload.ImpactReservationPayload.ContingentDestinationCell,
-                            attackSnapshot.Topology,
-                            SpatialState.Anchored,
-                            reservationStatus),
-                        new ImpactFollowThroughEvidence(
-                            payload.ImpactReservationPayload.AttackSourceEntityId,
-                            payload.ImpactReservationPayload.TargetEntityId,
-                            destroyResolutions));
-                    if (impactLegality.Verdict == LegalityVerdict.Allowed)
+                    targetDestroyed = HasAcceptedImpactDestroy(
+                        destroyResolutions,
+                        payload.ImpactReservationPayload.AttackSourceEntityId,
+                        payload.ImpactReservationPayload.TargetEntityId);
+
+                    switch (payload.ImpactReservationPayload.DispositionPolicyKind)
                     {
-                        accepted = true;
-                        reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                        case ImpactDispositionPolicyKind.PushLike:
+                            if (targetDestroyed)
+                            {
+                                followThroughLegalityChecked = true;
+                                var reservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
+                                var impactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                                    new SettlementContext(
+                                        attackSnapshot,
+                                        BuildLegalityActorRef(attackSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                                        payload.ImpactReservationPayload.ContingentDestinationCell,
+                                        attackSnapshot.Topology,
+                                        SpatialState.Anchored,
+                                        reservationStatus),
+                                    new ImpactFollowThroughEvidence(
+                                        payload.ImpactReservationPayload.AttackSourceEntityId,
+                                        payload.ImpactReservationPayload.TargetEntityId,
+                                        destroyResolutions));
+                                followThroughAccepted = impactLegality.Verdict == LegalityVerdict.Allowed;
+                                if (followThroughAccepted)
+                                {
+                                    accepted = true;
+                                    dispositionKind = ImpactDispositionKind.FollowThrough;
+                                    reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                                }
+                            }
+
+                            break;
+
+                        case ImpactDispositionPolicyKind.Flip:
+                            if (!targetDestroyed)
+                            {
+                                dispositionKind = ImpactDispositionKind.DestroySelf;
+                                break;
+                            }
+
+                            followThroughLegalityChecked = true;
+                            var flipReservationStatus = reservationBook.GetImpactPayloadStatus(payload.ImpactReservationPayload);
+                            var flipImpactLegality = RuntimeSettlementLegalityPolicy.EvaluateImpactFollowThrough(
+                                new SettlementContext(
+                                    attackSnapshot,
+                                    BuildLegalityActorRef(attackSnapshot, payload.SourceActorEntityId, EntityType.Unit),
+                                    payload.ImpactReservationPayload.ContingentDestinationCell,
+                                    attackSnapshot.Topology,
+                                    SpatialState.Anchored,
+                                    flipReservationStatus),
+                                new ImpactFollowThroughEvidence(
+                                    payload.ImpactReservationPayload.AttackSourceEntityId,
+                                    payload.ImpactReservationPayload.TargetEntityId,
+                                    destroyResolutions));
+                            followThroughAccepted = flipImpactLegality.Verdict == LegalityVerdict.Allowed;
+                            if (followThroughAccepted)
+                            {
+                                accepted = true;
+                                dispositionKind = ImpactDispositionKind.FollowThrough;
+                                reservationBook.ReserveImpactPayload(payload.ImpactReservationPayload, contest.ActionPlanId);
+                            }
+
+                            break;
                     }
+
+                    impactDispositionRecords.Add(
+                        new ImpactDispositionResolutionRecord(
+                            contest.ActionPlanId,
+                            payload.ImpactReservationPayload.SourceEntityId,
+                            payload.ImpactReservationPayload.TargetEntityId,
+                            payload.ImpactReservationPayload.ImpactCell,
+                            payload.ImpactReservationPayload.DispositionPolicyKind,
+                            dispositionKind,
+                            targetDestroyed,
+                            followThroughLegalityChecked,
+                            followThroughAccepted));
                 }
 
                 resolutionRecords.Add(CreateResolutionRecord(contest, accepted));
@@ -5103,6 +5227,64 @@ namespace Game.Feature.Gameplay.Loop
         Item = 6,
     }
 
+    // Narrow internal contract for current Push / Sliding Push / Flip box-impact
+    // resolve only. This is not a generalized impact framework seed.
+    internal enum ImpactDispositionPolicyKind
+    {
+        PushLike = 0,
+        Flip = 1,
+    }
+
+    internal enum ImpactDispositionKind
+    {
+        Stay = 0,
+        FollowThrough = 1,
+        DestroySelf = 2,
+    }
+
+    internal readonly struct ImpactDispositionResolutionRecord
+    {
+        public ImpactDispositionResolutionRecord(
+            int actionPlanId,
+            int impactSourceEntityId,
+            int impactTargetEntityId,
+            SurfaceCell impactCell,
+            ImpactDispositionPolicyKind policyKind,
+            ImpactDispositionKind dispositionKind,
+            bool targetDestroyed,
+            bool followThroughLegalityChecked,
+            bool followThroughAccepted)
+        {
+            ActionPlanId = actionPlanId;
+            ImpactSourceEntityId = impactSourceEntityId;
+            ImpactTargetEntityId = impactTargetEntityId;
+            ImpactCell = impactCell;
+            PolicyKind = policyKind;
+            DispositionKind = dispositionKind;
+            TargetDestroyed = targetDestroyed;
+            FollowThroughLegalityChecked = followThroughLegalityChecked;
+            FollowThroughAccepted = followThroughAccepted;
+        }
+
+        public int ActionPlanId { get; }
+
+        public int ImpactSourceEntityId { get; }
+
+        public int ImpactTargetEntityId { get; }
+
+        public SurfaceCell ImpactCell { get; }
+
+        public ImpactDispositionPolicyKind PolicyKind { get; }
+
+        public ImpactDispositionKind DispositionKind { get; }
+
+        public bool TargetDestroyed { get; }
+
+        public bool FollowThroughLegalityChecked { get; }
+
+        public bool FollowThroughAccepted { get; }
+    }
+
     internal readonly struct BoardPresenceWritePayload
     {
         public BoardPresenceWritePayload(int entityId, EntityBoardPresence boardPresence, TickEntityExitCause exitCauseHint)
@@ -5235,6 +5417,7 @@ namespace Game.Feature.Gameplay.Loop
             bool hasSourceFacing,
             int sourceFacingEntityId,
             Direction sourceFacing,
+            ImpactDispositionPolicyKind dispositionPolicyKind,
             ResolvedActionSemanticKind contingentSemanticKind)
         {
             SourceEntityId = sourceEntityId;
@@ -5253,6 +5436,7 @@ namespace Game.Feature.Gameplay.Loop
             HasSourceFacing = hasSourceFacing;
             SourceFacingEntityId = sourceFacingEntityId;
             SourceFacing = sourceFacing;
+            DispositionPolicyKind = dispositionPolicyKind;
             ContingentSemanticKind = contingentSemanticKind;
         }
 
@@ -5287,6 +5471,8 @@ namespace Game.Feature.Gameplay.Loop
         public int SourceFacingEntityId { get; }
 
         public Direction SourceFacing { get; }
+
+        public ImpactDispositionPolicyKind DispositionPolicyKind { get; }
 
         public ResolvedActionSemanticKind ContingentSemanticKind { get; }
     }

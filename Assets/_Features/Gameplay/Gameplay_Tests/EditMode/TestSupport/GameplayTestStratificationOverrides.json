@@ -812,7 +812,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Impact_KillsEnemy_BoxStillDoesNotAdvanceSameTick",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.MovementPhaseScenarioTests.Impact_KillsEnemy_BoxAdvancesSameTickWhenTargetCellBecomesEmpty",
       "category": "Core",
       "contracts": [
         "interaction_push",
@@ -865,7 +865,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipImpactFailure_StillEntersRecoveryWithoutReturnTrack",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.FlipImpactFailure_DestroySelfStillEntersRecoveryWithoutCommittedMoveTrack",
       "category": "Core",
       "contracts": [
         "interaction_flip",

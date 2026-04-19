@@ -10,6 +10,8 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly HashSet<int> _exitOwnedEntityIds = new();
         private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
+        private readonly List<TickImpactTransientPresentationSignal> _pendingImpactTransientSignals = new();
+        private readonly HashSet<int> _impactTransientEntityIds = new();
         private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
@@ -39,6 +41,8 @@ namespace Game.Feature.Gameplay.Host
         {
             _exitOwnedEntityIds.Clear();
             _pendingEntityExitSignals.Clear();
+            _pendingImpactTransientSignals.Clear();
+            _impactTransientEntityIds.Clear();
         }
 
         public bool IsExitOwned(int entityId)
@@ -55,6 +59,8 @@ namespace Game.Feature.Gameplay.Host
 
             _exitOwnedEntityIds.Clear();
             _pendingEntityExitSignals.Clear();
+            _pendingImpactTransientSignals.Clear();
+            _impactTransientEntityIds.Clear();
 
             for (var i = 0; i < presentationData.EntityExitSignals.Count; i++)
             {
@@ -66,6 +72,15 @@ namespace Game.Feature.Gameplay.Host
 
                 _pendingEntityExitSignals.Add(signal);
             }
+
+            for (var i = 0; i < presentationData.ImpactTransientSignals.Count; i++)
+            {
+                var signal = presentationData.ImpactTransientSignals[i];
+                if (_impactTransientEntityIds.Add(signal.EntityId))
+                {
+                    _pendingImpactTransientSignals.Add(signal);
+                }
+            }
         }
 
         public void PlayEntityExitEffects()
@@ -73,6 +88,11 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
             {
                 var signal = _pendingEntityExitSignals[i];
+                if (_impactTransientEntityIds.Contains(signal.ExitedEntityId))
+                {
+                    continue;
+                }
+
                 if (!_poseResolver.TryResolveEntityExitSignalLocalPose(_projector, signal, out var localPose))
                 {
                     continue;
@@ -86,6 +106,27 @@ namespace Game.Feature.Gameplay.Host
                     localPose,
                     hasTargetLocalPose ? targetLocalPose : (GameplayEntityPose?)null,
                     ResolveEntityExitEffectDurationSeconds(signal.ExitCause));
+            }
+
+            for (var i = 0; i < _pendingImpactTransientSignals.Count; i++)
+            {
+                var signal = _pendingImpactTransientSignals[i];
+                if (!_poseResolver.TryResolveImpactTransientSignalLocalPoses(
+                        _projector,
+                        signal,
+                        out var sourceLocalPose,
+                        out var impactLocalPose))
+                {
+                    continue;
+                }
+
+                _stateStore.ViewsByEntityId.TryGetValue(signal.EntityId, out var sourceView);
+                _transientEffectPresenter.PlayImpactBreakEffect(
+                    signal,
+                    sourceView,
+                    sourceLocalPose,
+                    impactLocalPose,
+                    ResolveImpactBreakEffectDurationSeconds());
             }
         }
 
@@ -153,6 +194,13 @@ namespace Game.Feature.Gameplay.Host
                 TickEntityExitCause.OutOfBounds => _timingProfile.ItemConsumeEffectDurationSeconds,
                 _ => _timingProfile.ItemConsumeEffectDurationSeconds,
             };
+        }
+
+        private float ResolveImpactBreakEffectDurationSeconds()
+        {
+            return Math.Max(
+                _timingProfile.BoxDestroyEffectDurationSeconds,
+                _timingProfile.FlipMotionDurationSeconds);
         }
 
         private bool TryResolveExitEffectTargetLocalPose(

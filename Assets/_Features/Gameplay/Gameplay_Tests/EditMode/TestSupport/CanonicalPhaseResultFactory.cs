@@ -24,11 +24,15 @@ namespace Game.Feature.Gameplay.Tests
             IEnumerable<ActionGroup> selectedGroups,
             IEnumerable<string> commitEvents,
             IEnumerable<string> rejectedReasons,
-            Func<ActionGroup, ResolvedActionSemanticKind> semanticResolver = null)
+            Func<ActionGroup, ResolvedActionSemanticKind> semanticResolver = null,
+            IEnumerable<ImpactDispositionResolutionRecord> impactDispositionRecords = null)
         {
             var groups = Materialize(selectedGroups);
             var resolutionRecords = new List<ResolutionRecord>(groups.Count);
             var operations = new List<FinalizationOperation>();
+            var materializedImpactDispositionRecords = impactDispositionRecords != null
+                ? new List<ImpactDispositionResolutionRecord>(impactDispositionRecords)
+                : new List<ImpactDispositionResolutionRecord>();
             var sequence = 1L;
 
             for (var groupIndex = 0; groupIndex < groups.Count; groupIndex++)
@@ -131,6 +135,7 @@ namespace Game.Feature.Gameplay.Tests
                 rawIntents,
                 sortedIntents,
                 resolutionRecords,
+                materializedImpactDispositionRecords,
                 operations,
                 commitEvents,
                 rejectedReasons);

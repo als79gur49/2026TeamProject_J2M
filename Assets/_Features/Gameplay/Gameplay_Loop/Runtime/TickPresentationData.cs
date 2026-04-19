@@ -445,6 +445,43 @@ namespace Game.Feature.Gameplay.Loop
         public int PresentationSeed { get; }
     }
 
+    // Presentation-only transient for current Flip nonlethal destroy-self impact.
+    // This signal is render metadata and must not be treated as gameplay truth.
+    internal readonly struct TickImpactTransientPresentationSignal
+    {
+        public TickImpactTransientPresentationSignal(
+            int entityId,
+            EntityType entityType,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            CubeTopologyState topology,
+            Direction facing,
+            int presentationSeed)
+        {
+            EntityId = entityId;
+            EntityType = entityType;
+            SourceCell = sourceCell;
+            ImpactCell = impactCell;
+            Topology = topology;
+            Facing = facing;
+            PresentationSeed = presentationSeed;
+        }
+
+        public int EntityId { get; }
+
+        public EntityType EntityType { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ImpactCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction Facing { get; }
+
+        public int PresentationSeed { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
@@ -460,6 +497,7 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<TickEntityExitPresentationSignal>());
 
         private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
+        private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
         private readonly ReadOnlyCollection<TickEnemyDamagePresentationSignal> _enemyDamageSignals;
         private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
@@ -724,6 +762,43 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickEnemyJumpPresentationSignal>(enemyJumpSignals));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
+            _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
+                new List<TickImpactTransientPresentationSignal>());
+        }
+
+        internal TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals,
+            IEnumerable<TickPlayerDamagePresentationSignal> playerDamageSignals,
+            IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
+            IEnumerable<TickImpactTransientPresentationSignal> impactTransientSignals)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                playerActionSignals,
+                playerLocomotionSignals,
+                playerDamageSignals,
+                enemyDamageSignals,
+                enemyActionSignals,
+                enemyJumpSignals,
+                entityExitSignals)
+        {
+            if (impactTransientSignals == null)
+            {
+                throw new ArgumentNullException(nameof(impactTransientSignals));
+            }
+
+            _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
+                new List<TickImpactTransientPresentationSignal>(impactTransientSignals));
         }
 
         public IReadOnlyList<TickEntityMotion> EntityMotions => _entityMotions;
@@ -747,5 +822,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyJumpPresentationSignal> EnemyJumpSignals => _enemyJumpSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
+
+        internal IReadOnlyList<TickImpactTransientPresentationSignal> ImpactTransientSignals => _impactTransientSignals;
     }
 }

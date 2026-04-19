@@ -508,7 +508,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Core")]
-        public void FlipImpactFailure_StillEntersRecoveryWithoutReturnTrack()
+        public void FlipImpactFailure_DestroySelfStillEntersRecoveryWithoutCommittedMoveTrack()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -546,8 +546,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.IsRecoveryPhase, Is.True);
             Assert.That(executeTick.PresentationData.EntityMotions, Is.Empty);
-            Assert.That(snapshotAfter.TryGetEntity(20, out var box), Is.True);
-            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(executeTick.PresentationData.ImpactTransientSignals.Count, Is.EqualTo(1));
+            Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
         }
 
         [Test]

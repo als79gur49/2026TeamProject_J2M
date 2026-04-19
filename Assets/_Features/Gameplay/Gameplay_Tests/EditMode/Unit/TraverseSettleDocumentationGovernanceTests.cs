@@ -35,6 +35,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PushFlipImpactDocs_RecordCurrentContractDecision_And_NarrowPresentationBoundary()
+        {
+            var spec = ReadRepoFile("Docs/Architecture/Tick-Simulation-Canonical-Spec.md");
+            var appendix = ReadRepoFile("Docs/Architecture/Gameplay-Rules-Appendix.md");
+
+            Assert.That(spec, Does.Contain("current runtime follow-through formalization"));
+            Assert.That(spec, Does.Contain("not a generalized impact framework"));
+            Assert.That(spec, Does.Contain("Push change is formalization, not a new framework."));
+            Assert.That(spec, Does.Contain("Flip change is a narrow impact-result-dependent uplift."));
+            Assert.That(spec, Does.Contain("`Flip lethal but landing denied = Stay` is a current contract decision."));
+            Assert.That(spec, Does.Contain("Transient collision/break is presentation-only and must not be used as gameplay truth."));
+
+            Assert.That(appendix, Does.Contain("current runtime lethal follow-through formalization"));
+            Assert.That(appendix, Does.Contain("impact-result-dependent action uplift"));
+            Assert.That(appendix, Does.Contain("current contract decision"));
+            Assert.That(appendix, Does.Contain("presentation-only track"));
+            Assert.That(appendix, Does.Contain("not a generalized impact framework"));
+            Assert.That(appendix, Does.Contain("Push change is formalization, not a new framework."));
+            Assert.That(appendix, Does.Contain("Transient collision/break is presentation-only and must not be used as gameplay truth."));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PhasedDocs_DescribeStageDefaults_And_DeferredLockTaxonomy_AsClosedContracts()
         {
             var spec = ReadRepoFile("Docs/Architecture/Tick-Simulation-Canonical-Spec.md");

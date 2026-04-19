@@ -339,6 +339,7 @@ namespace Game.Feature.Gameplay.Loop
         {
             var entityMotions = new List<TickEntityMotion>();
             var entityExitSignals = new List<TickEntityExitPresentationSignal>();
+            var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
@@ -350,6 +351,7 @@ namespace Game.Feature.Gameplay.Loop
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
+            BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildAttackPresentation(context, visibilityChanges);
             BuildCleanupPresentation(context, visibilityChanges, exitOwnedEntityIds);
@@ -369,6 +371,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyDamageSignals.Count == 0 &&
                    enemyJumpSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
+                   impactTransientSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
@@ -387,7 +390,8 @@ namespace Game.Feature.Gameplay.Loop
                     enemyDamageSignals,
                     enemyActionSignals,
                     enemyJumpSignals,
-                    entityExitSignals);
+                    entityExitSignals,
+                    impactTransientSignals);
         }
 
         private static void BuildMovementPresentation(
@@ -419,6 +423,41 @@ namespace Game.Feature.Gameplay.Loop
                             context.PreMovementSnapshot.Topology,
                             sourceEntity.facing));
                 }
+            }
+        }
+
+        private static void BuildImpactTransientPresentation(
+            in TickPresentationBuildContext context,
+            List<TickImpactTransientPresentationSignal> impactTransientSignals)
+        {
+            var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
+            var dispositionRecords = context.MovementPhaseResult.ImpactDispositionRecords;
+            var signaledEntityIds = new HashSet<int>();
+
+            for (var i = 0; i < dispositionRecords.Count; i++)
+            {
+                var record = dispositionRecords[i];
+                if (record.PolicyKind != ImpactDispositionPolicyKind.Flip ||
+                    record.DispositionKind != ImpactDispositionKind.DestroySelf ||
+                    !removedEntityIds.Contains(record.ImpactSourceEntityId) ||
+                    !signaledEntityIds.Add(record.ImpactSourceEntityId) ||
+                    !context.PreMovementSnapshot.TryGetEntity(record.ImpactSourceEntityId, out var sourceEntity))
+                {
+                    continue;
+                }
+
+                impactTransientSignals.Add(
+                    new TickImpactTransientPresentationSignal(
+                        record.ImpactSourceEntityId,
+                        sourceEntity.type,
+                        sourceEntity.position,
+                        record.ImpactCell,
+                        context.PreMovementSnapshot.Topology,
+                        sourceEntity.facing,
+                        BuildStableImpactPresentationSeed(
+                            context.CurrentTickIndex,
+                            record.ImpactSourceEntityId,
+                            record.ImpactTargetEntityId)));
             }
         }
 
@@ -1334,6 +1373,22 @@ namespace Game.Feature.Gameplay.Loop
                 hash = MixStableSeed(hash, exitedEntityId);
                 hash = MixStableSeed(hash, sourceActorEntityId);
                 hash = MixStableSeed(hash, (int)exitCause);
+                return (int)(hash & 0x7FFFFFFF);
+            }
+        }
+
+        private static int BuildStableImpactPresentationSeed(
+            int currentTickIndex,
+            int sourceEntityId,
+            int targetEntityId)
+        {
+            unchecked
+            {
+                var hash = 2166136261u;
+                hash = MixStableSeed(hash, currentTickIndex);
+                hash = MixStableSeed(hash, sourceEntityId);
+                hash = MixStableSeed(hash, targetEntityId);
+                hash = MixStableSeed(hash, (int)TickEntityExitCause.DestroyedByImpact);
                 return (int)(hash & 0x7FFFFFFF);
             }
         }

@@ -33,6 +33,10 @@
 - 각 gameplay phase 내부 구조는 `Intent -> Expand/Resolve -> Commit`이다.
 - `TickResult -> TickPresentationData -> ViewPresenter`로 logic/view가 분리된다.
 - Movement가 만든 `ImpactReservation`은 Attack이 소비한다.
+- Push is current runtime follow-through formalization.
+- Flip is impact-result-dependent action uplift.
+- `ImpactDisposition` is a narrow internal Push/Flip-only contract, not a generalized impact framework.
+- broader combat/movement framework generalization is a non-goal.
 
 ## Query Layer
 - Canonical query boundary는 다음 순서를 따른다.
@@ -268,14 +272,26 @@
   - raw movement intent를 수집한다.
   - execute tick에 push/flip을 재판정한다.
   - 성공 시 movement commit을 수행한다.
-  - impact 실패 시 box는 이동하지 않고 `ImpactReservation`만 생성한다.
+  - hostile `BoxImpact`는 ordinary movement commit이 아니라 `ImpactReservation` handoff로 보낸다.
+  - Push impact는 target이 죽고 follow-through settlement가 허용되면 same-tick lethal follow-through를 commit한다.
+  - Flip impact는 current Push/Flip impact-disposition plan에서 post-attack disposition을 resolve한다.
 - Attack:
   - raw attack input, `ImpactReservation`, delayed effect handoff를 소비한다.
   - reservation을 attack damage로 전개한다.
+  - resolve는 current Push/Flip impact-disposition plan에서 `Stay / FollowThrough / DestroySelf` 중 하나를 닫는다.
 - Cleanup:
   - `hp <= 0` 또는 `markedForDeath` removal을 확정한다.
 - Respawn:
   - cleanup 이후 respawn eligibility를 반영한다.
+
+## Push / Flip Impact Handoff Note
+- Push change is formalization, not a new framework.
+- Do not redesign Push around a new disposition framework; formalize what runtime already does.
+- Flip change is a narrow impact-result-dependent uplift.
+- Flip is the only family that gains new outcome-dependent action behavior in this step.
+- `Flip lethal but landing denied = Stay` is a current contract decision.
+- Changing this row requires a new design decision; do not extend the current enum or tests as if this row were a permanent rule.
+- Transient collision/break is presentation-only and must not be used as gameplay truth.
 
 ## Action Runtime
 - player authoritative action runtime은 `Gameplay_PlayerControl/Runtime/PlayerControlState.cs`의 `PlayerActionRuntimeState`다.

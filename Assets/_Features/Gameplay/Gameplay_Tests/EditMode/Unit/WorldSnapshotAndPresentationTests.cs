@@ -1043,6 +1043,93 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromTransientImpactBreak()
+        {
+            const int tickIndex = 7;
+            var sourceCell = new SurfaceCell(FaceId.Floor, -1, 0);
+            var impactCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var enemyBeforeAttack = CreateEntity(40, EntityType.Unit, impactCell, Direction.Right);
+            enemyBeforeAttack.hp = 3;
+            enemyBeforeAttack.maxHp = 3;
+            var enemyAfterAttack = CreateEntity(40, EntityType.Unit, impactCell, Direction.Right);
+            enemyAfterAttack.hp = 2;
+            enemyAfterAttack.maxHp = 3;
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(20, EntityType.Box, sourceCell, Direction.Left),
+                    enemyBeforeAttack,
+                }).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(20, EntityType.Box, sourceCell, Direction.Left, boardPresence: EntityBoardPresence.Detached, markedForDeath: true),
+                    enemyBeforeAttack,
+                }).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    CreateEntity(20, EntityType.Box, sourceCell, Direction.Left, boardPresence: EntityBoardPresence.Detached, markedForDeath: true),
+                    enemyAfterAttack,
+                }).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    enemyAfterAttack,
+                }).CreateSnapshot();
+
+            var movementGroup = new ActionGroup(intentId: 1, sourceId: 20, priority: 5, ActionGroupKind.Flip);
+            movementGroup.AssignGroupId(1);
+            movementGroup.BoardPresenceChanges.Add(new BoardPresenceChangeAction(20, EntityBoardPresence.Detached));
+            movementGroup.Destroys.Add(new DestroyAction(20));
+
+            var attackGroup = new ActionGroup(intentId: 2, sourceId: 20, priority: 5, ActionGroupKind.Attack);
+            attackGroup.AssignGroupId(2);
+            attackGroup.Damages.Add(new DamageAction(40, 1));
+
+            var impactDispositionRecord = new ImpactDispositionResolutionRecord(
+                actionPlanId: 1,
+                impactSourceEntityId: 20,
+                impactTargetEntityId: 40,
+                impactCell,
+                policyKind: ImpactDispositionPolicyKind.Flip,
+                dispositionKind: ImpactDispositionKind.DestroySelf,
+                targetDestroyed: false,
+                followThroughLegalityChecked: false,
+                followThroughAccepted: false);
+            var movementPhaseResult = CanonicalPhaseResultFactory.CreateMovementPhaseResult(
+                Array.Empty<RawMovementIntent>(),
+                Array.Empty<MoveIntent>(),
+                new[] { movementGroup },
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                _ => ResolvedActionSemanticKind.Flip,
+                new[] { impactDispositionRecord });
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    movementPhaseResult,
+                    CreateAttackPhaseResult(attackGroup),
+                    CleanupFixtureFactory.RemovedEntities(20),
+                    currentTickIndex: tickIndex));
+
+            Assert.That(presentationData.EntityMotions, Is.Empty);
+            Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
+            Assert.That(presentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
+            Assert.That(presentationData.ImpactTransientSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.ImpactTransientSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(20));
+            Assert.That(signal.SourceCell, Is.EqualTo(sourceCell));
+            Assert.That(signal.ImpactCell, Is.EqualTo(impactCell));
+            Assert.That(signal.PresentationSeed, Is.EqualTo(BuildExpectedImpactPresentationSeed(tickIndex, 20, 40)));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPresentationDataBuilder_BuildsTransitionVisibilityPresentationRecordsForTopologyPassengers()
         {
             var initialTopology = new CubeTopologyState(FaceId.Floor);
@@ -1813,6 +1900,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 hash = (hash ^ (uint)exitedEntityId) * 16777619u;
                 hash = (hash ^ (uint)sourceActorEntityId) * 16777619u;
                 hash = (hash ^ (uint)exitCause) * 16777619u;
+                return (int)(hash & 0x7FFFFFFF);
+            }
+        }
+
+        private static int BuildExpectedImpactPresentationSeed(
+            int currentTickIndex,
+            int sourceEntityId,
+            int targetEntityId)
+        {
+            unchecked
+            {
+                var hash = 2166136261u;
+                hash = (hash ^ (uint)currentTickIndex) * 16777619u;
+                hash = (hash ^ (uint)sourceEntityId) * 16777619u;
+                hash = (hash ^ (uint)targetEntityId) * 16777619u;
+                hash = (hash ^ (uint)TickEntityExitCause.DestroyedByImpact) * 16777619u;
                 return (int)(hash & 0x7FFFFFFF);
             }
         }

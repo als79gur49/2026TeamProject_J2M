@@ -178,6 +178,31 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveImpactTransientSignalLocalPoses(
+            GameplayCubeProjector projector,
+            TickImpactTransientPresentationSignal signal,
+            out GameplayEntityPose sourcePose,
+            out GameplayEntityPose impactPose)
+        {
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            sourcePose = default;
+            impactPose = default;
+
+            if (!projector.TryProjectEntityCell(signal.SourceCell, signal.Topology, signal.EntityType, out var sourceProjectedPose) ||
+                !projector.TryProjectEntityCell(signal.ImpactCell, signal.Topology, signal.EntityType, out var impactProjectedPose))
+            {
+                return false;
+            }
+
+            sourcePose = CreateEntityPose(projector, signal.SourceCell, signal.Topology, sourceProjectedPose, signal.Facing);
+            impactPose = CreateEntityPose(projector, signal.ImpactCell, signal.Topology, impactProjectedPose, signal.Facing);
+            return true;
+        }
+
         public bool TryResolveVisibilityLocalPose(
             GameplayCubeProjector projector,
             TickVisibilityChange change,
