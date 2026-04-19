@@ -19,6 +19,54 @@ namespace Game.Feature.Gameplay.Tests.Scenario
     {
         [Test]
         [Category("Extended")]
+        public void EnemyPhaseThroughLockedTargetQueries_TryResolveCurrentTerminalCell_RequiresSameFace()
+        {
+            var source = CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right);
+            var lockedTarget = CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 1, 0), hp: 3);
+
+            Assert.That(
+                EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
+                    source,
+                    lockedTarget,
+                    Direction.Right,
+                    out _),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPhaseThroughLockedTargetQueries_TryResolveCurrentTerminalCell_UsesCommittedStraightLineAndSingleFixedOffset()
+        {
+            var source = CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right);
+            var adjacentLockedTarget = CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 0), hp: 3);
+            var diagonalLockedTarget = CreateUnit(entityId: 11, teamId: 1, position: new SurfaceCell(FaceId.Floor, 1, 1), hp: 3);
+
+            Assert.That(
+                EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
+                    source,
+                    adjacentLockedTarget,
+                    Direction.Right,
+                    out var terminalCell),
+                Is.True);
+            Assert.That(terminalCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(
+                EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
+                    source,
+                    diagonalLockedTarget,
+                    Direction.Right,
+                    out _),
+                Is.False);
+            Assert.That(
+                EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
+                    source,
+                    adjacentLockedTarget,
+                    Direction.Up,
+                    out _),
+                Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_MultiTick_FollowsPatrolChaseAttackRecoverSequence()
         {
             var worldState = CreateWorldState(new[]
@@ -197,6 +245,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(3));
             Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_PhaseThroughLockedTargetValidator_TerminalBlocked_DoesNotChooseAlternateOpenCellOrRetargetAlternateHostile()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 11, teamId: 1, position: new Vector2Int(0, 1), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 70, position: new Vector2Int(2, 0)),
+            });
+            var pipeline = CreateEnemyPipeline(worldState, CreatePhaseThroughLockedTargetDefinition(windupTicks: 1));
+
+            pipeline.RunTick(new TickInput(1));
+            var executeTick = pipeline.RunTick(new TickInput(2));
+
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            Assert.That(GetEntity(worldState, 11).hp, Is.EqualTo(3));
+            Assert.That(executeTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(executeTick.Trace.Text, Does.Contain("EnemyPhaseRelocation|E=40|Label=Rejected|Target=10"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("Result=SettleBlocked"));
+            Assert.That(executeTick.Trace.Text, Does.Not.Contain("EnemyPhaseRelocation|E=40|Label=Committed|Target=11"));
         }
 
         [Test]

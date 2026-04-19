@@ -468,6 +468,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Debug/Runtime/TickTraceFormatter.cs"),
                 },
                 nonTestCurrentEnemyLockModeReferences);
+
+            var nonTestPhaseThroughSkillKindReferences = FilterNonTestFiles(FindFilesContainingToken("MovementSkillStrategyKind.PhaseThroughLockedTarget"));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyAiConfig.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
+                },
+                nonTestPhaseThroughSkillKindReferences);
+
+            var nonTestCurrentTerminalCellReferences = FilterNonTestFiles(FindFilesContainingToken("TryResolveCurrentTerminalCell("));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
+                },
+                nonTestCurrentTerminalCellReferences);
         }
 
         [Test]
@@ -546,18 +564,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var phaseReservationReadMethod = ExtractMethodWindow(
                 pipelineSource,
                 "private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(",
+                "private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(");
+            var reservationHelperWindow = ExtractMethodWindow(
+                pipelineSource,
+                "private static ReservationStatus ReadPhaseRelocationTerminalReservationStatus(",
                 "private static Contest TryFindJumpLandingContest(");
 
-            Assert.That(phaseReservationReadMethod, Does.Contain("reservationBook.GetCellStatus(payload.DestinationCell)"));
+            Assert.That(phaseReservationReadMethod, Does.Contain("ReadPhaseRelocationTerminalReservationStatus("));
+            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetCellStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEdgeStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEntityStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("topology-exclusive"));
             Assert.That(
-                CountOccurrences(phaseReservationReadMethod, "reservationBook.GetCellStatus("),
+                CountOccurrences(reservationHelperWindow, "reservationBook.GetCellStatus("),
                 Is.EqualTo(1),
                 "Inline reservation read count is a secondary sentinel. The primary contract is still cell-only terminal settlement semantics.");
-            Assert.That(phaseReservationReadMethod.IndexOf("reservationBook.GetCellStatus(payload.DestinationCell)", StringComparison.Ordinal),
+            Assert.That(reservationHelperWindow, Does.Contain("return reservationBook.GetCellStatus(terminalCell);"));
+            Assert.That(reservationHelperWindow, Does.Not.Contain("GetEdgeStatus("));
+            Assert.That(reservationHelperWindow, Does.Not.Contain("GetEntityStatus("));
+            Assert.That(reservationHelperWindow, Does.Not.Contain("topology-exclusive"));
+            Assert.That(phaseReservationReadMethod.IndexOf("ReadPhaseRelocationTerminalReservationStatus(", StringComparison.Ordinal),
                 Is.GreaterThan(phaseReservationReadMethod.IndexOf("traverseToDestination.Verdict != LegalityVerdict.Allowed", StringComparison.Ordinal)));
+            Assert.That(phaseReservationReadMethod.IndexOf("ReadPhaseRelocationTerminalReservationStatus(", StringComparison.Ordinal),
+                Is.LessThan(phaseReservationReadMethod.IndexOf("RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(", StringComparison.Ordinal)));
         }
 
         [Test]
@@ -577,16 +606,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertContainsNoForbiddenTokens(
                 planningWindow,
                 "TryResolveStartAction(",
+                "TryResolveLockedTarget(",
                 "TryFindTarget(",
                 "BuildMovementIntents(",
                 "CollectMovementIntents(",
                 "ResolveBaselineGroundLocomotion(",
+                "ResolveFallbackAiMode(",
                 "reservationBook.GetCellStatus(",
                 "reservationBook.GetEdgeStatus(",
                 "reservationBook.GetEntityStatus(");
             AssertContainsNoForbiddenTokens(
                 finalizationWindow,
                 "TryResolveStartAction(",
+                "TryResolveLockedTarget(",
                 "TryFindTarget(",
                 "BuildMovementIntents(",
                 "CollectMovementIntents(",
