@@ -146,7 +146,8 @@
   - `Phased`의 future semantic envelope 전체는 아직 고정하지 않는다.
   - current live profile은 traversal `Unit/Solid` bypass, fresh target suppression, anchored-like settlement default만 고정한다.
   - current v1 profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility를 기본 구현값으로 사용하지만, 이것을 future non-claim/overlap model의 구조 원칙으로 승격하지 않는다.
-  - current targetability suppression은 base spatial default다. current enemy lock retention은 `EnemyActionStateTargeting` current lock path 전용 narrow hook다. future `impact-only suppression`, `detection-only suppression`, broader source-specific overrides는 `ModifierQuery` typed-evidence hook로만 연다.
+  - current targetability suppression은 base spatial default다. current enemy lock retention is `EnemyActionStateTargeting` current lock path 전용 narrow hook다. future `impact-only suppression`, `detection-only suppression`, broader source-specific overrides는 `ModifierQuery` typed-evidence hook로만 연다.
+  - `FreshSelectionSuppressedWithCurrentEnemyLockRetention`는 current stage-local contract 이름일 뿐이며, future lock taxonomy의 generic seed가 아니다.
 
 ## Legality Contexts
 - base legality context는 core field budget을 유지한다.

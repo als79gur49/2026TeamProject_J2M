@@ -33,6 +33,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(appendix, Does.Contain("settlement"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void PhasedDocs_DescribeStageDefaults_And_DeferredLockTaxonomy_AsClosedContracts()
+        {
+            var spec = ReadRepoFile("Docs/Architecture/Tick-Simulation-Canonical-Spec.md");
+            var appendix = ReadRepoFile("Docs/Architecture/Gameplay-Rules-Appendix.md");
+
+            Assert.That(spec, Does.Contain("current enemy lock retention is `EnemyActionStateTargeting` current lock path 전용 narrow hook"));
+            Assert.That(spec, Does.Contain("current implementation default"));
+            Assert.That(appendix, Does.Contain("validator, not a movement framework"));
+            Assert.That(appendix, Does.Contain("Deferred lock taxonomy"));
+            Assert.That(appendix, Does.Contain("generic lock framework의 seed"));
+            Assert.That(appendix, Does.Contain("FreshSelectionSuppressedWithCurrentEnemyLockRetention"));
+        }
+
         private static string ReadRepoFile(string relativePath)
         {
             var absolutePath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativePath));

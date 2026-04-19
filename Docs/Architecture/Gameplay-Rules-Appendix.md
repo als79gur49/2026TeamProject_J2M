@@ -51,6 +51,7 @@
   - current live profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility, anchored-like terminal settle을 `StageDefault`로 사용한다. 이것은 current implementation default이지 future invariant가 아니다.
   - current live enter/sustain/exit owner는 `MovementPreMovement`, `EnemyPreMovement`, `DebugForced`로 metadata table에 고정한다.
   - first minimal consumer는 `EnemyPreMovement`에서 실행되는 `locked-target cross-through` validator이며 fresh target search, fallback, multi-edge pathfinding, same-tick damage coupling을 열지 않는다.
+  - 이 consumer는 validator, not a movement framework다. current lock이나 geometry가 닫히면 reject/close하고 같은 tick에 ordinary movement, fallback reroute, combat attack으로 우회하지 않는다.
 - 이번 단계에서 고정하지 않는 것:
   - future non-claim / overlap model
   - future visibility variants
@@ -74,6 +75,13 @@
   - blocker enum에 targetability-only kind를 추가하지 않는다.
   - current `existing lock 유지`는 current enemy lock path에만 한정한다.
   - future `impact-only suppression`, `detection-only suppression`, broader `existing lock 유지`는 `ModifierQuery` typed-evidence hook에서만 연다.
+- Deferred lock taxonomy:
+  - current `existing lock 유지`는 `EnemyActionStateTargeting.TryResolveLockedTarget(...)` current enemy path 전용 stage-scoped exception이다.
+  - future taxonomy 후보 이름은 `detection lock`, `impact lock`, `scripted/debug lock`, `UI/presentation selection lock`, `future AI pursuit lock`까지만 기록한다. semantics는 이번 단계에서 열지 않는다.
+  - 다음 단계 implementer는 current helper가 generic lock framework의 seed라고 가정하면 안 된다.
+  - 다음 단계 implementer는 다른 lock 종류가 current enemy retention helper를 재사용해도 된다고 가정하면 안 된다.
+  - 다음 단계 implementer는 `FreshSelectionSuppressedWithCurrentEnemyLockRetention` enum이 taxonomy 완성형이라고 가정하면 안 된다.
+  - 새 lock class를 열려면 새 evidence type, 새 use-site decision, 새 tests가 필요하며 current helper rename/generalization으로 해결하지 않는다.
 
 ## Airborne Jump Landing
 - `Airborne` actor는 traversal 중에는 일반 occupancy blocker로 취급되지 않는다.
