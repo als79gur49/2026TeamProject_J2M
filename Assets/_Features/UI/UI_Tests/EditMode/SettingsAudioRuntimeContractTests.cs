@@ -1,10 +1,12 @@
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
+using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
 using System.Reflection;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -25,7 +27,31 @@ namespace Game.Feature.UI.Tests
                 var screenLayerView = screenLayerRoot.AddComponent<ScreenLayerView>();
                 screenLayerView.Configure(screenLayerRoot, contentRoot);
 
+                var popupLayerRoot = new GameObject("PopupLayerRoot", typeof(RectTransform));
+                popupLayerRoot.transform.SetParent(rootObject.transform, false);
+                var popupRoot = new GameObject("PopupRoot", typeof(RectTransform));
+                popupRoot.transform.SetParent(popupLayerRoot.transform, false);
+                var backdrop = new GameObject("Backdrop", typeof(RectTransform), typeof(CanvasGroup), typeof(Image), typeof(Button));
+                backdrop.transform.SetParent(popupRoot.transform, false);
+                var popupContentRootObject = new GameObject("PopupContentRoot", typeof(RectTransform));
+                popupContentRootObject.transform.SetParent(popupRoot.transform, false);
+                var popupLayerView = popupLayerRoot.AddComponent<PopupLayerView>();
+                popupLayerView.Configure(
+                    popupRoot,
+                    backdrop.GetComponent<CanvasGroup>(),
+                    backdrop.GetComponent<Image>(),
+                    backdrop.GetComponent<Button>(),
+                    popupContentRootObject.GetComponent<RectTransform>());
+
+                var popupController = new PopupController(new GameplayPopupRuntimeFactory(
+                    popupLayerView,
+                    UiTestPrefabAssetUtility.LoadPopupCatalog()));
+                var timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
+                var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
+                var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
+
                 var audioPort = new FakeAudioSettingsPort();
+                var displayPort = new FakeDisplaySettingsPort();
                 var factory = new GameplayScreenRuntimeFactory(
                     screenLayerView,
                     new FakeGameplayQueryFacade(
@@ -35,6 +61,9 @@ namespace Game.Feature.UI.Tests
                     new ManualGameplayUiPresentationSource(),
                     new AccessibilitySettingsStore(),
                     audioPort,
+                    displayPort,
+                    previewSessionHost,
+                    lifecycleRelay,
                     UiTestPrefabAssetUtility.LoadScreenCatalog());
 
                 var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));

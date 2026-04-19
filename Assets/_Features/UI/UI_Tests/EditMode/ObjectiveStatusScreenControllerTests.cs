@@ -40,7 +40,10 @@ namespace Game.Feature.UI.Tests
         [Test]
         public void SettingsScreenPresenter_BuildTooltipInfoPayload_RemainsBoundedAndStateAware()
         {
-            var presenter = new SettingsScreenPresenter(new AccessibilitySettingsStore(), new FakeAudioSettingsPort());
+            var presenter = new SettingsScreenPresenter(
+                new AccessibilitySettingsStore(),
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort());
 
             presenter.Apply(SettingsScreenPayload.Default);
 
@@ -66,7 +69,10 @@ namespace Game.Feature.UI.Tests
         public void SettingsScreenPresenter_AudioRows_RefreshFromPortState_AndFlushExplicitly()
         {
             var audioPort = new FakeAudioSettingsPort();
-            var presenter = new SettingsScreenPresenter(new AccessibilitySettingsStore(), audioPort);
+            var presenter = new SettingsScreenPresenter(
+                new AccessibilitySettingsStore(),
+                audioPort,
+                new FakeDisplaySettingsPort());
 
             presenter.Apply(SettingsScreenPayload.Default);
             presenter.SetAudioVolume(AudioSettingsChannel.Bgm, 0.42f);
@@ -76,6 +82,88 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.BgmAudio.ValueText, Does.Contain("42"));
             Assert.That(presenter.ViewModel.SfxAudio.IsMuted, Is.True);
             Assert.That(audioPort.FlushCallCount, Is.EqualTo(1));
+        }
+
+        [Test]
+        public void SettingsScreenPresenter_DisplayPreviewState_UsesCommittedVsStagedAndDisablesApplyDuringPreview()
+        {
+            var displayPort = new FakeDisplaySettingsPort();
+            var presenter = new SettingsScreenPresenter(
+                new AccessibilitySettingsStore(),
+                new FakeAudioSettingsPort(),
+                displayPort);
+
+            presenter.Apply(SettingsScreenPayload.Default);
+            presenter.StageResolution(0);
+            presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
+
+            Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.True);
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1920 x 1080"));
+
+            Assert.That(presenter.ApplyStagedDisplaySettings(), Is.True);
+
+            Assert.That(displayPort.BeginPreviewCallCount, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.IsDisplayPreviewActive, Is.True);
+            Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
+            Assert.That(
+                presenter.ViewModel.DisplayStatusText,
+                Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 15 seconds."));
+            Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1280 x 720"));
+
+            Assert.That(presenter.ConfirmDisplayPreview(), Is.True);
+
+            Assert.That(displayPort.CommitPreviewCallCount, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.IsDisplayPreviewActive, Is.False);
+            Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.IsFullscreenEnabled, Is.True);
+            Assert.That(presenter.ViewModel.DisplayStatusText, Is.EqualTo("Display settings saved."));
+        }
+
+        [Test]
+        public void SettingsScreenPresenter_CancelPreview_ResetsStagedStateBackToCommitted()
+        {
+            var displayPort = new FakeDisplaySettingsPort();
+            var presenter = new SettingsScreenPresenter(
+                new AccessibilitySettingsStore(),
+                new FakeAudioSettingsPort(),
+                displayPort);
+
+            presenter.Apply(SettingsScreenPayload.Default);
+            presenter.StageResolution(1);
+            presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
+            presenter.ApplyStagedDisplaySettings();
+
+            Assert.That(presenter.CancelDisplayPreview(), Is.True);
+
+            Assert.That(displayPort.RevertPreviewCallCount, Is.EqualTo(1));
+            Assert.That(presenter.ViewModel.IsDisplayPreviewActive, Is.False);
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(displayPort.CommittedModeIndex));
+            Assert.That(presenter.ViewModel.IsFullscreenEnabled, Is.False);
+            Assert.That(presenter.ViewModel.DisplayStatusText, Is.EqualTo("Preview reverted to the previous saved display settings."));
+            Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
+        }
+
+        [Test]
+        public void SettingsScreenPresenter_ExternalRuntimeDrift_UpdatesCurrentRuntimeLabel_WithoutChangingDirtyBaseline()
+        {
+            var displayPort = new FakeDisplaySettingsPort();
+            var presenter = new SettingsScreenPresenter(
+                new AccessibilitySettingsStore(),
+                new FakeAudioSettingsPort(),
+                displayPort);
+
+            presenter.Apply(SettingsScreenPayload.Default);
+            displayPort.SetRuntimeDrift(1, DisplayWindowMode.FullScreenWindow);
+            presenter.ResyncDisplayState();
+
+            Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1600 x 900"));
+            Assert.That(
+                presenter.ViewModel.DisplayStatusText,
+                Is.EqualTo("Current display changed outside saved settings. Saved settings remain unchanged until you apply again."));
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
         }
     }
 

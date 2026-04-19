@@ -6,6 +6,7 @@
     "Game.Feature.Gameplay.Audio",
     "Game.Feature.Gameplay.Host",
     "Game.Shared.Audio",
+    "Game.Shared.Display",
     "Unity.Cinemachine",
     "Unity.InputSystem",
     "Unity.InputSystem.TestFramework",

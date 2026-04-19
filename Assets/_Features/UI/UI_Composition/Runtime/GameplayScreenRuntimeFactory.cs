@@ -13,16 +13,22 @@ namespace Game.Feature.UI.Composition
         private readonly IGameplayQueryFacade _queryFacade;
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly IAudioSettingsPort _audioSettingsPort;
+        private readonly IDisplaySettingsPort _displaySettingsPort;
+        private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
+        private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private readonly ScreenPrefabCatalog _screenPrefabCatalog;
         private readonly ScreenLayerView _screenLayerView;
         private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
 
-        public GameplayScreenRuntimeFactory(
+        internal GameplayScreenRuntimeFactory(
             ScreenLayerView screenLayerView,
             IGameplayQueryFacade queryFacade,
             IGameplayUiPresentationSource presentationSource,
             AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort,
+            DisplayPreviewSessionHost displayPreviewSessionHost,
+            DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             ScreenPrefabCatalog screenPrefabCatalog)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
@@ -30,6 +36,9 @@ namespace Game.Feature.UI.Composition
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
             _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
+            _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
+            _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
+            _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             _screenPrefabCatalog = screenPrefabCatalog ?? throw new ArgumentNullException(nameof(screenPrefabCatalog));
         }
 
@@ -140,7 +149,7 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateSettingsRuntime()
         {
-            var presenter = new SettingsScreenPresenter(_accessibilitySettingsStore, _audioSettingsPort);
+            var presenter = new SettingsScreenPresenter(_accessibilitySettingsStore, _audioSettingsPort, _displaySettingsPort);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.SettingsPrefab, ScreenId.Settings);
             view.Bind(presenter.ViewModel);
             view.SetIsCurrent(false);
@@ -152,7 +161,12 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.Pop,
                     HudShellMode.Hidden,
                     blocksUiGameplayInput: true),
-                new SettingsRuntime(view, presenter, () => DestroyObject(view.gameObject)));
+                new SettingsRuntime(
+                    view,
+                    presenter,
+                    _displayPreviewSessionHost,
+                    _displaySettingsLifecycleRelay,
+                    () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateStageResultRuntime()
@@ -482,20 +496,34 @@ namespace Game.Feature.UI.Composition
 
         private sealed class SettingsRuntime : ScreenRuntimeBase<SettingsScreenView>
         {
+            private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
+            private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
             private readonly SettingsScreenPresenter _presenter;
             private bool _isCurrent;
 
-            public SettingsRuntime(SettingsScreenView view, SettingsScreenPresenter presenter, Action dispose)
+            public SettingsRuntime(
+                SettingsScreenView view,
+                SettingsScreenPresenter presenter,
+                DisplayPreviewSessionHost displayPreviewSessionHost,
+                DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
+                Action dispose)
                 : base(view, dispose)
             {
                 _presenter = presenter;
+                _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
+                _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
                 view.AudioVolumeChanged += HandleAudioVolumeChanged;
                 view.AudioMuteChanged += HandleAudioMuteChanged;
                 view.AudioInteractionCompleted += HandleAudioInteractionCompleted;
+                view.DisplayResolutionChanged += HandleDisplayResolutionChanged;
+                view.DisplayFullscreenToggled += HandleDisplayFullscreenToggled;
+                view.DisplayApplyRequested += HandleDisplayApplyRequested;
+                view.DisplayRevertRequested += HandleDisplayRevertRequested;
                 view.TooltipInfoRequested += HandleTooltipInfoRequested;
                 view.TooltipToggleRequested += HandleTooltipToggleRequested;
                 view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
                 view.BackRequested += HandleBackRequested;
+                _displaySettingsLifecycleRelay.ResyncRequested += HandleDisplayResyncRequested;
             }
 
             public override void ApplyPayload(IScreenPayload payload)
@@ -505,14 +533,20 @@ namespace Game.Feature.UI.Composition
 
             public override void Dispose()
             {
+                _displayPreviewSessionHost.CancelActivePreview();
                 _presenter.FlushAudioSettings();
                 View.AudioVolumeChanged -= HandleAudioVolumeChanged;
                 View.AudioMuteChanged -= HandleAudioMuteChanged;
                 View.AudioInteractionCompleted -= HandleAudioInteractionCompleted;
+                View.DisplayResolutionChanged -= HandleDisplayResolutionChanged;
+                View.DisplayFullscreenToggled -= HandleDisplayFullscreenToggled;
+                View.DisplayApplyRequested -= HandleDisplayApplyRequested;
+                View.DisplayRevertRequested -= HandleDisplayRevertRequested;
                 View.TooltipInfoRequested -= HandleTooltipInfoRequested;
                 View.TooltipToggleRequested -= HandleTooltipToggleRequested;
                 View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 View.BackRequested -= HandleBackRequested;
+                _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
                 View.Bind(null);
                 base.Dispose();
             }
@@ -521,11 +555,17 @@ namespace Game.Feature.UI.Composition
             {
                 if (_isCurrent && !isCurrent)
                 {
+                    _displayPreviewSessionHost.CancelActivePreview();
                     _presenter.FlushAudioSettings();
                 }
 
                 _isCurrent = isCurrent;
                 base.SetIsCurrent(isCurrent);
+
+                if (isCurrent)
+                {
+                    _presenter.ResyncDisplayState();
+                }
             }
 
             private void HandleTooltipInfoRequested()
@@ -558,9 +598,81 @@ namespace Game.Feature.UI.Composition
                 _presenter.ToggleLargeText();
             }
 
+            private void HandleDisplayResolutionChanged(int modeIndex)
+            {
+                _presenter.StageResolution(modeIndex);
+            }
+
+            private void HandleDisplayFullscreenToggled(bool isFullscreen)
+            {
+                _presenter.StageWindowMode(isFullscreen
+                    ? DisplayWindowMode.FullScreenWindow
+                    : DisplayWindowMode.Windowed);
+            }
+
+            private void HandleDisplayApplyRequested()
+            {
+                if (!_presenter.ApplyStagedDisplaySettings())
+                {
+                    return;
+                }
+
+                if (!_displayPreviewSessionHost.TryOpen(
+                        BuildDisplayPreviewConfirmPayload(),
+                        HandleDisplayPreviewConfirmed,
+                        HandleDisplayPreviewCancelled))
+                {
+                    _presenter.CancelDisplayPreview();
+                }
+            }
+
+            private void HandleDisplayRevertRequested()
+            {
+                _presenter.ResetStagedDisplayToCurrent();
+            }
+
+            private void HandleDisplayPreviewConfirmed()
+            {
+                _presenter.ConfirmDisplayPreview();
+            }
+
+            private void HandleDisplayPreviewCancelled()
+            {
+                _presenter.CancelDisplayPreview();
+            }
+
+            private void HandleDisplayResyncRequested()
+            {
+                if (_isCurrent)
+                {
+                    _presenter.ResyncDisplayState();
+                }
+            }
+
             private void HandleBackRequested()
             {
                 RaiseAction(ScreenAction.Back());
+            }
+
+            private ConfirmPopupPayload BuildDisplayPreviewConfirmPayload()
+            {
+                var selectedIndex = Mathf.Clamp(
+                    _presenter.ViewModel.SelectedResolutionIndex,
+                    0,
+                    Mathf.Max(0, _presenter.ViewModel.ResolutionOptionTexts.Count - 1));
+                var resolutionLabel = _presenter.ViewModel.ResolutionOptionTexts.Count == 0
+                    ? _presenter.ViewModel.CurrentDisplayValueText
+                    : _presenter.ViewModel.ResolutionOptionTexts[selectedIndex];
+                var windowModeText = _presenter.ViewModel.IsFullscreenEnabled
+                    ? "Fullscreen Window"
+                    : "Windowed";
+
+                return new ConfirmPopupPayload(
+                    "Confirm Display Preview",
+                    $"Preview {resolutionLabel} in {windowModeText}. These changes are temporary and will revert in 15 seconds unless you confirm.",
+                    "Keep",
+                    "Revert",
+                    false);
             }
         }
 

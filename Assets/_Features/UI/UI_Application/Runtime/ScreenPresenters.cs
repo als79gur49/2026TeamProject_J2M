@@ -63,6 +63,83 @@ namespace Game.Feature.UI.Application
         void Flush();
     }
 
+    public enum DisplayWindowMode
+    {
+        Windowed = 0,
+        FullScreenWindow = 1,
+    }
+
+    public readonly struct DisplaySettingsPortModeOption
+    {
+        public DisplaySettingsPortModeOption(int width, int height, string labelText)
+        {
+            Width = Math.Max(1, width);
+            Height = Math.Max(1, height);
+            LabelText = labelText ?? string.Empty;
+        }
+
+        public int Width { get; }
+
+        public int Height { get; }
+
+        public string LabelText { get; }
+    }
+
+    public readonly struct DisplaySettingsPortPreviewRequest
+    {
+        public DisplaySettingsPortPreviewRequest(int modeIndex, DisplayWindowMode windowMode)
+        {
+            ModeIndex = modeIndex;
+            WindowMode = windowMode;
+        }
+
+        public int ModeIndex { get; }
+
+        public DisplayWindowMode WindowMode { get; }
+    }
+
+    public readonly struct DisplaySettingsPortSnapshot
+    {
+        public DisplaySettingsPortSnapshot(
+            IReadOnlyList<DisplaySettingsPortModeOption> availableModes,
+            int committedModeIndex,
+            DisplayWindowMode committedWindowMode,
+            string currentRuntimeResolutionLabel,
+            DisplayWindowMode currentRuntimeWindowMode,
+            bool isPreviewActive)
+        {
+            AvailableModes = availableModes ?? Array.Empty<DisplaySettingsPortModeOption>();
+            CommittedModeIndex = committedModeIndex;
+            CommittedWindowMode = committedWindowMode;
+            CurrentRuntimeResolutionLabel = currentRuntimeResolutionLabel ?? string.Empty;
+            CurrentRuntimeWindowMode = currentRuntimeWindowMode;
+            IsPreviewActive = isPreviewActive;
+        }
+
+        public IReadOnlyList<DisplaySettingsPortModeOption> AvailableModes { get; }
+
+        public int CommittedModeIndex { get; }
+
+        public DisplayWindowMode CommittedWindowMode { get; }
+
+        public string CurrentRuntimeResolutionLabel { get; }
+
+        public DisplayWindowMode CurrentRuntimeWindowMode { get; }
+
+        public bool IsPreviewActive { get; }
+    }
+
+    public interface IDisplaySettingsPort
+    {
+        DisplaySettingsPortSnapshot Read();
+
+        bool BeginPreview(DisplaySettingsPortPreviewRequest request);
+
+        bool CommitPreview();
+
+        bool RevertPreview();
+    }
+
     public sealed class GameplayScreenPresenter
     {
         public GameplayScreenViewModel ViewModel { get; } = new GameplayScreenViewModel();
@@ -970,16 +1047,38 @@ namespace Game.Feature.UI.Application
 
     public sealed class SettingsScreenPresenter
     {
+        private const string PreviewActiveStatusText =
+            "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 15 seconds.";
+        private const string PreviewRevertedStatusText =
+            "Preview reverted to the previous saved display settings.";
+        private const string PreviewCommittedStatusText =
+            "Display settings saved.";
+        private const string ExternalDriftStatusText =
+            "Current display changed outside saved settings. Saved settings remain unchanged until you apply again.";
+
         private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
         private readonly IAudioSettingsPort _audioSettingsPort;
+        private readonly IDisplaySettingsPort _displaySettingsPort;
+        private DisplaySettingsPortSnapshot _displaySnapshot = new(
+            Array.Empty<DisplaySettingsPortModeOption>(),
+            0,
+            DisplayWindowMode.Windowed,
+            string.Empty,
+            DisplayWindowMode.Windowed,
+            false);
+        private int _stagedDisplayModeIndex;
+        private DisplayWindowMode _stagedDisplayWindowMode;
+        private string _displayStatusText = string.Empty;
         private SettingsScreenPayload _payload = SettingsScreenPayload.Default;
 
         public SettingsScreenPresenter(
             AccessibilitySettingsStore accessibilitySettingsStore,
-            IAudioSettingsPort audioSettingsPort)
+            IAudioSettingsPort audioSettingsPort,
+            IDisplaySettingsPort displaySettingsPort)
         {
             _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
+            _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
         }
 
         public SettingsScreenViewModel ViewModel { get; } = new SettingsScreenViewModel();
@@ -987,7 +1086,7 @@ namespace Game.Feature.UI.Application
         public void Apply(SettingsScreenPayload payload)
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
-            Refresh();
+            ResyncDisplayState(resetStagedToCommitted: true);
         }
 
         public void ToggleTooltips()
@@ -1000,6 +1099,77 @@ namespace Game.Feature.UI.Application
         {
             _accessibilitySettingsStore.ToggleLargeText();
             Refresh();
+        }
+
+        public void StageResolution(int modeIndex)
+        {
+            if (_displaySnapshot.IsPreviewActive)
+            {
+                return;
+            }
+
+            if (_displaySnapshot.AvailableModes.Count == 0)
+            {
+                return;
+            }
+
+            _stagedDisplayModeIndex = ClampDisplayModeIndex(modeIndex, _displaySnapshot.AvailableModes.Count);
+            RefreshViewModel();
+        }
+
+        public void StageWindowMode(DisplayWindowMode mode)
+        {
+            if (_displaySnapshot.IsPreviewActive)
+            {
+                return;
+            }
+
+            _stagedDisplayWindowMode = mode;
+            RefreshViewModel();
+        }
+
+        public bool ApplyStagedDisplaySettings()
+        {
+            if (_displaySnapshot.IsPreviewActive || !IsDisplayDirty())
+            {
+                return false;
+            }
+
+            var started = _displaySettingsPort.BeginPreview(
+                new DisplaySettingsPortPreviewRequest(_stagedDisplayModeIndex, _stagedDisplayWindowMode));
+            ResyncDisplayState(resetStagedToCommitted: false, overrideStatusText: started ? PreviewActiveStatusText : null);
+            return started;
+        }
+
+        public bool ConfirmDisplayPreview()
+        {
+            var committed = _displaySettingsPort.CommitPreview();
+            ResyncDisplayState(resetStagedToCommitted: true, overrideStatusText: committed ? PreviewCommittedStatusText : null);
+            return committed;
+        }
+
+        public bool CancelDisplayPreview()
+        {
+            var reverted = _displaySettingsPort.RevertPreview();
+            ResyncDisplayState(resetStagedToCommitted: true, overrideStatusText: reverted ? PreviewRevertedStatusText : null);
+            return reverted;
+        }
+
+        public void ResetStagedDisplayToCurrent()
+        {
+            if (_displaySnapshot.IsPreviewActive)
+            {
+                return;
+            }
+
+            _stagedDisplayModeIndex = ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count);
+            _stagedDisplayWindowMode = _displaySnapshot.CommittedWindowMode;
+            RefreshViewModel();
+        }
+
+        public void ResyncDisplayState()
+        {
+            ResyncDisplayState(resetStagedToCommitted: false);
         }
 
         public void SetAudioVolume(AudioSettingsChannel channel, float volume)
@@ -1031,18 +1201,125 @@ namespace Game.Feature.UI.Application
 
         private void Refresh()
         {
+            ResyncDisplayState(resetStagedToCommitted: false);
+        }
+
+        private void ResyncDisplayState(
+            bool resetStagedToCommitted,
+            string overrideStatusText = null)
+        {
+            _displaySnapshot = _displaySettingsPort.Read();
+            if (_displaySnapshot.AvailableModes.Count == 0)
+            {
+                _displaySnapshot = new DisplaySettingsPortSnapshot(
+                    Array.Empty<DisplaySettingsPortModeOption>(),
+                    0,
+                    _displaySnapshot.CommittedWindowMode,
+                    _displaySnapshot.CurrentRuntimeResolutionLabel,
+                    _displaySnapshot.CurrentRuntimeWindowMode,
+                    _displaySnapshot.IsPreviewActive);
+            }
+
+            if (resetStagedToCommitted || _displaySnapshot.AvailableModes.Count == 0)
+            {
+                _stagedDisplayModeIndex = ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count);
+                _stagedDisplayWindowMode = _displaySnapshot.CommittedWindowMode;
+            }
+            else
+            {
+                _stagedDisplayModeIndex = ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count);
+            }
+
+            _displayStatusText = overrideStatusText ?? BuildDisplayStatusText();
+            RefreshViewModel();
+        }
+
+        private void RefreshViewModel()
+        {
             var accessibilityState = _accessibilitySettingsStore.State;
             var audioSnapshot = _audioSettingsPort.Read();
+            var resolutionOptions = new List<string>(_displaySnapshot.AvailableModes.Count);
+            for (var i = 0; i < _displaySnapshot.AvailableModes.Count; i++)
+            {
+                resolutionOptions.Add(_displaySnapshot.AvailableModes[i].LabelText);
+            }
+
             ViewModel.SetContent(
                 _payload.TitleText,
                 BuildAudioRow(_payload.MainAudioLabel, audioSnapshot.Main),
                 BuildAudioRow(_payload.BgmAudioLabel, audioSnapshot.Bgm),
                 BuildAudioRow(_payload.SfxAudioLabel, audioSnapshot.Sfx),
+                _payload.DisplaySectionTitle,
+                _payload.CurrentDisplayLabel,
+                _displaySnapshot.CurrentRuntimeResolutionLabel,
+                _payload.ResolutionLabel,
+                resolutionOptions,
+                _stagedDisplayModeIndex,
+                _payload.FullscreenLabel,
+                _stagedDisplayWindowMode == DisplayWindowMode.FullScreenWindow,
+                _displayStatusText,
+                _payload.DisplayApplyLabel,
+                IsDisplayDirty() && !_displaySnapshot.IsPreviewActive,
+                _payload.DisplayRevertLabel,
+                IsDisplayDirty() && !_displaySnapshot.IsPreviewActive,
+                _displaySnapshot.IsPreviewActive,
                 accessibilityState.AreTooltipsEnabled ? "Enabled" : "Disabled",
                 accessibilityState.IsLargeTextEnabled ? "Enabled" : "Disabled",
                 _payload.TooltipToggleLabel,
                 _payload.LargeTextToggleLabel,
                 _payload.BackLabel);
+        }
+
+        private bool IsDisplayDirty()
+        {
+            return _stagedDisplayModeIndex != ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count) ||
+                   _stagedDisplayWindowMode != _displaySnapshot.CommittedWindowMode;
+        }
+
+        private string BuildDisplayStatusText()
+        {
+            if (_displaySnapshot.IsPreviewActive)
+            {
+                return PreviewActiveStatusText;
+            }
+
+            if (_displaySnapshot.CurrentRuntimeWindowMode != _displaySnapshot.CommittedWindowMode)
+            {
+                return ExternalDriftStatusText;
+            }
+
+            if (_displaySnapshot.AvailableModes.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            var committedIndex = ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count);
+            if (_displaySnapshot.CurrentRuntimeResolutionLabel != _displaySnapshot.AvailableModes[committedIndex].LabelText)
+            {
+                return ExternalDriftStatusText;
+            }
+
+            return string.Empty;
+        }
+
+        private static int ClampDisplayModeIndex(int index, int count)
+        {
+            if (count <= 0)
+            {
+                return 0;
+            }
+
+            if (index < 0)
+            {
+                return 0;
+            }
+
+            if (index >= count)
+            {
+                return count - 1;
+            }
+
+            return index;
         }
 
         private static AudioSettingsRowViewModel BuildAudioRow(
