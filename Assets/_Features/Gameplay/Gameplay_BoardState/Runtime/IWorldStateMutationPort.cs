@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
+        void SetPhasedState(int entityId, PhasedRuntimeState state);
         void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);
         void MarkDestroy(int entityId);
         void SetFacing(int entityId, Direction facing);

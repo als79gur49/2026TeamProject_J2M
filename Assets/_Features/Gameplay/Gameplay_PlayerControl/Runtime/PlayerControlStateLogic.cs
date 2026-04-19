@@ -219,10 +219,73 @@ namespace Game.Feature.Gameplay.PlayerControl
                 nextState = PlayerControlQueries.ResetContact(nextState);
             }
 
+            UpdateMovementOwnedPhasedState(
+                snapshot,
+                input.TickIndex,
+                nextState.activeAction,
+                writeContext,
+                updates);
             writeContext.SetPlayerControlState(_entityId, nextState);
             actionTransitions.Add(new PlayerActionTransition(_entityId, previousAction, nextState.activeAction));
             updates.Add(
                 $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|PushTicks={nextState.pushContactTicks}|Target={nextState.pushTargetEntityId}|Direction={nextState.pushDirection}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}");
+        }
+
+        private void UpdateMovementOwnedPhasedState(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            in PlayerActionRuntimeState action,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (writeContext is not IPhasedStateCommitContext phasedWriteContext)
+            {
+                throw new InvalidOperationException("Pre-movement write contexts must support phased runtime writes.");
+            }
+
+            var hasCurrentPhasedState = snapshot.TryGetPhasedState(_entityId, out var currentPhasedState) &&
+                                        currentPhasedState.IsActive;
+            var ownsMovementPhasedState = hasCurrentPhasedState &&
+                                          currentPhasedState.ownerKind == PhasedRuntimeStateOwnerKind.MovementPreMovement;
+            var shouldOwnMovementPhase = ShouldOwnMovementPhase(action);
+
+            if (shouldOwnMovementPhase)
+            {
+                if (hasCurrentPhasedState &&
+                    !ownsMovementPhasedState)
+                {
+                    throw new InvalidOperationException(
+                        $"Entity {_entityId} cannot enter movement-owned phased state while owner {currentPhasedState.ownerKind} is still active.");
+                }
+
+                if (ownsMovementPhasedState)
+                {
+                    return;
+                }
+
+                phasedWriteContext.SetPhasedState(
+                    _entityId,
+                    PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex));
+                updates.Add(
+                    $"PhaseEnter|Entity={_entityId}|Tick={tickIndex}|Owner={PhasedRuntimeStateOwnerKind.MovementPreMovement}|Rule=PlayerFlipWindup");
+                return;
+            }
+
+            if (!ownsMovementPhasedState)
+            {
+                return;
+            }
+
+            phasedWriteContext.SetPhasedState(_entityId, PhasedRuntimeStateQueries.Clear());
+            updates.Add(
+                $"PhaseExit|Entity={_entityId}|Tick={tickIndex}|Owner={PhasedRuntimeStateOwnerKind.MovementPreMovement}|Reason=PlayerFlipWindupEnded");
+        }
+
+        private static bool ShouldOwnMovementPhase(in PlayerActionRuntimeState action)
+        {
+            return action.kind == PlayerActionKind.Flip &&
+                   action.IsActive &&
+                   !action.executionAttempted;
         }
     }
 }

@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
+        private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
         private readonly Dictionary<int, PlayerDamageState> _playerDamageStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
@@ -71,6 +72,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
+                new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
                 new Dictionary<int, PlayerDamageState>(_playerDamageStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
                 _topology,
@@ -133,6 +135,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyActionStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
+            _phasedStatesByEntityId.Remove(entityId);
             _playerDamageStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
         }
@@ -192,6 +195,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.markedForDeath = true;
             UpdateStoredEntity(entity);
+            _phasedStatesByEntityId.Remove(entityId);
         }
 
         private void SetFacing(int entityId, Direction facing)
@@ -233,6 +237,11 @@ namespace Game.Feature.Gameplay.BoardState
             ClearOccupancyForEntity(entity);
 
             entity.boardPresence = boardPresence;
+            if (boardPresence != EntityBoardPresence.Occupying)
+            {
+                _phasedStatesByEntityId.Remove(entityId);
+            }
+
             if (boardPresence == EntityBoardPresence.Occupying)
             {
                 EnsurePlacementIsRepresentable(entity, entity.position, entityId);
@@ -285,7 +294,56 @@ namespace Game.Feature.Gameplay.BoardState
                 return;
             }
 
+            if (state.phase != EnemyJumpPhase.None &&
+                _phasedStatesByEntityId.TryGetValue(entityId, out var phasedState) &&
+                phasedState.IsActive)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot hold active jump and phased runtime states simultaneously.");
+            }
+
             _enemyJumpStatesByEntityId[entityId] = state;
+        }
+
+        private void SetPhasedState(int entityId, PhasedRuntimeState state)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity))
+            {
+                return;
+            }
+
+            if (!state.IsActive)
+            {
+                _phasedStatesByEntityId.Remove(entityId);
+                return;
+            }
+
+            if (entity.type != EntityType.Unit)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot enter phased runtime state because only unit entities are supported.");
+            }
+
+            if (entity.boardPresence != EntityBoardPresence.Occupying)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot enter phased runtime state while board presence is {entity.boardPresence}.");
+            }
+
+            if (entity.hp <= 0 || entity.markedForDeath)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot enter phased runtime state after death or destroy marking.");
+            }
+
+            if (_enemyJumpStatesByEntityId.TryGetValue(entityId, out var jumpState) &&
+                jumpState.phase != EnemyJumpPhase.None)
+            {
+                throw new InvalidOperationException(
+                    $"Entity {entityId} cannot enter phased runtime state while jump phase is {jumpState.phase}.");
+            }
+
+            _phasedStatesByEntityId[entityId] = state;
         }
 
         private void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state)
@@ -549,6 +607,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             SetEnemyJumpState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetPhasedState(int entityId, PhasedRuntimeState state)
+        {
+            SetPhasedState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetEntityExecutionLockState(int entityId, EntityExecutionLockState state)

@@ -792,8 +792,9 @@ namespace Game.Feature.Gameplay.Loop
             for (var planOperationIndex = 0; planOperationIndex < planPhaseResult.PlanFinalizationBatch.Operations.Count; planOperationIndex++)
             {
                 var planOperation = planPhaseResult.PlanFinalizationBatch.Operations[planOperationIndex];
-                if (planOperation.Kind == FinalizationOperationKind.SetEnemyJumpState &&
-                    planOperation.Metadata.JumpPresentationKind != JumpPresentationKind.None)
+                if ((planOperation.Kind == FinalizationOperationKind.SetEnemyJumpState &&
+                     planOperation.Metadata.JumpPresentationKind != JumpPresentationKind.None) ||
+                    planOperation.Kind == FinalizationOperationKind.SetPhasedState)
                 {
                     movementResolvedOperations.Add(planOperation);
                 }
@@ -3836,19 +3837,7 @@ namespace Game.Feature.Gameplay.Loop
             int entityId,
             EntityType entityType)
         {
-            if (entityId > 0 &&
-                snapshot.TryGetResolvedSpatialState(entityId, out var spatialState))
-            {
-                return new LegalityActorRef(entityId, entityType, spatialState);
-            }
-
-            return new LegalityActorRef(
-                entityId,
-                entityType,
-                SpatialStateResolver.Resolve(
-                    EntityBoardPresence.Detached,
-                    jumpState: null,
-                    isFaceActive: false));
+            return StateQuery.BuildActorRef(snapshot, entityId, entityType);
         }
 
         private static bool TryGetConflictingImpactDestination(
@@ -5508,6 +5497,7 @@ namespace Game.Feature.Gameplay.Loop
         ApplyDamage = 14,
         MarkDestroy = 15,
         EnqueueDelayedAttackEffect = 16,
+        SetPhasedState = 17,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -5648,6 +5638,7 @@ namespace Game.Feature.Gameplay.Loop
             int enemyAiStateTimer = 0,
             EnemyActionRuntimeState enemyActionState = default,
             EnemyJumpRuntimeState enemyJumpState = default,
+            PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
             DelayedAttackEffectRecord delayedAttackEffect = default)
         {
@@ -5673,6 +5664,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyAiStateTimer = enemyAiStateTimer;
             EnemyActionState = enemyActionState;
             EnemyJumpState = enemyJumpState;
+            PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
             DelayedAttackEffect = delayedAttackEffect;
         }
@@ -5721,6 +5713,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyJumpRuntimeState EnemyJumpState { get; }
 
+        public PhasedRuntimeState PhasedState { get; }
+
         public EntityState SpawnedEntity { get; }
 
         public DelayedAttackEffectRecord DelayedAttackEffect { get; }
@@ -5750,6 +5744,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyAiStateTimer,
                 EnemyActionState,
                 EnemyJumpState,
+                PhasedState,
                 SpawnedEntity,
                 DelayedAttackEffect);
         }
@@ -5893,6 +5888,17 @@ namespace Game.Feature.Gameplay.Loop
                 enemyJumpState: enemyJumpState);
         }
 
+        public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetPhasedState,
+                metadata,
+                entityId: entityId,
+                phasedState: phasedState);
+        }
+
         public static FinalizationOperation SpawnEntity(long sequence, EntityState entity, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -6008,6 +6014,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetEnemyJumpState(_nextSequence++, entityId, state, metadata));
+        }
+
+        public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
         }
 
         public void SpawnEntity(EntityState entity, FinalizationOperationMetadata metadata = default)
@@ -6129,6 +6140,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyJumpState(operation.EntityId, operation.EnemyJumpState);
                         break;
 
+                    case FinalizationOperationKind.SetPhasedState:
+                        ((IPhasedStateCommitContext)writeContext).SetPhasedState(operation.EntityId, operation.PhasedState);
+                        break;
+
                     case FinalizationOperationKind.SpawnEntity:
                         ((IAttackCommitContext)writeContext).SpawnEntity(operation.SpawnedEntity);
                         break;
@@ -6204,6 +6219,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             _batch.SetEnemyJumpState(entityId, state, CreateJumpStateMetadata(entityId, state));
+        }
+
+        public void SetPhasedState(int entityId, PhasedRuntimeState state)
+        {
+            _batch.SetPhasedState(entityId, state, CreatePhasedStateMetadata(entityId));
         }
 
         public void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state)
@@ -6302,6 +6322,17 @@ namespace Game.Feature.Gameplay.Loop
                 jumpPresentationKind: jumpPresentationKind,
                 presentationTargetCell: state.lockedTargetCell);
         }
+
+        private FinalizationOperationMetadata CreatePhasedStateMetadata(int entityId)
+        {
+            return new FinalizationOperationMetadata(
+                _originPhase,
+                ResolvedActionSemanticKind.None,
+                entityId,
+                actionPlanId: 0,
+                movementSemanticKind: MovementSemanticKind.None,
+                damageSourceType: DamageSourceType.None);
+        }
     }
 
     internal sealed class RecordingDelayedAttackEffectSink : IDelayedAttackEffectSink
@@ -6389,6 +6420,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetEnemyJumpState(entityId, out var enemyJumpState))
                 {
                     writeContext.SetEnemyJumpState(entityId, enemyJumpState);
+                }
+
+                if (snapshot.TryGetPhasedState(entityId, out var phasedState))
+                {
+                    writeContext.SetPhasedState(entityId, phasedState);
                 }
             }
 

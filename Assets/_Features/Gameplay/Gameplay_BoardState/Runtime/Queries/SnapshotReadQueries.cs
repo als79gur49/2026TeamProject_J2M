@@ -19,6 +19,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 occupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 out entity);
@@ -28,6 +29,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             out EntityState entity)
@@ -43,7 +45,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             return TryGetStoredOccupant(entitiesById, occupancyByCell, cell, out entity) &&
                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                       ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology));
+                       ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology));
         }
 
         public static bool HasAnyUnitAt(
@@ -56,6 +58,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell);
         }
@@ -64,6 +67,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell)
         {
@@ -74,6 +78,7 @@ namespace Game.Feature.Gameplay.BoardState
                        entitiesById,
                        stackedUnitsByCell,
                        enemyJumpStatesByEntityId,
+                       phasedStatesByEntityId,
                        topology,
                        cell,
                        requireGameplayVisibility: true,
@@ -92,6 +97,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 buffer);
@@ -101,6 +107,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             List<EntityState> buffer)
@@ -124,7 +131,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 if (!entitiesById.TryGetValue(entityId, out var entity) ||
                     !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                        ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology)))
+                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
                 {
                     continue;
                 }
@@ -144,6 +151,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 out entity);
@@ -153,6 +161,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             out EntityState entity)
@@ -170,6 +179,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 topology,
                 cell,
                 requireGameplayVisibility: true,
@@ -257,6 +267,7 @@ namespace Game.Feature.Gameplay.BoardState
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 sourceTeamId,
@@ -268,6 +279,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             int sourceTeamId,
@@ -301,7 +313,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 if (!entitiesById.TryGetValue(entityId, out var candidate) ||
                     !GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
-                        ResolveSpatialState(enemyJumpStatesByEntityId, candidate, topology)))
+                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, candidate, topology)))
                 {
                     continue;
                 }
@@ -353,6 +365,7 @@ namespace Game.Feature.Gameplay.BoardState
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 sourceTeamId,
@@ -364,6 +377,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             int sourceTeamId,
@@ -388,7 +402,7 @@ namespace Game.Feature.Gameplay.BoardState
             {
                 if (!entitiesById.TryGetValue(entityId, out var candidate) ||
                     !GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
-                        ResolveSpatialState(enemyJumpStatesByEntityId, candidate, topology)) ||
+                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, candidate, topology)) ||
                     candidate.teamId == sourceTeamId)
                 {
                     continue;
@@ -425,6 +439,7 @@ namespace Game.Feature.Gameplay.BoardState
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 out entity);
@@ -435,6 +450,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             out EntityState entity)
@@ -450,7 +466,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             if (TryGetStoredOccupant(entitiesById, solidOccupancyByCell, cell, out entity) &&
                 GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                    ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology)))
+                    ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
             {
                 return true;
             }
@@ -459,6 +475,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 topology,
                 cell,
                 requireGameplayVisibility: true,
@@ -499,12 +516,13 @@ namespace Game.Feature.Gameplay.BoardState
             CubeTopologyState topology,
             int entityId)
         {
-            return BlocksMovement(entitiesById, enemyJumpStatesByEntityId: null, topology, entityId);
+            return BlocksMovement(entitiesById, enemyJumpStatesByEntityId: null, phasedStatesByEntityId: null, topology, entityId);
         }
 
         public static bool BlocksMovement(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             int entityId)
         {
@@ -516,7 +534,7 @@ namespace Game.Feature.Gameplay.BoardState
             return entitiesById.TryGetValue(entityId, out var entity) &&
                    entity.type != EntityType.Projectile &&
                    GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                       ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology));
+                       ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology));
         }
 
         public static bool CanBeTargetedForNewSelection(
@@ -527,6 +545,7 @@ namespace Game.Feature.Gameplay.BoardState
             return CanBeTargetedForNewSelection(
                 entitiesById,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 entityId);
         }
@@ -534,6 +553,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool CanBeTargetedForNewSelection(
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             int entityId)
         {
@@ -545,7 +565,7 @@ namespace Game.Feature.Gameplay.BoardState
             return entitiesById.TryGetValue(entityId, out var entity) &&
                    !entity.markedForDeath &&
                    GameplayEntityQueryPolicy.ShouldParticipateInTargetSelection(
-                       ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology));
+                       ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology));
         }
 
         public static void EnumerateEntitiesOrdered(
@@ -582,6 +602,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 occupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 buffer);
         }
@@ -590,6 +611,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             List<SnapshotOccupancyEntry> buffer)
         {
@@ -611,7 +633,7 @@ namespace Game.Feature.Gameplay.BoardState
 
                 if (!entitiesById.TryGetValue(pair.Value, out var entity) ||
                     !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                        ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology)))
+                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
                 {
                     continue;
                 }
@@ -634,6 +656,7 @@ namespace Game.Feature.Gameplay.BoardState
                 stackedUnitsByCell,
                 solidOccupancyByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 buffer);
         }
@@ -643,6 +666,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             List<SnapshotOccupancyEntry> buffer)
         {
@@ -664,7 +688,7 @@ namespace Game.Feature.Gameplay.BoardState
 
                 if (!entitiesById.TryGetValue(pair.Value, out var entity) ||
                     !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                        ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology)))
+                        ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
                 {
                     continue;
                 }
@@ -676,6 +700,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 topology,
                 buffer);
 
@@ -692,6 +717,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 buffer);
         }
@@ -700,6 +726,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             List<SnapshotOccupancyEntry> buffer)
         {
@@ -716,6 +743,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 topology,
                 buffer);
 
@@ -726,6 +754,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             List<SnapshotOccupancyEntry> buffer)
         {
@@ -740,7 +769,7 @@ namespace Game.Feature.Gameplay.BoardState
                 {
                     if (!entitiesById.TryGetValue(entityId, out var entity) ||
                         !GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                            ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology)))
+                            ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology)))
                     {
                         continue;
                     }
@@ -821,6 +850,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 topology,
                 cell,
                 requireGameplayVisibility,
@@ -832,6 +862,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             SurfaceCell cell,
             bool requireGameplayVisibility,
@@ -855,9 +886,9 @@ namespace Game.Feature.Gameplay.BoardState
 
                 if (requireGameplayVisibility
                         ? GameplayEntityQueryPolicy.ShouldParticipateInGameplayQueries(
-                            ResolveSpatialState(enemyJumpStatesByEntityId, candidate, topology))
+                            ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, candidate, topology))
                         : GameplayEntityQueryPolicy.IsEntityOccupyingBoard(
-                            ResolveSpatialState(enemyJumpStatesByEntityId, candidate, topology)))
+                            ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, candidate, topology)))
                 {
                     entity = candidate;
                     return true;
@@ -874,16 +905,21 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static ResolvedSpatialState ResolveSpatialState(
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             in EntityState entity,
             CubeTopologyState topology)
         {
             var jumpState = default(EnemyJumpRuntimeState);
             var hasJumpState = enemyJumpStatesByEntityId != null &&
                                enemyJumpStatesByEntityId.TryGetValue(entity.entityId, out jumpState);
+            var phasedState = default(PhasedRuntimeState);
+            var hasPhasedState = phasedStatesByEntityId != null &&
+                                 phasedStatesByEntityId.TryGetValue(entity.entityId, out phasedState);
             return SpatialStateResolver.Resolve(
                 entity,
                 topology,
-                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null);
+                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null,
+                hasPhasedState ? phasedState : (PhasedRuntimeState?)null);
         }
 
         private static void ValidateQueryDictionaries(

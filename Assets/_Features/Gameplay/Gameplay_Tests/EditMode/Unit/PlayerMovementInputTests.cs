@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Game.Feature.Gameplay.BoardState;
@@ -125,6 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
                 60,
                 GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds);
+            var actionTicks = ResolvePushActionTickWindow(snapshot, startTick: 1);
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
@@ -142,8 +144,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         direction = Direction.Right,
                         targetEntityId = 30,
                         startTick = 1,
-                        executeTick = 1 + snapshot.PushWindupTicks,
-                        recoveryEndTick = 1 + snapshot.PushWindupTicks + snapshot.PushRecoveryTicks,
+                        executeTick = actionTicks.ExecuteTick,
+                        recoveryEndTick = actionTicks.AfterRecoveryTick - 1,
                     },
                 });
             var logic = new PlayerLogic(
@@ -155,18 +157,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 flipRecoveryTicks: snapshot.FlipRecoveryTicks);
             var beforeExecuteBuffer = new List<RawMovementIntent>();
             var executeBuffer = new List<RawMovementIntent>();
+            var afterRecoveryBuffer = new List<RawMovementIntent>();
 
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(actionTicks.BeforeExecuteTick, PlayerTickCommand.Move(Direction.Right)),
                 beforeExecuteBuffer);
             logic.CollectMovementIntents(
                 worldState.CreateSnapshot(),
-                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(actionTicks.ExecuteTick, PlayerTickCommand.Move(Direction.Right)),
                 executeBuffer);
+            logic.CollectMovementIntents(
+                worldState.CreateSnapshot(),
+                new TickInput(actionTicks.AfterRecoveryTick, PlayerTickCommand.Move(Direction.Right)),
+                afterRecoveryBuffer);
 
             Assert.That(beforeExecuteBuffer, Is.Empty);
             Assert.That(executeBuffer.Single().CommandKind, Is.EqualTo(MovementCommandKind.Push));
+            Assert.That(afterRecoveryBuffer, Is.Empty);
         }
 
         [Test]
@@ -552,6 +560,129 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerControlStateLogic_FlipWindup_EntersMovementOwnedPhasedCarrier()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var logic = new PlayerControlStateLogic(
+                entityId: 10,
+                pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 0,
+                flipWindupTicks: 2,
+                flipRecoveryTicks: 0);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(controlState.activeAction.executionAttempted, Is.False);
+            Assert.That(snapshot.TryGetPhasedState(10, out var phasedState), Is.True);
+            Assert.That(phasedState.ownerKind, Is.EqualTo(PhasedRuntimeStateOwnerKind.MovementPreMovement));
+            Assert.That(phasedState.enteredTick, Is.EqualTo(1));
+            Assert.That(snapshot.TryGetResolvedSpatialState(10, out var spatialState), Is.True);
+            Assert.That(spatialState.Kind, Is.EqualTo(SpatialState.Phased));
+            Assert.That(snapshot.CanBeTargetedForNewSelection(10), Is.False);
+            Assert.That(updates, Has.Some.Contains("PhaseEnter|Entity=10|Tick=1"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_FlipWindup_SustainsWithoutRewriting_AndClearsOnExecutionTick()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            var logic = new PlayerControlStateLogic(
+                entityId: 10,
+                pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 0,
+                flipWindupTicks: 2,
+                flipRecoveryTicks: 0);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            updates.Clear();
+            transitions.Clear();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            var sustainedSnapshot = worldState.CreateSnapshot();
+            Assert.That(sustainedSnapshot.TryGetPhasedState(10, out var sustainedState), Is.True);
+            Assert.That(sustainedState.sequence, Is.EqualTo(1));
+            Assert.That(sustainedState.enteredTick, Is.EqualTo(1));
+            Assert.That(updates, Has.None.Contains("PhaseEnter|Entity=10"));
+            Assert.That(updates, Has.None.Contains("PhaseExit|Entity=10"));
+
+            updates.Clear();
+            transitions.Clear();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(3),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            var clearedSnapshot = worldState.CreateSnapshot();
+            Assert.That(clearedSnapshot.TryGetPhasedState(10, out _), Is.False);
+            Assert.That(clearedSnapshot.TryGetPlayerControlState(10, out var executingState), Is.True);
+            Assert.That(executingState.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+            Assert.That(executingState.activeAction.executionAttempted, Is.True);
+            Assert.That(updates, Has.Some.Contains("PhaseExit|Entity=10|Tick=3"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_FlipWindup_RejectsForeignActivePhasedOwner()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Flip),
+            });
+            ((IPhasedStateCommitContext)worldState.CreateWriteContext()).SetPhasedState(
+                10,
+                PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 0));
+            var logic = new PlayerControlStateLogic(entityId: 10);
+
+            Assert.Throws<InvalidOperationException>(
+                () => logic.CommitPreMovementState(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1, PlayerTickCommand.Flip(Direction.Right)),
+                    worldState.CreateWriteContext(),
+                    new List<string>(),
+                    new List<PlayerActionTransition>()));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerControlQueries_StartAction_ZeroWindup_MarksExecutionAttemptedImmediately()
         {
             var startedState = PlayerControlQueries.StartAction(
@@ -648,10 +779,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Extended")]
         public void PlayerControlStateLogic_ActiveAction_AdvancesExecutionAndCompletion()
         {
-            var worldState = CreateWorldState(new[]
-            {
-                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-            });
+            var worldState = CreateValidPendingPushActionWorldState(
+                playerEntityId: 10,
+                playerPosition: new SurfaceCell(FaceId.Floor, 0, 0),
+                targetEntityId: 20,
+                direction: Direction.Right);
             worldState.CreateWriteContext().SetPlayerControlState(
                 10,
                 new PlayerControlState
@@ -1055,6 +1187,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 facing = facing,
                 boxCapabilities = capabilities,
             };
+        }
+
+        // Pending-action fixtures must remain executable under CanPendingActionStillExecute.
+        private static WorldState CreateValidPendingPushActionWorldState(
+            int playerEntityId,
+            SurfaceCell playerPosition,
+            int targetEntityId,
+            Direction direction)
+        {
+            return CreateWorldState(new[]
+            {
+                CreateUnit(playerEntityId, playerPosition),
+                CreateBox(
+                    targetEntityId,
+                    playerPosition + ResolveDirectionDelta(direction),
+                    capabilities: BoxCapabilities.Push),
+            });
+        }
+
+        // Timing-sensitive assertions must derive ticks from the authoritative snapshot, not hardcoded literals.
+        private static (int BeforeExecuteTick, int ExecuteTick, int AfterRecoveryTick) ResolvePushActionTickWindow(
+            PlayerControlTimingAuthoritativeSnapshot snapshot,
+            int startTick)
+        {
+            var executeTick = startTick + snapshot.PushWindupTicks;
+            return (executeTick - 1, executeTick, executeTick + snapshot.PushRecoveryTicks + 1);
+        }
+
+        private static Vector2Int ResolveDirectionDelta(Direction direction)
+        {
+            switch (direction)
+            {
+                case Direction.Up:
+                    return Vector2Int.up;
+
+                case Direction.Right:
+                    return Vector2Int.right;
+
+                case Direction.Down:
+                    return Vector2Int.down;
+
+                case Direction.Left:
+                    return Vector2Int.left;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(direction), direction, "Unsupported direction for push fixture.");
+            }
         }
 
         private static void AssertRecoveryStillActive(

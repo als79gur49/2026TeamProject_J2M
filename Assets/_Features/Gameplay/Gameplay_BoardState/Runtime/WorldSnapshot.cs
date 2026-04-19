@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
+        private readonly IReadOnlyDictionary<int, PhasedRuntimeState> _phasedStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerDamageState> _playerDamageStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
@@ -31,6 +32,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
             Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
             CubeTopologyState topology,
@@ -44,6 +46,7 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
             _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
+            _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
             _playerDamageStatesByEntityId = new ReadOnlyDictionary<int, PlayerDamageState>(playerDamageStatesByEntityId ?? throw new ArgumentNullException(nameof(playerDamageStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
             _topology = topology;
@@ -89,6 +92,11 @@ namespace Game.Feature.Gameplay.BoardState
             return _enemyJumpStatesByEntityId.TryGetValue(entityId, out state);
         }
 
+        internal bool TryGetPhasedState(int entityId, out PhasedRuntimeState state)
+        {
+            return _phasedStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
         internal bool TryGetResolvedSpatialState(int entityId, out ResolvedSpatialState spatialState)
         {
             if (!_entitiesById.TryGetValue(entityId, out var entity))
@@ -98,10 +106,12 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             var hasJumpState = _enemyJumpStatesByEntityId.TryGetValue(entityId, out var jumpState);
+            var hasPhasedState = _phasedStatesByEntityId.TryGetValue(entityId, out var phasedState);
             spatialState = SpatialStateResolver.Resolve(
                 entity,
                 _topology,
-                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null);
+                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null,
+                hasPhasedState ? phasedState : (PhasedRuntimeState?)null);
             return true;
         }
 
@@ -139,6 +149,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _topology,
                 cell,
                 buffer);
@@ -155,6 +166,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 topology,
                 cell,
                 buffer);
@@ -310,6 +322,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
                 topology,
@@ -340,6 +353,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _solidOccupancy,
                 _projectileOccupancy,
                 _boardBounds,
@@ -463,6 +477,7 @@ namespace Game.Feature.Gameplay.BoardState
             return SnapshotReadQueries.CanBeTargetedForNewSelection(
                 _entitiesById,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _topology,
                 entityId);
         }
@@ -486,6 +501,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _solidOccupancy,
                 topology,
                 _boardBounds,
@@ -515,6 +531,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _topology,
                 buffer);
         }
@@ -525,6 +542,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _solidOccupancy,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 _topology,
                 buffer);
         }
@@ -597,6 +615,23 @@ namespace Game.Feature.Gameplay.BoardState
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
+        internal void EnumeratePhasedStatesOrdered(List<PhasedSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _phasedStatesByEntityId)
+            {
+                buffer.Add(new PhasedSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
         internal void EnumerateEntityExecutionLockStatesOrdered(List<EntityExecutionLockSnapshotEntry> buffer)
         {
             if (buffer == null)
@@ -625,6 +660,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 topology,
                 cell);
         }
@@ -635,6 +671,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _stackedUnitsByCell,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 topology,
                 cell,
                 out entity);
@@ -676,6 +713,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _stackedUnitsByCell,
                 _solidOccupancy,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 topology,
                 cell,
                 sourceTeamId,
@@ -693,6 +731,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _stackedUnitsByCell,
                 _solidOccupancy,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 topology,
                 cell,
                 sourceTeamId,
@@ -705,6 +744,7 @@ namespace Game.Feature.Gameplay.BoardState
                 _entitiesById,
                 _projectileOccupancy,
                 _enemyJumpStatesByEntityId,
+                _phasedStatesByEntityId,
                 topology,
                 cell,
                 out entity);

@@ -219,15 +219,7 @@ namespace Game.Feature.Gameplay.Entities
 
         private static LegalityActorRef BuildActorRef(WorldSnapshot snapshot, in EntityState actor)
         {
-            if (snapshot.TryGetResolvedSpatialState(actor.entityId, out var spatialState))
-            {
-                return new LegalityActorRef(actor.entityId, actor.type, spatialState);
-            }
-
-            return new LegalityActorRef(
-                actor.entityId,
-                actor.type,
-                SpatialStateResolver.Resolve(actor, snapshot.Topology, jumpState: null));
+            return StateQuery.BuildActorRef(snapshot, actor);
         }
         private static List<(Vector2Int Offset, string Rule)> BuildOrderedJumpFallbackOffsets(Direction basisFacing)
         {

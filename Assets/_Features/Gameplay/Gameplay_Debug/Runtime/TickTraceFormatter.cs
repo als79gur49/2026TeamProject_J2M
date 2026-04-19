@@ -107,6 +107,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
 
@@ -231,6 +232,22 @@ namespace Game.Feature.Gameplay.Debug
             return lines;
         }
 
+        private static List<string> GetPhasedEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<PhasedSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumeratePhasedStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Owner={entry.State.ownerKind}|Seq={entry.State.sequence}|Entered={entry.State.enteredTick}|ExitExclusive={entry.State.exitTickExclusive}|Active={(entry.State.IsActive ? 1 : 0)}");
+            }
+
+            return lines;
+        }
+
         private static List<string> GetTerrainEntries(WorldSnapshot snapshot)
         {
             var terrainLines = new List<string>();
@@ -343,6 +360,14 @@ namespace Game.Feature.Gameplay.Debug
 
                 case FinalizationOperationKind.SetBoardPresence:
                     builder.Append("|Presence=").Append(operation.BoardPresence);
+                    break;
+
+                case FinalizationOperationKind.SetPhasedState:
+                    builder.Append("|Owner=").Append(operation.PhasedState.ownerKind)
+                        .Append("|PhaseSeq=").Append(operation.PhasedState.sequence)
+                        .Append("|Entered=").Append(operation.PhasedState.enteredTick)
+                        .Append("|ExitExclusive=").Append(operation.PhasedState.exitTickExclusive)
+                        .Append("|Active=").Append(operation.PhasedState.IsActive ? 1 : 0);
                     break;
 
                 case FinalizationOperationKind.SetTopology:

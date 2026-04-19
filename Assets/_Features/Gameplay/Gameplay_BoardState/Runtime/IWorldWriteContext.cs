@@ -41,6 +41,11 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyJumpBoardPresence(int entityId, EntityBoardPresence boardPresence);
     }
 
+    internal interface IPhasedStateCommitContext
+    {
+        void SetPhasedState(int entityId, PhasedRuntimeState state);
+    }
+
     internal interface IMovementCommitContext : IPlayerControlCommitContext
     {
         void MoveEntity(int entityId, SurfaceCell destination);
@@ -84,7 +89,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
     }
 
-    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IRespawnCommitContext, IEnemyActionCommitContext
+    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IPhasedStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IRespawnCommitContext, IEnemyActionCommitContext
     {
     }
 }

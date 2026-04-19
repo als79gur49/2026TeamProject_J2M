@@ -35,15 +35,51 @@
   - traverse가 blocked면 settlement는 묻지 않는다.
 
 ## SpatialState
-- current production runtime에서 legality/query consumer가 실제로 읽는 state는 `Anchored`와 `Airborne`뿐이다.
+- current live runtime producer가 emit하는 state는 `Anchored`, `Airborne`, `Phased`다.
 - `Airborne`는 jump owner가 만든 explicit non-anchored state일 때만 인정한다.
-- `Phased`와 `Attached`는 reserved future state다. current production runtime behavior로 해석하지 않는다.
+- `Phased`는 `WorldState` authoritative carrier를 가지며 internal pre-movement owner가 live runtime에서 emit할 수 있다.
+- current concrete ship source는 `PlayerControlStateLogic`의 player flip windup window다.
+- `Attached`는 아직 reserved future state이며 legality/query consumer도 열지 않는다.
 - `Anchored`는 기본 spatial mode다. `Detached`라고 해서 자동으로 `Airborne`가 되지 않는다.
+
+## Phased
+- 이번 단계에서 고정하는 것:
+  - `Phased` live seam은 traversal에서 `Unit`/`Solid` blocker bypass capability를 이해한다.
+  - `Phased` live seam은 fresh target acquisition suppression을 이해한다.
+  - `Phased`는 `Terrain`, `BoardEdge`, `Reservation` bypass를 뜻하지 않는다.
+  - current live profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility를 기본값으로 사용한다. 이것은 v1 implementation default이지 future invariant가 아니다.
+  - current live enter/sustain/exit owner는 movement-owned pre-movement lane 하나이고, concrete source rule은 player flip windup only다.
+- 이번 단계에서 고정하지 않는 것:
+  - future non-claim / overlap model
+  - future visibility variants
+  - future settlement overlap semantics
+  - multi-source arbitration / generalized phase framework
+  - attack-owned / delayed-effect / scripted-debug source
+- interpretation rule:
+  - current live owner는 internal `PreMovementState` write-path다.
+  - carrier truth-source는 `PhasedRuntimeState` 하나뿐이며 caller-local bool 조합으로 추론하지 않는다.
+  - earliest live observation point는 pre-movement batch 이후 `planSnapshot`이다.
+  - sibling pre-movement logic는 same-pass enter/exit를 관측하지 못한다.
+  - later clear/cancel은 이후 snapshot부터만 보이고 earlier snapshot을 retroactive하게 바꾸지 않는다.
+  - current live source가 다른 owner와 충돌하면 explicit clear/replace ordering 없이는 공존하지 않는다.
+
+## Targetability
+- targetability participation은 traversal/settlement blocker vocabulary와 별도 축이다.
+- current seam rule:
+  - base default는 spatial fact에서 시작한다.
+  - current v1 default는 `SpatialStateSemantics`가 제공하고 effective seam은 `ModifierQuery`를 거친다.
+  - blocker enum에 targetability-only kind를 추가하지 않는다.
+  - future `existing lock 유지`, `impact-only suppression`, `detection-only suppression`은 `ModifierQuery` typed-evidence hook에서만 연다.
 
 ## Airborne Jump Landing
 - `Airborne` actor는 traversal 중에는 일반 occupancy blocker로 취급되지 않는다.
 - jump landing settlement에서는 requested terminal state가 `Anchored`로 돌아오며 landing cell legality를 다시 판정한다.
 - anchored blocker가 landing cell을 차지하고 있으면 settlement가 blocked일 수 있다.
+
+## Reservation
+- `FrozenMovementReservationExport` contract는 유지한다.
+- 이번 단계 reservation generalization 범위는 legality read seam용 `ReservationQuery` adapter까지만 허용한다.
+- reservation detail 확장이 필요해져도 current public blocker vocabulary는 `Reservation` top-level kind를 유지한다.
 
 ## Common Execute Outcomes
 - canonical public rule text는 `success / impact / blocked` 축을 사용한다.

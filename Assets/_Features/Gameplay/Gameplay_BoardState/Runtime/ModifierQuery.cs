@@ -26,10 +26,7 @@ namespace Game.Feature.Gameplay.BoardState
         public static bool ShouldParticipateInTargetSelection(in ResolvedSpatialState spatialState)
         {
             SpatialStateSemantics.EnsureProductionSupported(spatialState.Kind);
-            var participatesByDefault = SpatialStateSemantics.ParticipatesInTargetSelection(spatialState);
-            var modifiers = GetTargetSelectionModifiers(spatialState);
-            return participatesByDefault &&
-                   !modifiers.Has(LegalityModifierId.SuppressTargetabilityParticipation);
+            return SpatialStateSemantics.ParticipatesInTargetSelection(spatialState);
         }
 
         public static LegalityCapabilitySet GetTraversalCapabilities(in LegalityActorRef actor)
@@ -66,13 +63,6 @@ namespace Game.Feature.Gameplay.BoardState
                 evidence.AttackSourceId,
                 evidence.TargetId)
                 ? LegalityModifierSet.None.With(LegalityModifierId.AcceptedDestroyVacatesTarget)
-                : LegalityModifierSet.None;
-        }
-
-        private static LegalityModifierSet GetTargetSelectionModifiers(in ResolvedSpatialState spatialState)
-        {
-            return spatialState.Kind == SpatialState.Phased
-                ? LegalityModifierSet.None.With(LegalityModifierId.SuppressTargetabilityParticipation)
                 : LegalityModifierSet.None;
         }
 

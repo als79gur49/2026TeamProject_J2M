@@ -50,6 +50,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
@@ -64,6 +65,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
@@ -77,6 +79,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
@@ -106,6 +109,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
                 topology,
@@ -121,6 +125,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
@@ -135,6 +140,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
@@ -188,6 +194,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 projectileOccupancy,
                 boardBounds,
@@ -214,6 +221,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId: null,
+                phasedStatesByEntityId: null,
                 solidOccupancyByCell,
                 topology,
                 boardBounds,
@@ -226,6 +234,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             CubeTopologyState topology,
             BoardBounds boardBounds,
@@ -243,6 +252,7 @@ namespace Game.Feature.Gameplay.BoardState
                 entitiesById,
                 stackedUnitsByCell,
                 enemyJumpStatesByEntityId,
+                phasedStatesByEntityId,
                 solidOccupancyByCell,
                 EmptyOccupancy,
                 topology,
@@ -258,6 +268,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             BoardBounds boardBounds,
@@ -305,10 +316,11 @@ namespace Game.Feature.Gameplay.BoardState
                 return true;
             }
 
-            if (TryGetBlockingPlacementEntity(
+                if (TryGetBlockingPlacementEntity(
                     entitiesById,
                     stackedUnitsByCell,
                     enemyJumpStatesByEntityId,
+                    phasedStatesByEntityId,
                     solidOccupancyByCell,
                     projectileOccupancy,
                     topology,
@@ -330,6 +342,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             IReadOnlyDictionary<SurfaceCell, int> solidOccupancyByCell,
             IReadOnlyDictionary<SurfaceCell, int> projectileOccupancy,
             CubeTopologyState topology,
@@ -346,6 +359,7 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         solidOccupancyByCell,
                         enemyJumpStatesByEntityId,
+                        phasedStatesByEntityId,
                         topology,
                         queryMode,
                         cell,
@@ -357,6 +371,7 @@ namespace Game.Feature.Gameplay.BoardState
                             entitiesById,
                             projectileOccupancy,
                             enemyJumpStatesByEntityId,
+                            phasedStatesByEntityId,
                             topology,
                             queryMode,
                             cell,
@@ -370,6 +385,7 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         solidOccupancyByCell,
                         enemyJumpStatesByEntityId,
+                        phasedStatesByEntityId,
                         topology,
                         queryMode,
                         cell,
@@ -382,6 +398,7 @@ namespace Game.Feature.Gameplay.BoardState
                             entitiesById,
                             solidOccupancyByCell,
                             enemyJumpStatesByEntityId,
+                            phasedStatesByEntityId,
                             topology,
                             queryMode,
                             cell,
@@ -395,6 +412,7 @@ namespace Game.Feature.Gameplay.BoardState
                         entitiesById,
                         stackedUnitsByCell,
                         enemyJumpStatesByEntityId,
+                        phasedStatesByEntityId,
                         topology,
                         queryMode,
                         cell,
@@ -427,6 +445,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, int> occupancyByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
             SurfaceCell cell,
@@ -436,7 +455,7 @@ namespace Game.Feature.Gameplay.BoardState
             if (TryGetStoredOccupant(entitiesById, occupancyByCell, cell, out entity) &&
                 entity.entityId != ignoredEntityId &&
                 GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
-                    ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology),
+                    ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology),
                     requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay))
             {
                 return true;
@@ -450,6 +469,7 @@ namespace Game.Feature.Gameplay.BoardState
             IReadOnlyDictionary<int, EntityState> entitiesById,
             IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> stackedUnitsByCell,
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             CubeTopologyState topology,
             PlacementQueryMode queryMode,
             SurfaceCell cell,
@@ -460,13 +480,14 @@ namespace Game.Feature.Gameplay.BoardState
                     entitiesById,
                     stackedUnitsByCell,
                     enemyJumpStatesByEntityId,
+                    phasedStatesByEntityId,
                     topology,
                     cell,
                     requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay,
                     ignoredEntityId,
                     out entity) &&
                 GameplayEntityQueryPolicy.IsBlockingPlacementEntity(
-                    ResolveSpatialState(enemyJumpStatesByEntityId, entity, topology),
+                    ResolveSpatialState(enemyJumpStatesByEntityId, phasedStatesByEntityId, entity, topology),
                     requireGameplayVisibility: queryMode == PlacementQueryMode.Gameplay))
             {
                 return true;
@@ -490,16 +511,21 @@ namespace Game.Feature.Gameplay.BoardState
 
         private static ResolvedSpatialState ResolveSpatialState(
             IReadOnlyDictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            IReadOnlyDictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             in EntityState entity,
             CubeTopologyState topology)
         {
             var jumpState = default(EnemyJumpRuntimeState);
             var hasJumpState = enemyJumpStatesByEntityId != null &&
                                enemyJumpStatesByEntityId.TryGetValue(entity.entityId, out jumpState);
+            var phasedState = default(PhasedRuntimeState);
+            var hasPhasedState = phasedStatesByEntityId != null &&
+                                 phasedStatesByEntityId.TryGetValue(entity.entityId, out phasedState);
             return SpatialStateResolver.Resolve(
                 entity,
                 topology,
-                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null);
+                hasJumpState ? jumpState : (EnemyJumpRuntimeState?)null,
+                hasPhasedState ? phasedState : (PhasedRuntimeState?)null);
         }
 
         private static bool TerrainBlocksPlacement(

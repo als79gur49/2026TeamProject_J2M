@@ -38,6 +38,9 @@
 - Canonical query boundary는 다음 순서를 따른다.
   - `Storage Query`: raw occupancy, raw terrain, deterministic ordered enumeration
   - `Semantic Query`: `TryGetSolidSemanticAt(...)`, `IsWallAt(...)`, `IsBoxAt(...)`, `TryGetTerrain(...)`, `IsTerrainBlockedForUnit(...)`
+  - `State Query`: `ResolvedSpatialState` base fact, occupancy claim, gameplay visibility, precompiled actor capability fact
+  - `Modifier Query`: legality domain/evidence 기준 override만 제공하는 narrow read seam
+  - `Reservation Query`: frozen reservation export를 legality read seam으로 번역하는 adapter
   - `Semantic Convenience`: `TryGetPrimaryUnitAt(...)` 같은 representative-only helper
   - `Legality Query`: `Placement / Traversal / Settlement` verdict만 반환하는 판정 계층
   - `Resolver`: action-specific branch, fallback, target 선택
@@ -45,6 +48,7 @@
 - naming rule:
   - storage/semantic query는 명사형 질문만 가진다.
   - legality query는 allowed/blocked verdict만 가진다.
+  - `StateQuery`는 base fact만, `ModifierQuery`는 override만 제공한다.
   - action 이름이 들어간 helper는 canonical semantic vocabulary에 포함하지 않는다.
   - gameplay core는 semantic helper를 file-local로 조합해 composite legality verdict를 재조립하지 않는다. actor/action이 들어간 allowed/blocked 판단은 legality owner에 둔다.
 
@@ -60,15 +64,36 @@
   - resolver와 `TickPipeline`은 file-local helper로 legality 의미를 재조립하지 않는다.
 - `TickPipeline`은 orchestration-only owner다. legality owner가 아니며 `SpatialState` source aggregation owner도 아니다.
 
+## Blocker Vocabulary
+- current canonical blocker kind는 정확히 다섯 개다.
+  - `BoardEdge`
+  - `Terrain`
+  - `Solid`
+  - `Unit`
+  - `Reservation`
+- extension rule:
+  - 새 top-level blocker kind는 현재 다섯 source 어디에도 속하지 않는 새 world-source가 실제로 생길 때만 허용한다.
+  - 기존 source 상세화는 top-level kind를 늘리지 않고 sub-facet으로만 확장한다.
+- future slot reservation:
+  - `host/socket/attachment`: 실제 host relation이 독립 blocker source가 될 때만 새 top-level kind 검토
+  - `field/aura`: terrain/entity/reservation이 아닌 독립 field source가 생길 때만 새 top-level kind 검토
+  - `targetability-only suppression`: blocker vocabulary가 아니라 `ModifierQuery` 축으로 유지
+  - `reservation detail`: `Reservation` top-level kind 유지, future `cell/edge/entity/payload/topology-exclusive` facet은 `ReservationQuery`/central factory에서만 확장
+- governance rule:
+  - 새 blocker kind 또는 facet 추가 시 갱신 위치는 `canonical spec`, `central blocker factory`, `blocker truth tests`, `central diagnostics formatter`로 제한한다.
+
 ## SpatialState Read Model
 - `SpatialState`는 storage replacement가 아니라 internal canonical read-model axis다.
 - authoritative occupancy storage는 계속 `WorldState` layered occupancy와 `boardPresence`에 남는다.
-- current production runtime에서 legality/query code가 소비하는 state는 `Anchored`와 `Airborne`뿐이다.
-- `Phased`와 `Attached`는 vocabulary slot을 고정하기 위한 reserved future state이며 current production runtime에서는 non-emittable이다.
+- current live producer가 emit하는 state는 `Anchored`, `Airborne`, `Phased`다.
+- `Phased`는 `WorldState` authoritative carrier를 가진 live runtime state이며 current v1 owner lane은 internal `PreMovementState` write-path다.
+- current concrete ship source는 `PlayerControlStateLogic`가 소유하는 player flip windup window 하나다.
+- `Attached`는 consumer/producers 모두 closed 상태를 유지한다.
 - `SpatialStateResolver`는 query/state layer의 유일한 spatial aggregation owner다.
   - 읽는 source:
     - `EntityState.boardPresence`
     - `EnemyJumpRuntimeState`
+    - `PhasedRuntimeState`
     - `CubeTopologyState` face visibility
   - 읽지 않는 source:
     - reservation
@@ -80,6 +105,10 @@
   - `ResolvedSpatialState.ClaimsAuthoritativeOccupancy`
   - `ResolvedSpatialState.IsGameplayVisible`
   - `ResolvedSpatialState.Source`
+- ownership rule:
+  - `ResolvedSpatialState`는 base fact owner다.
+  - `SpatialStateSemantics`는 default participation table owner다.
+  - `ModifierQuery`는 domain/evidence-specific override owner다.
 - canonical mapping:
   - `Occupying + jump none + active face -> Anchored`
   - `Occupying + jump none + inactive face -> AnchoredHiddenByTopology`
@@ -91,6 +120,33 @@
   - `Detached == Airborne` 자동 승격 금지
   - caller별 `boardPresence + jumpState` ad-hoc switch 금지
   - inactive-face hidden state를 `Airborne`로 근사 해석하는 shortcut 금지
+  - caller-local bool / action-state 조합으로 `Phased`를 추론하는 것 금지
+  - `PhasedRuntimeState`와 `EnemyJumpRuntimeState` active coexistence 금지
+- timing rule:
+  - pre-movement `Phased` enter의 earliest observable point는 `snapshotAfterEnemyAi`가 아니라 pre-movement batch가 projected world에 적용된 뒤의 `planSnapshot`이다.
+  - sibling pre-movement logic는 모두 같은 input snapshot만 본다. earlier/later sibling이 same-pass `SetPhasedState`를 서로 관측하지 못한다.
+  - 같은 tick movement legality, movement expansion, fresh target acquisition은 `planSnapshot` truth만 본다.
+  - `postMovementSnapshot`과 pre-attack `attackSnapshot`은 clear가 apply되기 전까지 active phased carrier를 유지해서 본다.
+  - later resolve/cleanup cancel은 cancel 이후에 생성된 snapshot부터만 관측된다. earlier snapshot을 retroactive하게 다시 쓰지 않는다.
+  - incompatible exclusive state enter는 explicit clear ordering이 먼저 와야 한다. current v1에서 active jump enter는 `SetEnemyJumpState(active)`보다 앞선 `SetPhasedState(Clear)`를 요구한다.
+  - final replay/hash는 final snapshot carrier만 canonical input으로 사용한다.
+- source extension rule:
+  - 새 phase source는 `PhasedRuntimeStateOwnerKind`, emitting stage, enter/sustain/exit/forced-cancel rule, earliest observable snapshot을 함께 정의해야 한다.
+  - 새 source는 carrier truth-source를 늘리지 않고 `IPhasedStateCommitContext.SetPhasedState(...)` 경유 write만 추가할 수 있다.
+  - 새 source를 추가할 때는 owner enum, timing row, coexistence matrix, trace/hash dump, allowlist test를 같이 갱신해야 한다.
+
+## Participation Axes
+- `occupancy claim`은 authoritative storage/read fact다.
+- `gameplay visibility`는 gameplay query visibility fact다.
+- `traversal blocking`, `settlement blocking`, `targetability participation`은 legality/query interpretation axis다.
+- canonical rule:
+  - occupancy claim과 visibility는 legality verdict를 직접 만들지 않는다.
+  - `SpatialStateSemantics` default + `ModifierQuery` override가 participation axis를 결정한다.
+  - `SpatialState.Kind == Phased`로 occupancy claim을 추론하지 않는다. consumer는 반드시 `ClaimsAuthoritativeOccupancy` fact를 읽는다.
+  - `Phased`의 future semantic envelope 전체는 아직 고정하지 않는다.
+  - current live profile은 traversal `Unit/Solid` bypass, fresh target suppression, anchored-like settlement default만 고정한다.
+  - current v1 profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility를 기본 구현값으로 사용하지만, 이것을 future non-claim/overlap model의 구조 원칙으로 승격하지 않는다.
+  - current targetability suppression은 base spatial default다. future `existing-lock retention`, `impact-only suppression`, `detection-only suppression`은 `ModifierQuery` typed-evidence hook로만 연다.
 
 ## Legality Contexts
 - base legality context는 core field budget을 유지한다.
@@ -136,6 +192,14 @@
 - semantic slice handoff는 오직 두 가지다.
   - 이전 slice `Finalize` 이후의 새 snapshot
   - 이전 slice가 publish한 finalized reservation output
+- phased ordering contract:
+  - projected snapshot은 `base snapshot + ordered finalization ops replay`의 canonical preview다.
+  - authoritative final world는 같은 ordered ops를 `WorldState`에 apply한 결과와 observationally 동일해야 한다.
+  - `FrozenMovementReservationExport`는 reservation book만 export한다. `PhasedRuntimeState`는 legality/query input일 수는 있지만 reservation export payload의 field가 되지 않는다.
+- phased write-path minimality:
+  - current v1 non-test live writer는 `PlayerControlStateLogic` 하나뿐이다.
+  - 허용 seam은 `WorldState`/`WorldSnapshot` carrier path, `IPhasedStateCommitContext`, `FinalizationBatch`/`ProjectedWorld`, trace/hash/docs/tests까지만이다.
+  - public query/command/authoring/debug API, reservation export schema, serialized/import/save schema, finalize legality recomputation은 이번 단계에서 건드리지 않는다.
 
 ## Occupancy And Queries
 - 현재 authoritative occupancy storage는 `WorldState`의 세 레이어다.
@@ -163,6 +227,7 @@
   - occupancy truth와 `SpatialState` truth는 다르다.
   - `ClaimsAuthoritativeOccupancy`는 storage truth에 대한 read fact다.
   - gameplay traversal blocking, settlement blocking, target selection 참여 여부는 `SpatialState` semantics table이 해석한다.
+  - target selection은 gameplay query participation과 동일 축이 아니다. current production runtime에서는 같은 결과를 내더라도 canonical seam은 분리한다.
 
 ## Layer Rules
 - Unit layer는 stacked 허용이다.
@@ -221,6 +286,23 @@
 - View는 tick 중간 mutable state를 직접 읽지 않는다.
 - Presenter가 소비하는 contract는 `TickResult.PresentationData`다.
 - host/view code는 `CleanupPhaseResult` 같은 phase-private result에 직접 결합하지 않는다.
+
+## Legality Diagnostics
+- stable behavior-contract field:
+  - `LegalityDomain`
+  - `LegalityVerdict`
+  - `ReservationStatus`
+  - `LegalityBlockerKinds`
+  - existing actor spatial summary fields
+- provisional debug-only field:
+  - capability flags
+  - modifier flags
+  - reservation sub-facet detail
+  - future blocker origin/facet detail
+- rule:
+  - canonical replay/hash trace는 stable field만 의존한다.
+  - provisional legality detail은 dedicated verbose diagnostics section으로만 추가한다.
+  - provisional field는 `LegalityDiagVersion` 없이 stable trace surface에 넣지 않는다.
 
 ## Cleanup Policy
 - `hp 0` / `markedForDeath` entity는 Cleanup 전까지 authoritative world에 남아 있을 수 있다.

@@ -65,6 +65,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyJumps").Append('\n');
             AppendEnemyJumpLines(builder, GetOrderedEnemyJumpStates(finalSnapshot));
 
+            builder.Append("PhasedStates").Append('\n');
+            AppendPhasedStateLines(builder, GetOrderedPhasedStates(finalSnapshot));
+
             builder.Append("SolidOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedSolidOccupancy(finalSnapshot));
 
@@ -150,6 +153,13 @@ namespace Game.Feature.Gameplay.Loop
             var executionLockEntries = new List<EntityExecutionLockSnapshotEntry>();
             finalSnapshot.EnumerateEntityExecutionLockStatesOrdered(executionLockEntries);
             return executionLockEntries;
+        }
+
+        private static List<PhasedSnapshotEntry> GetOrderedPhasedStates(WorldSnapshot finalSnapshot)
+        {
+            var phasedEntries = new List<PhasedSnapshotEntry>();
+            finalSnapshot.EnumeratePhasedStatesOrdered(phasedEntries);
+            return phasedEntries;
         }
 
         private static List<PlayerControlSnapshotEntry> GetOrderedPlayerControlStates(WorldSnapshot finalSnapshot)
@@ -241,6 +251,29 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(terrainEntries[i].Cell.y).Append('|')
                     .Append((int)terrainEntries[i].Kind).Append('|')
                     .Append((int)terrainEntries[i].Flags).Append('\n');
+            }
+        }
+
+        private static void AppendPhasedStateLines(
+            StringBuilder builder,
+            IReadOnlyList<PhasedSnapshotEntry> phasedEntries)
+        {
+            if (phasedEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < phasedEntries.Count; i++)
+            {
+                var entry = phasedEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append((int)entry.State.ownerKind).Append('|')
+                    .Append(entry.State.sequence).Append('|')
+                    .Append(entry.State.enteredTick).Append('|')
+                    .Append(entry.State.exitTickExclusive).Append('|')
+                    .Append(entry.State.IsActive ? 1 : 0).Append('\n');
             }
         }
 

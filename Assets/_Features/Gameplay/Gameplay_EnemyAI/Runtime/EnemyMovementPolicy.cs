@@ -473,13 +473,10 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             var evaluationTopology = rotationKind == CubeRotationKind.None ? snapshot.Topology : updatedTopology;
-            var actorSpatialState = snapshot.TryGetResolvedSpatialState(source.entityId, out var spatialState)
-                ? spatialState
-                : SpatialStateResolver.Resolve(source, snapshot.Topology, jumpState: null);
             var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
                 new TraverseContext(
                     snapshot,
-                    new LegalityActorRef(source.entityId, source.type, actorSpatialState),
+                    StateQuery.BuildActorRef(snapshot, source),
                     source.position,
                     destinationCell,
                     evaluationTopology,

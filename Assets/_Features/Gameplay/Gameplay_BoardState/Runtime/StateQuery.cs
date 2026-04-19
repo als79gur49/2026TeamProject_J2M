@@ -21,6 +21,7 @@ namespace Game.Feature.Gameplay.BoardState
                 SpatialStateResolver.Resolve(
                     EntityBoardPresence.Detached,
                     jumpState: null,
+                    phasedState: null,
                     isFaceActive: false));
         }
 
@@ -34,7 +35,7 @@ namespace Game.Feature.Gameplay.BoardState
             return new LegalityActorRef(
                 actor.entityId,
                 actor.type,
-                SpatialStateResolver.Resolve(actor, snapshot.Topology, jumpState: null));
+                SpatialStateResolver.Resolve(actor, snapshot.Topology, jumpState: null, phasedState: null));
         }
 
         public static bool ClaimsAuthoritativeOccupancy(in ResolvedSpatialState spatialState)

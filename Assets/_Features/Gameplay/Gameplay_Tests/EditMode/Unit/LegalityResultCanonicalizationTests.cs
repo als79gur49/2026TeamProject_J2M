@@ -101,6 +101,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(legality.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Reservation));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void LegalityDiagnosticsFormatter_FormatStableSummary_ExportsStableFieldsOnly()
+        {
+            var legality = LegalityResult.Blocked(
+                LegalityDomain.Traversal,
+                new SurfaceCell(FaceId.Floor, 1, 0),
+                new CubeTopologyState(FaceId.Floor),
+                RuntimeLegalityBlockerFactory.CreateTerrain(TerrainFlags.BlocksGroundTraversal),
+                ReservationStatus.None,
+                TransitionRequirement.None);
+
+            var formatted = LegalityDiagnosticsFormatter.FormatStableSummary(legality);
+
+            Assert.That(formatted, Does.Contain("LegalityDomain=Traversal"));
+            Assert.That(formatted, Does.Contain("LegalityVerdict=Blocked"));
+            Assert.That(formatted, Does.Contain("ReservationStatus=None"));
+            Assert.That(formatted, Does.Contain("LegalityBlockerKinds=Terrain"));
+            Assert.That(formatted, Does.Not.Contain("CapabilityFlags"));
+            Assert.That(formatted, Does.Not.Contain("ModifierFlags"));
+        }
+
         private static MovementImpactReservationPayload CreateImpactReservationPayload(
             int sourceEntityId,
             int attackSourceEntityId,
