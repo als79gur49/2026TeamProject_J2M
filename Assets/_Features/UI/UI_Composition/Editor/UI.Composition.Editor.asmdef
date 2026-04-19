@@ -1,0 +1,11 @@
+{
+  "name": "Game.Feature.UI.Composition.Editor",
+  "rootNamespace": "Game.Feature.UI.Editor",
+  "references": [
+    "Game.Feature.UI.Composition",
+    "Game.Feature.UI.Screens"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ]
+}
