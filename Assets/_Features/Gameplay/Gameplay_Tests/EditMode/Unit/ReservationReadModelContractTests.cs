@@ -50,6 +50,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void MovementReservationBook_RuntimeCellRead_UsesConflictedStatusForPreSettleConsumer()
+        {
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var reservationBook = new MovementReservationBook();
+
+            reservationBook.ReservePhaseRelocation(entityId: 40, destinationCell);
+
+            Assert.That(reservationBook.GetCellStatus(destinationCell), Is.EqualTo(ReservationStatus.Conflicted));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void MovementReservationBook_Freeze_RejectsPostFreezeMutation()
         {
             var reservationBook = new MovementReservationBook();

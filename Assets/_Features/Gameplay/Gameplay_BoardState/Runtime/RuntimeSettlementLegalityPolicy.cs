@@ -11,6 +11,16 @@ namespace Game.Feature.Gameplay.BoardState
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
 
+            if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                    context.ReservationStatus);
+            }
+
             if (!SpatialStateSemantics.UsesAuthoritativeSettlementOccupancy(context.RequestedTerminalState))
             {
                 if (!context.OccupancySnapshot.TryGetPlacementBlocker(
@@ -99,6 +109,16 @@ namespace Game.Feature.Gameplay.BoardState
             SpatialStateSemantics.EnsureProductionSupported(context.Actor.SpatialState.Kind);
             SpatialStateSemantics.EnsureProductionSupported(context.RequestedTerminalState);
             var modifiers = ModifierQuery.GetJumpLandingModifiers(context, evidence);
+
+            if (ReservationQuery.BlocksSettlement(context.ReservationStatus))
+            {
+                return LegalityResult.Blocked(
+                    LegalityDomain.Settlement,
+                    context.TerminalCell,
+                    context.TerminalTopology,
+                    RuntimeLegalityBlockerFactory.CreateReservationConflict(),
+                    context.ReservationStatus);
+            }
 
             if (modifiers.Has(LegalityModifierId.ExclusiveLockedPlayerExactStackAllowance) &&
                 IsExclusiveLockedPlayerStack(

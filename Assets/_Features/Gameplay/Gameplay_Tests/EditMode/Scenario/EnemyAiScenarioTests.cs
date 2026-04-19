@@ -152,12 +152,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(executeSnapshot.TryGetPhasedState(40, out var phasedState), Is.True);
             Assert.That(phasedState.ownerKind, Is.EqualTo(PhasedRuntimeStateOwnerKind.EnemyPreMovement));
             Assert.That(GetEnemyActionState(worldState, 40).executionAttempted, Is.True);
+            Assert.That(executeTick.MovementPhaseResult.RawIntents, Is.Empty);
             Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
             Assert.That(executeTick.Trace.Text, Does.Contain("PhaseEnter|Entity=40|Tick=2|Owner=EnemyPreMovement|Rule=LockedTargetCrossThrough"));
             Assert.That(executeTick.Trace.Text, Does.Contain("EnemyPhaseRelocation|E=40|Label=Committed|Target=10"));
             Assert.That(executeTick.Trace.Text, Does.Contain("Kind=SetPhasedState"));
             Assert.That(executeTick.Trace.Text, Does.Contain("Timing=EnemyLockedTargetCrossThroughValidator"));
             Assert.That(executeTick.Trace.Text, Does.Contain("ReservationRead=CellOnlyPreSettle"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("Settle=AnchoredLikeDefault(StageDefault)"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("OccupancyClaim=True(StageDefault)"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("ExistingEnemyLock=Retained(StageScopedContract)"));
 
             var clearTick = pipeline.RunTick(new TickInput(3));
             Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
@@ -191,6 +197,65 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             pipeline.RunTick(new TickInput(3));
             Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_PhaseThroughLockedTargetValidator_LosingLockedTarget_DoesNotReacquireAlternateHostileOrOpenPhase()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 11, teamId: 1, position: new Vector2Int(0, 2), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = CreateEnemyPipeline(worldState, CreatePhaseThroughLockedTargetDefinition(windupTicks: 1));
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().ApplyDamage(10, 3);
+
+            var executeTick = pipeline.RunTick(new TickInput(2));
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            Assert.That(GetEntity(worldState, 11).hp, Is.EqualTo(3));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+            Assert.That(actionState.IsActive, Is.False);
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
+            Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(executeTick.Trace.Text, Does.Not.Contain("PhaseEnter|Entity=40|Tick=2|Owner=EnemyPreMovement"));
+            Assert.That(executeTick.Trace.Text, Does.Not.Contain("EnemyPhaseRelocation|E=40"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_PhaseThroughLockedTargetValidator_GeometryChange_RejectsWithoutFallbackAttackOrMovement()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = CreateEnemyPipeline(worldState, CreatePhaseThroughLockedTargetDefinition(windupTicks: 1));
+
+            pipeline.RunTick(new TickInput(1));
+            worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 0, 1));
+
+            var executeTick = pipeline.RunTick(new TickInput(2));
+            var actionState = GetEnemyActionState(worldState, 40);
+
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(actionState.IsActive, Is.True);
+            Assert.That(actionState.executionAttempted, Is.True);
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
+            Assert.That(executeTick.MovementPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+            Assert.That(executeTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+            Assert.That(executeTick.Trace.Text, Does.Not.Contain("PhaseEnter|Entity=40|Tick=2|Owner=EnemyPreMovement"));
+            Assert.That(executeTick.Trace.Text, Does.Not.Contain("EnemyPhaseRelocation|E=40"));
         }
 
         [Test]

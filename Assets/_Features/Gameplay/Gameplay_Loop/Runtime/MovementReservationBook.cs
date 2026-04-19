@@ -81,8 +81,9 @@ namespace Game.Feature.Gameplay.Loop
 
         public ReservationStatus GetCellStatus(SurfaceCell cell)
         {
+            // Pre-settle runtime consumers treat an already-selected destination as a conflict.
             return _reservedDestinations.Contains(cell)
-                ? ReservationStatus.Reserved
+                ? ReservationStatus.Conflicted
                 : ReservationStatus.None;
         }
 

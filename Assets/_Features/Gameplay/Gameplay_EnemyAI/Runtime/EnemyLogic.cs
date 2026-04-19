@@ -279,7 +279,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (ShouldSuppressAttackForEnemyPhase(snapshot))
+            if (ShouldSuppressAttackForEnemyPhase(snapshot, input.TickIndex))
             {
                 return;
             }
@@ -477,10 +477,22 @@ namespace Game.Feature.Gameplay.Entities
                    TryGetEnemyOwnedPhasedState(snapshot, out _);
         }
 
-        private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot)
+        private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot, int tickIndex)
         {
-            return HasPhaseMovementSkill() &&
-                   TryGetEnemyOwnedPhasedState(snapshot, out _);
+            if (!HasPhaseMovementSkill())
+            {
+                return false;
+            }
+
+            if (TryGetEnemyOwnedPhasedState(snapshot, out _))
+            {
+                return true;
+            }
+
+            // The phase-through validator stays relocation-only: the execute window never falls back into same-tick combat.
+            return snapshot.TryGetEnemyActionState(_entityId, out var actionState) &&
+                   actionState.IsActive &&
+                   EnemyActionQueries.CanExecute(actionState, tickIndex);
         }
 
         private bool TryResolvePassiveContactTarget(

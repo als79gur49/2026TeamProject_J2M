@@ -430,6 +430,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyActionStateLogic.cs"),
                 },
                 nonTestEnemyLockRetentionReferences);
+
+            var nonTestEnemyPhaseThroughReferences = FilterNonTestFiles(FindFilesContainingToken("EnemyPhaseThroughLockedTargetQueries"));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
+                },
+                nonTestEnemyPhaseThroughReferences);
+
+            var nonTestCurrentEnemyLockModeReferences = FilterNonTestFiles(FindFilesContainingToken("FreshSelectionSuppressedWithCurrentEnemyLockRetention"));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Debug/Runtime/TickTraceFormatter.cs"),
+                },
+                nonTestCurrentEnemyLockModeReferences);
         }
 
         [Test]
@@ -490,6 +508,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEdgeStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEntityStatus("));
             Assert.That(phaseReservationReadMethod, Does.Not.Contain("topology-exclusive"));
+            Assert.That(
+                CountOccurrences(phaseReservationReadMethod, "reservationBook.GetCellStatus("),
+                Is.EqualTo(1),
+                "Inline reservation read count is a secondary sentinel. The primary contract is still cell-only terminal settlement semantics.");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPhaseRelocationPlanner_And_Finalizer_RemainClosedMinimalValidatorSeams()
+        {
+            var pipelineSource = ReadProjectFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
+            var planningWindow = ExtractMethodWindow(
+                pipelineSource,
+                "private void ResolvePlanEnemyPhaseRelocations(",
+                "private void ResolvePlanJumpLandings(");
+            var finalizationWindow = ExtractMethodWindow(
+                pipelineSource,
+                "private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(",
+                "private static Contest TryFindJumpLandingContest(");
+
+            AssertContainsNoForbiddenTokens(
+                planningWindow,
+                "TryResolveStartAction(",
+                "TryFindTarget(",
+                "BuildMovementIntents(",
+                "CollectMovementIntents(",
+                "ResolveBaselineGroundLocomotion(");
+            AssertContainsNoForbiddenTokens(
+                finalizationWindow,
+                "TryResolveStartAction(",
+                "TryFindTarget(",
+                "BuildMovementIntents(",
+                "CollectMovementIntents(",
+                "EnqueueDelayedAttackEffect(",
+                "SetTopology(");
         }
 
         private static void AssertResolved(
@@ -516,6 +569,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs")] = "seam-truth-table",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/StateQuery.cs")] = "seam-truth-table",
+                [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs")] = "live-lifecycle-proof",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/ModifierCapabilityGeneralizationTests.cs")] = "live-lifecycle-proof",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/PlayerMovementInputTests.cs")] = "live-lifecycle-proof",
                 [NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/SpatialStateResolverTruthTableTests.cs")] = "seam-truth-table",
@@ -590,6 +644,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string NormalizeRelativePath(string relativePath)
         {
             return relativePath.Replace('\\', '/');
+        }
+
+        private static int CountOccurrences(string source, string token)
+        {
+            var count = 0;
+            var searchIndex = 0;
+            while ((searchIndex = source.IndexOf(token, searchIndex, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                searchIndex += token.Length;
+            }
+
+            return count;
+        }
+
+        private static void AssertContainsNoForbiddenTokens(string source, params string[] forbiddenTokens)
+        {
+            for (var i = 0; i < forbiddenTokens.Length; i++)
+            {
+                Assert.That(source, Does.Not.Contain(forbiddenTokens[i]), $"Forbidden phased-validator token found: {forbiddenTokens[i]}");
+            }
         }
 
         private static TickResultData CreateTickResultData(WorldSnapshot snapshot)

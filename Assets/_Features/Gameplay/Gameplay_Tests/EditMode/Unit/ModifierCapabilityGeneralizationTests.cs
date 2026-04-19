@@ -115,6 +115,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyActionStateTargeting_TryResolveStartAction_PrefersUnphasedFreshSelection_And_DoesNotReuseCurrentEnemyLockRetention()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 2),
+                    CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 1),
+                    CreateUnit(30, new SurfaceCell(FaceId.Floor, 0, 1), teamId: 1),
+                });
+            WritePhasedState(worldState, 20, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            Assert.That(
+                EnemyActionStateTargeting.TryResolveStartAction(
+                    snapshot,
+                    source,
+                    NearestOpponentDetectionStrategy.Instance,
+                    MeleeAttackDecisionStrategy.Instance,
+                    DetectionSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    out var target,
+                    out var direction),
+                Is.True);
+            Assert.That(target.entityId, Is.EqualTo(30));
+            Assert.That(direction, Is.EqualTo(Direction.Up));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyActionStateTargeting_CurrentEnemyLockPath_RetainsLockedTarget_WhileFreshSelectionStaysSuppressed()
         {
             var worldState = GameplayWorldStateTestFactory.CreateBounded(
@@ -147,6 +177,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     out var lockedTarget),
                 Is.True);
             Assert.That(lockedTarget.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void RuntimeSettlementLegalityPolicy_EvaluateLandingPlacement_PhasedReservationUsesSingleTerminalCellFact()
+        {
+            var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                });
+            WritePhasedState(worldState, 10, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            var allowed = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, source),
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Phased,
+                    ReservationStatus.None));
+            var blocked = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                new SettlementContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, source),
+                    terminalCell,
+                    snapshot.Topology,
+                    SpatialState.Phased,
+                    ReservationStatus.Conflicted));
+
+            Assert.That(allowed.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(blocked.Verdict, Is.EqualTo(LegalityVerdict.Blocked));
+            Assert.That(blocked.Reservation, Is.EqualTo(ReservationStatus.Conflicted));
+            Assert.That(blocked.Blockers.Count, Is.EqualTo(1));
+            Assert.That(blocked.Blockers[0].Kind, Is.EqualTo(LegalityBlockerKind.Reservation));
         }
 
         [Test]
