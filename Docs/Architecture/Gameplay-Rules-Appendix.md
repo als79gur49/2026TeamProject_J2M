@@ -38,7 +38,8 @@
 - current live runtime producer가 emit하는 state는 `Anchored`, `Airborne`, `Phased`다.
 - `Airborne`는 jump owner가 만든 explicit non-anchored state일 때만 인정한다.
 - `Phased`는 `WorldState` authoritative carrier를 가지며 internal pre-movement owner가 live runtime에서 emit할 수 있다.
-- current concrete live source는 `PlayerControlStateLogic`의 player flip windup window와 `EnemyLogic`의 locked-target cross-through validator다.
+- current production gameplay concrete live source는 `PlayerControlStateLogic`의 player flip windup window와 `EnemyLogic`의 locked-target cross-through validator다.
+- horizontal expansion validation을 위한 additional owner는 internal `SystemPreMovementValidationLogic` 하나만 허용한다. 이것은 internal validation owner, not public scripted framework다.
 - `Attached`는 아직 reserved future state이며 legality/query consumer도 열지 않는다.
 - `Anchored`는 기본 spatial mode다. `Detached`라고 해서 자동으로 `Airborne`가 되지 않는다.
 
@@ -49,7 +50,7 @@
   - current enemy current-lock path만 `existing lock retention`을 narrow hook로 사용한다.
   - `Phased`는 `Terrain`, `BoardEdge`, `Reservation` bypass를 뜻하지 않는다.
   - current live profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility, anchored-like terminal settle을 `StageDefault`로 사용한다. 이것은 current implementation default이지 future invariant가 아니다.
-  - current live enter/sustain/exit owner는 `MovementPreMovement`, `EnemyPreMovement`, `DebugForced`로 metadata table에 고정한다.
+  - current live enter/sustain/exit owner는 `MovementPreMovement`, `EnemyPreMovement`, `SystemPreMovementValidation`, `DebugForced`로 metadata table에 고정한다.
   - first minimal consumer는 `EnemyPreMovement`에서 실행되는 `locked-target cross-through` validator이며 fresh target search, fallback, multi-edge pathfinding, same-tick damage coupling을 열지 않는다.
   - 이 consumer는 validator, not a movement framework다. current lock이나 geometry가 닫히면 reject/close하고 같은 tick에 ordinary movement, fallback reroute, combat attack으로 우회하지 않는다.
 - 이번 단계에서 고정하지 않는 것:
@@ -57,7 +58,7 @@
   - future visibility variants
   - future settlement overlap semantics
   - multi-source arbitration / generalized phase framework
-  - attack-owned / delayed-effect / scripted-debug source
+  - attack-owned / delayed-effect / public scripted-debug source
 - interpretation rule:
   - current live owner는 internal `PreMovementState` write-path다.
   - carrier truth-source는 `PhasedRuntimeState` 하나뿐이며 caller-local bool 조합으로 추론하지 않는다.
@@ -65,7 +66,9 @@
   - sibling pre-movement logic는 same-pass enter/exit를 관측하지 못한다.
   - later clear/cancel은 이후 snapshot부터만 보이고 earlier snapshot을 retroactive하게 바꾸지 않는다.
   - current live source가 다른 owner와 충돌하면 explicit clear/replace ordering 없이는 공존하지 않는다.
-  - `EnemyPreMovement` validator consumer의 direct reservation read는 terminal settle 직전 `cell` 한 번뿐이다. direct `edge/entity/topology-exclusive` reservation read는 out-of-scope다.
+  - `SystemPreMovementValidation` source path는 reservation을 읽지 않는다.
+  - `EnemyPreMovement` validator consumer의 direct reservation read는 terminal settle 직전 `cell` 한 번뿐이다. planner 단계, terminal candidate 확정 전, traversal legality 완료 전 direct reservation read는 허용하지 않는다.
+  - `cell-only`는 terminal cell이 하나로 고정된 뒤 `GetCellStatus(...)` 한 번만 읽고, 그 결과를 바로 `SettlementContext.ReservationStatus`로 넘기는 contract를 뜻한다. direct `edge/entity/topology-exclusive` reservation read와 multi-cell speculative read는 out-of-scope다.
 
 ## Targetability
 - targetability participation은 traversal/settlement blocker vocabulary와 별도 축이다.
@@ -92,6 +95,7 @@
 - `FrozenMovementReservationExport` contract는 유지한다.
 - 이번 단계 reservation generalization 범위는 legality read seam용 `ReservationQuery` adapter까지만 허용한다.
 - reservation detail 확장이 필요해져도 current public blocker vocabulary는 `Reservation` top-level kind를 유지한다.
+- reservation read sequence의 primary truth는 semantic contract다. inline token count는 secondary sentinel일 뿐이며 helper extraction이 생겨도 terminal single-cell pre-settle read contract가 유지되어야 한다.
 
 ## Common Execute Outcomes
 - canonical public rule text는 `success / impact / blocked` 축을 사용한다.

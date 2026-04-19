@@ -42,9 +42,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(spec, Does.Contain("current enemy lock retention is `EnemyActionStateTargeting` current lock path 전용 narrow hook"));
             Assert.That(spec, Does.Contain("current implementation default"));
+            Assert.That(spec, Does.Contain("internal validation owner, not public scripted framework"));
             Assert.That(appendix, Does.Contain("validator, not a movement framework"));
             Assert.That(appendix, Does.Contain("Deferred lock taxonomy"));
             Assert.That(appendix, Does.Contain("generic lock framework의 seed"));
+            Assert.That(appendix, Does.Contain("primary truth는 semantic contract"));
+            Assert.That(appendix, Does.Contain("SystemPreMovementValidation"));
             Assert.That(appendix, Does.Contain("FreshSelectionSuppressedWithCurrentEnemyLockRetention"));
         }
 
