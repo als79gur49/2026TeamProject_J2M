@@ -12,7 +12,10 @@ namespace Game.Shared.Audio
         private AudioMixingService mixingService;
         private IAudioSettingsPersistenceStore persistenceStoreOverride;
         private AudioPlaybackService playbackService;
+        private Transform runtimeOwnerRoot;
         private bool runtimeInitialized;
+
+        internal bool IsRuntimeInitialized => runtimeInitialized;
 
         public void InitializeRuntime(Transform ownerRoot)
         {
@@ -21,10 +24,22 @@ namespace Game.Shared.Audio
                 throw new ArgumentNullException(nameof(ownerRoot));
             }
 
+            if (runtimeInitialized)
+            {
+                if (!ReferenceEquals(runtimeOwnerRoot, ownerRoot))
+                {
+                    throw new InvalidOperationException(
+                        "AudioManager cannot be initialized against multiple runtime roots.");
+                }
+
+                return;
+            }
+
             playbackService ??= new AudioPlaybackService();
             mixingService ??= new AudioMixingService(persistenceStoreOverride ?? new PlayerPrefsAudioSettingsStore());
             playbackService.Initialize(ownerRoot, initialPoolSize, maxPoolSize);
             playbackService.ApplyLiveMix(mixingService);
+            runtimeOwnerRoot = ownerRoot;
             runtimeInitialized = true;
         }
 
