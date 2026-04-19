@@ -1,5 +1,7 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
@@ -366,10 +368,208 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(clearResult.Trace.Text, Does.Contain("Active=0"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void RuntimeTraversalLegalityPolicy_EvaluateDestination_SystemValidationPhasedActor_IgnoresUnitBlocker()
+        {
+            var destinationCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                    CreateUnit(20, destinationCell, teamId: 2),
+                });
+            WritePhasedState(worldState, 10, PhasedRuntimeStateQueries.BeginSystemPreMovementValidation(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            var legality = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                new TraverseContext(
+                    snapshot,
+                    StateQuery.BuildActorRef(snapshot, source),
+                    originCell: source.position,
+                    candidateCell: destinationCell,
+                    evaluationTopology: snapshot.Topology,
+                    TransitionRequirement.None));
+
+            Assert.That(legality.Verdict, Is.EqualTo(LegalityVerdict.Allowed));
+            Assert.That(legality.Blockers, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void WorldSnapshot_SystemValidationPhasedCarrier_SuppressesFreshTargetSelection_WithoutEnemyLockRetention()
+        {
+            var targetCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                    CreateUnit(20, targetCell, teamId: 2),
+                });
+            WritePhasedState(worldState, 20, PhasedRuntimeStateQueries.BeginSystemPreMovementValidation(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+
+            Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.False);
+            Assert.That(snapshot.TryPickImpactTargetAt(targetCell, sourceTeamId: 1, out _), Is.False);
+            Assert.That(
+                EnemyActionStateTargeting.TryResolveStartAction(
+                    snapshot,
+                    source,
+                    NearestOpponentDetectionStrategy.Instance,
+                    MeleeAttackDecisionStrategy.Instance,
+                    DetectionSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    out var target,
+                    out _),
+                Is.False);
+            Assert.That(target, Is.EqualTo(default(EntityState)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SystemPreMovementValidationSource_SustainsAcrossWindow_And_ClearsWhenWindowCloses()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                });
+            var logic = CreateSystemPreMovementValidationLogic(entityId: 10, enterTick: 1, exitTickExclusive: 3);
+
+            var enterUpdates = new List<string>();
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                worldState.CreateWriteContext(),
+                enterUpdates,
+                new List<PlayerActionTransition>());
+
+            Assert.That(
+                enterUpdates,
+                Is.EqualTo(new[]
+                {
+                    "PhaseEnter|Entity=10|Tick=1|Owner=SystemPreMovementValidation|Rule=SystemPreMovementValidationWindow",
+                }));
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(10, out var enteredState), Is.True);
+            Assert.That(enteredState.sequence, Is.EqualTo(1));
+
+            var sustainUpdates = new List<string>();
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2),
+                worldState.CreateWriteContext(),
+                sustainUpdates,
+                new List<PlayerActionTransition>());
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(10, out var sustainedState), Is.True);
+            Assert.That(sustainedState.sequence, Is.EqualTo(1));
+            Assert.That(sustainUpdates, Is.Empty);
+
+            var clearUpdates = new List<string>();
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(3),
+                worldState.CreateWriteContext(),
+                clearUpdates,
+                new List<PlayerActionTransition>());
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(10, out _), Is.False);
+            Assert.That(
+                clearUpdates,
+                Is.EqualTo(new[]
+                {
+                    "PhaseExit|Entity=10|Tick=3|Owner=SystemPreMovementValidation|Reason=ValidationWindowClosed",
+                }));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SystemPreMovementValidationSource_ForeignOwnerConflict_Throws()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                });
+            WritePhasedState(worldState, 10, PhasedRuntimeStateQueries.ForceDebug(default, tickIndex: 0));
+            var logic = CreateSystemPreMovementValidationLogic(entityId: 10, enterTick: 1, exitTickExclusive: 3);
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => logic.CommitPreMovementState(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    worldState.CreateWriteContext(),
+                    new List<string>(),
+                    new List<PlayerActionTransition>()));
+            Assert.That(exception?.Message, Does.Contain("cannot enter system validation phased state while owner DebugForced is still active"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SystemPreMovementValidationSource_ForcedCancel_WhenEntityHpDropsToZero()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 1),
+                });
+            var logic = CreateSystemPreMovementValidationLogic(entityId: 10, enterTick: 1, exitTickExclusive: 3);
+
+            var enterUpdates = new List<string>();
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                worldState.CreateWriteContext(),
+                enterUpdates,
+                new List<PlayerActionTransition>());
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(10, out _), Is.True);
+            Assert.That(
+                enterUpdates,
+                Is.EqualTo(new[]
+                {
+                    "PhaseEnter|Entity=10|Tick=1|Owner=SystemPreMovementValidation|Rule=SystemPreMovementValidationWindow",
+                }));
+
+            worldState.CreateWriteContext().ApplyDamage(10, 3);
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(10, out _), Is.False);
+
+            var postDamageUpdates = new List<string>();
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(2),
+                worldState.CreateWriteContext(),
+                postDamageUpdates,
+                new List<PlayerActionTransition>());
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(10, out _), Is.False);
+            Assert.That(postDamageUpdates, Is.Empty);
+        }
+
         private static void WritePhasedState(WorldState worldState, int entityId, PhasedRuntimeState state)
         {
             var writeContext = worldState.CreateWriteContext();
             ((IPhasedStateCommitContext)writeContext).SetPhasedState(entityId, state);
+        }
+
+        private static IPreMovementStateLogic CreateSystemPreMovementValidationLogic(
+            int entityId,
+            int enterTick,
+            int exitTickExclusive)
+        {
+            var type = typeof(WorldSnapshot).Assembly.GetType(
+                "Game.Feature.Gameplay.Entities.SystemPreMovementValidationLogic",
+                throwOnError: true);
+            var instance = Activator.CreateInstance(
+                type,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                binder: null,
+                args: new object[] { entityId, enterTick, exitTickExclusive },
+                culture: null);
+            if (instance is not IPreMovementStateLogic logic)
+            {
+                throw new InvalidOperationException("Failed to construct SystemPreMovementValidationLogic as an IPreMovementStateLogic.");
+            }
+
+            return logic;
         }
 
         private static EntityState CreateUnit(int entityId, SurfaceCell position, int teamId)
@@ -474,5 +674,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 }
             }
         }
+
     }
 }

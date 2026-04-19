@@ -399,6 +399,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldStateWriteContext.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/SystemPreMovementValidationLogic.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs"),
                 },
@@ -422,6 +423,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 },
                 nonTestBeginEnemyReferences);
 
+            var nonTestBeginSystemValidationReferences = FilterNonTestFiles(FindFilesContainingToken("BeginSystemPreMovementValidation("));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/SystemPreMovementValidationLogic.cs"),
+                },
+                nonTestBeginSystemValidationReferences);
+
             var nonTestEnemyLockRetentionReferences = FilterNonTestFiles(FindFilesContainingToken("ShouldParticipateInEnemyCurrentLockRetention("));
             CollectionAssert.AreEquivalent(
                 new[]
@@ -430,6 +440,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyActionStateLogic.cs"),
                 },
                 nonTestEnemyLockRetentionReferences);
+
+            var nonTestCurrentEnemyLockEvidenceReferences = FilterNonTestFiles(FindFilesContainingToken("CurrentEnemyLockRetentionEvidence"));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/LegalityContexts.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/ModifierQuery.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyActionStateLogic.cs"),
+                },
+                nonTestCurrentEnemyLockEvidenceReferences);
 
             var nonTestEnemyPhaseThroughReferences = FilterNonTestFiles(FindFilesContainingToken("EnemyPhaseThroughLockedTargetQueries"));
             CollectionAssert.AreEquivalent(
@@ -480,6 +500,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     PhasedRuntimeStateOwnerKind.MovementPreMovement,
                     PhasedRuntimeStateOwnerKind.EnemyPreMovement,
                     PhasedRuntimeStateOwnerKind.DebugForced,
+                    PhasedRuntimeStateOwnerKind.SystemPreMovementValidation,
                 },
                 coveredOwnerKinds);
 
@@ -492,6 +513,29 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Is.EqualTo(PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention));
             Assert.That(enemyMetadata.ReservationReadClass, Is.EqualTo(PhasedReservationReadClass.CellOnlyPreSettle));
             Assert.That(enemyMetadata.EarliestObservableSnapshot, Is.EqualTo(PhasedEarliestObservableSnapshot.PlanSnapshot));
+
+            Assert.That(
+                PhasedSourceMetadataCatalog.TryGet(PhasedRuntimeStateOwnerKind.SystemPreMovementValidation, out var validationMetadata),
+                Is.True);
+            Assert.That(validationMetadata.EmittingStage, Is.EqualTo(PhasedSourceEmittingStage.PreMovementState));
+            Assert.That(validationMetadata.TargetabilityMode, Is.EqualTo(PhasedTargetabilityMode.FreshSelectionSuppressed));
+            Assert.That(validationMetadata.ReservationReadClass, Is.EqualTo(PhasedReservationReadClass.None));
+            Assert.That(validationMetadata.EarliestObservableSnapshot, Is.EqualTo(PhasedEarliestObservableSnapshot.PlanSnapshot));
+
+            foreach (PhasedRuntimeStateOwnerKind ownerKind in Enum.GetValues(typeof(PhasedRuntimeStateOwnerKind)))
+            {
+                if (ownerKind == PhasedRuntimeStateOwnerKind.None ||
+                    !PhasedSourceMetadataCatalog.TryGet(ownerKind, out var metadata) ||
+                    ownerKind == PhasedRuntimeStateOwnerKind.EnemyPreMovement)
+                {
+                    continue;
+                }
+
+                Assert.That(
+                    metadata.TargetabilityMode,
+                    Is.Not.EqualTo(PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention),
+                    $"Only EnemyPreMovement may use current enemy lock retention mode. Unexpected owner: {ownerKind}");
+            }
         }
 
         [Test]
@@ -512,6 +556,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 CountOccurrences(phaseReservationReadMethod, "reservationBook.GetCellStatus("),
                 Is.EqualTo(1),
                 "Inline reservation read count is a secondary sentinel. The primary contract is still cell-only terminal settlement semantics.");
+            Assert.That(phaseReservationReadMethod.IndexOf("reservationBook.GetCellStatus(payload.DestinationCell)", StringComparison.Ordinal),
+                Is.GreaterThan(phaseReservationReadMethod.IndexOf("traverseToDestination.Verdict != LegalityVerdict.Allowed", StringComparison.Ordinal)));
         }
 
         [Test]
@@ -534,7 +580,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "TryFindTarget(",
                 "BuildMovementIntents(",
                 "CollectMovementIntents(",
-                "ResolveBaselineGroundLocomotion(");
+                "ResolveBaselineGroundLocomotion(",
+                "reservationBook.GetCellStatus(",
+                "reservationBook.GetEdgeStatus(",
+                "reservationBook.GetEntityStatus(");
             AssertContainsNoForbiddenTokens(
                 finalizationWindow,
                 "TryResolveStartAction(",
@@ -543,6 +592,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 "CollectMovementIntents(",
                 "EnqueueDelayedAttackEffect(",
                 "SetTopology(");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SystemPreMovementValidationSource_RemainsReservationReadFree()
+        {
+            var source = ReadProjectFile("Assets/_Features/Gameplay/Gameplay_Entities/Runtime/SystemPreMovementValidationLogic.cs");
+
+            Assert.That(source, Does.Not.Contain("MovementReservationBook"));
+            Assert.That(source, Does.Not.Contain("FrozenMovementReservationExport"));
+            Assert.That(source, Does.Not.Contain("GetCellStatus("));
+            Assert.That(source, Does.Not.Contain("GetEdgeStatus("));
+            Assert.That(source, Does.Not.Contain("GetEntityStatus("));
         }
 
         private static void AssertResolved(
