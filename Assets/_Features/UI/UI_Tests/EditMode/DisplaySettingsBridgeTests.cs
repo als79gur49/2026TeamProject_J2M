@@ -36,9 +36,9 @@ namespace Game.Feature.UI.Tests
                 committed: new DisplaySettingsSnapshot(1920, 1080, SharedDisplayWindowMode.Windowed, 60, 1),
                 availableModes: new[]
                 {
-                    new DisplayModeOption(1280, 720, 60, 1),
-                    new DisplayModeOption(1600, 900, 120, 1),
                     new DisplayModeOption(1920, 1080, 60, 1),
+                    new DisplayModeOption(1600, 900, 120, 1),
+                    new DisplayModeOption(1280, 720, 60, 1),
                 });
             var adapter = new DisplaySettingsPortAdapter(service);
 
@@ -47,7 +47,7 @@ namespace Game.Feature.UI.Tests
             var committed = adapter.CommitPreview();
             var reverted = adapter.RevertPreview();
 
-            Assert.That(snapshot.CommittedModeIndex, Is.EqualTo(2));
+            Assert.That(snapshot.CommittedModeIndex, Is.EqualTo(0));
             Assert.That(snapshot.CurrentRuntimeResolutionLabel, Is.EqualTo("1600 x 900"));
             Assert.That(snapshot.CurrentRuntimeWindowMode, Is.EqualTo(UiDisplayWindowMode.FullScreenWindow));
             Assert.That(started, Is.True);

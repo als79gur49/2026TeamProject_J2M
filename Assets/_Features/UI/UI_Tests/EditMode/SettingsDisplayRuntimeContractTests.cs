@@ -28,7 +28,7 @@ namespace Game.Feature.UI.Tests
                 var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
                 Assert.That(view, Is.Not.Null);
 
-                view.SelectDisplayResolution(0);
+                view.SelectDisplayResolution(2);
                 view.SetDisplayFullscreen(true);
                 view.ClickDisplayApply();
 

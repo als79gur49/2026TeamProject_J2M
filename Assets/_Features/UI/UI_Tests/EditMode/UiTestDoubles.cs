@@ -183,9 +183,9 @@ namespace Game.Feature.UI.Tests
     {
         private readonly List<DisplaySettingsPortModeOption> _availableModes = new()
         {
-            new DisplaySettingsPortModeOption(1280, 720, "1280 x 720"),
-            new DisplaySettingsPortModeOption(1600, 900, "1600 x 900"),
             new DisplaySettingsPortModeOption(1920, 1080, "1920 x 1080"),
+            new DisplaySettingsPortModeOption(1600, 900, "1600 x 900"),
+            new DisplaySettingsPortModeOption(1280, 720, "1280 x 720"),
         };
 
         private DisplaySettingsPortPreviewRequest _lastPreviewRequest;
@@ -203,7 +203,7 @@ namespace Game.Feature.UI.Tests
 
         public bool RevertPreviewResult { get; set; } = true;
 
-        public int CommittedModeIndex { get; private set; } = 2;
+        public int CommittedModeIndex { get; private set; } = 0;
 
         public DisplayWindowMode CommittedWindowMode { get; private set; } = DisplayWindowMode.Windowed;
 

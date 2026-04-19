@@ -236,7 +236,31 @@ namespace Game.Shared.Display
                     currentRuntime.RefreshRateDenominator));
             }
 
+            ordered.Sort(CompareVisibleSizeDescending);
             return ordered.ToArray();
+        }
+
+        private static int CompareVisibleSizeDescending(DisplayModeOption left, DisplayModeOption right)
+        {
+            var pixelComparison = ((long)right.Width * right.Height).CompareTo((long)left.Width * left.Height);
+            if (pixelComparison != 0)
+            {
+                return pixelComparison;
+            }
+
+            var widthComparison = right.Width.CompareTo(left.Width);
+            if (widthComparison != 0)
+            {
+                return widthComparison;
+            }
+
+            var heightComparison = right.Height.CompareTo(left.Height);
+            if (heightComparison != 0)
+            {
+                return heightComparison;
+            }
+
+            return CompareRefreshRate(right, left);
         }
 
         private static int CompareRefreshRate(DisplayModeOption left, DisplayModeOption right)

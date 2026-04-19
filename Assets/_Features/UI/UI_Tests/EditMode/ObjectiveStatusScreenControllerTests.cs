@@ -94,11 +94,11 @@ namespace Game.Feature.UI.Tests
                 displayPort);
 
             presenter.Apply(SettingsScreenPayload.Default);
-            presenter.StageResolution(0);
+            presenter.StageResolution(2);
             presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
 
             Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.True);
-            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(2));
             Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1920 x 1080"));
 
             Assert.That(presenter.ApplyStagedDisplaySettings(), Is.True);
@@ -116,7 +116,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(displayPort.CommitPreviewCallCount, Is.EqualTo(1));
             Assert.That(presenter.ViewModel.IsDisplayPreviewActive, Is.False);
             Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
-            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(2));
             Assert.That(presenter.ViewModel.IsFullscreenEnabled, Is.True);
             Assert.That(presenter.ViewModel.DisplayStatusText, Is.EqualTo("Display settings saved."));
         }
@@ -162,7 +162,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(
                 presenter.ViewModel.DisplayStatusText,
                 Is.EqualTo("Current display changed outside saved settings. Saved settings remain unchanged until you apply again."));
-            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(2));
+            Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
             Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
         }
     }

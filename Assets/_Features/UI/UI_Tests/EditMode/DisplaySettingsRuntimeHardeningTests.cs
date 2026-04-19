@@ -38,7 +38,7 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
-        public void DisplaySettingsService_CatalogDedupe_PreservesVisibleOrder_AndUpgradesHighestRefresh()
+        public void DisplaySettingsService_CatalogDedupe_ReturnsLargestVisibleModesFirst_AndUpgradesHighestRefresh()
         {
             var current = new DisplaySettingsSnapshot(1600, 900, DisplayWindowMode.Windowed, 60, 1);
             var catalog = DisplaySettingsService.BuildCatalog(
@@ -52,10 +52,10 @@ namespace Game.Feature.UI.Tests
                 });
 
             Assert.That(catalog, Has.Length.EqualTo(3));
-            Assert.That(catalog[0].VisibleLabel, Is.EqualTo("1280 x 720"));
-            Assert.That(catalog[0].PreferredRefreshRate, Is.EqualTo(144));
-            Assert.That(catalog[1].VisibleLabel, Is.EqualTo("1920 x 1080"));
-            Assert.That(catalog[2].VisibleLabel, Is.EqualTo("1600 x 900"));
+            Assert.That(catalog[0].VisibleLabel, Is.EqualTo("1920 x 1080"));
+            Assert.That(catalog[1].VisibleLabel, Is.EqualTo("1600 x 900"));
+            Assert.That(catalog[2].VisibleLabel, Is.EqualTo("1280 x 720"));
+            Assert.That(catalog[2].PreferredRefreshRate, Is.EqualTo(144));
         }
 
         [Test]
