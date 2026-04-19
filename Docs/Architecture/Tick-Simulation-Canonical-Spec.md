@@ -89,6 +89,9 @@
 - current live producer가 emit하는 state는 `Anchored`, `Airborne`, `Phased`다.
 - `Phased`는 `WorldState` authoritative carrier를 가진 live runtime state이며 current live owner lane은 internal `PreMovementState` write-path다.
 - current production gameplay concrete live source는 `PlayerControlStateLogic`의 player flip windup과 `EnemyLogic`의 enemy locked-target cross-through validator다.
+- current wall-pass enemy는 baseline validator consumer다. seam proof용 minimal vertical slice이며 generalized phase movement template가 아니다.
+- locked-target dependency is current validator-local dependency, not generic phase dependency.
+- same-face / straight-line / target-behind +1 / single-terminal chooser are local geometry rules, not reusable phase template.
 - horizontal expansion validation을 위한 internal validation owner는 `SystemPreMovementValidationLogic` 하나만 추가로 허용한다. 이것은 internal validation owner, not public scripted framework다.
 - `Attached`는 consumer/producers 모두 closed 상태를 유지한다.
 - `SpatialStateResolver`는 query/state layer의 유일한 spatial aggregation owner다.
@@ -137,6 +140,7 @@
   - 새 source는 carrier truth-source를 늘리지 않고 `IPhasedStateCommitContext.SetPhasedState(...)` 경유 write만 추가할 수 있다.
   - current horizontal validation owner는 `PreMovementState`, `PlanSnapshot`, `FreshSelectionSuppressed`, `AnchoredLikeDefault`, `ReservationRead=None`으로 잠근다.
   - source path는 reservation을 읽지 않는다. `CommitPreMovementState(...)`에서 `GetCellStatus(...)`, `GetEdgeStatus(...)`, `GetEntityStatus(...)`, `FrozenMovementReservationExport` 직접 참조는 out-of-scope다.
+  - 다음 단계 implementer는 `EnemyPhaseRelocation`을 generalized phase action schema로, `EnemyPreMovement`를 default future owner precedent로, current chooser를 phase 일반 원리로 가정하면 안 된다.
   - 새 source를 추가할 때는 owner enum, timing row, coexistence matrix, trace/hash dump, allowlist test, source metadata coverage를 같이 갱신해야 한다.
 
 ## Participation Axes
@@ -149,6 +153,7 @@
   - `SpatialState.Kind == Phased`로 occupancy claim을 추론하지 않는다. consumer는 반드시 `ClaimsAuthoritativeOccupancy` fact를 읽는다.
   - `Phased`의 future semantic envelope 전체는 아직 고정하지 않는다.
   - current live profile은 traversal `Unit/Solid` bypass, fresh target suppression, anchored-like settlement default만 고정한다.
+  - current wall-pass enemy는 baseline validator consumer다. seam proof용 minimal vertical slice이며 generalized phase movement template가 아니다.
   - current v1 profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility를 current implementation default로 사용하지만, 이것을 future non-claim/overlap model의 구조 원칙으로 승격하지 않는다.
   - current targetability suppression은 base spatial default다. current enemy lock retention is `EnemyActionStateTargeting` current lock path 전용 narrow hook다. future `impact-only suppression`, `detection-only suppression`, broader source-specific overrides는 `ModifierQuery` typed-evidence hook로만 연다.
   - `FreshSelectionSuppressedWithCurrentEnemyLockRetention`는 current stage-local contract 이름일 뿐이며, future lock taxonomy의 generic seed가 아니다.
@@ -206,6 +211,7 @@
   - 추가 non-test validation writer는 `SystemPreMovementValidationLogic` 하나만 허용한다. 이것은 internal validation owner이며 public authoring/debug API가 아니다.
   - 허용 seam은 `WorldState`/`WorldSnapshot` carrier path, `IPhasedStateCommitContext`, `FinalizationBatch`/`ProjectedWorld`, trace/hash/docs/tests까지만이다.
   - public query/command/authoring/debug API, reservation export schema, serialized/import/save schema, finalize legality recomputation은 이번 단계에서 건드리지 않는다.
+  - current wall-pass enemy가 성공해도 generalized phase movement, pathfinding expansion, terminal phase settle, non-claim occupancy의 evidence가 되지 않는다.
 
 ## Occupancy And Queries
 - 현재 authoritative occupancy storage는 `WorldState`의 세 레이어다.

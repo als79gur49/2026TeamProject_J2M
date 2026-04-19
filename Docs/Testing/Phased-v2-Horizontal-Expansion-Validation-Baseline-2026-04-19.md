@@ -50,3 +50,12 @@ python3 Tools/check_gameplay_test_stratification.py --root /mnt/c/users/user/202
 - `./run_tests.sh full` still stops at Full EditMode because the repo baseline remains red; Full PlayMode was not reached in this slice.
 - strict stratification governance remains red because of pre-existing unit execution-placement debt and existing override/category mismatches.
 - new horizontal-expansion execution proof was moved to simulation assembly so it does not add a new unit execution-placement governance error.
+
+## Validator Handoff
+
+- `Role=BaselineValidatorOnly`
+- `LockDependency=CurrentEnemyLockPathOnly`
+- `ChooserLocality=SameFace|StraightLine|Behind+1|SingleTerminal`
+- `Reservation=TerminalCellOnlyPreSettle`
+- `ForbiddenGeneralization=NoRetarget|NoAlternate|NoFallback|NoSameTickCombat`
+- `NotEvidenceFor=GeneralizedPhaseMovement|Pathfinding|NonClaimOccupancy|TerminalPhaseSettle`

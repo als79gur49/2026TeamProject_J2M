@@ -52,7 +52,11 @@
   - current live profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility, anchored-like terminal settle을 `StageDefault`로 사용한다. 이것은 current implementation default이지 future invariant가 아니다.
   - current live enter/sustain/exit owner는 `MovementPreMovement`, `EnemyPreMovement`, `SystemPreMovementValidation`, `DebugForced`로 metadata table에 고정한다.
   - first minimal consumer는 `EnemyPreMovement`에서 실행되는 `locked-target cross-through` validator이며 fresh target search, fallback, multi-edge pathfinding, same-tick damage coupling을 열지 않는다.
+  - current wall-pass enemy는 baseline validator consumer다. seam proof용 최소 runtime slice이며 locomotion feature가 아니다.
+  - locked-target dependency is current validator-local dependency, not generic phase dependency.
+  - same-face / straight-line / target-behind +1 / single-terminal chooser are local geometry rules, not reusable phase template.
   - 이 consumer는 validator, not a movement framework다. current lock이나 geometry가 닫히면 reject/close하고 같은 tick에 ordinary movement, fallback reroute, combat attack으로 우회하지 않는다.
+  - 다음 단계 implementer는 이 consumer를 ordinary movement replacement, generalized phase action schema, default future owner precedent로 가정하면 안 된다.
 - 이번 단계에서 고정하지 않는 것:
   - future non-claim / overlap model
   - future visibility variants
@@ -69,6 +73,16 @@
   - `SystemPreMovementValidation` source path는 reservation을 읽지 않는다.
   - `EnemyPreMovement` validator consumer의 direct reservation read는 terminal settle 직전 `cell` 한 번뿐이다. planner 단계, terminal candidate 확정 전, traversal legality 완료 전 direct reservation read는 허용하지 않는다.
   - `cell-only`는 terminal cell이 하나로 고정된 뒤 `GetCellStatus(...)` 한 번만 읽고, 그 결과를 바로 `SettlementContext.ReservationStatus`로 넘기는 contract를 뜻한다. direct `edge/entity/topology-exclusive` reservation read와 multi-cell speculative read는 out-of-scope다.
+
+### Baseline Validator Handoff Note
+- `Role=BaselineValidatorOnly`
+- `LockDependency=CurrentEnemyLockPathOnly`
+- `ChooserLocality=SameFace|StraightLine|Behind+1|SingleTerminal`
+- `Reservation=TerminalCellOnlyPreSettle`
+- `ForbiddenGeneralization=NoRetarget|NoAlternate|NoFallback|NoSameTickCombat`
+- `NotEvidenceFor=GeneralizedPhaseMovement|Pathfinding|NonClaimOccupancy|TerminalPhaseSettle`
+- stable trace contract는 `PhaseEnter/Exit`, `Owner`, `Timing`, `ReservationRead`, `Settle`, `ExistingEnemyLock`, `EnemyPhaseRelocation`의 `Label/Target/Direction/Destination/Result`까지만 본다.
+- string ordering, incidental formatting, internal ids, helper names, inline token count는 implementation detail이다.
 
 ## Targetability
 - targetability participation은 traversal/settlement blocker vocabulary와 별도 축이다.
@@ -96,6 +110,7 @@
 - 이번 단계 reservation generalization 범위는 legality read seam용 `ReservationQuery` adapter까지만 허용한다.
 - reservation detail 확장이 필요해져도 current public blocker vocabulary는 `Reservation` top-level kind를 유지한다.
 - reservation read sequence의 primary truth는 semantic contract다. inline token count는 secondary sentinel일 뿐이며 helper extraction이 생겨도 terminal single-cell pre-settle read contract가 유지되어야 한다.
+- semantic contract is the primary source-of-truth; inline token count is only a secondary sentinel.
 
 ## Common Execute Outcomes
 - canonical public rule text는 `success / impact / blocked` 축을 사용한다.
