@@ -343,6 +343,14 @@ namespace Game.Feature.Gameplay.Tests
                     yield break;
                 }
 
+                case MovementSkillStrategyKind.PhaseThroughLockedTarget:
+                {
+                    var phase = CreateHiddenAsset<TestPhaseThroughLockedTargetCapabilityAsset>("Test_PhaseThroughLockedTargetCapability");
+                    SetSerializedField(phase, "jumpTimingSettings", spec.JumpTimingSettings);
+                    yield return phase;
+                    yield break;
+                }
+
                 default:
                     throw new ArgumentOutOfRangeException(
                         nameof(spec.MovementSkillStrategyKind),
@@ -402,6 +410,15 @@ namespace Game.Feature.Gameplay.Tests
             {
                 assets.Add(asset);
             }
+        }
+
+        private sealed class TestPhaseThroughLockedTargetCapabilityAsset : EnemyMovementSkillCapabilityAsset
+        {
+            [SerializeField] private EnemyJumpTimingAuthoringSettings jumpTimingSettings = new(0f, 0f, 0f);
+
+            public override MovementSkillStrategyKind Kind => MovementSkillStrategyKind.PhaseThroughLockedTarget;
+
+            public override EnemyJumpTimingAuthoringSettings JumpTimingSettings => jumpTimingSettings;
         }
     }
 }

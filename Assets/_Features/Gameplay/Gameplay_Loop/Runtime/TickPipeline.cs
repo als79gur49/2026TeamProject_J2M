@@ -356,6 +356,8 @@ namespace Game.Feature.Gameplay.Loop
             var jumpLandingPlans = new List<JumpLandingPlan>();
             var jumpLandingSpaceContests = new List<Contest>();
             var jumpLandingEvents = new List<string>();
+            var phaseRelocationPlans = new List<PhaseRelocationPlan>();
+            var phaseRelocationSpaceContests = new List<Contest>();
             ResolvePlanJumpLandings(
                 projectedWorld,
                 input.TickIndex,
@@ -367,6 +369,12 @@ namespace Game.Feature.Gameplay.Loop
                 jumpLandingEvents,
                 ref nextContestId);
             var planSnapshot = projectedWorld.CreateSnapshot();
+            ResolvePlanEnemyPhaseRelocations(
+                planSnapshot,
+                input.TickIndex,
+                phaseRelocationPlans,
+                phaseRelocationSpaceContests,
+                ref nextContestId);
 
             var rawMovementIntents = new List<RawMovementIntent>();
             _movementIntentCollector.Collect(planSnapshot, in input, entityLogicsForTick.MovementLogics, rawMovementIntents);
@@ -387,6 +395,8 @@ namespace Game.Feature.Gameplay.Loop
             var orderedMovementActionPlanIds = BuildOrderedMovementActionPlanIds(planSnapshot, expandedCandidates);
             var jumpLandingActionPlanPayloads = BuildJumpLandingActionPlanPayloads(jumpLandingPlans);
             var orderedJumpLandingActionPlanIds = BuildOrderedJumpLandingActionPlanIds(jumpLandingPlans);
+            var phaseRelocationActionPlanPayloads = BuildPhaseRelocationActionPlanPayloads(phaseRelocationPlans);
+            var orderedPhaseRelocationActionPlanIds = BuildOrderedPhaseRelocationActionPlanIds(phaseRelocationPlans);
             var spaceContests = BuildSpaceContests(expandedCandidates, ref nextContestId);
             phaseTrace.Add("Plan:Exit");
             completedPhases.Add(TickPhase.Plan);
@@ -404,6 +414,10 @@ namespace Game.Feature.Gameplay.Loop
                 jumpLandingActionPlanPayloads,
                 orderedJumpLandingActionPlanIds,
                 jumpLandingEvents,
+                phaseRelocationSpaceContests,
+                phaseRelocationPlans,
+                phaseRelocationActionPlanPayloads,
+                orderedPhaseRelocationActionPlanIds,
                 nextContestId,
                 aiPhaseResult,
                 preMovementStateResult,
@@ -427,6 +441,7 @@ namespace Game.Feature.Gameplay.Loop
             var contests = new List<Contest>(planPhaseResult.SpaceContests.Count);
             AddRange(contests, planPhaseResult.SpaceContests);
             AddRange(contests, planPhaseResult.JumpLandingSpaceContests);
+            AddRange(contests, planPhaseResult.PhaseRelocationSpaceContests);
             var resolutionRecords = new List<ResolutionRecord>();
             var nextContestId = planPhaseResult.NextContestId;
             var movementResolutionRecords = new List<ResolutionRecord>();
@@ -671,6 +686,21 @@ namespace Game.Feature.Gameplay.Loop
                 projectedWorld.ApplyBatch(enemyActionBeforeAttackBatch);
             }
 
+            var phaseRelocationResolveBatch = ResolveEnemyPhaseRelocationSpaceContestsCanonical(
+                postMovementSnapshot,
+                planPhaseResult.OrderedPhaseRelocationActionPlanIds,
+                planPhaseResult.PhaseRelocationActionPlanPayloads,
+                planPhaseResult.PhaseRelocationSpaceContests,
+                movementReservationBook,
+                movementResolutionRecords,
+                movementCommitEvents);
+            if (phaseRelocationResolveBatch.Operations.Count > 0)
+            {
+                finalizationBatch.MergeFrom(phaseRelocationResolveBatch);
+                projectedWorld.ApplyBatch(phaseRelocationResolveBatch);
+                postMovementSnapshot = projectedWorld.CreateSnapshot();
+            }
+
             var finalImpactReservations = MergeImpactReservations(
                 movementImpactReservations,
                 ResolveDeferredMovementImpactReservationsAgainstSnapshot(
@@ -801,6 +831,7 @@ namespace Game.Feature.Gameplay.Loop
             }
             AddRange(movementResolvedOperations, movementStageBatch.Operations);
             AddRange(movementResolvedOperations, jumpLandingResolveBatch.Operations);
+            AddRange(movementResolvedOperations, phaseRelocationResolveBatch.Operations);
             var movementPhaseResult = new MovementPhaseResult(
                 planPhaseResult.RawIntents,
                 planPhaseResult.SortedIntents,
@@ -1342,6 +1373,27 @@ namespace Game.Feature.Gameplay.Loop
             return payloads;
         }
 
+        private static Dictionary<int, PhaseRelocationActionPlanPayload> BuildPhaseRelocationActionPlanPayloads(
+            IReadOnlyList<PhaseRelocationPlan> phaseRelocationPlans)
+        {
+            var payloads = new Dictionary<int, PhaseRelocationActionPlanPayload>(phaseRelocationPlans.Count);
+
+            for (var i = 0; i < phaseRelocationPlans.Count; i++)
+            {
+                var plan = phaseRelocationPlans[i];
+                payloads[plan.ActionPlanId] = new PhaseRelocationActionPlanPayload(
+                    plan.ActionPlanId,
+                    plan.SourceId,
+                    plan.Priority,
+                    plan.LockedTargetEntityId,
+                    plan.Direction,
+                    plan.DestinationCell,
+                    plan.RuleLabel);
+            }
+
+            return payloads;
+        }
+
         private static List<DestroyWritePayload> BuildDestroyWritePayloads(
             IReadOnlyList<DestroyAction> destroys,
             WorldSnapshot snapshot,
@@ -1369,6 +1421,17 @@ namespace Game.Feature.Gameplay.Loop
             for (var i = 0; i < jumpLandingPlans.Count; i++)
             {
                 orderedIds.Add(jumpLandingPlans[i].ActionPlanId);
+            }
+
+            return orderedIds;
+        }
+
+        private static List<int> BuildOrderedPhaseRelocationActionPlanIds(IReadOnlyList<PhaseRelocationPlan> phaseRelocationPlans)
+        {
+            var orderedIds = new List<int>(phaseRelocationPlans.Count);
+            for (var i = 0; i < phaseRelocationPlans.Count; i++)
+            {
+                orderedIds.Add(phaseRelocationPlans[i].ActionPlanId);
             }
 
             return orderedIds;
@@ -1874,6 +1937,60 @@ namespace Game.Feature.Gameplay.Loop
             return group.HasResolvedImpact ? 1 : 0;
         }
 
+        private void ResolvePlanEnemyPhaseRelocations(
+            WorldSnapshot snapshot,
+            int tickIndex,
+            List<PhaseRelocationPlan> phaseRelocationPlans,
+            List<Contest> phaseRelocationSpaceContests,
+            ref int nextContestId)
+        {
+            var phasedEntries = new List<PhasedSnapshotEntry>();
+            snapshot.EnumeratePhasedStatesOrdered(phasedEntries);
+
+            for (var i = 0; i < phasedEntries.Count; i++)
+            {
+                var phasedEntry = phasedEntries[i];
+                if (phasedEntry.State.ownerKind != PhasedRuntimeStateOwnerKind.EnemyPreMovement ||
+                    !snapshot.TryGetEntity(phasedEntry.EntityId, out var source) ||
+                    !snapshot.TryGetEnemyActionState(phasedEntry.EntityId, out var actionState) ||
+                    !actionState.IsActive ||
+                    !EnemyActionQueries.CanExecute(actionState, tickIndex) ||
+                    !snapshot.TryGetEntity(actionState.lockedTargetEntityId, out var lockedTarget) ||
+                    !EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
+                        source,
+                        lockedTarget,
+                        actionState.direction,
+                        out var destinationCell))
+                {
+                    continue;
+                }
+
+                var actionPlanId = _idAllocator.AllocateGroupId();
+                var contestId = nextContestId++;
+                phaseRelocationPlans.Add(
+                    new PhaseRelocationPlan(
+                        actionPlanId,
+                        contestId,
+                        phasedEntry.EntityId,
+                        priority: 0,
+                        actionState.lockedTargetEntityId,
+                        actionState.direction,
+                        destinationCell,
+                        EnemyPhaseThroughLockedTargetQueries.RuleLabel));
+                phaseRelocationSpaceContests.Add(
+                    new Contest(
+                        contestId,
+                        ContestKind.Space,
+                        actionPlanId,
+                        phasedEntry.EntityId,
+                        priority: 0,
+                        affectedEntityId: 0,
+                        affectedCell: destinationCell,
+                        hasAffectedCell: true,
+                        localActionIndex: 0));
+            }
+        }
+
         private void ResolvePlanJumpLandings(
             ProjectedWorld projectedWorld,
             int tickIndex,
@@ -2162,6 +2279,129 @@ namespace Game.Feature.Gameplay.Loop
             return batch;
         }
 
+        private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(
+            WorldSnapshot movementSnapshot,
+            IReadOnlyList<int> orderedActionPlanIds,
+            IReadOnlyDictionary<int, PhaseRelocationActionPlanPayload> phaseRelocationActionPlanPayloads,
+            IReadOnlyList<Contest> phaseRelocationSpaceContests,
+            MovementReservationBook reservationBook,
+            List<ResolutionRecord> movementResolutionRecords,
+            List<string> movementCommitEvents)
+        {
+            var batch = new FinalizationBatch();
+            var contestsByActionPlanId = BuildContestLookup(phaseRelocationSpaceContests);
+
+            for (var i = 0; i < orderedActionPlanIds.Count; i++)
+            {
+                var actionPlanId = orderedActionPlanIds[i];
+                if (!phaseRelocationActionPlanPayloads.TryGetValue(actionPlanId, out var payload) ||
+                    !contestsByActionPlanId.TryGetValue(actionPlanId, out var contest))
+                {
+                    continue;
+                }
+
+                var accepted = false;
+                var rejectionReason = "ResolveRejected";
+                var reservationStatus = ReservationStatus.None;
+
+                if (!movementSnapshot.TryGetPhasedState(payload.SourceActorEntityId, out var phasedState) ||
+                    !phasedState.IsActive ||
+                    phasedState.ownerKind != PhasedRuntimeStateOwnerKind.EnemyPreMovement)
+                {
+                    rejectionReason = "OwnerInactive";
+                }
+                else if (!movementSnapshot.TryGetEntity(payload.SourceActorEntityId, out var source) ||
+                         !movementSnapshot.TryGetEntity(payload.LockedTargetEntityId, out var lockedTarget))
+                {
+                    rejectionReason = "SourceOrTargetMissing";
+                }
+                else if (!EnemyPhaseThroughLockedTargetQueries.TryResolveCurrentTerminalCell(
+                             source,
+                             lockedTarget,
+                             payload.Direction,
+                             out var currentDestination) ||
+                         currentDestination != payload.DestinationCell)
+                {
+                    rejectionReason = "GeometryChanged";
+                }
+                else
+                {
+                    var actor = BuildLegalityActorRef(movementSnapshot, payload.SourceActorEntityId, EntityType.Unit);
+                    var traverseToLockedTarget = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                        new TraverseContext(
+                            movementSnapshot,
+                            actor,
+                            source.position,
+                            lockedTarget.position,
+                            movementSnapshot.Topology,
+                            TransitionRequirement.None));
+                    if (traverseToLockedTarget.Verdict != LegalityVerdict.Allowed)
+                    {
+                        rejectionReason = "TraverseLockedTargetBlocked";
+                    }
+                    else
+                    {
+                        var traverseToDestination = RuntimeTraversalLegalityPolicy.EvaluateDestination(
+                            new TraverseContext(
+                                movementSnapshot,
+                                actor,
+                                lockedTarget.position,
+                                payload.DestinationCell,
+                                movementSnapshot.Topology,
+                                TransitionRequirement.None));
+                        if (traverseToDestination.Verdict != LegalityVerdict.Allowed)
+                        {
+                            rejectionReason = "TraverseTerminalBlocked";
+                        }
+                        else
+                        {
+                            reservationStatus = reservationBook.GetCellStatus(payload.DestinationCell);
+                            var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(
+                                new SettlementContext(
+                                    movementSnapshot,
+                                    actor,
+                                    payload.DestinationCell,
+                                    movementSnapshot.Topology,
+                                    SpatialState.Phased,
+                                    reservationStatus));
+                            accepted = landingLegality.Verdict == LegalityVerdict.Allowed;
+                            if (!accepted)
+                            {
+                                rejectionReason = "SettleBlocked";
+                            }
+                        }
+                    }
+                }
+
+                var resolutionRecord = CreateResolutionRecord(contest, accepted);
+                movementResolutionRecords.Add(resolutionRecord);
+                if (!accepted)
+                {
+                    movementCommitEvents.Add(
+                        BuildPhaseRelocationUpdate(
+                            payload.SourceActorEntityId,
+                            "Rejected",
+                            payload,
+                            reservationStatus,
+                            rejectionReason));
+                    continue;
+                }
+
+                var metadata = CreatePhaseRelocationMetadata(payload, resolutionRecord);
+                reservationBook.ReservePhaseRelocation(payload.SourceActorEntityId, payload.DestinationCell);
+                batch.MoveEntity(payload.SourceActorEntityId, payload.DestinationCell, metadata);
+                movementCommitEvents.Add(
+                    BuildPhaseRelocationUpdate(
+                        payload.SourceActorEntityId,
+                        "Committed",
+                        payload,
+                        reservationStatus,
+                        "Allowed"));
+            }
+
+            return batch;
+        }
+
         private static Contest TryFindJumpLandingContest(
             IReadOnlyList<Contest> jumpLandingSpaceContests,
             int contestId)
@@ -2300,6 +2540,24 @@ namespace Game.Feature.Gameplay.Loop
                 movementSemanticKind: MovementSemanticKind.JumpLanding,
                 damageSourceType: DamageSourceType.None,
                 jumpPresentationKind: jumpPresentationKind,
+                presentationTargetCell: payload.DestinationCell);
+        }
+
+        private static FinalizationOperationMetadata CreatePhaseRelocationMetadata(
+            PhaseRelocationActionPlanPayload payload,
+            ResolutionRecord resolutionRecord)
+        {
+            return new FinalizationOperationMetadata(
+                TickPhase.Resolve,
+                ResolvedActionSemanticKind.Move,
+                payload.SourceActorEntityId,
+                payload.ActionPlanId,
+                payload.IntentId,
+                resolutionRecord.ContestId,
+                resolutionRecord.LocalActionIndex,
+                payload.Priority,
+                movementSemanticKind: MovementSemanticKind.Move,
+                damageSourceType: DamageSourceType.None,
                 presentationTargetCell: payload.DestinationCell);
         }
 
@@ -3560,6 +3818,16 @@ namespace Game.Feature.Gameplay.Loop
             return builder.ToString();
         }
 
+        private static string BuildPhaseRelocationUpdate(
+            int entityId,
+            string label,
+            PhaseRelocationActionPlanPayload payload,
+            ReservationStatus reservationStatus,
+            string result)
+        {
+            return $"EnemyPhaseRelocation|E={entityId}|Label={label}|Target={payload.LockedTargetEntityId}|Direction={payload.Direction}|Destination={FormatCell(payload.DestinationCell)}|Rule={payload.RuleLabel}|Reservation={reservationStatus}|Result={result}";
+        }
+
         private static DamageResolutionRecord FindDamageResolution(
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
             int groupId,
@@ -4496,6 +4764,10 @@ namespace Game.Feature.Gameplay.Loop
             Dictionary<int, JumpLandingActionPlanPayload> jumpLandingActionPlanPayloads,
             List<int> orderedJumpLandingActionPlanIds,
             List<string> jumpLandingEvents,
+            List<Contest> phaseRelocationSpaceContests,
+            List<PhaseRelocationPlan> phaseRelocationPlans,
+            Dictionary<int, PhaseRelocationActionPlanPayload> phaseRelocationActionPlanPayloads,
+            List<int> orderedPhaseRelocationActionPlanIds,
             int nextContestId,
             EnemyAiPhaseResult enemyAiPhaseResult,
             PreMovementStatePhaseResult preMovementStatePhaseResult,
@@ -4515,6 +4787,10 @@ namespace Game.Feature.Gameplay.Loop
             JumpLandingActionPlanPayloads = jumpLandingActionPlanPayloads ?? throw new ArgumentNullException(nameof(jumpLandingActionPlanPayloads));
             OrderedJumpLandingActionPlanIds = orderedJumpLandingActionPlanIds ?? throw new ArgumentNullException(nameof(orderedJumpLandingActionPlanIds));
             JumpLandingEvents = jumpLandingEvents ?? throw new ArgumentNullException(nameof(jumpLandingEvents));
+            PhaseRelocationSpaceContests = phaseRelocationSpaceContests ?? throw new ArgumentNullException(nameof(phaseRelocationSpaceContests));
+            PhaseRelocationPlans = phaseRelocationPlans ?? throw new ArgumentNullException(nameof(phaseRelocationPlans));
+            PhaseRelocationActionPlanPayloads = phaseRelocationActionPlanPayloads ?? throw new ArgumentNullException(nameof(phaseRelocationActionPlanPayloads));
+            OrderedPhaseRelocationActionPlanIds = orderedPhaseRelocationActionPlanIds ?? throw new ArgumentNullException(nameof(orderedPhaseRelocationActionPlanIds));
             NextContestId = nextContestId;
             EnemyAiPhaseResult = enemyAiPhaseResult ?? throw new ArgumentNullException(nameof(enemyAiPhaseResult));
             PreMovementStatePhaseResult = preMovementStatePhaseResult ?? throw new ArgumentNullException(nameof(preMovementStatePhaseResult));
@@ -4546,6 +4822,14 @@ namespace Game.Feature.Gameplay.Loop
         public List<int> OrderedJumpLandingActionPlanIds { get; }
 
         public List<string> JumpLandingEvents { get; }
+
+        public List<Contest> PhaseRelocationSpaceContests { get; }
+
+        public List<PhaseRelocationPlan> PhaseRelocationPlans { get; }
+
+        public Dictionary<int, PhaseRelocationActionPlanPayload> PhaseRelocationActionPlanPayloads { get; }
+
+        public List<int> OrderedPhaseRelocationActionPlanIds { get; }
 
         public int NextContestId { get; }
 
@@ -4671,6 +4955,45 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState RetryState { get; }
 
         public JumpLandingKind LandingKind { get; }
+    }
+
+    internal sealed class PhaseRelocationPlan
+    {
+        public PhaseRelocationPlan(
+            int actionPlanId,
+            int contestId,
+            int sourceId,
+            int priority,
+            int lockedTargetEntityId,
+            Direction direction,
+            SurfaceCell destinationCell,
+            string ruleLabel)
+        {
+            ActionPlanId = actionPlanId;
+            ContestId = contestId;
+            SourceId = sourceId;
+            Priority = priority;
+            LockedTargetEntityId = lockedTargetEntityId;
+            Direction = direction;
+            DestinationCell = destinationCell;
+            RuleLabel = ruleLabel ?? string.Empty;
+        }
+
+        public int ActionPlanId { get; }
+
+        public int ContestId { get; }
+
+        public int SourceId { get; }
+
+        public int Priority { get; }
+
+        public int LockedTargetEntityId { get; }
+
+        public Direction Direction { get; }
+
+        public SurfaceCell DestinationCell { get; }
+
+        public string RuleLabel { get; }
     }
 
     internal enum SpawnSourceKind
@@ -5230,6 +5553,33 @@ namespace Game.Feature.Gameplay.Loop
         public EnemyJumpRuntimeState SuccessJumpState { get; }
 
         public EnemyJumpRuntimeState RetryJumpState { get; }
+    }
+
+    internal sealed class PhaseRelocationActionPlanPayload : ActionPlanPayload
+    {
+        public PhaseRelocationActionPlanPayload(
+            int actionPlanId,
+            int sourceActorEntityId,
+            int priority,
+            int lockedTargetEntityId,
+            Direction direction,
+            SurfaceCell destinationCell,
+            string ruleLabel)
+            : base(actionPlanId, intentId: 0, sourceActorEntityId, priority, ResolvedActionSemanticKind.Move)
+        {
+            LockedTargetEntityId = lockedTargetEntityId;
+            Direction = direction;
+            DestinationCell = destinationCell;
+            RuleLabel = ruleLabel ?? string.Empty;
+        }
+
+        public int LockedTargetEntityId { get; }
+
+        public Direction Direction { get; }
+
+        public SurfaceCell DestinationCell { get; }
+
+        public string RuleLabel { get; }
     }
 
     internal enum ContestKind

@@ -429,6 +429,14 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
+            if (!snapshot.TryGetResolvedSpatialState(target.entityId, out var spatialState) ||
+                !ModifierQuery.ShouldParticipateInEnemyCurrentLockRetention(
+                    spatialState,
+                    new CurrentEnemyLockRetentionEvidence(source.entityId, target.entityId)))
+            {
+                return false;
+            }
+
             return !target.markedForDeath || detectionSettings.CanTargetMarkedForDeath;
         }
     }

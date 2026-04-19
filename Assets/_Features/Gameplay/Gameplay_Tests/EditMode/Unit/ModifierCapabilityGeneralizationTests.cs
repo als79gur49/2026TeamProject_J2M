@@ -115,6 +115,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyActionStateTargeting_CurrentEnemyLockPath_RetainsLockedTarget_WhileFreshSelectionStaysSuppressed()
+        {
+            var worldState = GameplayWorldStateTestFactory.CreateBounded(
+                new[]
+                {
+                    CreateUnit(10, new SurfaceCell(FaceId.Floor, 0, 0), teamId: 2),
+                    CreateUnit(20, new SurfaceCell(FaceId.Floor, 1, 0), teamId: 1),
+                });
+            WritePhasedState(worldState, 20, PhasedRuntimeStateQueries.BeginMovementPreMovement(default, tickIndex: 1));
+            var snapshot = worldState.CreateSnapshot();
+            Assert.That(snapshot.TryGetEntity(10, out var source), Is.True);
+            Assert.That(snapshot.CanBeTargetedForNewSelection(20), Is.False);
+
+            var actionState = EnemyActionQueries.StartAction(
+                default,
+                EnemyActionKind.Melee,
+                lockedTargetEntityId: 20,
+                direction: Direction.Right,
+                startTick: 1,
+                windupTicks: 0);
+
+            Assert.That(
+                EnemyActionStateTargeting.TryResolveLockedTarget(
+                    snapshot,
+                    source,
+                    actionState,
+                    MeleeAttackDecisionStrategy.Instance,
+                    DetectionSettings.CreateDefaultMelee(),
+                    AttackDecisionSettings.CreateDefaultMelee(),
+                    out var lockedTarget),
+                Is.True);
+            Assert.That(lockedTarget.entityId, Is.EqualTo(20));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void RuntimeSettlementLegalityPolicy_EvaluateLandingPlacement_RequestedPhasedState_UsesCurrentAnchoredLikeDefault()
         {
             var terminalCell = new SurfaceCell(FaceId.Floor, 1, 0);

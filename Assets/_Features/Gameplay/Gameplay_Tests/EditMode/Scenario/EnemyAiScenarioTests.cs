@@ -130,6 +130,71 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyAi_PhaseThroughLockedTargetValidator_RelocatesAcrossLockedTarget_WithoutSameTickAttack()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+            });
+            var pipeline = CreateEnemyPipeline(worldState, CreatePhaseThroughLockedTargetDefinition(windupTicks: 1));
+
+            var windupTick = pipeline.RunTick(new TickInput(1));
+            Assert.That(windupTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(GetEnemyActionState(worldState, 40).executeTick, Is.EqualTo(2));
+
+            var executeTick = pipeline.RunTick(new TickInput(2));
+            var executeSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(executeSnapshot.TryGetPhasedState(40, out var phasedState), Is.True);
+            Assert.That(phasedState.ownerKind, Is.EqualTo(PhasedRuntimeStateOwnerKind.EnemyPreMovement));
+            Assert.That(GetEnemyActionState(worldState, 40).executionAttempted, Is.True);
+            Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.Trace.Text, Does.Contain("PhaseEnter|Entity=40|Tick=2|Owner=EnemyPreMovement|Rule=LockedTargetCrossThrough"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("EnemyPhaseRelocation|E=40|Label=Committed|Target=10"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("Kind=SetPhasedState"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("Timing=EnemyLockedTargetCrossThroughValidator"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("ReservationRead=CellOnlyPreSettle"));
+
+            var clearTick = pipeline.RunTick(new TickInput(3));
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
+            Assert.That(clearTick.Trace.Text, Does.Contain("PhaseExit|Entity=40|Tick=3|Owner=EnemyPreMovement|Reason=LockedTargetCrossThroughWindowClosed"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_PhaseThroughLockedTargetValidator_FailClosesWhenAnchoredLikeSettlementBlocksTerminalCell()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                CreateWall(entityId: 70, position: new Vector2Int(2, 0)),
+            });
+            var pipeline = CreateEnemyPipeline(worldState, CreatePhaseThroughLockedTargetDefinition(windupTicks: 1));
+
+            pipeline.RunTick(new TickInput(1));
+            var executeTick = pipeline.RunTick(new TickInput(2));
+            var executeSnapshot = worldState.CreateSnapshot();
+
+            Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+            Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+            Assert.That(executeSnapshot.TryGetPhasedState(40, out var phasedState), Is.True);
+            Assert.That(phasedState.ownerKind, Is.EqualTo(PhasedRuntimeStateOwnerKind.EnemyPreMovement));
+            Assert.That(executeTick.AttackPhaseResult.RawIntents, Is.Empty);
+            Assert.That(executeTick.Trace.Text, Does.Contain("EnemyPhaseRelocation|E=40|Label=Rejected|Target=10"));
+            Assert.That(executeTick.Trace.Text, Does.Contain("Result=SettleBlocked"));
+
+            pipeline.RunTick(new TickInput(3));
+            Assert.That(worldState.CreateSnapshot().TryGetPhasedState(40, out _), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_WindupProfile_LosingLockedTarget_CancelsActionAndFallsBackToPatrol()
         {
             var worldState = CreateWorldState(new[]
@@ -2432,6 +2497,30 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks, recoverTicks);
         }
 
+        private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition(
+            int windupTicks = 1,
+            int recoverTicks = 1)
+        {
+            return new EnemyAiRuntimeDefinition(
+                new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: recoverTicks),
+                PatrolSettings.CreateDefault(),
+                DetectionSettings.CreateDefaultMelee(),
+                ChaseSettings.CreateDefault(),
+                AttackDecisionSettings.CreateDefaultMelee(),
+                new EnemyAttackTimingSettings(windupTicks),
+                EnemyLocomotionTimingSettings.CreateDefaultMelee(),
+                MovementSkillStrategyKind.PhaseThroughLockedTarget,
+                EnemyJumpTimingSettings.CreateDefault(),
+                ForwardPatrolStrategy.Instance,
+                NearestOpponentDetectionStrategy.Instance,
+                AxisPriorityChaseStrategy.Instance,
+                MeleeAttackDecisionStrategy.Instance,
+                DefaultEnemyAiStateResolver.Instance);
+        }
+
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
         {
             return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
@@ -2487,6 +2576,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>());
+        }
+
+        private static TickPipeline CreateEnemyPipeline(
+            WorldState worldState,
+            EnemyAiRuntimeDefinition runtimeDefinition,
+            params IEntityLogic[] entityLogics)
+        {
+            return new GameplayBootstrapper(
+                GameplayEntityLogicProviderFactory.CreateDefault(runtimeDefinition))
+                .CreateTickPipeline(
+                    worldState,
+                    entityLogics ?? Array.Empty<IEntityLogic>());
         }
 
         private static EnemyAiProfile CreateJumpChaserProfile(

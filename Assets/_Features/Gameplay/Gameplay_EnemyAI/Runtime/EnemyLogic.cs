@@ -204,6 +204,11 @@ namespace Game.Feature.Gameplay.Entities
                 suppressMovementThisTick = CommitJumpState(snapshot, in input, source, writeContext, jumpWriteContext, updates);
             }
 
+            if (HasPhaseMovementSkill())
+            {
+                CommitEnemyOwnedPhasedState(snapshot, in input, source, writeContext, updates);
+            }
+
             if (!TryGetControllableEnemy(snapshot, out source) ||
                 source.enemyLocomotionCooldownTicks <= 0)
             {
@@ -241,7 +246,8 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            if (ShouldSuppressMovementForJump(snapshot, input.TickIndex))
+            if (ShouldSuppressMovementForJump(snapshot, input.TickIndex) ||
+                ShouldSuppressMovementForEnemyPhase(snapshot))
             {
                 return;
             }
@@ -269,6 +275,11 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (!TryGetControllableEnemy(snapshot, out var source))
+            {
+                return;
+            }
+
+            if (ShouldSuppressAttackForEnemyPhase(snapshot))
             {
                 return;
             }
@@ -361,10 +372,115 @@ namespace Game.Feature.Gameplay.Entities
                    snapshot.TryGetEnemyJumpState(_entityId, out jumpState);
         }
 
+        private bool TryGetEnemyOwnedPhasedState(WorldSnapshot snapshot, out PhasedRuntimeState phasedState)
+        {
+            phasedState = default;
+            return snapshot != null &&
+                   snapshot.TryGetPhasedState(_entityId, out phasedState) &&
+                   phasedState.IsActive &&
+                   phasedState.ownerKind == PhasedRuntimeStateOwnerKind.EnemyPreMovement;
+        }
+
         private bool HasJumpMovementSkill()
         {
             return _movementSkillCapability != null &&
                    _movementSkillCapability.Kind == MovementSkillStrategyKind.JumpToLockedTarget;
+        }
+
+        private bool HasPhaseMovementSkill()
+        {
+            return _movementSkillCapability != null &&
+                   _movementSkillCapability.Kind == MovementSkillStrategyKind.PhaseThroughLockedTarget;
+        }
+
+        private void CommitEnemyOwnedPhasedState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (writeContext is not IPhasedStateCommitContext phasedWriteContext)
+            {
+                throw new InvalidOperationException("Pre-movement write contexts must support phased runtime writes.");
+            }
+
+            var hasCurrentPhasedState = snapshot.TryGetPhasedState(_entityId, out var currentPhasedState) &&
+                                        currentPhasedState.IsActive;
+            var ownsEnemyPreMovementPhase = hasCurrentPhasedState &&
+                                            currentPhasedState.ownerKind == PhasedRuntimeStateOwnerKind.EnemyPreMovement;
+            var shouldOwnEnemyPreMovementPhase = ShouldOwnEnemyPreMovementPhase(snapshot, source, input.TickIndex);
+
+            if (shouldOwnEnemyPreMovementPhase)
+            {
+                if (hasCurrentPhasedState &&
+                    !ownsEnemyPreMovementPhase)
+                {
+                    throw new InvalidOperationException(
+                        $"Entity {_entityId} cannot enter enemy-owned phased state while owner {currentPhasedState.ownerKind} is still active.");
+                }
+
+                if (ownsEnemyPreMovementPhase)
+                {
+                    return;
+                }
+
+                phasedWriteContext.SetPhasedState(
+                    _entityId,
+                    PhasedRuntimeStateQueries.BeginEnemyPreMovement(default, input.TickIndex));
+                updates.Add(
+                    $"PhaseEnter|Entity={_entityId}|Tick={input.TickIndex}|Owner={PhasedRuntimeStateOwnerKind.EnemyPreMovement}|Rule={EnemyPhaseThroughLockedTargetQueries.RuleLabel}");
+                return;
+            }
+
+            if (!ownsEnemyPreMovementPhase)
+            {
+                return;
+            }
+
+            phasedWriteContext.SetPhasedState(_entityId, PhasedRuntimeStateQueries.Clear());
+            updates.Add(
+                $"PhaseExit|Entity={_entityId}|Tick={input.TickIndex}|Owner={PhasedRuntimeStateOwnerKind.EnemyPreMovement}|Reason=LockedTargetCrossThroughWindowClosed");
+        }
+
+        private bool ShouldOwnEnemyPreMovementPhase(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            if (!HasPhaseMovementSkill() ||
+                _combatCapability == null ||
+                source.hp <= 0 ||
+                source.markedForDeath ||
+                source.aiMode == EnemyAiMode.Dead ||
+                source.boardPresence != EntityBoardPresence.Occupying ||
+                !snapshot.TryGetEnemyActionState(_entityId, out var actionState) ||
+                !EnemyActionQueries.CanExecute(actionState, tickIndex))
+            {
+                return false;
+            }
+
+            return EnemyPhaseThroughLockedTargetQueries.TryResolveValidatorWindow(
+                snapshot,
+                source,
+                actionState,
+                _combatCapability.AttackDecisionStrategy,
+                _detectionSettings,
+                _combatCapability.AttackDecisionSettings,
+                out _,
+                out _);
+        }
+
+        private bool ShouldSuppressMovementForEnemyPhase(WorldSnapshot snapshot)
+        {
+            return HasPhaseMovementSkill() &&
+                   TryGetEnemyOwnedPhasedState(snapshot, out _);
+        }
+
+        private bool ShouldSuppressAttackForEnemyPhase(WorldSnapshot snapshot)
+        {
+            return HasPhaseMovementSkill() &&
+                   TryGetEnemyOwnedPhasedState(snapshot, out _);
         }
 
         private bool TryResolvePassiveContactTarget(
@@ -792,6 +908,62 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return rotateOnlyFacing;
+        }
+    }
+
+    internal static class EnemyPhaseThroughLockedTargetQueries
+    {
+        public const string RuleLabel = "LockedTargetCrossThrough";
+
+        public static bool TryResolveValidatorWindow(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyActionRuntimeState actionState,
+            IAttackDecisionStrategy attackDecisionStrategy,
+            in DetectionSettings detectionSettings,
+            in AttackDecisionSettings attackDecisionSettings,
+            out EntityState lockedTarget,
+            out SurfaceCell terminalCell)
+        {
+            lockedTarget = default;
+            terminalCell = default;
+
+            return snapshot != null &&
+                   EnemyActionStateTargeting.TryResolveLockedTarget(
+                       snapshot,
+                       source,
+                       actionState,
+                       attackDecisionStrategy,
+                       detectionSettings,
+                       attackDecisionSettings,
+                       out lockedTarget) &&
+                   TryResolveCurrentTerminalCell(source, lockedTarget, actionState.direction, out terminalCell);
+        }
+
+        public static bool TryResolveCurrentTerminalCell(
+            in EntityState source,
+            in EntityState lockedTarget,
+            Direction direction,
+            out SurfaceCell terminalCell)
+        {
+            terminalCell = default;
+            if (source.position.face != lockedTarget.position.face ||
+                !EnemyMovementStrategyShared.TryResolveDelta(direction, out var delta))
+            {
+                return false;
+            }
+
+            var expectedTargetPosition = source.position.PlanarPosition + delta;
+            if (lockedTarget.position.PlanarPosition != expectedTargetPosition)
+            {
+                return false;
+            }
+
+            terminalCell = new SurfaceCell(
+                source.position.face,
+                lockedTarget.position.x + delta.x,
+                lockedTarget.position.y + delta.y);
+            return true;
         }
     }
 

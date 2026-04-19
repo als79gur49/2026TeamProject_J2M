@@ -398,6 +398,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/IWorldWriteContext.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldState.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/WorldStateWriteContext.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs"),
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs"),
                 },
@@ -411,6 +412,84 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_PlayerControl/Runtime/PlayerControlStateLogic.cs"),
                 },
                 nonTestBeginMovementReferences);
+
+            var nonTestBeginEnemyReferences = FilterNonTestFiles(FindFilesContainingToken("BeginEnemyPreMovement("));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/SpatialState.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyLogic.cs"),
+                },
+                nonTestBeginEnemyReferences);
+
+            var nonTestEnemyLockRetentionReferences = FilterNonTestFiles(FindFilesContainingToken("ShouldParticipateInEnemyCurrentLockRetention("));
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_BoardState/Runtime/ModifierQuery.cs"),
+                    NormalizeRelativePath("Assets/_Features/Gameplay/Gameplay_EnemyAI/Runtime/EnemyActionStateLogic.cs"),
+                },
+                nonTestEnemyLockRetentionReferences);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PhasedSourceMetadataCatalog_ActiveOwners_HaveCoverage_And_StageDefaults()
+        {
+            var coveredOwnerKinds = new HashSet<PhasedRuntimeStateOwnerKind>();
+            foreach (PhasedRuntimeStateOwnerKind ownerKind in Enum.GetValues(typeof(PhasedRuntimeStateOwnerKind)))
+            {
+                if (ownerKind == PhasedRuntimeStateOwnerKind.None)
+                {
+                    continue;
+                }
+
+                Assert.That(
+                    PhasedSourceMetadataCatalog.TryGet(ownerKind, out var metadata),
+                    Is.True,
+                    $"Missing phased source metadata row for owner {ownerKind}.");
+                Assert.That(metadata.OwnerKind, Is.EqualTo(ownerKind));
+                Assert.That(metadata.TimingRow, Is.Not.Empty);
+                Assert.That(metadata.CancelReplaceRule, Is.Not.Empty);
+                Assert.That(metadata.LifecycleRule, Is.Not.Empty);
+                Assert.That(metadata.RequestedTerminalSettleMode, Is.EqualTo(PhasedRequestedTerminalSettleMode.AnchoredLikeDefault));
+                coveredOwnerKinds.Add(ownerKind);
+            }
+
+            CollectionAssert.AreEquivalent(
+                new[]
+                {
+                    PhasedRuntimeStateOwnerKind.MovementPreMovement,
+                    PhasedRuntimeStateOwnerKind.EnemyPreMovement,
+                    PhasedRuntimeStateOwnerKind.DebugForced,
+                },
+                coveredOwnerKinds);
+
+            Assert.That(
+                PhasedSourceMetadataCatalog.TryGet(PhasedRuntimeStateOwnerKind.EnemyPreMovement, out var enemyMetadata),
+                Is.True);
+            Assert.That(enemyMetadata.EmittingStage, Is.EqualTo(PhasedSourceEmittingStage.PreMovementState));
+            Assert.That(
+                enemyMetadata.TargetabilityMode,
+                Is.EqualTo(PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention));
+            Assert.That(enemyMetadata.ReservationReadClass, Is.EqualTo(PhasedReservationReadClass.CellOnlyPreSettle));
+            Assert.That(enemyMetadata.EarliestObservableSnapshot, Is.EqualTo(PhasedEarliestObservableSnapshot.PlanSnapshot));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPhaseRelocationReservationReadPath_RemainsCellOnly()
+        {
+            var pipelineSource = ReadProjectFile("Assets/_Features/Gameplay/Gameplay_Loop/Runtime/TickPipeline.cs");
+            var phaseReservationReadMethod = ExtractMethodWindow(
+                pipelineSource,
+                "private FinalizationBatch ResolveEnemyPhaseRelocationSpaceContestsCanonical(",
+                "private static Contest TryFindJumpLandingContest(");
+
+            Assert.That(phaseReservationReadMethod, Does.Contain("reservationBook.GetCellStatus(payload.DestinationCell)"));
+            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEdgeStatus("));
+            Assert.That(phaseReservationReadMethod, Does.Not.Contain("reservationBook.GetEntityStatus("));
+            Assert.That(phaseReservationReadMethod, Does.Not.Contain("topology-exclusive"));
         }
 
         private static void AssertResolved(
@@ -489,6 +568,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
 
             return results;
+        }
+
+        private static string ReadProjectFile(string relativePath)
+        {
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            return File.ReadAllText(Path.Combine(projectRoot, relativePath));
+        }
+
+        private static string ExtractMethodWindow(string source, string startToken, string endToken)
+        {
+            var startIndex = source.IndexOf(startToken, StringComparison.Ordinal);
+            var endIndex = source.IndexOf(endToken, StringComparison.Ordinal);
+
+            Assert.That(startIndex, Is.GreaterThanOrEqualTo(0), $"Missing start token: {startToken}");
+            Assert.That(endIndex, Is.GreaterThan(startIndex), $"Missing end token after start token: {endToken}");
+
+            return source.Substring(startIndex, endIndex - startIndex);
         }
 
         private static string NormalizeRelativePath(string relativePath)

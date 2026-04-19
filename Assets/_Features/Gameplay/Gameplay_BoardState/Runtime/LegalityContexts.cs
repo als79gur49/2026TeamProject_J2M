@@ -100,6 +100,19 @@ namespace Game.Feature.Gameplay.BoardState
         public SurfaceCell LockedTargetCell { get; }
     }
 
+    internal readonly struct CurrentEnemyLockRetentionEvidence
+    {
+        public CurrentEnemyLockRetentionEvidence(int sourceEntityId, int targetEntityId)
+        {
+            SourceEntityId = sourceEntityId;
+            TargetEntityId = targetEntityId;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int TargetEntityId { get; }
+    }
+
     internal readonly struct ImpactFollowThroughEvidence
     {
         public ImpactFollowThroughEvidence(

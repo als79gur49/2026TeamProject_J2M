@@ -29,6 +29,14 @@ namespace Game.Feature.Gameplay.BoardState
             return SpatialStateSemantics.ParticipatesInTargetSelection(spatialState);
         }
 
+        public static bool ShouldParticipateInEnemyCurrentLockRetention(
+            in ResolvedSpatialState spatialState,
+            CurrentEnemyLockRetentionEvidence evidence)
+        {
+            SpatialStateSemantics.EnsureProductionSupported(spatialState.Kind);
+            return SpatialStateSemantics.ParticipatesInGameplayQueries(spatialState);
+        }
+
         public static LegalityCapabilitySet GetTraversalCapabilities(in LegalityActorRef actor)
         {
             SpatialStateSemantics.EnsureProductionSupported(actor.SpatialState.Kind);

@@ -240,9 +240,10 @@ namespace Game.Feature.Gameplay.Debug
 
             for (var i = 0; i < entries.Count; i++)
             {
+                var metadataSuffix = BuildPhasedMetadataSuffix(entries[i].State.ownerKind);
                 var entry = entries[i];
                 lines.Add(
-                    $"E={entry.EntityId}|Owner={entry.State.ownerKind}|Seq={entry.State.sequence}|Entered={entry.State.enteredTick}|ExitExclusive={entry.State.exitTickExclusive}|Active={(entry.State.IsActive ? 1 : 0)}");
+                    $"E={entry.EntityId}|Owner={entry.State.ownerKind}|Seq={entry.State.sequence}|Entered={entry.State.enteredTick}|ExitExclusive={entry.State.exitTickExclusive}|Active={(entry.State.IsActive ? 1 : 0)}{metadataSuffix}");
             }
 
             return lines;
@@ -367,7 +368,8 @@ namespace Game.Feature.Gameplay.Debug
                         .Append("|PhaseSeq=").Append(operation.PhasedState.sequence)
                         .Append("|Entered=").Append(operation.PhasedState.enteredTick)
                         .Append("|ExitExclusive=").Append(operation.PhasedState.exitTickExclusive)
-                        .Append("|Active=").Append(operation.PhasedState.IsActive ? 1 : 0);
+                        .Append("|Active=").Append(operation.PhasedState.IsActive ? 1 : 0)
+                        .Append(BuildPhasedMetadataSuffix(operation.PhasedState.ownerKind));
                     break;
 
                 case FinalizationOperationKind.SetTopology:
@@ -401,6 +403,19 @@ namespace Game.Feature.Gameplay.Debug
             }
 
             return builder.ToString();
+        }
+
+        private static string BuildPhasedMetadataSuffix(PhasedRuntimeStateOwnerKind ownerKind)
+        {
+            if (!PhasedSourceMetadataCatalog.TryGet(ownerKind, out var metadata))
+            {
+                return string.Empty;
+            }
+
+            var existingEnemyLock = metadata.TargetabilityMode == PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention
+                ? "Retained(StageScopedContract)"
+                : "Deferred";
+            return $"|Stage={metadata.EmittingStage}|Timing={metadata.TimingRow}|Targetability={metadata.TargetabilityMode}|Settle={metadata.RequestedTerminalSettleMode}(StageDefault)|ReservationRead={metadata.ReservationReadClass}|Earliest={metadata.EarliestObservableSnapshot}|OccupancyClaim=True(StageDefault)|FreshTarget=Suppressed(ConfirmedContract)|ExistingEnemyLock={existingEnemyLock}";
         }
 
         private static string FormatBoardBounds(BoardBounds boardBounds)

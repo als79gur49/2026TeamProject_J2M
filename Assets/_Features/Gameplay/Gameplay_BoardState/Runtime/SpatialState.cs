@@ -26,7 +26,8 @@ namespace Game.Feature.Gameplay.BoardState
     {
         None = 0,
         MovementPreMovement = 1,
-        DebugForced = 2,
+        EnemyPreMovement = 2,
+        DebugForced = 3,
     }
 
     internal struct PhasedRuntimeState
@@ -61,6 +62,18 @@ namespace Game.Feature.Gameplay.BoardState
         {
             return CreateActive(
                 PhasedRuntimeStateOwnerKind.MovementPreMovement,
+                previousState,
+                tickIndex,
+                exitTickExclusive);
+        }
+
+        public static PhasedRuntimeState BeginEnemyPreMovement(
+            in PhasedRuntimeState previousState,
+            int tickIndex,
+            int exitTickExclusive = 0)
+        {
+            return CreateActive(
+                PhasedRuntimeStateOwnerKind.EnemyPreMovement,
                 previousState,
                 tickIndex,
                 exitTickExclusive);
@@ -114,6 +127,139 @@ namespace Game.Feature.Gameplay.BoardState
                 enteredTick = tickIndex,
                 exitTickExclusive = exitTickExclusive,
             };
+        }
+    }
+
+    internal enum PhasedSourceEmittingStage
+    {
+        None = 0,
+        PreMovementState = 1,
+        Debug = 2,
+    }
+
+    internal enum PhasedTargetabilityMode
+    {
+        FreshSelectionSuppressed = 0,
+        FreshSelectionSuppressedWithCurrentEnemyLockRetention = 1,
+    }
+
+    internal enum PhasedRequestedTerminalSettleMode
+    {
+        AnchoredLikeDefault = 0,
+    }
+
+    internal enum PhasedReservationReadClass
+    {
+        None = 0,
+        CellOnlyPreSettle = 1,
+    }
+
+    internal enum PhasedEarliestObservableSnapshot
+    {
+        None = 0,
+        PlanSnapshot = 1,
+        AuthoritativeWrite = 2,
+    }
+
+    internal readonly struct PhasedSourceMetadata
+    {
+        public PhasedSourceMetadata(
+            PhasedRuntimeStateOwnerKind ownerKind,
+            PhasedSourceEmittingStage emittingStage,
+            string timingRow,
+            PhasedTargetabilityMode targetabilityMode,
+            PhasedRequestedTerminalSettleMode requestedTerminalSettleMode,
+            PhasedReservationReadClass reservationReadClass,
+            PhasedEarliestObservableSnapshot earliestObservableSnapshot,
+            string cancelReplaceRule,
+            string lifecycleRule)
+        {
+            if (ownerKind == PhasedRuntimeStateOwnerKind.None)
+            {
+                throw new ArgumentOutOfRangeException(nameof(ownerKind), ownerKind, "Metadata rows require a concrete phased owner.");
+            }
+
+            OwnerKind = ownerKind;
+            EmittingStage = emittingStage;
+            TimingRow = timingRow ?? string.Empty;
+            TargetabilityMode = targetabilityMode;
+            RequestedTerminalSettleMode = requestedTerminalSettleMode;
+            ReservationReadClass = reservationReadClass;
+            EarliestObservableSnapshot = earliestObservableSnapshot;
+            CancelReplaceRule = cancelReplaceRule ?? string.Empty;
+            LifecycleRule = lifecycleRule ?? string.Empty;
+        }
+
+        public PhasedRuntimeStateOwnerKind OwnerKind { get; }
+
+        public PhasedSourceEmittingStage EmittingStage { get; }
+
+        public string TimingRow { get; }
+
+        public PhasedTargetabilityMode TargetabilityMode { get; }
+
+        public PhasedRequestedTerminalSettleMode RequestedTerminalSettleMode { get; }
+
+        public PhasedReservationReadClass ReservationReadClass { get; }
+
+        public PhasedEarliestObservableSnapshot EarliestObservableSnapshot { get; }
+
+        public string CancelReplaceRule { get; }
+
+        public string LifecycleRule { get; }
+    }
+
+    internal static class PhasedSourceMetadataCatalog
+    {
+        public static bool TryGet(
+            PhasedRuntimeStateOwnerKind ownerKind,
+            out PhasedSourceMetadata metadata)
+        {
+            switch (ownerKind)
+            {
+                case PhasedRuntimeStateOwnerKind.MovementPreMovement:
+                    metadata = new PhasedSourceMetadata(
+                        ownerKind,
+                        PhasedSourceEmittingStage.PreMovementState,
+                        "PlayerFlipWindup",
+                        PhasedTargetabilityMode.FreshSelectionSuppressed,
+                        PhasedRequestedTerminalSettleMode.AnchoredLikeDefault,
+                        PhasedReservationReadClass.None,
+                        PhasedEarliestObservableSnapshot.PlanSnapshot,
+                        cancelReplaceRule: "ExplicitClearRequiredForExclusiveStateReplace",
+                        lifecycleRule: "EnterDuringFlipWindup|SustainAcrossWindup|ExitOnExecuteOrCancel");
+                    return true;
+
+                case PhasedRuntimeStateOwnerKind.EnemyPreMovement:
+                    metadata = new PhasedSourceMetadata(
+                        ownerKind,
+                        PhasedSourceEmittingStage.PreMovementState,
+                        "EnemyLockedTargetCrossThroughValidator",
+                        PhasedTargetabilityMode.FreshSelectionSuppressedWithCurrentEnemyLockRetention,
+                        PhasedRequestedTerminalSettleMode.AnchoredLikeDefault,
+                        PhasedReservationReadClass.CellOnlyPreSettle,
+                        PhasedEarliestObservableSnapshot.PlanSnapshot,
+                        cancelReplaceRule: "ExplicitClearRequiredForForeignOwnerReplace",
+                        lifecycleRule: "EnterOnExecuteWindow|ResolveOneFixedCrossThroughAttempt|ExitWhenWindowCloses");
+                    return true;
+
+                case PhasedRuntimeStateOwnerKind.DebugForced:
+                    metadata = new PhasedSourceMetadata(
+                        ownerKind,
+                        PhasedSourceEmittingStage.Debug,
+                        "DebugForced",
+                        PhasedTargetabilityMode.FreshSelectionSuppressed,
+                        PhasedRequestedTerminalSettleMode.AnchoredLikeDefault,
+                        PhasedReservationReadClass.None,
+                        PhasedEarliestObservableSnapshot.AuthoritativeWrite,
+                        cancelReplaceRule: "DebugWriteMayClearOnlyItsOwnOrInactiveState",
+                        lifecycleRule: "ManualEnterExitOnly");
+                    return true;
+
+                default:
+                    metadata = default;
+                    return false;
+            }
         }
     }
 

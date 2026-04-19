@@ -39,6 +39,7 @@ namespace Game.Feature.Gameplay.Entities
     {
         None = 0,
         JumpToLockedTarget = 1,
+        PhaseThroughLockedTarget = 2,
     }
 
     [Serializable]

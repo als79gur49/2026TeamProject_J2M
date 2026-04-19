@@ -86,8 +86,8 @@
 - `SpatialState`는 storage replacement가 아니라 internal canonical read-model axis다.
 - authoritative occupancy storage는 계속 `WorldState` layered occupancy와 `boardPresence`에 남는다.
 - current live producer가 emit하는 state는 `Anchored`, `Airborne`, `Phased`다.
-- `Phased`는 `WorldState` authoritative carrier를 가진 live runtime state이며 current v1 owner lane은 internal `PreMovementState` write-path다.
-- current concrete ship source는 `PlayerControlStateLogic`가 소유하는 player flip windup window 하나다.
+- `Phased`는 `WorldState` authoritative carrier를 가진 live runtime state이며 current live owner lane은 internal `PreMovementState` write-path다.
+- current concrete live source는 `PlayerControlStateLogic`의 player flip windup과 `EnemyLogic`의 enemy locked-target cross-through validator다.
 - `Attached`는 consumer/producers 모두 closed 상태를 유지한다.
 - `SpatialStateResolver`는 query/state layer의 유일한 spatial aggregation owner다.
   - 읽는 source:
@@ -133,7 +133,7 @@
 - source extension rule:
   - 새 phase source는 `PhasedRuntimeStateOwnerKind`, emitting stage, enter/sustain/exit/forced-cancel rule, earliest observable snapshot을 함께 정의해야 한다.
   - 새 source는 carrier truth-source를 늘리지 않고 `IPhasedStateCommitContext.SetPhasedState(...)` 경유 write만 추가할 수 있다.
-  - 새 source를 추가할 때는 owner enum, timing row, coexistence matrix, trace/hash dump, allowlist test를 같이 갱신해야 한다.
+  - 새 source를 추가할 때는 owner enum, timing row, coexistence matrix, trace/hash dump, allowlist test, source metadata coverage를 같이 갱신해야 한다.
 
 ## Participation Axes
 - `occupancy claim`은 authoritative storage/read fact다.
@@ -146,7 +146,7 @@
   - `Phased`의 future semantic envelope 전체는 아직 고정하지 않는다.
   - current live profile은 traversal `Unit/Solid` bypass, fresh target suppression, anchored-like settlement default만 고정한다.
   - current v1 profile은 `ClaimsAuthoritativeOccupancy=true`와 active-face visibility를 기본 구현값으로 사용하지만, 이것을 future non-claim/overlap model의 구조 원칙으로 승격하지 않는다.
-  - current targetability suppression은 base spatial default다. future `existing-lock retention`, `impact-only suppression`, `detection-only suppression`은 `ModifierQuery` typed-evidence hook로만 연다.
+  - current targetability suppression은 base spatial default다. current enemy lock retention은 `EnemyActionStateTargeting` current lock path 전용 narrow hook다. future `impact-only suppression`, `detection-only suppression`, broader source-specific overrides는 `ModifierQuery` typed-evidence hook로만 연다.
 
 ## Legality Contexts
 - base legality context는 core field budget을 유지한다.
@@ -197,7 +197,7 @@
   - authoritative final world는 같은 ordered ops를 `WorldState`에 apply한 결과와 observationally 동일해야 한다.
   - `FrozenMovementReservationExport`는 reservation book만 export한다. `PhasedRuntimeState`는 legality/query input일 수는 있지만 reservation export payload의 field가 되지 않는다.
 - phased write-path minimality:
-  - current v1 non-test live writer는 `PlayerControlStateLogic` 하나뿐이다.
+  - current non-test live writer는 `PlayerControlStateLogic`와 `EnemyLogic` 둘뿐이다.
   - 허용 seam은 `WorldState`/`WorldSnapshot` carrier path, `IPhasedStateCommitContext`, `FinalizationBatch`/`ProjectedWorld`, trace/hash/docs/tests까지만이다.
   - public query/command/authoring/debug API, reservation export schema, serialized/import/save schema, finalize legality recomputation은 이번 단계에서 건드리지 않는다.
 
