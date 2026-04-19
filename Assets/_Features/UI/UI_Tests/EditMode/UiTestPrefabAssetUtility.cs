@@ -1,3 +1,4 @@
+using Game.Feature.Flow.Audio;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
@@ -125,6 +126,37 @@ namespace Game.Feature.UI.Tests
             AssignHudPrefab(installer);
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
+        }
+
+        internal static void ConfigureAudioInstallerBindingMode(
+            AudioRuntimeInstaller installer,
+            AudioRuntimeInstallerBindingMode bindingMode)
+        {
+            Assert.That(installer, Is.Not.Null);
+
+            var serializedInstaller = new SerializedObject(installer);
+            var bindingModeProperty = serializedInstaller.FindProperty("bindingMode");
+            Assert.That(bindingModeProperty, Is.Not.Null);
+            bindingModeProperty.enumValueIndex = (int)bindingMode;
+            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        internal static GlobalAudioFlowBootstrap AssignPersistentAudioFlowBootstrap(GameObject bootstrapRoot)
+        {
+            Assert.That(bootstrapRoot, Is.Not.Null);
+
+            var audioInstaller = bootstrapRoot.GetComponent<AudioRuntimeInstaller>() ??
+                                 bootstrapRoot.AddComponent<AudioRuntimeInstaller>();
+            ConfigureAudioInstallerBindingMode(
+                audioInstaller,
+                AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime);
+
+            var bootstrap = bootstrapRoot.GetComponent<GlobalAudioFlowBootstrap>() ??
+                            bootstrapRoot.AddComponent<GlobalAudioFlowBootstrap>();
+            var serializedBootstrap = new SerializedObject(bootstrap);
+            serializedBootstrap.FindProperty("audioRuntimeInstaller").objectReferenceValue = audioInstaller;
+            serializedBootstrap.ApplyModifiedPropertiesWithoutUndo();
+            return bootstrap;
         }
     }
 }

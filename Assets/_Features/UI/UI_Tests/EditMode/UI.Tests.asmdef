@@ -5,6 +5,7 @@
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Host",
     "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.Flow.Audio",
     "Game.Shared.Audio",
     "Game.Shared.Display",
     "Game.Feature.UI.Application",

@@ -1,4 +1,5 @@
 using System.Linq;
+using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
@@ -52,6 +53,7 @@ namespace Game.Feature.UI.Tests
 
                 var bootstrapRoot = gameplayBootstrapRoots[0];
                 var showcaseInstaller = bootstrapRoot.GetComponent<CombinedGameplayShowcaseInstaller>();
+                var bgmBootstrap = bootstrapRoot.GetComponent<GlobalAudioFlowBootstrap>();
                 var sceneHost = bootstrapRoot.GetComponent<GameplaySceneHost>();
                 var uiInstaller = bootstrapRoot.GetComponent<GameplayUiFlowInstaller>();
                 var audioInstaller = bootstrapRoot.GetComponent<AudioRuntimeInstaller>();
@@ -59,17 +61,21 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(bootstrapRoot.name, Is.EqualTo(expectedRootName));
                 Assert.That(showcaseInstaller, Is.Not.Null);
+                Assert.That(bgmBootstrap, Is.Not.Null);
                 Assert.That(sceneHost, Is.Not.Null);
                 Assert.That(uiInstaller, Is.Not.Null);
                 Assert.That(audioInstaller, Is.Not.Null);
                 Assert.That(displayInstaller, Is.Not.Null);
                 Assert.That(CountComponentsInScene<CombinedGameplayShowcaseInstaller>(rootObjects), Is.EqualTo(1));
+                Assert.That(CountComponentsInScene<GlobalAudioFlowBootstrap>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplaySceneHost>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplayUiFlowInstaller>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<AudioRuntimeInstaller>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<DisplayRuntimeInstaller>(rootObjects), Is.EqualTo(1));
 
                 var serializedInstaller = new SerializedObject(uiInstaller);
+                var serializedAudioInstaller = new SerializedObject(audioInstaller);
+                var serializedBgmBootstrap = new SerializedObject(bgmBootstrap);
                 Assert.That(serializedInstaller.FindProperty("_sceneHost").objectReferenceValue, Is.SameAs(sceneHost));
                 Assert.That(serializedInstaller.FindProperty("_rootView").objectReferenceValue, Is.Null);
                 Assert.That(serializedInstaller.FindProperty("_hudPrefab").objectReferenceValue, Is.Not.Null);
@@ -85,6 +91,13 @@ namespace Game.Feature.UI.Tests
                     AssetDatabase.GetAssetPath(serializedInstaller.FindProperty("_popupPrefabCatalog").objectReferenceValue),
                     Is.EqualTo(UiTestPrefabAssetUtility.PopupCatalogPath));
                 Assert.That(serializedInstaller.FindProperty("_installOnStart").boolValue, Is.True);
+                Assert.That(
+                    serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex,
+                    Is.EqualTo((int)AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
+                Assert.That(
+                    serializedBgmBootstrap.FindProperty("audioRuntimeInstaller").objectReferenceValue,
+                    Is.SameAs(audioInstaller));
+                Assert.That(serializedBgmBootstrap.FindProperty("persistentRoot").objectReferenceValue, Is.Null);
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
                 AssertSceneContainsNoSerializedComponent<Canvas>(rootObjects);
@@ -99,6 +112,7 @@ namespace Game.Feature.UI.Tests
                 AssertSceneContainsNoSerializedComponent<NotificationView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<ScreenLayerView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<PopupLayerView>(rootObjects);
+                AssertSceneContainsNoSerializedComponent<GlobalAudioFlowRoot>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<GameplayScreenView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<HelpScreenView>(rootObjects);
                 AssertSceneContainsNoSerializedComponent<ObjectiveStatusScreenView>(rootObjects);
