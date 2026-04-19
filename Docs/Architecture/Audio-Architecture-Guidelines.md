@@ -12,6 +12,7 @@
 - [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
+- [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
 
 Conflict rule:
 
@@ -108,6 +109,10 @@ TickResult
   - gameplay host orchestration path에서 `PlayBgm`을 compile-time으로 차단한다
 - `IAudioService`
   - feature-facing playback contract
+- `IBgmPlaybackPort`
+  - flow-owned BGM continuity policy가 shared runtime capability에 닿는 narrow execution seam이다
+  - v1에서는 `PlayImmediate`와 `StopImmediate`만 허용한다
+  - future fade/crossfade는 coordinator timing logic이 아니라 additive playback capability expansion으로 도입한다
 - `AudioManager`
   - central runtime implementation
   - definition resolution, source lease, attached registry delegation, BGM routing만 담당한다
@@ -134,6 +139,7 @@ TickResult
   - UI audio는 UI presenter/controller path에 남는다.
   - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
   - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
+  - persistent BGM ownership/access terminology는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
 ### 4.2 Gameplay Audio Bootstrap Validation
 
@@ -145,6 +151,17 @@ TickResult
 - missing required semantic fail-fast message는 아래 format으로 고정한다.
   - `GameplayAudioMap '<MapName>' is missing required gameplay audio semantics: <Id1>, <Id2>.`
 - semantic family growth protocol과 required-set review checklist는 [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md) 를 따른다.
+
+### 4.3 Persistent BGM Flow Boundary
+
+- `persistent runtime owner`는 `GlobalAudioFlowRoot`다.
+- `scene-local installer access seam`은 canonical root same `GameObject`의 `AudioRuntimeInstaller`다.
+- scene-local installer는 persistent runtime이 있을 때 creator/owner가 아니라 access seam만 제공할 수 있다.
+- `AudioRuntimeExternalRootRegistry`는 bootstrap plumbing only이며 service locator가 아니다.
+- `Immediate` is the only executed transition mode in BGM flow v1.
+- true `FadeOutIn` needs playback-port/runtime support.
+- true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane.
+- 이 분리는 coordinator policy와 playback capability roadmap을 분리하기 위한 것이다.
 
 ## 5. 2D-Only Playback Contract
 

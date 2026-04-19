@@ -14,6 +14,7 @@
 - UI audio는 UI presenter/controller path에 남는다.
 - BGM / scene-flow audio는 stage/scene/flow presenter path에 남는다.
 - `GameplayAudioPresentationController`는 gameplay one-shot presentation audio만 다루며 generic dispatcher가 아니다.
+- persistent BGM ownership/access terminology와 transition governance는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
 ## 2. Semantic Family Governance
 
@@ -82,6 +83,7 @@ governed expansion은 허용되지만, family review 없이 “semantic id 하�
 - generic cross-domain audio dispatch
 
 future loop or flow audio가 필요해도 이 controller를 넓히지 않는다. 별도 controller/track을 추가해야 한다.
+true fade/crossfade execution도 이 controller를 넓히는 방식으로 넣지 않는다.
 
 ## 5. Pending Plan Lifecycle
 

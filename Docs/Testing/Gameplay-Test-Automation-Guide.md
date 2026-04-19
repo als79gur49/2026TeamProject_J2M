@@ -146,7 +146,6 @@
   - `real-build manual display validation completed`
     - may be claimed only when the scope in [Display-Settings-Build-Validation-Checklist.md](./Display-Settings-Build-Validation-Checklist.md) was checked in a real build
 - Editor-only execution is insufficient evidence for fullscreen/window correctness.
-
 ## Persistent BGM flow reporting wording / Persistent BGM flow reporting wording
 ### 한국어
 - persistent BGM flow v1 결과는 ownership continuity 범위만 말해야 하며 fade/crossfade feature completion을 암시하면 안 된다.
