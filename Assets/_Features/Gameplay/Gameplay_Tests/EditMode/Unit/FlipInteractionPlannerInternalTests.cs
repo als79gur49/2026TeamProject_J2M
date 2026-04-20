@@ -75,6 +75,71 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipInteractionTrack_FollowThroughBuildsUpBeforeSettlingBackToFollowPose()
+        {
+            var settings = new FlipImpactTimingSettings(0.62f, 0.55f, 0.22f, 0.18f);
+            var track = new FlipInteractionTrack(
+                playerEntityId: 10,
+                boxEntityId: 20,
+                actionSequence: 3,
+                direction: Direction.Right,
+                windupDurationSeconds: 0.2f,
+                followDurationSeconds: 1f,
+                recoveryDurationSeconds: 0.4f,
+                flipImpactTimingSettings: settings,
+                flipOutcome: TickPlayerFlipOutcomeKind.FollowThrough,
+                phase: FlipInteractionPhase.AirborneFollow);
+            var pose = new Pose(Vector3.zero, Quaternion.identity);
+
+            track.Advance(settings.ContactNormalizedTime * 0.9f);
+            var nearContact = track.Sample(pose, pose);
+
+            track.Advance(1f);
+            var endOfFollow = track.Sample(pose, pose);
+
+            Assert.That(
+                nearContact.BoxLocalPositionOffset.magnitude,
+                Is.GreaterThan(endOfFollow.BoxLocalPositionOffset.magnitude));
+            Assert.That(
+                Quaternion.Angle(nearContact.BoxLocalRotationOffset, Quaternion.identity),
+                Is.GreaterThan(Quaternion.Angle(endOfFollow.BoxLocalRotationOffset, Quaternion.identity)));
+            Assert.That(endOfFollow.HandWeight, Is.EqualTo(1f));
+            Assert.That(endOfFollow.BoxWeight, Is.EqualTo(1f));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void FlipInteractionTrack_BlockedAirborneFollowQuicklyDropsTowardRecoveryPose()
+        {
+            var settings = new FlipImpactTimingSettings(0.62f, 0.55f, 0.22f, 0.18f);
+            var track = new FlipInteractionTrack(
+                playerEntityId: 10,
+                boxEntityId: 20,
+                actionSequence: 3,
+                direction: Direction.Right,
+                windupDurationSeconds: 0.2f,
+                followDurationSeconds: 1f,
+                recoveryDurationSeconds: 0.4f,
+                flipImpactTimingSettings: settings,
+                flipOutcome: TickPlayerFlipOutcomeKind.Blocked,
+                phase: FlipInteractionPhase.AirborneFollow);
+            var pose = new Pose(Vector3.zero, Quaternion.identity);
+
+            var start = track.Sample(pose, pose);
+            track.Advance(1f);
+            var end = track.Sample(pose, pose);
+
+            Assert.That(start.HandWeight, Is.EqualTo(1f));
+            Assert.That(end.HandWeight, Is.LessThan(0.3f));
+            Assert.That(end.BoxWeight, Is.LessThan(0.3f));
+            Assert.That(end.BoxLocalPositionOffset.magnitude, Is.LessThan(start.BoxLocalPositionOffset.magnitude));
+            Assert.That(
+                Quaternion.Angle(end.BoxLocalRotationOffset, Quaternion.identity),
+                Is.LessThan(Quaternion.Angle(start.BoxLocalRotationOffset, Quaternion.identity)));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTrackPlanner_FlipInteractionTrack_CancelAndTargetLossRemoveTrackSafely()
         {
             var rootObject = new GameObject("GameplayTrackPlanner_FlipInteractionTrack_CancelAndTargetLossRemoveTrackSafely");

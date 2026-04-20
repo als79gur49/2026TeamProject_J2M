@@ -56,10 +56,21 @@ namespace Game.Feature.Gameplay.Host
 
     internal sealed class FlipInteractionTrack
     {
-        private const float DefaultBoxWindupLift = 0.06f;
-        private const float DefaultBoxFollowLift = 0.025f;
-        private const float DefaultWindupTiltDegrees = 10f;
-        private const float DefaultFollowTiltDegrees = 6f;
+        private const float DefaultBoxWindupLift = 0.11f;
+        private const float DefaultBoxFollowLift = 0.055f;
+        private const float DefaultWindupTiltDegrees = 18f;
+        private const float DefaultFollowTiltDegrees = 14f;
+        private const float FollowThroughLiftMultiplier = 1.35f;
+        private const float FollowThroughTiltMultiplier = 1.45f;
+        private const float FollowThroughPostContactHoldNormalizedDuration = 0.08f;
+        private const float StayLiftMultiplier = 1.35f;
+        private const float StayTiltMultiplier = 1.40f;
+        private const float DestroySelfLiftMultiplier = 1.25f;
+        private const float DestroySelfTiltMultiplier = 1.30f;
+        private const float BlockedInitialLiftMultiplier = 0.80f;
+        private const float BlockedInitialTiltMultiplier = 0.65f;
+        private const float BlockedRecoveryStartWeight = 0.25f;
+        private const float StayRecoveryStartWeight = 0.55f;
 
         public FlipInteractionTrack(
             int playerEntityId,
@@ -78,7 +89,7 @@ namespace Game.Feature.Gameplay.Host
                 windupDurationSeconds,
                 followDurationSeconds,
                 recoveryDurationSeconds,
-                new FlipImpactTimingSettings(0.70f, 0.35f, 0.30f, 0.10f),
+                new FlipImpactTimingSettings(0.62f, 0.55f, 0.22f, 0.18f),
                 TickPlayerFlipOutcomeKind.None,
                 phase)
         {
@@ -213,26 +224,30 @@ namespace Game.Feature.Gameplay.Host
 
         private FlipInteractionSample SampleAirborneFollow(in Pose boxGripWorldPose)
         {
-            if (FlipOutcome == TickPlayerFlipOutcomeKind.DestroySelf ||
-                FlipOutcome == TickPlayerFlipOutcomeKind.Stay)
+            return FlipOutcome switch
             {
-                return SampleImpactAwareAirborneFollow(boxGripWorldPose);
-            }
-
-            return new FlipInteractionSample(
-                boxGripWorldPose,
-                1f,
-                ResolveBoxPositionOffset(DefaultBoxFollowLift),
-                ResolveBoxRotationOffset(DefaultFollowTiltDegrees),
-                1f);
+                TickPlayerFlipOutcomeKind.FollowThrough => SampleFollowThroughAirborneFollow(boxGripWorldPose),
+                TickPlayerFlipOutcomeKind.DestroySelf => SampleDestroySelfAirborneFollow(boxGripWorldPose),
+                TickPlayerFlipOutcomeKind.Stay => SampleStayAirborneFollow(boxGripWorldPose),
+                TickPlayerFlipOutcomeKind.Blocked => SampleBlockedAirborneFollow(boxGripWorldPose),
+                _ => CreateAirborneFollowSample(
+                    boxGripWorldPose,
+                    handWeight: 1f,
+                    boxWeight: 1f,
+                    liftAmount: DefaultBoxFollowLift,
+                    tiltDegrees: DefaultFollowTiltDegrees),
+            };
         }
 
         private FlipInteractionSample SampleRecovery(in Pose handRestWorldPose, in Pose boxGripWorldPose)
         {
             var t = EaseInOut(GetNormalizedPhaseTime());
-            var startWeight = FlipOutcome == TickPlayerFlipOutcomeKind.Stay
-                ? 0.45f
-                : 1f;
+            var startWeight = FlipOutcome switch
+            {
+                TickPlayerFlipOutcomeKind.Stay => StayRecoveryStartWeight,
+                TickPlayerFlipOutcomeKind.Blocked => BlockedRecoveryStartWeight,
+                _ => 1f,
+            };
             return new FlipInteractionSample(
                 LerpPose(boxGripWorldPose, handRestWorldPose, t),
                 Mathf.Lerp(startWeight, 0f, t),
@@ -241,55 +256,179 @@ namespace Game.Feature.Gameplay.Host
                 Mathf.Lerp(startWeight, 0f, t));
         }
 
-        private FlipInteractionSample SampleImpactAwareAirborneFollow(in Pose boxGripWorldPose)
+        private FlipInteractionSample SampleFollowThroughAirborneFollow(in Pose boxGripWorldPose)
         {
             var normalizedTime = GetNormalizedPhaseTime();
             var contactTime = FlipImpactTimingSettings.ContactNormalizedTime;
             if (normalizedTime <= contactTime)
             {
-                return new FlipInteractionSample(
+                var preContactTime = NormalizeBranchTime(normalizedTime, contactTime);
+                var buildTime = EaseOutCubic(preContactTime);
+                return CreateAirborneFollowSample(
                     boxGripWorldPose,
-                    1f,
-                    ResolveBoxPositionOffset(DefaultBoxFollowLift),
-                    ResolveBoxRotationOffset(DefaultFollowTiltDegrees),
-                    1f);
+                    handWeight: 1f,
+                    boxWeight: 1f,
+                    liftAmount: Mathf.Lerp(
+                        DefaultBoxFollowLift,
+                        DefaultBoxFollowLift * FollowThroughLiftMultiplier,
+                        buildTime),
+                    tiltDegrees: Mathf.Lerp(
+                        DefaultFollowTiltDegrees,
+                        DefaultFollowTiltDegrees * FollowThroughTiltMultiplier,
+                        buildTime));
             }
 
-            var postContactDenominator = Mathf.Max(0.0001f, 1f - contactTime);
-            var postContactTime = Mathf.Clamp01((normalizedTime - contactTime) / postContactDenominator);
-            if (FlipOutcome == TickPlayerFlipOutcomeKind.DestroySelf)
+            var postContactTime = NormalizeBranchTime(normalizedTime - contactTime, 1f - contactTime);
+            if (postContactTime <= FollowThroughPostContactHoldNormalizedDuration)
             {
-                // DestroySelf keeps the centralized onset threshold as the player release point even
-                // when the box visual continues its remaining flip flight while breaking.
-                var weight = 1f - EaseInOut(postContactTime);
-                return new FlipInteractionSample(
+                return CreateAirborneFollowSample(
                     boxGripWorldPose,
-                    weight,
-                    Vector3.LerpUnclamped(ResolveBoxPositionOffset(DefaultBoxFollowLift), Vector3.zero, postContactTime),
-                    Quaternion.SlerpUnclamped(ResolveBoxRotationOffset(DefaultFollowTiltDegrees), Quaternion.identity, postContactTime),
-                    weight);
+                    handWeight: 1f,
+                    boxWeight: 1f,
+                    liftAmount: DefaultBoxFollowLift * FollowThroughLiftMultiplier,
+                    tiltDegrees: DefaultFollowTiltDegrees * FollowThroughTiltMultiplier);
             }
 
+            var releaseTime = NormalizeBranchTime(
+                postContactTime - FollowThroughPostContactHoldNormalizedDuration,
+                1f - FollowThroughPostContactHoldNormalizedDuration);
+            var easedReleaseTime = EaseInOut(releaseTime);
+            return CreateAirborneFollowSample(
+                boxGripWorldPose,
+                handWeight: 1f,
+                boxWeight: 1f,
+                liftAmount: Mathf.Lerp(
+                    DefaultBoxFollowLift * FollowThroughLiftMultiplier,
+                    DefaultBoxFollowLift,
+                    easedReleaseTime),
+                tiltDegrees: Mathf.Lerp(
+                    DefaultFollowTiltDegrees * FollowThroughTiltMultiplier,
+                    DefaultFollowTiltDegrees,
+                    easedReleaseTime));
+        }
+
+        private FlipInteractionSample SampleDestroySelfAirborneFollow(in Pose boxGripWorldPose)
+        {
+            var normalizedTime = GetNormalizedPhaseTime();
+            var contactTime = FlipImpactTimingSettings.ContactNormalizedTime;
+            if (normalizedTime <= contactTime)
+            {
+                var preContactTime = NormalizeBranchTime(normalizedTime, contactTime);
+                var buildTime = EaseOutCubic(preContactTime);
+                return CreateAirborneFollowSample(
+                    boxGripWorldPose,
+                    handWeight: 1f,
+                    boxWeight: 1f,
+                    liftAmount: Mathf.Lerp(
+                        DefaultBoxFollowLift,
+                        DefaultBoxFollowLift * DestroySelfLiftMultiplier,
+                        buildTime),
+                    tiltDegrees: Mathf.Lerp(
+                        DefaultFollowTiltDegrees,
+                        DefaultFollowTiltDegrees * DestroySelfTiltMultiplier,
+                        buildTime));
+            }
+
+            var postContactTime = NormalizeBranchTime(normalizedTime - contactTime, 1f - contactTime);
+            // DestroySelf keeps the centralized onset threshold as the player release point even
+            // when the box visual continues its remaining flip flight while breaking.
+            var releaseTime = EaseOutCubic(postContactTime);
+            var weight = Mathf.Lerp(1f, 0f, releaseTime);
+            return CreateAirborneFollowSample(
+                boxGripWorldPose,
+                handWeight: weight,
+                boxWeight: weight,
+                liftAmount: Mathf.Lerp(
+                    DefaultBoxFollowLift * DestroySelfLiftMultiplier,
+                    0f,
+                    releaseTime),
+                tiltDegrees: Mathf.Lerp(
+                    DefaultFollowTiltDegrees * DestroySelfTiltMultiplier,
+                    0f,
+                    releaseTime));
+        }
+
+        private FlipInteractionSample SampleStayAirborneFollow(in Pose boxGripWorldPose)
+        {
+            var normalizedTime = GetNormalizedPhaseTime();
+            var contactTime = FlipImpactTimingSettings.ContactNormalizedTime;
+            if (normalizedTime <= contactTime)
+            {
+                var preContactTime = NormalizeBranchTime(normalizedTime, contactTime);
+                var buildTime = EaseOutCubic(preContactTime);
+                return CreateAirborneFollowSample(
+                    boxGripWorldPose,
+                    handWeight: 1f,
+                    boxWeight: 1f,
+                    liftAmount: Mathf.Lerp(
+                        DefaultBoxFollowLift,
+                        DefaultBoxFollowLift * StayLiftMultiplier,
+                        buildTime),
+                    tiltDegrees: Mathf.Lerp(
+                        DefaultFollowTiltDegrees,
+                        DefaultFollowTiltDegrees * StayTiltMultiplier,
+                        buildTime));
+            }
+
+            var postContactTime = NormalizeBranchTime(normalizedTime - contactTime, 1f - contactTime);
             var holdDuration = Mathf.Clamp01(FlipImpactTimingSettings.StayPostContactHoldNormalizedDuration);
             if (postContactTime <= holdDuration)
             {
-                return new FlipInteractionSample(
+                return CreateAirborneFollowSample(
                     boxGripWorldPose,
-                    1f,
-                    ResolveBoxPositionOffset(DefaultBoxFollowLift),
-                    ResolveBoxRotationOffset(DefaultFollowTiltDegrees),
-                    1f);
+                    handWeight: 1f,
+                    boxWeight: 1f,
+                    liftAmount: DefaultBoxFollowLift * StayLiftMultiplier,
+                    tiltDegrees: DefaultFollowTiltDegrees * StayTiltMultiplier);
             }
 
-            var releaseDenominator = Mathf.Max(0.0001f, 1f - holdDuration);
-            var releaseTime = Mathf.Clamp01((postContactTime - holdDuration) / releaseDenominator);
-            var stayWeight = Mathf.Lerp(1f, 0.45f, EaseInOut(releaseTime));
+            var releaseTime = NormalizeBranchTime(postContactTime - holdDuration, 1f - holdDuration);
+            var stayWeight = Mathf.Lerp(1f, StayRecoveryStartWeight, EaseInOut(releaseTime));
+            return CreateAirborneFollowSample(
+                boxGripWorldPose,
+                handWeight: stayWeight,
+                boxWeight: stayWeight,
+                liftAmount: Mathf.Lerp(
+                    DefaultBoxFollowLift * StayLiftMultiplier,
+                    0f,
+                    releaseTime),
+                tiltDegrees: Mathf.Lerp(
+                    DefaultFollowTiltDegrees * StayTiltMultiplier,
+                    0f,
+                    releaseTime));
+        }
+
+        private FlipInteractionSample SampleBlockedAirborneFollow(in Pose boxGripWorldPose)
+        {
+            var abortTime = EaseOutCubic(GetNormalizedPhaseTime());
+            var blockedWeight = Mathf.Lerp(1f, BlockedRecoveryStartWeight, abortTime);
+            return CreateAirborneFollowSample(
+                boxGripWorldPose,
+                handWeight: blockedWeight,
+                boxWeight: blockedWeight,
+                liftAmount: Mathf.Lerp(
+                    DefaultBoxFollowLift * BlockedInitialLiftMultiplier,
+                    0f,
+                    abortTime),
+                tiltDegrees: Mathf.Lerp(
+                    DefaultFollowTiltDegrees * BlockedInitialTiltMultiplier,
+                    0f,
+                    abortTime));
+        }
+
+        private FlipInteractionSample CreateAirborneFollowSample(
+            in Pose boxGripWorldPose,
+            float handWeight,
+            float boxWeight,
+            float liftAmount,
+            float tiltDegrees)
+        {
             return new FlipInteractionSample(
                 boxGripWorldPose,
-                stayWeight,
-                Vector3.LerpUnclamped(ResolveBoxPositionOffset(DefaultBoxFollowLift), Vector3.zero, releaseTime),
-                Quaternion.SlerpUnclamped(ResolveBoxRotationOffset(DefaultFollowTiltDegrees), Quaternion.identity, releaseTime),
-                stayWeight);
+                handWeight,
+                ResolveBoxPositionOffset(liftAmount),
+                ResolveBoxRotationOffset(tiltDegrees),
+                boxWeight);
         }
 
         private Vector3 ResolveBoxPositionOffset(float liftAmount)
@@ -313,6 +452,17 @@ namespace Game.Feature.Gameplay.Host
         private static float EaseInOut(float t)
         {
             return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t));
+        }
+
+        private static float EaseOutCubic(float t)
+        {
+            var inverse = 1f - Mathf.Clamp01(t);
+            return 1f - (inverse * inverse * inverse);
+        }
+
+        private static float NormalizeBranchTime(float numerator, float denominator)
+        {
+            return Mathf.Clamp01(numerator / Mathf.Max(0.0001f, denominator));
         }
 
         private static Pose LerpPose(in Pose start, in Pose end, float t)
