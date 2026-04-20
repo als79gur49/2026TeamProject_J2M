@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Flow.Audio;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -125,6 +126,28 @@ namespace Game.Feature.UI.Tests
                 DestroyEventSystemIfPresent();
                 Object.DestroyImmediate(canonicalRoot);
                 Object.DestroyImmediate(strayRoot);
+            }
+        }
+
+        [Test]
+        public void UiTestPrefabAssetUtility_AssignPersistentAudioFlowBootstrap_ConfiguresSameRootAccessSeam()
+        {
+            var bootstrapRoot = new GameObject("UiTestPrefabAssetUtility_AssignPersistentAudioFlowBootstrap_ConfiguresSameRootAccessSeam");
+
+            try
+            {
+                var bootstrap = UiTestPrefabAssetUtility.AssignPersistentAudioFlowBootstrap(bootstrapRoot);
+                var installer = bootstrapRoot.GetComponent<AudioRuntimeInstaller>();
+
+                Assert.That(bootstrap, Is.Not.Null);
+                Assert.That(installer, Is.Not.Null);
+                Assert.That(installer.BindingMode, Is.EqualTo(AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime));
+                Assert.That(bootstrap.AudioRuntimeInstaller, Is.SameAs(installer));
+                Assert.That(bootstrap.PersistentRoot, Is.Null);
+            }
+            finally
+            {
+                Object.DestroyImmediate(bootstrapRoot);
             }
         }
 

@@ -4,6 +4,7 @@
   "references": [
     "Game.Feature.Gameplay",
     "Game.Feature.Gameplay.Audio",
+    "Game.Feature.Flow.Audio",
     "Game.Feature.Gameplay.Host",
     "Game.Shared.Audio",
     "Game.Shared.Display",

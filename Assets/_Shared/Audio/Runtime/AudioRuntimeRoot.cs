@@ -8,6 +8,7 @@ namespace Game.Shared.Audio
     public sealed class AudioRuntimeRoot : MonoBehaviour
     {
         [SerializeField] private AudioManager audioManager;
+        private bool runtimeInitialized;
 
         public AudioManager AudioManager => audioManager;
 
@@ -15,8 +16,15 @@ namespace Game.Shared.Audio
 
         public IAudioSettingsService AudioSettingsService => audioManager;
 
+        internal bool IsRuntimeInitialized => runtimeInitialized;
+
         public void InitializeRuntime()
         {
+            if (runtimeInitialized)
+            {
+                return;
+            }
+
             var managers = GetComponentsInChildren<AudioManager>(includeInactive: true);
             if (managers.Length > 1)
             {
@@ -30,6 +38,7 @@ namespace Game.Shared.Audio
             }
 
             audioManager.InitializeRuntime(transform);
+            runtimeInitialized = true;
         }
     }
 }

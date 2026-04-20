@@ -1,0 +1,7 @@
+{
+  "name": "Game.Feature.Flow.Audio",
+  "rootNamespace": "Game.Feature.Flow.Audio",
+  "references": [
+    "Game.Shared.Audio"
+  ]
+}

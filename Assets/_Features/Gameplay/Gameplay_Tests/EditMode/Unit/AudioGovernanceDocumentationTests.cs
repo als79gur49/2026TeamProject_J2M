@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(readme, Does.Contain("Audio-Architecture-Guidelines.md"));
             Assert.That(readme, Does.Contain("Gameplay-Audio-Governance.md"));
+            Assert.That(readme, Does.Contain("Bgm-Flow-V1-Guidelines.md"));
             Assert.That(readme, Does.Contain("2D non-spatial audio contracts"));
         }
 
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("GameplayAudioSemanticCatalog"));
             Assert.That(doc, Does.Contain("RequiredOneShotV1"));
             Assert.That(doc, Does.Contain("Gameplay-Audio-Governance.md"));
+            Assert.That(doc, Does.Contain("Bgm-Flow-V1-Guidelines.md"));
             Assert.That(doc, Does.Contain("DamageOneShot"));
             Assert.That(doc, Does.Contain("EntityExitOneShot"));
             Assert.That(doc, Does.Contain("UI audio는 UI presenter/controller path에 남는다"));
@@ -58,6 +60,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("PlayPlayerHitEffects(result)"));
             Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
             Assert.That(doc, Does.Contain("ApplyEntityExitOwnership()"));
+            Assert.That(doc, Does.Contain("persistent runtime owner"));
+            Assert.That(doc, Does.Contain("scene-local installer access seam"));
+            Assert.That(doc, Does.Contain("Immediate` is the only executed transition mode in BGM flow v1"));
+            Assert.That(doc, Does.Contain("true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane"));
             Assert.That(doc, Does.Not.Contain("GameplayAudioPresenter"));
             Assert.That(doc, Does.Not.Contain("IGameplayAudioCueProjector"));
             Assert.That(doc, Does.Not.Contain("GameplayAudioCue"));
@@ -85,6 +91,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("ReplacePendingPlan"));
             Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
             Assert.That(doc, Does.Contain("last-write-wins"));
+            Assert.That(doc, Does.Contain("Bgm-Flow-V1-Guidelines.md"));
         }
 
         [Test]
@@ -110,6 +117,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("full gameplay-wide regression closure"));
             Assert.That(doc, Does.Contain("all gameplay-wide regressions are closed"));
             Assert.That(doc, Does.Contain("is not enough to use this claim"));
+            Assert.That(doc, Does.Contain("targeted persistent BGM ownership validated"));
+            Assert.That(doc, Does.Contain("cross-scene continuity validated"));
+            Assert.That(doc, Does.Contain("real transition-effects validation completed"));
+            Assert.That(doc, Does.Contain("Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1."));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void BgmFlowGuidelines_DefinePersistentOwnershipBootstrapAndTransitionRoadmap()
+        {
+            var doc = ReadRepoFile("Docs/Architecture/Bgm-Flow-V1-Guidelines.md");
+
+            Assert.That(doc, Does.Contain("# BGM Flow v1 Guidelines"));
+            Assert.That(doc, Does.Contain("persistent runtime owner"));
+            Assert.That(doc, Does.Contain("scene-local installer access seam"));
+            Assert.That(doc, Does.Contain("AudioRuntimeExternalRootRegistry"));
+            Assert.That(doc, Does.Contain("bootstrap plumbing only"));
+            Assert.That(doc, Does.Contain("service locator"));
+            Assert.That(doc, Does.Contain("Immediate` is the only executed transition mode in BGM flow v1"));
+            Assert.That(doc, Does.Contain("true `FadeOutIn` needs playback-port/runtime support"));
+            Assert.That(doc, Does.Contain("true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane"));
+            Assert.That(doc, Does.Contain("AudioRuntimeExternalRootRegistry cannot register multiple persistent AudioRuntimeRoot instances."));
+            Assert.That(doc, Does.Contain("GlobalAudioFlowRoot cannot exist more than once. Reuse the existing persistent audio-flow root instead of creating another."));
+            Assert.That(doc, Does.Contain("SceneBgmRequestSource requires a serialized GlobalAudioFlowBootstrap reference when a BgmProfile is assigned."));
+            Assert.That(doc, Does.Contain("Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1."));
         }
 
         [Test]

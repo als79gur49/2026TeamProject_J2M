@@ -8,9 +8,14 @@ namespace Game.Shared.Audio
     public sealed class AudioRuntimeInstaller : MonoBehaviour
     {
         [SerializeField] private bool installOnAwake = true;
+        // This installer remains the explicit same-root access seam for gameplay and UI even
+        // when it is exposing a persistent runtime created elsewhere.
+        [SerializeField] private AudioRuntimeInstallerBindingMode bindingMode = AudioRuntimeInstallerBindingMode.LocalOnly;
         [SerializeField] private AudioRuntimeRoot runtimeRoot;
 
         public AudioRuntimeRoot RuntimeRoot => runtimeRoot;
+
+        public AudioRuntimeInstallerBindingMode BindingMode => bindingMode;
 
         public IAudioService AudioService => runtimeRoot?.AudioService;
 
@@ -26,6 +31,14 @@ namespace Game.Shared.Audio
 
         public void Install()
         {
+            if (bindingMode == AudioRuntimeInstallerBindingMode.PreferRegisteredPersistentRuntime &&
+                AudioRuntimeExternalRootRegistry.TryGetRegisteredPersistentRuntime(out var registeredRuntimeRoot))
+            {
+                runtimeRoot = registeredRuntimeRoot;
+                runtimeRoot.InitializeRuntime();
+                return;
+            }
+
             var runtimeRoots = GetComponentsInChildren<AudioRuntimeRoot>(includeInactive: true);
             if (runtimeRoots.Length > 1)
             {
