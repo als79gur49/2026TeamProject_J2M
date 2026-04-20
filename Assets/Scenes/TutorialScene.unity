@@ -1032,7 +1032,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9dfa5b682dcd46bda6128250e975f58, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
   Priority:
     Enabled: 0
@@ -1185,6 +1185,7 @@ GameObject:
   - component: {fileID: 1179627483}
   - component: {fileID: 1179627484}
   - component: {fileID: 1179627485}
+  - component: {fileID: 1179627486}
   m_Layer: 0
   m_Name: TutorialSceneBootstrapRoot
   m_TagString: Untagged
@@ -1202,7 +1203,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41909c3f1846cad878e314473f74442c, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller
   actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   autoAdvanceTicks: 1
@@ -1305,7 +1306,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7335ec577334edca1a90ae570c2443e, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplaySceneHost
 --- !u!114 &1179627484
 MonoBehaviour:
@@ -1317,7 +1318,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd3dc38e5bcbfb749b2f859a01ae0db0, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayUiFlowInstaller
   _sceneHost: {fileID: 1179627483}
   _rootView: {fileID: 0}
@@ -1337,9 +1338,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5eec5bd69526f65458aba6ce130324f1, type: 3}
   m_Name:
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.AudioRuntimeInstaller
-  bindingMode: 1
   installOnAwake: 1
+  bindingMode: 1
   runtimeRoot: {fileID: 0}
+--- !u!114 &1179627486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1904c99858f4492687a89c8158fecc77, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Shared.Display::Game.Shared.Display.DisplayRuntimeInstaller
+  installOnAwake: 1
 --- !u!1 &1255821668
 GameObject:
   m_ObjectHideFlags: 0
