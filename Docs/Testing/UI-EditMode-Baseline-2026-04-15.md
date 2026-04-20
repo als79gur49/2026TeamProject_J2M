@@ -68,10 +68,10 @@
   - canonical screen layer is now migrated to one screen-catalog-backed prefab-authored path under `ScreenLayer`
   - screen legacy runtime builder paths were removed in the same phase
   - the screen catalog remains fixed-shape and screen-only; it must not drift into a theme registry, variant registry, child-section catalog, or cross-layer asset registry
-  - simple-shell checkpoint is complete for `Help`, `ObjectiveStatus`, and `Settings`
+  - simple-shell checkpoint is complete for `Help` and `ObjectiveStatus`
   - `GameplayScreen` remains a gameplay-root-adjacent special case and must not be treated as the ordinary migration template
   - terminal-screen checkpoint is complete for `StageResult`, which remains a runtime-owned terminal special case rather than a generic screen model
-  - complex-screen checkpoint is complete for `Inventory`, which remains one screen shell with nested child views and bounded child presenters
+  - complex-screen checkpoint is complete for `Inventory` and bounded `Settings`, which remain one screen shell with nested authored child views and bounded child presenters while `Settings` accessibility remains root-shell-owned
 - Hybrid allowlist status:
   - root shell, HUD, popup, and screen migration allowlists are now empty
   - screen hybrid allowlist is now empty
@@ -143,10 +143,12 @@
 - tooltip remains a bounded popup special case for local anchor/clamp presentation only and does not own auto-hide, backdrop, or timer-driven lifetime policy
 - screen legacy runtime builder paths were removed in the same phase, leaving one canonical prefab-authored screen creation path beneath `ScreenLayer` via a fixed-shape screen-only catalog
 - the screen catalog remains fixed-shape and screen-only and does not widen into a variant/theme/child-section registry
-- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so `GameplayScreen`, `StageResultScreen`, and `InventoryScreen` cannot distort the general migration model
+- screen prefab migration is guarded by simple-shell checkpoint, terminal-screen checkpoint, and complex-screen checkpoint evidence so `GameplayScreen`, `StageResultScreen`, `InventoryScreen`, and `SettingsScreen` cannot distort the general migration model
 - `GameplayScreen` remains gameplay-root-adjacent and does not acquire gameplay-access shortcuts, pause ownership, or history shortcuts
 - `StageResultScreen` remains a runtime-owned terminal special case; its continue action stays intent-only and does not locally decide root replacement policy
 - `InventoryScreen` remains one runtime-managed screen shell with nested child views; child sections do not become separately runtime-managed units and the root presenter does not regrow into a monolith
+- `SettingsScreen` now remains one runtime-managed shell with authored `SettingsAudioSection` and `SettingsDisplaySection` children; audio/display fallback rebuilding is removed while preview/session ownership remains in `SettingsRuntime`
+- Settings authored child-view canonicalization is closed here, but `UiPrefabMigrationInventory` removal and unrelated migration/helper cleanup remain later work
 - stage clear reaches only the canonical Stage 7 terminal `StageResult` screen path; the legacy host-owned clear overlay no longer survives as a parallel runtime UI system
 - no Stage 4–8 contract is widened merely for test/debug convenience
 
