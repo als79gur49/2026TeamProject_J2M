@@ -240,17 +240,26 @@ namespace Game.Feature.UI.Screens
     {
         public static readonly SettingsScreenPayload Default = new(
             "Settings",
+            "Main",
+            "Background Music",
+            "Effects",
             "Toggle Tooltips",
             "Toggle Large Text",
             "Back");
 
         public SettingsScreenPayload(
             string titleText,
+            string mainAudioLabel,
+            string bgmAudioLabel,
+            string sfxAudioLabel,
             string tooltipToggleLabel,
             string largeTextToggleLabel,
             string backLabel)
         {
             TitleText = titleText ?? string.Empty;
+            MainAudioLabel = mainAudioLabel ?? string.Empty;
+            BgmAudioLabel = bgmAudioLabel ?? string.Empty;
+            SfxAudioLabel = sfxAudioLabel ?? string.Empty;
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
             LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
@@ -258,11 +267,47 @@ namespace Game.Feature.UI.Screens
 
         public string TitleText { get; }
 
+        public string MainAudioLabel { get; }
+
+        public string BgmAudioLabel { get; }
+
+        public string SfxAudioLabel { get; }
+
         public string TooltipToggleLabel { get; }
 
         public string LargeTextToggleLabel { get; }
 
         public string BackLabel { get; }
+    }
+
+    public enum AudioSettingsChannel
+    {
+        Main = 0,
+        Bgm = 1,
+        Sfx = 2,
+    }
+
+    public readonly struct AudioSettingsRowViewModel
+    {
+        public AudioSettingsRowViewModel(
+            string labelText,
+            string valueText,
+            float normalizedValue,
+            bool isMuted)
+        {
+            LabelText = labelText ?? string.Empty;
+            ValueText = valueText ?? string.Empty;
+            NormalizedValue = normalizedValue;
+            IsMuted = isMuted;
+        }
+
+        public string LabelText { get; }
+
+        public string ValueText { get; }
+
+        public float NormalizedValue { get; }
+
+        public bool IsMuted { get; }
     }
 
     public readonly struct SettingsScreenState
@@ -501,6 +546,12 @@ namespace Game.Feature.UI.Screens
 
         public string TitleText { get; private set; } = string.Empty;
 
+        public AudioSettingsRowViewModel MainAudio { get; private set; }
+
+        public AudioSettingsRowViewModel BgmAudio { get; private set; }
+
+        public AudioSettingsRowViewModel SfxAudio { get; private set; }
+
         public string TooltipStatusText { get; private set; } = string.Empty;
 
         public string LargeTextStatusText { get; private set; } = string.Empty;
@@ -513,6 +564,9 @@ namespace Game.Feature.UI.Screens
 
         public void SetContent(
             string titleText,
+            AudioSettingsRowViewModel mainAudio,
+            AudioSettingsRowViewModel bgmAudio,
+            AudioSettingsRowViewModel sfxAudio,
             string tooltipStatusText,
             string largeTextStatusText,
             string tooltipToggleLabel,
@@ -520,6 +574,9 @@ namespace Game.Feature.UI.Screens
             string backLabel)
         {
             TitleText = titleText ?? string.Empty;
+            MainAudio = mainAudio;
+            BgmAudio = bgmAudio;
+            SfxAudio = sfxAudio;
             TooltipStatusText = tooltipStatusText ?? string.Empty;
             LargeTextStatusText = largeTextStatusText ?? string.Empty;
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;

@@ -6,6 +6,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Shared.Audio;
 using UnityEngine;
 
 namespace Game.Feature.UI.Composition
@@ -13,6 +14,8 @@ namespace Game.Feature.UI.Composition
     [DisallowMultipleComponent]
     public sealed class GameplayUiFlowInstaller : MonoBehaviour
     {
+        private const string MissingAudioInstallerMessage =
+            "GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls.";
         private const string RootShellObjectName = "GameplayUiCanvasRoot";
         private const string RootShellPrefabResourcePath = "UI/GameplayUiCanvasRootShell";
         private static readonly InputSystemKeyboardBridge KeyboardBridge = new();
@@ -28,6 +31,7 @@ namespace Game.Feature.UI.Composition
         [SerializeField] private bool _installOnStart = true;
 
         private UiArchitectureDiagnosticsTracker _diagnosticsTracker;
+        private AudioSettingsLifecycleRelay _audioSettingsLifecycleRelay;
         private bool _isInstalled;
 
         public GameplayUiFlowPorts Ports { get; private set; }
@@ -143,6 +147,8 @@ namespace Game.Feature.UI.Composition
             EnsureScreenPrefabCatalog();
             EnsurePopupPrefabCatalog();
             PresentationSource = Ports.PresentationSource;
+            var audioSettingsPort = CreateAudioSettingsPort();
+            EnsureAudioSettingsLifecycleRelay(audioSettingsPort);
 
             var playerStatusPresenter = new PlayerStatusPresenter();
             var actionBarPresenter = new ActionBarPresenter(Ports.CommandGateway);
@@ -153,12 +159,13 @@ namespace Game.Feature.UI.Composition
                 actionBarPresenter,
                 notificationPresenter);
 
-            var sessionSettingsStore = new UiSessionSettingsStore();
+            var accessibilitySettingsStore = new AccessibilitySettingsStore();
             ScreenController = new ScreenController(new GameplayScreenRuntimeFactory(
                 _rootView.ScreenLayerView,
                 Ports.QueryFacade,
                 PresentationSource,
-                sessionSettingsStore,
+                accessibilitySettingsStore,
+                audioSettingsPort,
                 _screenPrefabCatalog));
             PopupController = new PopupController(new GameplayPopupRuntimeFactory(
                 _rootView.PopupLayerView,
@@ -191,6 +198,7 @@ namespace Game.Feature.UI.Composition
         {
             UnwireViewEvents();
             UnwireControllerEvents();
+            _audioSettingsLifecycleRelay?.FlushNow();
             _diagnosticsTracker?.Dispose();
             Coordinator?.Dispose();
             PopupController?.Dispose();
@@ -266,6 +274,34 @@ namespace Game.Feature.UI.Composition
                 "GameplayUiFlowInstaller is missing the canonical screen prefab catalog reference. " +
                 "Assign the screen-only prefab catalog instead of reintroducing runtime screen builders " +
                 "or widening composition into a generic asset registry.");
+        }
+
+        private IAudioSettingsPort CreateAudioSettingsPort()
+        {
+            var audioRuntimeInstaller = GetComponent<AudioRuntimeInstaller>();
+            if (audioRuntimeInstaller == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            audioRuntimeInstaller.Install();
+            if (audioRuntimeInstaller.AudioSettingsService == null)
+            {
+                throw new InvalidOperationException(MissingAudioInstallerMessage);
+            }
+
+            return new AudioSettingsPortAdapter(audioRuntimeInstaller.AudioSettingsService);
+        }
+
+        private void EnsureAudioSettingsLifecycleRelay(IAudioSettingsPort audioSettingsPort)
+        {
+            _audioSettingsLifecycleRelay = GetComponent<AudioSettingsLifecycleRelay>();
+            if (_audioSettingsLifecycleRelay == null)
+            {
+                _audioSettingsLifecycleRelay = gameObject.AddComponent<AudioSettingsLifecycleRelay>();
+            }
+
+            _audioSettingsLifecycleRelay.Initialize(audioSettingsPort);
         }
 
         private void SetupDiagnostics()

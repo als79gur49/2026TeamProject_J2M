@@ -11,6 +11,7 @@
 - [Tick-Simulation-Canonical-Spec.md](./Tick-Simulation-Canonical-Spec.md)
 - [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
+- [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
 
 Conflict rule:
 
@@ -52,7 +53,12 @@ TickResult
   -> TickPresentationData + public final seams
      [Authoritative Presentation Signal Seam]
       -> GameplayTickViewPresenter
-      -> GameplayAudioPresenter
+          -> GameplayTickPresentationCoordinator
+              -> GameplayAudioRequestPlanner
+              -> GameplayAudioPresentationController
+              -> GameplayAudioMap
+              -> IGameplayAudioPlaybackPort
+                  -> IAudioService
       -> GameplayHostPresentationFeed
           -> GameplayUiPresentationSource
               -> UITickEventRouter
@@ -72,13 +78,34 @@ TickResult
   - optional future `AudioPlaybackPolicy` seam
   - binding-local validation rule의 canonical owner
 - `GameplayAudioMap`
-  - feature semantic dictionary
+  - typed feature semantic dictionary
   - authoring 단계에서는 visible validation error를 남기고, bootstrap/runtime에서는 hard-fail 한다
   - binding-local validation은 직접 재구현하지 않고 delegated `AudioBinding` diagnostics를 수집한다
-- `GameplayAudioPresenter`
+- `GameplayAudioSemanticId`
+  - gameplay-origin one-shot SFX vocabulary의 canonical typed id
+  - raw string semantic literal을 대체한다
+- `GameplayAudioSemanticCatalog`
+  - semantic descriptor metadata의 canonical owner
+  - `RequiredOneShotV1`는 descriptor metadata에서 derive된다
+  - planner emission vocabulary, bootstrap validation, tests, logs/error formatting에 공통 사용된다
+  - allowed/disallowed family governance는 [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md) 가 canonical owner다
+- `GameplayAudioRequestPlanner`
   - `TickResult.PresentationData`와 public final seams만 읽는다
-  - semantic-to-binding projection과 `IAudioService` 호출만 담당한다
-  - `EventLog`, phase-private result, raw world diff 재해석 금지
+  - supported damage/exit presentation fact를 typed gameplay audio request로 변환한다
+  - `GameplayAudioMap`, `IAudioService`, owner view resolution, continuous handle state를 소유하지 않는다
+  - allowed family는 `DamageOneShot`, `EntityExitOneShot`뿐이다
+  - locomotion loop, jump loop, windup/recovery loop, ambient gameplay bed, UI audio, BGM은 intentionally excluded v1 scope다
+- `GameplayAudioPresentationController`
+  - host-owned orchestration controller다
+  - `GameplayTickPresentationCoordinator` 내부 collaborator로 존재한다
+  - precomputed typed request list만 받는다
+  - typed request를 `GameplayAudioMap`과 `IGameplayAudioPlaybackPort`를 통해 runtime playback으로 내린다
+  - missing owner view는 failure가 아니라 `Play2D` fallback으로 degrade한다
+  - gameplay presentation one-shot audio 외의 domain은 다루지 않는다
+- `IGameplayAudioPlaybackPort`
+  - gameplay host-local narrow playback port다
+  - `Play2D`와 `PlayAttached`만 가진다
+  - gameplay host orchestration path에서 `PlayBgm`을 compile-time으로 차단한다
 - `IAudioService`
   - feature-facing playback contract
 - `AudioManager`
@@ -86,6 +113,38 @@ TickResult
   - definition resolution, source lease, attached registry delegation, BGM routing만 담당한다
   - feature semantic branching 금지
   - runtime root initialization 이전 service entrypoint 호출은 setup defect로 즉시 실패한다
+
+### 4.1 Gameplay Host-Orchestration Contract
+
+- gameplay-origin one-shot SFX는 `GameplayTickPresentationCoordinator`가 orchestration owner다.
+- canonical ordering은 아래 exact sequence로 고정한다.
+  1. `RefreshAudioPlan(result)`
+  2. `PlayEntityExitEffects()`
+  3. `PlayPlayerHitEffects(result)`
+  4. `PlayPlannedAudio()`
+  5. `ApplyEntityExitOwnership()`
+- attached owner resolution은 exit ownership removal 이전에만 수행한다.
+- pending gameplay audio plan은 `PresentInitial`, session reset, presenter teardown에서 반드시 비워진다.
+- pending gameplay audio plan lifecycle은 아래 rule로 고정한다.
+  - `ReplacePendingPlan(...)`은 last-write-wins replacement다.
+  - empty replace는 legal이며 pending state를 clear한다.
+  - `PlayPlannedAudio()`는 current plan을 한 번만 재생하고 즉시 clear한다.
+  - explicit clear는 idempotent다.
+- gameplay audio host path는 generic dispatcher가 아니다.
+  - UI audio는 UI presenter/controller path에 남는다.
+  - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
+  - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
+
+### 4.2 Gameplay Audio Bootstrap Validation
+
+- `GameplaySceneHostConfiguration.GameplayAudioMap`이 assigned되면 `GameplaySceneHost` canonical host root same `GameObject`에 co-located `AudioRuntimeInstaller`가 있어야 한다.
+- `GameplayHostRuntimeFactory`는 scene-global lookup을 하지 않는다.
+- missing installer fail-fast message는 아래 exact string으로 고정한다.
+  - `GameplaySceneHost requires a co-located AudioRuntimeInstaller on the canonical host root when GameplayAudioMap is assigned.`
+- `GameplayAudioMap.ValidateRequiredSemanticsOrThrow(GameplayAudioSemanticCatalog.RequiredOneShotV1)`는 host attach/init에서 first gameplay playback 이전에 수행되어야 한다.
+- missing required semantic fail-fast message는 아래 format으로 고정한다.
+  - `GameplayAudioMap '<MapName>' is missing required gameplay audio semantics: <Id1>, <Id2>.`
+- semantic family growth protocol과 required-set review checklist는 [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md) 를 따른다.
 
 ## 5. 2D-Only Playback Contract
 
@@ -209,6 +268,65 @@ Canonical ownership:
 - lazy singleton
 - global instance search
 - feature-side runtime root creation
+
+### 8.1 Audio-Settings Bridge Mapping
+
+- visible settings UI는 `Main`, `Background Music`, `Effects` 3개 channel만 노출한다.
+- `UI.Application`은 shared audio enum을 모르고 `IAudioSettingsPort`만 안다.
+- `UI.Composition`은 `UIAudioChannelMapper` 하나만 통해 visible UI enum과 shared runtime enum을 연결한다.
+- canonical mapping은 아래 셋뿐이다.
+  - `Main -> AudioChannel.Master`
+  - `Bgm -> AudioChannel.Bgm`
+  - `Sfx -> AudioChannel.Sfx`
+- presenter, tests, composition runtime은 이 mapping을 inline `switch` 또는 `if`로 재구현하지 않는다.
+
+### 8.2 Playback Registry Lifecycle
+
+- live playback register는 source 획득, definition resolve, source configure, successful `Play` 이후에만 발생한다.
+- live playback unregister는 controller `Stop()` 단일 경로만 canonical owner다.
+- natural completion은 controller `Tick()`에서 `Stop()`으로 수렴해야 한다.
+- pooled source release는 unregister 이후에만 수행한다.
+- every live record는 `leaf AudioChannel`, `base clip volume`, `AudioSource` reference validity, controller validity를 유지한다.
+- destroyed source, invalid controller, manager teardown은 stale live record를 남기지 않아야 한다.
+- BGM도 별도 lane을 쓰지만 registry lifecycle rule은 동일하다.
+
+### 8.3 Reserved Master Category Rule
+
+- `AudioCategory.Master`는 mixer-only reserved category다.
+- `AudioDefinition` authoring category로는 사용할 수 없다.
+- rule truth-source는 `AudioDefinitionCategoryRules` 하나다.
+- `AudioDefinition.OnValidate()` authoring warning과 runtime defensive validation은 같은 shared rule helper를 호출해야 한다.
+- 이 규칙을 authoring path, binding path, runtime path에서 각각 다시 encode하지 않는다.
+
+### 8.4 Canonical Bootstrap Root Contract
+
+- audio-first settings를 노출하는 scene에서 `GameplayUiFlowInstaller`가 존재하면 같은 canonical bootstrap root `GameObject`에 정확히 하나의 `AudioRuntimeInstaller`가 co-located 되어야 한다.
+- current canonical scenes는 `TutorialScene`과 `UIAudioScene`이다.
+- 여기서 co-located의 의미는 scene-wide search가 아니라 `GameplayUiFlowInstaller`가 붙은 바로 그 same `GameObject`다.
+- missing installer fail-fast message는 아래 exact string으로 고정한다.
+  - `GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls.`
+- duplicate installer policy:
+  - same-root duplicate는 `DisallowMultipleComponent`로 차단한다.
+  - canonical scene contract test는 each canonical scene에 installer가 정확히 1개인지 검증한다.
+  - scene-global fallback lookup은 금지다.
+
+### 8.5 Immediate Apply And Deferred Flush
+
+- slider/toggle interaction은 runtime gain을 즉시 갱신한다.
+- persistence write는 transient drag step마다 수행하지 않는다.
+- dirty snapshot은 아래 bounded flush policy로만 저장한다.
+  - slider interaction end
+  - settings screen close or dispose
+  - application pause
+  - application quit
+- discrete mute toggle은 runtime state를 즉시 바꾸되 drag-step처럼 per-frame persistence write를 만들지 않는다.
+
+### 8.6 Hidden Internal Channels
+
+- internal runtime channel은 `Master`, `Bgm`, `Sfx`, `Ui`, `Voice`, `Ambience`다.
+- `Ui`, `Voice`, `Ambience`는 v1에서 user-facing control이 없다.
+- hidden channel leaf state는 내부 snapshot에 존재하지만 default `volume=1`, `muted=false`를 유지한다.
+- hidden channel은 `Master`에는 반응하지만 `Bgm` 또는 `Sfx` control에는 반응하지 않는다.
 
 ## 9. Required Enforcement
 

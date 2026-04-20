@@ -12,21 +12,24 @@ namespace Game.Feature.UI.Composition
     {
         private readonly IGameplayQueryFacade _queryFacade;
         private readonly IGameplayUiPresentationSource _presentationSource;
+        private readonly IAudioSettingsPort _audioSettingsPort;
         private readonly ScreenPrefabCatalog _screenPrefabCatalog;
         private readonly ScreenLayerView _screenLayerView;
-        private readonly UiSessionSettingsStore _sessionSettingsStore;
+        private readonly AccessibilitySettingsStore _accessibilitySettingsStore;
 
         public GameplayScreenRuntimeFactory(
             ScreenLayerView screenLayerView,
             IGameplayQueryFacade queryFacade,
             IGameplayUiPresentationSource presentationSource,
-            UiSessionSettingsStore sessionSettingsStore,
+            AccessibilitySettingsStore accessibilitySettingsStore,
+            IAudioSettingsPort audioSettingsPort,
             ScreenPrefabCatalog screenPrefabCatalog)
         {
             _screenLayerView = screenLayerView ?? throw new ArgumentNullException(nameof(screenLayerView));
             _queryFacade = queryFacade ?? throw new ArgumentNullException(nameof(queryFacade));
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
-            _sessionSettingsStore = sessionSettingsStore ?? throw new ArgumentNullException(nameof(sessionSettingsStore));
+            _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
+            _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             _screenPrefabCatalog = screenPrefabCatalog ?? throw new ArgumentNullException(nameof(screenPrefabCatalog));
         }
 
@@ -137,7 +140,7 @@ namespace Game.Feature.UI.Composition
 
         private ScreenRuntimeFactoryResult CreateSettingsRuntime()
         {
-            var presenter = new SettingsScreenPresenter(_sessionSettingsStore);
+            var presenter = new SettingsScreenPresenter(_accessibilitySettingsStore, _audioSettingsPort);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.SettingsPrefab, ScreenId.Settings);
             view.Bind(presenter.ViewModel);
             view.SetIsCurrent(false);
@@ -249,7 +252,7 @@ namespace Game.Feature.UI.Composition
                 _dispose();
             }
 
-            public void SetIsCurrent(bool isCurrent)
+            public virtual void SetIsCurrent(bool isCurrent)
             {
                 View.SetIsCurrent(isCurrent);
             }
@@ -480,11 +483,15 @@ namespace Game.Feature.UI.Composition
         private sealed class SettingsRuntime : ScreenRuntimeBase<SettingsScreenView>
         {
             private readonly SettingsScreenPresenter _presenter;
+            private bool _isCurrent;
 
             public SettingsRuntime(SettingsScreenView view, SettingsScreenPresenter presenter, Action dispose)
                 : base(view, dispose)
             {
                 _presenter = presenter;
+                view.AudioVolumeChanged += HandleAudioVolumeChanged;
+                view.AudioMuteChanged += HandleAudioMuteChanged;
+                view.AudioInteractionCompleted += HandleAudioInteractionCompleted;
                 view.TooltipInfoRequested += HandleTooltipInfoRequested;
                 view.TooltipToggleRequested += HandleTooltipToggleRequested;
                 view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
@@ -498,12 +505,27 @@ namespace Game.Feature.UI.Composition
 
             public override void Dispose()
             {
+                _presenter.FlushAudioSettings();
+                View.AudioVolumeChanged -= HandleAudioVolumeChanged;
+                View.AudioMuteChanged -= HandleAudioMuteChanged;
+                View.AudioInteractionCompleted -= HandleAudioInteractionCompleted;
                 View.TooltipInfoRequested -= HandleTooltipInfoRequested;
                 View.TooltipToggleRequested -= HandleTooltipToggleRequested;
                 View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 View.BackRequested -= HandleBackRequested;
                 View.Bind(null);
                 base.Dispose();
+            }
+
+            public override void SetIsCurrent(bool isCurrent)
+            {
+                if (_isCurrent && !isCurrent)
+                {
+                    _presenter.FlushAudioSettings();
+                }
+
+                _isCurrent = isCurrent;
+                base.SetIsCurrent(isCurrent);
             }
 
             private void HandleTooltipInfoRequested()
@@ -514,6 +536,21 @@ namespace Game.Feature.UI.Composition
             private void HandleTooltipToggleRequested()
             {
                 _presenter.ToggleTooltips();
+            }
+
+            private void HandleAudioVolumeChanged(AudioSettingsChannel channel, float value)
+            {
+                _presenter.SetAudioVolume(channel, value);
+            }
+
+            private void HandleAudioMuteChanged(AudioSettingsChannel channel, bool isMuted)
+            {
+                _presenter.SetAudioMuted(channel, isMuted);
+            }
+
+            private void HandleAudioInteractionCompleted()
+            {
+                _presenter.FlushAudioSettings();
             }
 
             private void HandleLargeTextToggleRequested()

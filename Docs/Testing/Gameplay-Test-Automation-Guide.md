@@ -72,6 +72,80 @@
   - PlayMode escalation status
 - `Docs/Testing/UI-EditMode-Baseline-2026-04-15.md` and this guide must be updated together in the same change.
 
+## Gameplay audio verification wording / Gameplay audio verification wording
+### 한국어
+- gameplay audio refactor 검증 결과는 실행한 lane 범위만 말해야 한다.
+- 아래 네 reporting level만 공식적으로 사용한다.
+  - `build verified`
+    - claim 가능 조건: relevant build가 통과했을 때
+    - imply하지 않는 것: runtime orchestration correctness, regression closure
+    - approved example: `Gameplay audio changes are build verified.`
+  - `core lane validated`
+    - claim 가능 조건: `./run_tests.sh core` 또는 동등한 core lane이 통과했을 때
+    - imply하지 않는 것: full gameplay-wide regression closure
+    - approved example: `The new gameplay audio structure/contracts are validated in core lanes.`
+  - `targeted orchestration/architecture validated`
+    - claim 가능 조건: targeted gameplay audio governance/orchestration/architecture tests가 함께 통과했을 때
+    - imply하지 않는 것: unrelated gameplay regression closure
+    - approved example: `Gameplay audio host orchestration and governance contracts are validated by targeted architecture tests.`
+  - `full gameplay-wide regression validated`
+    - claim 가능 조건: broader gameplay-wide validation lane가 실제로 실행되어 pass했을 때
+    - imply하지 않는 것: none beyond the executed full lane itself
+    - approved example: `Gameplay-wide regression coverage has been validated on the full lane.`
+- disallowed wording:
+  - `all gameplay-wide regressions are closed`
+    - build + core lane + targeted governance/orchestration tests만으로는 이 표현을 사용할 수 없다.
+
+### English Original
+- Gameplay-audio refactor validation must report only the lanes that were actually executed.
+- Use only these four reporting levels.
+  - `build verified`
+    - may be claimed when the relevant build passes
+    - does not imply runtime orchestration correctness or regression closure
+    - approved example: `Gameplay audio changes are build verified.`
+  - `core lane validated`
+    - may be claimed when `./run_tests.sh core` or an equivalent core lane passes
+    - does not imply full gameplay-wide regression closure
+    - approved example: `The new gameplay audio structure/contracts are validated in core lanes.`
+  - `targeted orchestration/architecture validated`
+    - may be claimed when targeted gameplay-audio governance/orchestration/architecture tests pass
+    - does not imply unrelated gameplay regression closure
+    - approved example: `Gameplay audio host orchestration and governance contracts are validated by targeted architecture tests.`
+  - `full gameplay-wide regression validated`
+    - may be claimed only when the broader gameplay-wide validation lane actually ran and passed
+    - does not imply anything beyond that executed full lane
+    - approved example: `Gameplay-wide regression coverage has been validated on the full lane.`
+- Disallowed wording:
+  - `all gameplay-wide regressions are closed`
+    - build verification plus core lanes plus targeted governance/orchestration tests is not enough to use this claim.
+
+## Targeted gameplay-audio integration validation / 타겟 게임플레이 오디오 통합 검증
+### 한국어
+- 이 pass는 gameplay audio host-orchestration이 인접 presentation/runtime boundary와 정상적으로 합성되는지 검증하는 targeted integration validation이다.
+- 이 pass가 검증하는 것:
+  - host ordering vs VFX / exit ownership timing
+  - attachment vs 2D fallback at exit boundaries
+  - bootstrap / authored map invariants
+  - settings / mixing coexistence with gameplay one-shot SFX
+  - UI / BGM separation from gameplay host orchestration
+- 이 pass가 검증하지 않는 것:
+  - full gameplay-wide regression closure
+- approved example:
+  - `Gameplay audio host-orchestration is validated against adjacent presentation and runtime boundaries via targeted integration tests.`
+
+### English Original
+- This pass is a targeted integration validation that proves gameplay-audio host orchestration composes correctly with adjacent presentation and runtime boundaries.
+- This pass validates:
+  - host ordering vs VFX / exit ownership timing
+  - attachment vs 2D fallback at exit boundaries
+  - bootstrap / authored map invariants
+  - settings / mixing coexistence with gameplay one-shot SFX
+  - UI / BGM separation from gameplay host orchestration
+- This pass does not validate:
+  - full gameplay-wide regression closure
+- Approved example:
+  - `Gameplay audio host-orchestration is validated against adjacent presentation and runtime boundaries via targeted integration tests.`
+
 ## PlayMode escalation triggers / PlayMode escalation triggers
 ### 한국어
 - UI PlayMode는 EditMode만으로 ownership behavior를 신뢰성 있게 검증할 수 없을 때만 추가한다.

@@ -3,7 +3,9 @@
   "rootNamespace": "Game.Feature.Gameplay.Host",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Audio",
     "Game.Feature.Gameplay.UIAccess",
+    "Game.Shared.Audio",
     "Game.Feature.Stages",
     "Unity.InputSystem",
     "Unity.Cinemachine",

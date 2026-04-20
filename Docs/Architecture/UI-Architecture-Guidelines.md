@@ -184,6 +184,8 @@ Composition root and gameplay-host bridge rule:
 - `Non-Negotiable` `UI_Composition` is the sole runtime composition root and gameplay-host bridge for the UI runtime.
 - `Non-Negotiable` `GameplayUiFlowInstaller` assembles the runtime from gameplay-owned `UIAccess` seams and remains the only UI boundary that depends on gameplay host initialization.
 - `Non-Negotiable` `GameplayUiCanvasRootView` owns runtime canvas and layer composition only. It must not become a gameplay, flow, or feature-state owner.
+- `Non-Negotiable` Audio settings bridging remains composition-owned. `UI.Application` knows only `IAudioSettingsPort`, and only `UI_Composition` may translate visible audio settings channels to shared-audio runtime channels.
+- `Non-Negotiable` The visible-audio-channel mapping is centralized in one composition-owned mapper. Presenters, screens, and non-composition UI assemblies must not duplicate that mapping logic inline.
 - `Default Guidance` Screen runtime factories, popup runtime factories, and composition-owned diagnostics wiring belong in `UI_Composition`, not in feature presenters or gameplay access contracts.
 
 ## 9. Final Layered Architecture

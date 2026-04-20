@@ -254,18 +254,18 @@ namespace Game.Feature.UI.Editor
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(400f, 220f),
+                new Vector2(460f, 360f),
                 new Vector2(0f, -20f),
                 out var view);
             var rootRect = root.GetComponent<RectTransform>();
 
-            var title = CreateLabel("Title", rootRect, new Vector2(16f, -16f), new Vector2(368f, 24f), TextAnchor.MiddleCenter, 18);
-            var tooltipStatus = CreateLabel("TooltipStatus", rootRect, new Vector2(24f, -58f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
-            var tooltipInfo = CreateButton("TooltipInfo", rootRect, "i", new Vector2(188f, -52f), new Vector2(24f, 28f));
-            var tooltipToggle = CreateButton("TooltipToggle", rootRect, "Toggle Tooltips", new Vector2(220f, -52f), new Vector2(140f, 28f));
-            var largeTextStatus = CreateLabel("LargeTextStatus", rootRect, new Vector2(24f, -104f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
-            var largeTextToggle = CreateButton("LargeTextToggle", rootRect, "Toggle Large Text", new Vector2(220f, -98f), new Vector2(140f, 28f));
-            var back = CreateButton("BackButton", rootRect, "Back", new Vector2(151f, -176f), new Vector2(98f, 28f));
+            var title = CreateLabel("Title", rootRect, new Vector2(16f, -16f), new Vector2(428f, 24f), TextAnchor.MiddleCenter, 18);
+            var tooltipStatus = CreateLabel("TooltipStatus", rootRect, new Vector2(24f, -214f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
+            var tooltipInfo = CreateButton("TooltipInfo", rootRect, "i", new Vector2(188f, -208f), new Vector2(24f, 28f));
+            var tooltipToggle = CreateButton("TooltipToggle", rootRect, "Toggle Tooltips", new Vector2(220f, -208f), new Vector2(140f, 28f));
+            var largeTextStatus = CreateLabel("LargeTextStatus", rootRect, new Vector2(24f, -260f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
+            var largeTextToggle = CreateButton("LargeTextToggle", rootRect, "Toggle Large Text", new Vector2(220f, -254f), new Vector2(140f, 28f));
+            var back = CreateButton("BackButton", rootRect, "Back", new Vector2(181f, -316f), new Vector2(98f, 30f));
 
             SetField(view, "_root", root);
             SetField(view, "_titleLabel", title);

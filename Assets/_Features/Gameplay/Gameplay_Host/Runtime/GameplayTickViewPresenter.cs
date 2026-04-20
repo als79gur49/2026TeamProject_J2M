@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Loop;
 using Unity.Cinemachine;
@@ -158,6 +159,25 @@ namespace Game.Feature.Gameplay.Host
             _presentationCoordinator.AttachOutputCamera(outputCamera);
         }
 
+        internal void AttachGameplayAudioRuntime(
+            IGameplayAudioPlaybackPort playbackPort,
+            GameplayAudioMap gameplayAudioMap)
+        {
+            _presentationCoordinator.AttachGameplayAudioRuntime(playbackPort, gameplayAudioMap);
+        }
+
+        internal void DebugRefreshGameplayAudioPlan(TickResult result)
+        {
+            _presentationCoordinator.DebugRefreshGameplayAudioPlan(result);
+        }
+
+        internal void SetPresentationTraceSink(System.Action<string> traceSink)
+        {
+            _presentationCoordinator.SetTraceSink(traceSink);
+        }
+
+        internal int PendingGameplayAudioRequestCount => _presentationCoordinator.PendingGameplayAudioRequestCount;
+
         public void AttachCameraRuntime(GameplayCameraRig viewCameraRig, CinemachineBrain viewCameraBrain)
         {
             _presentationCoordinator.AttachCameraRig(viewCameraRig);
@@ -210,6 +230,11 @@ namespace Game.Feature.Gameplay.Host
             {
                 UpdatePresentation(Time.deltaTime);
             }
+        }
+
+        private void OnDestroy()
+        {
+            _presentationCoordinator.DetachGameplayAudioRuntime();
         }
 
         private void CapturePresentationState()

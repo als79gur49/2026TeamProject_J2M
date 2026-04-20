@@ -1,6 +1,7 @@
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
+using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -110,6 +111,11 @@ namespace Game.Feature.UI.Tests
 
         internal static void AssignCanonicalUiPrefabs(GameplayUiFlowInstaller installer)
         {
+            if (installer.GetComponent<AudioRuntimeInstaller>() == null)
+            {
+                installer.gameObject.AddComponent<AudioRuntimeInstaller>();
+            }
+
             AssignHudPrefab(installer);
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);

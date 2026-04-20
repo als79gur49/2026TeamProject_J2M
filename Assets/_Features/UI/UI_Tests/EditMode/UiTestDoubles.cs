@@ -113,6 +113,72 @@ namespace Game.Feature.UI.Tests
         }
     }
 
+    internal sealed class FakeAudioSettingsPort : IAudioSettingsPort
+    {
+        private AudioSettingsPortSnapshot _snapshot = new(
+            new AudioSettingsPortChannelState(1f, false),
+            new AudioSettingsPortChannelState(1f, false),
+            new AudioSettingsPortChannelState(1f, false));
+
+        public int FlushCallCount { get; private set; }
+
+        public AudioSettingsPortSnapshot Read()
+        {
+            return _snapshot;
+        }
+
+        public void SetVolume(AudioSettingsChannel channel, float volume)
+        {
+            var clamped = Clamp01(volume);
+            var state = _snapshot.GetChannelState(channel);
+            SetChannelState(channel, new AudioSettingsPortChannelState(clamped, state.IsMuted));
+        }
+
+        public void SetMuted(AudioSettingsChannel channel, bool isMuted)
+        {
+            var state = _snapshot.GetChannelState(channel);
+            SetChannelState(channel, new AudioSettingsPortChannelState(state.Volume, isMuted));
+        }
+
+        public void Flush()
+        {
+            FlushCallCount++;
+        }
+
+        private void SetChannelState(AudioSettingsChannel channel, AudioSettingsPortChannelState state)
+        {
+            switch (channel)
+            {
+                case AudioSettingsChannel.Main:
+                    _snapshot = new AudioSettingsPortSnapshot(state, _snapshot.Bgm, _snapshot.Sfx);
+                    break;
+                case AudioSettingsChannel.Bgm:
+                    _snapshot = new AudioSettingsPortSnapshot(_snapshot.Main, state, _snapshot.Sfx);
+                    break;
+                case AudioSettingsChannel.Sfx:
+                    _snapshot = new AudioSettingsPortSnapshot(_snapshot.Main, _snapshot.Bgm, state);
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(channel), channel, null);
+            }
+        }
+
+        private static float Clamp01(float value)
+        {
+            if (value < 0f)
+            {
+                return 0f;
+            }
+
+            if (value > 1f)
+            {
+                return 1f;
+            }
+
+            return value;
+        }
+    }
+
     internal sealed class FakeGameplayQueryFacade : IGameplayQueryFacade
     {
         private readonly MutableObjectiveQuery _objectiveQuery;

@@ -425,7 +425,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -469,7 +469,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72ece51f2901e7445ab60da3685d6b5f, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineBrain
   ShowDebugText: 0
   ShowCameraFrustum: 1
@@ -694,7 +694,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name: 
+  m_Name:
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -1183,6 +1183,7 @@ GameObject:
   - component: {fileID: 1179627481}
   - component: {fileID: 1179627483}
   - component: {fileID: 1179627484}
+  - component: {fileID: 1179627485}
   m_Layer: 0
   m_Name: TutorialSceneBootstrapRoot
   m_TagString: Untagged
@@ -1309,6 +1310,20 @@ MonoBehaviour:
   _screenPrefabCatalog: {fileID: 11400000, guid: 96b947be919f0ab4dabd973a4925ff83, type: 2}
   _popupPrefabCatalog: {fileID: 11400000, guid: b2310c16b9b12f0478d2bff3c647ea03, type: 2}
   _installOnStart: 1
+--- !u!114 &1179627485
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5eec5bd69526f65458aba6ce130324f1, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.AudioRuntimeInstaller
+  installOnAwake: 1
+  runtimeRoot: {fileID: 0}
 --- !u!1 &1255821668
 GameObject:
   m_ObjectHideFlags: 0

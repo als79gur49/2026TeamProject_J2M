@@ -20,14 +20,23 @@ namespace Game.Shared.Audio
 
         public AudioPlaybackData Resolve(in AudioPlaybackContext context)
         {
+            AudioDefinitionCategoryRules.ThrowIfDefinitionCategoryReserved(category, $"AudioDefinition '{name}'");
             var clip = ResolveClip();
             if (clip == null)
             {
                 throw new InvalidOperationException($"{name} resolved a null AudioClip.");
             }
 
-            var volumeMultiplier = context.VolumeMultiplier <= 0f ? 0f : context.VolumeMultiplier;
-            var pitchMultiplier = context.PitchMultiplier <= 0f ? 1f : context.PitchMultiplier;
+            var isImplicitDefaultContext = context.OwnerEntityId == null &&
+                                           context.DebugTag == null &&
+                                           Mathf.Approximately(context.VolumeMultiplier, 0f) &&
+                                           Mathf.Approximately(context.PitchMultiplier, 0f);
+            var volumeMultiplier = isImplicitDefaultContext
+                ? 1f
+                : Mathf.Max(0f, context.VolumeMultiplier);
+            var pitchMultiplier = isImplicitDefaultContext || context.PitchMultiplier <= 0f
+                ? 1f
+                : context.PitchMultiplier;
             var pitchMin = Mathf.Max(0.01f, Mathf.Min(pitchRange.x, pitchRange.y));
             var pitchMax = Mathf.Max(pitchMin, Mathf.Max(pitchRange.x, pitchRange.y));
             var resolvedPitch = UnityEngine.Random.Range(pitchMin, pitchMax);
@@ -47,6 +56,14 @@ namespace Game.Shared.Audio
             defaultVolumeTrim = Mathf.Clamp01(defaultVolumeTrim);
             pitchRange.x = Mathf.Max(0.01f, pitchRange.x);
             pitchRange.y = Mathf.Max(0.01f, pitchRange.y);
+
+            if (AudioDefinitionCategoryRules.TryGetReservedCategoryMessage(
+                    category,
+                    $"AudioDefinition '{name}'",
+                    out var message))
+            {
+                Debug.LogWarning(message, this);
+            }
         }
     }
 }
