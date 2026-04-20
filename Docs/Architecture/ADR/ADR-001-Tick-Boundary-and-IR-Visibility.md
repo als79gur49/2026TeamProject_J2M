@@ -101,6 +101,10 @@
   - public semantic surface는 `SourceId`, `TargetId`, `Position`, `Damage`, `TickGenerated`만 남긴다.
   - `SourceActionGroupId`, `ReservationSequence`는 public contract에서 제거하고 internal provenance/order metadata로만 유지한다.
   - same-tick reservation drain ordering과 replay determinism은 유지한다.
+- result carrier provenance naming
+  - post-plan runtime/canonical carrier의 plan correlation key는 `ActionPlanId`로 통일한다.
+  - `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 compatibility alias로만 남기고 새 runtime reader는 읽지 않는다.
+  - `IntentId`는 canonical internal carry-forward ID로 유지하되, result carrier의 semantic field와 혼동하지 않는다.
 - `AttackPhaseResult.SortedInputs`
   - external/debug consumer에서는 제거했다.
   - `TickTraceFormatter`의 `Attack.NormalizedInputs` section은 제거했다.

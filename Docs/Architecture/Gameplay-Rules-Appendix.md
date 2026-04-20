@@ -168,3 +168,16 @@
 - deterministic contract는 자료구조 iteration order가 아니라 explicit ordering policy로 보장한다.
 - regression validation은 hash, trace equality, final entities, event log를 우선 본다.
 - trace section name이나 synthetic normalized input token은 canonical contract가 아니다.
+
+## Result Carrier Metadata
+- `DamageResolutionRecord`, `DestroyResolutionRecord`, `DelayedAttackEffectRecord`는 semantic result와 provenance metadata를 함께 운반할 수 있지만, 두 층을 같은 의미로 읽으면 안 된다.
+- semantic field:
+  - `SourceId`, `SourceKind`, `TargetId`, `Amount`, `Accepted`, `RejectReason`, `Condition`, `FinalHp`
+- provenance / correlation field:
+  - `ActionPlanId`
+  - `IntentId`
+  - `LocalActionIndex`
+  - `SourceActionPlanId`
+  - `EffectSequence`
+- canonical runtime reader는 plan-level correlation에서 `GroupId`가 아니라 `ActionPlanId` 계열을 사용한다.
+- `GroupId` / `SourceActionGroupId` wording은 compatibility diagnostics surface일 뿐 canonical rule text가 아니다.

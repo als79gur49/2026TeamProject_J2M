@@ -217,6 +217,21 @@
   - public query/command/authoring/debug API, reservation export schema, serialized/import/save schema, finalize legality recomputation은 이번 단계에서 건드리지 않는다.
   - current wall-pass enemy가 성공해도 generalized phase movement, pathfinding expansion, terminal phase settle, non-claim occupancy의 evidence가 되지 않는다.
 
+## Correlation Contract
+- post-plan runtime/canonical carrier의 plan-level correlation key는 `ActionPlanId`다.
+- `GroupId`는 `ActionGroup` compatibility IR vocabulary이며 canonical result carrier name이 아니다.
+- canonical provenance field:
+  - `DamageResolutionRecord.ActionPlanId`
+  - `DestroyResolutionRecord.ActionPlanId`
+  - `DelayedAttackEffectRecord.SourceActionPlanId`
+  - `ResolutionRecord.ActionPlanId`
+  - `FinalizationOperationMetadata.ActionPlanId`
+- semantic field와 provenance metadata는 분리해서 해석한다.
+  - semantic result 예: `SourceId`, `SourceKind`, `TargetId`, `Amount`, `Accepted`, `RejectReason`
+  - provenance/correlation 예: `ActionPlanId`, `IntentId`, `LocalActionIndex`, `EffectSequence`
+- `IntentId`는 deterministic ordering, resolver dedupe, payload/finalization metadata, diagnostics correlation에 남는 canonical internal ID다.
+- `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 migration compatibility alias이며 새 runtime reader가 직접 읽어서는 안 된다.
+
 ## Occupancy And Queries
 - 현재 authoritative occupancy storage는 `WorldState`의 세 레이어다.
   - `_stackedUnitsByCell`
