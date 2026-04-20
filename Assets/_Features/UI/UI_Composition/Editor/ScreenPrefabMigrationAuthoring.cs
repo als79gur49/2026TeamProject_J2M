@@ -51,6 +51,15 @@ namespace Game.Feature.UI.Editor
             AssetDatabase.Refresh();
         }
 
+        [MenuItem("Game/UI/Rebuild Settings Screen Prefab")]
+        public static void RebuildSettingsScreenPrefabOnly()
+        {
+            EnsureFolderExists(PrefabDirectoryPath);
+            SavePrefab(BuildSettingsScreenPrefab(), SettingsScreenPrefabPath);
+            AssetDatabase.ImportAsset(SettingsScreenPrefabPath, ImportAssetOptions.ForceSynchronousImport);
+            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+        }
+
         private static GameObject BuildGameplayScreenPrefab()
         {
             var root = CreateScreenPanel<GameplayScreenView>(
@@ -254,18 +263,52 @@ namespace Game.Feature.UI.Editor
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
                 new Vector2(0.5f, 1f),
-                new Vector2(460f, 360f),
+                new Vector2(460f, 600f),
                 new Vector2(0f, -20f),
                 out var view);
             var rootRect = root.GetComponent<RectTransform>();
 
             var title = CreateLabel("Title", rootRect, new Vector2(16f, -16f), new Vector2(428f, 24f), TextAnchor.MiddleCenter, 18);
-            var tooltipStatus = CreateLabel("TooltipStatus", rootRect, new Vector2(24f, -214f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
-            var tooltipInfo = CreateButton("TooltipInfo", rootRect, "i", new Vector2(188f, -208f), new Vector2(24f, 28f));
-            var tooltipToggle = CreateButton("TooltipToggle", rootRect, "Toggle Tooltips", new Vector2(220f, -208f), new Vector2(140f, 28f));
-            var largeTextStatus = CreateLabel("LargeTextStatus", rootRect, new Vector2(24f, -260f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
-            var largeTextToggle = CreateButton("LargeTextToggle", rootRect, "Toggle Large Text", new Vector2(220f, -254f), new Vector2(140f, 28f));
-            var back = CreateButton("BackButton", rootRect, "Back", new Vector2(181f, -316f), new Vector2(98f, 30f));
+
+            var audioSection = CreatePanel(
+                SettingsScreenView.AudioSectionName,
+                rootRect,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(412f, 124f),
+                new Vector2(24f, -58f));
+            var audioView = audioSection.gameObject.AddComponent<SettingsAudioView>();
+            var mainRow = CreateAudioRow("MainAudioRow", audioSection, new Vector2(0f, 0f));
+            var bgmRow = CreateAudioRow("BgmAudioRow", audioSection, new Vector2(0f, -46f));
+            var sfxRow = CreateAudioRow("SfxAudioRow", audioSection, new Vector2(0f, -92f));
+
+            var displaySection = CreatePanel(
+                SettingsScreenView.DisplaySectionName,
+                rootRect,
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(0f, 1f),
+                new Vector2(412f, 248f),
+                new Vector2(24f, -194f));
+            var displayView = displaySection.gameObject.AddComponent<SettingsDisplayView>();
+            var displaySectionTitle = CreateLabel("DisplaySectionTitle", displaySection, new Vector2(0f, 0f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
+            var currentDisplayLabel = CreateLabel("CurrentDisplayLabel", displaySection, new Vector2(0f, -32f), new Vector2(120f, 22f), TextAnchor.MiddleLeft, 14);
+            var currentDisplayValue = CreateLabel("CurrentDisplayValue", displaySection, new Vector2(132f, -32f), new Vector2(256f, 22f), TextAnchor.MiddleLeft, 14);
+            var resolutionLabel = CreateLabel("ResolutionLabel", displaySection, new Vector2(0f, -70f), new Vector2(120f, 22f), TextAnchor.MiddleLeft, 14);
+            var resolutionDropdown = CreateResolutionDropdown("ResolutionDropdown", displaySection, new Vector2(132f, -64f), new Vector2(204f, 30f));
+            var fullscreenLabel = CreateLabel("FullscreenLabel", displaySection, new Vector2(0f, -110f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 14);
+            var fullscreenToggle = CreateStandaloneToggle("FullscreenToggle", displaySection, "On", new Vector2(196f, -104f), new Vector2(140f, 28f));
+            var displayStatus = CreateLabel("DisplayStatus", displaySection, new Vector2(0f, -152f), new Vector2(388f, 44f), TextAnchor.UpperLeft, 12);
+            var applyButton = CreateButton("DisplayApplyButton", displaySection, "Apply", new Vector2(74f, -208f), new Vector2(104f, 30f));
+            var revertButton = CreateButton("DisplayRevertButton", displaySection, "Revert", new Vector2(220f, -208f), new Vector2(104f, 30f));
+
+            var tooltipStatus = CreateLabel("TooltipStatus", rootRect, new Vector2(24f, -458f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
+            var tooltipInfo = CreateButton("TooltipInfo", rootRect, "i", new Vector2(188f, -452f), new Vector2(24f, 28f));
+            var tooltipToggle = CreateButton("TooltipToggle", rootRect, "Toggle Tooltips", new Vector2(220f, -452f), new Vector2(140f, 28f));
+            var largeTextStatus = CreateLabel("LargeTextStatus", rootRect, new Vector2(24f, -504f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 15);
+            var largeTextToggle = CreateButton("LargeTextToggle", rootRect, "Toggle Large Text", new Vector2(220f, -498f), new Vector2(140f, 28f));
+            var back = CreateButton("BackButton", rootRect, "Back", new Vector2(181f, -554f), new Vector2(98f, 30f));
 
             SetField(view, "_root", root);
             SetField(view, "_titleLabel", title);
@@ -278,6 +321,25 @@ namespace Game.Feature.UI.Editor
             SetField(view, "_tooltipToggleButtonLabel", tooltipToggle.Label);
             SetField(view, "_largeTextToggleButtonLabel", largeTextToggle.Label);
             SetField(view, "_backButtonLabel", back.Label);
+            SetField(view, "_audioView", audioView);
+            SetField(view, "_displayView", displayView);
+
+            SetField(audioView, "_mainRow", CreateAudioRowRefs(mainRow));
+            SetField(audioView, "_bgmRow", CreateAudioRowRefs(bgmRow));
+            SetField(audioView, "_sfxRow", CreateAudioRowRefs(sfxRow));
+
+            SetField(displayView, "_sectionTitle", displaySectionTitle);
+            SetField(displayView, "_currentDisplayLabel", currentDisplayLabel);
+            SetField(displayView, "_currentDisplayValue", currentDisplayValue);
+            SetField(displayView, "_resolutionLabel", resolutionLabel);
+            SetField(displayView, "_resolutionDropdown", resolutionDropdown);
+            SetField(displayView, "_fullscreenLabel", fullscreenLabel);
+            SetField(displayView, "_fullscreenToggle", fullscreenToggle.Toggle);
+            SetField(displayView, "_displayStatusLabel", displayStatus);
+            SetField(displayView, "_applyButton", applyButton.Button);
+            SetField(displayView, "_applyButtonLabel", applyButton.Label);
+            SetField(displayView, "_revertButton", revertButton.Button);
+            SetField(displayView, "_revertButtonLabel", revertButton.Label);
             return root;
         }
 
@@ -484,6 +546,288 @@ namespace Game.Feature.UI.Editor
             return new ButtonParts(button, text);
         }
 
+        private static AudioRowParts CreateAudioRow(string name, RectTransform parent, Vector2 anchoredPosition)
+        {
+            var rowObject = new GameObject(name, typeof(RectTransform));
+            rowObject.transform.SetParent(parent, false);
+
+            var rowRect = rowObject.GetComponent<RectTransform>();
+            rowRect.anchorMin = new Vector2(0f, 1f);
+            rowRect.anchorMax = new Vector2(0f, 1f);
+            rowRect.pivot = new Vector2(0f, 1f);
+            rowRect.sizeDelta = new Vector2(412f, 32f);
+            rowRect.anchoredPosition = anchoredPosition;
+
+            var rowLabel = CreateLabel("Label", rowRect, Vector2.zero, new Vector2(116f, 24f), TextAnchor.MiddleLeft, 14);
+            var sliderParts = CreateAudioSlider(rowRect, new Vector2(126f, -2f), new Vector2(172f, 20f));
+            var valueLabel = CreateLabel("Value", rowRect, new Vector2(306f, 0f), new Vector2(54f, 24f), TextAnchor.MiddleCenter, 13);
+            var muteToggle = CreateMuteToggle("MuteToggle", rowRect, new Vector2(362f, -2f), new Vector2(50f, 24f));
+
+            return new AudioRowParts(rowRect, rowLabel, valueLabel, sliderParts.Slider, muteToggle.Toggle, sliderParts.Relay);
+        }
+
+        private static SliderParts CreateAudioSlider(RectTransform parent, Vector2 anchoredPosition, Vector2 sizeDelta)
+        {
+            var sliderObject = new GameObject("Slider", typeof(RectTransform), typeof(Image), typeof(Slider));
+            sliderObject.transform.SetParent(parent, false);
+
+            var sliderRect = sliderObject.GetComponent<RectTransform>();
+            sliderRect.anchorMin = new Vector2(0f, 1f);
+            sliderRect.anchorMax = new Vector2(0f, 1f);
+            sliderRect.pivot = new Vector2(0f, 1f);
+            sliderRect.anchoredPosition = anchoredPosition;
+            sliderRect.sizeDelta = sizeDelta;
+
+            var sliderBackground = sliderObject.GetComponent<Image>();
+            sliderBackground.color = new Color(0.12f, 0.16f, 0.21f, 1f);
+
+            var fillArea = new GameObject("Fill Area", typeof(RectTransform));
+            fillArea.transform.SetParent(sliderObject.transform, false);
+            var fillAreaRect = fillArea.GetComponent<RectTransform>();
+            fillAreaRect.anchorMin = new Vector2(0f, 0f);
+            fillAreaRect.anchorMax = new Vector2(1f, 1f);
+            fillAreaRect.offsetMin = new Vector2(8f, 6f);
+            fillAreaRect.offsetMax = new Vector2(-8f, -6f);
+
+            var fill = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fill.transform.SetParent(fillArea.transform, false);
+            var fillRect = fill.GetComponent<RectTransform>();
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(1f, 1f);
+            fillRect.offsetMin = Vector2.zero;
+            fillRect.offsetMax = Vector2.zero;
+            fill.GetComponent<Image>().color = new Color(0.24f, 0.68f, 0.87f, 1f);
+
+            var handleArea = new GameObject("Handle Slide Area", typeof(RectTransform));
+            handleArea.transform.SetParent(sliderObject.transform, false);
+            var handleAreaRect = handleArea.GetComponent<RectTransform>();
+            handleAreaRect.anchorMin = new Vector2(0f, 0f);
+            handleAreaRect.anchorMax = new Vector2(1f, 1f);
+            handleAreaRect.offsetMin = new Vector2(8f, 0f);
+            handleAreaRect.offsetMax = new Vector2(-8f, 0f);
+
+            var handle = new GameObject("Handle", typeof(RectTransform), typeof(Image), typeof(SettingsSliderInteractionRelay));
+            handle.transform.SetParent(handleArea.transform, false);
+            var handleRect = handle.GetComponent<RectTransform>();
+            handleRect.sizeDelta = new Vector2(12f, 20f);
+            handle.GetComponent<Image>().color = Color.white;
+
+            var slider = sliderObject.GetComponent<Slider>();
+            slider.direction = Slider.Direction.LeftToRight;
+            slider.minValue = 0f;
+            slider.maxValue = 1f;
+            slider.fillRect = fillRect;
+            slider.handleRect = handleRect;
+            slider.targetGraphic = handle.GetComponent<Image>();
+            slider.value = 1f;
+
+            return new SliderParts(slider, handle.GetComponent<SettingsSliderInteractionRelay>());
+        }
+
+        private static ToggleParts CreateMuteToggle(string name, RectTransform parent, Vector2 anchoredPosition, Vector2 sizeDelta)
+        {
+            var toggleObject = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+            toggleObject.transform.SetParent(parent, false);
+
+            var toggleRect = toggleObject.GetComponent<RectTransform>();
+            toggleRect.anchorMin = new Vector2(0f, 1f);
+            toggleRect.anchorMax = new Vector2(0f, 1f);
+            toggleRect.pivot = new Vector2(0f, 1f);
+            toggleRect.anchoredPosition = anchoredPosition;
+            toggleRect.sizeDelta = sizeDelta;
+
+            var backgroundObject = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            backgroundObject.transform.SetParent(toggleObject.transform, false);
+            var backgroundRect = backgroundObject.GetComponent<RectTransform>();
+            backgroundRect.anchorMin = new Vector2(0f, 0.5f);
+            backgroundRect.anchorMax = new Vector2(0f, 0.5f);
+            backgroundRect.pivot = new Vector2(0f, 0.5f);
+            backgroundRect.anchoredPosition = Vector2.zero;
+            backgroundRect.sizeDelta = new Vector2(18f, 18f);
+            var backgroundImage = backgroundObject.GetComponent<Image>();
+            backgroundImage.color = new Color(0.20f, 0.25f, 0.34f, 1f);
+
+            var checkmarkObject = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+            checkmarkObject.transform.SetParent(backgroundObject.transform, false);
+            var checkmarkRect = checkmarkObject.GetComponent<RectTransform>();
+            checkmarkRect.anchorMin = new Vector2(0.2f, 0.2f);
+            checkmarkRect.anchorMax = new Vector2(0.8f, 0.8f);
+            checkmarkRect.offsetMin = Vector2.zero;
+            checkmarkRect.offsetMax = Vector2.zero;
+            var checkmarkImage = checkmarkObject.GetComponent<Image>();
+            checkmarkImage.color = new Color(0.24f, 0.68f, 0.87f, 1f);
+
+            var label = CreateLabel("Label", toggleRect, new Vector2(22f, 0f), new Vector2(28f, 24f), TextAnchor.MiddleLeft, 12);
+            label.text = "Mute";
+
+            var toggle = toggleObject.GetComponent<Toggle>();
+            toggle.targetGraphic = backgroundImage;
+            toggle.graphic = checkmarkImage;
+
+            return new ToggleParts(toggle);
+        }
+
+        private static Dropdown CreateResolutionDropdown(string name, RectTransform parent, Vector2 anchoredPosition, Vector2 sizeDelta)
+        {
+            var dropdownObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Dropdown));
+            dropdownObject.transform.SetParent(parent, false);
+
+            var dropdownRect = dropdownObject.GetComponent<RectTransform>();
+            dropdownRect.anchorMin = new Vector2(0f, 1f);
+            dropdownRect.anchorMax = new Vector2(0f, 1f);
+            dropdownRect.pivot = new Vector2(0f, 1f);
+            dropdownRect.anchoredPosition = anchoredPosition;
+            dropdownRect.sizeDelta = sizeDelta;
+
+            var backgroundImage = dropdownObject.GetComponent<Image>();
+            backgroundImage.color = new Color(0.14f, 0.18f, 0.26f, 1f);
+
+            var caption = CreateLabel("Label", dropdownRect, new Vector2(8f, -4f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 13);
+            var arrow = CreateLabel("Arrow", dropdownRect, new Vector2(172f, -4f), new Vector2(24f, 22f), TextAnchor.MiddleCenter, 14);
+            arrow.text = "v";
+
+            var templateObject = new GameObject("Template", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
+            templateObject.transform.SetParent(dropdownRect, false);
+            templateObject.SetActive(false);
+
+            var templateRect = templateObject.GetComponent<RectTransform>();
+            templateRect.anchorMin = new Vector2(0f, 1f);
+            templateRect.anchorMax = new Vector2(1f, 1f);
+            templateRect.pivot = new Vector2(0.5f, 1f);
+            templateRect.anchoredPosition = new Vector2(0f, -32f);
+            templateRect.sizeDelta = new Vector2(0f, 120f);
+            templateObject.GetComponent<Image>().color = new Color(0.12f, 0.16f, 0.21f, 1f);
+
+            var viewportObject = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewportObject.transform.SetParent(templateRect, false);
+            var viewportRect = viewportObject.GetComponent<RectTransform>();
+            Stretch(viewportRect);
+            viewportObject.GetComponent<Image>().color = new Color(0.12f, 0.16f, 0.21f, 0.98f);
+            viewportObject.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentObject = new GameObject("Content", typeof(RectTransform));
+            contentObject.transform.SetParent(viewportRect, false);
+            var contentRect = contentObject.GetComponent<RectTransform>();
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.anchoredPosition = Vector2.zero;
+            contentRect.sizeDelta = new Vector2(0f, 24f);
+
+            var itemObject = new GameObject("Item", typeof(RectTransform), typeof(Toggle));
+            itemObject.transform.SetParent(contentRect, false);
+            var itemRect = itemObject.GetComponent<RectTransform>();
+            itemRect.anchorMin = new Vector2(0f, 1f);
+            itemRect.anchorMax = new Vector2(1f, 1f);
+            itemRect.pivot = new Vector2(0.5f, 1f);
+            itemRect.anchoredPosition = Vector2.zero;
+            itemRect.sizeDelta = new Vector2(0f, 24f);
+
+            var itemBackgroundObject = new GameObject("Item Background", typeof(RectTransform), typeof(Image));
+            itemBackgroundObject.transform.SetParent(itemRect, false);
+            var itemBackgroundRect = itemBackgroundObject.GetComponent<RectTransform>();
+            Stretch(itemBackgroundRect);
+            var itemBackgroundImage = itemBackgroundObject.GetComponent<Image>();
+            itemBackgroundImage.color = new Color(0.16f, 0.21f, 0.30f, 1f);
+
+            var itemCheckmarkObject = new GameObject("Item Checkmark", typeof(RectTransform), typeof(Image));
+            itemCheckmarkObject.transform.SetParent(itemRect, false);
+            var itemCheckmarkRect = itemCheckmarkObject.GetComponent<RectTransform>();
+            itemCheckmarkRect.anchorMin = new Vector2(0f, 0.5f);
+            itemCheckmarkRect.anchorMax = new Vector2(0f, 0.5f);
+            itemCheckmarkRect.pivot = new Vector2(0f, 0.5f);
+            itemCheckmarkRect.anchoredPosition = new Vector2(8f, 0f);
+            itemCheckmarkRect.sizeDelta = new Vector2(16f, 16f);
+            var itemCheckmarkImage = itemCheckmarkObject.GetComponent<Image>();
+            itemCheckmarkImage.color = new Color(0.24f, 0.68f, 0.87f, 1f);
+
+            var itemLabel = CreateLabel("Item Label", itemRect, new Vector2(30f, -2f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 13);
+
+            var itemToggle = itemObject.GetComponent<Toggle>();
+            itemToggle.targetGraphic = itemBackgroundImage;
+            itemToggle.graphic = itemCheckmarkImage;
+
+            var scrollRect = templateObject.GetComponent<ScrollRect>();
+            scrollRect.content = contentRect;
+            scrollRect.viewport = viewportRect;
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+
+            var dropdown = dropdownObject.GetComponent<Dropdown>();
+            dropdown.targetGraphic = backgroundImage;
+            dropdown.template = templateRect;
+            dropdown.captionText = caption;
+            dropdown.itemText = itemLabel;
+
+            return dropdown;
+        }
+
+        private static ToggleParts CreateStandaloneToggle(string name, RectTransform parent, string stateLabelText, Vector2 anchoredPosition, Vector2 sizeDelta)
+        {
+            var toggleObject = new GameObject(name, typeof(RectTransform), typeof(Toggle));
+            toggleObject.transform.SetParent(parent, false);
+
+            var toggleRect = toggleObject.GetComponent<RectTransform>();
+            toggleRect.anchorMin = new Vector2(0f, 1f);
+            toggleRect.anchorMax = new Vector2(0f, 1f);
+            toggleRect.pivot = new Vector2(0f, 1f);
+            toggleRect.anchoredPosition = anchoredPosition;
+            toggleRect.sizeDelta = sizeDelta;
+
+            var backgroundObject = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            backgroundObject.transform.SetParent(toggleObject.transform, false);
+            var backgroundRect = backgroundObject.GetComponent<RectTransform>();
+            backgroundRect.anchorMin = new Vector2(0f, 0.5f);
+            backgroundRect.anchorMax = new Vector2(0f, 0.5f);
+            backgroundRect.pivot = new Vector2(0f, 0.5f);
+            backgroundRect.anchoredPosition = Vector2.zero;
+            backgroundRect.sizeDelta = new Vector2(18f, 18f);
+            var backgroundImage = backgroundObject.GetComponent<Image>();
+            backgroundImage.color = new Color(0.20f, 0.25f, 0.34f, 1f);
+
+            var checkmarkObject = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
+            checkmarkObject.transform.SetParent(backgroundObject.transform, false);
+            var checkmarkRect = checkmarkObject.GetComponent<RectTransform>();
+            checkmarkRect.anchorMin = new Vector2(0.2f, 0.2f);
+            checkmarkRect.anchorMax = new Vector2(0.8f, 0.8f);
+            checkmarkRect.offsetMin = Vector2.zero;
+            checkmarkRect.offsetMax = Vector2.zero;
+            var checkmarkImage = checkmarkObject.GetComponent<Image>();
+            checkmarkImage.color = new Color(0.24f, 0.68f, 0.87f, 1f);
+
+            var label = CreateLabel("Label", toggleRect, new Vector2(22f, 0f), new Vector2(98f, 24f), TextAnchor.MiddleLeft, 12);
+            label.text = stateLabelText;
+
+            var toggle = toggleObject.GetComponent<Toggle>();
+            toggle.targetGraphic = backgroundImage;
+            toggle.graphic = checkmarkImage;
+
+            return new ToggleParts(toggle);
+        }
+
+        private static object CreateAudioRowRefs(AudioRowParts rowParts)
+        {
+            var rowRefsType = typeof(SettingsAudioView).GetNestedType("AudioControlRowRefs", BindingFlags.NonPublic);
+            if (rowRefsType == null)
+            {
+                throw new InvalidOperationException("SettingsAudioView is missing authored audio row metadata type.");
+            }
+
+            var rowRefs = Activator.CreateInstance(rowRefsType, nonPublic: true);
+            if (rowRefs == null)
+            {
+                throw new InvalidOperationException("Unable to instantiate SettingsAudioView authored audio row metadata.");
+            }
+
+            SetField(rowRefs, "_rowRoot", rowParts.RowRoot);
+            SetField(rowRefs, "_label", rowParts.Label);
+            SetField(rowRefs, "_value", rowParts.Value);
+            SetField(rowRefs, "_slider", rowParts.Slider);
+            SetField(rowRefs, "_toggle", rowParts.Toggle);
+            SetField(rowRefs, "_interactionRelay", rowParts.InteractionRelay);
+            return rowRefs;
+        }
+
         private static void SavePrefab(GameObject root, string assetPath)
         {
             try
@@ -570,6 +914,60 @@ namespace Game.Feature.UI.Editor
             public Button Button { get; }
 
             public Text Label { get; }
+        }
+
+        private readonly struct AudioRowParts
+        {
+            public AudioRowParts(
+                RectTransform rowRoot,
+                Text label,
+                Text value,
+                Slider slider,
+                Toggle toggle,
+                SettingsSliderInteractionRelay interactionRelay)
+            {
+                RowRoot = rowRoot;
+                Label = label;
+                Value = value;
+                Slider = slider;
+                Toggle = toggle;
+                InteractionRelay = interactionRelay;
+            }
+
+            public RectTransform RowRoot { get; }
+
+            public Text Label { get; }
+
+            public Text Value { get; }
+
+            public Slider Slider { get; }
+
+            public Toggle Toggle { get; }
+
+            public SettingsSliderInteractionRelay InteractionRelay { get; }
+        }
+
+        private readonly struct SliderParts
+        {
+            public SliderParts(Slider slider, SettingsSliderInteractionRelay relay)
+            {
+                Slider = slider;
+                Relay = relay;
+            }
+
+            public Slider Slider { get; }
+
+            public SettingsSliderInteractionRelay Relay { get; }
+        }
+
+        private readonly struct ToggleParts
+        {
+            public ToggleParts(Toggle toggle)
+            {
+                Toggle = toggle;
+            }
+
+            public Toggle Toggle { get; }
         }
     }
 }

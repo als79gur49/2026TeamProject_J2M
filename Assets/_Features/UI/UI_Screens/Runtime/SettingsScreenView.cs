@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,15 @@ namespace Game.Feature.UI.Screens
 {
     public sealed class SettingsScreenView : MonoBehaviour, IScreenView
     {
+        public const string AudioSectionName = "SettingsAudioSection";
+        public const string DisplaySectionName = "SettingsDisplaySection";
+
+        private const string MissingAudioSectionMessage =
+            "Settings screen is missing or miswired required authored audio section. Repair: assign SettingsScreenView._audioView to the SettingsAudioSection child view.";
+
+        private const string MissingDisplaySectionMessage =
+            "Settings screen is missing or miswired required authored display section. Repair: assign SettingsScreenView._displayView to the SettingsDisplaySection child view.";
+
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _tooltipStatusLabel;
@@ -17,9 +27,9 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Text _tooltipToggleButtonLabel;
         [SerializeField] private Text _largeTextToggleButtonLabel;
         [SerializeField] private Text _backButtonLabel;
+        [SerializeField] private SettingsAudioView _audioView;
+        [SerializeField] private SettingsDisplayView _displayView;
 
-        private SettingsAudioView _audioView;
-        private SettingsDisplayView _displayView;
         private bool _isVisible;
         private SettingsScreenViewModel _viewModel;
 
@@ -59,9 +69,9 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        public SettingsAudioView AudioView => EnsureAudioView();
+        public SettingsAudioView AudioView => _audioView;
 
-        public SettingsDisplayView DisplayView => EnsureDisplayView();
+        public SettingsDisplayView DisplayView => _displayView;
 
         public void Bind(SettingsScreenViewModel viewModel)
         {
@@ -79,6 +89,12 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
+        public void ValidateAuthoredStructureOrThrow()
+        {
+            ValidateSection(_audioView, nameof(_audioView), AudioSectionName, MissingAudioSectionMessage);
+            ValidateSection(_displayView, nameof(_displayView), DisplaySectionName, MissingDisplaySectionMessage);
+        }
+
         public void SetIsCurrent(bool isCurrent)
         {
             IsVisible = isCurrent;
@@ -94,6 +110,7 @@ namespace Game.Feature.UI.Screens
             BackRequested?.Invoke();
         }
 
+        // Temporary compatibility passthroughs only; no section-local logic belongs here.
         public void ClickDisplayApply()
         {
             if (!IsVisible || DisplayView == null)
@@ -196,7 +213,6 @@ namespace Game.Feature.UI.Screens
 
         private void OnEnable()
         {
-            EnsureSectionViews();
             RebindButton(_tooltipInfoButton, ClickTooltipInfo);
             RebindButton(_tooltipToggleButton, ClickTooltipToggle);
             RebindButton(_largeTextToggleButton, ClickLargeTextToggle);
@@ -226,6 +242,8 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_tooltipToggleButtonLabel, nameof(_tooltipToggleButtonLabel));
             ValidateSerializedReference(_largeTextToggleButtonLabel, nameof(_largeTextToggleButtonLabel));
             ValidateSerializedReference(_backButtonLabel, nameof(_backButtonLabel));
+            ValidateSerializedReference(_audioView, nameof(_audioView));
+            ValidateSerializedReference(_displayView, nameof(_displayView));
         }
 #endif
 
@@ -237,64 +255,6 @@ namespace Game.Feature.UI.Screens
             }
         }
 
-        private SettingsAudioView EnsureAudioView()
-        {
-            if (_audioView != null)
-            {
-                return _audioView;
-            }
-
-            var audioRoot = EnsureSectionRoot("SettingsAudioSection");
-            if (audioRoot == null)
-            {
-                return null;
-            }
-
-            _audioView = audioRoot.GetComponent<SettingsAudioView>() ?? audioRoot.gameObject.AddComponent<SettingsAudioView>();
-            return _audioView;
-        }
-
-        private SettingsDisplayView EnsureDisplayView()
-        {
-            if (_displayView != null)
-            {
-                return _displayView;
-            }
-
-            var displayRoot = EnsureSectionRoot("SettingsDisplaySection");
-            if (displayRoot == null)
-            {
-                return null;
-            }
-
-            _displayView = displayRoot.GetComponent<SettingsDisplayView>() ?? displayRoot.gameObject.AddComponent<SettingsDisplayView>();
-            return _displayView;
-        }
-
-        private RectTransform EnsureSectionRoot(string objectName)
-        {
-            if (_root == null)
-            {
-                return null;
-            }
-
-            var sectionRoot = _root.transform.Find(objectName) as RectTransform;
-            if (sectionRoot != null)
-            {
-                return sectionRoot;
-            }
-
-            var sectionObject = new GameObject(objectName, typeof(RectTransform));
-            sectionObject.transform.SetParent(_root.transform, false);
-            return sectionObject.GetComponent<RectTransform>();
-        }
-
-        private void EnsureSectionViews()
-        {
-            EnsureAudioView();
-            EnsureDisplayView();
-        }
-
         private void HandleViewModelChanged()
         {
             RefreshView();
@@ -302,8 +262,6 @@ namespace Game.Feature.UI.Screens
 
         private void RefreshView()
         {
-            EnsureSectionViews();
-
             if (_audioView != null)
             {
                 _audioView.SetIsVisible(IsVisible);
@@ -382,6 +340,43 @@ namespace Game.Feature.UI.Screens
             LayoutRect(_largeTextStatusLabel != null ? _largeTextStatusLabel.rectTransform : null, new Vector2(24f, -504f), new Vector2(160f, 22f));
             LayoutRect(_largeTextToggleButton != null ? _largeTextToggleButton.GetComponent<RectTransform>() : null, new Vector2(220f, -498f), new Vector2(140f, 28f));
             LayoutRect(_backButton != null ? _backButton.GetComponent<RectTransform>() : null, new Vector2(181f, -554f), new Vector2(98f, 30f));
+        }
+
+        private void ValidateSection(Component sectionView, string fieldName, string expectedSectionName, string baseMessage)
+        {
+            var issues = new List<string>();
+            var expectedParent = _root != null ? _root.transform : transform;
+
+            if (sectionView == null)
+            {
+                issues.Add($"serialized reference '{fieldName}' is not assigned");
+                throw new InvalidOperationException(BuildValidationMessage(baseMessage, issues));
+            }
+
+            if (!string.Equals(sectionView.name, expectedSectionName, StringComparison.Ordinal))
+            {
+                issues.Add($"serialized reference '{fieldName}' resolved '{sectionView.name}' instead of '{expectedSectionName}'");
+            }
+
+            if (sectionView.transform.parent != expectedParent)
+            {
+                issues.Add($"'{expectedSectionName}' must remain a direct child of '{expectedParent.name}'");
+            }
+
+            if (issues.Count > 0)
+            {
+                throw new InvalidOperationException(BuildValidationMessage(baseMessage, issues));
+            }
+        }
+
+        private static string BuildValidationMessage(string baseMessage, IReadOnlyList<string> issues)
+        {
+            if (issues == null || issues.Count == 0)
+            {
+                return baseMessage;
+            }
+
+            return $"{baseMessage} Details: {string.Join("; ", issues)}.";
         }
 
         private static void LayoutRect(RectTransform rectTransform, Vector2 anchoredPosition, Vector2 sizeDelta)

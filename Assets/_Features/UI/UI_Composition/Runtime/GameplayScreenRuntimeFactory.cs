@@ -151,11 +151,9 @@ namespace Game.Feature.UI.Composition
         {
             var presenter = new SettingsScreenPresenter(_accessibilitySettingsStore, _audioSettingsPort, _displaySettingsPort);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.SettingsPrefab, ScreenId.Settings);
-            if (view.AudioView == null || view.DisplayView == null)
-            {
-                throw new InvalidOperationException(
-                    "Settings screen runtime could not establish required section child views.");
-            }
+            view.ValidateAuthoredStructureOrThrow();
+            view.AudioView.ValidateAuthoredControlsOrThrow();
+            view.DisplayView.ValidateAuthoredControlsOrThrow();
 
             view.Bind(presenter.ViewModel);
             view.AudioView.Bind(presenter.AudioPresenter.ViewModel);
