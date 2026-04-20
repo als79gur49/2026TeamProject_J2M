@@ -13,6 +13,7 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
+using Game.Shared.Display;
 using NUnit.Framework;
 
 namespace Game.Feature.UI.Tests
@@ -81,6 +82,25 @@ namespace Game.Feature.UI.Tests
                 .Select(reference => reference.Name)
                 .ToArray();
             Assert.That(compositionReferences, Does.Contain(sharedAudioAssemblyName));
+        }
+
+        [Test]
+        public void OnlyCompositionUiAssemblyReferencesSharedDisplayAssembly()
+        {
+            var sharedDisplayAssemblyName = typeof(IDisplaySettingsService).Assembly.GetName().Name;
+            var compositionAssembly = typeof(GameplayUiFlowInstaller).Assembly;
+
+            foreach (var assembly in GetRuntimeUiAssemblies().Where(assembly => assembly != compositionAssembly))
+            {
+                var references = assembly.GetReferencedAssemblies().Select(reference => reference.Name).ToArray();
+                Assert.That(references, Does.Not.Contain(sharedDisplayAssemblyName), assembly.GetName().Name);
+            }
+
+            var compositionReferences = compositionAssembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+            Assert.That(compositionReferences, Does.Contain(sharedDisplayAssemblyName));
         }
 
         [Test]
@@ -843,10 +863,17 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload)",
+                    "ApplyStagedDisplaySettings()",
                     "BuildTooltipInfoPayload()",
+                    "CancelDisplayPreview()",
+                    "ConfirmDisplayPreview()",
                     "FlushAudioSettings()",
+                    "ResetStagedDisplayToCurrent()",
+                    "ResyncDisplayState()",
                     "SetAudioMuted(AudioSettingsChannel, Boolean)",
                     "SetAudioVolume(AudioSettingsChannel, Single)",
+                    "StageResolution(Int32)",
+                    "StageWindowMode(DisplayWindowMode)",
                     "ToggleLargeText()",
                     "ToggleTooltips()",
                 }));
@@ -854,7 +881,7 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort)",
+                    "SettingsScreenPresenter(AccessibilitySettingsStore, IAudioSettingsPort, IDisplaySettingsPort)",
                 }));
         }
 

@@ -179,6 +179,149 @@ namespace Game.Feature.UI.Tests
         }
     }
 
+    internal sealed class FakeDisplaySettingsPort : IDisplaySettingsPort
+    {
+        private readonly List<DisplaySettingsPortModeOption> _availableModes = new()
+        {
+            new DisplaySettingsPortModeOption(1920, 1080, "1920 x 1080"),
+            new DisplaySettingsPortModeOption(1600, 900, "1600 x 900"),
+            new DisplaySettingsPortModeOption(1280, 720, "1280 x 720"),
+        };
+
+        private DisplaySettingsPortPreviewRequest _lastPreviewRequest;
+        private bool _hasPreviewRequest;
+
+        public int BeginPreviewCallCount { get; private set; }
+
+        public int CommitPreviewCallCount { get; private set; }
+
+        public int RevertPreviewCallCount { get; private set; }
+
+        public bool BeginPreviewResult { get; set; } = true;
+
+        public bool CommitPreviewResult { get; set; } = true;
+
+        public bool RevertPreviewResult { get; set; } = true;
+
+        public int CommittedModeIndex { get; private set; } = 0;
+
+        public DisplayWindowMode CommittedWindowMode { get; private set; } = DisplayWindowMode.Windowed;
+
+        public string CurrentRuntimeResolutionLabel { get; private set; } = "1920 x 1080";
+
+        public DisplayWindowMode CurrentRuntimeWindowMode { get; private set; } = DisplayWindowMode.Windowed;
+
+        public bool IsPreviewActive { get; private set; }
+
+        public DisplaySettingsPortPreviewRequest LastPreviewRequest => _lastPreviewRequest;
+
+        public DisplaySettingsPortSnapshot Read()
+        {
+            return new DisplaySettingsPortSnapshot(
+                _availableModes,
+                CommittedModeIndex,
+                CommittedWindowMode,
+                CurrentRuntimeResolutionLabel,
+                CurrentRuntimeWindowMode,
+                IsPreviewActive);
+        }
+
+        public bool BeginPreview(DisplaySettingsPortPreviewRequest request)
+        {
+            BeginPreviewCallCount++;
+            _lastPreviewRequest = request;
+            _hasPreviewRequest = true;
+            if (!BeginPreviewResult)
+            {
+                return false;
+            }
+
+            var clampedIndex = ClampIndex(request.ModeIndex);
+            IsPreviewActive = true;
+            CurrentRuntimeResolutionLabel = _availableModes[clampedIndex].LabelText;
+            CurrentRuntimeWindowMode = request.WindowMode;
+            return true;
+        }
+
+        public bool CommitPreview()
+        {
+            CommitPreviewCallCount++;
+            if (!CommitPreviewResult)
+            {
+                return false;
+            }
+
+            if (_hasPreviewRequest)
+            {
+                CommittedModeIndex = ClampIndex(_lastPreviewRequest.ModeIndex);
+                CommittedWindowMode = _lastPreviewRequest.WindowMode;
+                CurrentRuntimeResolutionLabel = _availableModes[CommittedModeIndex].LabelText;
+                CurrentRuntimeWindowMode = CommittedWindowMode;
+            }
+
+            IsPreviewActive = false;
+            return true;
+        }
+
+        public bool RevertPreview()
+        {
+            RevertPreviewCallCount++;
+            if (!RevertPreviewResult)
+            {
+                return false;
+            }
+
+            IsPreviewActive = false;
+            CurrentRuntimeResolutionLabel = _availableModes[CommittedModeIndex].LabelText;
+            CurrentRuntimeWindowMode = CommittedWindowMode;
+            return true;
+        }
+
+        public void SetCommittedState(int modeIndex, DisplayWindowMode windowMode)
+        {
+            CommittedModeIndex = ClampIndex(modeIndex);
+            CommittedWindowMode = windowMode;
+            CurrentRuntimeResolutionLabel = _availableModes[CommittedModeIndex].LabelText;
+            CurrentRuntimeWindowMode = CommittedWindowMode;
+            IsPreviewActive = false;
+        }
+
+        public void SetRuntimeDrift(int modeIndex, DisplayWindowMode windowMode)
+        {
+            CurrentRuntimeResolutionLabel = _availableModes[ClampIndex(modeIndex)].LabelText;
+            CurrentRuntimeWindowMode = windowMode;
+        }
+
+        public void SetPreviewState(
+            int modeIndex,
+            DisplayWindowMode windowMode)
+        {
+            IsPreviewActive = true;
+            CurrentRuntimeResolutionLabel = _availableModes[ClampIndex(modeIndex)].LabelText;
+            CurrentRuntimeWindowMode = windowMode;
+        }
+
+        private int ClampIndex(int index)
+        {
+            if (_availableModes.Count == 0)
+            {
+                return 0;
+            }
+
+            if (index < 0)
+            {
+                return 0;
+            }
+
+            if (index >= _availableModes.Count)
+            {
+                return _availableModes.Count - 1;
+            }
+
+            return index;
+        }
+    }
+
     internal sealed class FakeGameplayQueryFacade : IGameplayQueryFacade
     {
         private readonly MutableObjectiveQuery _objectiveQuery;

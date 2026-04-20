@@ -5,6 +5,7 @@
 - It protects the frozen Stage 1-9 UI architecture by validating canonical runtime composition, representative runtime ownership, and terminal stage-clear routing under actual scene conditions.
 - It complements automated tests rather than replacing them.
 - It must stay architecture-focused and time-bounded. It is not a general gameplay QA pass and it must not drift into exploratory playtesting.
+- Claims about startup resolution flash, fullscreen/window correctness, and preview-window behavior require real-build manual validation; editor-only execution is insufficient evidence for those display-specific behaviors.
 
 ## 2. Preserved Strengths
 - Preserve the real-scene runtime focus in `TutorialScene` rather than converting this into an EditMode-only or architecture-redesign task.

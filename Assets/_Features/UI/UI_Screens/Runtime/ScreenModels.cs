@@ -243,6 +243,12 @@ namespace Game.Feature.UI.Screens
             "Main",
             "Background Music",
             "Effects",
+            "Display",
+            "Current Display",
+            "Resolution",
+            "Fullscreen Window",
+            "Apply",
+            "Revert",
             "Toggle Tooltips",
             "Toggle Large Text",
             "Back");
@@ -252,6 +258,12 @@ namespace Game.Feature.UI.Screens
             string mainAudioLabel,
             string bgmAudioLabel,
             string sfxAudioLabel,
+            string displaySectionTitle,
+            string currentDisplayLabel,
+            string resolutionLabel,
+            string fullscreenLabel,
+            string displayApplyLabel,
+            string displayRevertLabel,
             string tooltipToggleLabel,
             string largeTextToggleLabel,
             string backLabel)
@@ -260,6 +272,12 @@ namespace Game.Feature.UI.Screens
             MainAudioLabel = mainAudioLabel ?? string.Empty;
             BgmAudioLabel = bgmAudioLabel ?? string.Empty;
             SfxAudioLabel = sfxAudioLabel ?? string.Empty;
+            DisplaySectionTitle = displaySectionTitle ?? string.Empty;
+            CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
+            ResolutionLabel = resolutionLabel ?? string.Empty;
+            FullscreenLabel = fullscreenLabel ?? string.Empty;
+            DisplayApplyLabel = displayApplyLabel ?? string.Empty;
+            DisplayRevertLabel = displayRevertLabel ?? string.Empty;
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;
             LargeTextToggleLabel = largeTextToggleLabel ?? string.Empty;
             BackLabel = backLabel ?? string.Empty;
@@ -272,6 +290,18 @@ namespace Game.Feature.UI.Screens
         public string BgmAudioLabel { get; }
 
         public string SfxAudioLabel { get; }
+
+        public string DisplaySectionTitle { get; }
+
+        public string CurrentDisplayLabel { get; }
+
+        public string ResolutionLabel { get; }
+
+        public string FullscreenLabel { get; }
+
+        public string DisplayApplyLabel { get; }
+
+        public string DisplayRevertLabel { get; }
 
         public string TooltipToggleLabel { get; }
 
@@ -552,6 +582,34 @@ namespace Game.Feature.UI.Screens
 
         public AudioSettingsRowViewModel SfxAudio { get; private set; }
 
+        public string DisplaySectionTitle { get; private set; } = string.Empty;
+
+        public string CurrentDisplayLabel { get; private set; } = string.Empty;
+
+        public string CurrentDisplayValueText { get; private set; } = string.Empty;
+
+        public string ResolutionLabel { get; private set; } = string.Empty;
+
+        public IReadOnlyList<string> ResolutionOptionTexts { get; private set; } = Array.Empty<string>();
+
+        public int SelectedResolutionIndex { get; private set; }
+
+        public string FullscreenLabel { get; private set; } = string.Empty;
+
+        public bool IsFullscreenEnabled { get; private set; }
+
+        public string DisplayStatusText { get; private set; } = string.Empty;
+
+        public string DisplayApplyLabel { get; private set; } = string.Empty;
+
+        public bool IsDisplayApplyInteractable { get; private set; }
+
+        public string DisplayRevertLabel { get; private set; } = string.Empty;
+
+        public bool IsDisplayRevertInteractable { get; private set; }
+
+        public bool IsDisplayPreviewActive { get; private set; }
+
         public string TooltipStatusText { get; private set; } = string.Empty;
 
         public string LargeTextStatusText { get; private set; } = string.Empty;
@@ -567,6 +625,20 @@ namespace Game.Feature.UI.Screens
             AudioSettingsRowViewModel mainAudio,
             AudioSettingsRowViewModel bgmAudio,
             AudioSettingsRowViewModel sfxAudio,
+            string displaySectionTitle,
+            string currentDisplayLabel,
+            string currentDisplayValueText,
+            string resolutionLabel,
+            IReadOnlyList<string> resolutionOptionTexts,
+            int selectedResolutionIndex,
+            string fullscreenLabel,
+            bool isFullscreenEnabled,
+            string displayStatusText,
+            string displayApplyLabel,
+            bool isDisplayApplyInteractable,
+            string displayRevertLabel,
+            bool isDisplayRevertInteractable,
+            bool isDisplayPreviewActive,
             string tooltipStatusText,
             string largeTextStatusText,
             string tooltipToggleLabel,
@@ -577,6 +649,20 @@ namespace Game.Feature.UI.Screens
             MainAudio = mainAudio;
             BgmAudio = bgmAudio;
             SfxAudio = sfxAudio;
+            DisplaySectionTitle = displaySectionTitle ?? string.Empty;
+            CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
+            CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
+            ResolutionLabel = resolutionLabel ?? string.Empty;
+            ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
+            SelectedResolutionIndex = selectedResolutionIndex;
+            FullscreenLabel = fullscreenLabel ?? string.Empty;
+            IsFullscreenEnabled = isFullscreenEnabled;
+            DisplayStatusText = displayStatusText ?? string.Empty;
+            DisplayApplyLabel = displayApplyLabel ?? string.Empty;
+            IsDisplayApplyInteractable = isDisplayApplyInteractable;
+            DisplayRevertLabel = displayRevertLabel ?? string.Empty;
+            IsDisplayRevertInteractable = isDisplayRevertInteractable;
+            IsDisplayPreviewActive = isDisplayPreviewActive;
             TooltipStatusText = tooltipStatusText ?? string.Empty;
             LargeTextStatusText = largeTextStatusText ?? string.Empty;
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;

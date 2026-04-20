@@ -2,6 +2,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Shared.Audio;
+using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
@@ -114,6 +115,11 @@ namespace Game.Feature.UI.Tests
             if (installer.GetComponent<AudioRuntimeInstaller>() == null)
             {
                 installer.gameObject.AddComponent<AudioRuntimeInstaller>();
+            }
+
+            if (installer.GetComponent<DisplayRuntimeInstaller>() == null)
+            {
+                installer.gameObject.AddComponent<DisplayRuntimeInstaller>();
             }
 
             AssignHudPrefab(installer);

@@ -3,6 +3,7 @@ using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Shared.Audio;
+using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -15,6 +16,12 @@ namespace Game.Feature.UI.Tests
         public void AudioRuntimeInstaller_IsGuardedAgainstSameRootDuplicates()
         {
             Assert.That(typeof(AudioRuntimeInstaller).GetCustomAttributes(typeof(DisallowMultipleComponent), true), Is.Not.Empty);
+        }
+
+        [Test]
+        public void DisplayRuntimeInstaller_IsGuardedAgainstSameRootDuplicates()
+        {
+            Assert.That(typeof(DisplayRuntimeInstaller).GetCustomAttributes(typeof(DisallowMultipleComponent), true), Is.Not.Empty);
         }
 
         [Test]
@@ -42,6 +49,31 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiFlowInstaller_RequiresCoLocatedDisplayRuntimeInstaller_ForSettingsDisplay()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_RequiresCoLocatedDisplayRuntimeInstaller_ForSettingsDisplay");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                rootObject.AddComponent<AudioRuntimeInstaller>();
+
+                var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplayUiFlowInstaller requires a co-located DisplayRuntimeInstaller on the canonical bootstrap root for SettingsScreen display controls."));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayUiFlowInstaller_DoesNotUseSceneGlobalAudioInstallerFallback()
         {
             var canonicalRoot = new GameObject("GameplayUiFlowInstaller_DoesNotUseSceneGlobalAudioInstallerFallback");
@@ -59,6 +91,34 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     exception.Message,
                     Is.EqualTo("GameplayUiFlowInstaller requires a co-located AudioRuntimeInstaller on the canonical bootstrap root for SettingsScreen audio controls."));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(canonicalRoot);
+                Object.DestroyImmediate(strayRoot);
+            }
+        }
+
+        [Test]
+        public void GameplayUiFlowInstaller_DoesNotUseSceneGlobalDisplayInstallerFallback()
+        {
+            var canonicalRoot = new GameObject("GameplayUiFlowInstaller_DoesNotUseSceneGlobalDisplayInstallerFallback");
+            var strayRoot = new GameObject("StrayDisplayInstallerRoot");
+
+            try
+            {
+                var installer = canonicalRoot.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                canonicalRoot.AddComponent<AudioRuntimeInstaller>();
+                strayRoot.AddComponent<DisplayRuntimeInstaller>();
+
+                var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplayUiFlowInstaller requires a co-located DisplayRuntimeInstaller on the canonical bootstrap root for SettingsScreen display controls."));
             }
             finally
             {
