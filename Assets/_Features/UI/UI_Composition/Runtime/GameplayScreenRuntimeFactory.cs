@@ -151,7 +151,15 @@ namespace Game.Feature.UI.Composition
         {
             var presenter = new SettingsScreenPresenter(_accessibilitySettingsStore, _audioSettingsPort, _displaySettingsPort);
             var view = InstantiateScreenPrefab(_screenPrefabCatalog.SettingsPrefab, ScreenId.Settings);
+            if (view.AudioView == null || view.DisplayView == null)
+            {
+                throw new InvalidOperationException(
+                    "Settings screen runtime could not establish required section child views.");
+            }
+
             view.Bind(presenter.ViewModel);
+            view.AudioView.Bind(presenter.AudioPresenter.ViewModel);
+            view.DisplayView.Bind(presenter.DisplayPresenter.ViewModel);
             view.SetIsCurrent(false);
 
             return new ScreenRuntimeFactoryResult(
@@ -496,7 +504,9 @@ namespace Game.Feature.UI.Composition
 
         private sealed class SettingsRuntime : ScreenRuntimeBase<SettingsScreenView>
         {
+            private readonly SettingsAudioView _audioView;
             private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
+            private readonly SettingsDisplayView _displayView;
             private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
             private readonly SettingsScreenPresenter _presenter;
             private bool _isCurrent;
@@ -510,15 +520,17 @@ namespace Game.Feature.UI.Composition
                 : base(view, dispose)
             {
                 _presenter = presenter;
+                _audioView = view.AudioView ?? throw new ArgumentNullException(nameof(view.AudioView));
+                _displayView = view.DisplayView ?? throw new ArgumentNullException(nameof(view.DisplayView));
                 _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
                 _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
-                view.AudioVolumeChanged += HandleAudioVolumeChanged;
-                view.AudioMuteChanged += HandleAudioMuteChanged;
-                view.AudioInteractionCompleted += HandleAudioInteractionCompleted;
-                view.DisplayResolutionChanged += HandleDisplayResolutionChanged;
-                view.DisplayFullscreenToggled += HandleDisplayFullscreenToggled;
-                view.DisplayApplyRequested += HandleDisplayApplyRequested;
-                view.DisplayRevertRequested += HandleDisplayRevertRequested;
+                _audioView.VolumeChanged += HandleAudioVolumeChanged;
+                _audioView.MuteChanged += HandleAudioMuteChanged;
+                _audioView.InteractionCompleted += HandleAudioInteractionCompleted;
+                _displayView.ResolutionChanged += HandleDisplayResolutionChanged;
+                _displayView.FullscreenToggled += HandleDisplayFullscreenToggled;
+                _displayView.ApplyRequested += HandleDisplayApplyRequested;
+                _displayView.RevertRequested += HandleDisplayRevertRequested;
                 view.TooltipInfoRequested += HandleTooltipInfoRequested;
                 view.TooltipToggleRequested += HandleTooltipToggleRequested;
                 view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
@@ -534,19 +546,21 @@ namespace Game.Feature.UI.Composition
             public override void Dispose()
             {
                 _displayPreviewSessionHost.CancelActivePreview();
-                _presenter.FlushAudioSettings();
-                View.AudioVolumeChanged -= HandleAudioVolumeChanged;
-                View.AudioMuteChanged -= HandleAudioMuteChanged;
-                View.AudioInteractionCompleted -= HandleAudioInteractionCompleted;
-                View.DisplayResolutionChanged -= HandleDisplayResolutionChanged;
-                View.DisplayFullscreenToggled -= HandleDisplayFullscreenToggled;
-                View.DisplayApplyRequested -= HandleDisplayApplyRequested;
-                View.DisplayRevertRequested -= HandleDisplayRevertRequested;
+                _presenter.AudioPresenter.Flush();
+                _audioView.VolumeChanged -= HandleAudioVolumeChanged;
+                _audioView.MuteChanged -= HandleAudioMuteChanged;
+                _audioView.InteractionCompleted -= HandleAudioInteractionCompleted;
+                _displayView.ResolutionChanged -= HandleDisplayResolutionChanged;
+                _displayView.FullscreenToggled -= HandleDisplayFullscreenToggled;
+                _displayView.ApplyRequested -= HandleDisplayApplyRequested;
+                _displayView.RevertRequested -= HandleDisplayRevertRequested;
                 View.TooltipInfoRequested -= HandleTooltipInfoRequested;
                 View.TooltipToggleRequested -= HandleTooltipToggleRequested;
                 View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 View.BackRequested -= HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
+                _displayView.Bind(null);
+                _audioView.Bind(null);
                 View.Bind(null);
                 base.Dispose();
             }
@@ -556,7 +570,7 @@ namespace Game.Feature.UI.Composition
                 if (_isCurrent && !isCurrent)
                 {
                     _displayPreviewSessionHost.CancelActivePreview();
-                    _presenter.FlushAudioSettings();
+                    _presenter.AudioPresenter.Flush();
                 }
 
                 _isCurrent = isCurrent;
@@ -564,7 +578,7 @@ namespace Game.Feature.UI.Composition
 
                 if (isCurrent)
                 {
-                    _presenter.ResyncDisplayState();
+                    _presenter.DisplayPresenter.ResyncState();
                 }
             }
 
@@ -580,17 +594,17 @@ namespace Game.Feature.UI.Composition
 
             private void HandleAudioVolumeChanged(AudioSettingsChannel channel, float value)
             {
-                _presenter.SetAudioVolume(channel, value);
+                _presenter.AudioPresenter.SetVolume(channel, value);
             }
 
             private void HandleAudioMuteChanged(AudioSettingsChannel channel, bool isMuted)
             {
-                _presenter.SetAudioMuted(channel, isMuted);
+                _presenter.AudioPresenter.SetMuted(channel, isMuted);
             }
 
             private void HandleAudioInteractionCompleted()
             {
-                _presenter.FlushAudioSettings();
+                _presenter.AudioPresenter.Flush();
             }
 
             private void HandleLargeTextToggleRequested()
@@ -600,19 +614,19 @@ namespace Game.Feature.UI.Composition
 
             private void HandleDisplayResolutionChanged(int modeIndex)
             {
-                _presenter.StageResolution(modeIndex);
+                _presenter.DisplayPresenter.StageResolution(modeIndex);
             }
 
             private void HandleDisplayFullscreenToggled(bool isFullscreen)
             {
-                _presenter.StageWindowMode(isFullscreen
+                _presenter.DisplayPresenter.StageWindowMode(isFullscreen
                     ? DisplayWindowMode.FullScreenWindow
                     : DisplayWindowMode.Windowed);
             }
 
             private void HandleDisplayApplyRequested()
             {
-                if (!_presenter.ApplyStagedDisplaySettings())
+                if (!_presenter.DisplayPresenter.ApplyStagedSettings())
                 {
                     return;
                 }
@@ -622,30 +636,30 @@ namespace Game.Feature.UI.Composition
                         HandleDisplayPreviewConfirmed,
                         HandleDisplayPreviewCancelled))
                 {
-                    _presenter.CancelDisplayPreview();
+                    _presenter.DisplayPresenter.CancelPreview();
                 }
             }
 
             private void HandleDisplayRevertRequested()
             {
-                _presenter.ResetStagedDisplayToCurrent();
+                _presenter.DisplayPresenter.ResetStagedToCurrent();
             }
 
             private void HandleDisplayPreviewConfirmed()
             {
-                _presenter.ConfirmDisplayPreview();
+                _presenter.DisplayPresenter.ConfirmPreview();
             }
 
             private void HandleDisplayPreviewCancelled()
             {
-                _presenter.CancelDisplayPreview();
+                _presenter.DisplayPresenter.CancelPreview();
             }
 
             private void HandleDisplayResyncRequested()
             {
                 if (_isCurrent)
                 {
-                    _presenter.ResyncDisplayState();
+                    _presenter.DisplayPresenter.ResyncState();
                 }
             }
 
@@ -656,14 +670,15 @@ namespace Game.Feature.UI.Composition
 
             private ConfirmPopupPayload BuildDisplayPreviewConfirmPayload()
             {
+                var displayViewModel = _presenter.DisplayPresenter.ViewModel;
                 var selectedIndex = Mathf.Clamp(
-                    _presenter.ViewModel.SelectedResolutionIndex,
+                    displayViewModel.SelectedResolutionIndex,
                     0,
-                    Mathf.Max(0, _presenter.ViewModel.ResolutionOptionTexts.Count - 1));
-                var resolutionLabel = _presenter.ViewModel.ResolutionOptionTexts.Count == 0
-                    ? _presenter.ViewModel.CurrentDisplayValueText
-                    : _presenter.ViewModel.ResolutionOptionTexts[selectedIndex];
-                var windowModeText = _presenter.ViewModel.IsFullscreenEnabled
+                    Mathf.Max(0, displayViewModel.ResolutionOptionTexts.Count - 1));
+                var resolutionLabel = displayViewModel.ResolutionOptionTexts.Count == 0
+                    ? displayViewModel.CurrentDisplayValueText
+                    : displayViewModel.ResolutionOptionTexts[selectedIndex];
+                var windowModeText = displayViewModel.IsFullscreenEnabled
                     ? "Fullscreen Window"
                     : "Windowed";
 

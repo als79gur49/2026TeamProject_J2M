@@ -10,12 +10,21 @@ namespace Game.Feature.UI.Tests
         public void SettingsPresenterAndView_Sources_DoNotCallScreenOrPlayerPrefs()
         {
             var presenterSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/ScreenPresenters.cs");
-            var viewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
+            var rootViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
+            var audioViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs");
+            var displayViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
 
             Assert.That(presenterSource, Does.Not.Contain("Screen.SetResolution"));
             Assert.That(presenterSource, Does.Not.Contain("Screen.fullScreenMode"));
             Assert.That(presenterSource, Does.Not.Contain("Screen.resolutions"));
             Assert.That(presenterSource, Does.Not.Contain("PlayerPrefs"));
+            AssertViewSourceHasNoScreenOrPrefsCalls(rootViewSource);
+            AssertViewSourceHasNoScreenOrPrefsCalls(audioViewSource);
+            AssertViewSourceHasNoScreenOrPrefsCalls(displayViewSource);
+        }
+
+        private static void AssertViewSourceHasNoScreenOrPrefsCalls(string viewSource)
+        {
             Assert.That(viewSource, Does.Not.Contain("Screen.SetResolution"));
             Assert.That(viewSource, Does.Not.Contain("Screen.fullScreenMode"));
             Assert.That(viewSource, Does.Not.Contain("Screen.resolutions"));

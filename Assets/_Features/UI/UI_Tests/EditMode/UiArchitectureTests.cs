@@ -897,24 +897,14 @@ namespace Game.Feature.UI.Tests
         {
             Assert.That(
                 GetPublicPropertyNames(typeof(SettingsScreenPresenter)),
-                Is.EqualTo(new[] { "ViewModel" }));
+                Is.EqualTo(new[] { "AudioPresenter", "DisplayPresenter", "ViewModel" }));
             Assert.That(GetPublicEventNames(typeof(SettingsScreenPresenter)), Is.Empty);
             Assert.That(
                 GetPublicMethodSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload)",
-                    "ApplyStagedDisplaySettings()",
                     "BuildTooltipInfoPayload()",
-                    "CancelDisplayPreview()",
-                    "ConfirmDisplayPreview()",
-                    "FlushAudioSettings()",
-                    "ResetStagedDisplayToCurrent()",
-                    "ResyncDisplayState()",
-                    "SetAudioMuted(AudioSettingsChannel, Boolean)",
-                    "SetAudioVolume(AudioSettingsChannel, Single)",
-                    "StageResolution(Int32)",
-                    "StageWindowMode(DisplayWindowMode)",
                     "ToggleLargeText()",
                     "ToggleTooltips()",
                 }));
@@ -993,6 +983,42 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsChildPresenters_PublicSurface_RemainsLocalAndBounded()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(SettingsAudioPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(SettingsAudioPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(SettingsAudioPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(SettingsAudioPresenterInput)",
+                    "Flush()",
+                    "SetMuted(AudioSettingsChannel, Boolean)",
+                    "SetVolume(AudioSettingsChannel, Single)",
+                }));
+
+            Assert.That(
+                GetPublicPropertyNames(typeof(SettingsDisplayPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(SettingsDisplayPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(SettingsDisplayPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(SettingsDisplayPresenterInput)",
+                    "ApplyStagedSettings()",
+                    "CancelPreview()",
+                    "ConfirmPreview()",
+                    "ResetStagedToCurrent()",
+                    "ResyncState()",
+                    "StageResolution(Int32)",
+                    "StageWindowMode(DisplayWindowMode)",
+                }));
+        }
+
+        [Test]
         public void InventoryScreenPresenter_DoesNotStoreChildInputBagsOrCrossLayerActionTypes()
         {
             var storedTypes = typeof(InventoryScreenPresenter)
@@ -1023,6 +1049,8 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
             };
             var forbiddenTypes = new[]
             {
@@ -1063,6 +1091,8 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
             };
 
             foreach (var viewType in guardedViewTypes)
@@ -1089,6 +1119,8 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
             };
             var forbiddenSurfaceTypes = new[]
             {
