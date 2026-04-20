@@ -16,6 +16,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly EnemyViewPresentationMapper _enemyViewPresentationMapper = new();
         private readonly Dictionary<int, EnemyViewPresentationState> _enemyViewPresentationStates = new();
         private readonly Dictionary<int, PlayerAnimatorDriver> _playerAnimatorDriversByEntityId = new();
+        private readonly List<int> _playerFlipOutcomeStateUpdateEntityIds = new();
         private readonly Dictionary<int, PlayerVisualPresentationHoldState> _playerVisualHoldStates = new();
         private readonly PlayerViewPresentationMapper _playerViewPresentationMapper = new();
         private readonly Dictionary<int, PlayerViewPresentationState> _playerViewPresentationStates = new();
@@ -75,6 +76,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _playerViewPresentationMapper.Build(result, viewsByEntityId, _playerViewPresentationStates);
+            PreservePlayerFlipOutcomeState();
             ReleasePlayerDeathOverridesForRespawnSpawns(result.PresentationData, viewsByEntityId);
             foreach (var pair in _playerViewPresentationStates)
             {
@@ -88,6 +90,68 @@ namespace Game.Feature.Gameplay.Host
                     UpdatePlayerVisualHold(pair.Key, pair.Value, driver, resolvePlayerMotionDurationSeconds);
                     driver.Apply(pair.Value);
                 }
+            }
+        }
+
+        private void PreservePlayerFlipOutcomeState()
+        {
+            _playerFlipOutcomeStateUpdateEntityIds.Clear();
+            foreach (var pair in _playerViewPresentationStates)
+            {
+                if (!_playerAnimatorDriversByEntityId.TryGetValue(pair.Key, out var driver) ||
+                    pair.Value.ActiveActionKind != PlayerActionKind.Flip ||
+                    pair.Value.FlipOutcome != TickPlayerFlipOutcomeKind.None)
+                {
+                    continue;
+                }
+
+                var previousState = driver.LastPresentationState;
+                if (previousState.ActiveActionKind != PlayerActionKind.Flip ||
+                    previousState.ActiveActionSequence != pair.Value.ActiveActionSequence ||
+                    previousState.FlipOutcome == TickPlayerFlipOutcomeKind.None)
+                {
+                    continue;
+                }
+
+                _playerFlipOutcomeStateUpdateEntityIds.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _playerFlipOutcomeStateUpdateEntityIds.Count; i++)
+            {
+                var entityId = _playerFlipOutcomeStateUpdateEntityIds[i];
+                if (!_playerViewPresentationStates.TryGetValue(entityId, out var currentState) ||
+                    !_playerAnimatorDriversByEntityId.TryGetValue(entityId, out var driver))
+                {
+                    continue;
+                }
+
+                var previousState = driver.LastPresentationState;
+                if (currentState.ActiveActionKind != PlayerActionKind.Flip ||
+                    currentState.FlipOutcome != TickPlayerFlipOutcomeKind.None ||
+                    previousState.ActiveActionKind != PlayerActionKind.Flip ||
+                    previousState.ActiveActionSequence != currentState.ActiveActionSequence ||
+                    previousState.FlipOutcome == TickPlayerFlipOutcomeKind.None)
+                {
+                    continue;
+                }
+
+                _playerViewPresentationStates[entityId] = new PlayerViewPresentationState(
+                    currentState.EntityId,
+                    currentState.TickIndex,
+                    currentState.ActiveActionKind,
+                    currentState.ActiveActionSequence,
+                    currentState.StartedThisTick,
+                    currentState.ExecutedThisTick,
+                    currentState.CompletedThisTick,
+                    currentState.CanceledThisTick,
+                    currentState.ShouldPlayWalkLoop,
+                    currentState.IsRecoveryPhase,
+                    currentState.DidDie,
+                    currentState.TookDamageThisTick,
+                    currentState.ActionPlanId,
+                    previousState.FlipOutcome,
+                    previousState.HasFlipImpactContactTiming,
+                    previousState.FlipTargetBoxEntityId);
             }
         }
 
@@ -134,6 +198,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyViewPresentationStates.Clear();
             _playerAnimatorDriversByEntityId.Clear();
             _playerDeathVisualOverrideEntityIds.Clear();
+            _playerFlipOutcomeStateUpdateEntityIds.Clear();
             _playerVisualHoldStates.Clear();
             _playerViewPresentationStates.Clear();
         }

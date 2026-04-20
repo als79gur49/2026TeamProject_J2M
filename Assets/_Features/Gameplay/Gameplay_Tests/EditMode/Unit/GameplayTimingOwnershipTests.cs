@@ -976,6 +976,153 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayAnimationSyncCoordinator_FlipOutcomeCarryOver_DoesNotModifyCollectionDuringEnumeration()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_FlipOutcomeCarryOver_DoesNotModifyCollectionDuringEnumeration");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var driver = rootObject.GetComponent<PlayerAnimatorDriver>();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var coordinator = new GameplayAnimationSyncCoordinator();
+                coordinator.CacheDrivers(10, view);
+                coordinator.ApplyInitialPlayerPresentation(new Dictionary<int, GameplayEntityPose>());
+
+                coordinator.ApplyTickPresentation(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        new[]
+                        {
+                            new EntityState
+                            {
+                                entityId = 10,
+                                position = sourceCell,
+                                hp = 3,
+                                maxHp = 3,
+                                teamId = 1,
+                                type = EntityType.Unit,
+                                unitRole = UnitRole.Player,
+                                facing = Direction.Right,
+                                boardPresence = EntityBoardPresence.Occupying,
+                            },
+                        },
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            Array.Empty<TickVisibilityChange>(),
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            new[]
+                            {
+                                new TickPlayerActionPresentationSignal(
+                                    10,
+                                    PlayerActionKind.Flip,
+                                    7,
+                                    startedThisTick: false,
+                                    completedThisTick: false,
+                                    canceledThisTick: false,
+                                    executedThisTick: true,
+                                    isRecoveryPhase: true,
+                                    resolutionKind: TickPlayerActionResolutionKind.Impact,
+                                    targetEntityId: 20,
+                                    direction: Direction.Right,
+                                    actionPlanId: 91,
+                                    flipOutcome: TickPlayerFlipOutcomeKind.DestroySelf,
+                                    hasFlipImpactContactTiming: true,
+                                    flipTargetBoxEntityId: 20),
+                            },
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    (_, _) => 0.5f);
+
+                Assert.That(driver.LastPresentationState.FlipOutcome, Is.EqualTo(TickPlayerFlipOutcomeKind.DestroySelf));
+
+                Assert.DoesNotThrow(
+                    () => coordinator.ApplyTickPresentation(
+                        new TickResult(
+                            2,
+                            Array.Empty<TickPhase>(),
+                            Array.Empty<string>(),
+                            MovementPhaseResult.Empty,
+                            AttackPhaseResult.Empty,
+                            new[]
+                            {
+                                new EntityState
+                                {
+                                    entityId = 10,
+                                    position = sourceCell,
+                                    hp = 3,
+                                    maxHp = 3,
+                                    teamId = 1,
+                                    type = EntityType.Unit,
+                                    unitRole = UnitRole.Player,
+                                    facing = Direction.Right,
+                                    boardPresence = EntityBoardPresence.Occupying,
+                                },
+                            },
+                            Array.Empty<string>(),
+                            topology,
+                            new TickPresentationData(
+                                Array.Empty<TickEntityMotion>(),
+                                topologyMotion: null,
+                                Array.Empty<TickVisibilityChange>(),
+                                Array.Empty<TickTransitionVisibilityChange>(),
+                                new[]
+                                {
+                                    new TickPlayerActionPresentationSignal(
+                                        10,
+                                        PlayerActionKind.Flip,
+                                        7,
+                                        startedThisTick: false,
+                                        completedThisTick: false,
+                                        canceledThisTick: false,
+                                        executedThisTick: false,
+                                        isRecoveryPhase: true,
+                                        resolutionKind: TickPlayerActionResolutionKind.None,
+                                        targetEntityId: 20,
+                                        direction: Direction.Right,
+                                        actionPlanId: 91,
+                                        flipOutcome: TickPlayerFlipOutcomeKind.None,
+                                        hasFlipImpactContactTiming: false,
+                                        flipTargetBoxEntityId: 20),
+                                },
+                                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                                Array.Empty<TickEnemyActionPresentationSignal>(),
+                                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                                Array.Empty<TickEntityExitPresentationSignal>()),
+                            string.Empty,
+                            TickTrace.Empty),
+                        viewsByEntityId,
+                        (_, _) => 0.5f));
+
+                Assert.That(driver.LastPresentationState.FlipOutcome, Is.EqualTo(TickPlayerFlipOutcomeKind.DestroySelf));
+                Assert.That(driver.LastPresentationState.HasFlipImpactContactTiming, Is.True);
+                Assert.That(driver.LastPresentationState.FlipTargetBoxEntityId, Is.EqualTo(20));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void PlayerAnimatorDriver_DeathState_CrossFadesToDeath()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerAnimatorDriver_DeathState_CrossFadesToDeath");
