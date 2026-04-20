@@ -77,6 +77,8 @@ crashlytics-build.properties
 # Local AI/tooling artifacts
 .codex
 nul
+__pycache__/
+*.pyc
 
 # Local test outputs
 /[Tt]est[Rr]esult/
