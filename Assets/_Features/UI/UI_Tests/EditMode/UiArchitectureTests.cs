@@ -66,6 +66,47 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PresenterOrchestrationTypes_RemainOwnedByApplicationAssembly()
+        {
+            var applicationAssembly = typeof(HUDRootPresenter).Assembly;
+            var runtimeUiAssemblies = GetRuntimeUiAssemblies();
+
+            var misplacedPresenterTypes = runtimeUiAssemblies
+                .Where(assembly => assembly != applicationAssembly)
+                .SelectMany(assembly => assembly.GetExportedTypes())
+                .Where(type => !type.IsNested && type.Name.EndsWith("Presenter", StringComparison.Ordinal))
+                .Select(type => type.FullName)
+                .OrderBy(name => name)
+                .ToArray();
+
+            Assert.That(misplacedPresenterTypes, Is.Empty);
+
+            var representativePresenterAssemblies = new[]
+            {
+                typeof(HUDRootPresenter).Assembly,
+                typeof(PlayerStatusPresenter).Assembly,
+                typeof(ActionBarPresenter).Assembly,
+                typeof(NotificationPresenter).Assembly,
+                typeof(GameplayScreenPresenter).Assembly,
+                typeof(HelpScreenPresenter).Assembly,
+                typeof(ObjectiveStatusScreenPresenter).Assembly,
+                typeof(InventoryScreenPresenter).Assembly,
+                typeof(InventoryCatalogPresenter).Assembly,
+                typeof(InventoryDetailPresenter).Assembly,
+                typeof(InventoryActionPresenter).Assembly,
+                typeof(SettingsScreenPresenter).Assembly,
+                typeof(StageResultScreenPresenter).Assembly,
+                typeof(PausePopupPresenter).Assembly,
+                typeof(ObjectiveInfoPopupPresenter).Assembly,
+                typeof(ConfirmPopupPresenter).Assembly,
+                typeof(TooltipPopupPresenter).Assembly,
+                typeof(RewardPopupPresenter).Assembly,
+            }.Distinct().ToArray();
+
+            Assert.That(representativePresenterAssemblies, Is.EqualTo(new[] { applicationAssembly }));
+        }
+
+        [Test]
         public void OnlyCompositionUiAssemblyReferencesSharedAudioAssembly()
         {
             var sharedAudioAssemblyName = typeof(Game.Shared.Audio.IAudioService).Assembly.GetName().Name;
@@ -856,24 +897,14 @@ namespace Game.Feature.UI.Tests
         {
             Assert.That(
                 GetPublicPropertyNames(typeof(SettingsScreenPresenter)),
-                Is.EqualTo(new[] { "ViewModel" }));
+                Is.EqualTo(new[] { "AudioPresenter", "DisplayPresenter", "ViewModel" }));
             Assert.That(GetPublicEventNames(typeof(SettingsScreenPresenter)), Is.Empty);
             Assert.That(
                 GetPublicMethodSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
                     "Apply(SettingsScreenPayload)",
-                    "ApplyStagedDisplaySettings()",
                     "BuildTooltipInfoPayload()",
-                    "CancelDisplayPreview()",
-                    "ConfirmDisplayPreview()",
-                    "FlushAudioSettings()",
-                    "ResetStagedDisplayToCurrent()",
-                    "ResyncDisplayState()",
-                    "SetAudioMuted(AudioSettingsChannel, Boolean)",
-                    "SetAudioVolume(AudioSettingsChannel, Single)",
-                    "StageResolution(Int32)",
-                    "StageWindowMode(DisplayWindowMode)",
                     "ToggleLargeText()",
                     "ToggleTooltips()",
                 }));
@@ -952,6 +983,42 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void SettingsChildPresenters_PublicSurface_RemainsLocalAndBounded()
+        {
+            Assert.That(
+                GetPublicPropertyNames(typeof(SettingsAudioPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(SettingsAudioPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(SettingsAudioPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(SettingsAudioPresenterInput)",
+                    "Flush()",
+                    "SetMuted(AudioSettingsChannel, Boolean)",
+                    "SetVolume(AudioSettingsChannel, Single)",
+                }));
+
+            Assert.That(
+                GetPublicPropertyNames(typeof(SettingsDisplayPresenter)),
+                Is.EqualTo(new[] { "ViewModel" }));
+            Assert.That(GetPublicEventNames(typeof(SettingsDisplayPresenter)), Is.Empty);
+            Assert.That(
+                GetPublicMethodSignatures(typeof(SettingsDisplayPresenter)),
+                Is.EqualTo(new[]
+                {
+                    "Apply(SettingsDisplayPresenterInput)",
+                    "ApplyStagedSettings()",
+                    "CancelPreview()",
+                    "ConfirmPreview()",
+                    "ResetStagedToCurrent()",
+                    "ResyncState()",
+                    "StageResolution(Int32)",
+                    "StageWindowMode(DisplayWindowMode)",
+                }));
+        }
+
+        [Test]
         public void InventoryScreenPresenter_DoesNotStoreChildInputBagsOrCrossLayerActionTypes()
         {
             var storedTypes = typeof(InventoryScreenPresenter)
@@ -982,6 +1049,8 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
             };
             var forbiddenTypes = new[]
             {
@@ -1022,6 +1091,8 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
             };
 
             foreach (var viewType in guardedViewTypes)
@@ -1048,6 +1119,8 @@ namespace Game.Feature.UI.Tests
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
                 typeof(InventoryActionView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
             };
             var forbiddenSurfaceTypes = new[]
             {

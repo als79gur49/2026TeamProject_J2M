@@ -1,6 +1,9 @@
 using System.IO;
+using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
 {
@@ -10,12 +13,82 @@ namespace Game.Feature.UI.Tests
         public void SettingsPresenterAndView_Sources_DoNotCallScreenOrPlayerPrefs()
         {
             var presenterSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/ScreenPresenters.cs");
-            var viewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
+            var rootViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
+            var audioViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs");
+            var displayViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
 
             Assert.That(presenterSource, Does.Not.Contain("Screen.SetResolution"));
             Assert.That(presenterSource, Does.Not.Contain("Screen.fullScreenMode"));
             Assert.That(presenterSource, Does.Not.Contain("Screen.resolutions"));
             Assert.That(presenterSource, Does.Not.Contain("PlayerPrefs"));
+            AssertViewSourceHasNoScreenOrPrefsCalls(rootViewSource);
+            AssertViewSourceHasNoScreenOrPrefsCalls(audioViewSource);
+            AssertViewSourceHasNoScreenOrPrefsCalls(displayViewSource);
+        }
+
+        [Test]
+        public void SettingsRootView_Source_RemainsShellOnly_WithTemporaryPassthroughHelpers()
+        {
+            var rootViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsScreenView.cs");
+
+            Assert.That(rootViewSource, Does.Contain("Temporary compatibility passthroughs only; no section-local logic belongs here."));
+            Assert.That(rootViewSource, Does.Contain("DisplayView.ClickApply();"));
+            Assert.That(rootViewSource, Does.Contain("DisplayView.ClickRevert();"));
+            Assert.That(rootViewSource, Does.Contain("AudioView.CommitInteraction(channel);"));
+            Assert.That(rootViewSource, Does.Contain("DisplayView.SelectResolution(index);"));
+            Assert.That(rootViewSource, Does.Contain("AudioView.SetMuted(channel, isMuted);"));
+            Assert.That(rootViewSource, Does.Contain("AudioView.SetVolume(channel, value);"));
+            Assert.That(rootViewSource, Does.Contain("DisplayView.SetFullscreen(isFullscreen);"));
+            Assert.That(rootViewSource, Does.Not.Contain("new GameObject("));
+            Assert.That(rootViewSource, Does.Not.Contain("AddComponent<"));
+            Assert.That(rootViewSource, Does.Not.Contain("transform.Find("));
+            Assert.That(rootViewSource, Does.Not.Contain("GetComponentInChildren<"));
+            Assert.That(rootViewSource, Does.Not.Contain("Slider"));
+            Assert.That(rootViewSource, Does.Not.Contain("Dropdown"));
+        }
+
+        [Test]
+        public void SettingsRootView_DeclaredFields_RemainShellOnly_AndChildRefsOnly()
+        {
+            var declaredFields = typeof(Game.Feature.UI.Screens.SettingsScreenView)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(field => !field.IsStatic)
+                .ToArray();
+            var fieldNames = declaredFields.Select(field => field.Name).ToArray();
+            var fieldTypes = declaredFields.Select(field => field.FieldType).ToArray();
+
+            Assert.That(fieldNames, Does.Contain("_audioView"));
+            Assert.That(fieldNames, Does.Contain("_displayView"));
+            Assert.That(fieldNames, Does.Not.Contain("_mainRow"));
+            Assert.That(fieldNames, Does.Not.Contain("_bgmRow"));
+            Assert.That(fieldNames, Does.Not.Contain("_sfxRow"));
+            Assert.That(fieldNames, Does.Not.Contain("_resolutionDropdown"));
+            Assert.That(fieldNames, Does.Not.Contain("_applyButton"));
+            Assert.That(fieldNames, Does.Not.Contain("_revertButton"));
+            Assert.That(fieldTypes, Has.No.Member(typeof(Slider)));
+            Assert.That(fieldTypes, Has.No.Member(typeof(Toggle)));
+            Assert.That(fieldTypes, Has.No.Member(typeof(Dropdown)));
+        }
+
+        [Test]
+        public void SettingsChildView_Sources_DoNotRebuildAuthoredControlsAtRuntime()
+        {
+            var audioViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsAudioView.cs");
+            var displayViewSource = ReadRepoFile("Assets/_Features/UI/UI_Screens/Runtime/SettingsDisplayView.cs");
+
+            Assert.That(audioViewSource, Does.Not.Contain("new GameObject("));
+            Assert.That(audioViewSource, Does.Not.Contain("transform.Find("));
+            Assert.That(audioViewSource, Does.Not.Contain("GetComponentInChildren<"));
+            Assert.That(audioViewSource, Does.Not.Contain("Resources.GetBuiltinResource"));
+
+            Assert.That(displayViewSource, Does.Not.Contain("new GameObject("));
+            Assert.That(displayViewSource, Does.Not.Contain("transform.Find("));
+            Assert.That(displayViewSource, Does.Not.Contain("GetComponentInChildren<"));
+            Assert.That(displayViewSource, Does.Not.Contain("Resources.GetBuiltinResource"));
+        }
+
+        private static void AssertViewSourceHasNoScreenOrPrefsCalls(string viewSource)
+        {
             Assert.That(viewSource, Does.Not.Contain("Screen.SetResolution"));
             Assert.That(viewSource, Does.Not.Contain("Screen.fullScreenMode"));
             Assert.That(viewSource, Does.Not.Contain("Screen.resolutions"));

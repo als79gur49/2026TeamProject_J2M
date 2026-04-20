@@ -570,17 +570,31 @@ namespace Game.Feature.UI.Screens
         }
     }
 
-    public sealed class SettingsScreenViewModel
+    public sealed class SettingsAudioViewModel
     {
         public event Action Changed;
-
-        public string TitleText { get; private set; } = string.Empty;
 
         public AudioSettingsRowViewModel MainAudio { get; private set; }
 
         public AudioSettingsRowViewModel BgmAudio { get; private set; }
 
         public AudioSettingsRowViewModel SfxAudio { get; private set; }
+
+        public void SetContent(
+            AudioSettingsRowViewModel mainAudio,
+            AudioSettingsRowViewModel bgmAudio,
+            AudioSettingsRowViewModel sfxAudio)
+        {
+            MainAudio = mainAudio;
+            BgmAudio = bgmAudio;
+            SfxAudio = sfxAudio;
+            Changed?.Invoke();
+        }
+    }
+
+    public sealed class SettingsDisplayViewModel
+    {
+        public event Action Changed;
 
         public string DisplaySectionTitle { get; private set; } = string.Empty;
 
@@ -610,21 +624,7 @@ namespace Game.Feature.UI.Screens
 
         public bool IsDisplayPreviewActive { get; private set; }
 
-        public string TooltipStatusText { get; private set; } = string.Empty;
-
-        public string LargeTextStatusText { get; private set; } = string.Empty;
-
-        public string TooltipToggleLabel { get; private set; } = string.Empty;
-
-        public string LargeTextToggleLabel { get; private set; } = string.Empty;
-
-        public string BackLabel { get; private set; } = string.Empty;
-
         public void SetContent(
-            string titleText,
-            AudioSettingsRowViewModel mainAudio,
-            AudioSettingsRowViewModel bgmAudio,
-            AudioSettingsRowViewModel sfxAudio,
             string displaySectionTitle,
             string currentDisplayLabel,
             string currentDisplayValueText,
@@ -638,17 +638,8 @@ namespace Game.Feature.UI.Screens
             bool isDisplayApplyInteractable,
             string displayRevertLabel,
             bool isDisplayRevertInteractable,
-            bool isDisplayPreviewActive,
-            string tooltipStatusText,
-            string largeTextStatusText,
-            string tooltipToggleLabel,
-            string largeTextToggleLabel,
-            string backLabel)
+            bool isDisplayPreviewActive)
         {
-            TitleText = titleText ?? string.Empty;
-            MainAudio = mainAudio;
-            BgmAudio = bgmAudio;
-            SfxAudio = sfxAudio;
             DisplaySectionTitle = displaySectionTitle ?? string.Empty;
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
@@ -663,6 +654,35 @@ namespace Game.Feature.UI.Screens
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
             IsDisplayRevertInteractable = isDisplayRevertInteractable;
             IsDisplayPreviewActive = isDisplayPreviewActive;
+            Changed?.Invoke();
+        }
+    }
+
+    public sealed class SettingsScreenViewModel
+    {
+        public event Action Changed;
+
+        public string TitleText { get; private set; } = string.Empty;
+
+        public string TooltipStatusText { get; private set; } = string.Empty;
+
+        public string LargeTextStatusText { get; private set; } = string.Empty;
+
+        public string TooltipToggleLabel { get; private set; } = string.Empty;
+
+        public string LargeTextToggleLabel { get; private set; } = string.Empty;
+
+        public string BackLabel { get; private set; } = string.Empty;
+
+        public void SetContent(
+            string titleText,
+            string tooltipStatusText,
+            string largeTextStatusText,
+            string tooltipToggleLabel,
+            string largeTextToggleLabel,
+            string backLabel)
+        {
+            TitleText = titleText ?? string.Empty;
             TooltipStatusText = tooltipStatusText ?? string.Empty;
             LargeTextStatusText = largeTextStatusText ?? string.Empty;
             TooltipToggleLabel = tooltipToggleLabel ?? string.Empty;

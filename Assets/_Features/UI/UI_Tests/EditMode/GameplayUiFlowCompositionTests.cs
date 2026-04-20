@@ -376,6 +376,46 @@ namespace Game.Feature.UI.Tests
             }
         }
 
+        [Test]
+        public void GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_SettingsScreen_KeepsSectionViewsNestedUnderOneScreenShell");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(UiTestPortFactory.CreatePorts());
+
+                installer.GameplayScreenView.ClickSettings();
+                var settingsView = installer.SettingsScreenView;
+
+                Assert.That(settingsView, Is.Not.Null);
+                Assert.That(settingsView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(settingsView.AudioView, Is.Not.Null);
+                Assert.That(settingsView.DisplayView, Is.Not.Null);
+                Assert.That(settingsView.AudioView.transform.IsChildOf(settingsView.transform), Is.True);
+                Assert.That(settingsView.DisplayView.transform.IsChildOf(settingsView.transform), Is.True);
+                Assert.That(settingsView.AudioView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(settingsView.DisplayView.transform.parent, Is.Not.EqualTo(installer.ScreenLayerView.ContentRoot));
+
+                var mainAudioRow = settingsView.AudioView.transform.Find("MainAudioRow");
+                var resolutionDropdown = settingsView.DisplayView.transform.Find("ResolutionDropdown");
+
+                Assert.That(mainAudioRow, Is.Not.Null);
+                Assert.That(resolutionDropdown, Is.Not.Null);
+                Assert.That(mainAudioRow.IsChildOf(settingsView.AudioView.transform), Is.True);
+                Assert.That(resolutionDropdown.IsChildOf(settingsView.DisplayView.transform), Is.True);
+                Assert.That(mainAudioRow.parent, Is.Not.EqualTo(settingsView.transform));
+                Assert.That(resolutionDropdown.parent, Is.Not.EqualTo(settingsView.transform));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
         private static void DestroyEventSystemIfPresent()
         {
             var eventSystem = Object.FindFirstObjectByType<EventSystem>();
