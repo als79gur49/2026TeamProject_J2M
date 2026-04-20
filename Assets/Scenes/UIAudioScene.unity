@@ -1171,6 +1171,52 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 921616400}
   m_Mesh: {fileID: -9146618070568788744, guid: f3d84d14fd2c21c4b84860173c460618, type: 3}
+--- !u!1 &1173941757
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1173941759}
+  - component: {fileID: 1173941758}
+  m_Layer: 0
+  m_Name: SceneBgmRequestSource
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1173941758
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173941757}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cfb34ae4a4f04214b0df88a1d56a8590, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.SceneBgmRequestSource
+  bootstrap: {fileID: 1179627487}
+  profile: {fileID: 11400000, guid: 3459b5be7e9e63b4899e1356efe8f928, type: 2}
+--- !u!4 &1173941759
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173941757}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 5.89255, y: 4.12479, z: 5.89255}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1179627480
 GameObject:
   m_ObjectHideFlags: 0
@@ -1181,9 +1227,11 @@ GameObject:
   m_Component:
   - component: {fileID: 1179627482}
   - component: {fileID: 1179627481}
+  - component: {fileID: 1179627487}
   - component: {fileID: 1179627483}
   - component: {fileID: 1179627484}
   - component: {fileID: 1179627485}
+  - component: {fileID: 1179627486}
   m_Layer: 0
   m_Name: UIAudioSceneBootstrapRoot
   m_TagString: Untagged
@@ -1323,7 +1371,35 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.AudioRuntimeInstaller
   installOnAwake: 1
+  bindingMode: 1
   runtimeRoot: {fileID: 0}
+--- !u!114 &1179627486
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1904c99858f4492687a89c8158fecc77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Shared.Display::Game.Shared.Display.DisplayRuntimeInstaller
+  installOnAwake: 1
+--- !u!114 &1179627487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c6e4d677b454b719df7fcbce88cf09e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap
+  audioRuntimeInstaller: {fileID: 1179627485}
+  persistentRoot: {fileID: 0}
 --- !u!1 &1255821668
 GameObject:
   m_ObjectHideFlags: 0
@@ -1870,3 +1946,4 @@ SceneRoots:
   - {fileID: 1844535641}
   - {fileID: 616750613}
   - {fileID: 1973192861}
+  - {fileID: 1173941759}
