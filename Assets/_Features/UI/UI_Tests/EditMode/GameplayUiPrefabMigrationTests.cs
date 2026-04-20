@@ -56,6 +56,8 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveStatusScreenView),
                 typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
@@ -342,7 +344,9 @@ namespace Game.Feature.UI.Tests
                 case ScreenId.Settings:
                     AssertScreenPrefabContract<SettingsScreenView>(
                         UiTestPrefabAssetUtility.SettingsScreenPrefabPath,
-                        typeof(SettingsScreenView));
+                        typeof(SettingsScreenView),
+                        typeof(SettingsAudioView),
+                        typeof(SettingsDisplayView));
                     break;
 
                 case ScreenId.StageResult:
@@ -366,6 +370,76 @@ namespace Game.Feature.UI.Tests
             Assert.That(tooltipInfoButton, Is.Not.Null);
             Assert.That(tooltipInfoButton.objectReferenceValue, Is.Not.Null);
             Assert.That(((Button)tooltipInfoButton.objectReferenceValue).transform.parent, Is.EqualTo(settingsPrefab.transform));
+        }
+
+        [Test]
+        public void SettingsScreenPrefabAsset_AuthorsRequiredChildSections_AndSerializedChildRefs()
+        {
+            var settingsPrefab = UiTestPrefabAssetUtility.LoadScreenPrefab<SettingsScreenView>(UiTestPrefabAssetUtility.SettingsScreenPrefabPath);
+            var serializedRoot = new SerializedObject(settingsPrefab);
+            var audioViewProperty = serializedRoot.FindProperty("_audioView");
+            var displayViewProperty = serializedRoot.FindProperty("_displayView");
+
+            Assert.That(audioViewProperty, Is.Not.Null);
+            Assert.That(displayViewProperty, Is.Not.Null);
+            Assert.That(audioViewProperty.objectReferenceValue, Is.Not.Null);
+            Assert.That(displayViewProperty.objectReferenceValue, Is.Not.Null);
+            Assert.That(serializedRoot.FindProperty("_mainRow"), Is.Null);
+            Assert.That(serializedRoot.FindProperty("_resolutionDropdown"), Is.Null);
+            Assert.That(serializedRoot.FindProperty("_applyButton"), Is.Null);
+
+            var audioView = (SettingsAudioView)audioViewProperty.objectReferenceValue;
+            var displayView = (SettingsDisplayView)displayViewProperty.objectReferenceValue;
+
+            Assert.That(audioView.name, Is.EqualTo(SettingsScreenView.AudioSectionName));
+            Assert.That(displayView.name, Is.EqualTo(SettingsScreenView.DisplaySectionName));
+            Assert.That(audioView.transform.parent, Is.EqualTo(settingsPrefab.transform));
+            Assert.That(displayView.transform.parent, Is.EqualTo(settingsPrefab.transform));
+
+            var serializedAudio = new SerializedObject(audioView);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._rowRoot", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._label", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._value", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._slider", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._toggle", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_mainRow._interactionRelay", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_bgmRow._rowRoot", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_bgmRow._label", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_bgmRow._value", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_bgmRow._slider", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_bgmRow._toggle", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_bgmRow._interactionRelay", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._rowRoot", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._label", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._value", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._slider", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._toggle", audioView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedAudio, "_sfxRow._interactionRelay", audioView.transform);
+
+            var serializedDisplay = new SerializedObject(displayView);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_sectionTitle", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_currentDisplayLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_currentDisplayValue", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionDropdown", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_fullscreenLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_fullscreenToggle", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_displayStatusLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButton", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButtonLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButton", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButtonLabel", displayView.transform);
+        }
+
+        [Test]
+        public void ScreenPrefabMigrationAuthoring_Source_AuthorsSettingsChildSections_AndWiresSerializedChildViews()
+        {
+            var authoringSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Editor/ScreenPrefabMigrationAuthoring.cs");
+
+            Assert.That(authoringSource, Does.Contain("SettingsScreenView.AudioSectionName"));
+            Assert.That(authoringSource, Does.Contain("SettingsScreenView.DisplaySectionName"));
+            Assert.That(authoringSource, Does.Contain("_audioView"));
+            Assert.That(authoringSource, Does.Contain("_displayView"));
         }
 
         [TestCase(ScreenId.Gameplay)]
@@ -908,6 +982,8 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveStatusScreenView),
                 typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(ScreenLayerView),
                 typeof(UiArchitectureDiagnosticsOverlayView),
@@ -935,6 +1011,8 @@ namespace Game.Feature.UI.Tests
                 typeof(ObjectiveStatusScreenView),
                 typeof(InventoryScreenView),
                 typeof(SettingsScreenView),
+                typeof(SettingsAudioView),
+                typeof(SettingsDisplayView),
                 typeof(StageResultScreenView),
                 typeof(InventoryCatalogView),
                 typeof(InventoryDetailView),
@@ -977,6 +1055,27 @@ namespace Game.Feature.UI.Tests
         {
             var absolutePath = Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath));
             return File.ReadAllText(absolutePath);
+        }
+
+        private static void AssertSerializedComponentPropertyAssignedAndUnderRoot(SerializedObject serializedObject, string propertyPath, Transform expectedRoot)
+        {
+            var property = serializedObject.FindProperty(propertyPath);
+            Assert.That(property, Is.Not.Null, propertyPath);
+            Assert.That(property.objectReferenceValue, Is.Not.Null, propertyPath);
+            switch (property.objectReferenceValue)
+            {
+                case Component component:
+                    Assert.That(component.transform.IsChildOf(expectedRoot), Is.True, propertyPath);
+                    break;
+
+                case GameObject gameObject:
+                    Assert.That(gameObject.transform.IsChildOf(expectedRoot), Is.True, propertyPath);
+                    break;
+
+                default:
+                    Assert.Fail($"{propertyPath} must reference a Component or GameObject.");
+                    break;
+            }
         }
 
         private static void DestroySupportObjects(UnityEngine.Object rootObject)
