@@ -186,6 +186,8 @@ Composition root and gameplay-host bridge rule:
 - `Non-Negotiable` `GameplayUiCanvasRootView` owns runtime canvas and layer composition only. It must not become a gameplay, flow, or feature-state owner.
 - `Non-Negotiable` Audio settings bridging remains composition-owned. `UI.Application` knows only `IAudioSettingsPort`, and only `UI_Composition` may translate visible audio settings channels to shared-audio runtime channels.
 - `Non-Negotiable` The visible-audio-channel mapping is centralized in one composition-owned mapper. Presenters, screens, and non-composition UI assemblies must not duplicate that mapping logic inline.
+- `Non-Negotiable` Display settings bridging remains composition-owned. `UI.Application` knows only `IDisplaySettingsPort`, and only `UI_Composition` may translate visible display settings into shared-display runtime state.
+- `Non-Negotiable` Shared display boot apply, runtime `Screen.*` access, persistence, preview commit/revert, and supported-mode normalization remain inside `Game.Shared.Display`; see [Display-Settings-V1-Guidelines.md](./Display-Settings-V1-Guidelines.md).
 - `Default Guidance` Screen runtime factories, popup runtime factories, and composition-owned diagnostics wiring belong in `UI_Composition`, not in feature presenters or gameplay access contracts.
 
 ## 9. Final Layered Architecture
@@ -475,6 +477,11 @@ Folder intent:
 - `Shared/UI`
   - reusable UI contracts, shared widgets, and shared UI helpers that do not own feature flow
 
+Ownership rules:
+
+- `Non-Negotiable` `UI_Application` owns presenter-level orchestration for screen, popup, and HUD slices.
+- `Non-Negotiable` `UI_Screens`, `UI_Popups`, and `UI_HUD` own view-facing feature assets and local UI types; they do not own application-layer presenter orchestration.
+- `Non-Negotiable` `UI_Composition` instantiates presenters and binds them to canonical views at runtime.
 Naming rules:
 
 - `Non-Negotiable` Flow authority types use `Coordinator` or `Controller` according to the vocabulary in this document.

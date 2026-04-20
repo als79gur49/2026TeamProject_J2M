@@ -34,6 +34,7 @@
 - See [Full-EditMode-Baseline-2026-04-13.md](./Full-EditMode-Baseline-2026-04-13.md) for the pinned baseline.
 - Use [UI-EditMode-Baseline-2026-04-15.md](./UI-EditMode-Baseline-2026-04-15.md) for Stage 9 UI hardening evidence, including structural delta and guard-evolution interpretation.
 - Use [TutorialScene-Manual-Runtime-Smoke-Plan.md](./TutorialScene-Manual-Runtime-Smoke-Plan.md) when a real-scene `TutorialScene` UI smoke pass is needed; it is the manual companion for canonical runtime-integration evidence and does not replace the automated lanes.
+- Use [Display-Settings-Build-Validation-Checklist.md](./Display-Settings-Build-Validation-Checklist.md) for display-settings-specific real-build validation. Editor-only execution is not sufficient evidence for fullscreen/window correctness.
 - The generated stratification report is no longer an active governance truth source.
 
 ## 1. Overview / 개요
@@ -119,6 +120,63 @@
   - `all gameplay-wide regressions are closed`
     - build verification plus core lanes plus targeted governance/orchestration tests is not enough to use this claim.
 
+## Display settings verification wording / Display settings verification wording
+### 한국어
+- display settings 검증 결과는 실행한 lane와 실제 build/manual validation 범위만 말해야 한다.
+- 아래 네 reporting level만 공식적으로 사용한다.
+  - `build verified`
+    - claim 가능 조건: relevant build가 통과했을 때
+  - `core lane validated`
+    - claim 가능 조건: relevant automated core/targeted lane가 통과했을 때
+  - `targeted display architecture validated`
+    - claim 가능 조건: display runtime/service/presenter/composition contract tests가 통과했을 때
+  - `real-build manual display validation completed`
+    - claim 가능 조건: [Display-Settings-Build-Validation-Checklist.md](./Display-Settings-Build-Validation-Checklist.md) 범위를 실제 build에서 확인했을 때
+- editor-only 실행만으로 fullscreen/window correctness를 주장하면 안 된다.
+
+### English Original
+- Display-settings validation must report only the automated lanes and real-build manual checks that actually ran.
+- Use only these four reporting levels.
+  - `build verified`
+    - may be claimed when the relevant build passes
+  - `core lane validated`
+    - may be claimed when the relevant automated core or targeted lane passes
+  - `targeted display architecture validated`
+    - may be claimed when the display runtime/service/presenter/composition contract tests pass
+  - `real-build manual display validation completed`
+    - may be claimed only when the scope in [Display-Settings-Build-Validation-Checklist.md](./Display-Settings-Build-Validation-Checklist.md) was checked in a real build
+- Editor-only execution is insufficient evidence for fullscreen/window correctness.
+
+## Persistent BGM flow reporting wording / Persistent BGM flow reporting wording
+### 한국어
+- persistent BGM flow v1 결과는 ownership continuity 범위만 말해야 하며 fade/crossfade feature completion을 암시하면 안 된다.
+- 아래 네 reporting level만 공식적으로 사용한다.
+  - `build verified`
+    - claim 가능 조건: relevant build가 통과했을 때
+  - `targeted persistent BGM ownership validated`
+    - claim 가능 조건: coordinator/registry/bootstrap/ownership boundary targeted tests가 통과했을 때
+  - `cross-scene continuity validated`
+    - claim 가능 조건: persistent lifetime + same-profile continuity가 scene change를 포함해 검증됐을 때
+  - `real transition-effects validation completed`
+    - claim 가능 조건: 실제 transition effect runtime behavior가 구현되고 그 범위가 별도로 검증됐을 때
+- approved sentence template:
+  - `Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1.`
+- v1 ownership continuity는 fade/crossfade support completion과 동일하지 않다.
+
+### English Original
+- Persistent BGM flow v1 reporting must stay scoped to ownership continuity and must not imply completed fade/crossfade feature support.
+- Use only these four reporting levels.
+  - `build verified`
+    - may be claimed when the relevant build passes
+  - `targeted persistent BGM ownership validated`
+    - may be claimed when targeted coordinator, registry, bootstrap, and ownership-boundary tests pass
+  - `cross-scene continuity validated`
+    - may be claimed when persistent lifetime and same-profile continuity were validated across scene change
+  - `real transition-effects validation completed`
+    - may be claimed only after real transition-effect runtime behavior exists and that scope was validated
+- Approved sentence template:
+  - `Persistent BGM ownership and cross-scene continuity are validated; transition effects remain Immediate-only in v1.`
+- v1 ownership continuity is not equivalent to completed fade/crossfade support.
 ## Targeted gameplay-audio integration validation / 타겟 게임플레이 오디오 통합 검증
 ### 한국어
 - 이 pass는 gameplay audio host-orchestration이 인접 presentation/runtime boundary와 정상적으로 합성되는지 검증하는 targeted integration validation이다.

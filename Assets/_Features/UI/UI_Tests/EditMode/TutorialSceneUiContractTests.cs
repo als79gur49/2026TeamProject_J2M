@@ -5,6 +5,7 @@ using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using Game.Shared.Audio;
+using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -54,16 +55,19 @@ namespace Game.Feature.UI.Tests
                 var sceneHost = bootstrapRoot.GetComponent<GameplaySceneHost>();
                 var uiInstaller = bootstrapRoot.GetComponent<GameplayUiFlowInstaller>();
                 var audioInstaller = bootstrapRoot.GetComponent<AudioRuntimeInstaller>();
+                var displayInstaller = bootstrapRoot.GetComponent<DisplayRuntimeInstaller>();
 
                 Assert.That(bootstrapRoot.name, Is.EqualTo(expectedRootName));
                 Assert.That(showcaseInstaller, Is.Not.Null);
                 Assert.That(sceneHost, Is.Not.Null);
                 Assert.That(uiInstaller, Is.Not.Null);
                 Assert.That(audioInstaller, Is.Not.Null);
+                Assert.That(displayInstaller, Is.Not.Null);
                 Assert.That(CountComponentsInScene<CombinedGameplayShowcaseInstaller>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplaySceneHost>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<GameplayUiFlowInstaller>(rootObjects), Is.EqualTo(1));
                 Assert.That(CountComponentsInScene<AudioRuntimeInstaller>(rootObjects), Is.EqualTo(1));
+                Assert.That(CountComponentsInScene<DisplayRuntimeInstaller>(rootObjects), Is.EqualTo(1));
 
                 var serializedInstaller = new SerializedObject(uiInstaller);
                 Assert.That(serializedInstaller.FindProperty("_sceneHost").objectReferenceValue, Is.SameAs(sceneHost));
