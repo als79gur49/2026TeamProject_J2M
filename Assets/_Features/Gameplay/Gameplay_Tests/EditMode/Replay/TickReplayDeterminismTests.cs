@@ -857,9 +857,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].Trace, Does.Contain("Final.PendingDelayedEffects"));
             Assert.That(firstReplay[0].Trace, Does.Contain("ExecuteTick=2"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("SourcePlan=99"));
             Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
             Assert.That(firstReplay[1].Trace, Does.Contain("Attack.DrainedDelayedEffects"));
             Assert.That(firstReplay[1].Trace, Does.Contain("GeneratedTick=1|ExecuteTick=2"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("SourcePlan=99"));
             Assert.That(firstReplay[1].EventLogDump, Does.Contain("DelayedAttackDrained|Tick=2|Source=10|Target=20|Damage=1|GeneratedTick=1|ExecuteTick=2|Group=99|Sequence=1"));
             Assert.That(
                 SemanticEventAssertions.ContainsEvent(
@@ -906,6 +908,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(resultWithoutDelayedEvent.DeterminismHash, Is.Not.EqualTo(resultWithDelayedEvent.DeterminismHash));
             Assert.That(resultWithDelayedEvent.Trace.Text, Does.Contain("Final.PendingDelayedEffects"));
             Assert.That(resultWithDelayedEvent.Trace.Text, Does.Contain("ExecuteTick=2"));
+            Assert.That(resultWithDelayedEvent.Trace.Text, Does.Contain("SourcePlan=99"));
         }
 
         [Test]

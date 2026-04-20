@@ -1061,6 +1061,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                               record.TargetId == 20 &&
                               record.Amount == 1),
                 Is.True);
+            var impactResolution = result.AttackPhaseResult.DamageResolutions.Single(
+                record => record.Accepted &&
+                          record.SourceKind == AttackSourceKind.ImpactReservation &&
+                          record.TargetId == 20 &&
+                          record.Amount == 1);
             Assert.That(
                 result.AttackPhaseResult.DamageResolutions.Any(
                     record => record.Accepted &&
@@ -1073,6 +1078,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(targetAfter.hp, Is.EqualTo(1));
             Assert.That(targetAfter.markedForDeath, Is.False);
             Assert.That(result.Trace.Text, Does.Contain("SourceKind=ImpactReservation"));
+#pragma warning disable CS0618
+            Assert.That(
+                result.Trace.Text,
+                Does.Contain(
+                    $"Plan={impactResolution.ActionPlanId}|Intent={impactResolution.IntentId}|Source={impactResolution.SourceId}|SourceKind={impactResolution.SourceKind}|Target={impactResolution.TargetId}|Amount={impactResolution.Amount}|Accepted=1|RejectReason={impactResolution.RejectReason}"));
+#pragma warning restore CS0618
         }
 
         [Test]
