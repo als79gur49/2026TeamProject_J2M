@@ -9,6 +9,9 @@ namespace Game.Feature.Gameplay.Loop
 {
     public readonly struct DamageResolutionRecord
     {
+        private readonly int _actionPlanId;
+        private readonly int _intentId;
+
         public DamageResolutionRecord(
             int groupId,
             int intentId,
@@ -22,8 +25,8 @@ namespace Game.Feature.Gameplay.Loop
             bool hasPlayerDamageState = false,
             PlayerDamageState playerDamageState = default)
         {
-            GroupId = groupId;
-            IntentId = intentId;
+            _actionPlanId = groupId;
+            _intentId = intentId;
             SourceId = sourceId;
             SourceKind = sourceKind;
             TargetId = targetId;
@@ -35,11 +38,13 @@ namespace Game.Feature.Gameplay.Loop
             PlayerDamageState = playerDamageState;
         }
 
-        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
-        public int GroupId { get; }
+        public int ActionPlanId => _actionPlanId;
 
-        [Obsolete("IR metadata only. Prefer semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
-        public int IntentId { get; }
+        [Obsolete("Legacy alias for ActionPlanId. Prefer ActionPlanId for correlation and semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
+        public int GroupId => _actionPlanId;
+
+        [Obsolete("IR metadata only. Prefer ActionPlanId for plan correlation and semantic fields such as SourceId, SourceKind, TargetId, Amount, Accepted, and RejectReason.")]
+        public int IntentId => _intentId;
 
         public int SourceId { get; }
 

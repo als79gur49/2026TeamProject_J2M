@@ -317,7 +317,9 @@ namespace Game.Feature.Gameplay.Debug
 
         private static string FormatDamageResolutionRecord(DamageResolutionRecord record)
         {
-            return $"G={record.GroupId}|I={record.IntentId}|Source={record.SourceId}|SourceKind={record.SourceKind}|Target={record.TargetId}|Amount={record.Amount}|Accepted={(record.Accepted ? 1 : 0)}|RejectReason={record.RejectReason}";
+#pragma warning disable CS0618
+            return $"Plan={record.ActionPlanId}|Intent={record.IntentId}|Source={record.SourceId}|SourceKind={record.SourceKind}|Target={record.TargetId}|Amount={record.Amount}|Accepted={(record.Accepted ? 1 : 0)}|RejectReason={record.RejectReason}";
+#pragma warning restore CS0618
         }
 
         private static string FormatResolutionRecord(ResolutionRecord record)
@@ -457,7 +459,7 @@ namespace Game.Feature.Gameplay.Debug
         private static string FormatDelayedAttackEffectRecord(DelayedAttackEffectRecord effectRecord)
         {
             return
-                $"DelayedAttack|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|Priority={effectRecord.Priority}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|Group={effectRecord.SourceActionGroupId}|Sequence={effectRecord.EffectSequence}";
+                $"DelayedAttack|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|Priority={effectRecord.Priority}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|SourcePlan={effectRecord.SourceActionPlanId}|Sequence={effectRecord.EffectSequence}";
         }
 
         private readonly struct TraceOccupancyEntry

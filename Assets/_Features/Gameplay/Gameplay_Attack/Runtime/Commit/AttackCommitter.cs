@@ -234,13 +234,13 @@ namespace Game.Feature.Gameplay.Attack.Commit
             {
                 var effectRecord = delayedAttackEffects[delayedIndex];
                 delayedAttackEffectSink.Enqueue(effectRecord);
-                if (!groupsById.TryGetValue(effectRecord.SourceActionGroupId, out var sourceGroup))
+                if (!groupsById.TryGetValue(effectRecord.SourceActionPlanId, out var sourceGroup))
                 {
-                    throw new InvalidOperationException($"Missing source group {effectRecord.SourceActionGroupId} for delayed attack effect.");
+                    throw new InvalidOperationException($"Missing source action plan {effectRecord.SourceActionPlanId} for delayed attack effect.");
                 }
 
                 delayedAttackEnqueueEvents.Add(
-                    $"DelayedAttackEnqueued|G={effectRecord.SourceActionGroupId}|I={sourceGroup.IntentId}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|ExecuteTick={effectRecord.ExecuteAtTick}|Sequence={effectRecord.EffectSequence}");
+                    $"DelayedAttackEnqueued|G={effectRecord.SourceActionPlanId}|I={sourceGroup.IntentId}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|ExecuteTick={effectRecord.ExecuteAtTick}|Sequence={effectRecord.EffectSequence}");
             }
         }
 
@@ -427,13 +427,13 @@ namespace Game.Feature.Gameplay.Attack.Commit
 
         private static DamageResolutionRecord FindDamageResolution(
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
-            int groupId,
+            int actionPlanId,
             int targetId,
             int localActionIndex)
         {
             for (var i = 0; i < damageResolutions.Count; i++)
             {
-                if (damageResolutions[i].GroupId == groupId &&
+                if (damageResolutions[i].ActionPlanId == actionPlanId &&
                     damageResolutions[i].TargetId == targetId &&
                     damageResolutions[i].LocalActionIndex == localActionIndex)
                 {
@@ -442,18 +442,18 @@ namespace Game.Feature.Gameplay.Attack.Commit
             }
 
             throw new InvalidOperationException(
-                $"Missing damage resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
+                $"Missing damage resolution for action plan {actionPlanId}, target {targetId}, action {localActionIndex}.");
         }
 
         private static DestroyResolutionRecord FindDestroyResolution(
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
-            int groupId,
+            int actionPlanId,
             int targetId,
             int localActionIndex)
         {
             for (var i = 0; i < destroyResolutions.Count; i++)
             {
-                if (destroyResolutions[i].GroupId == groupId &&
+                if (destroyResolutions[i].ActionPlanId == actionPlanId &&
                     destroyResolutions[i].TargetId == targetId &&
                     destroyResolutions[i].LocalActionIndex == localActionIndex)
                 {
@@ -462,7 +462,7 @@ namespace Game.Feature.Gameplay.Attack.Commit
             }
 
             throw new InvalidOperationException(
-                $"Missing destroy resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
+                $"Missing destroy resolution for action plan {actionPlanId}, target {targetId}, action {localActionIndex}.");
         }
     }
 }

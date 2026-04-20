@@ -5,6 +5,8 @@ namespace Game.Feature.Gameplay.Attack
 {
     internal readonly struct DelayedAttackEffectRecord
     {
+        private readonly int _sourceActionPlanId;
+
         public DelayedAttackEffectRecord(
             int sourceId,
             int targetId,
@@ -56,7 +58,7 @@ namespace Game.Feature.Gameplay.Attack
             Priority = priority;
             TickGenerated = tickGenerated;
             ExecuteAtTick = executeAtTick;
-            SourceActionGroupId = sourceActionGroupId;
+            _sourceActionPlanId = sourceActionGroupId;
             EffectSequence = effectSequence;
         }
 
@@ -72,7 +74,10 @@ namespace Game.Feature.Gameplay.Attack
 
         public int ExecuteAtTick { get; }
 
-        public int SourceActionGroupId { get; }
+        public int SourceActionPlanId => _sourceActionPlanId;
+
+        [Obsolete("Legacy alias for SourceActionPlanId. Prefer SourceActionPlanId for delayed-effect correlation.")]
+        public int SourceActionGroupId => _sourceActionPlanId;
 
         public int EffectSequence { get; }
     }
@@ -95,7 +100,7 @@ namespace Game.Feature.Gameplay.Attack
                 return result;
             }
 
-            result = left.SourceActionGroupId.CompareTo(right.SourceActionGroupId);
+            result = left.SourceActionPlanId.CompareTo(right.SourceActionPlanId);
             if (result != 0)
             {
                 return result;

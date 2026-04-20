@@ -3965,13 +3965,13 @@ namespace Game.Feature.Gameplay.Loop
 
         private static DamageResolutionRecord FindDamageResolution(
             IReadOnlyList<DamageResolutionRecord> damageResolutions,
-            int groupId,
+            int actionPlanId,
             int targetId,
             int localActionIndex)
         {
             for (var i = 0; i < damageResolutions.Count; i++)
             {
-                if (damageResolutions[i].GroupId == groupId &&
+                if (damageResolutions[i].ActionPlanId == actionPlanId &&
                     damageResolutions[i].TargetId == targetId &&
                     damageResolutions[i].LocalActionIndex == localActionIndex)
                 {
@@ -3980,7 +3980,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             throw new InvalidOperationException(
-                $"Missing damage resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
+                $"Missing damage resolution for action plan {actionPlanId}, target {targetId}, action {localActionIndex}.");
         }
 
         private static IReadOnlyList<StageObjectiveDamageFact> BuildObjectiveDamageFacts(
@@ -4012,13 +4012,13 @@ namespace Game.Feature.Gameplay.Loop
 
         private static DestroyResolutionRecord FindDestroyResolution(
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
-            int groupId,
+            int actionPlanId,
             int targetId,
             int localActionIndex)
         {
             for (var i = 0; i < destroyResolutions.Count; i++)
             {
-                if (destroyResolutions[i].GroupId == groupId &&
+                if (destroyResolutions[i].ActionPlanId == actionPlanId &&
                     destroyResolutions[i].TargetId == targetId &&
                     destroyResolutions[i].LocalActionIndex == localActionIndex)
                 {
@@ -4027,7 +4027,7 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             throw new InvalidOperationException(
-                $"Missing destroy resolution for group {groupId}, target {targetId}, action {localActionIndex}.");
+                $"Missing destroy resolution for action plan {actionPlanId}, target {targetId}, action {localActionIndex}.");
         }
 
         internal void EnqueueDelayedAttackEffect(DelayedAttackEffectRecord effectRecord)
@@ -4045,7 +4045,7 @@ namespace Game.Feature.Gameplay.Loop
             {
                 var effectRecord = drainedDelayedAttackEffects[i];
                 events.Add(
-                    $"DelayedAttackDrained|Tick={tickIndex}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|Group={effectRecord.SourceActionGroupId}|Sequence={effectRecord.EffectSequence}");
+                    $"DelayedAttackDrained|Tick={tickIndex}|Source={effectRecord.SourceId}|Target={effectRecord.TargetId}|Damage={effectRecord.Damage}|GeneratedTick={effectRecord.TickGenerated}|ExecuteTick={effectRecord.ExecuteAtTick}|Group={effectRecord.SourceActionPlanId}|Sequence={effectRecord.EffectSequence}");
             }
 
             return events;
@@ -4135,7 +4135,7 @@ namespace Game.Feature.Gameplay.Loop
                     }
 
                     var damageResolution = damageResolutions[resolutionIndex];
-                    if (damageResolution.GroupId != contest.ActionPlanId ||
+                    if (damageResolution.ActionPlanId != contest.ActionPlanId ||
                         damageResolution.TargetId != contest.AffectedEntityId ||
                         damageResolution.LocalActionIndex != contest.LocalActionIndex)
                     {
@@ -4171,7 +4171,7 @@ namespace Game.Feature.Gameplay.Loop
                     }
 
                     var destroyResolution = destroyResolutions[resolutionIndex];
-                    if (destroyResolution.GroupId != contest.ActionPlanId ||
+                    if (destroyResolution.ActionPlanId != contest.ActionPlanId ||
                         destroyResolution.TargetId != contest.AffectedEntityId ||
                         destroyResolution.LocalActionIndex != contest.LocalActionIndex)
                     {
@@ -5979,6 +5979,9 @@ namespace Game.Feature.Gameplay.Loop
 
     internal readonly struct DestroyResolutionRecord
     {
+        private readonly int _actionPlanId;
+        private readonly int _intentId;
+
         public DestroyResolutionRecord(
             int groupId,
             int intentId,
@@ -5989,8 +5992,8 @@ namespace Game.Feature.Gameplay.Loop
             bool accepted,
             int localActionIndex)
         {
-            GroupId = groupId;
-            IntentId = intentId;
+            _actionPlanId = groupId;
+            _intentId = intentId;
             SourceId = sourceId;
             TargetId = targetId;
             Condition = condition;
@@ -5999,9 +6002,13 @@ namespace Game.Feature.Gameplay.Loop
             LocalActionIndex = localActionIndex;
         }
 
-        public int GroupId { get; }
+        public int ActionPlanId => _actionPlanId;
 
-        public int IntentId { get; }
+        [Obsolete("Legacy alias for ActionPlanId. Prefer ActionPlanId for correlation and semantic fields such as SourceId, TargetId, Condition, FinalHp, and Accepted.")]
+        public int GroupId => _actionPlanId;
+
+        [Obsolete("IR metadata only. Prefer ActionPlanId for plan correlation and semantic fields such as SourceId, TargetId, Condition, FinalHp, and Accepted.")]
+        public int IntentId => _intentId;
 
         public int SourceId { get; }
 

@@ -837,14 +837,14 @@ namespace Game.Feature.Gameplay.Movement.Commit
 
         private static bool TryFindDestroyResolution(
             IReadOnlyList<DestroyResolutionRecord> destroyResolutions,
-            int groupId,
+            int actionPlanId,
             int targetId,
             int localActionIndex,
             out DestroyResolutionRecord destroyResolution)
         {
             for (var i = 0; i < destroyResolutions.Count; i++)
             {
-                if (destroyResolutions[i].GroupId == groupId &&
+                if (destroyResolutions[i].ActionPlanId == actionPlanId &&
                     destroyResolutions[i].TargetId == targetId &&
                     destroyResolutions[i].LocalActionIndex == localActionIndex)
                 {

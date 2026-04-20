@@ -480,7 +480,7 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(effect.Priority).Append('|')
                     .Append(effect.TickGenerated).Append('|')
                     .Append(effect.ExecuteAtTick).Append('|')
-                    .Append(effect.SourceActionGroupId).Append('|')
+                    .Append(effect.SourceActionPlanId).Append('|')
                     .Append(effect.EffectSequence).Append('\n');
             }
         }
