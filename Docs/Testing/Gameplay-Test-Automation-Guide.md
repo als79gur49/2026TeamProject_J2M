@@ -292,6 +292,10 @@ WSL CLI
 - runner integration:
   - `run_tests.sh`는 checker를 실행하지만 `gameplay_test_stratification_lib.py`를 직접 import하지 않는다.
   - `TestRunnerCliBootstrap`의 Core PlayMode selection은 persisted manifest가 아니라 `assemblyNames + categoryNames("Core")`를 사용한다.
+- trace/log interpretation rule:
+  - governance-facing canonical structured trace surface는 `Plan=` / `SourcePlan=`다.
+  - free-form `G=`는 compatibility token in free-form event log이며 current `ActionPlanId` value를 mirror하지만 old semantic GroupId revival이 아니다.
+  - 새 테스트/도구는 `G=` 대신 `ActionPlanId` / `SourceActionPlanId` 또는 `Plan=` / `SourcePlan=`를 읽어야 한다.
 - historical/non-canonical:
   - [Docs/Archive/Architecture/Gameplay-Test-Stratification.md](../Archive/Architecture/Gameplay-Test-Stratification.md)
 - 모드:
@@ -327,6 +331,10 @@ WSL CLI
 - Runner integration:
   - `run_tests.sh` invokes the checker but no longer imports `gameplay_test_stratification_lib.py` directly.
   - `TestRunnerCliBootstrap` now uses `assemblyNames + categoryNames("Core")` for Core PlayMode selection instead of a persisted manifest.
+- Trace/log interpretation rule:
+  - the governance-facing canonical structured trace surface is `Plan=` / `SourcePlan=`
+  - free-form `G=` is a compatibility token in the free-form event log; it mirrors the current `ActionPlanId` value and is not an old semantic GroupId revival
+  - new tests/tools must read `ActionPlanId` / `SourceActionPlanId` or `Plan=` / `SourcePlan=`, not `G=`
 - Historical/non-canonical:
   - [Docs/Archive/Architecture/Gameplay-Test-Stratification.md](../Archive/Architecture/Gameplay-Test-Stratification.md)
 - Modes:

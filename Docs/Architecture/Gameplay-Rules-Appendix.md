@@ -181,3 +181,13 @@
   - `EffectSequence`
 - canonical runtime reader는 plan-level correlation에서 `GroupId`가 아니라 `ActionPlanId` 계열을 사용한다.
 - `GroupId` / `SourceActionGroupId` wording은 compatibility diagnostics surface일 뿐 canonical rule text가 아니다.
+- source-of-truth reading order는 typed runtime carrier -> canonical structured trace `Plan=` / `SourcePlan=` -> free-form compatibility log `G=`다.
+- free-form `G=` token은 human-readable compatibility surface일 뿐이며 canonical parser input이 아니다. current `ActionPlanId` value를 mirror하지만 obsolete alias token이지 old semantic GroupId revival이 아니다.
+- trace/debug/log를 볼 때 primary source-of-truth는 `ActionPlanId` / `SourceActionPlanId`와 canonical structured trace `Plan=` / `SourcePlan=`다.
+- `TickEntityMotion`은 committed logical movement 전용이다.
+- `Flip DestroySelf` / `Flip Stay`는 fake `TickEntityMotionKind.Flip`을 만들지 않고 `FlipImpactPresentationSignal`로 common pre-impact flip arc를 전달한다.
+- `FlipImpactPresentationSignal`은 gameplay authority가 아니라 presentation-only carrier다.
+- `Flip FollowThrough`는 기존 `EntityMotion Flip` path를 유지한다.
+- `Flip DestroySelf`는 transient clone/effect로 break/fade overlap branch를 재생하고, `Flip Stay`는 actual box view override track으로 source -> impact -> source return을 표현한다.
+- box contact, destroy break start, player release, stay recoil branch timing은 centralized flip-impact timing setting에서 공유한다.
+- `Flip DestroySelf`에서 shared contact normalized time은 break/release onset threshold다. final impact pose arrival은 full flip flight duration 시점이며, destroy break/fade는 그 onset부터 flight와 overlap될 수 있다.

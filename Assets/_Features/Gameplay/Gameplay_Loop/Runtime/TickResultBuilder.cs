@@ -205,7 +205,8 @@ namespace Game.Feature.Gameplay.Loop
             CleanupPhaseResult cleanupPhaseResult,
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
-            PlayerTickCommand playerCommand = default)
+            PlayerTickCommand playerCommand = default,
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -217,7 +218,8 @@ namespace Game.Feature.Gameplay.Loop
                 RespawnPhaseResult.Empty,
                 currentTickIndex,
                 jumpBaselineSnapshot,
-                playerCommand)
+                playerCommand,
+                resolutionRecords)
         {
         }
 
@@ -232,7 +234,8 @@ namespace Game.Feature.Gameplay.Loop
             RespawnPhaseResult respawnPhaseResult,
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
-            PlayerTickCommand playerCommand = default)
+            PlayerTickCommand playerCommand = default,
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -245,7 +248,8 @@ namespace Game.Feature.Gameplay.Loop
                 respawnPhaseResult,
                 currentTickIndex,
                 jumpBaselineSnapshot,
-                playerCommand)
+                playerCommand,
+                resolutionRecords)
         {
         }
 
@@ -260,7 +264,8 @@ namespace Game.Feature.Gameplay.Loop
             CleanupPhaseResult cleanupPhaseResult,
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
-            PlayerTickCommand playerCommand = default)
+            PlayerTickCommand playerCommand = default,
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
             : this(
                 preMovementSnapshot,
                 postMovementSnapshot,
@@ -273,7 +278,8 @@ namespace Game.Feature.Gameplay.Loop
                 RespawnPhaseResult.Empty,
                 currentTickIndex,
                 jumpBaselineSnapshot,
-                playerCommand)
+                playerCommand,
+                resolutionRecords)
         {
         }
 
@@ -289,7 +295,8 @@ namespace Game.Feature.Gameplay.Loop
             RespawnPhaseResult respawnPhaseResult,
             int currentTickIndex = 0,
             WorldSnapshot jumpBaselineSnapshot = null,
-            PlayerTickCommand playerCommand = default)
+            PlayerTickCommand playerCommand = default,
+            IReadOnlyList<ResolutionRecord> resolutionRecords = null)
         {
             PreMovementSnapshot = preMovementSnapshot ?? throw new ArgumentNullException(nameof(preMovementSnapshot));
             PostMovementSnapshot = postMovementSnapshot ?? throw new ArgumentNullException(nameof(postMovementSnapshot));
@@ -303,6 +310,7 @@ namespace Game.Feature.Gameplay.Loop
             CurrentTickIndex = currentTickIndex;
             JumpBaselineSnapshot = jumpBaselineSnapshot ?? PreMovementSnapshot;
             PlayerCommand = playerCommand;
+            ResolutionRecords = resolutionRecords ?? Array.Empty<ResolutionRecord>();
         }
 
         public WorldSnapshot PreMovementSnapshot { get; }
@@ -331,6 +339,8 @@ namespace Game.Feature.Gameplay.Loop
         public WorldSnapshot JumpBaselineSnapshot { get; }
 
         public PlayerTickCommand PlayerCommand { get; }
+
+        public IReadOnlyList<ResolutionRecord> ResolutionRecords { get; }
     }
 
     internal sealed class TickPresentationDataBuilder
@@ -340,6 +350,7 @@ namespace Game.Feature.Gameplay.Loop
             var entityMotions = new List<TickEntityMotion>();
             var entityExitSignals = new List<TickEntityExitPresentationSignal>();
             var impactTransientSignals = new List<TickImpactTransientPresentationSignal>();
+            var flipImpactSignals = new List<FlipImpactPresentationSignal>();
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
@@ -351,6 +362,7 @@ namespace Game.Feature.Gameplay.Loop
             var exitOwnedEntityIds = new HashSet<int>();
 
             BuildEntityExitPresentation(context, entityExitSignals, exitOwnedEntityIds);
+            BuildFlipImpactPresentation(context, flipImpactSignals);
             BuildImpactTransientPresentation(context, impactTransientSignals);
             BuildMovementPresentation(context, entityMotions, visibilityChanges, exitOwnedEntityIds);
             BuildAttackPresentation(context, visibilityChanges);
@@ -372,6 +384,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyJumpSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    impactTransientSignals.Count == 0 &&
+                   flipImpactSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
@@ -391,7 +404,8 @@ namespace Game.Feature.Gameplay.Loop
                     enemyActionSignals,
                     enemyJumpSignals,
                     entityExitSignals,
-                    impactTransientSignals);
+                    impactTransientSignals,
+                    flipImpactSignals);
         }
 
         private static void BuildMovementPresentation(
@@ -426,39 +440,54 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
-        private static void BuildImpactTransientPresentation(
+        private static void BuildFlipImpactPresentation(
             in TickPresentationBuildContext context,
-            List<TickImpactTransientPresentationSignal> impactTransientSignals)
+            List<FlipImpactPresentationSignal> flipImpactSignals)
         {
-            var removedEntityIds = new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds);
             var dispositionRecords = context.MovementPhaseResult.ImpactDispositionRecords;
-            var signaledEntityIds = new HashSet<int>();
+            var signaledKeys = new HashSet<long>();
 
             for (var i = 0; i < dispositionRecords.Count; i++)
             {
                 var record = dispositionRecords[i];
                 if (record.PolicyKind != ImpactDispositionPolicyKind.Flip ||
-                    record.DispositionKind != ImpactDispositionKind.DestroySelf ||
-                    !removedEntityIds.Contains(record.ImpactSourceEntityId) ||
-                    !signaledEntityIds.Add(record.ImpactSourceEntityId) ||
-                    !context.PreMovementSnapshot.TryGetEntity(record.ImpactSourceEntityId, out var sourceEntity))
+                    !TryResolveFlipImpactDisposition(record.DispositionKind, out var disposition) ||
+                    !context.PreMovementSnapshot.TryGetEntity(record.ImpactSourceEntityId, out var sourceEntity) ||
+                    sourceEntity.boardPresence != EntityBoardPresence.Occupying ||
+                    sourceEntity.position == record.ImpactCell ||
+                    !ImpactGeometryResolver.TryResolve(sourceEntity.position, record.ImpactCell, out var geometry) ||
+                    !geometry.IsFlipImpact)
                 {
                     continue;
                 }
 
-                impactTransientSignals.Add(
-                    new TickImpactTransientPresentationSignal(
+                var key = BuildFlipImpactSignalKey(record.ActionPlanId, record.ImpactSourceEntityId);
+                if (!signaledKeys.Add(key))
+                {
+                    continue;
+                }
+
+                flipImpactSignals.Add(
+                    new FlipImpactPresentationSignal(
+                        record.ActionPlanId,
                         record.ImpactSourceEntityId,
-                        sourceEntity.type,
+                        record.ImpactTargetEntityId != 0 ? record.ImpactTargetEntityId : -1,
+                        ResolveActionActorEntityId(context, record.ActionPlanId),
                         sourceEntity.position,
                         record.ImpactCell,
                         context.PreMovementSnapshot.Topology,
                         sourceEntity.facing,
-                        BuildStableImpactPresentationSeed(
-                            context.CurrentTickIndex,
-                            record.ImpactSourceEntityId,
-                            record.ImpactTargetEntityId)));
+                        geometry.MoveFacing,
+                        disposition,
+                        hasLandingCell: false));
             }
+        }
+
+        private static void BuildImpactTransientPresentation(
+            in TickPresentationBuildContext context,
+            List<TickImpactTransientPresentationSignal> impactTransientSignals)
+        {
+            impactTransientSignals.Clear();
         }
 
         private static void BuildAttackPresentation(
@@ -684,6 +713,7 @@ namespace Game.Feature.Gameplay.Loop
                 var canceledThisTick = false;
                 var targetEntityId = 0;
                 var direction = Direction.None;
+                var actionPlanId = 0;
 
                 if (transitionsByEntityId.TryGetValue(entityId, out var transition))
                 {
@@ -711,6 +741,13 @@ namespace Game.Feature.Gameplay.Loop
                     direction = controlState.activeAction.direction;
                 }
 
+                actionPlanId = ResolvePlayerActionPlanId(
+                    context,
+                    entityId,
+                    activeActionKind,
+                    targetEntityId,
+                    direction);
+
                 var isRecoveryPhase =
                     activeActionKind != PlayerActionKind.None &&
                     context.FinalAuthoritativeSnapshot.TryGetPlayerControlState(entityId, out var finalControlState) &&
@@ -721,6 +758,18 @@ namespace Game.Feature.Gameplay.Loop
                     entityId,
                     activeActionKind,
                     executedThisTick);
+                var flipOutcome = ResolvePlayerFlipOutcome(
+                    context,
+                    entityId,
+                    activeActionKind,
+                    actionPlanId,
+                    resolutionKind);
+                var hasFlipImpactContactTiming =
+                    flipOutcome == TickPlayerFlipOutcomeKind.DestroySelf ||
+                    flipOutcome == TickPlayerFlipOutcomeKind.Stay;
+                var flipTargetBoxEntityId = activeActionKind == PlayerActionKind.Flip
+                    ? targetEntityId
+                    : 0;
 
                 playerActionSignals.Add(
                     new TickPlayerActionPresentationSignal(
@@ -734,7 +783,11 @@ namespace Game.Feature.Gameplay.Loop
                         isRecoveryPhase,
                         resolutionKind,
                         targetEntityId,
-                        direction));
+                        direction,
+                        actionPlanId,
+                        flipOutcome,
+                        hasFlipImpactContactTiming,
+                        flipTargetBoxEntityId));
             }
         }
 
@@ -800,6 +853,88 @@ namespace Game.Feature.Gameplay.Loop
             }
         }
 
+        private static int ResolvePlayerActionPlanId(
+            in TickPresentationBuildContext context,
+            int entityId,
+            PlayerActionKind actionKind,
+            int targetEntityId,
+            Direction direction)
+        {
+            var resolutionRecords = context.ResolutionRecords;
+            for (var i = 0; i < resolutionRecords.Count; i++)
+            {
+                var record = resolutionRecords[i];
+                if (!record.Accepted ||
+                    record.Kind != ContestKind.Space ||
+                    record.LocalActionIndex != 0 ||
+                    record.SourceId != entityId)
+                {
+                    continue;
+                }
+
+                return record.ActionPlanId;
+            }
+
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var metadata = operations[i].Metadata;
+                if (metadata.SourceActorEntityId != entityId ||
+                    metadata.ActionPlanId <= 0 ||
+                    !DoesOperationMatchPlayerAction(operations[i], actionKind, targetEntityId, direction))
+                {
+                    continue;
+                }
+
+                return metadata.ActionPlanId;
+            }
+
+            return 0;
+        }
+
+        private static TickPlayerFlipOutcomeKind ResolvePlayerFlipOutcome(
+            in TickPresentationBuildContext context,
+            int entityId,
+            PlayerActionKind actionKind,
+            int actionPlanId,
+            TickPlayerActionResolutionKind resolutionKind)
+        {
+            if (actionKind != PlayerActionKind.Flip)
+            {
+                return TickPlayerFlipOutcomeKind.None;
+            }
+
+            var dispositionRecords = context.MovementPhaseResult.ImpactDispositionRecords;
+            for (var i = 0; i < dispositionRecords.Count; i++)
+            {
+                var record = dispositionRecords[i];
+                if (record.PolicyKind != ImpactDispositionPolicyKind.Flip ||
+                    record.ImpactTargetEntityId == entityId)
+                {
+                    continue;
+                }
+
+                if ((actionPlanId > 0 && record.ActionPlanId == actionPlanId) ||
+                    ResolveActionActorEntityId(context, record.ActionPlanId) == entityId)
+                {
+                    return record.DispositionKind switch
+                    {
+                        ImpactDispositionKind.DestroySelf => TickPlayerFlipOutcomeKind.DestroySelf,
+                        ImpactDispositionKind.Stay => TickPlayerFlipOutcomeKind.Stay,
+                        ImpactDispositionKind.FollowThrough => TickPlayerFlipOutcomeKind.FollowThrough,
+                        _ => TickPlayerFlipOutcomeKind.None,
+                    };
+                }
+            }
+
+            return resolutionKind switch
+            {
+                TickPlayerActionResolutionKind.Success => TickPlayerFlipOutcomeKind.FollowThrough,
+                TickPlayerActionResolutionKind.Blocked => TickPlayerFlipOutcomeKind.Blocked,
+                _ => TickPlayerFlipOutcomeKind.None,
+            };
+        }
+
         private static TickPlayerActionResolutionKind ResolvePlayerActionResolutionKind(
             in TickPresentationBuildContext context,
             int entityId,
@@ -823,6 +958,100 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             return TickPlayerActionResolutionKind.Blocked;
+        }
+
+        private static int ResolveActionActorEntityId(
+            in TickPresentationBuildContext context,
+            int actionPlanId)
+        {
+            if (actionPlanId <= 0)
+            {
+                return 0;
+            }
+
+            var resolutionRecords = context.ResolutionRecords;
+            for (var i = 0; i < resolutionRecords.Count; i++)
+            {
+                var record = resolutionRecords[i];
+                if (record.Accepted &&
+                    record.Kind == ContestKind.Space &&
+                    record.ActionPlanId == actionPlanId &&
+                    record.LocalActionIndex == 0)
+                {
+                    return record.SourceId;
+                }
+            }
+
+            var operations = context.MovementPhaseResult.ResolvedOperations;
+            for (var i = 0; i < operations.Count; i++)
+            {
+                var metadata = operations[i].Metadata;
+                if (metadata.ActionPlanId == actionPlanId &&
+                    metadata.SourceActorEntityId != 0)
+                {
+                    return metadata.SourceActorEntityId;
+                }
+            }
+
+            return 0;
+        }
+
+        private static bool DoesOperationMatchPlayerAction(
+            FinalizationOperation operation,
+            PlayerActionKind actionKind,
+            int targetEntityId,
+            Direction direction)
+        {
+            if (actionKind == PlayerActionKind.None)
+            {
+                return false;
+            }
+
+            if (operation.Metadata.MovementSemanticKind == MovementSemanticKind.None)
+            {
+                return false;
+            }
+
+            if (actionKind == PlayerActionKind.Flip &&
+                operation.Metadata.MovementSemanticKind == MovementSemanticKind.Flip)
+            {
+                return true;
+            }
+
+            if (actionKind == PlayerActionKind.Push &&
+                operation.Metadata.MovementSemanticKind == MovementSemanticKind.Push)
+            {
+                return true;
+            }
+
+            if (targetEntityId != 0 && operation.EntityId == targetEntityId)
+            {
+                return true;
+            }
+
+            return direction != Direction.None &&
+                   operation.Kind == FinalizationOperationKind.SetFacing &&
+                   operation.Facing == direction;
+        }
+
+        private static bool TryResolveFlipImpactDisposition(
+            ImpactDispositionKind dispositionKind,
+            out FlipImpactPresentationDisposition disposition)
+        {
+            disposition = dispositionKind switch
+            {
+                ImpactDispositionKind.DestroySelf => FlipImpactPresentationDisposition.DestroySelf,
+                ImpactDispositionKind.Stay => FlipImpactPresentationDisposition.Stay,
+                _ => 0,
+            };
+
+            return disposition != 0;
+        }
+
+        private static long BuildFlipImpactSignalKey(int sourceActionPlanId, int boxEntityId)
+        {
+            var upper = (long)sourceActionPlanId << 32;
+            return upper ^ (uint)boxEntityId;
         }
 
         private static bool DidResolvePlayerImpactThisTick(

@@ -77,6 +77,35 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        internal bool PlayFlipImpactDestroyEffect(
+            FlipImpactInstanceKey key,
+            FlipImpactPresentationSignal signal,
+            GameplayEntityView sourceView,
+            GameplayEntityPose sourceLocalPose,
+            GameplayEntityPose impactLocalPose,
+            float flightDurationSeconds,
+            float totalDurationSeconds,
+            float arcHeightWorld,
+            FlipImpactTimingSettings timingSettings)
+        {
+            var track = _effectFactory.CreateFlipImpactDestroyEffect(
+                signal,
+                sourceView,
+                sourceLocalPose,
+                impactLocalPose,
+                flightDurationSeconds,
+                totalDurationSeconds,
+                arcHeightWorld,
+                timingSettings);
+            if (track == null)
+            {
+                return false;
+            }
+
+            _activeTracks.Add(track);
+            return true;
+        }
+
         public void PlayHitEffect(
             int entityId,
             GameplayEntityPose localPose,
@@ -506,6 +535,143 @@ namespace Game.Feature.Gameplay.Host
                     Mathf.Lerp(1f, 1.12f, breakTime),
                     Mathf.Lerp(1f, 1.12f, breakTime),
                     Mathf.Lerp(1f, 0.18f, breakTime)));
+        }
+    }
+
+    internal sealed class FlipImpactDestroyEffectTrack : IGameplayTransientEffectTrack
+    {
+        private const float DurationEpsilon = 0.0001f;
+        private const float BreakScaleEaseExponent = 2f;
+        private const float BreakAlphaEaseExponent = 2.5f;
+
+        private readonly GameplayEntityPose _impactLocalPose;
+        private readonly GameplayEntityPose _sourceLocalPose;
+        private readonly float _arcHeightWorld;
+        private readonly float _flightDurationSeconds;
+        private readonly float _totalDurationSeconds;
+        private readonly Material[][] _instancedMaterials;
+        private readonly Renderer[] _renderers;
+        private readonly Transform _root;
+        private readonly Vector3 _rootStartScale;
+        private readonly FlipImpactTimingSettings _timingSettings;
+        private float _elapsedSeconds;
+
+        public FlipImpactDestroyEffectTrack(
+            Transform root,
+            Renderer[] renderers,
+            Material[][] instancedMaterials,
+            float flightDurationSeconds,
+            float totalDurationSeconds,
+            GameplayEntityPose sourceLocalPose,
+            GameplayEntityPose impactLocalPose,
+            float arcHeightWorld,
+            FlipImpactTimingSettings timingSettings)
+        {
+            _root = root != null ? root : throw new ArgumentNullException(nameof(root));
+            _renderers = renderers ?? Array.Empty<Renderer>();
+            _instancedMaterials = instancedMaterials ?? Array.Empty<Material[]>();
+            _flightDurationSeconds = Mathf.Max(DurationEpsilon, flightDurationSeconds);
+            _totalDurationSeconds = Mathf.Max(Mathf.Max(totalDurationSeconds, flightDurationSeconds), _flightDurationSeconds);
+            _sourceLocalPose = sourceLocalPose;
+            _impactLocalPose = impactLocalPose;
+            _arcHeightWorld = Mathf.Max(0f, arcHeightWorld);
+            _timingSettings = timingSettings;
+            _rootStartScale = root.localScale;
+            ApplyVisualState();
+        }
+
+        public bool IsComplete => _elapsedSeconds >= _totalDurationSeconds - DurationEpsilon;
+
+        internal float FlightDurationSeconds => _flightDurationSeconds;
+
+        internal float TotalDurationSeconds => _totalDurationSeconds;
+
+        // DestroySelf reads ContactNormalizedTime as break onset, not final impact-pose arrival.
+        internal float BreakStartSeconds => _flightDurationSeconds * _timingSettings.ContactNormalizedTime;
+
+        public void Advance(float deltaTime)
+        {
+            if (deltaTime > 0f)
+            {
+                _elapsedSeconds = Mathf.Min(_totalDurationSeconds, _elapsedSeconds + deltaTime);
+            }
+
+            ApplyVisualState();
+        }
+
+        public void Dispose()
+        {
+            for (var rendererIndex = 0; rendererIndex < _instancedMaterials.Length; rendererIndex++)
+            {
+                var materials = _instancedMaterials[rendererIndex];
+                if (materials == null)
+                {
+                    continue;
+                }
+
+                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+                {
+                    GameplayTransientEffectTrackUtility.SafeDestroy(materials[materialIndex]);
+                }
+            }
+
+            GameplayTransientEffectTrackUtility.SafeDestroy(_root != null ? _root.gameObject : null);
+        }
+
+        private void ApplyVisualState()
+        {
+            var breakStartSeconds = BreakStartSeconds;
+            var flightNormalizedTime = Mathf.Clamp01(_elapsedSeconds / _flightDurationSeconds);
+            GameplayEntityPose pose;
+            if (_elapsedSeconds < _flightDurationSeconds)
+            {
+                // DestroySelf keeps sampling the full flip flight while the break branch overlaps.
+                // ContactNormalizedTime is the break onset threshold, not final impact-pose arrival.
+                pose = FlipArcSampler.Sample(_sourceLocalPose, _impactLocalPose, flightNormalizedTime, _arcHeightWorld);
+            }
+            else
+            {
+                pose = _impactLocalPose;
+            }
+
+            _root.localPosition = pose.Position;
+            _root.localRotation = pose.Rotation;
+
+            if (_elapsedSeconds <= breakStartSeconds)
+            {
+                _root.localScale = _rootStartScale;
+                ApplyAlpha(1f);
+                return;
+            }
+
+            var breakDurationSeconds = Mathf.Max(DurationEpsilon, _totalDurationSeconds - breakStartSeconds);
+            var breakNormalizedTime = Mathf.Clamp01((_elapsedSeconds - breakStartSeconds) / breakDurationSeconds);
+            var easedScaleTime = Mathf.Pow(breakNormalizedTime, BreakScaleEaseExponent);
+            var easedAlphaTime = Mathf.Pow(breakNormalizedTime, BreakAlphaEaseExponent);
+            _root.localScale = Vector3.Scale(
+                _rootStartScale,
+                new Vector3(
+                    Mathf.Lerp(1f, 1.12f, easedScaleTime),
+                    Mathf.Lerp(1f, 1.12f, easedScaleTime),
+                    Mathf.Lerp(1f, 0.18f, easedScaleTime)));
+            ApplyAlpha(1f - easedAlphaTime);
+        }
+
+        private void ApplyAlpha(float alpha)
+        {
+            for (var rendererIndex = 0; rendererIndex < _renderers.Length; rendererIndex++)
+            {
+                var materials = _instancedMaterials[rendererIndex];
+                if (materials == null)
+                {
+                    continue;
+                }
+
+                for (var materialIndex = 0; materialIndex < materials.Length; materialIndex++)
+                {
+                    GameplayTransientEffectTrackUtility.SetMaterialAlpha(materials[materialIndex], alpha);
+                }
+            }
         }
     }
 
@@ -950,6 +1116,57 @@ namespace Game.Feature.Gameplay.Host
                 arcHeight);
         }
 
+        internal IGameplayTransientEffectTrack CreateFlipImpactDestroyEffect(
+            FlipImpactPresentationSignal signal,
+            GameplayEntityView sourceView,
+            GameplayEntityPose sourceLocalPose,
+            GameplayEntityPose impactLocalPose,
+            float flightDurationSeconds,
+            float totalDurationSeconds,
+            float arcHeightWorld,
+            FlipImpactTimingSettings timingSettings)
+        {
+            if (_parent == null)
+            {
+                return null;
+            }
+
+            var effectRoot = new GameObject($"TransientFlipImpactDestroyEffect_{signal.BoxEntityId}");
+            effectRoot.transform.SetParent(_parent, worldPositionStays: false);
+            effectRoot.transform.localPosition = sourceLocalPose.Position;
+            effectRoot.transform.localRotation = sourceLocalPose.Rotation;
+            effectRoot.transform.localScale = Vector3.one;
+
+            var visualRoot = CreateVisualRoot(effectRoot.transform, sourceView, ResolveFallbackEntityType(sourceView));
+            visualRoot.gameObject.SetActive(true);
+
+            var colliders = visualRoot.GetComponentsInChildren<Collider>(includeInactive: true);
+            for (var i = 0; i < colliders.Length; i++)
+            {
+                if (Application.isPlaying)
+                {
+                    Object.Destroy(colliders[i]);
+                }
+                else
+                {
+                    Object.DestroyImmediate(colliders[i]);
+                }
+            }
+
+            var renderers = visualRoot.GetComponentsInChildren<Renderer>(includeInactive: true);
+            var instancedMaterials = CreateInstancedMaterials(renderers);
+            return new FlipImpactDestroyEffectTrack(
+                effectRoot.transform,
+                renderers,
+                instancedMaterials,
+                flightDurationSeconds,
+                totalDurationSeconds,
+                sourceLocalPose,
+                impactLocalPose,
+                arcHeightWorld,
+                timingSettings);
+        }
+
         internal IGameplayTransientEffectTrack CreateHitEffect(
             int entityId,
             GameplayEntityPose localPose,
@@ -1049,6 +1266,11 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return CreateFallbackVisualRoot(effectRoot, entityType);
+        }
+
+        private static EntityType ResolveFallbackEntityType(GameplayEntityView sourceView)
+        {
+            return EntityType.Box;
         }
 
         private Material ResolveFallbackMaterial(EntityType entityType)

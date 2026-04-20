@@ -175,7 +175,11 @@ namespace Game.Feature.Gameplay.Loop
             bool isRecoveryPhase = false,
             TickPlayerActionResolutionKind resolutionKind = TickPlayerActionResolutionKind.None,
             int targetEntityId = 0,
-            Direction direction = Direction.None)
+            Direction direction = Direction.None,
+            int actionPlanId = 0,
+            TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None,
+            bool hasFlipImpactContactTiming = false,
+            int flipTargetBoxEntityId = 0)
         {
             EntityId = entityId;
             ActiveActionKind = activeActionKind;
@@ -188,6 +192,10 @@ namespace Game.Feature.Gameplay.Loop
             CanceledThisTick = canceledThisTick;
             TargetEntityId = targetEntityId;
             Direction = direction;
+            ActionPlanId = actionPlanId;
+            FlipOutcome = flipOutcome;
+            HasFlipImpactContactTiming = hasFlipImpactContactTiming;
+            FlipTargetBoxEntityId = flipTargetBoxEntityId;
         }
 
         public int EntityId { get; }
@@ -211,6 +219,14 @@ namespace Game.Feature.Gameplay.Loop
         public int TargetEntityId { get; }
 
         public Direction Direction { get; }
+
+        public int ActionPlanId { get; }
+
+        public TickPlayerFlipOutcomeKind FlipOutcome { get; }
+
+        public bool HasFlipImpactContactTiming { get; }
+
+        public int FlipTargetBoxEntityId { get; }
     }
 
     public enum TickPlayerActionResolutionKind
@@ -219,6 +235,15 @@ namespace Game.Feature.Gameplay.Loop
         Success = 1,
         Impact = 2,
         Blocked = 3,
+    }
+
+    public enum TickPlayerFlipOutcomeKind
+    {
+        None = 0,
+        FollowThrough = 1,
+        DestroySelf = 2,
+        Stay = 3,
+        Blocked = 4,
     }
 
     public readonly struct TickPlayerLocomotionPresentationSignal
@@ -482,6 +507,67 @@ namespace Game.Feature.Gameplay.Loop
         public int PresentationSeed { get; }
     }
 
+    public enum FlipImpactPresentationDisposition
+    {
+        DestroySelf = 1,
+        Stay = 2,
+    }
+
+    public readonly struct FlipImpactPresentationSignal
+    {
+        public FlipImpactPresentationSignal(
+            int sourceActionPlanId,
+            int boxEntityId,
+            int impactTargetEntityId,
+            int actorEntityId,
+            SurfaceCell sourceCell,
+            SurfaceCell impactCell,
+            CubeTopologyState topology,
+            Direction sourceFacing,
+            Direction impactFacing,
+            FlipImpactPresentationDisposition disposition,
+            bool hasLandingCell = false,
+            SurfaceCell landingCell = default)
+        {
+            SourceActionPlanId = sourceActionPlanId;
+            BoxEntityId = boxEntityId;
+            ImpactTargetEntityId = impactTargetEntityId;
+            ActorEntityId = actorEntityId;
+            SourceCell = sourceCell;
+            ImpactCell = impactCell;
+            Topology = topology;
+            SourceFacing = sourceFacing;
+            ImpactFacing = impactFacing;
+            HasLandingCell = hasLandingCell;
+            LandingCell = landingCell;
+            Disposition = disposition;
+        }
+
+        public int SourceActionPlanId { get; }
+
+        public int BoxEntityId { get; }
+
+        public int ImpactTargetEntityId { get; }
+
+        public int ActorEntityId { get; }
+
+        public SurfaceCell SourceCell { get; }
+
+        public SurfaceCell ImpactCell { get; }
+
+        public CubeTopologyState Topology { get; }
+
+        public Direction SourceFacing { get; }
+
+        public Direction ImpactFacing { get; }
+
+        public bool HasLandingCell { get; }
+
+        public SurfaceCell LandingCell { get; }
+
+        public FlipImpactPresentationDisposition Disposition { get; }
+    }
+
     public sealed class TickPresentationData
     {
         public static readonly TickPresentationData Empty = new(
@@ -492,12 +578,15 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<TickPlayerActionPresentationSignal>(),
             Array.Empty<TickPlayerLocomotionPresentationSignal>(),
             Array.Empty<TickPlayerDamagePresentationSignal>(),
+            Array.Empty<TickEnemyDamagePresentationSignal>(),
             Array.Empty<TickEnemyActionPresentationSignal>(),
             Array.Empty<TickEnemyJumpPresentationSignal>(),
-            Array.Empty<TickEntityExitPresentationSignal>());
+            Array.Empty<TickEntityExitPresentationSignal>(),
+            Array.Empty<FlipImpactPresentationSignal>());
 
         private readonly ReadOnlyCollection<TickEntityExitPresentationSignal> _entityExitSignals;
         private ReadOnlyCollection<TickImpactTransientPresentationSignal> _impactTransientSignals;
+        private readonly ReadOnlyCollection<FlipImpactPresentationSignal> _flipImpactSignals;
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
         private readonly ReadOnlyCollection<TickEnemyDamagePresentationSignal> _enemyDamageSignals;
         private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
@@ -578,7 +667,8 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals,
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
-                Array.Empty<TickEntityExitPresentationSignal>())
+                Array.Empty<TickEntityExitPresentationSignal>(),
+                Array.Empty<FlipImpactPresentationSignal>())
         {
         }
 
@@ -601,7 +691,8 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals,
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
-                entityExitSignals)
+                entityExitSignals,
+                Array.Empty<FlipImpactPresentationSignal>())
         {
         }
 
@@ -625,7 +716,8 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals,
                 enemyJumpSignals,
-                entityExitSignals)
+                entityExitSignals,
+                Array.Empty<FlipImpactPresentationSignal>())
         {
         }
 
@@ -650,7 +742,8 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals,
                 enemyJumpSignals,
-                entityExitSignals)
+                entityExitSignals,
+                Array.Empty<FlipImpactPresentationSignal>())
         {
         }
 
@@ -676,7 +769,8 @@ namespace Game.Feature.Gameplay.Loop
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 enemyActionSignals,
                 enemyJumpSignals,
-                entityExitSignals)
+                entityExitSignals,
+                Array.Empty<FlipImpactPresentationSignal>())
         {
         }
 
@@ -692,6 +786,35 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
             IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                playerActionSignals,
+                playerLocomotionSignals,
+                playerDamageSignals,
+                enemyDamageSignals,
+                enemyActionSignals,
+                enemyJumpSignals,
+                entityExitSignals,
+                Array.Empty<FlipImpactPresentationSignal>())
+        {
+        }
+
+        public TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals,
+            IEnumerable<TickPlayerDamagePresentationSignal> playerDamageSignals,
+            IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
+            IEnumerable<FlipImpactPresentationSignal> flipImpactSignals)
         {
             if (entityMotions == null)
             {
@@ -743,6 +866,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(entityExitSignals));
             }
 
+            if (flipImpactSignals == null)
+            {
+                throw new ArgumentNullException(nameof(flipImpactSignals));
+            }
+
             _entityMotions = new ReadOnlyCollection<TickEntityMotion>(new List<TickEntityMotion>(entityMotions));
             _topologyMotion = topologyMotion;
             _visibilityChanges = new ReadOnlyCollection<TickVisibilityChange>(new List<TickVisibilityChange>(visibilityChanges));
@@ -762,6 +890,8 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickEnemyJumpPresentationSignal>(enemyJumpSignals));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
+            _flipImpactSignals = new ReadOnlyCollection<FlipImpactPresentationSignal>(
+                new List<FlipImpactPresentationSignal>(flipImpactSignals));
             _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
                 new List<TickImpactTransientPresentationSignal>());
         }
@@ -790,7 +920,39 @@ namespace Game.Feature.Gameplay.Loop
                 enemyDamageSignals,
                 enemyActionSignals,
                 enemyJumpSignals,
-                entityExitSignals)
+                entityExitSignals,
+                impactTransientSignals,
+                Array.Empty<FlipImpactPresentationSignal>())
+        {
+        }
+
+        internal TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals,
+            IEnumerable<TickPlayerDamagePresentationSignal> playerDamageSignals,
+            IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
+            IEnumerable<TickImpactTransientPresentationSignal> impactTransientSignals,
+            IEnumerable<FlipImpactPresentationSignal> flipImpactSignals)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                playerActionSignals,
+                playerLocomotionSignals,
+                playerDamageSignals,
+                enemyDamageSignals,
+                enemyActionSignals,
+                enemyJumpSignals,
+                entityExitSignals,
+                flipImpactSignals)
         {
             if (impactTransientSignals == null)
             {
@@ -822,6 +984,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyJumpPresentationSignal> EnemyJumpSignals => _enemyJumpSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
+
+        public IReadOnlyList<FlipImpactPresentationSignal> FlipImpactSignals => _flipImpactSignals;
 
         internal IReadOnlyList<TickImpactTransientPresentationSignal> ImpactTransientSignals => _impactTransientSignals;
     }

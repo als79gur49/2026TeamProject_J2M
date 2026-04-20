@@ -55,6 +55,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController = new GameplayExitPresentationController(
                 _stateStore,
                 _trackState,
+                _motionTimingResolver,
                 _poseResolver,
                 _transientEffectPresenter);
             _planner = new GameplayTrackPlanner(

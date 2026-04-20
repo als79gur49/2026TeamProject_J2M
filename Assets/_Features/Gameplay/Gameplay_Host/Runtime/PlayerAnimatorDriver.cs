@@ -1,4 +1,5 @@
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Gameplay.Loop;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace Game.Feature.Gameplay.Host
     public sealed class PlayerAnimatorDriver : MonoBehaviour
     {
         private const string OptionalStateParameterName = "PlayerPresentationState";
+        private const string OptionalFlipOutcomeParameterName = "FlipOutcome";
 
         [SerializeField] private Animator animator;
         [SerializeField] private string idleStateName = "Idle";
@@ -164,6 +166,7 @@ namespace Game.Feature.Gameplay.Host
 
             ApplyAnimatorSpeed(targetAnimator, resolvedState, targetPhase, resolvedMotionDurationSeconds);
             SyncOptionalStateParameter(targetAnimator, resolvedState);
+            SyncOptionalFlipOutcomeParameter(targetAnimator, LastPresentationState.FlipOutcome);
 
             var stateChanged = resolvedState != previousState;
             var phaseChanged = targetPhase != previousPhase;
@@ -326,6 +329,19 @@ namespace Game.Feature.Gameplay.Host
             }
 
             targetAnimator.SetInteger(Animator.StringToHash(OptionalStateParameterName), (int)resolvedState);
+        }
+
+        private void SyncOptionalFlipOutcomeParameter(
+            Animator targetAnimator,
+            TickPlayerFlipOutcomeKind flipOutcome)
+        {
+            if (targetAnimator == null ||
+                !HasAnimatorParameter(targetAnimator, OptionalFlipOutcomeParameterName, AnimatorControllerParameterType.Int))
+            {
+                return;
+            }
+
+            targetAnimator.SetInteger(Animator.StringToHash(OptionalFlipOutcomeParameterName), (int)flipOutcome);
         }
 
         private void FireHitTrigger(Animator targetAnimator)

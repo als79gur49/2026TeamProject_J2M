@@ -545,8 +545,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(signal.ExecutedThisTick, Is.True);
             Assert.That(signal.CanceledThisTick, Is.False);
             Assert.That(signal.IsRecoveryPhase, Is.True);
+            Assert.That(signal.ActionPlanId, Is.GreaterThan(0));
+            Assert.That(signal.FlipOutcome, Is.EqualTo(TickPlayerFlipOutcomeKind.DestroySelf));
+            Assert.That(signal.HasFlipImpactContactTiming, Is.True);
+            Assert.That(signal.FlipTargetBoxEntityId, Is.EqualTo(20));
             Assert.That(executeTick.PresentationData.EntityMotions, Is.Empty);
-            Assert.That(executeTick.PresentationData.ImpactTransientSignals.Count, Is.EqualTo(1));
+            Assert.That(executeTick.PresentationData.ImpactTransientSignals, Is.Empty);
+            Assert.That(executeTick.PresentationData.FlipImpactSignals.Count, Is.EqualTo(1));
             Assert.That(snapshotAfter.TryGetEntity(20, out _), Is.False);
         }
 

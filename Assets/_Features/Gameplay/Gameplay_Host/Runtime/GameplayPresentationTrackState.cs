@@ -8,12 +8,15 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedFlipInteractionTrackIds = new();
         private readonly List<int> _completedJumpTrackIds = new();
         private readonly List<int> _completedMotionTrackIds = new();
+        private readonly List<int> _completedStayFlipImpactTrackIds = new();
         private readonly List<FlipInteractionResetRequest> _flipInteractionResetRequests = new();
         private readonly Dictionary<int, FlipInteractionTrack> _flipInteractionTracks = new();
+        private readonly HashSet<FlipImpactInstanceKey> _completedFlipImpactKeys = new();
         private readonly List<int> _completedTransitionVisibilityStateIds = new();
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
+        private readonly Dictionary<int, FlipImpactTrack> _stayFlipImpactTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
         private readonly Dictionary<int, VisibilityTrack> _visibilityTracks = new();
@@ -24,6 +27,8 @@ namespace Game.Feature.Gameplay.Host
 
         public List<int> CompletedMotionTrackIds => _completedMotionTrackIds;
 
+        public List<int> CompletedStayFlipImpactTrackIds => _completedStayFlipImpactTrackIds;
+
         public List<int> CompletedTransitionVisibilityStateIds => _completedTransitionVisibilityStateIds;
 
         public List<int> CompletedVisibilityTrackIds => _completedVisibilityTrackIds;
@@ -32,9 +37,13 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, FlipInteractionTrack> FlipInteractionTracks => _flipInteractionTracks;
 
+        public HashSet<FlipImpactInstanceKey> CompletedFlipImpactKeys => _completedFlipImpactKeys;
+
         public Dictionary<int, JumpTrack> JumpTracks => _jumpTracks;
 
         public Dictionary<int, MotionTrack> LocalMotionTracks => _localMotionTracks;
+
+        public Dictionary<int, FlipImpactTrack> StayFlipImpactTracks => _stayFlipImpactTracks;
 
         public Dictionary<int, TickPlayerLocomotionPresentationSignal> PlayerLocomotionSignalsByEntityId =>
             _playerLocomotionSignalsByEntityId;
@@ -46,14 +55,17 @@ namespace Game.Feature.Gameplay.Host
         public void ResetSession()
         {
             _completedFlipInteractionTrackIds.Clear();
+            _completedFlipImpactKeys.Clear();
             _completedJumpTrackIds.Clear();
             _completedMotionTrackIds.Clear();
+            _completedStayFlipImpactTrackIds.Clear();
             _flipInteractionResetRequests.Clear();
             _flipInteractionTracks.Clear();
             _completedTransitionVisibilityStateIds.Clear();
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();
             _localMotionTracks.Clear();
+            _stayFlipImpactTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();
             _visibleEntityIds.Clear();
             _visibilityTracks.Clear();

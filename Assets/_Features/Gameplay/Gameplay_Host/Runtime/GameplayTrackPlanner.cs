@@ -73,12 +73,18 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var presentationData = result.PresentationData;
+            var flipImpactTimingSettings = _motionTimingResolver.ResolveFlipImpactTimingSettings(timingProfile);
             RefreshMotionClips(
                 presentationData,
                 previousCommittedLocalTargetPoses,
                 previousCommittedTopology,
                 projector,
                 timingProfile);
+            RefreshStayFlipImpactTracks(
+                result,
+                projector,
+                timingProfile,
+                flipImpactTimingSettings);
             RefreshJumpDetachedVisibilityState(
                 result,
                 previousCommittedLocalTargetPoses,
@@ -90,7 +96,7 @@ namespace Game.Feature.Gameplay.Host
                 projector,
                 timingProfile);
             RefreshTransitionVisibilityState(presentationData, projector);
-            RefreshFlipInteractionTracks(presentationData, timingProfile);
+            RefreshFlipInteractionTracks(presentationData, timingProfile, flipImpactTimingSettings);
         }
 
         private void RefreshMotionClips(
@@ -642,9 +648,109 @@ namespace Game.Feature.Gameplay.Host
                    topologyMotion.Value.RotationKind != CubeRotationKind.None;
         }
 
+        private void RefreshStayFlipImpactTracks(
+            TickResult result,
+            GameplayCubeProjector projector,
+            GameplayTimingProfile timingProfile,
+            FlipImpactTimingSettings flipImpactTimingSettings)
+        {
+            if (result == null)
+            {
+                throw new ArgumentNullException(nameof(result));
+            }
+
+            var motionEntityIds = new HashSet<int>();
+            var motions = result.PresentationData.EntityMotions;
+            for (var i = 0; i < motions.Count; i++)
+            {
+                motionEntityIds.Add(motions[i].EntityId);
+            }
+
+            _trackState.CompletedStayFlipImpactTrackIds.Clear();
+            foreach (var pair in _trackState.StayFlipImpactTracks)
+            {
+                var entityId = pair.Key;
+                var track = pair.Value;
+                if (track == null ||
+                    track.IsComplete ||
+                    motionEntityIds.Contains(entityId) ||
+                    !TryGetFinalEntity(result.FinalEntities, entityId, out var entity) ||
+                    entity.boardPresence != EntityBoardPresence.Occupying ||
+                    entity.position != track.Signal.SourceCell)
+                {
+                    _trackState.CompletedStayFlipImpactTrackIds.Add(entityId);
+                    if (track != null)
+                    {
+                        _trackState.CompletedFlipImpactKeys.Add(track.InstanceKey);
+                    }
+                }
+            }
+
+            for (var i = 0; i < _trackState.CompletedStayFlipImpactTrackIds.Count; i++)
+            {
+                _trackState.StayFlipImpactTracks.Remove(_trackState.CompletedStayFlipImpactTrackIds[i]);
+            }
+
+            var flipImpactSignals = result.PresentationData.FlipImpactSignals;
+            for (var i = 0; i < flipImpactSignals.Count; i++)
+            {
+                var signal = flipImpactSignals[i];
+                if (signal.Disposition != FlipImpactPresentationDisposition.Stay)
+                {
+                    continue;
+                }
+
+                var key = FlipImpactInstanceKey.Create(signal, result.TickIndex);
+                if (_trackState.CompletedFlipImpactKeys.Contains(key))
+                {
+                    continue;
+                }
+
+                if (_trackState.StayFlipImpactTracks.TryGetValue(signal.BoxEntityId, out var existingTrack))
+                {
+                    if (existingTrack.InstanceKey.Equals(key))
+                    {
+                        continue;
+                    }
+
+                    _trackState.StayFlipImpactTracks.Remove(signal.BoxEntityId);
+                }
+
+                if (!_poseResolver.TryResolveFlipImpactSignalLocalPoses(
+                        projector,
+                        signal,
+                        out var sourcePose,
+                        out var impactPose))
+                {
+                    continue;
+                }
+
+                if (!TryGetFinalEntity(result.FinalEntities, signal.BoxEntityId, out var finalEntity) ||
+                    finalEntity.boardPresence != EntityBoardPresence.Occupying ||
+                    finalEntity.position != signal.SourceCell ||
+                    motionEntityIds.Contains(signal.BoxEntityId))
+                {
+                    continue;
+                }
+
+                _trackState.StayFlipImpactTracks[signal.BoxEntityId] = new FlipImpactTrack(
+                    key,
+                    signal,
+                    sourcePose,
+                    impactPose,
+                    _motionTimingResolver.ResolveMotionDurationSeconds(
+                        signal.BoxEntityId,
+                        TickEntityMotionKind.Flip,
+                        timingProfile),
+                    timingProfile.FlipArcHeightInCells * projector.CellSize,
+                    flipImpactTimingSettings);
+            }
+        }
+
         private void RefreshFlipInteractionTracks(
             TickPresentationData presentationData,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            FlipImpactTimingSettings flipImpactTimingSettings)
         {
             if (presentationData == null)
             {
@@ -708,13 +814,15 @@ namespace Game.Feature.Gameplay.Host
                     signal.StartedThisTick &&
                     signal.TargetEntityId > 0)
                 {
-                    ReplaceFlipInteractionTrack(signal, timingProfile);
+                    ReplaceFlipInteractionTrack(signal, timingProfile, flipImpactTimingSettings);
                 }
 
                 if (!_trackState.FlipInteractionTracks.TryGetValue(signal.EntityId, out var track))
                 {
                     continue;
                 }
+
+                track.UpdateFlipOutcome(signal.FlipOutcome, flipImpactTimingSettings);
 
                 if (signal.ExecutedThisTick)
                 {
@@ -732,7 +840,8 @@ namespace Game.Feature.Gameplay.Host
 
         private void ReplaceFlipInteractionTrack(
             in TickPlayerActionPresentationSignal signal,
-            GameplayTimingProfile timingProfile)
+            GameplayTimingProfile timingProfile,
+            FlipImpactTimingSettings flipImpactTimingSettings)
         {
             if (_trackState.FlipInteractionTracks.TryGetValue(signal.EntityId, out var existingTrack))
             {
@@ -756,6 +865,8 @@ namespace Game.Feature.Gameplay.Host
                     signal.EntityId,
                     PlayerPresentationPhase.FlipRecovery,
                     timingProfile),
+                flipImpactTimingSettings,
+                signal.FlipOutcome,
                 signal.ExecutedThisTick
                     ? FlipInteractionPhase.AirborneFollow
                     : FlipInteractionPhase.Windup);
@@ -772,6 +883,24 @@ namespace Game.Feature.Gameplay.Host
         {
             _trackState.FlipInteractionResetRequests.Add(
                 new FlipInteractionResetRequest(track.PlayerEntityId, track.BoxEntityId));
+        }
+
+        private static bool TryGetFinalEntity(
+            IReadOnlyList<EntityState> finalEntities,
+            int entityId,
+            out EntityState entity)
+        {
+            for (var i = 0; i < finalEntities.Count; i++)
+            {
+                if (finalEntities[i].entityId == entityId)
+                {
+                    entity = finalEntities[i];
+                    return true;
+                }
+            }
+
+            entity = default;
+            return false;
         }
     }
 }

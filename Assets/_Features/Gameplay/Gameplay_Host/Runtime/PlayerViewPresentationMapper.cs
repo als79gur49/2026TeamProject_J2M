@@ -28,7 +28,11 @@ namespace Game.Feature.Gameplay.Host
             bool canceledThisTick,
             bool isRecoveryPhase = false,
             bool didDie = false,
-            bool tookDamageThisTick = false)
+            bool tookDamageThisTick = false,
+            int actionPlanId = 0,
+            TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None,
+            bool hasFlipImpactContactTiming = false,
+            int flipTargetBoxEntityId = 0)
             : this(
                 entityId,
                 tickIndex,
@@ -41,7 +45,11 @@ namespace Game.Feature.Gameplay.Host
                 shouldPlayWalkLoop: false,
                 isRecoveryPhase: isRecoveryPhase,
                 didDie: didDie,
-                tookDamageThisTick: tookDamageThisTick)
+                tookDamageThisTick: tookDamageThisTick,
+                actionPlanId: actionPlanId,
+                flipOutcome: flipOutcome,
+                hasFlipImpactContactTiming: hasFlipImpactContactTiming,
+                flipTargetBoxEntityId: flipTargetBoxEntityId)
         {
         }
 
@@ -57,7 +65,11 @@ namespace Game.Feature.Gameplay.Host
             bool shouldPlayWalkLoop,
             bool isRecoveryPhase = false,
             bool didDie = false,
-            bool tookDamageThisTick = false)
+            bool tookDamageThisTick = false,
+            int actionPlanId = 0,
+            TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None,
+            bool hasFlipImpactContactTiming = false,
+            int flipTargetBoxEntityId = 0)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -71,6 +83,10 @@ namespace Game.Feature.Gameplay.Host
             ShouldPlayWalkLoop = shouldPlayWalkLoop;
             DidDie = didDie;
             TookDamageThisTick = tookDamageThisTick;
+            ActionPlanId = actionPlanId;
+            FlipOutcome = flipOutcome;
+            HasFlipImpactContactTiming = hasFlipImpactContactTiming;
+            FlipTargetBoxEntityId = flipTargetBoxEntityId;
         }
 
         public int EntityId { get; }
@@ -96,6 +112,14 @@ namespace Game.Feature.Gameplay.Host
         public bool DidDie { get; }
 
         public bool TookDamageThisTick { get; }
+
+        public int ActionPlanId { get; }
+
+        public TickPlayerFlipOutcomeKind FlipOutcome { get; }
+
+        public bool HasFlipImpactContactTiming { get; }
+
+        public int FlipTargetBoxEntityId { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
@@ -105,6 +129,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _removedEntityIds = new();
         private readonly Dictionary<int, TickPlayerActionPresentationSignal> _signalsByEntityId = new();
         private readonly Dictionary<int, TickPlayerDamagePresentationSignal> _damageSignalsByEntityId = new();
+        private readonly Dictionary<int, FlipImpactPresentationSignal> _flipImpactSignalsByActionPlanId = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
 
         public void Build(
@@ -133,6 +158,7 @@ namespace Game.Feature.Gameplay.Host
             _removedEntityIds.Clear();
             _signalsByEntityId.Clear();
             _damageSignalsByEntityId.Clear();
+            _flipImpactSignalsByActionPlanId.Clear();
             _locomotionSignalsByEntityId.Clear();
 
             CacheFinalEntities(result.FinalEntities);
@@ -171,6 +197,19 @@ namespace Game.Feature.Gameplay.Host
                 _damageSignalsByEntityId[signal.EntityId] = signal;
             }
 
+            var flipImpactSignals = result.PresentationData.FlipImpactSignals;
+            for (var i = 0; i < flipImpactSignals.Count; i++)
+            {
+                var signal = flipImpactSignals[i];
+                if (signal.SourceActionPlanId <= 0 ||
+                    _flipImpactSignalsByActionPlanId.ContainsKey(signal.SourceActionPlanId))
+                {
+                    continue;
+                }
+
+                _flipImpactSignalsByActionPlanId[signal.SourceActionPlanId] = signal;
+            }
+
             foreach (var entityId in _candidateEntityIds)
             {
                 if (!HasPlayerDriver(viewsByEntityId, entityId))
@@ -191,6 +230,21 @@ namespace Game.Feature.Gameplay.Host
                 var tookDamageThisTick = !didDie &&
                                          _damageSignalsByEntityId.TryGetValue(entityId, out var damageSignal) &&
                                          damageSignal.TookDamageThisTick;
+                var flipOutcome = signal.FlipOutcome;
+                var hasFlipImpactContactTiming = signal.HasFlipImpactContactTiming;
+                var flipTargetBoxEntityId = signal.FlipTargetBoxEntityId;
+                if (signal.ActiveActionKind == PlayerActionKind.Flip &&
+                    signal.ActionPlanId > 0 &&
+                    _flipImpactSignalsByActionPlanId.TryGetValue(signal.ActionPlanId, out var flipImpactSignal) &&
+                    (flipImpactSignal.ActorEntityId <= 0 || flipImpactSignal.ActorEntityId == entityId) &&
+                    (signal.FlipTargetBoxEntityId <= 0 || signal.FlipTargetBoxEntityId == flipImpactSignal.BoxEntityId))
+                {
+                    flipOutcome = flipImpactSignal.Disposition == FlipImpactPresentationDisposition.DestroySelf
+                        ? TickPlayerFlipOutcomeKind.DestroySelf
+                        : TickPlayerFlipOutcomeKind.Stay;
+                    hasFlipImpactContactTiming = true;
+                    flipTargetBoxEntityId = flipImpactSignal.BoxEntityId;
+                }
 
                 buffer[entityId] = new PlayerViewPresentationState(
                     entityId,
@@ -204,7 +258,11 @@ namespace Game.Feature.Gameplay.Host
                     shouldPlayWalkLoop,
                     signal.IsRecoveryPhase,
                     didDie,
-                    tookDamageThisTick);
+                    tookDamageThisTick,
+                    signal.ActionPlanId,
+                    flipOutcome,
+                    hasFlipImpactContactTiming,
+                    flipTargetBoxEntityId);
             }
         }
 
@@ -222,7 +280,11 @@ namespace Game.Feature.Gameplay.Host
                 shouldPlayWalkLoop: false,
                 isRecoveryPhase: false,
                 didDie: false,
-                tookDamageThisTick: false);
+                tookDamageThisTick: false,
+                actionPlanId: 0,
+                flipOutcome: TickPlayerFlipOutcomeKind.None,
+                hasFlipImpactContactTiming: false,
+                flipTargetBoxEntityId: 0);
         }
 
         private void CacheFinalEntities(IReadOnlyList<EntityState> finalEntities)

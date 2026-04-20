@@ -9,7 +9,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class ActionPlanCorrelationContractTests
     {
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void DamageResolutionRecord_ActionPlanId_AliasesLegacyGroupId()
         {
             var record = new DamageResolutionRecord(
@@ -31,7 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void DestroyResolutionRecord_ActionPlanId_AliasesLegacyGroupId()
         {
             var record = new DestroyResolutionRecord(
@@ -52,7 +52,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        [Category("Core")]
+        [Category("Extended")]
         public void DelayedAttackEffectRecord_SourceActionPlanId_AliasesLegacySourceActionGroupId()
         {
             var record = new DelayedAttackEffectRecord(

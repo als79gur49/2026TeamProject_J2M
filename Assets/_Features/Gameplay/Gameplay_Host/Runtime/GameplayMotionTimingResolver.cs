@@ -9,9 +9,47 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
+    /// <summary>
+    /// Centralized presentation-only timing shared by flip-impact box tracks and player interaction tracks.
+    /// <para>
+    /// <see cref="ContactNormalizedTime"/> has disposition-specific semantics:
+    /// Stay uses it as the contact/recoil branch threshold, while DestroySelf uses it as the
+    /// break/release onset threshold. DestroySelf final impact-pose arrival still happens at the
+    /// end of the full flip flight duration.
+    /// </para>
+    /// </summary>
+    internal readonly struct FlipImpactTimingSettings
+    {
+        public FlipImpactTimingSettings(
+            float contactNormalizedTime,
+            float stayReturnArcHeightMultiplier,
+            float destroyBreakNormalizedDuration,
+            float stayPostContactHoldNormalizedDuration)
+        {
+            ContactNormalizedTime = Mathf.Clamp01(contactNormalizedTime);
+            StayReturnArcHeightMultiplier = Mathf.Max(0f, stayReturnArcHeightMultiplier);
+            DestroyBreakNormalizedDuration = Mathf.Clamp01(destroyBreakNormalizedDuration);
+            StayPostContactHoldNormalizedDuration = Mathf.Clamp01(stayPostContactHoldNormalizedDuration);
+        }
+
+        // Stay: contact/recoil branch threshold.
+        // DestroySelf: break/release onset threshold, not final impact-pose arrival.
+        public float ContactNormalizedTime { get; }
+
+        public float StayReturnArcHeightMultiplier { get; }
+
+        public float DestroyBreakNormalizedDuration { get; }
+
+        public float StayPostContactHoldNormalizedDuration { get; }
+    }
+
     internal sealed class GameplayMotionTimingResolver
     {
         private const float DefaultJumpArcHeightInCells = 0.75f;
+        private const float DefaultFlipImpactContactNormalizedTime = 0.70f;
+        private const float DefaultFlipImpactStayReturnArcHeightMultiplier = 0.35f;
+        private const float DefaultFlipImpactDestroyBreakNormalizedDuration = 0.30f;
+        private const float DefaultFlipImpactStayPostContactHoldNormalizedDuration = 0.10f;
 
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
@@ -241,6 +279,28 @@ namespace Game.Feature.Gameplay.Host
             }
 
             return DefaultJumpArcHeightInCells * projector.CellSize;
+        }
+
+        public FlipImpactTimingSettings ResolveFlipImpactTimingSettings(GameplayTimingProfile timingProfile)
+        {
+            return CreateFlipImpactTimingSettings(timingProfile);
+        }
+
+        public static FlipImpactTimingSettings CreateFlipImpactTimingSettings(GameplayTimingProfile timingProfile)
+        {
+            if (timingProfile == null)
+            {
+                throw new ArgumentNullException(nameof(timingProfile));
+            }
+
+            // Stay reads ContactNormalizedTime as the contact/recoil branch threshold.
+            // DestroySelf reads the same threshold as break/release onset, while final impact-pose
+            // arrival still uses the full resolved flip flight duration.
+            return new FlipImpactTimingSettings(
+                DefaultFlipImpactContactNormalizedTime,
+                DefaultFlipImpactStayReturnArcHeightMultiplier,
+                DefaultFlipImpactDestroyBreakNormalizedDuration,
+                DefaultFlipImpactStayPostContactHoldNormalizedDuration);
         }
 
         private static bool TryResolveDeathAnimatorDurationSeconds(

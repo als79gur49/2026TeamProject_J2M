@@ -203,6 +203,34 @@ namespace Game.Feature.Gameplay.Host
             return true;
         }
 
+        public bool TryResolveFlipImpactSignalLocalPoses(
+            GameplayCubeProjector projector,
+            FlipImpactPresentationSignal signal,
+            out GameplayEntityPose sourcePose,
+            out GameplayEntityPose impactPose)
+        {
+            if (projector == null)
+            {
+                throw new ArgumentNullException(nameof(projector));
+            }
+
+            sourcePose = default;
+            impactPose = default;
+
+            var entityType = _stateStore.EntityTypesByEntityId.TryGetValue(signal.BoxEntityId, out var resolvedEntityType)
+                ? resolvedEntityType
+                : EntityType.Unit;
+            if (!projector.TryProjectEntityCell(signal.SourceCell, signal.Topology, entityType, out var sourceProjectedPose) ||
+                !projector.TryProjectEntityCell(signal.ImpactCell, signal.Topology, entityType, out var impactProjectedPose))
+            {
+                return false;
+            }
+
+            sourcePose = CreateEntityPose(projector, signal.SourceCell, signal.Topology, sourceProjectedPose, signal.SourceFacing);
+            impactPose = CreateEntityPose(projector, signal.ImpactCell, signal.Topology, impactProjectedPose, signal.ImpactFacing);
+            return true;
+        }
+
         public bool TryResolveVisibilityLocalPose(
             GameplayCubeProjector projector,
             TickVisibilityChange change,

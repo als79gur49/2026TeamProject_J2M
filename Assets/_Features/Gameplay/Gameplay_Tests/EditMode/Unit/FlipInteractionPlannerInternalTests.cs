@@ -45,6 +45,36 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void FlipInteractionTrack_DestroySelfReleaseUsesBreakOnsetThresholdWhileBoxFlightMayContinue()
+        {
+            var settings = new FlipImpactTimingSettings(0.70f, 0.35f, 0.30f, 0.10f);
+            var track = new FlipInteractionTrack(
+                playerEntityId: 10,
+                boxEntityId: 20,
+                actionSequence: 3,
+                direction: Direction.Right,
+                windupDurationSeconds: 0.2f,
+                followDurationSeconds: 1f,
+                recoveryDurationSeconds: 0.4f,
+                flipImpactTimingSettings: settings,
+                flipOutcome: TickPlayerFlipOutcomeKind.DestroySelf,
+                phase: FlipInteractionPhase.AirborneFollow);
+            var pose = new Pose(Vector3.zero, Quaternion.identity);
+
+            track.Advance(0.69f);
+            var beforeContact = track.Sample(pose, pose);
+
+            track.Advance(0.11f);
+            var afterContact = track.Sample(pose, pose);
+
+            Assert.That(track.FlipImpactTimingSettings.ContactNormalizedTime, Is.EqualTo(settings.ContactNormalizedTime));
+            Assert.That(beforeContact.HandWeight, Is.EqualTo(1f));
+            Assert.That(afterContact.HandWeight, Is.LessThan(1f));
+            Assert.That(afterContact.BoxWeight, Is.LessThan(1f));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTrackPlanner_FlipInteractionTrack_CancelAndTargetLossRemoveTrackSafely()
         {
             var rootObject = new GameObject("GameplayTrackPlanner_FlipInteractionTrack_CancelAndTargetLossRemoveTrackSafely");
@@ -176,6 +206,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 new GameplayExitPresentationController(
                     stateStore,
                     trackState,
+                    motionTimingResolver,
                     poseResolver,
                     new GameplayTransientEffectPresenter()),
                 entityApplier);

@@ -1043,7 +1043,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromTransientImpactBreak()
+        public void TickPresentationDataBuilder_FlipDestroySelf_SeparatesLogicalNoMoveFromFlipImpactSignal()
         {
             const int tickIndex = 7;
             var sourceCell = new SurfaceCell(FaceId.Floor, -1, 0);
@@ -1120,12 +1120,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(presentationData.EntityMotions, Is.Empty);
             Assert.That(presentationData.EntityExitSignals.Count, Is.EqualTo(1));
             Assert.That(presentationData.EntityExitSignals[0].ExitedEntityId, Is.EqualTo(20));
-            Assert.That(presentationData.ImpactTransientSignals.Count, Is.EqualTo(1));
-            var signal = presentationData.ImpactTransientSignals[0];
-            Assert.That(signal.EntityId, Is.EqualTo(20));
+            Assert.That(presentationData.ImpactTransientSignals, Is.Empty);
+            Assert.That(presentationData.FlipImpactSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.FlipImpactSignals[0];
+            Assert.That(signal.SourceActionPlanId, Is.EqualTo(1));
+            Assert.That(signal.BoxEntityId, Is.EqualTo(20));
+            Assert.That(signal.ImpactTargetEntityId, Is.EqualTo(40));
+            Assert.That(signal.ActorEntityId, Is.EqualTo(20));
             Assert.That(signal.SourceCell, Is.EqualTo(sourceCell));
             Assert.That(signal.ImpactCell, Is.EqualTo(impactCell));
-            Assert.That(signal.PresentationSeed, Is.EqualTo(BuildExpectedImpactPresentationSeed(tickIndex, 20, 40)));
+            Assert.That(signal.SourceFacing, Is.EqualTo(Direction.Left));
+            Assert.That(signal.ImpactFacing, Is.EqualTo(Direction.Right));
+            Assert.That(signal.HasLandingCell, Is.False);
+            Assert.That(signal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
         }
 
         [Test]

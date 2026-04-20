@@ -1088,16 +1088,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                                     EntityType.Box,
                                     sourceActorEntityId: 10),
                             },
-                            impactTransientSignals: new[]
+                            impactTransientSignals: Array.Empty<TickImpactTransientPresentationSignal>(),
+                            flipImpactSignals: new[]
                             {
-                                new TickImpactTransientPresentationSignal(
-                                    20,
-                                    EntityType.Box,
+                                new FlipImpactPresentationSignal(
+                                    sourceActionPlanId: 1,
+                                    boxEntityId: 20,
+                                    impactTargetEntityId: 30,
+                                    actorEntityId: 10,
                                     sourceCell,
                                     impactCell,
                                     topology,
                                     Direction.Left,
-                                    presentationSeed: 123),
+                                    Direction.Right,
+                                    FlipImpactPresentationDisposition.DestroySelf),
                             }),
                         string.Empty,
                         TickTrace.Empty));
@@ -1105,7 +1109,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(boxView.gameObject.activeSelf, Is.False);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
 
-                presenter.UpdatePresentation(Mathf.Max(flipMotionDurationSeconds, boxDestroyEffectDurationSeconds) + 0.05f);
+                presenter.UpdatePresentation(boxDestroyEffectDurationSeconds + 0.01f);
+                Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(1));
+
+                presenter.UpdatePresentation((flipMotionDurationSeconds - boxDestroyEffectDurationSeconds) + 0.05f);
                 Assert.That(presenter.ActiveTransientEffectCount, Is.EqualTo(0));
             }
             finally

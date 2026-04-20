@@ -105,6 +105,9 @@
   - post-plan runtime/canonical carrier의 plan correlation key는 `ActionPlanId`로 통일한다.
   - `DamageResolutionRecord.GroupId`, `DestroyResolutionRecord.GroupId`, `DelayedAttackEffectRecord.SourceActionGroupId`는 compatibility alias로만 남기고 새 runtime reader는 읽지 않는다.
   - `IntentId`는 canonical internal carry-forward ID로 유지하되, result carrier의 semantic field와 혼동하지 않는다.
+  - structured trace `Plan=` / `SourcePlan=`는 canonical structured trace surface로 고정한다. free-form `G=` token은 compatibility token in free-form event log로만 남기며 old semantic GroupId revival로 해석하지 않는다.
+  - `G=` rename은 지금 하지 않는다. semantic gain 없이 runtime emitters와 textual assertions를 넓게 건드려 불필요한 red를 만들기 때문이다.
+  - broader free-form logging cleanup, legacy string assertion rewrite, token consolidation은 later logging cleanup 단계로 넘긴다.
 - `AttackPhaseResult.SortedInputs`
   - external/debug consumer에서는 제거했다.
   - `TickTraceFormatter`의 `Attack.NormalizedInputs` section은 제거했다.

@@ -76,7 +76,18 @@ namespace Game.Feature.Gameplay.Host
                     continue;
                 }
 
-                if (_trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
+                if (_trackState.StayFlipImpactTracks.TryGetValue(entityId, out var stayFlipImpactTrack))
+                {
+                    localPose = stayFlipImpactTrack.Sample();
+                    stayFlipImpactTrack.Advance(deltaTime);
+                    if (stayFlipImpactTrack.IsComplete)
+                    {
+                        localPose = stayFlipImpactTrack.SourcePose;
+                        _trackState.CompletedStayFlipImpactTrackIds.Add(entityId);
+                        _trackState.CompletedFlipImpactKeys.Add(stayFlipImpactTrack.InstanceKey);
+                    }
+                }
+                else if (_trackState.LocalMotionTracks.TryGetValue(entityId, out var motionTrack))
                 {
                     localPose = motionTrack.SampleAndAdvance(deltaTime, localPose);
                     if (!motionTrack.HasClips)
@@ -146,6 +157,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             CleanupCompletedMotionTracks();
+            CleanupCompletedStayFlipImpactTracks();
             CleanupCompletedJumpTracks();
             CleanupCompletedVisibilityTracks();
             ApplyPendingFlipInteractionResets();
@@ -204,6 +216,14 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _trackState.CompletedMotionTrackIds.Count; i++)
             {
                 _trackState.LocalMotionTracks.Remove(_trackState.CompletedMotionTrackIds[i]);
+            }
+        }
+
+        private void CleanupCompletedStayFlipImpactTracks()
+        {
+            for (var i = 0; i < _trackState.CompletedStayFlipImpactTrackIds.Count; i++)
+            {
+                _trackState.StayFlipImpactTracks.Remove(_trackState.CompletedStayFlipImpactTrackIds[i]);
             }
         }
 
@@ -283,13 +303,18 @@ namespace Game.Feature.Gameplay.Host
                     ? boxDriver.GetGripWorldPose()
                     : ResolveFallbackGripPose(boxView);
                 var sample = track.Sample(handRestWorldPose, boxGripWorldPose);
+                var suppressBoxOverlay = _trackState.StayFlipImpactTracks.ContainsKey(track.BoxEntityId);
 
-                if (boxDriver != null)
+                if (boxDriver != null && !suppressBoxOverlay)
                 {
                     boxDriver.ApplyInteraction(
                         sample.BoxLocalPositionOffset,
                         sample.BoxLocalRotationOffset,
                         sample.BoxWeight);
+                }
+                else if (boxDriver != null)
+                {
+                    boxDriver.ResetInteraction();
                 }
 
                 if (playerDriver != null)

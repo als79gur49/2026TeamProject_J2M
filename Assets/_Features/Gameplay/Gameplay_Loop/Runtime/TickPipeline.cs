@@ -185,7 +185,8 @@ namespace Game.Feature.Gameplay.Loop
                 respawnPhaseResult,
                 input.TickIndex,
                 snapshotAfterEnemyAi,
-                input.PlayerCommand);
+                input.PlayerCommand,
+                resolvePhaseResult.ResolutionRecords);
             var pendingDelayedAttackEffects = _delayedAttackEffectQueue.Snapshot();
             var tickResultData = _tickResultBuilder.Build(
                 finalAuthoritativeSnapshot,

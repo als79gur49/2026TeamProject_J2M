@@ -1427,7 +1427,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(new[] { 30 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(result.PresentationData.EntityMotions, Is.Empty);
             Assert.That(result.PresentationData.EntityExitSignals.Select(signal => signal.ExitedEntityId).ToArray(), Is.EqualTo(new[] { 30 }));
-            Assert.That(result.PresentationData.ImpactTransientSignals.Count, Is.EqualTo(1));
+            Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
+            Assert.That(result.PresentationData.FlipImpactSignals.Count, Is.EqualTo(1));
+            var flipImpactSignal = result.PresentationData.FlipImpactSignals[0];
+            Assert.That(flipImpactSignal.SourceActionPlanId, Is.GreaterThan(0));
+            Assert.That(flipImpactSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(flipImpactSignal.ImpactTargetEntityId, Is.EqualTo(20));
+            Assert.That(flipImpactSignal.ActorEntityId, Is.EqualTo(10));
+            Assert.That(flipImpactSignal.SourceCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+            Assert.That(flipImpactSignal.ImpactCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+            Assert.That(flipImpactSignal.HasLandingCell, Is.False);
+            Assert.That(flipImpactSignal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.DestroySelf));
             Assert.That(snapshotAfter.TryGetEntity(30, out _), Is.False);
             Assert.That(snapshotAfter.TryGetEntity(20, out var enemy), Is.True);
             Assert.That(enemy.hp, Is.EqualTo(2));
@@ -1481,6 +1491,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                               motion.SourceCell == new SurfaceCell(FaceId.Floor, -1, 0) &&
                               motion.DestinationCell == new SurfaceCell(FaceId.Floor, 1, 0)),
                 Is.True);
+            Assert.That(result.PresentationData.FlipImpactSignals, Is.Empty);
             Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
             Assert.That(snapshotAfter.TryGetEntity(30, out var flippedBox), Is.True);
             Assert.That(flippedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
@@ -1516,6 +1527,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             CollectionAssert.AreEqual(new[] { 20 }, SemanticEventAssertions.GetCleanupRemovedEntityIds(result.EventLog));
             Assert.That(result.PresentationData.EntityMotions, Is.Empty);
             Assert.That(result.PresentationData.ImpactTransientSignals, Is.Empty);
+            Assert.That(result.PresentationData.FlipImpactSignals.Count, Is.EqualTo(1));
+            var flipImpactSignal = result.PresentationData.FlipImpactSignals[0];
+            Assert.That(flipImpactSignal.BoxEntityId, Is.EqualTo(30));
+            Assert.That(flipImpactSignal.ImpactTargetEntityId, Is.EqualTo(20));
+            Assert.That(flipImpactSignal.ActorEntityId, Is.EqualTo(10));
+            Assert.That(flipImpactSignal.HasLandingCell, Is.False);
+            Assert.That(flipImpactSignal.Disposition, Is.EqualTo(FlipImpactPresentationDisposition.Stay));
             Assert.That(snapshotAfter.TryGetEntity(30, out var box), Is.True);
             Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
             Assert.That(snapshotAfter.TryGetEntity(21, out var survivingOccupant), Is.True);

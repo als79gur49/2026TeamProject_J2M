@@ -10,23 +10,31 @@ namespace Game.Feature.Gameplay.Host
     {
         private readonly HashSet<int> _exitOwnedEntityIds = new();
         private readonly List<TickEntityExitPresentationSignal> _pendingEntityExitSignals = new();
+        private readonly List<FlipImpactPresentationSignal> _pendingFlipImpactDestroySignals = new();
         private readonly List<TickImpactTransientPresentationSignal> _pendingImpactTransientSignals = new();
         private readonly HashSet<int> _impactTransientEntityIds = new();
+        private readonly Dictionary<int, FlipImpactInstanceKey> _destroySelfFlipImpactKeysByEntityId = new();
+        private readonly HashSet<FlipImpactInstanceKey> _playedFlipImpactKeys = new();
         private readonly GameplayPoseResolver _poseResolver;
+        private readonly GameplayMotionTimingResolver _motionTimingResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter;
+        private FlipImpactTimingSettings _flipImpactTimingSettings;
         private GameplayCubeProjector _projector;
         private GameplayTimingProfile _timingProfile;
+        private int _refreshSequence;
 
         public GameplayExitPresentationController(
             GameplayPresentationStateStore stateStore,
             GameplayPresentationTrackState trackState,
+            GameplayMotionTimingResolver motionTimingResolver,
             GameplayPoseResolver poseResolver,
             GameplayTransientEffectPresenter transientEffectPresenter)
         {
             _stateStore = stateStore ?? throw new ArgumentNullException(nameof(stateStore));
             _trackState = trackState ?? throw new ArgumentNullException(nameof(trackState));
+            _motionTimingResolver = motionTimingResolver ?? throw new ArgumentNullException(nameof(motionTimingResolver));
             _poseResolver = poseResolver ?? throw new ArgumentNullException(nameof(poseResolver));
             _transientEffectPresenter = transientEffectPresenter ?? throw new ArgumentNullException(nameof(transientEffectPresenter));
         }
@@ -35,14 +43,19 @@ namespace Game.Feature.Gameplay.Host
         {
             _projector = projector ?? throw new ArgumentNullException(nameof(projector));
             _timingProfile = timingProfile ?? throw new ArgumentNullException(nameof(timingProfile));
+            _flipImpactTimingSettings = GameplayMotionTimingResolver.CreateFlipImpactTimingSettings(timingProfile);
         }
 
         public void Reset()
         {
             _exitOwnedEntityIds.Clear();
             _pendingEntityExitSignals.Clear();
+            _pendingFlipImpactDestroySignals.Clear();
             _pendingImpactTransientSignals.Clear();
             _impactTransientEntityIds.Clear();
+            _destroySelfFlipImpactKeysByEntityId.Clear();
+            _playedFlipImpactKeys.Clear();
+            _refreshSequence = 0;
         }
 
         public bool IsExitOwned(int entityId)
@@ -59,8 +72,11 @@ namespace Game.Feature.Gameplay.Host
 
             _exitOwnedEntityIds.Clear();
             _pendingEntityExitSignals.Clear();
+            _pendingFlipImpactDestroySignals.Clear();
             _pendingImpactTransientSignals.Clear();
             _impactTransientEntityIds.Clear();
+            _destroySelfFlipImpactKeysByEntityId.Clear();
+            _refreshSequence++;
 
             for (var i = 0; i < presentationData.EntityExitSignals.Count; i++)
             {
@@ -81,6 +97,25 @@ namespace Game.Feature.Gameplay.Host
                     _pendingImpactTransientSignals.Add(signal);
                 }
             }
+
+            for (var i = 0; i < presentationData.FlipImpactSignals.Count; i++)
+            {
+                var signal = presentationData.FlipImpactSignals[i];
+                if (signal.Disposition != FlipImpactPresentationDisposition.DestroySelf)
+                {
+                    continue;
+                }
+
+                var key = FlipImpactInstanceKey.Create(signal, _refreshSequence);
+                if (_playedFlipImpactKeys.Contains(key) ||
+                    _destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.BoxEntityId))
+                {
+                    continue;
+                }
+
+                _destroySelfFlipImpactKeysByEntityId[signal.BoxEntityId] = key;
+                _pendingFlipImpactDestroySignals.Add(signal);
+            }
         }
 
         public void PlayEntityExitEffects()
@@ -88,7 +123,8 @@ namespace Game.Feature.Gameplay.Host
             for (var i = 0; i < _pendingEntityExitSignals.Count; i++)
             {
                 var signal = _pendingEntityExitSignals[i];
-                if (_impactTransientEntityIds.Contains(signal.ExitedEntityId))
+                if (_impactTransientEntityIds.Contains(signal.ExitedEntityId) ||
+                    _destroySelfFlipImpactKeysByEntityId.ContainsKey(signal.ExitedEntityId))
                 {
                     continue;
                 }
@@ -128,17 +164,58 @@ namespace Game.Feature.Gameplay.Host
                     impactLocalPose,
                     ResolveImpactBreakEffectDurationSeconds());
             }
+
+            for (var i = 0; i < _pendingFlipImpactDestroySignals.Count; i++)
+            {
+                var signal = _pendingFlipImpactDestroySignals[i];
+                if (!_destroySelfFlipImpactKeysByEntityId.TryGetValue(signal.BoxEntityId, out var key) ||
+                    !_poseResolver.TryResolveFlipImpactSignalLocalPoses(
+                        _projector,
+                        signal,
+                        out var sourceLocalPose,
+                        out var impactLocalPose))
+                {
+                    continue;
+                }
+
+                _stateStore.ViewsByEntityId.TryGetValue(signal.BoxEntityId, out var sourceView);
+                var flightDurationSeconds = _motionTimingResolver.ResolveMotionDurationSeconds(
+                    signal.BoxEntityId,
+                    TickEntityMotionKind.Flip,
+                    _timingProfile);
+                var totalDurationSeconds = Math.Max(
+                    ResolveImpactBreakEffectDurationSeconds(),
+                    flightDurationSeconds);
+                if (_transientEffectPresenter.PlayFlipImpactDestroyEffect(
+                        key,
+                        signal,
+                        sourceView,
+                        sourceLocalPose,
+                        impactLocalPose,
+                        flightDurationSeconds,
+                        totalDurationSeconds,
+                        _timingProfile.FlipArcHeightInCells * _projector.CellSize,
+                        _flipImpactTimingSettings))
+                {
+                    _playedFlipImpactKeys.Add(key);
+                }
+            }
         }
 
         public void ApplyEntityExitOwnership()
         {
             foreach (var entityId in _exitOwnedEntityIds)
             {
-                QueueFlipInteractionReset(entityId);
+                if (!_destroySelfFlipImpactKeysByEntityId.ContainsKey(entityId))
+                {
+                    QueueFlipInteractionReset(entityId);
+                }
+
                 // Exit ownership removes the authoritative entity view from presentation
                 // state immediately. Any lingering visual is transient-effect-only.
                 _trackState.JumpTracks.Remove(entityId);
                 _trackState.LocalMotionTracks.Remove(entityId);
+                _trackState.StayFlipImpactTracks.Remove(entityId);
                 _trackState.VisibilityTracks.Remove(entityId);
                 _stateStore.CommittedLocalTargetPoses.Remove(entityId);
                 _stateStore.CommittedFacesByEntityId.Remove(entityId);
