@@ -467,13 +467,13 @@ Folder intent:
 - `UI_Flow`
   - coordinator, controllers, policy, and flow state
 - `UI_Application`
-  - UI use cases and UI-facing intent orchestration
+  - UI use cases, presenter-level application orchestration, and UI-facing intent routing
 - `UI_Screens`
-  - screen-specific presenters, viewmodels, views, and screen composition
+  - screen-specific payloads, viewmodels, views, prefabs, and screen-local UI types
 - `UI_Popups`
-  - popup-specific presenters, viewmodels, views, and popup composition
+  - popup-specific payloads, viewmodels, views, prefabs, and popup-local UI types
 - `UI_HUD`
-  - persistent HUD-specific presenters, viewmodels, views, and HUD composition
+  - persistent HUD-specific viewmodels, views, prefabs, and HUD-local UI types
 - `Shared/UI`
   - reusable UI contracts, shared widgets, and shared UI helpers that do not own feature flow
 
@@ -483,6 +483,12 @@ Ownership rules:
 - `Non-Negotiable` `UI_Screens`, `UI_Popups`, and `UI_HUD` own view-facing feature assets and local UI types; they do not own application-layer presenter orchestration.
 - `Non-Negotiable` `UI_Composition` instantiates presenters and binds them to canonical views at runtime.
 Naming rules:
+
+Ownership rules:
+
+- `Non-Negotiable` `UI_Application` owns presenter-level orchestration for screen, popup, and HUD slices.
+- `Non-Negotiable` `UI_Screens`, `UI_Popups`, and `UI_HUD` own view-facing feature assets and local UI types; they do not own application-layer presenter orchestration.
+- `Non-Negotiable` `UI_Composition` instantiates presenters and binds them to canonical views at runtime.
 
 - `Non-Negotiable` Flow authority types use `Coordinator` or `Controller` according to the vocabulary in this document.
 - `Non-Negotiable` Presentation orchestration types use `Presenter`.
