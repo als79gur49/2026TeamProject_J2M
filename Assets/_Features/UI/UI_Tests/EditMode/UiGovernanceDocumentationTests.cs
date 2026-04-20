@@ -62,6 +62,23 @@ namespace Game.Feature.UI.Tests
         public void TutorialSceneManualRuntimeSmokePlan_PreservesBoundedArchitectureFocusedSections()
         {
             var smokePlan = ReadRepoFile("Docs/Testing/TutorialScene-Manual-Runtime-Smoke-Plan.md");
+        [Test]
+        public void UiArchitectureGuidelines_CanonicalizePresenterOwnership_AsApplicationLayer()
+        {
+            var guidelines = ReadRepoFile("Docs/Architecture/UI-Architecture-Guidelines.md");
+
+            Assert.That(guidelines, Does.Contain("UI use cases, presenter-level application orchestration, and UI-facing intent routing"));
+            Assert.That(guidelines, Does.Contain("screen-specific payloads, viewmodels, views, prefabs, and screen-local UI types"));
+            Assert.That(guidelines, Does.Contain("popup-specific payloads, viewmodels, views, prefabs, and popup-local UI types"));
+            Assert.That(guidelines, Does.Contain("persistent HUD-specific viewmodels, views, prefabs, and HUD-local UI types"));
+            Assert.That(guidelines, Does.Contain("`UI_Application` owns presenter-level orchestration for screen, popup, and HUD slices."));
+            Assert.That(guidelines, Does.Contain("`UI_Screens`, `UI_Popups`, and `UI_HUD` own view-facing feature assets and local UI types; they do not own application-layer presenter orchestration."));
+            Assert.That(guidelines, Does.Contain("`UI_Composition` instantiates presenters and binds them to canonical views at runtime."));
+            Assert.That(guidelines, Does.Not.Contain("screen-specific presenters, viewmodels, views, and screen composition"));
+            Assert.That(guidelines, Does.Not.Contain("popup-specific presenters, viewmodels, views, and popup composition"));
+            Assert.That(guidelines, Does.Not.Contain("persistent HUD-specific presenters, viewmodels, views, and HUD composition"));
+        }
+
 
             Assert.That(smokePlan, Does.Contain("# TutorialScene Manual Runtime Smoke Plan"));
             Assert.That(smokePlan, Does.Contain("## 1. Overall Evaluation"));
