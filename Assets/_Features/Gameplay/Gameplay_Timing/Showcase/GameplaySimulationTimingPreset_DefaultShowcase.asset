@@ -16,7 +16,6 @@ MonoBehaviour:
   playerControlTiming:
     MoveCooldownSeconds: 0.5
     DamageCooldownSeconds: 2
-    PushContactThresholdSeconds: -1
     PushExecuteDelaySeconds: 0.18333334
     PushInputLockDurationSeconds: 0.48333335
     FlipExecuteDelaySeconds: 0.38333333

@@ -229,7 +229,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SimulationTicksPerSecond = 60,
                 PlayerControlTiming = new PlayerControlTimingSettings
                 {
-                    PushContactThresholdSeconds = 1f / 30f,
                 },
             }.CreatePlayerControlTimingSnapshot();
             var oneTwentyTpsSnapshot = new GameplaySceneHostConfiguration
@@ -237,16 +236,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SimulationTicksPerSecond = 120,
                 PlayerControlTiming = new PlayerControlTimingSettings
                 {
-                    PushContactThresholdSeconds = 1f / 30f,
                 },
             }.CreatePlayerControlTimingSnapshot();
 
             Assert.That(sixtyTpsSnapshot.MoveCooldownSeconds, Is.EqualTo(oneTwentyTpsSnapshot.MoveCooldownSeconds));
-            Assert.That(sixtyTpsSnapshot.PushContactThresholdSeconds, Is.EqualTo(oneTwentyTpsSnapshot.PushContactThresholdSeconds));
             Assert.That(sixtyTpsSnapshot.MoveCooldownTicks, Is.EqualTo(24));
             Assert.That(oneTwentyTpsSnapshot.MoveCooldownTicks, Is.EqualTo(48));
-            Assert.That(sixtyTpsSnapshot.PushContactThresholdTicks, Is.EqualTo(2));
-            Assert.That(oneTwentyTpsSnapshot.PushContactThresholdTicks, Is.EqualTo(4));
         }
 
         [Test]
@@ -259,7 +254,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 RepeatedMoveIntervalSeconds = 0.35f,
                 PlayerControlTiming = new PlayerControlTimingSettings
                 {
-                    PushContactThresholdSeconds = 1f / 60f,
                     PushExecuteDelaySeconds = 2f / 60f,
                     PushInputLockDurationSeconds = 5f / 60f,
                     FlipExecuteDelaySeconds = 0f,
@@ -271,8 +265,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(snapshot.MoveCooldownSeconds, Is.EqualTo(0.35f));
             Assert.That(snapshot.MoveCooldownTicks, Is.EqualTo(42));
-            Assert.That(snapshot.PushContactThresholdSeconds, Is.EqualTo(1f / 60f));
-            Assert.That(snapshot.PushContactThresholdTicks, Is.EqualTo(2));
             Assert.That(snapshot.PushExecuteDelayTicks, Is.EqualTo(4));
             Assert.That(snapshot.PushInputLockDurationTicks, Is.EqualTo(10));
             Assert.That(snapshot.PushWindupTicks, Is.EqualTo(4));
@@ -480,15 +472,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var snapshot = new PlayerControlTimingSettings
             {
                 MoveCooldownSeconds = 0.3f,
-                PushContactThresholdSeconds = 1f / 24f,
             }.CreateAuthoritativeSnapshot(
                 simulationTicksPerSecond: 120,
                 repeatedMoveIntervalSeconds: 0.4f);
 
             Assert.That(snapshot.MoveCooldownSeconds, Is.EqualTo(0.3f));
             Assert.That(snapshot.MoveCooldownTicks, Is.EqualTo(36));
-            Assert.That(snapshot.PushContactThresholdSeconds, Is.EqualTo(1f / 24f));
-            Assert.That(snapshot.PushContactThresholdTicks, Is.EqualTo(5));
         }
 
         [Test]
@@ -613,7 +602,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerEntityId = 10,
                         PlayerControlTiming = new PlayerControlTimingSettings
                         {
-                            PushContactThresholdSeconds = 1f / 60f,
                             PushExecuteDelaySeconds = 2f / 60f,
                             PushInputLockDurationSeconds = 4f / 60f,
                         },
@@ -768,7 +756,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         PlayerEntityId = 10,
                         PlayerControlTiming = new PlayerControlTimingSettings
                         {
-                            PushContactThresholdSeconds = 1f / 60f,
                             PushExecuteDelaySeconds = 2f / 60f,
                             PushInputLockDurationSeconds = 4f / 60f,
                         },
@@ -6688,7 +6675,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return new PlayerControlTimingSettings
             {
-                PushContactThresholdSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 PushExecuteDelaySeconds = 0f,
                 PushInputLockDurationSeconds = 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 FlipExecuteDelaySeconds = 0f,

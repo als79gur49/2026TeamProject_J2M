@@ -20,7 +20,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 MoveCooldownSeconds = 0.5f,
                 DamageCooldownSeconds = 0.25f,
-                PushContactThresholdSeconds = 0.2f,
                 PushExecuteDelaySeconds = 0.1f,
                 PushInputLockDurationSeconds = 0.15f,
                 FlipExecuteDelaySeconds = 0.12f,
@@ -254,8 +253,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.MoveCooldownTicks, Is.EqualTo(expected.MoveCooldownTicks));
             Assert.That(actual.DamageCooldownSeconds, Is.EqualTo(expected.DamageCooldownSeconds));
             Assert.That(actual.DamageCooldownTicks, Is.EqualTo(expected.DamageCooldownTicks));
-            Assert.That(actual.PushContactThresholdSeconds, Is.EqualTo(expected.PushContactThresholdSeconds));
-            Assert.That(actual.PushContactThresholdTicks, Is.EqualTo(expected.PushContactThresholdTicks));
             Assert.That(actual.PushExecuteDelaySeconds, Is.EqualTo(expected.PushExecuteDelaySeconds));
             Assert.That(actual.PushExecuteDelayTicks, Is.EqualTo(expected.PushExecuteDelayTicks));
             Assert.That(actual.PushInputLockDurationSeconds, Is.EqualTo(expected.PushInputLockDurationSeconds));

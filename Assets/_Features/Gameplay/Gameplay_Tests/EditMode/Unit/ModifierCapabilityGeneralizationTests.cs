@@ -298,7 +298,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     new PlayerLogic(
                         entityId: 10,
-                        pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                         pushWindupTicks: 1,
                         pushRecoveryTicks: 0,
                         flipWindupTicks: 2,
@@ -338,7 +337,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     new PlayerLogic(
                         entityId: 10,
-                        pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                         pushWindupTicks: 1,
                         pushRecoveryTicks: 0,
                         flipWindupTicks: 2,

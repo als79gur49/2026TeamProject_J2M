@@ -287,9 +287,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 {
                     moveCooldownTicks = 9,
                     nextMoveAllowedTick = 42,
-                    pushContactTicks = 3,
-                    pushTargetEntityId = 99,
-                    pushDirection = Direction.Left,
                     actionSequenceCounter = 7,
                     activeAction = new PlayerActionRuntimeState
                     {
@@ -319,9 +316,6 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(snapshotAfterRespawn.TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.moveCooldownTicks, Is.Zero);
             Assert.That(controlState.nextMoveAllowedTick, Is.Zero);
-            Assert.That(controlState.pushContactTicks, Is.Zero);
-            Assert.That(controlState.pushTargetEntityId, Is.Zero);
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
             Assert.That(controlState.actionSequenceCounter, Is.Zero);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(controlState.activeAction.sequence, Is.Zero);
