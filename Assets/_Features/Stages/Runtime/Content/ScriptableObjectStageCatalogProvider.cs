@@ -4,23 +4,23 @@ using UnityEngine;
 
 namespace Game.Feature.Stages
 {
-    public interface IStageCatalogProvider
-    {
-        IReadOnlyList<StageContentEntry> LoadEntries();
-
-        StageIdAliasTable AliasTable { get; }
-    }
-
     [CreateAssetMenu(menuName = "Gameplay/Stages/ScriptableObject Stage Catalog Provider", fileName = "StageCatalogProvider")]
     public sealed class ScriptableObjectStageCatalogProvider : ScriptableObject, IStageCatalogProvider
     {
         [SerializeField] private StageCatalog catalog;
+
+        public StageCatalog Catalog => catalog;
 
         public StageIdAliasTable AliasTable => catalog != null ? catalog.StageIdAliasTable : null;
 
         public IReadOnlyList<StageContentEntry> LoadEntries()
         {
             return catalog != null ? catalog.Entries : Array.Empty<StageContentEntry>();
+        }
+
+        public void AssignCatalog(StageCatalog value)
+        {
+            catalog = value;
         }
     }
 
@@ -43,6 +43,21 @@ namespace Game.Feature.Stages
         public bool TryResolve(StageId stageId, out StageContentEntry entry)
         {
             return entriesByStageId.TryGetValue(stageId, out entry);
+        }
+
+        public StageContentEntry ResolveOrThrow(StageId stageId)
+        {
+            if (!stageId.IsValid)
+            {
+                throw new ArgumentException("StageId must be canonical.", nameof(stageId));
+            }
+
+            if (!TryResolve(stageId, out var entry))
+            {
+                throw new KeyNotFoundException($"No stage content entry resolves from '{stageId.Value}'.");
+            }
+
+            return entry;
         }
 
         public bool TryResolve(string rawStageId, out StageContentEntry entry)

@@ -48,5 +48,24 @@ namespace Game.Feature.Stages
         public string ResultDetailText => resultDetailText ?? string.Empty;
 
         public string ResultContinueLabel => resultContinueLabel ?? string.Empty;
+
+        public void ApplyResolvedData(StagePresentationResolvedData value)
+        {
+            var resolvedData = value ?? StagePresentationAssembler.EmptyResolvedData;
+            displayName = resolvedData.DisplayName;
+            summaryText = resolvedData.SummaryText;
+            previewSprite = resolvedData.PreviewSprite;
+            backgroundPrefab = resolvedData.BackgroundPrefab;
+            bgmReference = resolvedData.BgmReference;
+            enemyPresentationCatalog = resolvedData.EnemyPresentationCatalog;
+            enemyPresentationBindings = resolvedData.EnemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
+            staticEntityPresentationCatalog = resolvedData.StaticEntityPresentationCatalog;
+            staticEntityPresentationBindings =
+                resolvedData.StaticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
+            resultTitle = resolvedData.ResultTitle;
+            resultSummaryText = resolvedData.ResultSummaryText;
+            resultDetailText = resolvedData.ResultDetailText;
+            resultContinueLabel = resolvedData.ResultContinueLabel;
+        }
     }
 }

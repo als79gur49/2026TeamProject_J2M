@@ -12,5 +12,15 @@ namespace Game.Feature.Stages
         public StageContentEntry[] Entries => entries ?? Array.Empty<StageContentEntry>();
 
         public StageIdAliasTable StageIdAliasTable => stageIdAliasTable;
+
+        public void SetEntries(StageContentEntry[] value)
+        {
+            entries = value ?? Array.Empty<StageContentEntry>();
+        }
+
+        public void AssignStageIdAliasTable(StageIdAliasTable value)
+        {
+            stageIdAliasTable = value;
+        }
     }
 }

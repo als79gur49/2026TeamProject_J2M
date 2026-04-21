@@ -1,4 +1,3 @@
-using System;
 using Game.Feature.Stages;
 using UnityEngine;
 
@@ -7,18 +6,30 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public abstract class StageBackedGameplayShowcaseInstallerBase : GameplayShowcaseSceneInstallerBase
     {
+        private static readonly StageRuntimeContentResolver RuntimeContentResolver = new();
+
+        [Header("Stage Load")]
+        [SerializeField] private StageLoadSourceMode stageLoadSourceMode = StageLoadSourceMode.CatalogResolvedStageId;
+        [SerializeField] private ScriptableObjectStageCatalogProvider stageCatalogProvider;
+        [SerializeField] private StageId defaultStageId = StageId.None;
         [SerializeField] private StageContentEntry stageContentEntry;
         [SerializeField] private StageDefinition stageDefinition;
 
-        protected StageContentEntry StageContentEntry => stageContentEntry;
+        protected StageLoadSourceMode StageLoadSourceMode => stageLoadSourceMode;
 
-        protected StageDefinition StageDefinition => stageDefinition;
+        protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
+
+        protected StageId DefaultStageId => defaultStageId;
+
+        protected StageContentEntry SerializedStageContentEntry => stageContentEntry;
+
+        protected StageDefinition LegacyStageDefinition => stageDefinition;
 
         protected sealed override InitialGameplayState BuildInitialGameplayState()
         {
-            var resolvedStageDefinition = ResolveGameplayDefinition();
-            var buildResult = StageRuntimeBuilder.Build(resolvedStageDefinition);
-            var resolvedPresentation = ResolvePresentationData(resolvedStageDefinition);
+            var resolved = RuntimeContentResolver.Resolve(CreateStageLoadRequest());
+            var buildResult = StageRuntimeBuilder.Build(resolved.Entry.GameplayDefinition);
+            var resolvedPresentation = StagePresentationAssembler.Resolve(resolved.Entry.PresentationDefinition);
             var compositionData = StageSceneCompositionAssembler.Compose(buildResult, resolvedPresentation);
 
             return new InitialGameplayState(
@@ -29,38 +40,25 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.PlayerEntityId,
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,
-                stageContentEntry,
+                resolved.Entry,
                 compositionData.PresentationData.EnemyPresentationCatalog,
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,
                 compositionData.PresentationData.StaticEntityPresentationBindings);
         }
 
-        private StageDefinition ResolveGameplayDefinition()
+        private StageLoadRequest CreateStageLoadRequest()
         {
-            var definition = stageContentEntry != null
-                ? stageContentEntry.GameplayDefinition
-                : stageDefinition;
-            if (definition == null)
-            {
-                throw new InvalidOperationException(
-                    $"{GetType().Name} requires either a {nameof(StageContentEntry)} or {nameof(StageDefinition)} reference.");
-            }
-
-            return definition;
-        }
-
-        private StagePresentationResolvedData ResolvePresentationData(StageDefinition resolvedStageDefinition)
-        {
-            if (stageContentEntry != null && stageContentEntry.PresentationDefinition != null)
-            {
-                return StagePresentationAssembler.Resolve(stageContentEntry.PresentationDefinition);
-            }
-
-            return StagePresentationAssembler.ResolveLegacy(
-                resolvedStageDefinition,
+            return new StageLoadRequest(
+                stageLoadSourceMode,
+                stageCatalogProvider,
+                defaultStageId,
+                stageContentEntry,
+                stageDefinition,
                 ResolveEnemyPresentationCatalog(),
-                ResolveStaticEntityPresentationCatalog());
+                ResolveStaticEntityPresentationCatalog(),
+                gameObject.scene.name,
+                allowDefaultStageIdFallback: Application.isEditor);
         }
     }
 }
