@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Objectives;
@@ -76,6 +77,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
         [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
         [SerializeField] private Texture2D boardSurfaceTexture;
+        [SerializeField] private GameplayAudioMap gameplayAudioMap;
         [SerializeField] private float faceSeamGap = -1f;
 
         protected bool AutoCreateViews => autoCreateViews;
@@ -155,6 +157,11 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
+        protected virtual GameplayAudioMap ResolveGameplayAudioMap()
+        {
+            return gameplayAudioMap;
+        }
+
         protected abstract InitialGameplayState BuildInitialGameplayState();
 
         public GameplayCameraSettings GetCameraSettings()
@@ -230,6 +237,7 @@ namespace Game.Feature.Gameplay.Host
                 ObjectiveRuntimeDefinition = initialState.ObjectiveRuntimeDefinition,
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
+                GameplayAudioMap = ResolveGameplayAudioMap(),
                 SnapViewCameraToTarget = configureMainCamera,
                 TopologyTransitionCameraShakeProfile = GetTopologyTransitionCameraShakeProfile(),
                 TopologyTransitionPostFxProfile = GetTopologyTransitionPostFxProfile(),

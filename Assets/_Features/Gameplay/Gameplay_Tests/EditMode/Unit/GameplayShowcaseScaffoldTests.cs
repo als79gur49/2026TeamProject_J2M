@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
@@ -412,6 +413,41 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
+                UnityEngine.Object.DestroyImmediate(actions);
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayShowcaseInstaller_CreateConfiguration_PassesThroughOptionalGameplayAudioMap()
+        {
+            var scene = CreateIsolatedTestScene();
+            var actions = ScriptableObject.CreateInstance<InputActionAsset>();
+            var simulationTimingPreset = CreateSimulationTimingPreset();
+            var presentationTimingPreset = CreatePresentationTimingPreset();
+            var gameplayAudioMap = ScriptableObject.CreateInstance<GameplayAudioMap>();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                SetBaseInstallerField(installer, "actions", actions);
+                SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
+                SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
+                SetBaseInstallerField(installer, "gameplayAudioMap", gameplayAudioMap);
+
+                var configuration = installer.BuildConfigurationForTests();
+
+                Assert.That(configuration.GameplayAudioMap, Is.SameAs(gameplayAudioMap));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(gameplayAudioMap);
                 UnityEngine.Object.DestroyImmediate(simulationTimingPreset);
                 UnityEngine.Object.DestroyImmediate(presentationTimingPreset);
                 UnityEngine.Object.DestroyImmediate(actions);

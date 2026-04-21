@@ -3,6 +3,11 @@
   "rootNamespace": "Game.Feature.Gameplay.Host.EditorTools",
   "references": [
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.Flow.Audio",
+    "Game.Feature.UI.Composition",
+    "Game.Feature.UI.HUD",
+    "Game.Shared.Audio",
+    "Game.Shared.Display",
     "Unity.InputSystem"
   ],
   "includePlatforms": [
