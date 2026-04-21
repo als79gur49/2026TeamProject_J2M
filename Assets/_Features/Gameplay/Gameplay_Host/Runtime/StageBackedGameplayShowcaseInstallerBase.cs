@@ -29,6 +29,7 @@ namespace Game.Feature.Gameplay.Host
                 compositionData.GameplayBuildResult.PlayerEntityId,
                 compositionData.GameplayBuildResult.ObjectiveRuntimeDefinition,
                 compositionData.GameplayBuildResult.EnemyAiProfileOverrides,
+                stageContentEntry,
                 compositionData.PresentationData.EnemyPresentationCatalog,
                 compositionData.PresentationData.EnemyPresentationBindings,
                 compositionData.PresentationData.StaticEntityPresentationCatalog,

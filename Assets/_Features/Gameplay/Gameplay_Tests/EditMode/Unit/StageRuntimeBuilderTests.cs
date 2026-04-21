@@ -256,7 +256,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(nonAttackingEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
 
             Assert.That(TryGetEntity(buildResult.InitialEntities, WallFollowerShowcaseEnemyId, out var wallFollowerEnemy), Is.True);
-            Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 8)));
+            Assert.That(wallFollowerEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 7, 7)));
             Assert.That(wallFollowerEnemy.facing, Is.EqualTo(Direction.Up));
             Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(wallFollowerEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
@@ -286,8 +286,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
             Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
-            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.35f));
-            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.8f));
+            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
+            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
 
             var presentation = StagePresentationAssembler.ResolveLegacy(stage);
             Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));

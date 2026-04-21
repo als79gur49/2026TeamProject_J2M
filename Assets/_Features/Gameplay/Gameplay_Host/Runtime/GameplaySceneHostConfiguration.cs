@@ -6,6 +6,7 @@ using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -109,6 +110,7 @@ namespace Game.Feature.Gameplay.Host
         public bool DirectionChangeConsumesDelay;
         public EnemyAiProfile DefaultEnemyAiProfile;
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides = Array.Empty<EnemyAiProfileOverride>();
+        public StageContentEntry StageContentEntry;
         public EnemyPresentationCatalog EnemyPresentationCatalog;
         public EnemyPresentationBinding[] EnemyPresentationBindings = Array.Empty<EnemyPresentationBinding>();
         public StaticEntityPresentationCatalog StaticEntityPresentationCatalog;

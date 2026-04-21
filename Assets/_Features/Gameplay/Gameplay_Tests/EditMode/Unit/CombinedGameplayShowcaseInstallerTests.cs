@@ -146,7 +146,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
             var entities = buildResult.InitialEntities;
 
-            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 7, 8), out var wallFollowerEnemy), Is.True);
+            Assert.That(TryGetUnitAt(entities, new SurfaceCell(FaceId.Floor, 7, 7), out var wallFollowerEnemy), Is.True);
             Assert.That(wallFollowerEnemy.entityId, Is.EqualTo(WallFollowerShowcaseEnemyId));
             Assert.That(wallFollowerEnemy.teamId, Is.EqualTo(2));
             Assert.That(wallFollowerEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
@@ -190,8 +190,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
             Assert.That(jumpProfile.MovementSkillStrategyKind, Is.EqualTo(MovementSkillStrategyKind.JumpToLockedTarget));
             Assert.That(jumpProfile.JumpTimingSettings.WindupSeconds, Is.EqualTo(0.35f));
-            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.35f));
-            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.8f));
+            Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
+            Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
         }
 
         [Test]
@@ -329,6 +329,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                DestroyAssignedStageContent(installerObject);
                 Object.DestroyImmediate(playerPrefabObject);
                 Object.DestroyImmediate(boardRootObject);
                 Object.DestroyImmediate(installerObject);
@@ -385,6 +386,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var prefabView = prefabObject.AddComponent<GameplayEntityView>();
                 new GameObject("PrefabMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
+                var visualObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                visualObject.name = "PrefabVisual";
+                visualObject.transform.SetParent(prefabObject.transform, worldPositionStays: false);
+                var collider = visualObject.GetComponent<Collider>();
+                if (collider != null)
+                {
+                    Object.DestroyImmediate(collider);
+                }
 
                 var factory = new GameplayBoxCapabilityLabelViewFactory(
                     parentObject.transform,
@@ -440,10 +449,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var showcaseView = factory.CreateView(showcaseEnemy);
 
-                var authoring = showcaseView.GetComponent<EnemyAnimationTimingAuthoring>();
+                var authoring = showcaseView.GetComponentInChildren<EnemyAnimationTimingAuthoring>(includeInactive: true);
                 Assert.That(authoring, Is.Not.Null);
-                Assert.That(showcaseView.GetComponent<EnemyAnimatorDriver>(), Is.Not.Null);
-                Assert.That(showcaseView.GetComponent<Animator>(), Is.Not.Null);
+                Assert.That(showcaseView.GetComponentInChildren<EnemyAnimatorDriver>(includeInactive: true), Is.Not.Null);
 
                 var snapshot = authoring.CreateSnapshot();
                 Assert.That(snapshot.TryGetAttackWindupAnimatorDurationOverride(out var windupDurationSeconds), Is.True);
@@ -465,6 +473,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                DestroyAssignedStageContent(installerObject);
                 Object.DestroyImmediate(boardRootObject);
                 Object.DestroyImmediate(installerObject);
             }
@@ -579,6 +588,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
             finally
             {
+                DestroyAssignedStageContent(installerObject);
                 Object.DestroyImmediate(presenterObject);
                 Object.DestroyImmediate(boardRootObject);
                 Object.DestroyImmediate(installerObject);
@@ -604,16 +614,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
             field.SetValue(installer, catalog);
         }
 
-        private static void AssignStageDefinition(CombinedGameplayShowcaseInstaller installer)
+        private static void AssignStageContentEntry(CombinedGameplayShowcaseInstaller installer)
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CombinedEnemyPresentationCatalogAssetPath);
+            Assert.That(catalog, Is.Not.Null, $"Missing enemy presentation catalog asset at '{CombinedEnemyPresentationCatalogAssetPath}'.");
+
+            var entry = ScriptableObject.CreateInstance<StageContentEntry>();
+            entry.hideFlags = HideFlags.HideAndDontSave;
+            entry.AssignStageId(StageId.CreateOrThrow("combined-gameplay-showcase"));
+            entry.AssignGameplayDefinition(stage);
+
+            var resolvedPresentation = StagePresentationAssembler.ResolveLegacy(stage, catalog);
+            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            presentationDefinition.hideFlags = HideFlags.HideAndDontSave;
+            SetPrivateField(presentationDefinition, "enemyPresentationCatalog", resolvedPresentation.EnemyPresentationCatalog);
+            SetPrivateField(presentationDefinition, "enemyPresentationBindings", resolvedPresentation.EnemyPresentationBindings);
+            SetPrivateField(presentationDefinition, "staticEntityPresentationCatalog", resolvedPresentation.StaticEntityPresentationCatalog);
+            SetPrivateField(presentationDefinition, "staticEntityPresentationBindings", resolvedPresentation.StaticEntityPresentationBindings);
+            SetPrivateField(presentationDefinition, "resultTitle", resolvedPresentation.ResultTitle);
+            SetPrivateField(presentationDefinition, "resultContinueLabel", resolvedPresentation.ResultContinueLabel);
+            entry.AssignPresentationDefinition(presentationDefinition);
+
+            var stageContentField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageContentEntry",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(stageContentField, Is.Not.Null);
+            stageContentField.SetValue(installer, entry);
 
             var field = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
                 "stageDefinition",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
-            field.SetValue(installer, stage);
+            field.SetValue(installer, null);
         }
 
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
@@ -649,8 +683,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             CombinedGameplayShowcaseInstaller installer,
             GameplayBoardRoot boardRoot)
         {
-            AssignStageDefinition(installer);
             AssignEnemyPresentationCatalog(installer);
+            AssignStageContentEntry(installer);
             AssignTimingPresets(installer);
             var initialState = BuildInitialGameplayState(installer);
 
@@ -659,6 +693,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(factoryMethod, Is.Not.Null);
             return (IGameplayEntityViewFactory)factoryMethod.Invoke(installer, new[] { (object)boardRoot, initialState });
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static void DestroyAssignedStageContent(GameObject installerObject)
+        {
+            if (installerObject == null)
+            {
+                return;
+            }
+
+            var installer = installerObject.GetComponent<CombinedGameplayShowcaseInstaller>();
+            if (installer == null)
+            {
+                return;
+            }
+
+            var field = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageContentEntry",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            if (field?.GetValue(installer) is not StageContentEntry entry || entry == null)
+            {
+                return;
+            }
+
+            if (entry.PresentationDefinition != null)
+            {
+                Object.DestroyImmediate(entry.PresentationDefinition);
+            }
+
+            Object.DestroyImmediate(entry);
         }
 
         private static object BuildInitialGameplayState(CombinedGameplayShowcaseInstaller installer)

@@ -1,5 +1,6 @@
 using System;
 using Game.Feature.Gameplay.UIAccess.Models;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.UIAccess.Contracts
 {
@@ -10,5 +11,7 @@ namespace Game.Feature.Gameplay.UIAccess.Contracts
         event Action<GameplayPresentationState> StateChanged;
 
         GameplayPresentationState CurrentState { get; }
+
+        StageCompletionReadModel CurrentStageCompletion { get; }
     }
 }

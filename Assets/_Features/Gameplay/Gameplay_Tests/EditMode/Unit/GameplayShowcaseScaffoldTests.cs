@@ -779,6 +779,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     StageObjectiveRuntimeDefinition.Disabled,
                     Array.Empty<EnemyAiProfileOverride>(),
                     null,
+                    null,
                     Array.Empty<EnemyPresentationBinding>(),
                     null,
                     Array.Empty<StaticEntityPresentationBinding>());

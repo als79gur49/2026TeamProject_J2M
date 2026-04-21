@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.Timing;
+using Game.Feature.Stages;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -24,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
                 int playerEntityId,
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
+                StageContentEntry stageContentEntry,
                 EnemyPresentationCatalog enemyPresentationCatalog,
                 EnemyPresentationBinding[] enemyPresentationBindings,
                 StaticEntityPresentationCatalog staticEntityPresentationCatalog,
@@ -36,6 +38,7 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = playerEntityId;
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
+                StageContentEntry = stageContentEntry;
                 EnemyPresentationCatalog = enemyPresentationCatalog;
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
                 StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
@@ -55,6 +58,8 @@ namespace Game.Feature.Gameplay.Host
             public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition { get; }
 
             public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
+
+            public StageContentEntry StageContentEntry { get; }
 
             public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
 
@@ -237,6 +242,7 @@ namespace Game.Feature.Gameplay.Host
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
+                StageContentEntry = initialState.StageContentEntry,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
                 EnemyPresentationCatalog = initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,

@@ -165,7 +165,7 @@ namespace Game.Feature.Gameplay.Host
                     new GameplayHostSessionQuery(tickRunner, pauseService, admissionPolicy),
                     new GameplayHostPlayerHudQuery(tickRunner, inputHost, admissionPolicy),
                     new GameplayHostObjectiveQuery(tickRunner)),
-                new GameplayHostPresentationFeed(inputHost, presenter),
+                new GameplayHostPresentationFeed(inputHost, presenter, configuration.StageContentEntry),
                 pauseService);
 
             return new GameplayHostRuntimeContext(

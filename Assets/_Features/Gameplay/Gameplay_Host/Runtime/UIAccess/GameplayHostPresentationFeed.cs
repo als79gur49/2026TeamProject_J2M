@@ -5,20 +5,24 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
+using Game.Feature.Stages;
 
 namespace Game.Feature.Gameplay.Host.UIAccess
 {
     internal sealed class GameplayHostPresentationFeed : IGameplayPresentationFeed, IDisposable
     {
         private readonly GameplayInputHost _inputHost;
+        private readonly GameplayHostStageCompletionRuntime _stageCompletionRuntime;
         private readonly GameplayTickViewPresenter _presenter;
 
         public GameplayHostPresentationFeed(
             GameplayInputHost inputHost,
-            GameplayTickViewPresenter presenter)
+            GameplayTickViewPresenter presenter,
+            StageContentEntry stageContentEntry = null)
         {
             _inputHost = inputHost ?? throw new ArgumentNullException(nameof(inputHost));
             _presenter = presenter ?? throw new ArgumentNullException(nameof(presenter));
+            _stageCompletionRuntime = new GameplayHostStageCompletionRuntime(stageContentEntry);
             CurrentState = CreateCurrentState();
 
             _inputHost.TickCompleted += HandleTickCompleted;
@@ -30,6 +34,8 @@ namespace Game.Feature.Gameplay.Host.UIAccess
         public event Action<GameplayPresentationState> StateChanged;
 
         public GameplayPresentationState CurrentState { get; private set; }
+
+        public StageCompletionReadModel CurrentStageCompletion => _stageCompletionRuntime.CurrentStageCompletion;
 
         public void Dispose()
         {
@@ -44,6 +50,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 return;
             }
 
+            _stageCompletionRuntime.ProcessTick(result);
             FramePublished?.Invoke(CreateFrame(result));
         }
 
