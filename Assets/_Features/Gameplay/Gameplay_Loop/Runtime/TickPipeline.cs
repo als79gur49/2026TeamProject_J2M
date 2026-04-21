@@ -319,7 +319,16 @@ namespace Game.Feature.Gameplay.Loop
                 entityLogics[i].CommitPreMovementState(snapshot, in input, writeContext, updates, actionTransitions);
             }
 
-            return new PreMovementStatePhaseResult(updates, actionTransitions);
+            var rejectedReasons = new List<string>();
+            for (var i = 0; i < updates.Count; i++)
+            {
+                if (updates[i].StartsWith("MovementRejected|", StringComparison.Ordinal))
+                {
+                    rejectedReasons.Add(updates[i]);
+                }
+            }
+
+            return new PreMovementStatePhaseResult(updates, actionTransitions, rejectedReasons);
         }
 
         private PlanPhaseResult RunPlanPhase(
@@ -450,6 +459,7 @@ namespace Game.Feature.Gameplay.Loop
             var movementReservationBook = new MovementReservationBook();
 
             var movementRejectedReasons = new List<string>(planPhaseResult.RejectedReasons);
+            AddRange(movementRejectedReasons, planPhaseResult.PreMovementStatePhaseResult.RejectedReasons);
             ResolveMovementActionPlansCanonical(
                 planSnapshot,
                 planPhaseResult.OrderedMovementActionPlanIds,
@@ -4868,21 +4878,25 @@ namespace Game.Feature.Gameplay.Loop
     internal sealed class PreMovementStatePhaseResult
     {
         public PreMovementStatePhaseResult(List<string> updates)
-            : this(updates, new List<PlayerActionTransition>())
+            : this(updates, new List<PlayerActionTransition>(), new List<string>())
         {
         }
 
         public PreMovementStatePhaseResult(
             List<string> updates,
-            List<PlayerActionTransition> playerActionTransitions)
+            List<PlayerActionTransition> playerActionTransitions,
+            List<string> rejectedReasons = null)
         {
             Updates = updates ?? throw new ArgumentNullException(nameof(updates));
             PlayerActionTransitions = playerActionTransitions ?? throw new ArgumentNullException(nameof(playerActionTransitions));
+            RejectedReasons = rejectedReasons ?? new List<string>();
         }
 
         public List<string> Updates { get; }
 
         public List<PlayerActionTransition> PlayerActionTransitions { get; }
+
+        public List<string> RejectedReasons { get; }
     }
 
     internal sealed class PlanPhaseResult

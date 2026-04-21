@@ -7,10 +7,13 @@ namespace Game.Feature.Gameplay.Loop
     {
         public PlayerTickCommand(
             Direction moveDirection,
+            bool pushPressed = false,
             bool flipPressed = false,
             bool isMoveBuffered = false)
         {
-            if (moveDirection == Direction.None && flipPressed)
+            if (moveDirection == Direction.None &&
+                flipPressed &&
+                !pushPressed)
             {
                 throw new ArgumentException("Flip commands require a non-none move direction.", nameof(moveDirection));
             }
@@ -30,11 +33,14 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             MoveDirection = moveDirection;
+            PushPressed = pushPressed;
             FlipPressed = flipPressed;
             IsMoveBuffered = isMoveBuffered;
         }
 
         public Direction MoveDirection { get; }
+
+        public bool PushPressed { get; }
 
         public bool FlipPressed { get; }
 
@@ -47,6 +53,11 @@ namespace Game.Feature.Gameplay.Loop
             return new PlayerTickCommand(direction, isMoveBuffered: isMoveBuffered);
         }
 
+        public static PlayerTickCommand Push(Direction direction, bool isMoveBuffered = false)
+        {
+            return new PlayerTickCommand(direction, pushPressed: true, isMoveBuffered: isMoveBuffered);
+        }
+
         public static PlayerTickCommand Flip(Direction direction)
         {
             return new PlayerTickCommand(direction, flipPressed: true);
@@ -54,10 +65,11 @@ namespace Game.Feature.Gameplay.Loop
 
         public static PlayerTickCommand Create(
             Direction moveDirection,
+            bool pushPressed = false,
             bool flipPressed = false,
             bool isMoveBuffered = false)
         {
-            return new PlayerTickCommand(moveDirection, flipPressed, isMoveBuffered);
+            return new PlayerTickCommand(moveDirection, pushPressed, flipPressed, isMoveBuffered);
         }
     }
 }

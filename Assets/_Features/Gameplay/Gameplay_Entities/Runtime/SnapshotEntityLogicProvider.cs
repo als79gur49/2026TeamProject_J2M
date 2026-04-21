@@ -145,7 +145,6 @@ namespace Game.Feature.Gameplay.Entities
                     preMovementStateLogics.Add(
                         new PlayerControlStateLogic(
                             binding.ControlledEntityId,
-                            playerLogic.PushContactThresholdTicks,
                             playerLogic.PushWindupTicks,
                             playerLogic.PushRecoveryTicks,
                             playerLogic.FlipWindupTicks,

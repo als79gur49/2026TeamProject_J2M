@@ -16,14 +16,12 @@ namespace Game.Feature.Gameplay.Entities
         private readonly int _entityId;
         private readonly int _flipRecoveryTicks;
         private readonly int _flipWindupTicks;
-        private readonly int _pushContactThresholdTicks;
         private readonly int _pushRecoveryTicks;
         private readonly int _pushWindupTicks;
 
         public PlayerLogic(int entityId)
             : this(
                 entityId,
-                GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                 pushWindupTicks: 1,
                 pushRecoveryTicks: 0,
                 flipWindupTicks: 1,
@@ -33,20 +31,6 @@ namespace Game.Feature.Gameplay.Entities
 
         public PlayerLogic(
             int entityId,
-            int pushContactThresholdTicks)
-            : this(
-                entityId,
-                pushContactThresholdTicks,
-                pushWindupTicks: 1,
-                pushRecoveryTicks: 0,
-                flipWindupTicks: 1,
-                flipRecoveryTicks: 0)
-        {
-        }
-
-        public PlayerLogic(
-            int entityId,
-            int pushContactThresholdTicks,
             int pushWindupTicks,
             int pushRecoveryTicks,
             int flipWindupTicks,
@@ -55,11 +39,6 @@ namespace Game.Feature.Gameplay.Entities
             if (entityId <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(entityId), "Player logic requires a positive entity ID.");
-            }
-
-            if (pushContactThresholdTicks <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(pushContactThresholdTicks), "Push contact threshold must be greater than zero.");
             }
 
             if (pushWindupTicks < 0)
@@ -83,7 +62,6 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             _entityId = entityId;
-            _pushContactThresholdTicks = pushContactThresholdTicks;
             _pushWindupTicks = pushWindupTicks;
             _pushRecoveryTicks = pushRecoveryTicks;
             _flipWindupTicks = flipWindupTicks;
@@ -91,8 +69,6 @@ namespace Game.Feature.Gameplay.Entities
         }
 
         public int ControlledEntityId => _entityId;
-
-        internal int PushContactThresholdTicks => _pushContactThresholdTicks;
 
         internal int PushWindupTicks => _pushWindupTicks;
 
@@ -164,16 +140,6 @@ namespace Game.Feature.Gameplay.Entities
 
             if (hasControlState &&
                 PlayerControlQueries.IsMoveOnCooldown(controlState, input.TickIndex))
-            {
-                return;
-            }
-
-            var hasMatchingPushContact =
-                hasControlState &&
-                controlState.pushTargetEntityId > 0 &&
-                controlState.pushDirection == input.PlayerCommand.MoveDirection;
-
-            if (hasMatchingPushContact)
             {
                 return;
             }

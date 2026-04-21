@@ -11,14 +11,12 @@ namespace Game.Feature.Gameplay.PlayerControl
         private readonly int _entityId;
         private readonly int _flipRecoveryTicks;
         private readonly int _flipWindupTicks;
-        private readonly int _pushContactThresholdTicks;
         private readonly int _pushRecoveryTicks;
         private readonly int _pushWindupTicks;
 
         public PlayerControlStateLogic(int entityId)
             : this(
                 entityId,
-                GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                 pushWindupTicks: 1,
                 pushRecoveryTicks: 0,
                 flipWindupTicks: 1,
@@ -28,7 +26,6 @@ namespace Game.Feature.Gameplay.PlayerControl
 
         internal PlayerControlStateLogic(
             int entityId,
-            int pushContactThresholdTicks,
             int pushWindupTicks,
             int pushRecoveryTicks,
             int flipWindupTicks,
@@ -37,11 +34,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             if (entityId <= 0)
             {
                 throw new ArgumentOutOfRangeException(nameof(entityId), "Player control state logic requires a positive entity ID.");
-            }
-
-            if (pushContactThresholdTicks <= 0)
-            {
-                throw new ArgumentOutOfRangeException(nameof(pushContactThresholdTicks), "Push contact threshold must be greater than zero.");
             }
 
             if (pushWindupTicks < 0)
@@ -65,7 +57,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             }
 
             _entityId = entityId;
-            _pushContactThresholdTicks = pushContactThresholdTicks;
             _pushWindupTicks = pushWindupTicks;
             _pushRecoveryTicks = pushRecoveryTicks;
             _flipWindupTicks = flipWindupTicks;
@@ -127,7 +118,10 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var previousAction = nextState.activeAction;
             var canStartAction = snapshot.CanStartAction(_entityId, input.TickIndex);
-            var canUseMoveDirectionForActionState = !input.PlayerCommand.IsMoveBuffered || input.PlayerCommand.FlipPressed;
+            var canUseMoveDirectionForActionState =
+                !input.PlayerCommand.IsMoveBuffered ||
+                input.PlayerCommand.PushPressed ||
+                input.PlayerCommand.FlipPressed;
 
             if (!previousAction.IsActive &&
                 canStartAction &&
@@ -142,7 +136,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 if (!previousAction.executionAttempted &&
                     !PlayerControlQueries.CanPendingActionStillExecute(snapshot, entity, previousAction))
                 {
-                    nextState = PlayerControlQueries.ResetContact(nextState);
                     nextState.activeAction = default;
                     nextState.nextMoveAllowedTick = Math.Max(nextState.nextMoveAllowedTick, input.TickIndex + 1);
                 }
@@ -151,9 +144,31 @@ namespace Game.Feature.Gameplay.PlayerControl
                     nextState = PlayerControlQueries.AdvanceActiveAction(nextState, input.TickIndex);
                 }
             }
+            else if (input.PlayerCommand.PushPressed)
+            {
+                if (input.PlayerCommand.MoveDirection != Direction.None &&
+                    canStartAction &&
+                    PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, out var pushTarget))
+                {
+                    nextState = PlayerControlQueries.StartAction(
+                        nextState,
+                        PlayerActionKind.Push,
+                        pushTarget.Direction,
+                        pushTarget.TargetEntityId,
+                        input.TickIndex,
+                        _pushWindupTicks,
+                        _pushRecoveryTicks);
+                }
+                else if (input.PlayerCommand.MoveDirection != Direction.None &&
+                         canStartAction &&
+                         PlayerControlQueries.TryResolveAdjacentPushTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var adjacentTarget))
+                {
+                    updates.Add(
+                        $"MovementRejected|Stage=PreMovement|Source={_entityId}|Reason=ExplicitPushNotStartable|Direction={input.PlayerCommand.MoveDirection}|Target={adjacentTarget.TargetEntityId}");
+                }
+            }
             else if (input.PlayerCommand.FlipPressed)
             {
-                nextState = PlayerControlQueries.ResetContact(nextState);
 
                 if (canStartAction &&
                     PlayerControlQueries.TryResolveFlipTarget(snapshot, entity, input.PlayerCommand.MoveDirection, out var flipTarget))
@@ -168,56 +183,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                         _flipRecoveryTicks);
                 }
             }
-            else if (input.PlayerCommand.IsMoveBuffered)
-            {
-                if (!canStartAction ||
-                    !PlayerControlQueries.ShouldPreserveBufferedPushContact(
-                        snapshot,
-                        entity,
-                        nextState,
-                        input.PlayerCommand.MoveDirection))
-                {
-                    nextState = PlayerControlQueries.ResetContact(nextState);
-                }
-            }
-            else if (input.PlayerCommand.MoveDirection == Direction.None)
-            {
-                nextState = PlayerControlQueries.ResetContact(nextState);
-            }
-            else if (!canStartAction)
-            {
-                nextState = PlayerControlQueries.ResetContact(nextState);
-            }
-            else if (PlayerControlQueries.TryResolvePushContact(snapshot, entity, input.PlayerCommand.MoveDirection, out var pushTarget))
-            {
-                if (nextState.pushTargetEntityId == pushTarget.TargetEntityId &&
-                    nextState.pushDirection == pushTarget.Direction)
-                {
-                    nextState.pushContactTicks++;
-                }
-                else
-                {
-                    nextState.pushContactTicks = 1;
-                    nextState.pushTargetEntityId = pushTarget.TargetEntityId;
-                    nextState.pushDirection = pushTarget.Direction;
-                }
-
-                if (nextState.pushContactTicks >= _pushContactThresholdTicks)
-                {
-                    nextState = PlayerControlQueries.StartAction(
-                        nextState,
-                        PlayerActionKind.Push,
-                        pushTarget.Direction,
-                        pushTarget.TargetEntityId,
-                        input.TickIndex,
-                        _pushWindupTicks,
-                        _pushRecoveryTicks);
-                }
-            }
-            else
-            {
-                nextState = PlayerControlQueries.ResetContact(nextState);
-            }
 
             UpdateMovementOwnedPhasedState(
                 snapshot,
@@ -228,7 +193,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             writeContext.SetPlayerControlState(_entityId, nextState);
             actionTransitions.Add(new PlayerActionTransition(_entityId, previousAction, nextState.activeAction));
             updates.Add(
-                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|PushTicks={nextState.pushContactTicks}|Target={nextState.pushTargetEntityId}|Direction={nextState.pushDirection}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}");
+                $"PlayerControlUpdated|E={_entityId}|Cooldown={nextState.moveCooldownTicks}|NextMoveAllowed={nextState.nextMoveAllowedTick}|Action={nextState.activeAction.kind}|ActionSeq={nextState.activeAction.sequence}|ActionDirection={nextState.activeAction.direction}|ActionTarget={nextState.activeAction.targetEntityId}|Start={nextState.activeAction.startTick}|Execute={nextState.activeAction.executeTick}|Recovery={nextState.activeAction.recoveryEndTick}|Attempted={(nextState.activeAction.executionAttempted ? 1 : 0)}");
         }
 
         private void UpdateMovementOwnedPhasedState(

@@ -11,8 +11,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             int moveCooldownTicks,
             float damageCooldownSeconds,
             int damageCooldownTicks,
-            float pushContactThresholdSeconds,
-            int pushContactThresholdTicks,
             float pushExecuteDelaySeconds,
             int pushExecuteDelayTicks,
             float pushInputLockDurationSeconds,
@@ -30,8 +28,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             MoveCooldownTicks = moveCooldownTicks;
             DamageCooldownSeconds = damageCooldownSeconds;
             DamageCooldownTicks = damageCooldownTicks;
-            PushContactThresholdSeconds = pushContactThresholdSeconds;
-            PushContactThresholdTicks = pushContactThresholdTicks;
             PushExecuteDelaySeconds = pushExecuteDelaySeconds;
             PushExecuteDelayTicks = pushExecuteDelayTicks;
             PushInputLockDurationSeconds = pushInputLockDurationSeconds;
@@ -53,10 +49,6 @@ namespace Game.Feature.Gameplay.PlayerControl
         public float DamageCooldownSeconds { get; }
 
         public int DamageCooldownTicks { get; }
-
-        public float PushContactThresholdSeconds { get; }
-
-        public int PushContactThresholdTicks { get; }
 
         public float PushExecuteDelaySeconds { get; }
 
@@ -105,7 +97,6 @@ namespace Game.Feature.Gameplay.PlayerControl
 
         public float MoveCooldownSeconds = -1f;
         public float DamageCooldownSeconds = DefaultDamageCooldownSeconds;
-        public float PushContactThresholdSeconds = -1f;
         public float PushExecuteDelaySeconds = DefaultPushExecuteDelaySeconds;
         public float PushInputLockDurationSeconds = DefaultPushInputLockDurationSeconds;
         public float FlipExecuteDelaySeconds = DefaultFlipExecuteDelaySeconds;
@@ -122,7 +113,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             {
                 MoveCooldownSeconds = MoveCooldownSeconds,
                 DamageCooldownSeconds = DamageCooldownSeconds,
-                PushContactThresholdSeconds = PushContactThresholdSeconds,
                 PushExecuteDelaySeconds = PushExecuteDelaySeconds,
                 PushInputLockDurationSeconds = PushInputLockDurationSeconds,
                 FlipExecuteDelaySeconds = FlipExecuteDelaySeconds,
@@ -141,7 +131,6 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var moveCooldownSeconds = ResolveMoveCooldownSeconds(repeatedMoveIntervalSeconds);
             var damageCooldownSeconds = ResolveDamageCooldownSeconds();
-            var pushContactThresholdSeconds = ResolvePushContactThresholdSeconds();
 
             if (moveCooldownSeconds < 0f)
             {
@@ -155,13 +144,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 throw new ArgumentOutOfRangeException(
                     nameof(DamageCooldownSeconds),
                     "Damage cooldown must be zero or greater.");
-            }
-
-            if (pushContactThresholdSeconds < 0f)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(PushContactThresholdSeconds),
-                    "Push contact threshold must be zero or greater.");
             }
 
             ValidateActionTiming(
@@ -191,7 +173,6 @@ namespace Game.Feature.Gameplay.PlayerControl
 
             var moveCooldownSeconds = ResolveMoveCooldownSeconds(repeatedMoveIntervalSeconds);
             var damageCooldownSeconds = ResolveDamageCooldownSeconds();
-            var pushContactThresholdSeconds = ResolvePushContactThresholdSeconds();
             var moveCooldownTicks = GameplayTimingProfile.SecondsToTicks(
                 moveCooldownSeconds,
                 simulationTicksPerSecond,
@@ -200,9 +181,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 damageCooldownSeconds,
                 simulationTicksPerSecond,
                 allowZero: true);
-            var pushContactThresholdTicks = GameplayTimingProfile.SecondsToTicks(
-                pushContactThresholdSeconds,
-                simulationTicksPerSecond);
             var pushExecuteDelayTicks = GameplayTimingProfile.SecondsToTicks(
                 PushExecuteDelaySeconds,
                 simulationTicksPerSecond,
@@ -223,8 +201,6 @@ namespace Game.Feature.Gameplay.PlayerControl
                 moveCooldownTicks,
                 damageCooldownSeconds,
                 damageCooldownTicks,
-                pushContactThresholdSeconds,
-                pushContactThresholdTicks,
                 PushExecuteDelaySeconds,
                 pushExecuteDelayTicks,
                 PushInputLockDurationSeconds,
@@ -251,13 +227,6 @@ namespace Game.Feature.Gameplay.PlayerControl
             return DamageCooldownSeconds >= 0f
                 ? DamageCooldownSeconds
                 : 0f;
-        }
-
-        private float ResolvePushContactThresholdSeconds()
-        {
-            return PushContactThresholdSeconds >= 0f
-                ? PushContactThresholdSeconds
-                : GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds;
         }
 
         private static void ValidateActionTiming(

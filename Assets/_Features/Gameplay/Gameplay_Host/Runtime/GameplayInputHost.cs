@@ -16,21 +16,25 @@ namespace Game.Feature.Gameplay.Host
         private bool _areActionsBound;
         private bool _autoAdvanceTicks;
         private bool _hasBufferedFlip;
-        private bool _hasPendingUiCommandOverride;
+        private bool _hasBufferedPush;
+        private bool _hasBufferedUiFlip;
+        private bool _hasBufferedUiPush;
         private bool _isInitialized;
         private bool _isSimulationPaused;
         private TickInputBuffer _inputBuffer;
         private InputAction _flipAction;
         private int _maxTicksPerFrame;
         private InputAction _moveAction;
+        private InputAction _pushAction;
         private PlayerMoveIntentBuffer _moveIntentBuffer;
         private float _moveDeadzone;
         private int _playerEntityId;
-        private PlayerTickCommand _pendingUiCommandOverride;
         private GameplayTickViewPresenter _presenter;
         private TickRunner _runner;
         private Vector2 _sampledMoveInput;
         private float _simulationTickIntervalSeconds;
+        private Direction _uiBufferedFlipDirection;
+        private Direction _uiBufferedPushDirection;
         private Direction _uiHeldMoveDirection;
 
         public event Action<TickResult> TickCompleted;
@@ -94,9 +98,12 @@ namespace Game.Feature.Gameplay.Host
             _autoAdvanceTicks = autoAdvanceTicks;
             _accumulatedTime = 0f;
             _hasBufferedFlip = false;
-            _hasPendingUiCommandOverride = false;
-            _pendingUiCommandOverride = default;
+            _hasBufferedPush = false;
+            _hasBufferedUiFlip = false;
+            _hasBufferedUiPush = false;
             _sampledMoveInput = Vector2.zero;
+            _uiBufferedFlipDirection = Direction.None;
+            _uiBufferedPushDirection = Direction.None;
             _uiHeldMoveDirection = Direction.None;
             _isSimulationPaused = false;
             _isInitialized = true;
@@ -214,6 +221,12 @@ namespace Game.Feature.Gameplay.Host
             _hasBufferedFlip = true;
         }
 
+        public void BufferPush()
+        {
+            EnsureInitialized();
+            _hasBufferedPush = true;
+        }
+
         internal void SetUiHeldMoveDirection(Direction direction)
         {
             EnsureInitialized();
@@ -241,16 +254,52 @@ namespace Game.Feature.Gameplay.Host
                 throw new ArgumentOutOfRangeException(nameof(direction), direction, "Buffered UI flip directions must be orthogonal.");
             }
 
-            _pendingUiCommandOverride = PlayerTickCommand.Flip(direction);
-            _hasPendingUiCommandOverride = true;
+            _uiBufferedFlipDirection = direction;
+            _hasBufferedUiFlip = true;
+        }
+
+        internal void BufferUiPush(Direction direction)
+        {
+            EnsureInitialized();
+
+            if (!IsOrthogonalDirection(direction))
+            {
+                throw new ArgumentOutOfRangeException(nameof(direction), direction, "Buffered UI push directions must be orthogonal.");
+            }
+
+            _uiBufferedPushDirection = direction;
+            _hasBufferedUiPush = true;
         }
 
         internal void ClearPendingUiInput()
         {
             EnsureInitialized();
             _uiHeldMoveDirection = Direction.None;
-            _pendingUiCommandOverride = default;
-            _hasPendingUiCommandOverride = false;
+            _uiBufferedFlipDirection = Direction.None;
+            _uiBufferedPushDirection = Direction.None;
+            _hasBufferedUiFlip = false;
+            _hasBufferedUiPush = false;
+        }
+
+        internal Direction PreviewPushDirection()
+        {
+            EnsureInitialized();
+
+            if (_hasBufferedUiPush)
+            {
+                return _uiBufferedPushDirection;
+            }
+
+            var now = ResolveCurrentInputTime();
+            var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
+            _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
+
+            if (_uiHeldMoveDirection != Direction.None)
+            {
+                return _uiHeldMoveDirection;
+            }
+
+            return _moveIntentBuffer.ResolveDirection(now, out _);
         }
 
         private void Update()
@@ -299,8 +348,15 @@ namespace Game.Feature.Gameplay.Host
                 throw new InvalidOperationException("GameplayInputHost requires a Player/Flip action on the provided InputActionAsset.");
             }
 
+            _pushAction = _actions.FindAction("Player/Push", throwIfNotFound: false);
+            if (_pushAction == null)
+            {
+                throw new InvalidOperationException("GameplayInputHost requires a Player/Push action on the provided InputActionAsset.");
+            }
+
             _moveAction.performed += OnMovePerformed;
             _moveAction.canceled += OnMoveCanceled;
+            _pushAction.started += OnPushStarted;
             _flipAction.started += OnFlipStarted;
             _flipAction.performed += OnFlipPerformed;
 
@@ -336,6 +392,11 @@ namespace Game.Feature.Gameplay.Host
             BufferFlip();
         }
 
+        private void OnPushStarted(InputAction.CallbackContext context)
+        {
+            BufferPush();
+        }
+
         private void UnbindActions()
         {
             if (_moveAction != null)
@@ -352,6 +413,12 @@ namespace Game.Feature.Gameplay.Host
                 _flipAction = null;
             }
 
+            if (_pushAction != null)
+            {
+                _pushAction.started -= OnPushStarted;
+                _pushAction = null;
+            }
+
             if (_actions != null)
             {
                 _actions.Disable();
@@ -359,8 +426,11 @@ namespace Game.Feature.Gameplay.Host
 
             _areActionsBound = false;
             _hasBufferedFlip = false;
-            _hasPendingUiCommandOverride = false;
-            _pendingUiCommandOverride = default;
+            _hasBufferedPush = false;
+            _hasBufferedUiFlip = false;
+            _hasBufferedUiPush = false;
+            _uiBufferedFlipDirection = Direction.None;
+            _uiBufferedPushDirection = Direction.None;
             _uiHeldMoveDirection = Direction.None;
             _sampledMoveInput = Vector2.zero;
             _moveIntentBuffer?.Reset();
@@ -384,14 +454,6 @@ namespace Game.Feature.Gameplay.Host
 
         private PlayerTickCommand BuildPlayerCommand()
         {
-            if (_hasPendingUiCommandOverride)
-            {
-                var uiCommandOverride = _pendingUiCommandOverride;
-                _pendingUiCommandOverride = default;
-                _hasPendingUiCommandOverride = false;
-                return uiCommandOverride;
-            }
-
             var now = ResolveCurrentInputTime();
             var sampledDirection = GridMoveInputQuantizer.Quantize(_sampledMoveInput, _moveDeadzone);
             _moveIntentBuffer.UpdateSampledDirection(sampledDirection, now);
@@ -409,20 +471,50 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var flipPressed = _hasBufferedFlip || (_flipAction != null && _flipAction.IsPressed());
+            var pushPressed = _hasBufferedPush || _hasBufferedUiPush;
+            var bufferedUiPushDirection = _uiBufferedPushDirection;
+            var bufferedUiFlipDirection = _uiBufferedFlipDirection;
+            var hasBufferedUiPush = _hasBufferedUiPush;
+            var hasBufferedUiFlip = _hasBufferedUiFlip;
 
             _hasBufferedFlip = false;
+            _hasBufferedPush = false;
+            _hasBufferedUiFlip = false;
+            _hasBufferedUiPush = false;
+            _uiBufferedFlipDirection = Direction.None;
+            _uiBufferedPushDirection = Direction.None;
 
-            if (resolvedDirection == Direction.None)
+            if (pushPressed)
             {
-                return PlayerTickCommand.None;
+                var pushDirection = hasBufferedUiPush
+                    ? bufferedUiPushDirection
+                    : resolvedDirection;
+                return PlayerTickCommand.Create(
+                    pushDirection,
+                    pushPressed: true,
+                    isMoveBuffered: !hasBufferedUiPush && usesBufferedDirection);
             }
 
             if (flipPressed)
             {
+                var flipDirection = hasBufferedUiFlip
+                    ? bufferedUiFlipDirection
+                    : resolvedDirection;
+
+                if (flipDirection == Direction.None)
+                {
+                    return PlayerTickCommand.None;
+                }
+
                 return PlayerTickCommand.Create(
-                    resolvedDirection,
+                    flipDirection,
                     flipPressed: true,
-                    isMoveBuffered: usesBufferedDirection);
+                    isMoveBuffered: !hasBufferedUiFlip && usesBufferedDirection);
+            }
+
+            if (resolvedDirection == Direction.None)
+            {
+                return PlayerTickCommand.None;
             }
 
             return PlayerTickCommand.Move(resolvedDirection, isMoveBuffered: usesBufferedDirection);

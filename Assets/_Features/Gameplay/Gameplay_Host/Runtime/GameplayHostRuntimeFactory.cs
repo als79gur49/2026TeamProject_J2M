@@ -247,7 +247,6 @@ namespace Game.Feature.Gameplay.Host
             {
                 new PlayerLogic(
                     configuration.PlayerEntityId,
-                    playerControlTiming.PushContactThresholdTicks,
                     playerControlTiming.PushWindupTicks,
                     playerControlTiming.PushRecoveryTicks,
                     playerControlTiming.FlipWindupTicks,

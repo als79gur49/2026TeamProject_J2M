@@ -21,9 +21,6 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultEnemyDeathEffectDurationSeconds = 0.2f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
-        public const int DefaultPlayerPushContactThresholdTicks = 12;
-        public const float DefaultPlayerPushContactThresholdSeconds =
-            DefaultPlayerPushContactThresholdTicks / (float)DefaultSimulationTicksPerSecond;
 
         public GameplayTimingProfile(
             int simulationTicksPerSecond,

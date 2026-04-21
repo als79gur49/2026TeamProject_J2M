@@ -29,9 +29,6 @@ namespace Game.Feature.Gameplay.PlayerControl
     {
         public int moveCooldownTicks;
         public int nextMoveAllowedTick;
-        public int pushContactTicks;
-        public int pushTargetEntityId;
-        public Direction pushDirection;
         public int actionSequenceCounter;
         public PlayerActionRuntimeState activeAction;
     }
@@ -104,15 +101,6 @@ namespace Game.Feature.Gameplay.PlayerControl
 
     internal static class PlayerControlQueries
     {
-        public static PlayerControlState ResetContact(in PlayerControlState state)
-        {
-            var updatedState = state;
-            updatedState.pushContactTicks = 0;
-            updatedState.pushTargetEntityId = 0;
-            updatedState.pushDirection = Direction.None;
-            return updatedState;
-        }
-
         public static PlayerControlState StartAction(
             in PlayerControlState state,
             PlayerActionKind kind,
@@ -132,7 +120,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 throw new ArgumentOutOfRangeException(nameof(recoveryTicks), "Action recovery ticks must be zero or greater.");
             }
 
-            var updatedState = ResetContact(state);
+            var updatedState = state;
             updatedState.actionSequenceCounter = Mathf.Max(1, updatedState.actionSequenceCounter + 1);
             updatedState.activeAction = new PlayerActionRuntimeState
             {
@@ -158,7 +146,7 @@ namespace Game.Feature.Gameplay.PlayerControl
                 return state;
             }
 
-            var updatedState = ResetContact(state);
+            var updatedState = state;
 
             if (tickIndex > updatedState.activeAction.recoveryEndTick)
             {
@@ -180,7 +168,7 @@ namespace Game.Feature.Gameplay.PlayerControl
             int moveCooldownTicks,
             int tickIndex)
         {
-            var updatedState = ResetContact(state);
+            var updatedState = state;
             updatedState.moveCooldownTicks = Mathf.Max(0, moveCooldownTicks);
             updatedState.nextMoveAllowedTick = updatedState.moveCooldownTicks > 0
                 ? tickIndex + updatedState.moveCooldownTicks + 1
@@ -253,27 +241,37 @@ namespace Game.Feature.Gameplay.PlayerControl
             return false;
         }
 
-        public static bool ShouldPreserveBufferedPushContact(
+        public static bool TryResolveAdjacentPushTarget(
             WorldSnapshot snapshot,
             in EntityState player,
-            in PlayerControlState state,
-            Direction inputDirection)
+            Direction inputDirection,
+            out PlayerActionTarget target)
         {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
             }
 
-            if (state.pushContactTicks <= 0 ||
-                state.pushTargetEntityId <= 0 ||
-                state.pushDirection != inputDirection)
+            if (!TryResolveDelta(inputDirection, out var delta))
             {
+                target = default;
                 return false;
             }
 
-            return TryResolvePushContact(snapshot, player, inputDirection, out var contact) &&
-                   contact.TargetEntityId == state.pushTargetEntityId &&
-                   contact.Direction == state.pushDirection;
+            if (!TryResolveTraversalStep(snapshot, player, delta, out var targetCell, out var movementTopology))
+            {
+                target = default;
+                return false;
+            }
+
+            if (!TryResolvePushBoxContact(snapshot, movementTopology, targetCell, out var entity))
+            {
+                target = default;
+                return false;
+            }
+
+            target = new PlayerActionTarget(entity.entityId, inputDirection);
+            return true;
         }
 
         public static bool TryResolveFlipTarget(
@@ -466,6 +464,18 @@ namespace Game.Feature.Gameplay.PlayerControl
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
         {
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
+        }
+    }
+
+    public static class PlayerActionPreviewQueries
+    {
+        public static bool HasExplicitPushCandidate(
+            WorldSnapshot snapshot,
+            in EntityState player,
+            Direction direction)
+        {
+            return snapshot != null &&
+                   PlayerControlQueries.TryResolvePushContact(snapshot, player, direction, out _);
         }
     }
 }
