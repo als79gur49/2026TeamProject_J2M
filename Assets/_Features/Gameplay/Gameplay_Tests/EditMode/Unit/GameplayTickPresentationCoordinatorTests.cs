@@ -1287,6 +1287,237 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_PlayerDeathBackOffset_UsesModelRootOnly_Settles_AndClearsOnRespawn()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathBackOffset_UsesModelRootOnly_Settles_AndClearsOnRespawn");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                "GameplayTickPresentationCoordinator_PlayerDeathBackOffset_UsesModelRootOnly_PlayerPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var timingProfile = CreateTimingProfile();
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+                var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+                var enemyCell = new SurfaceCell(FaceId.Floor, 1, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, playerCell),
+                        CreateEnemyUnit(20, enemyCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var rootPositionBeforeDeath = playerView.transform.localPosition;
+                var modelRootPositionBeforeDeath = playerView.ModelRoot.localPosition;
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, playerCell, hp: 0),
+                            CreateEnemyUnit(20, enemyCell),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            playerDeathSignals: new[]
+                            {
+                                new TickPlayerDeathPresentationSignal(
+                                    10,
+                                    didDieThisTick: true,
+                                    sourceEntityId: 20,
+                                    fallbackFacing: Direction.Right,
+                                    resolvedDamageSourceAvailable: true,
+                                    damageAmountAtFatalHit: 1,
+                                    deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse),
+                            },
+                            enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(timingProfile.PlayerDeathDisplacementDurationSeconds * 0.5f);
+
+                AssertPositionApproximately(playerView.transform.localPosition, rootPositionBeforeDeath);
+                Assert.That(
+                    Vector3.Distance(playerView.ModelRoot.localPosition, modelRootPositionBeforeDeath),
+                    Is.GreaterThan(0.001f));
+                Assert.That(
+                    GetPlayerDeathDisplacementTrackState(presenter, 10),
+                    Is.EqualTo(PlayerDeathDisplacementTrackState.Animating));
+                Assert.That(GetPresentationActivityInspector(presenter).HasActiveEntityPresentationClips(), Is.True);
+
+                presenter.UpdatePresentation(timingProfile.PlayerDeathDisplacementDurationSeconds);
+
+                Assert.That(
+                    GetPlayerDeathDisplacementTrackState(presenter, 10),
+                    Is.EqualTo(PlayerDeathDisplacementTrackState.Settled));
+                Assert.That(GetPresentationActivityInspector(presenter).HasActiveEntityPresentationClips(), Is.False);
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 2,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, playerCell),
+                            CreateEnemyUnit(20, enemyCell),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Spawn, playerCell, topology, Direction.Right),
+                            },
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            playerDeathSignals: Array.Empty<TickPlayerDeathPresentationSignal>(),
+                            enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>())));
+                presenter.UpdatePresentation(0f);
+
+                AssertPositionApproximately(playerView.transform.localPosition, rootPositionBeforeDeath);
+                AssertPositionApproximately(playerView.ModelRoot.localPosition, modelRootPositionBeforeDeath);
+                Assert.That(HasPlayerDeathDisplacementTrack(presenter, 10), Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickPresentationCoordinator_PlayerDeathBackOffset_MissingAttackerProjectsAlongSurfaceTangent()
+        {
+            var rootObject = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathBackOffset_MissingAttackerProjectsAlongSurfaceTangent");
+            var playerViewPrefab = PlayerViewPrefabTestUtility.CreatePlayerViewPrefab(
+                "GameplayTickPresentationCoordinator_PlayerDeathBackOffset_MissingAttacker_PlayerPrefab");
+            var cameraObject = new GameObject("GameplayTickPresentationCoordinator_PlayerDeathBackOffset_OutputCamera");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var outputCamera = cameraObject.AddComponent<Camera>();
+                outputCamera.transform.SetParent(rootObject.transform, worldPositionStays: false);
+                outputCamera.transform.localPosition = new Vector3(0.35f, 0.5f, -4f);
+                outputCamera.transform.localRotation = Quaternion.identity;
+
+                var timingProfile = CreateTimingProfile();
+                var topology = new CubeTopologyState(FaceId.Front);
+                var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1));
+                var playerCell = new SurfaceCell(FaceId.Front, 0, 0);
+                var binder = new GameplayEntityViewBinder(
+                    registry,
+                    new DefaultGameplayEntityViewFactory(
+                        registry.transform,
+                        1f,
+                        playerEntityId: 10,
+                        playerViewPrefab));
+
+                presenter.Initialize(
+                    binder,
+                    boardBounds,
+                    topology,
+                    1f,
+                    timingProfile);
+                presenter.AttachOutputCamera(outputCamera);
+                presenter.PresentInitial(
+                    new[]
+                    {
+                        CreatePlayerUnit(10, playerCell),
+                    },
+                    topology);
+
+                Assert.That(registry.TryGetView(10, out var playerView), Is.True);
+                var rootPositionBeforeDeath = playerView.transform.localPosition;
+                var modelRootPositionBeforeDeath = playerView.ModelRoot.localPosition;
+
+                presenter.Present(
+                    CreateTickResult(
+                        tickIndex: 1,
+                        new[]
+                        {
+                            CreatePlayerUnit(10, playerCell, hp: 0),
+                        },
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                            transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                            playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                            playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            playerDeathSignals: new[]
+                            {
+                                new TickPlayerDeathPresentationSignal(
+                                    10,
+                                    didDieThisTick: true,
+                                    sourceEntityId: 999,
+                                    fallbackFacing: Direction.Right,
+                                    resolvedDamageSourceAvailable: true,
+                                    damageAmountAtFatalHit: 1,
+                                    deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse),
+                            },
+                            enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                            enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>())));
+
+                presenter.UpdatePresentation(timingProfile.PlayerDeathDisplacementDurationSeconds * 0.5f);
+
+                var offset = playerView.ModelRoot.localPosition - modelRootPositionBeforeDeath;
+                AssertPositionApproximately(playerView.transform.localPosition, rootPositionBeforeDeath);
+                Assert.That(offset.sqrMagnitude, Is.GreaterThan(0.000001f));
+                Assert.That(float.IsNaN(offset.x) || float.IsNaN(offset.y) || float.IsNaN(offset.z), Is.False);
+
+                var surfaceNormal = -(playerView.transform.localRotation * Vector3.forward).normalized;
+                var tangentAlignment = Mathf.Abs(Vector3.Dot(offset.normalized, surfaceNormal));
+                Assert.That(tangentAlignment, Is.LessThan(0.001f));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+                UnityEngine.Object.DestroyImmediate(playerViewPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayTickViewPresenter_PlayerActionHold_KeepsEntityMotionPhaseUntilHoldCompletes()
         {
             var rootObject = new GameObject("GameplayTickViewPresenter_PlayerActionHold_KeepsEntityMotionPhaseUntilHoldCompletes");
@@ -2566,14 +2797,53 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static GameplayPresentationStateStore GetPresentationStateStore(GameplayTickViewPresenter presenter)
         {
-            var coordinatorField = typeof(GameplayTickViewPresenter)
-                .GetField("_presentationCoordinator", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(coordinatorField, Is.Not.Null);
-            var coordinator = coordinatorField.GetValue(presenter);
+            var coordinator = GetPresentationCoordinator(presenter);
             var stateStoreField = coordinator.GetType()
                 .GetField("_stateStore", BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(stateStoreField, Is.Not.Null);
             return (GameplayPresentationStateStore)stateStoreField.GetValue(coordinator);
+        }
+
+        private static GameplayPresentationTrackState GetPresentationTrackState(GameplayTickViewPresenter presenter)
+        {
+            var coordinator = GetPresentationCoordinator(presenter);
+            var trackStateField = coordinator.GetType()
+                .GetField("_trackState", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(trackStateField, Is.Not.Null);
+            return (GameplayPresentationTrackState)trackStateField.GetValue(coordinator);
+        }
+
+        private static GameplayPresentationActivityInspector GetPresentationActivityInspector(GameplayTickViewPresenter presenter)
+        {
+            var coordinator = GetPresentationCoordinator(presenter);
+            var inspectorField = coordinator.GetType()
+                .GetField("_presentationActivityInspector", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(inspectorField, Is.Not.Null);
+            return (GameplayPresentationActivityInspector)inspectorField.GetValue(coordinator);
+        }
+
+        private static bool HasPlayerDeathDisplacementTrack(GameplayTickViewPresenter presenter, int entityId)
+        {
+            return GetPresentationTrackState(presenter).PlayerDeathDisplacementTracks.ContainsKey(entityId);
+        }
+
+        private static PlayerDeathDisplacementTrackState GetPlayerDeathDisplacementTrackState(
+            GameplayTickViewPresenter presenter,
+            int entityId)
+        {
+            Assert.That(
+                GetPresentationTrackState(presenter).PlayerDeathDisplacementTracks.TryGetValue(entityId, out var track),
+                Is.True);
+            Assert.That(track, Is.Not.Null);
+            return track.State;
+        }
+
+        private static object GetPresentationCoordinator(GameplayTickViewPresenter presenter)
+        {
+            var coordinatorField = typeof(GameplayTickViewPresenter)
+                .GetField("_presentationCoordinator", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(coordinatorField, Is.Not.Null);
+            return coordinatorField.GetValue(presenter);
         }
 
         private static GameplayEntityView CreateEnemyViewPrefab(

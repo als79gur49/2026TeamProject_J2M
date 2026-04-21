@@ -356,6 +356,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
+            var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
@@ -370,6 +371,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildRespawnPresentation(context, visibilityChanges);
             BuildPlayerPresentation(context, playerActionSignals);
             BuildPlayerDamagePresentation(context, playerDamageSignals);
+            BuildPlayerDeathPresentation(context, playerDeathSignals);
             BuildPlayerLocomotionPresentation(context, playerLocomotionSignals);
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
@@ -387,6 +389,7 @@ namespace Game.Feature.Gameplay.Loop
                    flipImpactSignals.Count == 0 &&
                    playerActionSignals.Count == 0 &&
                    playerDamageSignals.Count == 0 &&
+                   playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
@@ -400,6 +403,7 @@ namespace Game.Feature.Gameplay.Loop
                     playerActionSignals,
                     playerLocomotionSignals,
                     playerDamageSignals,
+                    playerDeathSignals,
                     enemyDamageSignals,
                     enemyActionSignals,
                     enemyJumpSignals,
@@ -850,6 +854,74 @@ namespace Game.Feature.Gameplay.Loop
                         pair.Key,
                         tookDamageThisTick: true,
                         pair.Value));
+            }
+        }
+
+        private static void BuildPlayerDeathPresentation(
+            in TickPresentationBuildContext context,
+            List<TickPlayerDeathPresentationSignal> playerDeathSignals)
+        {
+            var remainingHpByPlayerId = new Dictionary<int, int>();
+            var fatalSignalsByPlayerId = new Dictionary<int, TickPlayerDeathPresentationSignal>();
+
+            // Damage resolutions are already emitted in runtime canonical order. Consume them
+            // as-is so fatal-source presentation remains deterministic with simulation output.
+            for (var i = 0; i < context.AttackPhaseResult.DamageResolutions.Count; i++)
+            {
+                var resolution = context.AttackPhaseResult.DamageResolutions[i];
+                if (!resolution.Accepted ||
+                    fatalSignalsByPlayerId.ContainsKey(resolution.TargetId) ||
+                    !context.PostMovementSnapshot.TryGetEntity(resolution.TargetId, out var target) ||
+                    !EntityRolePolicy.IsPlayerUnit(target))
+                {
+                    continue;
+                }
+
+                if (!remainingHpByPlayerId.TryGetValue(resolution.TargetId, out var remainingHp))
+                {
+                    remainingHp = target.hp;
+                }
+
+                remainingHp -= resolution.Amount;
+                remainingHpByPlayerId[resolution.TargetId] = remainingHp;
+                if (remainingHp > 0)
+                {
+                    continue;
+                }
+
+                var hasResolvedDamageSource = resolution.SourceId > 0;
+                fatalSignalsByPlayerId[resolution.TargetId] = new TickPlayerDeathPresentationSignal(
+                    resolution.TargetId,
+                    didDieThisTick: true,
+                    resolution.SourceId,
+                    target.facing,
+                    hasResolvedDamageSource,
+                    resolution.Amount,
+                    hasResolvedDamageSource
+                        ? DeathDirectionHintKind.AttackerReverse
+                        : DeathDirectionHintKind.FacingReverse);
+            }
+
+            if (fatalSignalsByPlayerId.Count == 0)
+            {
+                return;
+            }
+
+            var removedPlayerIds = context.CleanupPhaseResult.RemovedEntityIds.Count > 0
+                ? new HashSet<int>(context.CleanupPhaseResult.RemovedEntityIds)
+                : null;
+            foreach (var pair in fatalSignalsByPlayerId)
+            {
+                var didDieThisTick =
+                    (context.PostAttackSnapshot.TryGetEntity(pair.Key, out var postAttackPlayer) &&
+                     postAttackPlayer.hp <= 0) ||
+                    (removedPlayerIds != null && removedPlayerIds.Contains(pair.Key));
+                if (!didDieThisTick)
+                {
+                    continue;
+                }
+
+                playerDeathSignals.Add(pair.Value);
             }
         }
 

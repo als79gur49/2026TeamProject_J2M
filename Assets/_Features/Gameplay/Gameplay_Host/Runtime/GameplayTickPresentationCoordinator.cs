@@ -138,6 +138,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Configure(_projector, _timingProfile);
             _exitPresentationController.Reset();
             _audioPresentationController.ResetSession();
+            _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
             _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _animationSync.Reset();
@@ -154,6 +155,7 @@ namespace Game.Feature.Gameplay.Host
         public void AttachOutputCamera(Camera outputCamera)
         {
             _transientEffectPresenter.ConfigureOutputCamera(outputCamera);
+            _planner.ConfigureOutputCamera(outputCamera, _viewBinder != null ? _viewBinder.SearchRoot : null);
         }
 
         public void Present(TickResult result)
@@ -219,6 +221,7 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
 
             _audioPresentationController.ResetSession();
+            _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
             _exitPresentationController.Reset();
             _transientEffectPresenter.Clear();

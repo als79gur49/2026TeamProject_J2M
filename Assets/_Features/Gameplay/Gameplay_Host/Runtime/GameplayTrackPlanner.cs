@@ -5,6 +5,7 @@ using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.PlayerControl;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
 {
@@ -13,6 +14,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayEntityPresentationApplier _entityPresentationApplier;
         private readonly GameplayExitPresentationController _exitPresentationController;
         private readonly GameplayMotionTimingResolver _motionTimingResolver;
+        private readonly PlayerDeathDisplacementPlanner _playerDeathDisplacementPlanner;
         private readonly GameplayPoseResolver _poseResolver;
         private readonly GameplayPresentationStateStore _stateStore;
         private readonly GameplayPresentationTrackState _trackState;
@@ -33,6 +35,15 @@ namespace Game.Feature.Gameplay.Host
                 exitPresentationController ?? throw new ArgumentNullException(nameof(exitPresentationController));
             _entityPresentationApplier =
                 entityPresentationApplier ?? throw new ArgumentNullException(nameof(entityPresentationApplier));
+            _playerDeathDisplacementPlanner = new PlayerDeathDisplacementPlanner(
+                _stateStore,
+                _trackState,
+                _poseResolver);
+        }
+
+        public void ConfigureOutputCamera(Camera outputCamera, Transform localSpaceRoot)
+        {
+            _playerDeathDisplacementPlanner.ConfigureOutputCamera(outputCamera, localSpaceRoot);
         }
 
         public void RefreshPlayerLocomotionSignals(TickPresentationData presentationData)
@@ -97,6 +108,7 @@ namespace Game.Feature.Gameplay.Host
                 timingProfile);
             RefreshTransitionVisibilityState(presentationData, projector);
             RefreshFlipInteractionTracks(presentationData, timingProfile, flipImpactTimingSettings);
+            _playerDeathDisplacementPlanner.RefreshTracks(presentationData, projector, timingProfile);
         }
 
         private void RefreshMotionClips(

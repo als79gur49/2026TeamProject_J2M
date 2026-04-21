@@ -147,11 +147,17 @@ namespace Game.Feature.Gameplay.Host
                     currentState.ShouldPlayWalkLoop,
                     currentState.IsRecoveryPhase,
                     currentState.DidDie,
+                    currentState.DidDieThisTick,
                     currentState.TookDamageThisTick,
                     currentState.ActionPlanId,
                     previousState.FlipOutcome,
                     previousState.HasFlipImpactContactTiming,
-                    previousState.FlipTargetBoxEntityId);
+                    previousState.FlipTargetBoxEntityId,
+                    currentState.DeathSourceEntityId,
+                    currentState.ResolvedDamageSourceAvailable,
+                    currentState.DamageAmountAtFatalHit,
+                    currentState.DeathDirectionHintKind,
+                    currentState.DeathFallbackFacing);
             }
         }
 

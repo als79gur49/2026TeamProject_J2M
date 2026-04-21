@@ -224,6 +224,65 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_PlayerDeathPresentationData_DoesNotAffectCanonicalStateOrHash()
+        {
+            var finalEntities = new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 0),
+                CreateUnit(entityId: 20, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
+            };
+            finalEntities[0].unitRole = UnitRole.Player;
+            finalEntities[0].markedForDeath = true;
+            finalEntities[1].unitRole = UnitRole.Enemy;
+            var finalSnapshot = SnapshotBuilder.Create(CreateWorldState(finalEntities));
+            var eventLog = new[]
+            {
+                "DamageCommitted|Source=20|Target=10|Amount=3",
+            };
+            var playerDeathPresentation = new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                visibilityChanges: Array.Empty<TickVisibilityChange>(),
+                transitionVisibilityChanges: Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals: Array.Empty<TickPlayerActionPresentationSignal>(),
+                playerLocomotionSignals: Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                playerDamageSignals: Array.Empty<TickPlayerDamagePresentationSignal>(),
+                playerDeathSignals: new[]
+                {
+                    new TickPlayerDeathPresentationSignal(
+                        10,
+                        didDieThisTick: true,
+                        sourceEntityId: 20,
+                        fallbackFacing: Direction.Right,
+                        resolvedDamageSourceAvailable: true,
+                        damageAmountAtFatalHit: 3,
+                        deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse),
+                },
+                enemyDamageSignals: Array.Empty<TickEnemyDamagePresentationSignal>(),
+                enemyActionSignals: Array.Empty<TickEnemyActionPresentationSignal>(),
+                enemyJumpSignals: Array.Empty<TickEnemyJumpPresentationSignal>(),
+                entityExitSignals: Array.Empty<TickEntityExitPresentationSignal>());
+            var baselineData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                TickPresentationData.Empty);
+            var playerDeathData = new TickResultData(
+                finalEntities,
+                Array.Empty<DelayedAttackEffectRecord>(),
+                eventLog,
+                playerDeathPresentation);
+            var hashBuilder = new DeterminismHashBuilder();
+
+            CollectionAssert.AreEqual(baselineData.FinalEntities, playerDeathData.FinalEntities);
+            CollectionAssert.AreEqual(baselineData.EventLog, playerDeathData.EventLog);
+            Assert.That(
+                hashBuilder.Build(12, finalSnapshot, baselineData),
+                Is.EqualTo(hashBuilder.Build(12, finalSnapshot, playerDeathData)));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump()
         {
             var playerLogic = CreatePlayerLogicWithActionTiming(entityId: 10);

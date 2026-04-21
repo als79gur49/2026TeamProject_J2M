@@ -1282,6 +1282,216 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TickPresentationDataBuilder_PlayerDeathSignal_UsesCanonicalFirstFatalAcceptedDamageSource()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0));
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var attackerOneCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var attackerTwoCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var playerAlive = CreateEntity(10, EntityType.Unit, playerCell, Direction.Right);
+            playerAlive.unitRole = UnitRole.Player;
+            playerAlive.hp = 3;
+            playerAlive.maxHp = 3;
+            var playerDead = playerAlive;
+            playerDead.hp = 0;
+            playerDead.markedForDeath = true;
+            var attackerOne = CreateEnemyEntity(20, attackerOneCell, EnemyAiMode.Attack, Direction.Left);
+            var attackerTwo = CreateEnemyEntity(30, attackerTwoCell, EnemyAiMode.Attack, Direction.Left);
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attackerOne,
+                    attackerTwo,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attackerOne,
+                    attackerTwo,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerDead,
+                    attackerOne,
+                    attackerTwo,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    postAttackSnapshot,
+                    MovementPhaseResult.Empty,
+                    CreateAttackPhaseResult(
+                        new DamageResolutionRecord(1, 1, 20, AttackSourceKind.Combat, 10, 1, true, DamageRejectReason.None),
+                        new DamageResolutionRecord(2, 2, 30, AttackSourceKind.Combat, 10, 2, true, DamageRejectReason.None)),
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 11));
+
+            Assert.That(presentationData.PlayerDeathSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.PlayerDeathSignals[0];
+            Assert.That(signal.EntityId, Is.EqualTo(10));
+            Assert.That(signal.DidDieThisTick, Is.True);
+            Assert.That(signal.SourceEntityId, Is.EqualTo(30));
+            Assert.That(signal.ResolvedDamageSourceAvailable, Is.True);
+            Assert.That(signal.DamageAmountAtFatalHit, Is.EqualTo(2));
+            Assert.That(signal.DeathDirectionHintKind, Is.EqualTo(DeathDirectionHintKind.AttackerReverse));
+            Assert.That(signal.FallbackFacing, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_PlayerDeathSignal_DoesNotChangeAfterCanonicalFatalResolution()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0));
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var playerAlive = CreateEntity(10, EntityType.Unit, playerCell, Direction.Right);
+            playerAlive.unitRole = UnitRole.Player;
+            playerAlive.hp = 3;
+            playerAlive.maxHp = 3;
+            var playerDead = playerAlive;
+            playerDead.hp = 0;
+            playerDead.markedForDeath = true;
+            var attackerOne = CreateEnemyEntity(20, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Attack, Direction.Left);
+            var attackerTwo = CreateEnemyEntity(30, new SurfaceCell(FaceId.Floor, 2, 0), EnemyAiMode.Attack, Direction.Left);
+            var attackerThree = CreateEnemyEntity(40, new SurfaceCell(FaceId.Floor, 3, 0), EnemyAiMode.Attack, Direction.Left);
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attackerOne,
+                    attackerTwo,
+                    attackerThree,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attackerOne,
+                    attackerTwo,
+                    attackerThree,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerDead,
+                    attackerOne,
+                    attackerTwo,
+                    attackerThree,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    postAttackSnapshot,
+                    MovementPhaseResult.Empty,
+                    CreateAttackPhaseResult(
+                        new DamageResolutionRecord(1, 1, 20, AttackSourceKind.Combat, 10, 1, true, DamageRejectReason.None),
+                        new DamageResolutionRecord(2, 2, 30, AttackSourceKind.Combat, 10, 2, true, DamageRejectReason.None),
+                        new DamageResolutionRecord(3, 3, 40, AttackSourceKind.Combat, 10, 5, true, DamageRejectReason.None)),
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 12));
+
+            Assert.That(presentationData.PlayerDeathSignals.Count, Is.EqualTo(1));
+            var signal = presentationData.PlayerDeathSignals[0];
+            Assert.That(signal.SourceEntityId, Is.EqualTo(30));
+            Assert.That(signal.DamageAmountAtFatalHit, Is.EqualTo(2));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_PlayerDeathSignal_DoesNotEmitWithoutFatalAcceptedDamage()
+        {
+            var topology = new CubeTopologyState(FaceId.Floor);
+            var boardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0));
+            var playerCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var playerAlive = CreateEntity(10, EntityType.Unit, playerCell, Direction.Right);
+            playerAlive.unitRole = UnitRole.Player;
+            playerAlive.hp = 3;
+            playerAlive.maxHp = 3;
+            var attacker = CreateEnemyEntity(20, new SurfaceCell(FaceId.Floor, 1, 0), EnemyAiMode.Attack, Direction.Left);
+
+            var preMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attacker,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postMovementSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attacker,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var postAttackSnapshot = CreateWorldState(
+                new[]
+                {
+                    playerAlive,
+                    attacker,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+            var finalSnapshot = CreateWorldState(
+                new[]
+                {
+                    attacker,
+                },
+                boardBounds,
+                GameplayTerrainData.Empty,
+                topology).CreateSnapshot();
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postAttackSnapshot,
+                    finalSnapshot,
+                    MovementPhaseResult.Empty,
+                    CreateAttackPhaseResult(
+                        new DamageResolutionRecord(1, 1, 20, AttackSourceKind.Combat, 10, 3, false, DamageRejectReason.ReceiverCooldown)),
+                    CleanupFixtureFactory.RemovedEntities(10),
+                    currentTickIndex: 13));
+
+            Assert.That(presentationData.PlayerDeathSignals, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPresentationDataBuilder_BuildsEnemyActionSignalForOngoingWindup()
         {
             const int enemyId = 40;
@@ -1816,6 +2026,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static AttackPhaseResult CreateAttackPhaseResult(params ActionGroup[] selectedGroups)
         {
             return CanonicalPhaseResultFactory.CreateAttackPhaseResult(selectedGroups);
+        }
+
+        private static AttackPhaseResult CreateAttackPhaseResult(params DamageResolutionRecord[] damageResolutions)
+        {
+            return new AttackPhaseResult(
+                Array.Empty<RawAttackIntent>(),
+                Array.Empty<ImpactReservation>(),
+                Array.Empty<DelayedAttackEffectRecord>(),
+                damageResolutions,
+                Array.Empty<ResolutionRecord>(),
+                Array.Empty<FinalizationOperation>(),
+                Array.Empty<DelayedAttackEffectRecord>(),
+                Array.Empty<string>(),
+                Array.Empty<string>(),
+                Array.Empty<string>());
         }
 
         private static EnemyActionRuntimeState CreateEnemyActionState(

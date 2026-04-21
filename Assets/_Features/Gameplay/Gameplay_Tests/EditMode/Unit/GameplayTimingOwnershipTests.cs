@@ -712,6 +712,81 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void PlayerViewPresentationMapper_DeathSignal_CopiesFatalSourcePresentationFields()
+        {
+            var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("PlayerViewPresentationMapper_DeathSignal_CopiesFatalSourcePresentationFields");
+
+            try
+            {
+                var view = rootObject.GetComponent<GameplayEntityView>();
+                var mapper = new PlayerViewPresentationMapper();
+                var buffer = new Dictionary<int, PlayerViewPresentationState>();
+                var viewsByEntityId = new Dictionary<int, GameplayEntityView>
+                {
+                    [10] = view,
+                };
+                var topology = new CubeTopologyState(FaceId.Floor);
+                var sourceCell = new SurfaceCell(FaceId.Floor, 0, 0);
+
+                mapper.Build(
+                    new TickResult(
+                        1,
+                        Array.Empty<TickPhase>(),
+                        Array.Empty<string>(),
+                        MovementPhaseResult.Empty,
+                        AttackPhaseResult.Empty,
+                        Array.Empty<EntityState>(),
+                        Array.Empty<string>(),
+                        topology,
+                        new TickPresentationData(
+                            Array.Empty<TickEntityMotion>(),
+                            topologyMotion: null,
+                            new[]
+                            {
+                                new TickVisibilityChange(10, TickVisibilityChangeKind.Remove, sourceCell, topology, Direction.Right),
+                            },
+                            Array.Empty<TickTransitionVisibilityChange>(),
+                            Array.Empty<TickPlayerActionPresentationSignal>(),
+                            Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                            Array.Empty<TickPlayerDamagePresentationSignal>(),
+                            new[]
+                            {
+                                new TickPlayerDeathPresentationSignal(
+                                    10,
+                                    didDieThisTick: true,
+                                    sourceEntityId: 20,
+                                    fallbackFacing: Direction.Right,
+                                    resolvedDamageSourceAvailable: true,
+                                    damageAmountAtFatalHit: 2,
+                                    deathDirectionHintKind: DeathDirectionHintKind.AttackerReverse),
+                            },
+                            Array.Empty<TickEnemyDamagePresentationSignal>(),
+                            Array.Empty<TickEnemyActionPresentationSignal>(),
+                            Array.Empty<TickEnemyJumpPresentationSignal>(),
+                            Array.Empty<TickEntityExitPresentationSignal>()),
+                        string.Empty,
+                        TickTrace.Empty),
+                    viewsByEntityId,
+                    buffer);
+
+                Assert.That(buffer.ContainsKey(10), Is.True);
+                var state = buffer[10];
+                Assert.That(state.DidDie, Is.True);
+                Assert.That(state.DidDieThisTick, Is.True);
+                Assert.That(state.DeathSourceEntityId, Is.EqualTo(20));
+                Assert.That(state.ResolvedDamageSourceAvailable, Is.True);
+                Assert.That(state.DamageAmountAtFatalHit, Is.EqualTo(2));
+                Assert.That(state.DeathDirectionHintKind, Is.EqualTo(DeathDirectionHintKind.AttackerReverse));
+                Assert.That(state.DeathFallbackFacing, Is.EqualTo(Direction.Right));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk()
         {
             var rootObject = PlayerViewPrefabTestUtility.CreatePlayerViewPrefabObject("GameplayAnimationSyncCoordinator_PlayerDidDie_PrioritizesDeathOverActionAndWalk");

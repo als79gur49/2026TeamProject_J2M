@@ -28,11 +28,17 @@ namespace Game.Feature.Gameplay.Host
             bool canceledThisTick,
             bool isRecoveryPhase = false,
             bool didDie = false,
+            bool didDieThisTick = false,
             bool tookDamageThisTick = false,
             int actionPlanId = 0,
             TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None,
             bool hasFlipImpactContactTiming = false,
-            int flipTargetBoxEntityId = 0)
+            int flipTargetBoxEntityId = 0,
+            int deathSourceEntityId = 0,
+            bool resolvedDamageSourceAvailable = false,
+            int damageAmountAtFatalHit = 0,
+            DeathDirectionHintKind deathDirectionHintKind = DeathDirectionHintKind.Unknown,
+            Direction deathFallbackFacing = Direction.None)
             : this(
                 entityId,
                 tickIndex,
@@ -45,11 +51,17 @@ namespace Game.Feature.Gameplay.Host
                 shouldPlayWalkLoop: false,
                 isRecoveryPhase: isRecoveryPhase,
                 didDie: didDie,
+                didDieThisTick: didDieThisTick,
                 tookDamageThisTick: tookDamageThisTick,
                 actionPlanId: actionPlanId,
                 flipOutcome: flipOutcome,
                 hasFlipImpactContactTiming: hasFlipImpactContactTiming,
-                flipTargetBoxEntityId: flipTargetBoxEntityId)
+                flipTargetBoxEntityId: flipTargetBoxEntityId,
+                deathSourceEntityId: deathSourceEntityId,
+                resolvedDamageSourceAvailable: resolvedDamageSourceAvailable,
+                damageAmountAtFatalHit: damageAmountAtFatalHit,
+                deathDirectionHintKind: deathDirectionHintKind,
+                deathFallbackFacing: deathFallbackFacing)
         {
         }
 
@@ -65,11 +77,17 @@ namespace Game.Feature.Gameplay.Host
             bool shouldPlayWalkLoop,
             bool isRecoveryPhase = false,
             bool didDie = false,
+            bool didDieThisTick = false,
             bool tookDamageThisTick = false,
             int actionPlanId = 0,
             TickPlayerFlipOutcomeKind flipOutcome = TickPlayerFlipOutcomeKind.None,
             bool hasFlipImpactContactTiming = false,
-            int flipTargetBoxEntityId = 0)
+            int flipTargetBoxEntityId = 0,
+            int deathSourceEntityId = 0,
+            bool resolvedDamageSourceAvailable = false,
+            int damageAmountAtFatalHit = 0,
+            DeathDirectionHintKind deathDirectionHintKind = DeathDirectionHintKind.Unknown,
+            Direction deathFallbackFacing = Direction.None)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
@@ -82,11 +100,17 @@ namespace Game.Feature.Gameplay.Host
             CanceledThisTick = canceledThisTick;
             ShouldPlayWalkLoop = shouldPlayWalkLoop;
             DidDie = didDie;
+            DidDieThisTick = didDieThisTick;
             TookDamageThisTick = tookDamageThisTick;
             ActionPlanId = actionPlanId;
             FlipOutcome = flipOutcome;
             HasFlipImpactContactTiming = hasFlipImpactContactTiming;
             FlipTargetBoxEntityId = flipTargetBoxEntityId;
+            DeathSourceEntityId = deathSourceEntityId;
+            ResolvedDamageSourceAvailable = resolvedDamageSourceAvailable;
+            DamageAmountAtFatalHit = damageAmountAtFatalHit;
+            DeathDirectionHintKind = deathDirectionHintKind;
+            DeathFallbackFacing = deathFallbackFacing;
         }
 
         public int EntityId { get; }
@@ -111,6 +135,8 @@ namespace Game.Feature.Gameplay.Host
 
         public bool DidDie { get; }
 
+        public bool DidDieThisTick { get; }
+
         public bool TookDamageThisTick { get; }
 
         public int ActionPlanId { get; }
@@ -120,6 +146,16 @@ namespace Game.Feature.Gameplay.Host
         public bool HasFlipImpactContactTiming { get; }
 
         public int FlipTargetBoxEntityId { get; }
+
+        public int DeathSourceEntityId { get; }
+
+        public bool ResolvedDamageSourceAvailable { get; }
+
+        public int DamageAmountAtFatalHit { get; }
+
+        public DeathDirectionHintKind DeathDirectionHintKind { get; }
+
+        public Direction DeathFallbackFacing { get; }
     }
 
     public sealed class PlayerViewPresentationMapper
@@ -129,6 +165,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly HashSet<int> _removedEntityIds = new();
         private readonly Dictionary<int, TickPlayerActionPresentationSignal> _signalsByEntityId = new();
         private readonly Dictionary<int, TickPlayerDamagePresentationSignal> _damageSignalsByEntityId = new();
+        private readonly Dictionary<int, TickPlayerDeathPresentationSignal> _deathSignalsByEntityId = new();
         private readonly Dictionary<int, FlipImpactPresentationSignal> _flipImpactSignalsByActionPlanId = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _locomotionSignalsByEntityId = new();
 
@@ -158,6 +195,7 @@ namespace Game.Feature.Gameplay.Host
             _removedEntityIds.Clear();
             _signalsByEntityId.Clear();
             _damageSignalsByEntityId.Clear();
+            _deathSignalsByEntityId.Clear();
             _flipImpactSignalsByActionPlanId.Clear();
             _locomotionSignalsByEntityId.Clear();
 
@@ -197,6 +235,14 @@ namespace Game.Feature.Gameplay.Host
                 _damageSignalsByEntityId[signal.EntityId] = signal;
             }
 
+            var playerDeathSignals = result.PresentationData.PlayerDeathSignals;
+            for (var i = 0; i < playerDeathSignals.Count; i++)
+            {
+                var signal = playerDeathSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _deathSignalsByEntityId[signal.EntityId] = signal;
+            }
+
             var flipImpactSignals = result.PresentationData.FlipImpactSignals;
             for (var i = 0; i < flipImpactSignals.Count; i++)
             {
@@ -227,6 +273,8 @@ namespace Game.Feature.Gameplay.Host
                 var didDie = _removedEntityIds.Contains(entityId) ||
                              (_finalEntitiesById.TryGetValue(entityId, out var finalEntity) &&
                               (finalEntity.hp <= 0 || finalEntity.markedForDeath));
+                var didDieThisTick = _deathSignalsByEntityId.TryGetValue(entityId, out var deathSignal) &&
+                                     deathSignal.DidDieThisTick;
                 var tookDamageThisTick = !didDie &&
                                          _damageSignalsByEntityId.TryGetValue(entityId, out var damageSignal) &&
                                          damageSignal.TookDamageThisTick;
@@ -258,11 +306,17 @@ namespace Game.Feature.Gameplay.Host
                     shouldPlayWalkLoop,
                     signal.IsRecoveryPhase,
                     didDie,
+                    didDieThisTick,
                     tookDamageThisTick,
                     signal.ActionPlanId,
                     flipOutcome,
                     hasFlipImpactContactTiming,
-                    flipTargetBoxEntityId);
+                    flipTargetBoxEntityId,
+                    deathSignal.SourceEntityId,
+                    deathSignal.ResolvedDamageSourceAvailable,
+                    deathSignal.DamageAmountAtFatalHit,
+                    deathSignal.DeathDirectionHintKind,
+                    deathSignal.FallbackFacing);
             }
         }
 
@@ -280,11 +334,17 @@ namespace Game.Feature.Gameplay.Host
                 shouldPlayWalkLoop: false,
                 isRecoveryPhase: false,
                 didDie: false,
+                didDieThisTick: false,
                 tookDamageThisTick: false,
                 actionPlanId: 0,
                 flipOutcome: TickPlayerFlipOutcomeKind.None,
                 hasFlipImpactContactTiming: false,
-                flipTargetBoxEntityId: 0);
+                flipTargetBoxEntityId: 0,
+                deathSourceEntityId: 0,
+                resolvedDamageSourceAvailable: false,
+                damageAmountAtFatalHit: 0,
+                deathDirectionHintKind: DeathDirectionHintKind.Unknown,
+                deathFallbackFacing: Direction.None);
         }
 
         private void CacheFinalEntities(IReadOnlyList<EntityState> finalEntities)

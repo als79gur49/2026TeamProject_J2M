@@ -8,6 +8,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedFlipInteractionTrackIds = new();
         private readonly List<int> _completedJumpTrackIds = new();
         private readonly List<int> _completedMotionTrackIds = new();
+        private readonly List<int> _completedPlayerDeathDisplacementTrackIds = new();
         private readonly List<int> _completedStayFlipImpactTrackIds = new();
         private readonly List<FlipInteractionResetRequest> _flipInteractionResetRequests = new();
         private readonly Dictionary<int, FlipInteractionTrack> _flipInteractionTracks = new();
@@ -16,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly List<int> _completedVisibilityTrackIds = new();
         private readonly Dictionary<int, JumpTrack> _jumpTracks = new();
         private readonly Dictionary<int, MotionTrack> _localMotionTracks = new();
+        private readonly Dictionary<int, PlayerDeathDisplacementTrack> _playerDeathDisplacementTracks = new();
         private readonly Dictionary<int, FlipImpactTrack> _stayFlipImpactTracks = new();
         private readonly Dictionary<int, TickPlayerLocomotionPresentationSignal> _playerLocomotionSignalsByEntityId = new();
         private readonly HashSet<int> _visibleEntityIds = new();
@@ -26,6 +28,8 @@ namespace Game.Feature.Gameplay.Host
         public List<int> CompletedJumpTrackIds => _completedJumpTrackIds;
 
         public List<int> CompletedMotionTrackIds => _completedMotionTrackIds;
+
+        public List<int> CompletedPlayerDeathDisplacementTrackIds => _completedPlayerDeathDisplacementTrackIds;
 
         public List<int> CompletedStayFlipImpactTrackIds => _completedStayFlipImpactTrackIds;
 
@@ -43,6 +47,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, MotionTrack> LocalMotionTracks => _localMotionTracks;
 
+        public Dictionary<int, PlayerDeathDisplacementTrack> PlayerDeathDisplacementTracks => _playerDeathDisplacementTracks;
+
         public Dictionary<int, FlipImpactTrack> StayFlipImpactTracks => _stayFlipImpactTracks;
 
         public Dictionary<int, TickPlayerLocomotionPresentationSignal> PlayerLocomotionSignalsByEntityId =>
@@ -58,6 +64,7 @@ namespace Game.Feature.Gameplay.Host
             _completedFlipImpactKeys.Clear();
             _completedJumpTrackIds.Clear();
             _completedMotionTrackIds.Clear();
+            _completedPlayerDeathDisplacementTrackIds.Clear();
             _completedStayFlipImpactTrackIds.Clear();
             _flipInteractionResetRequests.Clear();
             _flipInteractionTracks.Clear();
@@ -65,6 +72,7 @@ namespace Game.Feature.Gameplay.Host
             _completedVisibilityTrackIds.Clear();
             _jumpTracks.Clear();
             _localMotionTracks.Clear();
+            _playerDeathDisplacementTracks.Clear();
             _stayFlipImpactTracks.Clear();
             _playerLocomotionSignalsByEntityId.Clear();
             _visibleEntityIds.Clear();

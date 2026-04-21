@@ -59,6 +59,14 @@ namespace Game.Feature.Gameplay.Host
                 }
             }
 
+            foreach (var pair in _trackState.PlayerDeathDisplacementTracks)
+            {
+                if (pair.Value != null && pair.Value.IsAnimating)
+                {
+                    return true;
+                }
+            }
+
             if (_trackState.FlipInteractionResetRequests.Count > 0)
             {
                 return true;

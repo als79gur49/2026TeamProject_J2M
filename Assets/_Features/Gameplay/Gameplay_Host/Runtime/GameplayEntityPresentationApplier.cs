@@ -61,6 +61,8 @@ namespace Game.Feature.Gameplay.Host
             _trackState.VisibleEntityIds.Clear();
             _stateStore.EnemyVisualFactsByEntityId.Clear();
             _stateStore.EnemyVisualSemanticStatesByEntityId.Clear();
+            _stateStore.PresentedLocalPosesByEntityId.Clear();
+            AdvancePlayerDeathDisplacementTracks(deltaTime);
 
             var processingEntityIds = _stateStore.BuildProcessingEntityIds();
             for (var i = 0; i < processingEntityIds.Count; i++)
@@ -148,11 +150,14 @@ namespace Game.Feature.Gameplay.Host
                     _stateStore.ViewsByEntityId);
                 if (!isVisible)
                 {
+                    ResetPlayerDeathDisplacement(view);
                     continue;
                 }
 
                 view.SetVisible(true);
                 view.ApplyLocalPose(localPose.Position, localPose.Rotation);
+                _stateStore.PresentedLocalPosesByEntityId[entityId] = localPose;
+                ApplyPlayerDeathDisplacement(entityId, view);
                 _trackState.VisibleEntityIds.Add(entityId);
             }
 
@@ -162,6 +167,7 @@ namespace Game.Feature.Gameplay.Host
             CleanupCompletedVisibilityTracks();
             ApplyPendingFlipInteractionResets();
             ApplyFlipInteractionTracks(deltaTime);
+            CleanupHiddenPlayerDeathDisplacementTracks();
 
             viewBinder.HideViewsExcept(_trackState.VisibleEntityIds);
             _animationSync.SyncHiddenDrivers(
@@ -175,6 +181,17 @@ namespace Game.Feature.Gameplay.Host
                     animationState,
                     timingProfile),
                 _stateStore.ViewsByEntityId);
+        }
+
+        public void ResetAllPlayerDeathDisplacements()
+        {
+            foreach (var pair in _stateStore.ViewsByEntityId)
+            {
+                ResetPlayerDeathDisplacement(pair.Value);
+            }
+
+            _trackState.PlayerDeathDisplacementTracks.Clear();
+            _stateStore.PresentedLocalPosesByEntityId.Clear();
         }
 
         public void ClearJumpPresentationState(int entityId)
@@ -235,6 +252,14 @@ namespace Game.Feature.Gameplay.Host
             }
         }
 
+        private void AdvancePlayerDeathDisplacementTracks(float deltaTime)
+        {
+            foreach (var pair in _trackState.PlayerDeathDisplacementTracks)
+            {
+                pair.Value?.Advance(deltaTime);
+            }
+        }
+
         private void CleanupCompletedVisibilityTracks()
         {
             for (var i = 0; i < _trackState.CompletedVisibilityTrackIds.Count; i++)
@@ -256,6 +281,87 @@ namespace Game.Feature.Gameplay.Host
                     }
                 }
             }
+        }
+
+        private void CleanupHiddenPlayerDeathDisplacementTracks()
+        {
+            if (_trackState.PlayerDeathDisplacementTracks.Count == 0)
+            {
+                return;
+            }
+
+            _trackState.CompletedPlayerDeathDisplacementTrackIds.Clear();
+            foreach (var pair in _trackState.PlayerDeathDisplacementTracks)
+            {
+                if (_trackState.VisibleEntityIds.Contains(pair.Key))
+                {
+                    continue;
+                }
+
+                if (_stateStore.ViewsByEntityId.TryGetValue(pair.Key, out var view))
+                {
+                    ResetPlayerDeathDisplacement(view);
+                }
+
+                pair.Value?.Clear();
+                _trackState.CompletedPlayerDeathDisplacementTrackIds.Add(pair.Key);
+            }
+
+            for (var i = 0; i < _trackState.CompletedPlayerDeathDisplacementTrackIds.Count; i++)
+            {
+                _trackState.PlayerDeathDisplacementTracks.Remove(_trackState.CompletedPlayerDeathDisplacementTrackIds[i]);
+            }
+        }
+
+        private void ApplyPlayerDeathDisplacement(int entityId, GameplayEntityView view)
+        {
+            if (view == null)
+            {
+                return;
+            }
+
+            if (!_trackState.PlayerDeathDisplacementTracks.TryGetValue(entityId, out var track) ||
+                track == null ||
+                track.State == PlayerDeathDisplacementTrackState.Cleared)
+            {
+                ResetPlayerDeathDisplacement(view);
+                return;
+            }
+
+            var driver = GetOrAddPlayerDeathDisplacementDriver(view);
+            driver?.ApplyDisplacement(track.CurrentOffset);
+        }
+
+        private static PlayerDeathDisplacementDriver GetOrAddPlayerDeathDisplacementDriver(GameplayEntityView view)
+        {
+            if (view == null ||
+                !view.TryGetComponent<PlayerAnimatorDriver>(out _))
+            {
+                return null;
+            }
+
+            if (view.TryGetComponent<PlayerDeathDisplacementDriver>(out var driver) &&
+                driver != null)
+            {
+                driver.Initialize(view.ModelRoot);
+                return driver;
+            }
+
+            driver = view.gameObject.AddComponent<PlayerDeathDisplacementDriver>();
+            driver.Initialize(view.ModelRoot);
+            return driver;
+        }
+
+        private static void ResetPlayerDeathDisplacement(GameplayEntityView view)
+        {
+            if (view == null ||
+                !view.TryGetComponent<PlayerDeathDisplacementDriver>(out var driver) ||
+                driver == null)
+            {
+                return;
+            }
+
+            driver.ResetDisplacement();
         }
 
         private void ApplyPendingFlipInteractionResets()

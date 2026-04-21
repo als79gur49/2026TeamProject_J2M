@@ -19,6 +19,9 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultItemConsumeEffectDurationSeconds = 0.18f;
         public const float DefaultBoxDestroyEffectDurationSeconds = 0.14f;
         public const float DefaultEnemyDeathEffectDurationSeconds = 0.2f;
+        public const float DefaultPlayerDeathDisplacementDurationSeconds = 0.18f;
+        public const float DefaultPlayerDeathDisplacementDistanceInCells = 0.4f;
+        public const float DefaultPlayerDeathDisplacementCameraBiasWeight = 0.3f;
         public const float DefaultFlipArcHeightInCells = 0.65f;
         public const int DefaultMaxTicksPerFrame = 8;
 
@@ -88,7 +91,10 @@ namespace Game.Feature.Gameplay.Loop
             float itemConsumeEffectDurationSeconds = DefaultItemConsumeEffectDurationSeconds,
             float boxDestroyEffectDurationSeconds = DefaultBoxDestroyEffectDurationSeconds,
             float moveOccupancyDurationSeconds = UseMoveMotionDurationForOccupancySentinel,
-            float enemyDeathEffectDurationSeconds = DefaultEnemyDeathEffectDurationSeconds)
+            float enemyDeathEffectDurationSeconds = DefaultEnemyDeathEffectDurationSeconds,
+            float playerDeathDisplacementDurationSeconds = DefaultPlayerDeathDisplacementDurationSeconds,
+            float playerDeathDisplacementDistanceInCells = DefaultPlayerDeathDisplacementDistanceInCells,
+            float playerDeathDisplacementCameraBiasWeight = DefaultPlayerDeathDisplacementCameraBiasWeight)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -199,6 +205,28 @@ namespace Game.Feature.Gameplay.Loop
                     "Enemy death effect duration must be greater than zero.");
             }
 
+            if (playerDeathDisplacementDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(playerDeathDisplacementDurationSeconds),
+                    "Player death displacement duration must be greater than zero.");
+            }
+
+            if (playerDeathDisplacementDistanceInCells < 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(playerDeathDisplacementDistanceInCells),
+                    "Player death displacement distance must be zero or greater.");
+            }
+
+            if (playerDeathDisplacementCameraBiasWeight < 0f ||
+                playerDeathDisplacementCameraBiasWeight > 1f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(playerDeathDisplacementCameraBiasWeight),
+                    "Player death displacement camera bias weight must be between zero and one.");
+            }
+
             SimulationTicksPerSecond = simulationTicksPerSecond;
             SimulationTickIntervalSeconds = 1f / simulationTicksPerSecond;
             InitialMoveDelaySeconds = initialMoveDelaySeconds;
@@ -213,6 +241,9 @@ namespace Game.Feature.Gameplay.Loop
             ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds;
             BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds;
             EnemyDeathEffectDurationSeconds = enemyDeathEffectDurationSeconds;
+            PlayerDeathDisplacementDurationSeconds = playerDeathDisplacementDurationSeconds;
+            PlayerDeathDisplacementDistanceInCells = playerDeathDisplacementDistanceInCells;
+            PlayerDeathDisplacementCameraBiasWeight = playerDeathDisplacementCameraBiasWeight;
             FlipArcHeightInCells = flipArcHeightInCells;
             MaxTicksPerFrame = maxTicksPerFrame;
             InitialMoveDelayTicks = SecondsToTicks(initialMoveDelaySeconds, simulationTicksPerSecond, allowZero: true);
@@ -250,6 +281,12 @@ namespace Game.Feature.Gameplay.Loop
 
         public float EnemyDeathEffectDurationSeconds { get; }
 
+        public float PlayerDeathDisplacementDurationSeconds { get; }
+
+        public float PlayerDeathDisplacementDistanceInCells { get; }
+
+        public float PlayerDeathDisplacementCameraBiasWeight { get; }
+
         public float FlipArcHeightInCells { get; }
 
         public int MaxTicksPerFrame { get; }
@@ -281,7 +318,10 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultItemConsumeEffectDurationSeconds,
                 DefaultBoxDestroyEffectDurationSeconds,
                 DefaultMoveOccupancyDurationSeconds,
-                DefaultEnemyDeathEffectDurationSeconds);
+                DefaultEnemyDeathEffectDurationSeconds,
+                DefaultPlayerDeathDisplacementDurationSeconds,
+                DefaultPlayerDeathDisplacementDistanceInCells,
+                DefaultPlayerDeathDisplacementCameraBiasWeight);
         }
 
         public static int SecondsToCeilTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

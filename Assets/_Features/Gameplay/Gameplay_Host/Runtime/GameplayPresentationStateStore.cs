@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, JumpDetachedVisibilityState> _jumpDetachedVisibilityStates = new();
         private readonly HashSet<int> _processingEntityIds = new();
         private readonly List<int> _processingEntityIdBuffer = new();
+        private readonly Dictionary<int, GameplayEntityPose> _presentedLocalPosesByEntityId = new();
         private readonly Dictionary<int, GameplayEntityPose> _retainedLocalTargetPoses = new();
         private readonly Dictionary<int, TransitionVisibilityState> _transitionVisibilityStates = new();
         private readonly Dictionary<int, GameplayEntityView> _viewsByEntityId = new();
@@ -44,6 +45,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Dictionary<int, JumpDetachedVisibilityState> JumpDetachedVisibilityStates => _jumpDetachedVisibilityStates;
 
+        public Dictionary<int, GameplayEntityPose> PresentedLocalPosesByEntityId => _presentedLocalPosesByEntityId;
+
         public Dictionary<int, GameplayEntityPose> RetainedLocalTargetPoses => _retainedLocalTargetPoses;
 
         public Dictionary<int, TransitionVisibilityState> TransitionVisibilityStates => _transitionVisibilityStates;
@@ -63,6 +66,7 @@ namespace Game.Feature.Gameplay.Host
             _entityTypesByEntityId.Clear();
             _unitRolesByEntityId.Clear();
             _jumpDetachedVisibilityStates.Clear();
+            _presentedLocalPosesByEntityId.Clear();
             _retainedLocalTargetPoses.Clear();
             _transitionVisibilityStates.Clear();
             _viewsByEntityId.Clear();
