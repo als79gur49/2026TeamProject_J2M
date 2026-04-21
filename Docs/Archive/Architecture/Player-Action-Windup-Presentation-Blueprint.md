@@ -4,6 +4,9 @@
 
 > Non-canonical historical blueprint.
 > Canonical action runtime and presentation boundary are documented in [Tick-Simulation-Canonical-Spec.md](../../Architecture/Tick-Simulation-Canonical-Spec.md) and [Gameplay-Rules-Appendix.md](../../Architecture/Gameplay-Rules-Appendix.md).
+>
+> Legacy note (2026-04): current Push input no longer uses `pushContactTicks`, contact accumulation, or contact-threshold timing.
+> Use [Immediate-Push-Input-Semantics.md](../../Architecture/Immediate-Push-Input-Semantics.md) as the current contract.
 
 # Player Action Wind-up Presentation Blueprint
 
@@ -50,7 +53,7 @@
 - `Push / Flip` 실행 시점은 logic이 tick 단위로 결정한다.
 - `Idle / Walk / Push / Flip`는 final animation state이며 authoritative state가 아니다.
 - `Walk`는 입력 기반이 아니라 실제 이동 결과 기반이다.
-- `Push` 접촉 누적 중이지만 아직 action이 시작되지 않았다면 표현은 `Idle`이다.
+- 현재 runtime에서는 접촉 누적 단계가 없다. `Move only`로 박스에 닿아도 `Idle`이며, `E + 방향`의 explicit Push가 들어와야 action이 시작된다.
 - `View`는 `TickResult`와 presentation data만 읽고, gameplay logic을 호출하지 않는다.
 
 한 줄 요약:
@@ -158,10 +161,10 @@ presentation state다.
 
 - 입력이 없다.
 - 이동 입력은 있으나 실제 이동이 commit되지 않았다.
-- push 가능한 박스에 접촉해 `pushContactTicks`를 누적 중이지만 threshold에 도달하지 않았다.
+- 현재 runtime에서는 이 단계가 삭제되었다. push 가능한 박스 앞에서 `Move only`는 no-op이며, explicit Push 전에는 action이 시작되지 않는다.
 - flip 입력이 없고, active action도 없다.
 
-즉, 입력 유지나 접촉 누적만으로는 `Walk`, `Push`, `Flip`가 되지 않는다.
+즉, 현재 runtime에서는 입력 유지나 접촉 누적이 아니라 explicit Push/Flip command가 있어야 `Push`, `Flip` action이 시작된다.
 
 ### 6-2. Walk
 
@@ -176,7 +179,7 @@ presentation state다.
 
 `Push / Flip`는 action이 시작된 후부터만 표시한다.
 
-- action 시작 전 접촉 누적 단계: `Idle`
+- 현행 계약에는 action 시작 전 접촉 누적 단계가 없다: `Move only` 상태는 `Idle`
 - action 시작 후 wind-up: `Push` 또는 `Flip`
 - execute 후 recovery: `Push` 또는 `Flip`
 - action 종료 후 move motion이 없으면 `Idle`
@@ -365,7 +368,7 @@ phase boundary snapshot은 persistent state가 아니다.
 `PlayerControlState`에는 gameplay action runtime state만 둔다.
 
 - `PlayerActionRuntimeState`
-- push contact accumulation
+- legacy push contact accumulation (obsolete in current runtime)
 - cooldown
 - recovery
 
@@ -396,7 +399,7 @@ phase boundary snapshot은 persistent state가 아니다.
 
 이 규칙을 유지하면:
 
-- 접촉 누적 중: `Idle`
+- 현행 runtime의 `Move only into push box`: `Idle`
 - blocked move: `Idle`
 - wind-up 중: `Push` 또는 `Flip`
 - 실제 이동 성공: `Walk`

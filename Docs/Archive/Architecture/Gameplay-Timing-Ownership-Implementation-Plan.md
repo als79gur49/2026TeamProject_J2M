@@ -1,6 +1,9 @@
 > Archived historical document.
 > This file is not part of the active truth-source chain. Start with [Docs/Architecture/README.md](../../Architecture/README.md).
 > Archive index: [Docs/Archive/README.md](../README.md).
+>
+> Legacy note (2026-04): this plan predates explicit `E + direction` Push.
+> References to `PushContactThresholdSeconds` and contact accumulation are obsolete; see [Immediate-Push-Input-Semantics.md](../../Architecture/Immediate-Push-Input-Semantics.md).
 
 # Gameplay Timing Ownership Implementation Plan
 
