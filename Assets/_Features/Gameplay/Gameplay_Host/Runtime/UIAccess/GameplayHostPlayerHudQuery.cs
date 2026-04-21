@@ -42,6 +42,14 @@ namespace Game.Feature.Gameplay.Host.UIAccess
 
             var nextTickIndex = _tickRunner?.NextTickIndex ?? 0;
             var canAcceptActionableCommands = _admissionPolicy.CanAcceptActionableCommands();
+            var canStartAnyActionThisTick = nextTickIndex > 0 &&
+                                            canAcceptActionableCommands &&
+                                            snapshot.CanStartAction(playerEntityId, nextTickIndex);
+            var hasExplicitPushCandidateInCurrentDirection = canStartAnyActionThisTick &&
+                                                             PlayerActionPreviewQueries.HasExplicitPushCandidate(
+                                                                 snapshot,
+                                                                 playerEntity,
+                                                                 _inputHost?.PreviewPushDirection() ?? Direction.None);
             var recoveryCooldown = TryCreateRecoveryCooldown(playerControlState, nextTickIndex);
 
             return new GameplayPlayerHudReadModel(
@@ -59,10 +67,10 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 canMoveThisTick: nextTickIndex > 0 &&
                                 canAcceptActionableCommands &&
                                 snapshot.CanExecuteMovementIntent(playerEntityId, nextTickIndex),
-                canStartActionThisTick: nextTickIndex > 0 &&
-                                        canAcceptActionableCommands &&
-                                        snapshot.CanStartAction(playerEntityId, nextTickIndex),
-                recoveryCooldown: recoveryCooldown);
+                canStartActionThisTick: canStartAnyActionThisTick,
+                recoveryCooldown: recoveryCooldown,
+                canStartAnyActionThisTick: canStartAnyActionThisTick,
+                hasExplicitPushCandidateInCurrentDirection: hasExplicitPushCandidateInCurrentDirection);
         }
 
         private static GameplayUiRecoveryCooldown? TryCreateRecoveryCooldown(

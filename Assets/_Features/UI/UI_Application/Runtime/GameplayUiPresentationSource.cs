@@ -170,7 +170,9 @@ namespace Game.Feature.UI.Application
                 hasFramePlayer ? player.IsRecoveryPhase : playerHud.IsActionInRecoveryPhase,
                 playerHud.CanMoveThisTick,
                 playerHud.CanStartActionThisTick,
-                MapRecoveryCooldown(playerHud.RecoveryCooldown));
+                MapRecoveryCooldown(playerHud.RecoveryCooldown),
+                playerHud.CanStartAnyActionThisTick,
+                playerHud.HasExplicitPushCandidateInCurrentDirection);
         }
 
         private static UIRecoveryCooldownSlice? MapRecoveryCooldown(GameplayUiRecoveryCooldown? recoveryCooldown)

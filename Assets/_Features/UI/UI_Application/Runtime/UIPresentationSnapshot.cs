@@ -138,7 +138,9 @@ namespace Game.Feature.UI.Application
             bool tookDamageThisTick,
             int lastDamageAmount,
             int lastDamageTickIndex,
-            UIRecoveryCooldownSlice? recoveryCooldown = null)
+            UIRecoveryCooldownSlice? recoveryCooldown = null,
+            bool canStartAnyActionThisTick = false,
+            bool hasExplicitPushCandidateInCurrentDirection = false)
         {
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
@@ -147,6 +149,8 @@ namespace Game.Feature.UI.Application
             IsRecoveryPhase = isRecoveryPhase;
             CanMoveThisTick = canMoveThisTick;
             CanStartActionThisTick = canStartActionThisTick;
+            CanStartAnyActionThisTick = canStartAnyActionThisTick || canStartActionThisTick;
+            HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             LastResolvedOutcome = lastResolvedOutcome;
             LastResolvedTickIndex = lastResolvedTickIndex;
             TookDamageThisTick = tookDamageThisTick;
@@ -169,6 +173,10 @@ namespace Game.Feature.UI.Application
 
         public bool CanStartActionThisTick { get; }
 
+        public bool CanStartAnyActionThisTick { get; }
+
+        public bool HasExplicitPushCandidateInCurrentDirection { get; }
+
         public GameplayUiActionResolutionKind LastResolvedOutcome { get; }
 
         public int LastResolvedTickIndex { get; }
@@ -190,6 +198,8 @@ namespace Game.Feature.UI.Application
                    IsRecoveryPhase == other.IsRecoveryPhase &&
                    CanMoveThisTick == other.CanMoveThisTick &&
                    CanStartActionThisTick == other.CanStartActionThisTick &&
+                   CanStartAnyActionThisTick == other.CanStartAnyActionThisTick &&
+                   HasExplicitPushCandidateInCurrentDirection == other.HasExplicitPushCandidateInCurrentDirection &&
                    LastResolvedOutcome == other.LastResolvedOutcome &&
                    LastResolvedTickIndex == other.LastResolvedTickIndex &&
                    TookDamageThisTick == other.TookDamageThisTick &&
@@ -213,7 +223,8 @@ namespace Game.Feature.UI.Application
                 IsRecoveryPhase,
                 CanMoveThisTick,
                 CanStartActionThisTick,
-                LastResolvedOutcome);
+                CanStartAnyActionThisTick);
+            hash = HashCode.Combine(hash, HasExplicitPushCandidateInCurrentDirection, LastResolvedOutcome);
             hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
             hash = HashCode.Combine(hash, RecoveryCooldown);
             return hash;

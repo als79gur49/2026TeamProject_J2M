@@ -24,7 +24,9 @@ namespace Game.Feature.UI.Application
             bool isRecoveryPhase,
             bool canMoveThisTick,
             bool canStartActionThisTick,
-            UIRecoveryCooldownSlice? recoveryCooldown)
+            UIRecoveryCooldownSlice? recoveryCooldown,
+            bool canStartAnyActionThisTick = false,
+            bool hasExplicitPushCandidateInCurrentDirection = false)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -43,6 +45,8 @@ namespace Game.Feature.UI.Application
             IsRecoveryPhase = isRecoveryPhase;
             CanMoveThisTick = canMoveThisTick;
             CanStartActionThisTick = canStartActionThisTick;
+            CanStartAnyActionThisTick = canStartAnyActionThisTick || canStartActionThisTick;
+            HasExplicitPushCandidateInCurrentDirection = hasExplicitPushCandidateInCurrentDirection;
             RecoveryCooldown = recoveryCooldown;
         }
 
@@ -79,6 +83,10 @@ namespace Game.Feature.UI.Application
         public bool CanMoveThisTick { get; }
 
         public bool CanStartActionThisTick { get; }
+
+        public bool CanStartAnyActionThisTick { get; }
+
+        public bool HasExplicitPushCandidateInCurrentDirection { get; }
 
         public UIRecoveryCooldownSlice? RecoveryCooldown { get; }
     }
@@ -180,7 +188,9 @@ namespace Game.Feature.UI.Application
                 preserveTickScopedDamage && previous.Player.TookDamageThisTick,
                 previous.Player.LastDamageAmount,
                 previous.Player.LastDamageTickIndex,
-                refreshInput.RecoveryCooldown);
+                refreshInput.RecoveryCooldown,
+                refreshInput.CanStartAnyActionThisTick,
+                refreshInput.HasExplicitPushCandidateInCurrentDirection);
 
             return new UIPresentationSnapshot(
                 tick,
@@ -212,7 +222,9 @@ namespace Game.Feature.UI.Application
                             snapshot.Player.TookDamageThisTick,
                             snapshot.Player.LastDamageAmount,
                             snapshot.Player.LastDamageTickIndex,
-                            snapshot.Player.RecoveryCooldown),
+                            snapshot.Player.RecoveryCooldown,
+                            snapshot.Player.CanStartAnyActionThisTick,
+                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection),
                         snapshot.Notifications);
 
                 case UITickEventKind.PlayerDamaged:
@@ -232,7 +244,9 @@ namespace Game.Feature.UI.Application
                             true,
                             tickEvent.DamageAmount,
                             tickEvent.TickIndex,
-                            snapshot.Player.RecoveryCooldown),
+                            snapshot.Player.RecoveryCooldown,
+                            snapshot.Player.CanStartAnyActionThisTick,
+                            snapshot.Player.HasExplicitPushCandidateInCurrentDirection),
                         snapshot.Notifications);
 
                 case UITickEventKind.StageCleared:

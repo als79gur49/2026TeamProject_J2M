@@ -71,6 +71,28 @@ namespace Game.Feature.Gameplay.Host.UIAccess
             return GameplayCommandAcceptance.Accept();
         }
 
+        public GameplayCommandAcceptance RequestPush(GameplayUiDirection direction)
+        {
+            if (!IsOrthogonalDirection(direction))
+            {
+                return GameplayCommandAcceptance.Reject(GameplayCommandRejectionReason.InvalidRequest);
+            }
+
+            if (_inputHost == null)
+            {
+                return GameplayCommandAcceptance.Reject(GameplayCommandRejectionReason.GameplayInputUnavailable);
+            }
+
+            var acceptance = _admissionPolicy.EvaluateActionableRequest();
+            if (!acceptance.Accepted)
+            {
+                return acceptance;
+            }
+
+            _inputHost.BufferUiPush(GameplayUiAccessMapper.ToGameplayDirection(direction));
+            return GameplayCommandAcceptance.Accept();
+        }
+
         public void Dispose()
         {
             _admissionPolicy?.Dispose();
