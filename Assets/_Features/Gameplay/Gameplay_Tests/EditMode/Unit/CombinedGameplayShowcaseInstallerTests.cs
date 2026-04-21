@@ -122,15 +122,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
         {
-            var buildResult = BuildCombinedStage();
+            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CombinedEnemyPresentationCatalogAssetPath);
+            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
+            Assert.That(catalog, Is.Not.Null, $"Missing enemy presentation catalog asset at '{CombinedEnemyPresentationCatalogAssetPath}'.");
 
-            Assert.That(buildResult.EnemyPresentationBindings, Is.Not.Null);
-            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(4));
-            Assert.That(TryGetPresentationBinding(buildResult, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
+            var presentation = StagePresentationAssembler.ResolveLegacy(stage, catalog);
+
+            Assert.That(presentation.EnemyPresentationBindings, Is.Not.Null);
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
             Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(buildResult, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
             Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
         }
 
@@ -745,13 +750,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static bool TryGetPresentationBinding(
-            StageRuntimeBuildResult buildResult,
+            IReadOnlyList<EnemyPresentationBinding> bindings,
             int entityId,
             out EnemyPresentationBinding binding)
         {
-            for (var i = 0; i < buildResult.EnemyPresentationBindings.Length; i++)
+            for (var i = 0; i < bindings.Count; i++)
             {
-                var entry = buildResult.EnemyPresentationBindings[i];
+                var entry = bindings[i];
                 if (entry.EntityId != entityId)
                 {
                     continue;

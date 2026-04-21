@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -288,20 +289,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(0.35f));
             Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(0.8f));
 
-            Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(4));
-            Assert.That(TryGetPresentationBinding(buildResult, ConfiguredShowcaseEnemyId, out var presentationBinding), Is.True);
+            var presentation = StagePresentationAssembler.ResolveLegacy(stage);
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var presentationBinding), Is.True);
             Assert.That(presentationBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(buildResult, NonAttackingShowcaseEnemyId, out var nonAttackingBinding), Is.True);
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, NonAttackingShowcaseEnemyId, out var nonAttackingBinding), Is.True);
             Assert.That(nonAttackingBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
-            Assert.That(TryGetPresentationBinding(buildResult, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
             Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
         }
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_BuildsEnemyPresentationBindingsOnlyForEnemySpawnsWithIds()
+        public void StagePresentationAssembler_ResolveLegacy_BuildsEnemyPresentationBindingsOnlyForEnemySpawnsWithIds()
         {
             var enemyProfile = ScriptableObject.CreateInstance<EnemyAiProfile>();
 
@@ -336,10 +338,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 try
                 {
-                    var buildResult = StageRuntimeBuilder.Build(stage);
-                    Assert.That(buildResult.EnemyPresentationBindings.Length, Is.EqualTo(1));
-                    Assert.That(buildResult.EnemyPresentationBindings[0].EntityId, Is.EqualTo(20));
-                    Assert.That(buildResult.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(WindupEnemyPresentationId));
+                    StageRuntimeBuilder.Build(stage);
+                    var presentation = StagePresentationAssembler.ResolveLegacy(stage);
+                    Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(1));
+                    Assert.That(presentation.EnemyPresentationBindings[0].EntityId, Is.EqualTo(20));
+                    Assert.That(presentation.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(WindupEnemyPresentationId));
                 }
                 finally
                 {
@@ -354,7 +357,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void StageRuntimeBuilder_BuildsStaticPresentationBindingsOnlyForBoxAndWallSpawnsWithIds()
+        public void StagePresentationAssembler_ResolveLegacy_BuildsStaticPresentationBindingsOnlyForBoxAndWallSpawnsWithIds()
         {
             var stage = CreateStage(
                 "StaticPresentationBindings",
@@ -367,13 +370,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             try
             {
-                var buildResult = StageRuntimeBuilder.Build(stage);
+                StageRuntimeBuilder.Build(stage);
+                var presentation = StagePresentationAssembler.ResolveLegacy(stage);
 
-                Assert.That(buildResult.StaticEntityPresentationBindings.Length, Is.EqualTo(2));
-                Assert.That(buildResult.StaticEntityPresentationBindings[0].EntityId, Is.EqualTo(30));
-                Assert.That(buildResult.StaticEntityPresentationBindings[0].PresentationId, Is.EqualTo("box_variant"));
-                Assert.That(buildResult.StaticEntityPresentationBindings[1].EntityId, Is.EqualTo(40));
-                Assert.That(buildResult.StaticEntityPresentationBindings[1].PresentationId, Is.EqualTo("wall_variant"));
+                Assert.That(presentation.StaticEntityPresentationBindings.Length, Is.EqualTo(2));
+                Assert.That(presentation.StaticEntityPresentationBindings[0].EntityId, Is.EqualTo(30));
+                Assert.That(presentation.StaticEntityPresentationBindings[0].PresentationId, Is.EqualTo("box_variant"));
+                Assert.That(presentation.StaticEntityPresentationBindings[1].EntityId, Is.EqualTo(40));
+                Assert.That(presentation.StaticEntityPresentationBindings[1].PresentationId, Is.EqualTo("wall_variant"));
             }
             finally
             {
@@ -587,13 +591,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         private static bool TryGetPresentationBinding(
-            StageRuntimeBuildResult buildResult,
+            IReadOnlyList<EnemyPresentationBinding> bindings,
             int entityId,
             out EnemyPresentationBinding binding)
         {
-            for (var i = 0; i < buildResult.EnemyPresentationBindings.Length; i++)
+            for (var i = 0; i < bindings.Count; i++)
             {
-                var entry = buildResult.EnemyPresentationBindings[i];
+                var entry = bindings[i];
                 if (entry.EntityId != entityId)
                 {
                     continue;

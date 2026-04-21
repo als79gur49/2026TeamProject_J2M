@@ -35,6 +35,7 @@ namespace Game.Feature.Stages
         public EnemyAiMode EnemyAiMode;
         public int EnemyAiStateTimer;
         public EnemyAiProfile EnemyAiProfile;
+        [Tooltip("Legacy presentation binding compatibility field. StagePresentationDefinition is the source of truth after migration.")]
         [FormerlySerializedAs("EnemyPresentationId")]
         public string PresentationId;
         public string UnitStackGroup;

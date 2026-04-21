@@ -2,6 +2,7 @@
   "name": "Game.Feature.Stages",
   "rootNamespace": "Game.Feature.Stages",
   "references": [
-    "Game.Feature.Gameplay"
+    "Game.Feature.Gameplay",
+    "Game.Shared.AudioContracts"
   ]
 }

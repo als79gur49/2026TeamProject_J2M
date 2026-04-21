@@ -14,9 +14,7 @@ namespace Game.Feature.Stages
             TerrainData initialTerrain,
             int playerEntityId,
             StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
-            EnemyAiProfileOverride[] enemyAiProfileOverrides,
-            EnemyPresentationBinding[] enemyPresentationBindings,
-            StaticEntityPresentationBinding[] staticEntityPresentationBindings)
+            EnemyAiProfileOverride[] enemyAiProfileOverrides)
         {
             BoardBounds = boardBounds;
             InitialTopology = initialTopology;
@@ -25,8 +23,6 @@ namespace Game.Feature.Stages
             PlayerEntityId = playerEntityId;
             ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
             EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
-            EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
-            StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
         }
 
         public BoardBounds BoardBounds { get; }
@@ -42,9 +38,5 @@ namespace Game.Feature.Stages
         public StageObjectiveRuntimeDefinition ObjectiveRuntimeDefinition { get; }
 
         public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
-
-        public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
-
-        public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
     }
 }

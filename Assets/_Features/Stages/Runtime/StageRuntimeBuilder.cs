@@ -14,8 +14,6 @@ namespace Game.Feature.Stages
             var validated = StageDefinitionValidator.ValidateAndNormalize(stage);
             var initialEntities = BuildInitialEntities(validated);
             var enemyAiProfileOverrides = BuildEnemyAiProfileOverrides(validated.Spawns);
-            var enemyPresentationBindings = BuildEnemyPresentationBindings(validated.Spawns);
-            var staticEntityPresentationBindings = BuildStaticEntityPresentationBindings(validated.Spawns);
             var objectiveRuntimeDefinition = BuildObjectiveRuntimeDefinition(validated);
 
             return new StageRuntimeBuildResult(
@@ -25,9 +23,7 @@ namespace Game.Feature.Stages
                 TerrainData.Empty,
                 validated.PlayerEntityId,
                 objectiveRuntimeDefinition,
-                enemyAiProfileOverrides,
-                enemyPresentationBindings,
-                staticEntityPresentationBindings);
+                enemyAiProfileOverrides);
         }
 
         private static EntityState[] BuildInitialEntities(StageDefinitionValidator.ValidatedStageData validated)
@@ -66,66 +62,6 @@ namespace Game.Feature.Stages
 
             overrides.Sort(EnemyAiProfileOverrideComparer.Instance);
             return overrides.ToArray();
-        }
-
-        private static EnemyPresentationBinding[] BuildEnemyPresentationBindings(IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            var bindings = new List<EnemyPresentationBinding>();
-
-            for (var i = 0; i < spawns.Count; i++)
-            {
-                var spawn = spawns[i];
-                if (spawn.Kind != StageSpawnKind.Enemy)
-                {
-                    continue;
-                }
-
-                var presentationId = NormalizePresentationId(spawn.PresentationId);
-                if (string.IsNullOrEmpty(presentationId))
-                {
-                    continue;
-                }
-
-                bindings.Add(new EnemyPresentationBinding
-                {
-                    EntityId = spawn.EntityId,
-                    PresentationId = presentationId,
-                });
-            }
-
-            bindings.Sort(EnemyPresentationBindingComparer.Instance);
-            return bindings.ToArray();
-        }
-
-        private static StaticEntityPresentationBinding[] BuildStaticEntityPresentationBindings(
-            IReadOnlyList<StageSpawnDefinition> spawns)
-        {
-            var bindings = new List<StaticEntityPresentationBinding>();
-
-            for (var i = 0; i < spawns.Count; i++)
-            {
-                var spawn = spawns[i];
-                if (spawn.Kind != StageSpawnKind.Box &&
-                    spawn.Kind != StageSpawnKind.Wall)
-                {
-                    continue;
-                }
-
-                var presentationId = NormalizePresentationId(spawn.PresentationId);
-                if (string.IsNullOrEmpty(presentationId))
-                {
-                    continue;
-                }
-
-                bindings.Add(new StaticEntityPresentationBinding
-                {
-                    EntityId = spawn.EntityId,
-                    PresentationId = presentationId,
-                });
-            }
-
-            bindings.Sort(StaticEntityPresentationBindingComparer.Instance);
-            return bindings.ToArray();
         }
 
         private static EntityState CreateSpawnEntity(StageSpawnDefinition spawn)
@@ -190,13 +126,6 @@ namespace Game.Feature.Stages
             return authoringFacing != Direction.None
                 ? authoringFacing
                 : fallbackFacing;
-        }
-
-        private static string NormalizePresentationId(string presentationId)
-        {
-            return string.IsNullOrWhiteSpace(presentationId)
-                ? string.Empty
-                : presentationId.Trim();
         }
 
         private static StageObjectiveRuntimeDefinition BuildObjectiveRuntimeDefinition(

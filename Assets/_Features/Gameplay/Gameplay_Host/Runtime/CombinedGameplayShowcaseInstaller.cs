@@ -24,8 +24,12 @@ namespace Game.Feature.Gameplay.Host
                 CellSize,
                 initialState.PlayerEntityId,
                 playerViewPrefab,
-                ResolveEnemyViewPrefabs(initialState.EnemyPresentationBindings),
-                ResolveStaticEntityViewPrefabs(initialState.StaticEntityPresentationBindings));
+                ResolveEnemyViewPrefabs(
+                    initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),
+                    initialState.EnemyPresentationBindings),
+                ResolveStaticEntityViewPrefabs(
+                    initialState.StaticEntityPresentationCatalog ?? ResolveStaticEntityPresentationCatalog(),
+                    initialState.StaticEntityPresentationBindings));
         }
 
         protected override GameplayEntityView ResolvePlayerViewPrefab()

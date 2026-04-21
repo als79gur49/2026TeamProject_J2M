@@ -24,7 +24,9 @@ namespace Game.Feature.Gameplay.Host
                 int playerEntityId,
                 StageObjectiveRuntimeDefinition objectiveRuntimeDefinition,
                 EnemyAiProfileOverride[] enemyAiProfileOverrides,
+                EnemyPresentationCatalog enemyPresentationCatalog,
                 EnemyPresentationBinding[] enemyPresentationBindings,
+                StaticEntityPresentationCatalog staticEntityPresentationCatalog,
                 StaticEntityPresentationBinding[] staticEntityPresentationBindings)
             {
                 BoardBounds = boardBounds;
@@ -34,7 +36,9 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = playerEntityId;
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled;
                 EnemyAiProfileOverrides = enemyAiProfileOverrides ?? Array.Empty<EnemyAiProfileOverride>();
+                EnemyPresentationCatalog = enemyPresentationCatalog;
                 EnemyPresentationBindings = enemyPresentationBindings ?? Array.Empty<EnemyPresentationBinding>();
+                StaticEntityPresentationCatalog = staticEntityPresentationCatalog;
                 StaticEntityPresentationBindings = staticEntityPresentationBindings ?? Array.Empty<StaticEntityPresentationBinding>();
             }
 
@@ -52,7 +56,11 @@ namespace Game.Feature.Gameplay.Host
 
             public EnemyAiProfileOverride[] EnemyAiProfileOverrides { get; }
 
+            public EnemyPresentationCatalog EnemyPresentationCatalog { get; }
+
             public EnemyPresentationBinding[] EnemyPresentationBindings { get; }
+
+            public StaticEntityPresentationCatalog StaticEntityPresentationCatalog { get; }
 
             public StaticEntityPresentationBinding[] StaticEntityPresentationBindings { get; }
         }
@@ -133,8 +141,12 @@ namespace Game.Feature.Gameplay.Host
                 cellSize,
                 initialState.PlayerEntityId,
                 ResolvePlayerViewPrefab(),
-                ResolveEnemyViewPrefabs(initialState.EnemyPresentationBindings),
-                ResolveStaticEntityViewPrefabs(initialState.StaticEntityPresentationBindings));
+                ResolveEnemyViewPrefabs(
+                    initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),
+                    initialState.EnemyPresentationBindings),
+                ResolveStaticEntityViewPrefabs(
+                    initialState.StaticEntityPresentationCatalog ?? ResolveStaticEntityPresentationCatalog(),
+                    initialState.StaticEntityPresentationBindings));
         }
 
         protected virtual EnemyAiProfile ResolveDefaultEnemyAiProfile()
@@ -226,9 +238,9 @@ namespace Game.Feature.Gameplay.Host
                 DirectionChangeConsumesDelay = directionChangeConsumesDelay,
                 EnemyAiProfileOverrides = initialState.EnemyAiProfileOverrides,
                 EnemyPresentationBindings = initialState.EnemyPresentationBindings,
-                EnemyPresentationCatalog = ResolveEnemyPresentationCatalog(),
+                EnemyPresentationCatalog = initialState.EnemyPresentationCatalog ?? ResolveEnemyPresentationCatalog(),
                 StaticEntityPresentationBindings = initialState.StaticEntityPresentationBindings,
-                StaticEntityPresentationCatalog = ResolveStaticEntityPresentationCatalog(),
+                StaticEntityPresentationCatalog = initialState.StaticEntityPresentationCatalog ?? ResolveStaticEntityPresentationCatalog(),
                 InitialBoardBounds = initialState.BoardBounds,
                 InitialEntities = initialState.InitialEntities,
                 InitialTerrain = initialState.InitialTerrain,
@@ -255,8 +267,17 @@ namespace Game.Feature.Gameplay.Host
         protected IReadOnlyDictionary<int, GameplayEntityView> ResolveEnemyViewPrefabs(
             EnemyPresentationBinding[] enemyPresentationBindings)
         {
-            return EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
+            return ResolveEnemyViewPrefabs(
                 ResolveEnemyPresentationCatalog(),
+                enemyPresentationBindings);
+        }
+
+        protected IReadOnlyDictionary<int, GameplayEntityView> ResolveEnemyViewPrefabs(
+            EnemyPresentationCatalog enemyPresentationCatalog,
+            EnemyPresentationBinding[] enemyPresentationBindings)
+        {
+            return EnemyPresentationCatalogResolver.BuildEnemyViewPrefabs(
+                enemyPresentationCatalog,
                 enemyPresentationBindings,
                 GetType().Name);
         }
@@ -264,8 +285,17 @@ namespace Game.Feature.Gameplay.Host
         protected IReadOnlyDictionary<int, GameplayEntityView> ResolveStaticEntityViewPrefabs(
             StaticEntityPresentationBinding[] staticEntityPresentationBindings)
         {
-            return StaticEntityPresentationCatalogResolver.BuildStaticViewPrefabs(
+            return ResolveStaticEntityViewPrefabs(
                 ResolveStaticEntityPresentationCatalog(),
+                staticEntityPresentationBindings);
+        }
+
+        protected IReadOnlyDictionary<int, GameplayEntityView> ResolveStaticEntityViewPrefabs(
+            StaticEntityPresentationCatalog staticEntityPresentationCatalog,
+            StaticEntityPresentationBinding[] staticEntityPresentationBindings)
+        {
+            return StaticEntityPresentationCatalogResolver.BuildStaticViewPrefabs(
+                staticEntityPresentationCatalog,
                 staticEntityPresentationBindings,
                 GetType().Name);
         }
