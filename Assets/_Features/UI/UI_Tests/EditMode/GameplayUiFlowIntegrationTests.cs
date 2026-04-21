@@ -204,6 +204,7 @@ namespace Game.Feature.UI.Tests
 
             try
             {
+                StageLaunchContextStore.Clear();
                 contentEntry = CreateStageContentEntry(
                     out presentationDefinition,
                     out clearEvaluationDefinition,
@@ -246,11 +247,14 @@ namespace Game.Feature.UI.Tests
 
                 installer.StageResultScreenView.ClickContinue();
 
-                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(StageLaunchContextStore.TryGetCurrent(out var requestedStageId), Is.True);
+                Assert.That(requestedStageId, Is.EqualTo(contentEntry.StageId));
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
             }
             finally
             {
+                StageLaunchContextStore.Clear();
                 DestroySupportObjects(hostObject);
                 DestroyImmediateIfExists(contentEntry);
                 DestroyImmediateIfExists(presentationDefinition);

@@ -196,7 +196,8 @@ namespace Game.Feature.UI.Composition
                 PopupController,
                 BlockPolicy,
                 Ports.PauseService,
-                PresentationSource);
+                PresentationSource,
+                new CurrentSceneStageLaunchRouter(gameObject.scene.name));
 
             HudController.AttachView(_rootView.HudView);
             WireViewEvents();

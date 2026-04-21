@@ -26,7 +26,10 @@ namespace Game.Feature.UI.Application
                 string.IsNullOrWhiteSpace(readModel.ResultTitle) ? "Stage Cleared" : readModel.ResultTitle,
                 summaryText,
                 detailText,
-                string.IsNullOrWhiteSpace(readModel.ResultContinueLabel) ? "Continue" : readModel.ResultContinueLabel);
+                string.IsNullOrWhiteSpace(readModel.ResultContinueLabel) ? "Continue" : readModel.ResultContinueLabel,
+                new StageNavigationRequest(readModel.StageId, StageNavigationKind.Continue, "stage-result-continue"),
+                new StageNavigationRequest(readModel.StageId, StageNavigationKind.Retry, "stage-result-retry"),
+                StageNavigationRequest.None);
         }
 
         private static string BuildDefaultSummary(StageCompletionReadModel readModel)

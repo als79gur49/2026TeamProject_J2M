@@ -505,6 +505,18 @@ namespace Game.Feature.UI.Tests
         }
     }
 
+    internal sealed class FakeStageLaunchRouter : IStageLaunchRouter
+    {
+        private readonly List<StageNavigationRequest> requests = new();
+
+        public IReadOnlyList<StageNavigationRequest> Requests => requests;
+
+        public void Launch(StageNavigationRequest request)
+        {
+            requests.Add(request);
+        }
+    }
+
     internal sealed class FakePopupRuntimeFactory : IPopupRuntimeFactory
     {
         private readonly Dictionary<PopupId, PopupPolicy> _policies = new()

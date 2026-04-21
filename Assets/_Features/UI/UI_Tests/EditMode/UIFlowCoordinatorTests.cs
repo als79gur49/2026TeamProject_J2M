@@ -16,7 +16,12 @@ namespace Game.Feature.UI.Tests
             var pauseService = new FakeGameplayPauseService();
             var runtimeFactory = new FakePopupRuntimeFactory();
             var screenRuntimeFactory = new FakeScreenRuntimeFactory();
-            using var coordinator = CreateCoordinator(pauseService, runtimeFactory, out var screenController, out var popupController);
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                out var screenController,
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
@@ -47,7 +52,12 @@ namespace Game.Feature.UI.Tests
             var pauseService = new FakeGameplayPauseService();
             var runtimeFactory = new FakePopupRuntimeFactory();
             var screenRuntimeFactory = new FakeScreenRuntimeFactory();
-            using var coordinator = CreateCoordinator(pauseService, runtimeFactory, out var screenController, out var popupController);
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                out var screenController,
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
 
@@ -69,7 +79,12 @@ namespace Game.Feature.UI.Tests
             var pauseService = new FakeGameplayPauseService();
             var runtimeFactory = new FakePopupRuntimeFactory();
             var screenRuntimeFactory = new FakeScreenRuntimeFactory();
-            using var coordinator = CreateCoordinator(pauseService, runtimeFactory, out var screenController, out var popupController);
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                out var screenController,
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
             Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
@@ -90,7 +105,12 @@ namespace Game.Feature.UI.Tests
             var pauseService = new FakeGameplayPauseService();
             var runtimeFactory = new FakePopupRuntimeFactory();
             var screenRuntimeFactory = new FakeScreenRuntimeFactory();
-            using var coordinator = CreateCoordinator(pauseService, runtimeFactory, out _, out var popupController);
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                out _,
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
 
@@ -127,7 +147,8 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 new ManualGameplayUiPresentationSource(),
                 out var screenController,
-                out var popupController);
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
             Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
@@ -160,7 +181,8 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 new ManualGameplayUiPresentationSource(),
                 out _,
-                out var popupController);
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
 
@@ -182,7 +204,8 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 new ManualGameplayUiPresentationSource(),
                 out _,
-                out var popupController);
+                out var popupController,
+                out _);
 
             coordinator.Initialize();
 
@@ -211,7 +234,8 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 presentationSource,
                 out var screenController,
-                out var popupController);
+                out var popupController,
+                out var stageLaunchRouter);
 
             coordinator.Initialize();
             Assert.That(coordinator.OpenHelpScreen(), Is.True);
@@ -229,6 +253,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(stagePayload.SummaryText, Does.Contain("Payload Stage"));
             Assert.That(stagePayload.DetailText, Does.Contain("Tick 9"));
             Assert.That(stagePayload.ContinueLabel, Is.EqualTo("Collect"));
+            Assert.That(stagePayload.ContinueStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stagePayload.ContinueStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+            Assert.That(stagePayload.RetryStageRequest.StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stagePayload.RetryStageRequest.NavigationKind, Is.EqualTo(StageNavigationKind.Retry));
             Assert.That(screenController.CurrentEntry.HasValue, Is.True);
             Assert.That(screenController.CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.StageResult));
             Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<StageResultScreenPayload>());
@@ -241,6 +269,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
 
+            coordinator.HandleScreenActionRequested(ScreenAction.LaunchStage(stagePayload.ContinueStageRequest));
+            Assert.That(stageLaunchRouter.Requests, Has.Count.EqualTo(1));
+            Assert.That(stageLaunchRouter.Requests[0].StageId, Is.EqualTo(StageId.CreateOrThrow("payload-stage")));
+            Assert.That(stageLaunchRouter.Requests[0].NavigationKind, Is.EqualTo(StageNavigationKind.Continue));
+
             presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
@@ -252,24 +285,28 @@ namespace Game.Feature.UI.Tests
             FakeScreenRuntimeFactory screenRuntimeFactory,
             ManualGameplayUiPresentationSource presentationSource,
             out ScreenController screenController,
-            out PopupController popupController)
+            out PopupController popupController,
+            out FakeStageLaunchRouter stageLaunchRouter)
         {
             screenController = new ScreenController(screenRuntimeFactory);
             popupController = new PopupController(runtimeFactory);
+            stageLaunchRouter = new FakeStageLaunchRouter();
 
             return new UIFlowCoordinator(
                 screenController,
                 popupController,
                 new UIBlockPolicy(),
                 pauseService,
-                presentationSource);
+                presentationSource,
+                stageLaunchRouter);
         }
 
         private static UIFlowCoordinator CreateCoordinator(
             FakeGameplayPauseService pauseService,
             FakePopupRuntimeFactory runtimeFactory,
             out ScreenController screenController,
-            out PopupController popupController)
+            out PopupController popupController,
+            out FakeStageLaunchRouter stageLaunchRouter)
         {
             return CreateCoordinator(
                 pauseService,
@@ -277,7 +314,8 @@ namespace Game.Feature.UI.Tests
                 new FakeScreenRuntimeFactory(),
                 new ManualGameplayUiPresentationSource(),
                 out screenController,
-                out popupController);
+                out popupController,
+                out stageLaunchRouter);
         }
 
         private static UITickEventBatch CreateStageClearedBatch(int tickIndex)

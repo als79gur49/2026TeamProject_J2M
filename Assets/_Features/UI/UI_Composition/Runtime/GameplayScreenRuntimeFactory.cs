@@ -692,6 +692,7 @@ namespace Game.Feature.UI.Composition
         private sealed class StageResultRuntime : ScreenRuntimeBase<StageResultScreenView>
         {
             private readonly StageResultScreenPresenter _presenter;
+            private StageResultScreenPayload _payload;
 
             public StageResultRuntime(StageResultScreenView view, StageResultScreenPresenter presenter, Action dispose)
                 : base(view, dispose)
@@ -702,7 +703,8 @@ namespace Game.Feature.UI.Composition
 
             public override void ApplyPayload(IScreenPayload payload)
             {
-                _presenter.Apply(ExpectPayload<StageResultScreenPayload>(payload));
+                _payload = ExpectPayload<StageResultScreenPayload>(payload);
+                _presenter.Apply(_payload);
             }
 
             public override void Dispose()
@@ -714,7 +716,13 @@ namespace Game.Feature.UI.Composition
 
             private void HandleContinueRequested()
             {
-                RaiseAction(ScreenAction.Show(new ScreenRequest(ScreenId.Gameplay, GameplayScreenPayload.Default, ScreenId.Gameplay.ToString())));
+                if (_payload == null || !_payload.ContinueStageRequest.IsValid)
+                {
+                    throw new InvalidOperationException(
+                        "Stage result continue requires a valid StageNavigationRequest payload.");
+                }
+
+                RaiseAction(ScreenAction.LaunchStage(_payload.ContinueStageRequest));
             }
         }
     }

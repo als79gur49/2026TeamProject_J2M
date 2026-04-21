@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
@@ -11,6 +12,7 @@ namespace Game.Feature.UI.Flow
         private readonly IUiFlowPauseService _pauseService;
         private readonly PopupController _popupController;
         private readonly ScreenController _screenController;
+        private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly UIBlockPolicy _uiBlockPolicy;
         private UITickEventKey? _lastStageClearedEventKey;
 
@@ -19,13 +21,15 @@ namespace Game.Feature.UI.Flow
             PopupController popupController,
             UIBlockPolicy uiBlockPolicy,
             IUiFlowPauseService pauseService,
-            IGameplayUiPresentationSource presentationSource)
+            IGameplayUiPresentationSource presentationSource,
+            IStageLaunchRouter stageLaunchRouter)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
             _popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
             _uiBlockPolicy = uiBlockPolicy ?? throw new ArgumentNullException(nameof(uiBlockPolicy));
             _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
+            _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
 
             _screenController.StateChanged += HandleFlowStateChanged;
             _screenController.ActionRequested += HandleScreenActionRequested;
@@ -223,6 +227,10 @@ namespace Game.Feature.UI.Flow
                 case ScreenActionKind.RequestPopup:
                     TryPushPopupRequest(action.PopupRequest);
                     break;
+
+                case ScreenActionKind.LaunchStage:
+                    LaunchStage(action.StageNavigationRequest);
+                    break;
             }
         }
 
@@ -254,6 +262,17 @@ namespace Game.Feature.UI.Flow
         {
             ClosePopupsForScreenTransition();
             return _screenController.Replace(request);
+        }
+
+        private void LaunchStage(StageNavigationRequest request)
+        {
+            if (!request.IsValid)
+            {
+                throw new InvalidOperationException("Stage launch actions require a valid StageNavigationRequest.");
+            }
+
+            ClosePopupsForScreenTransition();
+            _stageLaunchRouter.Launch(request);
         }
 
         private void HandleTickEventsApplied(UITickEventBatch batch)

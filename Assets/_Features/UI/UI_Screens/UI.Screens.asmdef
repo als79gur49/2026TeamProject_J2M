@@ -1,4 +1,7 @@
 {
   "name": "Game.Feature.UI.Screens",
-  "rootNamespace": "Game.Feature.UI.Screens"
+  "rootNamespace": "Game.Feature.UI.Screens",
+  "references": [
+    "Game.Feature.Stages"
+  ]
 }

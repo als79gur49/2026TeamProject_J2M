@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Stages;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 
@@ -154,6 +155,7 @@ namespace Game.Feature.UI.Flow
         PushScreen = 3,
         ReplaceScreen = 4,
         RequestPopup = 5,
+        LaunchStage = 6,
     }
 
     public readonly struct ScreenAction
@@ -161,11 +163,13 @@ namespace Game.Feature.UI.Flow
         private ScreenAction(
             ScreenActionKind actionKind,
             ScreenRequest screenRequest,
-            PopupRequest popupRequest)
+            PopupRequest popupRequest,
+            StageNavigationRequest stageNavigationRequest)
         {
             ActionKind = actionKind;
             ScreenRequest = screenRequest;
             PopupRequest = popupRequest;
+            StageNavigationRequest = stageNavigationRequest;
         }
 
         public ScreenActionKind ActionKind { get; }
@@ -174,29 +178,36 @@ namespace Game.Feature.UI.Flow
 
         public PopupRequest PopupRequest { get; }
 
+        public StageNavigationRequest StageNavigationRequest { get; }
+
         public static ScreenAction Back()
         {
-            return new ScreenAction(ScreenActionKind.BackRequested, default, default);
+            return new ScreenAction(ScreenActionKind.BackRequested, default, default, StageNavigationRequest.None);
         }
 
         public static ScreenAction Show(ScreenRequest request)
         {
-            return new ScreenAction(ScreenActionKind.ShowScreen, request, default);
+            return new ScreenAction(ScreenActionKind.ShowScreen, request, default, StageNavigationRequest.None);
         }
 
         public static ScreenAction Push(ScreenRequest request)
         {
-            return new ScreenAction(ScreenActionKind.PushScreen, request, default);
+            return new ScreenAction(ScreenActionKind.PushScreen, request, default, StageNavigationRequest.None);
         }
 
         public static ScreenAction Replace(ScreenRequest request)
         {
-            return new ScreenAction(ScreenActionKind.ReplaceScreen, request, default);
+            return new ScreenAction(ScreenActionKind.ReplaceScreen, request, default, StageNavigationRequest.None);
         }
 
         public static ScreenAction Popup(PopupRequest request)
         {
-            return new ScreenAction(ScreenActionKind.RequestPopup, default, request);
+            return new ScreenAction(ScreenActionKind.RequestPopup, default, request, StageNavigationRequest.None);
+        }
+
+        public static ScreenAction LaunchStage(StageNavigationRequest request)
+        {
+            return new ScreenAction(ScreenActionKind.LaunchStage, default, default, request);
         }
     }
 

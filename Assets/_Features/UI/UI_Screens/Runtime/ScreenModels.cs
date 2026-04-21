@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Screens
 {
@@ -359,12 +360,18 @@ namespace Game.Feature.UI.Screens
             string titleText,
             string summaryText,
             string detailText,
-            string continueLabel)
+            string continueLabel,
+            StageNavigationRequest continueStageRequest,
+            StageNavigationRequest retryStageRequest,
+            StageNavigationRequest nextStageRequest)
         {
             TitleText = titleText ?? string.Empty;
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             ContinueLabel = continueLabel ?? string.Empty;
+            ContinueStageRequest = continueStageRequest;
+            RetryStageRequest = retryStageRequest;
+            NextStageRequest = nextStageRequest;
         }
 
         public string TitleText { get; }
@@ -374,6 +381,12 @@ namespace Game.Feature.UI.Screens
         public string DetailText { get; }
 
         public string ContinueLabel { get; }
+
+        public StageNavigationRequest ContinueStageRequest { get; }
+
+        public StageNavigationRequest RetryStageRequest { get; }
+
+        public StageNavigationRequest NextStageRequest { get; }
     }
 
     public sealed class GameplayScreenViewModel
