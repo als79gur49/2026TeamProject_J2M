@@ -42,6 +42,24 @@ namespace Game.Feature.Stages.Editor
                 throw new InvalidOperationException($"StageDefinition '{stageDefinition.name}' cannot produce a canonical StageId.");
             }
 
+            return CreateForStageDefinition(stageDefinition, stageId);
+        }
+
+        public static StageContentEntry CreateForStageDefinition(
+            StageDefinition stageDefinition,
+            StageId stageId,
+            StagePresentationResolvedData seededPresentation = null)
+        {
+            if (stageDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(stageDefinition));
+            }
+
+            if (!stageId.IsValid)
+            {
+                throw new InvalidOperationException("Stage content entry creation requires a canonical StageId.");
+            }
+
             EnsureFolder(CanonicalContentRoot);
             var stageFolder = $"{CanonicalContentRoot}/{stageId.Value}";
             EnsureFolder(stageFolder);
@@ -64,6 +82,7 @@ namespace Game.Feature.Stages.Editor
 
             var presentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             presentation.name = $"{stageId.Value}_Presentation";
+            presentation.ApplyResolvedData(seededPresentation ?? StagePresentationAssembler.EmptyResolvedData);
 
             var clearEvaluation = ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();
             clearEvaluation.name = $"{stageId.Value}_ClearEvaluation";
@@ -248,14 +267,17 @@ namespace Game.Feature.Stages.Editor
 
     public sealed class StageCatalogBuildValidationHook : IPreprocessBuildWithReport
     {
+        private const string CanonicalStageCatalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset";
+
         public int callbackOrder => 0;
 
         public void OnPreprocessBuild(BuildReport report)
         {
-            var catalogGuids = AssetDatabase.FindAssets("t:StageCatalog");
-            if (catalogGuids == null || catalogGuids.Length == 0)
+            var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(CanonicalStageCatalogAssetPath);
+            if (catalog == null)
             {
-                return;
+                throw new BuildFailedException(
+                    $"Missing canonical StageCatalog asset at '{CanonicalStageCatalogAssetPath}'.");
             }
 
             var validator = new StageCatalogValidator();
@@ -266,27 +288,27 @@ namespace Game.Feature.Stages.Editor
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.PreBuild,
+                Phase = StageValidationPhase.Phase4_ProductionBootstrapConversion,
             };
 
-            for (var i = 0; i < catalogGuids.Length; i++)
+            var validationReport = validator.Validate(catalog, options);
+            if (validationReport.HasErrors)
             {
-                var path = AssetDatabase.GUIDToAssetPath(catalogGuids[i]);
-                var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(path);
-                var validationReport = validator.Validate(catalog, options);
-                if (!validationReport.HasErrors)
-                {
-                    continue;
-                }
+                throw new BuildFailedException(BuildFailureMessage(CanonicalStageCatalogAssetPath, validationReport));
+            }
 
-                throw new BuildFailedException(BuildFailureMessage(path, validationReport));
+            var sceneReport = new StageSceneBootstrapValidator().ValidateEnabledBuildScenes(options);
+            if (sceneReport.HasErrors)
+            {
+                throw new BuildFailedException(BuildFailureMessage("enabled build scenes", sceneReport));
             }
         }
 
-        private static string BuildFailureMessage(string assetPath, StageValidationReport validationReport)
+        private static string BuildFailureMessage(string validationTarget, StageValidationReport validationReport)
         {
             var messages = new List<string>
             {
-                $"Stage catalog validation failed for '{assetPath}'.",
+                $"Stage validation failed for '{validationTarget}'.",
             };
 
             for (var i = 0; i < validationReport.Issues.Count; i++)

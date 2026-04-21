@@ -19,6 +19,15 @@ namespace Game.Feature.Stages
         RuntimeDefensive = 3,
     }
 
+    public enum StageValidationPhase
+    {
+        Phase1_LoadModeFence = 1,
+        Phase2_MigrationAnalysis = 2,
+        Phase3_CanonicalContentApply = 3,
+        Phase4_ProductionBootstrapConversion = 4,
+        Phase5_Hardening = 5,
+    }
+
     public readonly struct StageValidationIssue
     {
         public StageValidationIssue(
@@ -113,6 +122,62 @@ namespace Game.Feature.Stages
 
         public StageValidationTiming Timing { get; set; } = StageValidationTiming.EditorAuthoring;
 
+        public StageValidationPhase Phase { get; set; } = StageValidationPhase.Phase1_LoadModeFence;
+
         public ISet<string> KnownBgmKeys { get; set; }
+
+        public StageValidationWaiverList WaiverList { get; set; }
+
+        public bool EnforceCanonicalLegacyPresentationBridgeWarnings { get; set; } = true;
+    }
+
+    [Serializable]
+    public struct StageValidationWaiverEntry
+    {
+        public string IssueCode;
+        public string AssetGuidOrScenePath;
+        public string Owner;
+        public string Reason;
+        public StageValidationPhase AllowedUntilPhase;
+    }
+
+    [CreateAssetMenu(menuName = "Gameplay/Stages/Stage Validation Waiver List", fileName = "StageValidationWaiverList")]
+    public sealed class StageValidationWaiverList : ScriptableObject
+    {
+        [SerializeField] private StageValidationWaiverEntry[] entries = Array.Empty<StageValidationWaiverEntry>();
+
+        public IReadOnlyList<StageValidationWaiverEntry> Entries => entries ?? Array.Empty<StageValidationWaiverEntry>();
+
+        public bool IsWaived(string issueCode, string assetGuidOrScenePath, StageValidationPhase phase)
+        {
+            if (string.IsNullOrWhiteSpace(issueCode))
+            {
+                return false;
+            }
+
+            for (var i = 0; i < Entries.Count; i++)
+            {
+                var entry = Entries[i];
+                if (!string.Equals(entry.IssueCode, issueCode, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(entry.AssetGuidOrScenePath) &&
+                    !string.Equals(entry.AssetGuidOrScenePath, assetGuidOrScenePath, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (phase > entry.AllowedUntilPhase)
+                {
+                    continue;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
     }
 }

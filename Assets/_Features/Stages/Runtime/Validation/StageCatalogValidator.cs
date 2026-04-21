@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.Host;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
@@ -128,6 +129,7 @@ namespace Game.Feature.Stages
                     report);
 
                 ValidatePresentationBindings(entry, options, report);
+                ValidateLegacyPresentationBridge(entry, options, report);
                 ValidateEvaluationDefinition(entry, options, report);
                 ValidateRewardDefinition(entry, aliasTable, options, report);
                 ValidateProgressionDefinition(entry, options, report);
@@ -207,7 +209,9 @@ namespace Game.Feature.Stages
             if (companion == null)
             {
                 report.Add(
-                    required ? StageValidationSeverity.Error : StageValidationSeverity.Warning,
+                    required
+                        ? ResolveNullCompanionSeverity(options)
+                        : StageValidationSeverity.Warning,
                     $"companion.{companionKind}.null",
                     $"StageContentEntry '{entry.name}' is missing its {companionKind} companion asset.",
                     entry,
@@ -351,6 +355,70 @@ namespace Game.Feature.Stages
             }
 
             ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
+        }
+
+        private static void ValidateLegacyPresentationBridge(
+            StageContentEntry entry,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            if (!options.EnforceCanonicalLegacyPresentationBridgeWarnings ||
+                entry.GameplayDefinition == null)
+            {
+                return;
+            }
+
+            var spawns = entry.GameplayDefinition.Spawns;
+            var hasLegacyPresentationIds = false;
+            for (var i = 0; i < spawns.Length; i++)
+            {
+                if (!string.IsNullOrWhiteSpace(spawns[i].PresentationId))
+                {
+                    hasLegacyPresentationIds = true;
+                    break;
+                }
+            }
+
+            if (!hasLegacyPresentationIds)
+            {
+                return;
+            }
+
+            report.Add(
+                StageValidationSeverity.Warning,
+                "presentation.legacy-fallback.non-empty",
+                $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' still contains legacy PresentationId authoring. StagePresentationDefinition is the canonical source of truth.",
+                entry.GameplayDefinition,
+                GetAssetPath(entry.GameplayDefinition),
+                options.Timing);
+
+            if (entry.PresentationDefinition == null)
+            {
+                return;
+            }
+
+            var legacyResolved = StagePresentationAssembler.ResolveLegacy(
+                entry.GameplayDefinition,
+                entry.PresentationDefinition.EnemyPresentationCatalog,
+                entry.PresentationDefinition.StaticEntityPresentationCatalog);
+            var enemyBindingsMatch = BindingsEqual(
+                legacyResolved.EnemyPresentationBindings,
+                entry.PresentationDefinition.EnemyPresentationBindings);
+            var staticBindingsMatch = BindingsEqual(
+                legacyResolved.StaticEntityPresentationBindings,
+                entry.PresentationDefinition.StaticEntityPresentationBindings);
+            if (enemyBindingsMatch && staticBindingsMatch)
+            {
+                return;
+            }
+
+            report.Add(
+                ResolveLegacyBindingMismatchSeverity(options),
+                "presentation.legacy-fallback.mismatch",
+                $"StagePresentationDefinition '{entry.PresentationDefinition.name}' disagrees with the legacy PresentationId bridge for stage '{entry.StageId.Value}'.",
+                entry.PresentationDefinition,
+                GetAssetPath(entry.PresentationDefinition),
+                options.Timing);
         }
 
         private static void ValidateEvaluationDefinition(
@@ -837,6 +905,72 @@ namespace Game.Feature.Stages
             }
 
             return true;
+        }
+
+        private static bool BindingsEqual(
+            IReadOnlyList<EnemyPresentationBinding> left,
+            IReadOnlyList<EnemyPresentationBinding> right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (left[i].EntityId != right[i].EntityId ||
+                    !string.Equals(left[i].PresentationId, right[i].PresentationId, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool BindingsEqual(
+            IReadOnlyList<StaticEntityPresentationBinding> left,
+            IReadOnlyList<StaticEntityPresentationBinding> right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null || left.Count != right.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.Count; i++)
+            {
+                if (left[i].EntityId != right[i].EntityId ||
+                    !string.Equals(left[i].PresentationId, right[i].PresentationId, StringComparison.Ordinal))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static StageValidationSeverity ResolveNullCompanionSeverity(StageCatalogValidationOptions options)
+        {
+            return options.Phase >= StageValidationPhase.Phase2_MigrationAnalysis
+                ? StageValidationSeverity.Error
+                : StageValidationSeverity.Warning;
+        }
+
+        private static StageValidationSeverity ResolveLegacyBindingMismatchSeverity(StageCatalogValidationOptions options)
+        {
+            return options.Phase >= StageValidationPhase.Phase2_MigrationAnalysis
+                ? StageValidationSeverity.Error
+                : StageValidationSeverity.Warning;
         }
 
         private static string GetAssetPath(UnityEngine.Object asset)

@@ -2,7 +2,9 @@
   "name": "Game.Feature.Stages.Editor",
   "rootNamespace": "Game.Feature.Stages.Editor",
   "references": [
-    "Game.Feature.Stages"
+    "Game.Feature.Stages",
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Host"
   ],
   "includePlatforms": [
     "Editor"
