@@ -133,6 +133,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(displayGuidelines, Does.Contain("SettingsAudioSection"));
             Assert.That(displayGuidelines, Does.Contain("SettingsDisplaySection"));
             Assert.That(displayGuidelines, Does.Contain("SettingsScreenView` must serialize `_audioView` and `_displayView` directly"));
+            Assert.That(
+                displayGuidelines,
+                Does.Contain("The Settings resolution hover hint is a local SettingsDisplaySection affordance, remains available regardless of the Tooltips accessibility toggle, and does not use TooltipPopup or popup flow."));
+            Assert.That(displayGuidelines, Does.Not.Contain("TooltipPopup auto-hide"));
             Assert.That(displayGuidelines, Does.Contain("Settings authored child-view canonicalization only"));
             Assert.That(displayGuidelines, Does.Contain("UiPrefabMigrationInventory` cleanup"));
             Assert.That(buildChecklist, Does.Contain("Editor-only execution is insufficient evidence for fullscreen/window correctness."));

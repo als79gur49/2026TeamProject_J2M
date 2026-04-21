@@ -1070,6 +1070,7 @@ namespace Game.Feature.UI.Application
             string displaySectionTitle,
             string currentDisplayLabel,
             string resolutionLabel,
+            string resolutionHoverHintText,
             string fullscreenLabel,
             string displayApplyLabel,
             string displayRevertLabel)
@@ -1077,6 +1078,7 @@ namespace Game.Feature.UI.Application
             DisplaySectionTitle = displaySectionTitle ?? string.Empty;
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             ResolutionLabel = resolutionLabel ?? string.Empty;
+            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
             FullscreenLabel = fullscreenLabel ?? string.Empty;
             DisplayApplyLabel = displayApplyLabel ?? string.Empty;
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
@@ -1087,6 +1089,8 @@ namespace Game.Feature.UI.Application
         public string CurrentDisplayLabel { get; }
 
         public string ResolutionLabel { get; }
+
+        public string ResolutionHoverHintText { get; }
 
         public string FullscreenLabel { get; }
 
@@ -1340,6 +1344,7 @@ namespace Game.Feature.UI.Application
                 _input.CurrentDisplayLabel,
                 _displaySnapshot.CurrentRuntimeResolutionLabel,
                 _input.ResolutionLabel,
+                _input.ResolutionHoverHintText,
                 resolutionOptions,
                 _stagedDisplayModeIndex,
                 _input.FullscreenLabel,
@@ -1411,6 +1416,7 @@ namespace Game.Feature.UI.Application
                 _payload.DisplaySectionTitle,
                 _payload.CurrentDisplayLabel,
                 _payload.ResolutionLabel,
+                _payload.ResolutionHoverHintText,
                 _payload.FullscreenLabel,
                 _payload.DisplayApplyLabel,
                 _payload.DisplayRevertLabel));

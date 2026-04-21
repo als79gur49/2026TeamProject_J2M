@@ -7,6 +7,7 @@ using NUnit.Framework;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Game.Feature.UI.Tests
@@ -76,6 +77,72 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(displayPort.RevertPreviewCallCount, Is.EqualTo(1));
                 Assert.That(runtimeContext.PopupController.PopupCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_SetIsCurrentFalse_HidesResolutionHoverHint_AndReentryStartsHidden()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_HoverLifecycle");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                var displayPort = new FakeDisplaySettingsPort();
+                var factory = CreateFactory(runtimeContext, displayPort);
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                var displayView = view.DisplayView;
+                var hintRoot = GetDisplayPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
+
+                EnterResolutionHover(displayView);
+                Assert.That(hintRoot.gameObject.activeSelf, Is.True);
+
+                result.Runtime.SetIsCurrent(false);
+                Assert.That(hintRoot.gameObject.activeSelf, Is.False);
+
+                result.Runtime.SetIsCurrent(true);
+                Assert.That(hintRoot.gameObject.activeSelf, Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_DisplayApply_HidesResolutionHoverHint_BeforeConfirmPopup()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_HoverPreview");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                var displayPort = new FakeDisplaySettingsPort();
+                var factory = CreateFactory(runtimeContext, displayPort);
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                var displayView = view.DisplayView;
+                var hintRoot = GetDisplayPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
+
+                view.SelectDisplayResolution(2);
+                EnterResolutionHover(displayView);
+                Assert.That(hintRoot.gameObject.activeSelf, Is.True);
+
+                view.ClickDisplayApply();
+
+                Assert.That(hintRoot.gameObject.activeSelf, Is.False);
+                Assert.That(runtimeContext.PopupController.Contains(PopupId.Confirm), Is.True);
             }
             finally
             {
@@ -302,6 +369,22 @@ namespace Game.Feature.UI.Tests
             public DisplayPreviewSessionHost PreviewSessionHost { get; }
 
             public DisplaySettingsLifecycleRelay LifecycleRelay { get; }
+        }
+
+        private static void EnterResolutionHover(SettingsDisplayView displayView)
+        {
+            var relay = GetDisplayPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
+            relay.OnPointerEnter(new PointerEventData(null));
+        }
+
+        private static TField GetDisplayPrivateField<TField>(SettingsDisplayView displayView, string fieldName)
+            where TField : class
+        {
+            var field = typeof(SettingsDisplayView).GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, fieldName);
+            var value = field.GetValue(displayView) as TField;
+            Assert.That(value, Is.Not.Null, fieldName);
+            return value;
         }
     }
 }

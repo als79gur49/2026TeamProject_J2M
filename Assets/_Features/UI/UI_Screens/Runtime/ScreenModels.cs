@@ -246,6 +246,7 @@ namespace Game.Feature.UI.Screens
             "Display",
             "Current Display",
             "Resolution",
+            "Only automatically detected resolutions are shown.",
             "Fullscreen Window",
             "Apply",
             "Revert",
@@ -261,6 +262,7 @@ namespace Game.Feature.UI.Screens
             string displaySectionTitle,
             string currentDisplayLabel,
             string resolutionLabel,
+            string resolutionHoverHintText,
             string fullscreenLabel,
             string displayApplyLabel,
             string displayRevertLabel,
@@ -275,6 +277,7 @@ namespace Game.Feature.UI.Screens
             DisplaySectionTitle = displaySectionTitle ?? string.Empty;
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             ResolutionLabel = resolutionLabel ?? string.Empty;
+            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
             FullscreenLabel = fullscreenLabel ?? string.Empty;
             DisplayApplyLabel = displayApplyLabel ?? string.Empty;
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
@@ -296,6 +299,8 @@ namespace Game.Feature.UI.Screens
         public string CurrentDisplayLabel { get; }
 
         public string ResolutionLabel { get; }
+
+        public string ResolutionHoverHintText { get; }
 
         public string FullscreenLabel { get; }
 
@@ -604,6 +609,8 @@ namespace Game.Feature.UI.Screens
 
         public string ResolutionLabel { get; private set; } = string.Empty;
 
+        public string ResolutionHoverHintText { get; private set; } = string.Empty;
+
         public IReadOnlyList<string> ResolutionOptionTexts { get; private set; } = Array.Empty<string>();
 
         public int SelectedResolutionIndex { get; private set; }
@@ -629,6 +636,7 @@ namespace Game.Feature.UI.Screens
             string currentDisplayLabel,
             string currentDisplayValueText,
             string resolutionLabel,
+            string resolutionHoverHintText,
             IReadOnlyList<string> resolutionOptionTexts,
             int selectedResolutionIndex,
             string fullscreenLabel,
@@ -644,6 +652,7 @@ namespace Game.Feature.UI.Screens
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
             ResolutionLabel = resolutionLabel ?? string.Empty;
+            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
             SelectedResolutionIndex = selectedResolutionIndex;
             FullscreenLabel = fullscreenLabel ?? string.Empty;

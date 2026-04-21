@@ -82,6 +82,25 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.AudioPresenter.ViewModel.BgmAudio.LabelText, Is.EqualTo(SettingsScreenPayload.Default.BgmAudioLabel));
             Assert.That(presenter.DisplayPresenter.ViewModel.DisplaySectionTitle, Is.EqualTo(SettingsScreenPayload.Default.DisplaySectionTitle));
         }
+
+        [Test]
+        public void SettingsScreenPresenter_ResolutionHoverHint_RemainsIndependentFromTooltipAccessibilityToggle()
+        {
+            var presenter = new SettingsScreenPresenter(
+                new AccessibilitySettingsStore(),
+                new FakeAudioSettingsPort(),
+                new FakeDisplaySettingsPort());
+
+            presenter.Apply(SettingsScreenPayload.Default);
+            var beforeToggle = presenter.DisplayPresenter.ViewModel.ResolutionHoverHintText;
+
+            presenter.ToggleTooltips();
+
+            Assert.That(beforeToggle, Is.EqualTo("Only automatically detected resolutions are shown."));
+            Assert.That(
+                presenter.DisplayPresenter.ViewModel.ResolutionHoverHintText,
+                Is.EqualTo(beforeToggle));
+        }
     }
 
     public sealed class SettingsAudioPresenterTests
@@ -118,6 +137,7 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default.DisplaySectionTitle,
                 SettingsScreenPayload.Default.CurrentDisplayLabel,
                 SettingsScreenPayload.Default.ResolutionLabel,
+                SettingsScreenPayload.Default.ResolutionHoverHintText,
                 SettingsScreenPayload.Default.FullscreenLabel,
                 SettingsScreenPayload.Default.DisplayApplyLabel,
                 SettingsScreenPayload.Default.DisplayRevertLabel));
@@ -158,6 +178,7 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default.DisplaySectionTitle,
                 SettingsScreenPayload.Default.CurrentDisplayLabel,
                 SettingsScreenPayload.Default.ResolutionLabel,
+                SettingsScreenPayload.Default.ResolutionHoverHintText,
                 SettingsScreenPayload.Default.FullscreenLabel,
                 SettingsScreenPayload.Default.DisplayApplyLabel,
                 SettingsScreenPayload.Default.DisplayRevertLabel));
@@ -185,6 +206,7 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default.DisplaySectionTitle,
                 SettingsScreenPayload.Default.CurrentDisplayLabel,
                 SettingsScreenPayload.Default.ResolutionLabel,
+                SettingsScreenPayload.Default.ResolutionHoverHintText,
                 SettingsScreenPayload.Default.FullscreenLabel,
                 SettingsScreenPayload.Default.DisplayApplyLabel,
                 SettingsScreenPayload.Default.DisplayRevertLabel));
@@ -197,6 +219,26 @@ namespace Game.Feature.UI.Tests
                 Is.EqualTo("Current display changed outside saved settings. Saved settings remain unchanged until you apply again."));
             Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(0));
             Assert.That(presenter.ViewModel.IsDisplayApplyInteractable, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayPresenterInput_AndViewModel_DoNotExposeTooltipGateOrHoverStateFlags()
+        {
+            var inputPropertyNames = typeof(SettingsDisplayPresenterInput)
+                .GetProperties()
+                .Select(property => property.Name)
+                .ToArray();
+            var viewModelPropertyNames = typeof(SettingsDisplayViewModel)
+                .GetProperties()
+                .Select(property => property.Name)
+                .ToArray();
+
+            Assert.That(inputPropertyNames, Does.Contain(nameof(SettingsDisplayPresenterInput.ResolutionHoverHintText)));
+            Assert.That(viewModelPropertyNames, Does.Contain(nameof(SettingsDisplayViewModel.ResolutionHoverHintText)));
+            Assert.That(inputPropertyNames, Has.No.Member("AreTooltipsEnabled"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("AreTooltipsEnabled"));
+            Assert.That(inputPropertyNames, Has.No.Member("IsResolutionHoverHintVisible"));
+            Assert.That(viewModelPropertyNames, Has.No.Member("IsResolutionHoverHintVisible"));
         }
     }
 
