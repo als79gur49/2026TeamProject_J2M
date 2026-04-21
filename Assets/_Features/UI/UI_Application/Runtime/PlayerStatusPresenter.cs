@@ -15,6 +15,7 @@ namespace Game.Feature.UI.Application
         {
             ViewModel.SetState(
                 player.CurrentHp,
+                player.MaxHp,
                 player.Facing.ToString(),
                 FormatAction(player),
                 tick.FinalTopology.BottomFace.ToString(),

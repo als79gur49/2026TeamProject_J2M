@@ -79,11 +79,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(rootPresenter.ViewModel.IsDimmed, Is.True);
             Assert.That(rootPresenter.ViewModel.IsPauseButtonEnabled, Is.False);
             Assert.That(playerStatusPresenter.ViewModel.CurrentHp, Is.EqualTo(2));
+            Assert.That(playerStatusPresenter.ViewModel.HpNormalized, Is.EqualTo(1f));
             Assert.That(playerStatusPresenter.ViewModel.ActionText, Is.EqualTo("Flip (Recovery)"));
             Assert.That(playerStatusPresenter.ViewModel.StatusText, Is.EqualTo("Read Only"));
             Assert.That(actionBarPresenter.ViewModel.OutcomeText, Is.EqualTo("Blocked"));
             Assert.That(actionBarPresenter.ViewModel.Slots.Count, Is.EqualTo(2));
             Assert.That(actionBarPresenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering"));
+            Assert.That(actionBarPresenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
             Assert.That(notificationPresenter.ViewModel.Items.Count, Is.EqualTo(2));
         }
 
@@ -154,6 +156,7 @@ namespace Game.Feature.UI.Tests
                         totalRecoveryTicks: 2)));
 
             Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 2"));
+            Assert.That(presenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
 
             presenter.Apply(
                 new UITickSlice(7, new GameplayUiTopology(GameplayUiFace.Front), false, false),
@@ -177,6 +180,7 @@ namespace Game.Feature.UI.Tests
                         totalRecoveryTicks: 2)));
 
             Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 1"));
+            Assert.That(presenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0.5f));
 
             presenter.Apply(
                 new UITickSlice(8, new GameplayUiTopology(GameplayUiFace.Front), false, false),
@@ -196,6 +200,7 @@ namespace Game.Feature.UI.Tests
                     lastDamageTickIndex: 0));
 
             Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering"));
+            Assert.That(presenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
         }
 
         [Test]
@@ -224,6 +229,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(presenter.ViewModel.Slots[0].StateText, Is.EqualTo("Ready"));
             Assert.That(presenter.ViewModel.Slots[0].IsArmed, Is.False);
+            Assert.That(presenter.ViewModel.Slots[0].CooldownNormalized, Is.EqualTo(1f));
 
             presenter.Apply(
                 new UITickSlice(5, new GameplayUiTopology(GameplayUiFace.Front), false, false),
@@ -246,6 +252,7 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(presenter.ViewModel.Slots[0].StateText, Is.EqualTo("Armed"));
             Assert.That(presenter.ViewModel.Slots[0].IsArmed, Is.True);
+            Assert.That(presenter.ViewModel.Slots[0].CooldownNormalized, Is.EqualTo(1f));
         }
 
         [Test]
@@ -275,6 +282,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.Slots[0].StateText, Is.EqualTo("Unavailable"));
             Assert.That(presenter.ViewModel.Slots[0].IsArmed, Is.False);
             Assert.That(presenter.ViewModel.IsInteractive, Is.False);
+            Assert.That(presenter.ViewModel.Slots[0].CooldownNormalized, Is.EqualTo(1f));
         }
 
         [Test]
@@ -364,13 +372,15 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(presenter.ViewModel.Slots[0].StateText, Is.EqualTo("Unavailable"));
             Assert.That(presenter.ViewModel.Slots[1].StateText, Is.EqualTo("Recovering: 2"));
+            Assert.That(presenter.ViewModel.Slots[0].CooldownNormalized, Is.EqualTo(1f));
+            Assert.That(presenter.ViewModel.Slots[1].CooldownNormalized, Is.EqualTo(0f));
         }
 
         private static string SerializeActionBar(ActionBarViewModel viewModel)
         {
             return string.Join(
                 "|",
-                viewModel.Slots.Select(slot => $"{slot.SlotId}:{slot.LabelText}:{slot.StateText}")) +
+                viewModel.Slots.Select(slot => $"{slot.SlotId}:{slot.LabelText}:{slot.StateText}:{slot.CooldownNormalized}")) +
                    $"|{viewModel.OutcomeText}|{viewModel.IsInteractive}";
         }
 

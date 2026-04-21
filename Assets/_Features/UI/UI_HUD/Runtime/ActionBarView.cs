@@ -9,8 +9,10 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _primaryLabel;
+        [SerializeField] private Slider _primaryCooldownSlider;
         [SerializeField] private Text _primaryStateLabel;
         [SerializeField] private Text _secondaryLabel;
+        [SerializeField] private Slider _secondaryCooldownSlider;
         [SerializeField] private Text _secondaryStateLabel;
         [SerializeField] private Text _outcomeLabel;
         private ActionBarViewModel _viewModel;
@@ -39,8 +41,10 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_primaryLabel, nameof(_primaryLabel));
+            ValidateSerializedReference(_primaryCooldownSlider, nameof(_primaryCooldownSlider));
             ValidateSerializedReference(_primaryStateLabel, nameof(_primaryStateLabel));
             ValidateSerializedReference(_secondaryLabel, nameof(_secondaryLabel));
+            ValidateSerializedReference(_secondaryCooldownSlider, nameof(_secondaryCooldownSlider));
             ValidateSerializedReference(_secondaryStateLabel, nameof(_secondaryStateLabel));
             ValidateSerializedReference(_outcomeLabel, nameof(_outcomeLabel));
         }
@@ -76,8 +80,8 @@ namespace Game.Feature.UI.HUD
                 return;
             }
 
-            ApplySlot(HudActionSlotId.Primary, _primaryLabel, _primaryStateLabel);
-            ApplySlot(HudActionSlotId.Secondary, _secondaryLabel, _secondaryStateLabel);
+            ApplySlot(HudActionSlotId.Primary, _primaryLabel, _primaryCooldownSlider, _primaryStateLabel);
+            ApplySlot(HudActionSlotId.Secondary, _secondaryLabel, _secondaryCooldownSlider, _secondaryStateLabel);
 
             if (_outcomeLabel != null)
             {
@@ -90,12 +94,18 @@ namespace Game.Feature.UI.HUD
         private void ApplySlot(
             HudActionSlotId slotId,
             Text label,
+            Slider cooldownSlider,
             Text stateLabel)
         {
             var hasSlot = TryGetSlot(slotId, out var slotViewModel);
             if (label != null)
             {
                 label.text = hasSlot ? slotViewModel.LabelText : string.Empty;
+            }
+
+            if (cooldownSlider != null)
+            {
+                cooldownSlider.value = hasSlot ? slotViewModel.CooldownNormalized : 0f;
             }
 
             if (stateLabel != null)

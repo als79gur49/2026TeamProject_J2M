@@ -376,6 +376,7 @@ namespace Game.Feature.UI.Tests
                 isAvailable: true,
                 playerEntityId: 10,
                 currentHp: 3,
+                maxHp: 3,
                 facing: GameplayUiDirection.Up,
                 activeActionKind: GameplayUiActionKind.None,
                 activeActionDirection: GameplayUiDirection.None,

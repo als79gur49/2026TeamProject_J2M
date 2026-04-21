@@ -56,6 +56,7 @@ namespace Game.Feature.Gameplay.Host.UIAccess
                 isAvailable: true,
                 playerEntityId: playerEntityId,
                 currentHp: playerEntity.hp,
+                maxHp: playerEntity.maxHp,
                 facing: GameplayUiAccessMapper.ToUiDirection(playerEntity.facing),
                 activeActionKind: GameplayUiAccessMapper.ToUiActionKind(playerControlState.activeAction.kind),
                 activeActionDirection: GameplayUiAccessMapper.ToUiDirection(playerControlState.activeAction.direction),

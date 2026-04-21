@@ -17,10 +17,46 @@ namespace Game.Feature.Gameplay.UIAccess.Models
             GameplayUiRecoveryCooldown? recoveryCooldown = null,
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false)
+            : this(
+                isAvailable,
+                playerEntityId,
+                currentHp,
+                currentHp,
+                facing,
+                activeActionKind,
+                activeActionDirection,
+                activeTargetEntityId,
+                isActionInProgress,
+                isActionInRecoveryPhase,
+                canMoveThisTick,
+                canStartActionThisTick,
+                recoveryCooldown,
+                canStartAnyActionThisTick,
+                hasExplicitPushCandidateInCurrentDirection)
+        {
+        }
+
+        public GameplayPlayerHudReadModel(
+            bool isAvailable,
+            int playerEntityId,
+            int currentHp,
+            int maxHp,
+            GameplayUiDirection facing,
+            GameplayUiActionKind activeActionKind,
+            GameplayUiDirection activeActionDirection,
+            int activeTargetEntityId,
+            bool isActionInProgress,
+            bool isActionInRecoveryPhase,
+            bool canMoveThisTick,
+            bool canStartActionThisTick,
+            GameplayUiRecoveryCooldown? recoveryCooldown = null,
+            bool canStartAnyActionThisTick = false,
+            bool hasExplicitPushCandidateInCurrentDirection = false)
         {
             IsAvailable = isAvailable;
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
+            MaxHp = maxHp > 0 ? maxHp : currentHp;
             Facing = facing;
             ActiveActionKind = activeActionKind;
             ActiveActionDirection = activeActionDirection;
@@ -39,6 +75,8 @@ namespace Game.Feature.Gameplay.UIAccess.Models
         public int PlayerEntityId { get; }
 
         public int CurrentHp { get; }
+
+        public int MaxHp { get; }
 
         public GameplayUiDirection Facing { get; }
 
