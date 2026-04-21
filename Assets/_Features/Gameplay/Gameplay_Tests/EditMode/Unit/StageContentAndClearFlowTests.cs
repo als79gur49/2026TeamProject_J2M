@@ -44,6 +44,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        public void StageCatalogResolver_ResolveOrThrow_ByCanonicalStageId_ReturnsEntry()
+        {
+            var entry = CreateEntry("combined-gameplay-showcase");
+            var resolver = new StageCatalogResolver(new TestStageCatalogProvider(new[] { entry }, aliasTable: null));
+
+            var resolved = resolver.ResolveOrThrow(StageId.CreateOrThrow("combined-gameplay-showcase"));
+
+            Assert.That(resolved, Is.SameAs(entry));
+        }
+
+        [Test]
+        public void StageRuntimeContentResolver_CatalogMode_PrefersLaunchContextOverDefaultStageId()
+        {
+            StageLaunchContextStore.Clear();
+            try
+            {
+                var combinedEntry = CreateEntry("combined-gameplay-showcase");
+                var tutorialEntry = CreateEntry("tutorial-scene");
+                var provider = CreateCatalogProvider(new[] { combinedEntry, tutorialEntry }, aliasTable: null);
+                var resolver = new StageRuntimeContentResolver();
+                StageLaunchContextStore.SetCurrent(tutorialEntry.StageId);
+
+                var resolved = resolver.Resolve(
+                    new StageLoadRequest(
+                        StageLoadSourceMode.CatalogResolvedStageId,
+                        provider,
+                        combinedEntry.StageId,
+                        serializedStageContentEntry: null,
+                        legacyStageDefinition: null,
+                        legacyEnemyPresentationCatalog: null,
+                        legacyStaticEntityPresentationCatalog: null,
+                        sceneName: "StageRuntimeContentResolverTests",
+                        allowDefaultStageIdFallback: true));
+
+                Assert.That(resolved.Entry, Is.SameAs(tutorialEntry));
+                Assert.That(resolved.UsedLaunchContext, Is.True);
+                Assert.That(resolved.UsedDefaultStageIdFallback, Is.False);
+            }
+            finally
+            {
+                StageLaunchContextStore.Clear();
+            }
+        }
+
+        [Test]
+        public void StageRuntimeContentResolver_CatalogMode_DefaultStageIdFallbackRequiresExplicitOptIn()
+        {
+            StageLaunchContextStore.Clear();
+            var entry = CreateEntry("tutorial-scene");
+            var provider = CreateCatalogProvider(new[] { entry }, aliasTable: null);
+            var resolver = new StageRuntimeContentResolver();
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => resolver.Resolve(
+                    new StageLoadRequest(
+                        StageLoadSourceMode.CatalogResolvedStageId,
+                        provider,
+                        entry.StageId,
+                        serializedStageContentEntry: null,
+                        legacyStageDefinition: null,
+                        legacyEnemyPresentationCatalog: null,
+                        legacyStaticEntityPresentationCatalog: null,
+                        sceneName: "StageRuntimeContentResolverTests",
+                        allowDefaultStageIdFallback: false)));
+
+            Assert.That(exception, Is.Not.Null);
+            StringAssert.Contains("defaultStageId fallback is not permitted", exception.Message);
+        }
+
+        [Test]
         public void StageCatalogValidator_DetectsDuplicateStageIds_AndSharedPresentationReuse()
         {
             var sharedPresentation = ScriptableObject.CreateInstance<StagePresentationDefinition>();
@@ -339,6 +409,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}'.");
             field.SetValue(target, value);
+        }
+
+        private static ScriptableObjectStageCatalogProvider CreateCatalogProvider(
+            IReadOnlyList<StageContentEntry> entries,
+            StageIdAliasTable aliasTable)
+        {
+            var catalog = ScriptableObject.CreateInstance<StageCatalog>();
+            catalog.SetEntries(entries as StageContentEntry[] ?? new List<StageContentEntry>(entries).ToArray());
+            catalog.AssignStageIdAliasTable(aliasTable);
+
+            var provider = ScriptableObject.CreateInstance<ScriptableObjectStageCatalogProvider>();
+            provider.AssignCatalog(catalog);
+            return provider;
         }
 
         private sealed class TestStageCatalogProvider : IStageCatalogProvider

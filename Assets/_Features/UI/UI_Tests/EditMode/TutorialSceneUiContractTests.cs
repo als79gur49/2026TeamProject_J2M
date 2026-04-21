@@ -1,6 +1,7 @@
 using System.Linq;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
+using Game.Feature.Stages;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
@@ -20,6 +21,8 @@ namespace Game.Feature.UI.Tests
     {
         private const string GameplayAudioMapAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
+        private const string StageCatalogProviderAssetPath =
+            "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
@@ -31,7 +34,8 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 TutorialScenePath,
                 "TutorialSceneBootstrapRoot",
-                GameplayAudioMapAssetPath);
+                GameplayAudioMapAssetPath,
+                "tutorial-scene");
         }
 
         [Test]
@@ -41,7 +45,8 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 UiAudioScenePath,
                 "UIAudioSceneBootstrapRoot",
-                GameplayAudioMapAssetPath);
+                GameplayAudioMapAssetPath,
+                "tutorial-scene");
         }
 
         [Test]
@@ -51,13 +56,15 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 CombinedScenePath,
                 "Box Slide Test Scene",
-                GameplayAudioMapAssetPath);
+                GameplayAudioMapAssetPath,
+                "combined-gameplay-showcase");
         }
 
         private static void AssertCanonicalBootstrapScene(
             string scenePath,
             string expectedRootName,
-            string expectedGameplayAudioMapAssetPath)
+            string expectedGameplayAudioMapAssetPath,
+            string expectedDefaultStageId)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -127,6 +134,24 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     AssetDatabase.GetAssetPath(serializedGameplayAudioMap.objectReferenceValue),
                     Is.EqualTo(expectedGameplayAudioMapAssetPath));
+                Assert.That(
+                    serializedShowcaseInstaller.FindProperty("stageLoadSourceMode").enumValueIndex,
+                    Is.EqualTo((int)StageLoadSourceMode.CatalogResolvedStageId));
+                Assert.That(serializedShowcaseInstaller.FindProperty("stageContentEntry").objectReferenceValue, Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("stageDefinition").objectReferenceValue, Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("enemyPresentationCatalog").objectReferenceValue, Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("staticEntityPresentationCatalog").objectReferenceValue, Is.Null);
+                var defaultStageIdProperty = serializedShowcaseInstaller.FindProperty("defaultStageId");
+                Assert.That(defaultStageIdProperty, Is.Not.Null);
+                Assert.That(
+                    defaultStageIdProperty.FindPropertyRelative("value").stringValue,
+                    Is.EqualTo(expectedDefaultStageId));
+                var stageCatalogProvider = serializedShowcaseInstaller.FindProperty("stageCatalogProvider");
+                Assert.That(stageCatalogProvider, Is.Not.Null);
+                Assert.That(stageCatalogProvider.objectReferenceValue, Is.Not.Null);
+                Assert.That(
+                    AssetDatabase.GetAssetPath(stageCatalogProvider.objectReferenceValue),
+                    Is.EqualTo(StageCatalogProviderAssetPath));
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
                 AssertSceneContainsNoSerializedComponent<Canvas>(rootObjects);

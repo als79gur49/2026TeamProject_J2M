@@ -1,0 +1,16 @@
+{
+  "name": "Game.Feature.Stages.Editor.Tests",
+  "rootNamespace": "Game.Feature.Stages.Editor.Tests",
+  "references": [
+    "Game.Feature.Stages",
+    "Game.Feature.Stages.Editor",
+    "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.Host"
+  ],
+  "includePlatforms": [
+    "Editor"
+  ],
+  "optionalUnityReferences": [
+    "TestAssemblies"
+  ]
+}

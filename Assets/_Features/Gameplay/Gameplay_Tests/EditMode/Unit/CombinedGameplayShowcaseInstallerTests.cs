@@ -629,13 +629,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var resolvedPresentation = StagePresentationAssembler.ResolveLegacy(stage, catalog);
             var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
             presentationDefinition.hideFlags = HideFlags.HideAndDontSave;
-            SetPrivateField(presentationDefinition, "enemyPresentationCatalog", resolvedPresentation.EnemyPresentationCatalog);
-            SetPrivateField(presentationDefinition, "enemyPresentationBindings", resolvedPresentation.EnemyPresentationBindings);
-            SetPrivateField(presentationDefinition, "staticEntityPresentationCatalog", resolvedPresentation.StaticEntityPresentationCatalog);
-            SetPrivateField(presentationDefinition, "staticEntityPresentationBindings", resolvedPresentation.StaticEntityPresentationBindings);
-            SetPrivateField(presentationDefinition, "resultTitle", resolvedPresentation.ResultTitle);
-            SetPrivateField(presentationDefinition, "resultContinueLabel", resolvedPresentation.ResultContinueLabel);
+            presentationDefinition.ApplyResolvedData(resolvedPresentation);
             entry.AssignPresentationDefinition(presentationDefinition);
+
+            var sourceModeField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageLoadSourceMode",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(sourceModeField, Is.Not.Null);
+            sourceModeField.SetValue(installer, StageLoadSourceMode.SerializedStageContentEntry);
 
             var stageContentField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
                 "stageContentEntry",

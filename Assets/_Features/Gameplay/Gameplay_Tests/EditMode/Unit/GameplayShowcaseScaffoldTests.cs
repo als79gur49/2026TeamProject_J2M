@@ -809,8 +809,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string CombinedSceneInstallerIdentifier =
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
-        private const string CombinedStageAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string StageCatalogProviderAssetPath =
+            "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
+        private const string CombinedDefaultStageId = "combined-gameplay-showcase";
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
@@ -826,7 +827,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             AssertUsesTimingPresetReferences(
                 installerBlock,
-                CombinedStageAssetPath,
+                StageCatalogProviderAssetPath,
+                CombinedDefaultStageId,
                 DefaultSimulationTimingPresetAssetPath,
                 DefaultPresentationTimingPresetAssetPath);
             StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
@@ -846,12 +848,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void CombinedGameplayShowcaseScene_SerializesEnemyPresentationCatalogReference()
+        public void CombinedGameplayShowcaseScene_DoesNotSerializeSceneLocalPresentationCompatReferences()
         {
             var installerBlock = ReadInstallerBlock(CombinedScenePath, CombinedSceneInstallerIdentifier);
 
-            StringAssert.Contains("enemyPresentationCatalog:", installerBlock);
-            StringAssert.DoesNotContain("enemyAnimationTimingOverrides:", installerBlock);
+            StringAssert.Contains("enemyPresentationCatalog: {fileID: 0}", installerBlock);
+            StringAssert.Contains("staticEntityPresentationCatalog: {fileID: 0}", installerBlock);
+            StringAssert.DoesNotContain("stageDefinition: {fileID: 11400000", installerBlock);
         }
 
         [Test]
@@ -906,12 +909,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertUsesTimingPresetReferences(
             string installerBlock,
-            string stageAssetPath,
+            string stageCatalogProviderAssetPath,
+            string defaultStageId,
             string simulationTimingPresetAssetPath,
             string presentationTimingPresetAssetPath)
         {
             StringAssert.Contains(
-                $"stageDefinition: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(stageAssetPath)}, type: 2}}",
+                "stageLoadSourceMode: 0",
+                installerBlock);
+            StringAssert.Contains(
+                $"stageCatalogProvider: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(stageCatalogProviderAssetPath)}, type: 2}}",
+                installerBlock);
+            StringAssert.Contains(
+                $"defaultStageId:\n    value: {defaultStageId}",
                 installerBlock);
             StringAssert.Contains(
                 $"simulationTimingPreset: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(simulationTimingPresetAssetPath)}, type: 2}}",
