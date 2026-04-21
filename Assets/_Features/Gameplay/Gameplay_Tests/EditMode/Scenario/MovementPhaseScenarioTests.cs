@@ -150,7 +150,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_MoveIntoPushBox_StartsHoldContactWithoutMoveOrRejection()
+        public void Movement_MoveIntoPushBox_IsNoOpWithoutExplicitPush()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -175,7 +175,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
-        public void Movement_MoveIntoUnit_SucceedsWithoutStartingPushContact()
+        public void Movement_MoveIntoUnit_SucceedsWithoutStartingPushAction()
         {
             var worldState = CreateWorldState(new[]
             {

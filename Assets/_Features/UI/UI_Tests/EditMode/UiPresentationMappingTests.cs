@@ -296,6 +296,43 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiPresentationSource_RefreshMapsPushReadyAndArmedContractFromPlayerHudQuery()
+        {
+            var queryFacade = new FakeGameplayQueryFacade(
+                new GameplaySessionReadModel(1, false, true, false),
+                new GameplayPlayerHudReadModel(
+                    isAvailable: true,
+                    playerEntityId: 10,
+                    currentHp: 3,
+                    facing: GameplayUiDirection.Right,
+                    activeActionKind: GameplayUiActionKind.None,
+                    activeActionDirection: GameplayUiDirection.None,
+                    activeTargetEntityId: 0,
+                    isActionInProgress: false,
+                    isActionInRecoveryPhase: false,
+                    canMoveThisTick: true,
+                    canStartActionThisTick: true,
+                    recoveryCooldown: null,
+                    canStartAnyActionThisTick: true,
+                    hasExplicitPushCandidateInCurrentDirection: true),
+                new GameplayObjectiveReadModel(false, false, false, false));
+            var presentationFeed = new FakeGameplayPresentationFeed();
+            var pauseService = new FakeGameplayPauseService();
+            using var source = new GameplayUiPresentationSource(queryFacade, presentationFeed, pauseService);
+
+            queryFacade.SetSession(new GameplaySessionReadModel(2, false, true, false));
+            presentationFeed.PublishState(new GameplayPresentationState(
+                new GameplayUiTopology(GameplayUiFace.Front),
+                isPresentationActive: false,
+                hasBlockingPresentation: false,
+                isTopologyTransitionActive: false));
+
+            Assert.That(source.CurrentSnapshot.Player.CanStartActionThisTick, Is.True);
+            Assert.That(source.CurrentSnapshot.Player.CanStartAnyActionThisTick, Is.True);
+            Assert.That(source.CurrentSnapshot.Player.HasExplicitPushCandidateInCurrentDirection, Is.True);
+        }
+
+        [Test]
         public void GameplayUiPresentationSource_OlderFramePublication_RefreshesWithoutTickRegressionOrNewEvents()
         {
             var queryFacade = new FakeGameplayQueryFacade(

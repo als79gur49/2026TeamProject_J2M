@@ -99,13 +99,13 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
                 "Seed=90901\nInitialEntities\n  E=10|Pos=(0,0)\n",
                 new[]
                 {
-                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "E=10|Cooldown=0|PushTicks=1", "<empty>", "<empty>", "Layer=Unit|Cell=(0,0)|E=10|Face=Floor", "<empty>", "Event-A-1"),
-                    new TickReplayFrame(2, "BBBBBBBBBBBBBBBB", "Trace-A-2", "E=10|Pos=(1,0)", "E=10|Cooldown=2|PushTicks=0", "<empty>", "<empty>", "Layer=Unit|Cell=(1,0)|E=10|Face=Floor", "10", "Event-A-2"),
+                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "E=10|Cooldown=0|NextMoveAllowed=0|Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=2|Recovery=2|Attempted=0", "<empty>", "<empty>", "Layer=Unit|Cell=(0,0)|E=10|Face=Floor", "<empty>", "Event-A-1"),
+                    new TickReplayFrame(2, "BBBBBBBBBBBBBBBB", "Trace-A-2", "E=10|Pos=(1,0)", "E=10|Cooldown=2|NextMoveAllowed=4|Action=None|ActionSeq=0|ActionDirection=None|ActionTarget=0|Start=0|Execute=0|Recovery=0|Attempted=0", "<empty>", "<empty>", "Layer=Unit|Cell=(1,0)|E=10|Face=Floor", "10", "Event-A-2"),
                 },
                 new[]
                 {
-                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "E=10|Cooldown=0|PushTicks=1", "<empty>", "<empty>", "Layer=Unit|Cell=(0,0)|E=10|Face=Floor", "<empty>", "Event-A-1"),
-                    new TickReplayFrame(2, "CCCCCCCCCCCCCCCC", "Trace-B-2", "E=10|Pos=(2,0)", "E=10|Cooldown=0|PushTicks=0", "<empty>", "<empty>", "Layer=Unit|Cell=(2,0)|E=10|Face=Floor", "<empty>", "Event-B-2"),
+                    new TickReplayFrame(1, "AAAAAAAAAAAAAAAA", "Trace-A-1", "E=10|Pos=(0,0)", "E=10|Cooldown=0|NextMoveAllowed=0|Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=2|Recovery=2|Attempted=0", "<empty>", "<empty>", "Layer=Unit|Cell=(0,0)|E=10|Face=Floor", "<empty>", "Event-A-1"),
+                    new TickReplayFrame(2, "CCCCCCCCCCCCCCCC", "Trace-B-2", "E=10|Pos=(2,0)", "E=10|Cooldown=0|NextMoveAllowed=0|Action=None|ActionSeq=0|ActionDirection=None|ActionTarget=0|Start=0|Execute=0|Recovery=0|Attempted=0", "<empty>", "<empty>", "Layer=Unit|Cell=(2,0)|E=10|Face=Floor", "<empty>", "Event-B-2"),
                 },
                 firstDivergentFrameIndex: 1,
                 firstDivergentTick: 2,
@@ -150,8 +150,8 @@ namespace Game.Feature.Gameplay.Tests.Fuzz
             StringAssert.Contains("Event-B-2", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_event_log.txt")));
             StringAssert.Contains("E=10|Pos=(1,0)", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_final_entities.txt")));
             StringAssert.Contains("E=10|Pos=(2,0)", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_final_entities.txt")));
-            StringAssert.Contains("E=10|Cooldown=2|PushTicks=0", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_player_control.txt")));
-            StringAssert.Contains("E=10|Cooldown=0|PushTicks=0", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_player_control.txt")));
+            StringAssert.Contains("E=10|Cooldown=2|NextMoveAllowed=4|Action=None", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_player_control.txt")));
+            StringAssert.Contains("E=10|Cooldown=0|NextMoveAllowed=0|Action=None", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_player_control.txt")));
             StringAssert.Contains("<empty>", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_enemy_actions.txt")));
             StringAssert.Contains("<empty>", File.ReadAllText(Path.Combine(artifactDirectoryPath, "second_run_enemy_actions.txt")));
             StringAssert.Contains("Layer=Unit|Cell=(1,0)|E=10|Face=Floor", File.ReadAllText(Path.Combine(artifactDirectoryPath, "first_run_occupancy.txt")));

@@ -354,8 +354,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
-            },
-            playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
 
@@ -484,48 +483,106 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Core")]
-        public IEnumerator PlayerMove_PlayMode_PushInputStartsSlidingBoxWithoutMovingPlayer()
+        public IEnumerator PlayerMove_PlayMode_PushStartedEdgeOnly_HeldKeyDoesNotAutoRetrigger()
         {
+            var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 6, 0)),
                 },
-                playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                actions: actions,
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1));
 
-            host.InputHost.SetRawMoveInput(Vector2.right);
-            host.InputHost.RunSingleTick();
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            Press(_keyboard.dKey);
+            Press(_keyboard.eKey);
+            yield return null;
 
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            AssertViewMatchesProjectedState(host, entityId: 30);
+            var startTick = host.InputHost.RunSingleTick();
+            var startSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startSnapshot.TryGetPlayerControlState(10, out var startedState), Is.True);
+            Assert.That(startedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(startedState.activeAction.sequence, Is.EqualTo(1));
+            Assert.That(startedState.activeAction.executionAttempted, Is.False);
 
-            yield return DestroyHost(host);
+            var executeTick = host.InputHost.RunSingleTick();
+            var executeSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(executeTick, Is.Not.Null);
+            Assert.That(executeSnapshot.TryGetEntity(30, out var movedBox), Is.True);
+            Assert.That(movedBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+
+            var clearTick = host.InputHost.RunSingleTick();
+            var clearSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(clearTick, Is.Not.Null);
+            Assert.That(clearSnapshot.TryGetPlayerControlState(10, out var clearedState), Is.True);
+            Assert.That(clearedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(clearedState.actionSequenceCounter, Is.EqualTo(1));
+
+            var heldTick = host.InputHost.RunSingleTick();
+            var heldSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(heldTick, Is.Not.Null);
+            Assert.That(heldSnapshot.TryGetPlayerControlState(10, out var heldState), Is.True);
+            Assert.That(heldState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(heldState.actionSequenceCounter, Is.EqualTo(1));
+            Assert.That(heldSnapshot.TryGetEntity(30, out var heldBox), Is.True);
+            Assert.That(heldBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+
+            Release(_keyboard.eKey);
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
         }
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_PushBufferedAtTickBoundary_PrioritizesPushOverMove()
+        public IEnumerator GameplayInputHost_PushStartedEdgeOnly_KeyboardAndUiPushSameTick_ConsumesOnceAndUiDirectionWins()
         {
+            var actions = CreateKeyboardMoveActions();
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Item),
-            });
+                CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateBox(entityId: 31, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                CreateWall(entityId: 91, position: new SurfaceCell(FaceId.Floor, -4, 0)),
+            },
+                actions: actions,
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1));
 
-            host.InputHost.SetRawMoveInput(Vector2.right);
+            Press(_keyboard.aKey);
+            Press(_keyboard.eKey);
+            yield return null;
 
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            InvokeInputHostBufferUiPush(host.InputHost, Direction.Right);
+            var startTick = host.InputHost.RunSingleTick();
+            var startSnapshot = CaptureAuthoritativeSnapshot(host);
 
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            Assert.That(host.ViewRegistry.TryGetView(30, out var boxView), Is.True);
-            Assert.That(boxView.gameObject.activeSelf, Is.False);
+            Assert.That(startTick, Is.Not.Null);
+            Assert.That(startTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(startSnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.sequence, Is.EqualTo(1));
+            Assert.That(controlState.activeAction.direction, Is.EqualTo(Direction.Right));
+            Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(30));
 
-            yield return DestroyHost(host);
+            var executeTick = host.InputHost.RunSingleTick();
+            var executeSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(executeTick, Is.Not.Null);
+            Assert.That(executeSnapshot.TryGetEntity(30, out var rightBox), Is.True);
+            Assert.That(executeSnapshot.TryGetEntity(31, out var leftBox), Is.True);
+            Assert.That(rightBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            Assert.That(leftBox.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+
+            Release(_keyboard.eKey);
+            Release(_keyboard.aKey);
+            yield return DestroyHost(host, actions);
         }
 
         [UnityTest]
@@ -587,7 +644,6 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Destroy),
                     CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 2, 0)),
                 },
-                playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
                 boxDestroyEffectDurationSeconds: 0.3f);
 
             host.InputHost.SetRawMoveInput(Vector2.right);
@@ -630,29 +686,43 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_PushBufferedDuringRepeatLock_IsNotDropped()
+        public IEnumerator GameplayInputHost_PushStartedEdgeOnly_HeldKeyDuringRecovery_DoesNotAutoRestartAfterCompletion()
         {
+            var actions = CreateKeyboardMoveActions();
             var host = CreateHost(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
-            });
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 6, 0)),
+            },
+                actions: actions,
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 3));
 
-            host.InputHost.SetRawMoveInput(Vector2.right);
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(0f);
+            Press(_keyboard.dKey);
+            Press(_keyboard.eKey);
+            yield return null;
 
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            AssertViewMatchesProjectedState(host, entityId: 30);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
 
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            var heldAfterRecoveryTick = host.InputHost.RunSingleTick();
+            var heldAfterRecoverySnapshot = CaptureAuthoritativeSnapshot(host);
 
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            AssertViewMatchesProjectedState(host, entityId: 30);
+            Assert.That(heldAfterRecoveryTick, Is.Not.Null);
+            Assert.That(heldAfterRecoverySnapshot.TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(controlState.actionSequenceCounter, Is.EqualTo(1));
+            Assert.That(heldAfterRecoverySnapshot.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
 
-            yield return DestroyHost(host);
+            Release(_keyboard.eKey);
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
         }
 
         [UnityTest]
@@ -761,8 +831,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
                 CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
-            },
-            playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            });
 
             host.InputHost.SetRawMoveInput(Vector2.right);
             host.InputHost.RunSingleTick();
@@ -782,39 +851,59 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         [UnityTest]
         [Category("Full")]
-        public IEnumerator GameplayInputHost_PushBufferedDuringInitialDelay_UsesSampledDirection()
+        public IEnumerator GameplayInputHost_PushStartedEdgeOnly_ReleaseThenFreshPressStartsNextPush()
         {
+            var actions = CreateKeyboardMoveActions();
             var host = CreateHost(
                 new[]
                 {
                     CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                     CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
-                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 4, 0)),
+                    CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 6, 0)),
                 },
-                actions: null,
-                staticEntityLogics: null,
-                initialMoveDelaySeconds: 2f / GameplayTimingProfile.DefaultSimulationTicksPerSecond,
-                playerPushContactThresholdSeconds: 1f / GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                actions: actions,
+                playerControlTiming: CreatePushTimingSettings(
+                    pushExecuteDelayTicks: 1,
+                    pushInputLockDurationTicks: 1));
 
-            host.InputHost.SetRawMoveInput(Vector2.right);
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
+            Press(_keyboard.dKey);
+            Press(_keyboard.eKey);
+            yield return null;
 
-            AssertViewMatchesProjectedState(host, entityId: 10);
-            AssertViewMatchesProjectedState(host, entityId: 30);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
+            Assert.That(host.InputHost.RunSingleTick(), Is.Not.Null);
 
-            for (var i = 0; i < host.TimingProfile.InitialMoveDelayTicks - 1; i++)
-            {
-                host.InputHost.RunSingleTick();
-                host.Presenter.UpdatePresentation(0f);
-                AssertViewMatchesProjectedState(host, entityId: 10);
-            }
+            Release(_keyboard.eKey);
+            yield return null;
 
-            host.InputHost.RunSingleTick();
-            host.Presenter.UpdatePresentation(host.TimingProfile.PushMotionDurationSeconds);
-            AssertViewMatchesProjectedState(host, entityId: 10);
+            var releasedTick = host.InputHost.RunSingleTick();
+            var releasedSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(releasedTick, Is.Not.Null);
+            Assert.That(releasedSnapshot.TryGetPlayerControlState(10, out var releasedState), Is.True);
+            Assert.That(releasedState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(releasedState.actionSequenceCounter, Is.EqualTo(1));
 
-            yield return DestroyHost(host);
+            Press(_keyboard.eKey);
+            yield return null;
+
+            var restartTick = host.InputHost.RunSingleTick();
+            var restartSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(restartTick, Is.Not.Null);
+            Assert.That(restartTick.PresentationData.PlayerActionSignals.Single().StartedThisTick, Is.True);
+            Assert.That(restartSnapshot.TryGetPlayerControlState(10, out var restartState), Is.True);
+            Assert.That(restartState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(restartState.activeAction.sequence, Is.EqualTo(2));
+
+            var secondExecuteTick = host.InputHost.RunSingleTick();
+            var secondExecuteSnapshot = CaptureAuthoritativeSnapshot(host);
+            Assert.That(secondExecuteTick, Is.Not.Null);
+            Assert.That(secondExecuteSnapshot.TryGetEntity(30, out var box), Is.True);
+            Assert.That(box.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+
+            Release(_keyboard.eKey);
+            Release(_keyboard.dKey);
+            yield return DestroyHost(host, actions);
         }
 
         [UnityTest]
@@ -1021,12 +1110,12 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             float initialMoveDelaySeconds = GameplayTimingProfile.DefaultInitialMoveDelaySeconds,
             float repeatedMoveIntervalSeconds = GameplayTimingProfile.DefaultRepeatedMoveIntervalSeconds,
             bool directionChangeConsumesDelay = false,
-            float playerPushContactThresholdSeconds = GameplayTimingProfile.DefaultPlayerPushContactThresholdSeconds,
             float moveMotionDurationSeconds = 0.2f,
             float itemConsumeEffectDurationSeconds = -1f,
             float boxDestroyEffectDurationSeconds = -1f,
             float pushPresentationDurationSeconds = -1f,
             float flipPresentationDurationSeconds = -1f,
+            PlayerControlTimingSettings playerControlTiming = null,
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = null,
             Camera viewCamera = null)
         {
@@ -1069,10 +1158,7 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                     ItemConsumeEffectDurationSeconds = itemConsumeEffectDurationSeconds,
                     BoxDestroyEffectDurationSeconds = boxDestroyEffectDurationSeconds,
                     PlayerEntityId = 10,
-                    PlayerControlTiming = new PlayerControlTimingSettings
-                    {
-                        PushContactThresholdSeconds = playerPushContactThresholdSeconds,
-                    },
+                    PlayerControlTiming = playerControlTiming ?? new PlayerControlTimingSettings(),
                     PlayerViewPrefab = playerViewPrefab,
                     PushMotionDurationSeconds = 0.2f,
                     RepeatedMoveIntervalSeconds = repeatedMoveIntervalSeconds,
@@ -1167,6 +1253,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {target.GetType().Name}.");
             field.SetValue(target, value);
+        }
+
+        private static void InvokeInputHostBufferUiPush(GameplayInputHost inputHost, Direction direction)
+        {
+            var method = typeof(GameplayInputHost).GetMethod(
+                "BufferUiPush",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, "GameplayInputHost.BufferUiPush should remain available for UI push merge coverage.");
+            method.Invoke(inputHost, new object[] { direction });
         }
 
         // TODO(CubeSurface3D): Retire this helper once playmode tests stop using
@@ -1300,6 +1395,18 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             flipAction.AddBinding("<Keyboard>/q");
             actions.AddActionMap(map);
             return actions;
+        }
+
+        private static PlayerControlTimingSettings CreatePushTimingSettings(
+            int pushExecuteDelayTicks,
+            int pushInputLockDurationTicks)
+        {
+            var ticksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
+            return new PlayerControlTimingSettings
+            {
+                PushExecuteDelaySeconds = pushExecuteDelayTicks / (float)ticksPerSecond,
+                PushInputLockDurationSeconds = pushInputLockDurationTicks / (float)ticksPerSecond,
+            };
         }
 
         private sealed class FireProjectileLogic : IAttackEntityLogic, IEntityLogicSourceBinding

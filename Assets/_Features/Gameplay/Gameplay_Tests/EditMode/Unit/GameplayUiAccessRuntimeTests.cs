@@ -366,6 +366,140 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiAccess_PlayerHud_PushReadiness_NoCandidate_IsReadyButNotArmed()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_NoCandidate_IsReadyButNotArmed");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
+
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
+                Assert.That(playerHud.CanStartActionThisTick, Is.True);
+                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiAccess_PlayerHud_PushReadiness_WithCandidate_IsArmed()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_WithCandidate_IsArmed");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                        CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0))));
+
+                Assert.That(host.UiAccess.CommandGateway.SetHeldMoveDirection(GameplayUiDirection.Right).Accepted, Is.True);
+
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(playerHud.IsAvailable, Is.True);
+                Assert.That(playerHud.CanStartAnyActionThisTick, Is.True);
+                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PushReadiness_ActionLock_DisablesPush");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                        CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)),
+                    playerControlTiming: CreateRecoveryTimingSettings(
+                        pushExecuteDelayTicks: 1,
+                        pushInputLockDurationTicks: 3)));
+
+                Assert.That(host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right).Accepted, Is.True);
+
+                var startTick = host.InputHost.RunSingleTick();
+                var executeTick = host.InputHost.RunSingleTick();
+                var playerHud = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(startTick, Is.Not.Null);
+                Assert.That(executeTick, Is.Not.Null);
+                Assert.That(playerHud.ActiveActionKind, Is.EqualTo(GameplayUiActionKind.Push));
+                Assert.That(playerHud.IsActionInRecoveryPhase, Is.True);
+                Assert.That(playerHud.CanStartAnyActionThisTick, Is.False);
+                Assert.That(playerHud.HasExplicitPushCandidateInCurrentDirection, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayUiAccess_PlayerHud_PreviewUsesPendingUiPushDirectionOverKeyboardDirection()
+        {
+            var hostObject = new GameObject("GameplayUiAccess_PlayerHud_PreviewUsesPendingUiPushDirectionOverKeyboardDirection");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(
+                    new[]
+                    {
+                        CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), facing: Direction.Right),
+                        CreateBoxEntity(new SurfaceCell(FaceId.Floor, 1, 0), BoxCapabilities.Push),
+                    },
+                    boardBounds: new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(2, 0))));
+
+                host.InputHost.SetRawMoveInput(Vector2.left);
+                var beforeUiPush = host.UiAccess.QueryFacade.PlayerHud.Read();
+                var pushAcceptance = host.UiAccess.CommandGateway.RequestPush(GameplayUiDirection.Right);
+                var afterUiPush = host.UiAccess.QueryFacade.PlayerHud.Read();
+
+                Assert.That(beforeUiPush.HasExplicitPushCandidateInCurrentDirection, Is.False);
+                Assert.That(pushAcceptance.Accepted, Is.True);
+                Assert.That(afterUiPush.CanStartAnyActionThisTick, Is.True);
+                Assert.That(afterUiPush.HasExplicitPushCandidateInCurrentDirection, Is.True);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(hostObject);
+            }
+        }
+
         private static GameplaySceneHostConfiguration CreateConfiguration(
             EntityState[] initialEntities,
             StageObjectiveRuntimeDefinition objectiveDefinition = null,
@@ -392,7 +526,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var ticksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
             return new PlayerControlTimingSettings
             {
-                PushContactThresholdSeconds = 0f,
                 PushExecuteDelaySeconds = pushExecuteDelayTicks / (float)ticksPerSecond,
                 PushInputLockDurationSeconds = pushInputLockDurationTicks / (float)ticksPerSecond,
             };

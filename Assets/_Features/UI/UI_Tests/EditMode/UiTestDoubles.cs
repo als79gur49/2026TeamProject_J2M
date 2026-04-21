@@ -16,9 +16,14 @@ namespace Game.Feature.UI.Tests
 
         public int RequestFlipCallCount { get; private set; }
 
+        public int RequestPushCallCount { get; private set; }
+
         public int SetHeldMoveDirectionCallCount { get; private set; }
 
         public Func<GameplayUiDirection, GameplayCommandAcceptance> OnRequestFlip { get; set; } =
+            _ => GameplayCommandAcceptance.Accept();
+
+        public Func<GameplayUiDirection, GameplayCommandAcceptance> OnRequestPush { get; set; } =
             _ => GameplayCommandAcceptance.Accept();
 
         public Func<GameplayUiDirection, GameplayCommandAcceptance> OnSetHeldMoveDirection { get; set; } =
@@ -43,6 +48,12 @@ namespace Game.Feature.UI.Tests
         {
             RequestFlipCallCount++;
             return OnRequestFlip(direction);
+        }
+
+        public GameplayCommandAcceptance RequestPush(GameplayUiDirection direction)
+        {
+            RequestPushCallCount++;
+            return OnRequestPush(direction);
         }
     }
 

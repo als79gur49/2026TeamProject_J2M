@@ -2,7 +2,7 @@
   "version": 1,
   "overrides": [
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.PlayerMovementPlayModeTests.PlayerMove_PlayMode_PushInputStartsSlidingBoxWithoutMovingPlayer",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.PlayMode.PlayerMovementPlayModeTests.PlayerMove_PlayMode_PushStartedEdgeOnly_HeldKeyDoesNotAutoRetrigger",
       "category": "Core",
       "contracts": [
         "interaction_push",
@@ -894,7 +894,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_BufferedMove_DoesNotAccumulatePushContact",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushWithoutAdjacentPushTarget_RemainsNoOp",
       "category": "Core",
       "contracts": [
         "interaction_push",
@@ -915,7 +915,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_DirectionChange_ResetsPushContact",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushAgainstBlockedPushBox_EmitsPreMovementRejection",
       "category": "Core",
       "contracts": [
         "interaction_push",
@@ -935,7 +935,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_FlipStartsActionAndRetainsPriorityOverPush",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_FlipStartsActionAgainstFlipCapableBox",
       "category": "Core",
       "contracts": [
         "interaction_push",
@@ -946,7 +946,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_HoldAgainstSameBox_TriggersPushAtThreshold",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPush_StartsImmediatelyAgainstAdjacentPushBox",
       "category": "Core",
       "contracts": [
         "interaction_push",
@@ -956,7 +956,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_InputRelease_ResetsPushContact",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Scenario.PlayerControlScenarioTests.PlayerControl_ExplicitPushWithoutDirection_RemainsNoOp",
       "category": "Core",
       "contracts": [
         "interaction_push",

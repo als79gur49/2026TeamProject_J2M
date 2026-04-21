@@ -226,7 +226,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
         [Category("Core")]
         public void Replay_PlayerControlState_IsIncludedInHashTraceAndReplayDump()
         {
-            var playerLogic = CreateThresholdPushPlayerLogic(entityId: 10, pushContactThresholdTicks: 2);
+            var playerLogic = CreatePlayerLogicWithActionTiming(entityId: 10);
             var harness = new TickReplayHarness();
             var firstRun = harness.Run(
                 CreateWorldState(new[]
@@ -240,8 +240,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(2),
+                    new TickInput(3),
                 });
             var secondRun = harness.Run(
                 CreateWorldState(new[]
@@ -251,12 +252,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 }),
                 new IEntityLogic[]
                 {
-                    CreateThresholdPushPlayerLogic(entityId: 10, pushContactThresholdTicks: 2),
+                    CreatePlayerLogicWithActionTiming(entityId: 10),
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                    new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                    new TickInput(2),
+                    new TickInput(3),
                 });
 
             CollectionAssert.AreEqual(
@@ -270,10 +272,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 secondRun.Select(frame => frame.PlayerDamageDump).ToArray());
             Assert.That(firstRun[0].Trace, Does.Contain("Final.PlayerControl"));
             Assert.That(firstRun[0].Trace, Does.Contain("Final.PlayerDamage"));
-            Assert.That(firstRun[0].PlayerControlDump, Does.Contain("E=10|Cooldown=0|NextMoveAllowed=0|PushTicks=1|Target=30|Direction=Right"));
-            Assert.That(firstRun[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed=0"));
-            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("E=10|Cooldown=0|NextMoveAllowed=0|PushTicks=0|Target=0|Direction=None"));
-            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=2|Execute=3|Recovery=3|Attempted=0"));
+            Assert.That(firstRun[0].Trace, Does.Not.Contain("PushTicks="));
+            Assert.That(firstRun[0].PlayerControlDump, Does.Not.Contain("PushTicks="));
+            Assert.That(firstRun[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=2|Recovery=2|Attempted=0"));
+            Assert.That(firstRun[1].PlayerControlDump, Does.Not.Contain("PushTicks="));
+            Assert.That(firstRun[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=2|Recovery=2|Attempted=1"));
+            Assert.That(firstRun[2].PlayerControlDump, Does.Not.Contain("PushTicks="));
+            Assert.That(firstRun[2].PlayerControlDump, Does.Contain("Action=None|ActionSeq=0|ActionDirection=None|ActionTarget=0|Start=0|Execute=0|Recovery=0|Attempted=0"));
         }
 
         [Test]
@@ -296,7 +301,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 {
                     new PlayerLogic(
                         10,
-                        pushContactThresholdTicks: 1,
                         pushWindupTicks: snapshot.PushWindupTicks,
                         pushRecoveryTicks: snapshot.PushRecoveryTicks,
                         flipWindupTicks: snapshot.FlipWindupTicks,
@@ -304,14 +308,13 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 },
                 new[]
                 {
-                    new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
+                    new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                     new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
                 });
 
             Assert.That(frames[0].Trace, Does.Contain("Final.PlayerControl"));
             Assert.That(frames[0].Trace, Does.Contain("Final.PlayerDamage"));
             Assert.That(frames[0].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
-            Assert.That(frames[0].PlayerDamageDump, Does.Contain("E=10|NextDamageAllowed=0"));
             Assert.That(frames[1].PlayerControlDump, Does.Contain("Action=Push|ActionSeq=1|ActionDirection=Right|ActionTarget=30|Start=1|Execute=3|Recovery=5|Attempted=0"));
         }
 
@@ -1960,25 +1963,22 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId)
         {
-            return CreateThresholdPushPlayerLogic(
+            return CreatePlayerLogicWithActionTiming(
                 entityId,
-                pushContactThresholdTicks: 1,
                 pushWindupTicks: 0,
                 pushRecoveryTicks: 0);
         }
 
         private static PlayerLogic CreateImmediateFlipPlayerLogic(int entityId)
         {
-            return CreateThresholdPushPlayerLogic(
+            return CreatePlayerLogicWithActionTiming(
                 entityId,
-                pushContactThresholdTicks: 1,
                 flipWindupTicks: 0,
                 flipRecoveryTicks: 0);
         }
 
-        private static PlayerLogic CreateThresholdPushPlayerLogic(
+        private static PlayerLogic CreatePlayerLogicWithActionTiming(
             int entityId,
-            int pushContactThresholdTicks,
             int pushWindupTicks = 1,
             int pushRecoveryTicks = 0,
             int flipWindupTicks = 1,
@@ -1986,7 +1986,6 @@ namespace Game.Feature.Gameplay.Tests.Replay
         {
             return new PlayerLogic(
                 entityId,
-                pushContactThresholdTicks,
                 pushWindupTicks,
                 pushRecoveryTicks,
                 flipWindupTicks,

@@ -150,7 +150,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
             var logic = new PlayerLogic(
                 entityId: 10,
-                pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                 pushWindupTicks: snapshot.PushWindupTicks,
                 pushRecoveryTicks: snapshot.PushRecoveryTicks,
                 flipWindupTicks: snapshot.FlipWindupTicks,
@@ -439,7 +438,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_HoldAgainstSameBox_AccumulatesContactTicks()
+        public void PlayerControlStateLogic_PushPressedAgainstPushBox_StartsPushImmediately()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -452,28 +451,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                worldState.CreateWriteContext(),
-                updates,
-                transitions);
-            logic.CommitPreMovementState(
-                worldState.CreateSnapshot(),
-                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.EqualTo(2));
-            Assert.That(controlState.pushTargetEntityId, Is.EqualTo(20));
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.Right));
-            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.False);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(controlState.activeAction.direction, Is.EqualTo(Direction.Right));
+            Assert.That(controlState.activeAction.targetEntityId, Is.EqualTo(20));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick && transition.CurrentKind == PlayerActionKind.Push), Is.True);
         }
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_MoveIntoUnit_DoesNotAccumulatePushContact()
+        public void PlayerControlStateLogic_MoveIntoUnit_DoesNotStartPushAction()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -492,9 +484,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.Zero);
-            Assert.That(controlState.pushTargetEntityId, Is.Zero);
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
         }
@@ -521,7 +510,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
-            Assert.That(controlState.pushContactTicks, Is.Zero);
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
         }
 
@@ -569,7 +557,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var logic = new PlayerControlStateLogic(
                 entityId: 10,
-                pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                 pushWindupTicks: 1,
                 pushRecoveryTicks: 0,
                 flipWindupTicks: 2,
@@ -608,7 +595,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             });
             var logic = new PlayerControlStateLogic(
                 entityId: 10,
-                pushContactThresholdTicks: GameplayTimingProfile.DefaultPlayerPushContactThresholdTicks,
                 pushWindupTicks: 1,
                 pushRecoveryTicks: 0,
                 flipWindupTicks: 2,
@@ -702,7 +688,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_InputRelease_ResetsContact()
+        public void PlayerControlStateLogic_PushWithoutDirection_IsNoOp()
         {
             var worldState = CreateWorldState(new[]
             {
@@ -715,64 +701,94 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                worldState.CreateWriteContext(),
-                updates,
-                transitions);
-            logic.CommitPreMovementState(
-                worldState.CreateSnapshot(),
-                new TickInput(2),
+                new TickInput(1, PlayerTickCommand.Create(Direction.None, pushPressed: true)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.Zero);
-            Assert.That(controlState.pushTargetEntityId, Is.Zero);
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
         }
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_TargetChange_ResetsAccumulation()
+        public void PlayerControlStateLogic_PushWithDirectionAndNoAdjacentPushableBox_IsNoOp()
         {
-            var firstWorld = CreateWorldState(new[]
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
-                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 1, 0)),
             });
             var logic = new PlayerControlStateLogic(entityId: 10);
             var updates = new List<string>();
             var transitions = new List<PlayerActionTransition>();
 
             logic.CommitPreMovementState(
-                firstWorld.CreateSnapshot(),
-                new TickInput(1, PlayerTickCommand.Move(Direction.Right)),
-                firstWorld.CreateWriteContext(),
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                worldState.CreateWriteContext(),
                 updates,
                 transitions);
 
-            var secondWorld = CreateWorldState(new[]
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+            Assert.That(updates, Has.None.Contains("ExplicitPushNotStartable"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_PushAgainstAdjacentButNotStartablePushBox_RecordsPreMovementRejection()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
+                CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                CreateWall(entityId: 90, position: new SurfaceCell(FaceId.Floor, 2, 0)),
+            });
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
+
+            logic.CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                worldState.CreateWriteContext(),
+                updates,
+                transitions);
+
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
+            Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.StartedThisTick), Is.False);
+            Assert.That(
+                updates,
+                Has.Some.EqualTo("MovementRejected|Stage=PreMovement|Source=10|Reason=ExplicitPushNotStartable|Direction=Right|Target=20"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void PlayerControlStateLogic_PushPressed_StartsAgainstCurrentTarget()
+        {
+            var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 30, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
             });
-            secondWorld.CreateWriteContext().SetPlayerControlState(
-                10,
-                firstWorld.CreateSnapshot().TryGetPlayerControlState(10, out var priorState)
-                    ? priorState
-                    : default);
+            var logic = new PlayerControlStateLogic(entityId: 10);
+            var updates = new List<string>();
+            var transitions = new List<PlayerActionTransition>();
 
             logic.CommitPreMovementState(
-                secondWorld.CreateSnapshot(),
-                new TickInput(2, PlayerTickCommand.Move(Direction.Right)),
-                secondWorld.CreateWriteContext(),
+                worldState.CreateSnapshot(),
+                new TickInput(1, PlayerTickCommand.Push(Direction.Right)),
+                worldState.CreateWriteContext(),
                 updates,
                 transitions);
 
-            Assert.That(secondWorld.CreateSnapshot().TryGetPlayerControlState(10, out var updatedState), Is.True);
-            Assert.That(updatedState.pushContactTicks, Is.EqualTo(1));
-            Assert.That(updatedState.pushTargetEntityId, Is.EqualTo(30));
+            Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var updatedState), Is.True);
+            Assert.That(updatedState.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+            Assert.That(updatedState.activeAction.targetEntityId, Is.EqualTo(30));
         }
 
         [Test]
@@ -829,21 +845,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_BufferedMove_PreservesExistingPushContactWithoutAccumulating()
+        public void PlayerControlStateLogic_BufferedMove_DoesNotStartPushWithoutFreshPress()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
                 CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
             });
-            worldState.CreateWriteContext().SetPlayerControlState(
-                10,
-                new PlayerControlState
-                {
-                    pushContactTicks = 1,
-                    pushTargetEntityId = 20,
-                    pushDirection = Direction.Right,
-                });
             var logic = new PlayerControlStateLogic(entityId: 10);
             var updates = new List<string>();
             var transitions = new List<PlayerActionTransition>();
@@ -856,29 +864,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.EqualTo(1));
-            Assert.That(controlState.pushTargetEntityId, Is.EqualTo(20));
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.Right));
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(controlState.nextMoveAllowedTick, Is.Zero);
         }
 
         [Test]
         [Category("Extended")]
-        public void PlayerControlStateLogic_BufferedMove_ClearsStalePushContactWhenTargetIsGone()
+        public void PlayerControlStateLogic_BufferedMove_WithoutTarget_RemainsIdle()
         {
             var worldState = CreateWorldState(new[]
             {
                 CreateUnit(entityId: 10, position: new SurfaceCell(FaceId.Floor, 0, 0)),
             });
-            worldState.CreateWriteContext().SetPlayerControlState(
-                10,
-                new PlayerControlState
-                {
-                    pushContactTicks = 1,
-                    pushTargetEntityId = 20,
-                    pushDirection = Direction.Right,
-                });
             var logic = new PlayerControlStateLogic(entityId: 10);
             var updates = new List<string>();
             var transitions = new List<PlayerActionTransition>();
@@ -891,9 +888,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 transitions);
 
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.Zero);
-            Assert.That(controlState.pushTargetEntityId, Is.Zero);
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
+            Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
         }
 
         [Test]
@@ -934,7 +929,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
             Assert.That(controlState.activeAction.kind, Is.EqualTo(PlayerActionKind.None));
             Assert.That(controlState.nextMoveAllowedTick, Is.EqualTo(3));
-            Assert.That(controlState.pushContactTicks, Is.Zero);
             Assert.That(transitions.Any(transition => transition.EntityId == 10 && transition.CanceledThisTick), Is.True);
         }
 
@@ -967,7 +961,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
             var logic = new PlayerControlStateLogic(
                 entityId: 10,
-                pushContactThresholdTicks: 1,
                 pushWindupTicks: 1,
                 pushRecoveryTicks: 3,
                 flipWindupTicks: 1,
@@ -977,7 +970,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(3, PlayerTickCommand.Move(Direction.Up)),
+                new TickInput(3, PlayerTickCommand.Push(Direction.Left)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
@@ -985,7 +978,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(4, PlayerTickCommand.Flip(Direction.Left)),
+                new TickInput(4, PlayerTickCommand.Push(Direction.Left)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
@@ -993,7 +986,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(5, PlayerTickCommand.Move(Direction.Left)),
+                new TickInput(5, PlayerTickCommand.Push(Direction.Left)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
@@ -1018,7 +1011,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             logic.CommitPreMovementState(
                 worldState.CreateSnapshot(),
-                new TickInput(7, PlayerTickCommand.Move(Direction.Left)),
+                new TickInput(7, PlayerTickCommand.Push(Direction.Left)),
                 worldState.CreateWriteContext(),
                 updates,
                 transitions);
@@ -1060,7 +1053,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 });
             var logic = new PlayerControlStateLogic(
                 entityId: 10,
-                pushContactThresholdTicks: 1,
                 pushWindupTicks: 1,
                 pushRecoveryTicks: 3,
                 flipWindupTicks: 1,
@@ -1189,6 +1181,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EntityState CreateWall(int entityId, SurfaceCell position)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = position,
+                hp = 1,
+                maxHp = 1,
+                teamId = 0,
+                type = EntityType.None,
+                state = EntityPhaseState.Idle,
+                facing = Direction.None,
+            };
+        }
+
         // Pending-action fixtures must remain executable under CanPendingActionStillExecute.
         private static WorldState CreateValidPendingPushActionWorldState(
             int playerEntityId,
@@ -1242,9 +1249,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             int expectedSequence)
         {
             Assert.That(worldState.CreateSnapshot().TryGetPlayerControlState(10, out var controlState), Is.True);
-            Assert.That(controlState.pushContactTicks, Is.Zero);
-            Assert.That(controlState.pushTargetEntityId, Is.Zero);
-            Assert.That(controlState.pushDirection, Is.EqualTo(Direction.None));
             Assert.That(controlState.activeAction.kind, Is.EqualTo(expectedKind));
             Assert.That(controlState.activeAction.sequence, Is.EqualTo(expectedSequence));
             Assert.That(controlState.activeAction.executionAttempted, Is.True);
