@@ -18,6 +18,9 @@ namespace Game.Feature.UI.Tests
 {
     public sealed class TutorialSceneUiContractTests
     {
+        private const string GameplayAudioMapAssetPath =
+            "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
+        private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
         private const string UiAudioScenePath = "Assets/Scenes/UIAudioScene.unity";
 
@@ -25,17 +28,36 @@ namespace Game.Feature.UI.Tests
         [Category("Extended")]
         public void TutorialScene_UsesSingleCanonicalBootstrapPath_WithoutSerializedUiResidue()
         {
-            AssertCanonicalBootstrapScene(TutorialScenePath, "TutorialSceneBootstrapRoot");
+            AssertCanonicalBootstrapScene(
+                TutorialScenePath,
+                "TutorialSceneBootstrapRoot",
+                GameplayAudioMapAssetPath);
         }
 
         [Test]
         [Category("Extended")]
         public void UiAudioScene_UsesCoLocatedAudioRuntimeInstaller_OnCanonicalBootstrapRoot()
         {
-            AssertCanonicalBootstrapScene(UiAudioScenePath, "UIAudioSceneBootstrapRoot");
+            AssertCanonicalBootstrapScene(
+                UiAudioScenePath,
+                "UIAudioSceneBootstrapRoot",
+                GameplayAudioMapAssetPath);
         }
 
-        private static void AssertCanonicalBootstrapScene(string scenePath, string expectedRootName)
+        [Test]
+        [Category("Extended")]
+        public void CombinedGameplayShowcaseScene_UsesCoLocatedUiAudioDisplayBootstrap_OnCanonicalBootstrapRoot()
+        {
+            AssertCanonicalBootstrapScene(
+                CombinedScenePath,
+                "Box Slide Test Scene",
+                GameplayAudioMapAssetPath);
+        }
+
+        private static void AssertCanonicalBootstrapScene(
+            string scenePath,
+            string expectedRootName,
+            string expectedGameplayAudioMapAssetPath)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -76,6 +98,7 @@ namespace Game.Feature.UI.Tests
                 var serializedInstaller = new SerializedObject(uiInstaller);
                 var serializedAudioInstaller = new SerializedObject(audioInstaller);
                 var serializedBgmBootstrap = new SerializedObject(bgmBootstrap);
+                var serializedShowcaseInstaller = new SerializedObject(showcaseInstaller);
                 Assert.That(serializedInstaller.FindProperty("_sceneHost").objectReferenceValue, Is.SameAs(sceneHost));
                 Assert.That(serializedInstaller.FindProperty("_rootView").objectReferenceValue, Is.Null);
                 Assert.That(serializedInstaller.FindProperty("_hudPrefab").objectReferenceValue, Is.Not.Null);
@@ -98,6 +121,12 @@ namespace Game.Feature.UI.Tests
                     serializedBgmBootstrap.FindProperty("audioRuntimeInstaller").objectReferenceValue,
                     Is.SameAs(audioInstaller));
                 Assert.That(serializedBgmBootstrap.FindProperty("persistentRoot").objectReferenceValue, Is.Null);
+                var serializedGameplayAudioMap = serializedShowcaseInstaller.FindProperty("gameplayAudioMap");
+                Assert.That(serializedGameplayAudioMap, Is.Not.Null);
+                Assert.That(serializedGameplayAudioMap.objectReferenceValue, Is.Not.Null);
+                Assert.That(
+                    AssetDatabase.GetAssetPath(serializedGameplayAudioMap.objectReferenceValue),
+                    Is.EqualTo(expectedGameplayAudioMapAssetPath));
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
                 AssertSceneContainsNoSerializedComponent<Canvas>(rootObjects);

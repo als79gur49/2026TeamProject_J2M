@@ -1308,6 +1308,7 @@ MonoBehaviour:
       Center: {x: 0.5, y: 0.5}
       Scale: 1.05
   boardSurfaceTexture: {fileID: 2800000, guid: bbcd0420d9696f54da16e6124742b53c, type: 3}
+  gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
   faceSeamGap: 3.5
   stageDefinition: {fileID: 11400000, guid: 17f422e552184a24d8a666d77d93ab18, type: 2}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
