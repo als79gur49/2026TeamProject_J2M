@@ -1,8 +1,10 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
 using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Stages;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
@@ -194,16 +196,27 @@ namespace Game.Feature.UI.Tests
         public void GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen()
         {
             var hostObject = new GameObject("GameplayUiFlowInstaller_RunSingleTick_TransitionsStageClearIntoCanonicalStageResultScreen");
+            StageContentEntry contentEntry = null;
+            StagePresentationDefinition presentationDefinition = null;
+            StageClearEvaluationDefinition clearEvaluationDefinition = null;
+            StageRewardDefinition rewardDefinition = null;
+            StageProgressionDefinition progressionDefinition = null;
 
             try
             {
+                contentEntry = CreateStageContentEntry(
+                    out presentationDefinition,
+                    out clearEvaluationDefinition,
+                    out rewardDefinition,
+                    out progressionDefinition);
                 var host = hostObject.AddComponent<GameplaySceneHost>();
                 host.Initialize(CreateConfiguration(
                     new[]
                     {
                         CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 0), Direction.Up),
                     },
-                    CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0))));
+                    CreateSingleCellObjective(new SurfaceCell(FaceId.Floor, 0, 0)),
+                    contentEntry));
 
                 var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
                 UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
@@ -216,9 +229,19 @@ namespace Game.Feature.UI.Tests
                 Assert.That(result, Is.Not.Null);
                 Assert.That(result.ObjectiveResult.ClearedThisTick, Is.True);
                 Assert.That(host.CurrentObjectiveResult.IsCleared, Is.True);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion, Is.Not.Null);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.ClearResult.WasCleared, Is.True);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.RewardGrantResult.AnyGranted, Is.True);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.UpdatedProgress.HasCleared, Is.True);
+                Assert.That(host.UiAccess.PresentationFeed.CurrentStageCompletion.UpdatedProgress.ClearCount, Is.EqualTo(1));
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
                 Assert.That(installer.StageResultScreenView, Is.Not.Null);
                 Assert.That(installer.StageResultScreenView.transform.parent, Is.EqualTo(installer.ScreenLayerView.ContentRoot));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(1));
+                Assert.That(installer.PopupController.TopPopup.HasValue, Is.True);
+                Assert.That(installer.PopupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Reward));
+
+                installer.RewardPopupView.ClickAcknowledge();
                 Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
 
                 installer.StageResultScreenView.ClickContinue();
@@ -229,6 +252,11 @@ namespace Game.Feature.UI.Tests
             finally
             {
                 DestroySupportObjects(hostObject);
+                DestroyImmediateIfExists(contentEntry);
+                DestroyImmediateIfExists(presentationDefinition);
+                DestroyImmediateIfExists(clearEvaluationDefinition);
+                DestroyImmediateIfExists(rewardDefinition);
+                DestroyImmediateIfExists(progressionDefinition);
             }
         }
 
@@ -248,7 +276,8 @@ namespace Game.Feature.UI.Tests
 
         private static GameplaySceneHostConfiguration CreateConfiguration(
             EntityState[] initialEntities,
-            StageObjectiveRuntimeDefinition objectiveRuntimeDefinition = null)
+            StageObjectiveRuntimeDefinition objectiveRuntimeDefinition = null,
+            StageContentEntry stageContentEntry = null)
         {
             return new GameplaySceneHostConfiguration
             {
@@ -257,9 +286,88 @@ namespace Game.Feature.UI.Tests
                 InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(1, 1)),
                 InitialEntities = initialEntities,
                 InitialTopology = new CubeTopologyState(FaceId.Floor),
+                StageContentEntry = stageContentEntry,
                 ObjectiveRuntimeDefinition = objectiveRuntimeDefinition ?? StageObjectiveRuntimeDefinition.Disabled,
                 PlayerEntityId = 10,
             };
+        }
+
+        private static StageContentEntry CreateStageContentEntry(
+            out StagePresentationDefinition presentationDefinition,
+            out StageClearEvaluationDefinition clearEvaluationDefinition,
+            out StageRewardDefinition rewardDefinition,
+            out StageProgressionDefinition progressionDefinition)
+        {
+            var stageId = StageId.CreateOrThrow("ui-flow-clear");
+            var entry = ScriptableObject.CreateInstance<StageContentEntry>();
+            entry.AssignStageId(stageId);
+
+            presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
+            SetPrivateField(presentationDefinition, "displayName", "UI Flow Clear");
+            SetPrivateField(presentationDefinition, "resultTitle", "Clear Confirmed");
+            SetPrivateField(presentationDefinition, "resultSummaryText", "Mapped from StageCompletionReadModel");
+            SetPrivateField(presentationDefinition, "resultDetailText", "Reward popup and stage result share the same completion pipeline.");
+            SetPrivateField(presentationDefinition, "resultContinueLabel", "Continue");
+
+            clearEvaluationDefinition = ScriptableObject.CreateInstance<StageClearEvaluationDefinition>();
+            SetPrivateField(clearEvaluationDefinition, "baseScore", 500);
+            SetPrivateField(clearEvaluationDefinition, "starThresholds", new[]
+            {
+                new StageStarThresholdDefinition
+                {
+                    StarCount = 3,
+                    MinimumScore = 500,
+                },
+            });
+            SetPrivateField(clearEvaluationDefinition, "rankThresholds", new[]
+            {
+                new StageRankThresholdDefinition
+                {
+                    RankId = "S",
+                    MinimumScore = 500,
+                },
+            });
+
+            rewardDefinition = ScriptableObject.CreateInstance<StageRewardDefinition>();
+            var clearRewardRule = new StageRewardRuleDefinition
+            {
+                TriggerKind = StageRewardTriggerKind.Clear,
+                GrantOnce = true,
+                Rewards = new[]
+                {
+                    new RewardEntry
+                    {
+                        RewardId = "Crystal",
+                        Amount = 2,
+                    },
+                },
+            };
+            clearRewardRule.SetRuleId("first-clear");
+            clearRewardRule.SetDeprecatedRuleIds(System.Array.Empty<string>());
+            SetPrivateField(rewardDefinition, "rules", new[] { clearRewardRule });
+
+            progressionDefinition = ScriptableObject.CreateInstance<StageProgressionDefinition>();
+
+            entry.AssignPresentationDefinition(presentationDefinition);
+            entry.AssignClearEvaluationDefinition(clearEvaluationDefinition);
+            entry.AssignRewardDefinition(rewardDefinition);
+            entry.AssignProgressionDefinition(progressionDefinition);
+            return entry;
+        }
+
+        private static void SetPrivateField(object target, string fieldName, object value)
+        {
+            var field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}' on {target.GetType().Name}.");
+            field.SetValue(target, value);
+        }
+
+        private static void DestroyImmediateIfExists(Object value)
+        {
+            if (value != null)
+            {
+                Object.DestroyImmediate(value);
+            }
         }
 
         private static StageObjectiveRuntimeDefinition CreateSingleCellObjective(SurfaceCell goalCell)

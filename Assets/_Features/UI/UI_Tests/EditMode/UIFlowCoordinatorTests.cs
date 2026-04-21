@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -210,19 +211,37 @@ namespace Game.Feature.UI.Tests
                 screenRuntimeFactory,
                 presentationSource,
                 out var screenController,
-                out _);
+                out var popupController);
 
             coordinator.Initialize();
             Assert.That(coordinator.OpenHelpScreen(), Is.True);
             Assert.That(screenController.BackStackCount, Is.EqualTo(1));
 
+            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
             Assert.That(screenController.BackStackCount, Is.EqualTo(0));
+            var stageResultRecord = screenRuntimeFactory.CreatedRuntimes.Find(record => record.Request.ScreenId == ScreenId.StageResult);
+            var stagePayload = stageResultRecord.Request.Payload as StageResultScreenPayload;
+            Assert.That(stagePayload, Is.Not.Null);
+            Assert.That(stagePayload.TitleText, Is.EqualTo("Payload Title"));
+            Assert.That(stagePayload.SummaryText, Does.Contain("Payload Stage"));
+            Assert.That(stagePayload.DetailText, Does.Contain("Tick 9"));
+            Assert.That(stagePayload.ContinueLabel, Is.EqualTo("Collect"));
+            Assert.That(screenController.CurrentEntry.HasValue, Is.True);
+            Assert.That(screenController.CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.StageResult));
+            Assert.That(screenController.CurrentEntry.Value.Payload, Is.TypeOf<StageResultScreenPayload>());
+            Assert.That(popupController.TopPopup.HasValue, Is.True);
+            Assert.That(popupController.TopPopup.Value.PopupId, Is.EqualTo(PopupId.Reward));
+            var rewardPayload = popupController.TopPopup.Value.Payload as RewardPopupPayload;
+            Assert.That(rewardPayload, Is.Not.Null);
+            Assert.That(rewardPayload.Items.Count, Is.EqualTo(1));
+            Assert.That(rewardPayload.SummaryText, Does.Contain("First-clear"));
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
 
+            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
             presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
         }
@@ -276,6 +295,67 @@ namespace Game.Feature.UI.Tests
                             actionSequence: 0,
                             resolutionKind: Game.Feature.Gameplay.UIAccess.Models.GameplayUiActionResolutionKind.None)),
                 });
+        }
+
+        private static StageCompletionReadModel CreateStageCompletionReadModel(int tickIndex, bool includeReward)
+        {
+            var stageId = StageId.CreateOrThrow("payload-stage");
+            var runId = new StageRunId("run-01");
+            var clearResult = new StageClearResult(
+                stageId,
+                runId,
+                StageTerminalReason.Cleared,
+                wasCleared: true,
+                tickIndex,
+                new StageObjectiveProgressSnapshot(true, true, true, true, 1, 1),
+                System.Array.Empty<StageSessionMetricValue>(),
+                System.Array.Empty<StageChallengeRuntimeState>());
+            var evaluationResult = new StageClearEvaluationResult(
+                stageId,
+                runId,
+                wasCleared: true,
+                score: 120,
+                starsEarned: 3,
+                rankId: "S",
+                challengeResults: System.Array.Empty<StageChallengeEvaluationResult>());
+            var rewardId = new RewardGrantId($"{stageId.Value}:clear");
+            var rewardResult = includeReward
+                ? new RewardGrantResult(
+                    stageId,
+                    runId,
+                    new[]
+                    {
+                        new RewardGrantEntry(
+                            "clear",
+                            new RewardEntry
+                            {
+                                RewardId = "Crystal",
+                                Amount = 2,
+                            },
+                            rewardId),
+                    },
+                    new[] { "clear" },
+                    new[] { rewardId },
+                    wasFirstClear: true)
+                : new RewardGrantResult(
+                    stageId,
+                    runId,
+                    System.Array.Empty<RewardGrantEntry>(),
+                    System.Array.Empty<string>(),
+                    System.Array.Empty<RewardGrantId>(),
+                    wasFirstClear: false);
+
+            return new StageCompletionReadModel(
+                stageId,
+                "Payload Stage",
+                "Payload Title",
+                string.Empty,
+                string.Empty,
+                "Collect",
+                clearResult,
+                evaluationResult,
+                rewardResult,
+                PlayerStageProgress.CreateEmpty(stageId));
         }
     }
 }

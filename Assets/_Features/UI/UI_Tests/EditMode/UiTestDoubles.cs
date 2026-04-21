@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Queries;
+using Game.Feature.Stages;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -112,6 +113,8 @@ namespace Game.Feature.UI.Tests
         public GameplayPresentationState CurrentState { get; private set; } =
             new GameplayPresentationState(new GameplayUiTopology(GameplayUiFace.Floor), false, false, false);
 
+        public StageCompletionReadModel CurrentStageCompletion { get; private set; }
+
         public void PublishFrame(GameplayPresentationFrame frame)
         {
             FramePublished?.Invoke(frame);
@@ -121,6 +124,11 @@ namespace Game.Feature.UI.Tests
         {
             CurrentState = state;
             StateChanged?.Invoke(state);
+        }
+
+        public void PublishStageCompletion(StageCompletionReadModel readModel)
+        {
+            CurrentStageCompletion = readModel;
         }
     }
 
@@ -473,6 +481,8 @@ namespace Game.Feature.UI.Tests
 
         public UITickEventBatch CurrentTickEvents { get; private set; } = UITickEventBatch.Empty;
 
+        public StageCompletionReadModel CurrentStageCompletion { get; private set; }
+
         public void PublishSnapshot(UIPresentationSnapshot snapshot)
         {
             CurrentSnapshot = snapshot;
@@ -483,6 +493,11 @@ namespace Game.Feature.UI.Tests
         {
             CurrentTickEvents = tickEvents;
             _tickEventsApplied?.Invoke(tickEvents);
+        }
+
+        public void PublishStageCompletion(StageCompletionReadModel readModel)
+        {
+            CurrentStageCompletion = readModel;
         }
 
         public void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked)

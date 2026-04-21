@@ -279,8 +279,32 @@ namespace Game.Feature.UI.Flow
                 _lastStageClearedEventKey = tickEvent.Key;
                 ClosePopupsForScreenTransition();
                 _screenController.Clear();
-                _screenController.SetRoot(BuildStageResultRequest(batch.TickIndex));
+                OpenStageCompletionFlow();
                 return;
+            }
+        }
+
+        private void OpenStageCompletionFlow()
+        {
+            var readModel = _presentationSource.CurrentStageCompletion;
+            if (readModel == null)
+            {
+                throw new InvalidOperationException(
+                    "Stage clear tick events require a completion read model before UI flow transition.");
+            }
+
+            _screenController.SetRoot(new ScreenRequest(
+                ScreenId.StageResult,
+                StageCompletionStageResultPayloadMapper.Map(readModel),
+                ScreenId.StageResult.ToString()));
+
+            if (readModel.RewardGrantResult != null && readModel.RewardGrantResult.AnyGranted)
+            {
+                _popupController.Push(
+                    new PopupRequest(
+                        PopupId.Reward,
+                        StageCompletionRewardPopupPayloadMapper.Map(readModel)),
+                    out _);
             }
         }
 
@@ -310,18 +334,6 @@ namespace Game.Feature.UI.Flow
         private static ScreenRequest BuildSettingsRequest()
         {
             return new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString());
-        }
-
-        private static ScreenRequest BuildStageResultRequest(int tickIndex)
-        {
-            return new ScreenRequest(
-                ScreenId.StageResult,
-                new StageResultScreenPayload(
-                    "Stage Cleared",
-                    $"Tick {tickIndex} completed.",
-                    "Stage 7 validates terminal screen flow without widening gameplay-to-UI contracts.",
-                    "Continue"),
-                ScreenId.StageResult.ToString());
         }
     }
 }

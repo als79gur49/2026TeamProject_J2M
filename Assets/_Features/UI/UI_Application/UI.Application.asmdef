@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.UI.Application",
   "references": [
     "Game.Feature.Gameplay.UIAccess",
+    "Game.Feature.Stages",
     "Game.Feature.UI.HUD",
     "Game.Feature.UI.Screens",
     "Game.Feature.UI.Popups"

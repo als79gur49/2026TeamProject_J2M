@@ -2,6 +2,7 @@ using System;
 using Game.Feature.Gameplay.UIAccess.Contracts;
 using Game.Feature.Gameplay.UIAccess.Models;
 using Game.Feature.Gameplay.UIAccess.Presentation;
+using Game.Feature.Stages;
 
 namespace Game.Feature.UI.Application
 {
@@ -14,6 +15,8 @@ namespace Game.Feature.UI.Application
         UIPresentationSnapshot CurrentSnapshot { get; }
 
         UITickEventBatch CurrentTickEvents { get; }
+
+        StageCompletionReadModel CurrentStageCompletion { get; }
 
         void UpdateUiGameplayInputBlocked(bool isUiGameplayInputBlocked);
     }
@@ -60,6 +63,8 @@ namespace Game.Feature.UI.Application
         public UIPresentationSnapshot CurrentSnapshot { get; private set; }
 
         public UITickEventBatch CurrentTickEvents { get; private set; }
+
+        public StageCompletionReadModel CurrentStageCompletion => _presentationFeed.CurrentStageCompletion;
 
         public void Dispose()
         {
