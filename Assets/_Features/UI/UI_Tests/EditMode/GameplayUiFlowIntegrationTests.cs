@@ -63,6 +63,54 @@ namespace Game.Feature.UI.Tests
 
         [Test]
         [Category("Extended")]
+        public void GameplayUiFlowInstaller_HudPause_SettingsBack_ReturnsThroughFreshPausePopup_AndResumesOnlyOnResume()
+        {
+            var hostObject = new GameObject("GameplayUiFlowInstaller_HudPause_SettingsBack_ReturnsThroughFreshPausePopup_AndResumesOnlyOnResume");
+
+            try
+            {
+                var host = hostObject.AddComponent<GameplaySceneHost>();
+                host.Initialize(CreateConfiguration(new[]
+                {
+                    CreatePlayerEntity(new SurfaceCell(FaceId.Floor, 0, 1), Direction.Up),
+                }));
+
+                var installer = hostObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(host);
+
+                installer.HudView.ClickPause();
+                var originalPausePopup = installer.PausePopupView;
+
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+
+                originalPausePopup.ClickSettings();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+
+                installer.SettingsScreenView.ClickBack();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.PausePopupView, Is.Not.Null);
+                Assert.That(installer.PausePopupView, Is.Not.SameAs(originalPausePopup));
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.True);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
+
+                installer.PausePopupView.ClickResume();
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(installer.Ports.PauseService.IsPaused, Is.False);
+                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
+            }
+            finally
+            {
+                DestroySupportObjects(hostObject);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void GameplayUiFlowInstaller_ComposesObjectiveInfoTooltipAndRewardPolicies()
         {
             var hostObject = new GameObject("GameplayUiFlowInstaller_ComposesObjectiveInfoTooltipAndRewardPolicies");

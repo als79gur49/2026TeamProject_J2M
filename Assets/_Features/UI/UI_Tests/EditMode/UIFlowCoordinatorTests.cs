@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Reflection;
 using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
@@ -170,6 +171,170 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_PausePopupSettingsRequested_OpensSettingsWithoutResuming_AndMarksReturnMode()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out var screenController,
+                out var popupController);
+
+            coordinator.Initialize();
+
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(pauseService.ResumeCallCount, Is.EqualTo(0));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_PauseOriginSettingsBack_RestoresFreshPausePopupExactlyOnce_AndClearsReturnMode()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out var screenController,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            var initialPauseRuntime = popupRuntimeFactory.CreatedRuntimes[^1].Runtime;
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
+
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(pauseService.IsPaused, Is.True);
+            Assert.That(popupRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.PopupId == PopupId.Pause), Has.Count.EqualTo(2));
+            Assert.That(popupRuntimeFactory.CreatedRuntimes[^1].Runtime, Is.Not.SameAs(initialPauseRuntime));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_GameplayOriginSettingsBack_ReturnsDirectlyToGameplay_WithoutPauseRestore()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out var screenController,
+                out var popupController);
+
+            coordinator.Initialize();
+
+            Assert.That(coordinator.OpenSettingsScreen(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            Assert.That(pauseService.IsPaused, Is.False);
+        }
+
+        [Test]
+        public void UIFlowCoordinator_PausePopupClosed_IsResumeEquivalent_AndClearsReturnMode()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out _,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
+
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Closed);
+
+            Assert.That(pauseService.IsPaused, Is.False);
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_PauseOriginSettings_ForcedScreenTransition_ClearsReturnMode_AndDoesNotRestoreLaterPausePopup()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out var screenController,
+                out var popupController);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+
+            Assert.That(coordinator.OpenHelpScreen(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+            Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(popupController.PopupCount, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_PauseOriginSettings_StageClearAndDispose_ClearReturnMode()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out _);
+
+            try
+            {
+                coordinator.Initialize();
+                Assert.That(coordinator.RequestPausePopup(), Is.True);
+                popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+                Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("RestorePausePopupAfterBack"));
+
+                presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
+                Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+                Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+
+                Assert.That(coordinator.OpenSettingsScreen(), Is.True);
+                Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+                Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+
+                coordinator.Dispose();
+                Assert.That(ReadPauseReturnModeName(coordinator), Is.EqualTo("None"));
+            }
+            finally
+            {
+                coordinator.Dispose();
+            }
+        }
+
+        [Test]
         public void UIFlowCoordinator_TopmostTooltipRequest_IsSuppressedAcrossCoordinatorAndScreenActions()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -276,6 +441,13 @@ namespace Game.Feature.UI.Tests
                             actionSequence: 0,
                             resolutionKind: Game.Feature.Gameplay.UIAccess.Models.GameplayUiActionResolutionKind.None)),
                 });
+        }
+
+        private static string ReadPauseReturnModeName(UIFlowCoordinator coordinator)
+        {
+            var field = typeof(UIFlowCoordinator).GetField("_pauseReturnMode", BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            return field.GetValue(coordinator)?.ToString() ?? string.Empty;
         }
     }
 }
