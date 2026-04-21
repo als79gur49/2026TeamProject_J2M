@@ -6,7 +6,6 @@ using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Flow;
-using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using NUnit.Framework;
 using UnityEngine;
@@ -46,14 +45,6 @@ namespace Game.Feature.UI.Tests
                 installer.HelpScreenView.ClickBack();
                 Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
                 Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.True);
-
-                installer.HudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
-                Assert.That(installer.HudController.ActionBarViewModel.LastCommandResult.HasValue, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.LastCommandResult.Value.Accepted, Is.True);
-
-                host.InputHost.RunSingleTick();
-                Assert.That(host.UiAccess.PresentationFeed.CurrentState.HasBlockingPresentation, Is.True);
-                Assert.That(installer.HudController.ActionBarViewModel.IsInteractive, Is.False);
 
                 installer.HudView.ClickPause();
                 Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);

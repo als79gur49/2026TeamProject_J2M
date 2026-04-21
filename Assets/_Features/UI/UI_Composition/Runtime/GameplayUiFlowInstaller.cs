@@ -166,7 +166,7 @@ namespace Game.Feature.UI.Composition
                 _displayPreviewTimeoutRelay);
 
             var playerStatusPresenter = new PlayerStatusPresenter();
-            var actionBarPresenter = new ActionBarPresenter(Ports.CommandGateway);
+            var actionBarPresenter = new ActionBarPresenter();
             var notificationPresenter = new NotificationPresenter();
             HudRootPresenter = new HUDRootPresenter(
                 PresentationSource,
@@ -189,8 +189,7 @@ namespace Game.Feature.UI.Composition
                 HudRootPresenter.ViewModel,
                 playerStatusPresenter.ViewModel,
                 actionBarPresenter.ViewModel,
-                notificationPresenter.ViewModel,
-                actionBarPresenter);
+                notificationPresenter.ViewModel);
             BlockPolicy = new UIBlockPolicy();
             Coordinator = new UIFlowCoordinator(
                 ScreenController,

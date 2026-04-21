@@ -13,18 +13,17 @@ namespace Game.Feature.UI.Tests
     public sealed class HUDControllerTests
     {
         [Test]
-        public void HUDController_AttachView_BindsChildViewModels_AndRelaysActionBarInput()
+        public void HUDController_AttachView_BindsChildViewModels()
         {
-            var rootObject = new GameObject("HUDController_AttachView_BindsChildViewModels_AndRelaysActionBarInput");
+            var rootObject = new GameObject("HUDController_AttachView_BindsChildViewModels");
 
             try
             {
                 CreateCanonicalRootView(rootObject, out var hudView);
 
-                var commandGateway = new FakeGameplayCommandGateway();
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
-                var actionBarPresenter = new ActionBarPresenter(commandGateway);
+                var actionBarPresenter = new ActionBarPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
@@ -35,8 +34,7 @@ namespace Game.Feature.UI.Tests
                     rootPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     actionBarPresenter.ViewModel,
-                    notificationPresenter.ViewModel,
-                    actionBarPresenter);
+                    notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 source.PublishSnapshot(CreateSnapshot());
@@ -45,12 +43,6 @@ namespace Game.Feature.UI.Tests
                 Assert.That(hudView.PlayerStatusView.ViewModel, Is.SameAs(controller.PlayerStatusViewModel));
                 Assert.That(hudView.ActionBarView.ViewModel, Is.SameAs(controller.ActionBarViewModel));
                 Assert.That(hudView.NotificationView.ViewModel, Is.SameAs(controller.NotificationViewModel));
-
-                hudView.ActionBarView.ClickSlot(HudActionSlotId.Primary);
-
-                Assert.That(commandGateway.SetHeldMoveDirectionCallCount, Is.EqualTo(1));
-                Assert.That(controller.ActionBarViewModel.LastCommandResult.HasValue, Is.True);
-                Assert.That(controller.ActionBarViewModel.LastCommandResult.Value.Accepted, Is.True);
             }
             finally
             {
@@ -67,10 +59,9 @@ namespace Game.Feature.UI.Tests
             {
                 CreateCanonicalRootView(rootObject, out var hudView);
 
-                var commandGateway = new FakeGameplayCommandGateway();
                 var source = new ManualGameplayUiPresentationSource();
                 var playerStatusPresenter = new PlayerStatusPresenter();
-                var actionBarPresenter = new ActionBarPresenter(commandGateway);
+                var actionBarPresenter = new ActionBarPresenter();
                 var notificationPresenter = new NotificationPresenter();
                 using var rootPresenter = new HUDRootPresenter(
                     source,
@@ -81,8 +72,7 @@ namespace Game.Feature.UI.Tests
                     rootPresenter.ViewModel,
                     playerStatusPresenter.ViewModel,
                     actionBarPresenter.ViewModel,
-                    notificationPresenter.ViewModel,
-                    actionBarPresenter);
+                    notificationPresenter.ViewModel);
 
                 controller.AttachView(hudView);
                 controller.Dispose();
