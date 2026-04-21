@@ -3,48 +3,76 @@ using Game.Feature.Gameplay.Host;
 
 namespace Game.Feature.Stages
 {
+    public enum StageLoadFallbackPolicy
+    {
+        None = 0,
+        EditorDirectPlayOnly = 1,
+    }
+
     public readonly struct StageLoadRequest
     {
+        [Obsolete("Use CreateLaunchContextOnly or CreateEditorDirectPlayFallback to make fallback intent explicit.")]
         public StageLoadRequest(
-            StageLoadSourceMode sourceMode,
             ScriptableObjectStageCatalogProvider stageCatalogProvider,
             StageId defaultStageId,
-            StageContentEntry serializedStageContentEntry,
-            StageDefinition legacyStageDefinition,
-            EnemyPresentationCatalog legacyEnemyPresentationCatalog,
-            StaticEntityPresentationCatalog legacyStaticEntityPresentationCatalog,
             string sceneName,
             bool allowDefaultStageIdFallback)
+            : this(
+                stageCatalogProvider,
+                defaultStageId,
+                sceneName,
+                allowDefaultStageIdFallback
+                    ? StageLoadFallbackPolicy.EditorDirectPlayOnly
+                    : StageLoadFallbackPolicy.None)
         {
-            SourceMode = sourceMode;
-            StageCatalogProvider = stageCatalogProvider;
-            DefaultStageId = defaultStageId;
-            SerializedStageContentEntry = serializedStageContentEntry;
-            LegacyStageDefinition = legacyStageDefinition;
-            LegacyEnemyPresentationCatalog = legacyEnemyPresentationCatalog;
-            LegacyStaticEntityPresentationCatalog = legacyStaticEntityPresentationCatalog;
-            SceneName = sceneName ?? string.Empty;
-            AllowDefaultStageIdFallback = allowDefaultStageIdFallback;
         }
 
-        public StageLoadSourceMode SourceMode { get; }
+        private StageLoadRequest(
+            ScriptableObjectStageCatalogProvider stageCatalogProvider,
+            StageId defaultStageId,
+            string sceneName,
+            StageLoadFallbackPolicy fallbackPolicy)
+        {
+            StageCatalogProvider = stageCatalogProvider;
+            DefaultStageId = defaultStageId;
+            SceneName = sceneName ?? string.Empty;
+            FallbackPolicy = fallbackPolicy;
+        }
+
+        public static StageLoadRequest CreateLaunchContextOnly(
+            ScriptableObjectStageCatalogProvider stageCatalogProvider,
+            string sceneName)
+        {
+            return new StageLoadRequest(
+                stageCatalogProvider,
+                StageId.None,
+                sceneName,
+                StageLoadFallbackPolicy.None);
+        }
+
+        public static StageLoadRequest CreateEditorDirectPlayFallback(
+            ScriptableObjectStageCatalogProvider stageCatalogProvider,
+            StageId defaultStageId,
+            string sceneName)
+        {
+            if (!defaultStageId.IsValid)
+            {
+                throw new ArgumentException("Editor direct-play fallback requires a valid defaultStageId.", nameof(defaultStageId));
+            }
+
+            return new StageLoadRequest(
+                stageCatalogProvider,
+                defaultStageId,
+                sceneName,
+                StageLoadFallbackPolicy.EditorDirectPlayOnly);
+        }
 
         public ScriptableObjectStageCatalogProvider StageCatalogProvider { get; }
 
         public StageId DefaultStageId { get; }
 
-        public StageContentEntry SerializedStageContentEntry { get; }
-
-        public StageDefinition LegacyStageDefinition { get; }
-
-        public EnemyPresentationCatalog LegacyEnemyPresentationCatalog { get; }
-
-        public StaticEntityPresentationCatalog LegacyStaticEntityPresentationCatalog { get; }
-
         public string SceneName { get; }
 
-        public bool AllowDefaultStageIdFallback { get; }
-
-        public bool IsPlayerRuntime => UnityEngine.Application.isPlaying && !UnityEngine.Application.isEditor;
+        public StageLoadFallbackPolicy FallbackPolicy { get; }
     }
 }

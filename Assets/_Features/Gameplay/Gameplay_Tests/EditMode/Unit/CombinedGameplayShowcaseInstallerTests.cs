@@ -22,6 +22,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
         private const string CombinedEnemyPresentationCatalogAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
+        private const string CombinedPresentationAssetPath =
+            "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
+        private const string StageCatalogProviderAssetPath =
+            "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
@@ -122,12 +126,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Full")]
         public void CombinedGameplayStage_BuildsEnemyPresentationBindingForConfiguredShowcaseEnemy()
         {
-            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
-            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CombinedEnemyPresentationCatalogAssetPath);
-            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
-            Assert.That(catalog, Is.Not.Null, $"Missing enemy presentation catalog asset at '{CombinedEnemyPresentationCatalogAssetPath}'.");
+            var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
+            Assert.That(
+                presentationDefinition,
+                Is.Not.Null,
+                $"Missing stage presentation asset at '{CombinedPresentationAssetPath}'.");
 
-            var presentation = StagePresentationAssembler.ResolveLegacy(stage, catalog);
+            var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
 
             Assert.That(presentation.EnemyPresentationBindings, Is.Not.Null);
             Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));
@@ -616,39 +621,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssignStageContentEntry(CombinedGameplayShowcaseInstaller installer)
         {
-            var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
-            Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
-            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationCatalog>(CombinedEnemyPresentationCatalogAssetPath);
-            Assert.That(catalog, Is.Not.Null, $"Missing enemy presentation catalog asset at '{CombinedEnemyPresentationCatalogAssetPath}'.");
+            var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(StageCatalogProviderAssetPath);
+            Assert.That(provider, Is.Not.Null, $"Missing stage catalog provider at '{StageCatalogProviderAssetPath}'.");
 
-            var entry = ScriptableObject.CreateInstance<StageContentEntry>();
-            entry.hideFlags = HideFlags.HideAndDontSave;
-            entry.AssignStageId(StageId.CreateOrThrow("combined-gameplay-showcase"));
-            entry.AssignGameplayDefinition(stage);
-
-            var resolvedPresentation = StagePresentationAssembler.ResolveLegacy(stage, catalog);
-            var presentationDefinition = ScriptableObject.CreateInstance<StagePresentationDefinition>();
-            presentationDefinition.hideFlags = HideFlags.HideAndDontSave;
-            presentationDefinition.ApplyResolvedData(resolvedPresentation);
-            entry.AssignPresentationDefinition(presentationDefinition);
-
-            var sourceModeField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
-                "stageLoadSourceMode",
+            var providerField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "stageCatalogProvider",
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(sourceModeField, Is.Not.Null);
-            sourceModeField.SetValue(installer, StageLoadSourceMode.SerializedStageContentEntry);
+            Assert.That(providerField, Is.Not.Null);
+            providerField.SetValue(installer, provider);
 
-            var stageContentField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
-                "stageContentEntry",
+            var defaultStageIdField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
+                "defaultStageId",
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(stageContentField, Is.Not.Null);
-            stageContentField.SetValue(installer, entry);
+            Assert.That(defaultStageIdField, Is.Not.Null);
+            defaultStageIdField.SetValue(installer, StageId.CreateOrThrow("combined-gameplay-showcase"));
 
-            var field = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
-                "stageDefinition",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(field, Is.Not.Null);
-            field.SetValue(installer, null);
+            StageLaunchContextStore.Clear();
         }
 
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
@@ -719,7 +707,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var field = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
                 "stageContentEntry",
                 BindingFlags.Instance | BindingFlags.NonPublic);
-            if (field?.GetValue(installer) is not StageContentEntry entry || entry == null)
+            if (field == null || field.GetValue(installer) is not StageContentEntry entry || entry == null)
             {
                 return;
             }

@@ -125,33 +125,6 @@ namespace Game.Feature.Stages
                 definition.ResultContinueLabel);
         }
 
-        public static StagePresentationResolvedData ResolveLegacy(
-            StageDefinition stageDefinition,
-            EnemyPresentationCatalog enemyPresentationCatalog = null,
-            StaticEntityPresentationCatalog staticEntityPresentationCatalog = null)
-        {
-            if (stageDefinition == null)
-            {
-                return EmptyResolvedData;
-            }
-
-            var spawns = stageDefinition.Spawns;
-            return new StagePresentationResolvedData(
-                stageDefinition.name,
-                string.Empty,
-                null,
-                null,
-                StageBgmReference.None,
-                enemyPresentationCatalog,
-                BuildEnemyBindings(spawns),
-                staticEntityPresentationCatalog,
-                BuildStaticBindings(spawns),
-                "Stage Cleared",
-                string.Empty,
-                string.Empty,
-                "Continue");
-        }
-
         internal static EnemyPresentationBinding[] BuildEnemyBindings(IReadOnlyList<StageSpawnDefinition> spawns)
         {
             var bindings = new List<EnemyPresentationBinding>();

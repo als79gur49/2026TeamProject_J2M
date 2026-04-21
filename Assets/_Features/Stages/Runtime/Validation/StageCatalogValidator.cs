@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Game.Feature.Gameplay.Host;
 using Game.Shared.AudioContracts;
 using UnityEngine;
 
@@ -129,7 +128,7 @@ namespace Game.Feature.Stages
                     report);
 
                 ValidatePresentationBindings(entry, options, report);
-                ValidateLegacyPresentationBridge(entry, options, report);
+                ValidateLegacyPresentationIds(entry, options, report);
                 ValidateEvaluationDefinition(entry, options, report);
                 ValidateRewardDefinition(entry, aliasTable, options, report);
                 ValidateProgressionDefinition(entry, options, report);
@@ -182,6 +181,22 @@ namespace Game.Feature.Stages
                 return;
             }
 
+            var gameplayAssetPath = GetAssetPath(entry.GameplayDefinition);
+            if (entry.StageId.IsValid && !IsGameplayDefinitionGrandfathered(entry.GameplayDefinition, options))
+            {
+                var expectedFolder = $"{CanonicalContentRoot}/{entry.StageId.Value}";
+                if (!gameplayAssetPath.StartsWith(expectedFolder, StringComparison.Ordinal))
+                {
+                    report.Add(
+                        ResolveGameplayPathSeverity(options),
+                        "gameplay.path.noncanonical",
+                        $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' must live under canonical folder '{expectedFolder}' unless explicitly grandfathered.",
+                        entry.GameplayDefinition,
+                        gameplayAssetPath,
+                        options.Timing);
+                }
+            }
+
             var stageDefinitionName = entry.GameplayDefinition.name ?? string.Empty;
             if (entry.StageId.IsValid &&
                 !string.Equals(stageDefinitionName, entry.StageId.Value, StringComparison.OrdinalIgnoreCase) &&
@@ -192,7 +207,7 @@ namespace Game.Feature.Stages
                     "gameplay.name-drift",
                     $"Gameplay StageDefinition '{stageDefinitionName}' does not match StageId '{entry.StageId.Value}'.",
                     entry.GameplayDefinition,
-                    GetAssetPath(entry.GameplayDefinition),
+                    gameplayAssetPath,
                     options.Timing);
             }
         }
@@ -357,7 +372,7 @@ namespace Game.Feature.Stages
             ValidateBgmReference(entry.PresentationDefinition.BgmReference, entry.PresentationDefinition, options, report);
         }
 
-        private static void ValidateLegacyPresentationBridge(
+        private static void ValidateLegacyPresentationIds(
             StageContentEntry entry,
             StageCatalogValidationOptions options,
             StageValidationReport report)
@@ -385,39 +400,11 @@ namespace Game.Feature.Stages
             }
 
             report.Add(
-                StageValidationSeverity.Warning,
+                ResolveLegacyPresentationIdSeverity(options),
                 "presentation.legacy-fallback.non-empty",
                 $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' still contains legacy PresentationId authoring. StagePresentationDefinition is the canonical source of truth.",
                 entry.GameplayDefinition,
                 GetAssetPath(entry.GameplayDefinition),
-                options.Timing);
-
-            if (entry.PresentationDefinition == null)
-            {
-                return;
-            }
-
-            var legacyResolved = StagePresentationAssembler.ResolveLegacy(
-                entry.GameplayDefinition,
-                entry.PresentationDefinition.EnemyPresentationCatalog,
-                entry.PresentationDefinition.StaticEntityPresentationCatalog);
-            var enemyBindingsMatch = BindingsEqual(
-                legacyResolved.EnemyPresentationBindings,
-                entry.PresentationDefinition.EnemyPresentationBindings);
-            var staticBindingsMatch = BindingsEqual(
-                legacyResolved.StaticEntityPresentationBindings,
-                entry.PresentationDefinition.StaticEntityPresentationBindings);
-            if (enemyBindingsMatch && staticBindingsMatch)
-            {
-                return;
-            }
-
-            report.Add(
-                ResolveLegacyBindingMismatchSeverity(options),
-                "presentation.legacy-fallback.mismatch",
-                $"StagePresentationDefinition '{entry.PresentationDefinition.name}' disagrees with the legacy PresentationId bridge for stage '{entry.StageId.Value}'.",
-                entry.PresentationDefinition,
-                GetAssetPath(entry.PresentationDefinition),
                 options.Timing);
         }
 
@@ -907,58 +894,6 @@ namespace Game.Feature.Stages
             return true;
         }
 
-        private static bool BindingsEqual(
-            IReadOnlyList<EnemyPresentationBinding> left,
-            IReadOnlyList<EnemyPresentationBinding> right)
-        {
-            if (ReferenceEquals(left, right))
-            {
-                return true;
-            }
-
-            if (left == null || right == null || left.Count != right.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < left.Count; i++)
-            {
-                if (left[i].EntityId != right[i].EntityId ||
-                    !string.Equals(left[i].PresentationId, right[i].PresentationId, StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static bool BindingsEqual(
-            IReadOnlyList<StaticEntityPresentationBinding> left,
-            IReadOnlyList<StaticEntityPresentationBinding> right)
-        {
-            if (ReferenceEquals(left, right))
-            {
-                return true;
-            }
-
-            if (left == null || right == null || left.Count != right.Count)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < left.Count; i++)
-            {
-                if (left[i].EntityId != right[i].EntityId ||
-                    !string.Equals(left[i].PresentationId, right[i].PresentationId, StringComparison.Ordinal))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
         private static StageValidationSeverity ResolveNullCompanionSeverity(StageCatalogValidationOptions options)
         {
             return options.Phase >= StageValidationPhase.Phase2_MigrationAnalysis
@@ -966,11 +901,36 @@ namespace Game.Feature.Stages
                 : StageValidationSeverity.Warning;
         }
 
-        private static StageValidationSeverity ResolveLegacyBindingMismatchSeverity(StageCatalogValidationOptions options)
+        private static StageValidationSeverity ResolveGameplayPathSeverity(StageCatalogValidationOptions options)
         {
-            return options.Phase >= StageValidationPhase.Phase2_MigrationAnalysis
+            return options.Phase >= StageValidationPhase.Phase5_Hardening
                 ? StageValidationSeverity.Error
                 : StageValidationSeverity.Warning;
+        }
+
+        private static StageValidationSeverity ResolveLegacyPresentationIdSeverity(StageCatalogValidationOptions options)
+        {
+            return options.Phase >= StageValidationPhase.Phase5_Hardening
+                ? StageValidationSeverity.Error
+                : StageValidationSeverity.Warning;
+        }
+
+        private static bool IsGameplayDefinitionGrandfathered(
+            StageDefinition gameplayDefinition,
+            StageCatalogValidationOptions options)
+        {
+            var guid = GetAssetGuid(gameplayDefinition);
+            if (string.IsNullOrEmpty(guid))
+            {
+                return false;
+            }
+
+            if (options.GrandfatherGameplayAssetGuids != null)
+            {
+                return options.GrandfatherGameplayAssetGuids.Contains(guid);
+            }
+
+            return GrandfatherGameplayAssetGuidRegistry.Contains(guid);
         }
 
         private static string GetAssetPath(UnityEngine.Object asset)

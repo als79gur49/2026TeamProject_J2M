@@ -129,6 +129,8 @@ namespace Game.Feature.Stages
         public StageValidationWaiverList WaiverList { get; set; }
 
         public bool EnforceCanonicalLegacyPresentationBridgeWarnings { get; set; } = true;
+
+        public ISet<string> GrandfatherGameplayAssetGuids { get; set; }
     }
 
     [Serializable]

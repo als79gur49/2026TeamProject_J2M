@@ -9,21 +9,12 @@ namespace Game.Feature.Gameplay.Host
         private static readonly StageRuntimeContentResolver RuntimeContentResolver = new();
 
         [Header("Stage Load")]
-        [SerializeField] private StageLoadSourceMode stageLoadSourceMode = StageLoadSourceMode.CatalogResolvedStageId;
         [SerializeField] private ScriptableObjectStageCatalogProvider stageCatalogProvider;
         [SerializeField] private StageId defaultStageId = StageId.None;
-        [SerializeField] private StageContentEntry stageContentEntry;
-        [SerializeField] private StageDefinition stageDefinition;
-
-        protected StageLoadSourceMode StageLoadSourceMode => stageLoadSourceMode;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
 
         protected StageId DefaultStageId => defaultStageId;
-
-        protected StageContentEntry SerializedStageContentEntry => stageContentEntry;
-
-        protected StageDefinition LegacyStageDefinition => stageDefinition;
 
         protected sealed override InitialGameplayState BuildInitialGameplayState()
         {
@@ -49,16 +40,10 @@ namespace Game.Feature.Gameplay.Host
 
         private StageLoadRequest CreateStageLoadRequest()
         {
-            return new StageLoadRequest(
-                stageLoadSourceMode,
+            return StageLoadRequest.CreateEditorDirectPlayFallback(
                 stageCatalogProvider,
                 defaultStageId,
-                stageContentEntry,
-                stageDefinition,
-                ResolveEnemyPresentationCatalog(),
-                ResolveStaticEntityPresentationCatalog(),
-                gameObject.scene.name,
-                allowDefaultStageIdFallback: Application.isEditor);
+                gameObject.scene.name);
         }
     }
 }

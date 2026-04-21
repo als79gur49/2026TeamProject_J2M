@@ -42,16 +42,10 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(StageId.TryCreate("tutorial-scene", out var defaultStageId), Is.True);
             StageLaunchContextStore.SetCurrent(catalogStageId);
 
-            var resolved = resolver.Resolve(new StageLoadRequest(
-                StageLoadSourceMode.CatalogResolvedStageId,
+            var resolved = resolver.Resolve(StageLoadRequest.CreateEditorDirectPlayFallback(
                 provider,
                 defaultStageId,
-                null,
-                null,
-                null,
-                null,
-                "PolicyTestScene",
-                allowDefaultStageIdFallback: true));
+                "PolicyTestScene"));
 
             Assert.That(resolved.RequestedStageId, Is.EqualTo(catalogStageId));
             Assert.That(resolved.UsedLaunchContext, Is.True);
@@ -63,16 +57,10 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             Assert.That(StageId.TryCreate("combined-gameplay-showcase", out var defaultStageId), Is.True);
 
-            var resolved = resolver.Resolve(new StageLoadRequest(
-                StageLoadSourceMode.CatalogResolvedStageId,
+            var resolved = resolver.Resolve(StageLoadRequest.CreateEditorDirectPlayFallback(
                 provider,
                 defaultStageId,
-                null,
-                null,
-                null,
-                null,
-                "PolicyTestScene",
-                allowDefaultStageIdFallback: true));
+                "PolicyTestScene"));
 
             Assert.That(resolved.RequestedStageId, Is.EqualTo(defaultStageId));
             Assert.That(resolved.UsedLaunchContext, Is.False);
@@ -84,18 +72,22 @@ namespace Game.Feature.Stages.Editor.Tests
         {
             Assert.That(StageId.TryCreate("combined-gameplay-showcase", out var defaultStageId), Is.True);
 
-            var exception = Assert.Throws<InvalidOperationException>(() => resolver.Resolve(new StageLoadRequest(
-                StageLoadSourceMode.CatalogResolvedStageId,
+            var exception = Assert.Throws<InvalidOperationException>(() => resolver.Resolve(StageLoadRequest.CreateLaunchContextOnly(
                 provider,
-                defaultStageId,
-                null,
-                null,
-                null,
-                null,
-                "PolicyTestScene",
-                allowDefaultStageIdFallback: false)));
+                "PolicyTestScene")));
 
             StringAssert.Contains("defaultStageId fallback is not permitted", exception?.Message);
+        }
+
+        [Test]
+        public void CreateEditorDirectPlayFallback_RequiresValidDefaultStageId()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => StageLoadRequest.CreateEditorDirectPlayFallback(
+                provider,
+                StageId.None,
+                "PolicyTestScene"));
+
+            StringAssert.Contains("valid defaultStageId", exception?.Message);
         }
     }
 }

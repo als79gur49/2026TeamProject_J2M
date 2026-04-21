@@ -67,16 +67,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StageLaunchContextStore.SetCurrent(tutorialEntry.StageId);
 
                 var resolved = resolver.Resolve(
-                    new StageLoadRequest(
-                        StageLoadSourceMode.CatalogResolvedStageId,
+                    StageLoadRequest.CreateEditorDirectPlayFallback(
                         provider,
                         combinedEntry.StageId,
-                        serializedStageContentEntry: null,
-                        legacyStageDefinition: null,
-                        legacyEnemyPresentationCatalog: null,
-                        legacyStaticEntityPresentationCatalog: null,
-                        sceneName: "StageRuntimeContentResolverTests",
-                        allowDefaultStageIdFallback: true));
+                        sceneName: "StageRuntimeContentResolverTests"));
 
                 Assert.That(resolved.Entry, Is.SameAs(tutorialEntry));
                 Assert.That(resolved.UsedLaunchContext, Is.True);
@@ -98,16 +92,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var exception = Assert.Throws<InvalidOperationException>(
                 () => resolver.Resolve(
-                    new StageLoadRequest(
-                        StageLoadSourceMode.CatalogResolvedStageId,
+                    StageLoadRequest.CreateLaunchContextOnly(
                         provider,
-                        entry.StageId,
-                        serializedStageContentEntry: null,
-                        legacyStageDefinition: null,
-                        legacyEnemyPresentationCatalog: null,
-                        legacyStaticEntityPresentationCatalog: null,
-                        sceneName: "StageRuntimeContentResolverTests",
-                        allowDefaultStageIdFallback: false)));
+                        sceneName: "StageRuntimeContentResolverTests")));
 
             Assert.That(exception, Is.Not.Null);
             StringAssert.Contains("defaultStageId fallback is not permitted", exception.Message);

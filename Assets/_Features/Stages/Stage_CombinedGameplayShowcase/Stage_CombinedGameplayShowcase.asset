@@ -200,7 +200,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
-    PresentationId: Attacking_showcase
+    PresentationId: 
   - EntityId: 55
     Kind: 1
     Cell:
@@ -213,7 +213,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    PresentationId: nonAttacking_showcase
+    PresentationId: 
   - EntityId: 56
     Kind: 1
     Cell:
@@ -226,7 +226,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
-    PresentationId: nonAttacking_showcase
+    PresentationId: 
   - EntityId: 57
     Kind: 1
     Cell:
@@ -239,7 +239,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
-    PresentationId: Jump_showcase
+    PresentationId: 
   wallSpawns:
   - EntityId: 196
     Kind: 3
