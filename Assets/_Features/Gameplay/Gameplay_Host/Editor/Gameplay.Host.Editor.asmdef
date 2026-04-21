@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Host.EditorTools",
   "references": [
     "Game.Feature.Gameplay.Host",
+    "Game.Feature.Stages",
     "Game.Feature.Flow.Audio",
     "Game.Feature.UI.Composition",
     "Game.Feature.UI.HUD",

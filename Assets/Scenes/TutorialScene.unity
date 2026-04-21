@@ -1264,10 +1264,15 @@ MonoBehaviour:
   boardSurfaceTexture: {fileID: 2800000, guid: bbcd0420d9696f54da16e6124742b53c, type: 3}
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
   faceSeamGap: 3.5
-  stageDefinition: {fileID: 11400000, guid: 17f422e552184a24d8a666d77d93ab18, type: 2}
+  stageLoadSourceMode: 0
+  stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
+  defaultStageId:
+    value: tutorial-scene
+  stageContentEntry: {fileID: 0}
+  stageDefinition: {fileID: 0}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
-  enemyPresentationCatalog: {fileID: 11400000, guid: f1e315a89662490d8e326ccb0ac069ad, type: 2}
-  staticEntityPresentationCatalog: {fileID: 11400000, guid: ca2a1a66d2d84d478cf3e1228d8af6df, type: 2}
+  enemyPresentationCatalog: {fileID: 0}
+  staticEntityPresentationCatalog: {fileID: 0}
 --- !u!4 &1179627482
 Transform:
   m_ObjectHideFlags: 0
