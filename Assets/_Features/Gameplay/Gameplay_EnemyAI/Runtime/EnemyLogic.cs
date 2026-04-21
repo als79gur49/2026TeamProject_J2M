@@ -544,21 +544,6 @@ namespace Game.Feature.Gameplay.Entities
                 _locomotionTimingSettings.MoveCooldownTicks);
         }
 
-        private bool ShouldHoldChargingProfileAtAdjacentTarget(
-            WorldSnapshot snapshot,
-            in EntityState source)
-        {
-            if (_stateResolver is not ChargingEnemyAiStateResolver ||
-                !_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var target) ||
-                source.position.face != target.position.face)
-            {
-                return false;
-            }
-
-            var planarDelta = target.position.PlanarPosition - source.position.PlanarPosition;
-            return Mathf.Abs(planarDelta.x) + Mathf.Abs(planarDelta.y) == 1;
-        }
-
         private bool ShouldHoldWallFollowForSameCellPassiveContact(
             WorldSnapshot snapshot,
             in EntityState source)
@@ -679,11 +664,6 @@ namespace Game.Feature.Gameplay.Entities
                     return default;
 
                 case EnemyAiMode.Chase:
-                    if (ShouldHoldChargingProfileAtAdjacentTarget(snapshot, source))
-                    {
-                        return default;
-                    }
-
                     if (!_detectionStrategy.TryFindTarget(snapshot, source, _detectionSettings, out var chaseTarget))
                     {
                         return default;
@@ -707,7 +687,7 @@ namespace Game.Feature.Gameplay.Entities
                 case EnemyAiMode.Charge:
                     var chargeDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
                     if (chargeDelta.HasValue &&
-                        EnemyMovementStrategyShared.TryBuildMoveIntent(
+                        EnemyMovementStrategyShared.TryBuildChargeMoveIntentIgnoringUnits(
                             snapshot,
                             source,
                             _commonSettings,

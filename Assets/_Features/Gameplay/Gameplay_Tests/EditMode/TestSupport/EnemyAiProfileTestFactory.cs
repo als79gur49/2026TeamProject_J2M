@@ -88,7 +88,8 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
-        public static EnemyAiProfile CreateCharging(int moveCooldownTicks = 0, bool includePassiveContact = false)
+        // Charging profiles rely on same-cell passive contact, so repeated hits follow receiver cooldown cadence.
+        public static EnemyAiProfile CreateCharging(int moveCooldownTicks = 0, bool includePassiveContact = true)
         {
             return Create(new EnemyAiTestProfileSpec
             {

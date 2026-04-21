@@ -2301,44 +2301,58 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Full")]
-        public void EnemyAi_ChargingProfile_StartsChargeUsingObstacleLane_AndStopsAtAdjacentUnit()
+        public void EnemyAi_ChargingProfile_AllUnitsTransparentUntilSolid_AndOnlyPlayerTakesDamage()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
-                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 3),
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 5),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
-                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                    CreateUnit(entityId: 60, teamId: 2, position: new Vector2Int(2, 0), hp: 3),
+                    CreateUnit(entityId: 70, teamId: 3, position: new Vector2Int(3, 0), hp: 3),
+                    CreateUnit(entityId: 80, teamId: 3, position: new Vector2Int(6, 0), hp: 3),
+                    CreateBox(entityId: 90, position: new Vector2Int(7, 0)),
                 },
-                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(7, 0)));
             var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
 
             try
             {
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                    worldState,
-                    new IEntityLogic[]
-                    {
-                        new EnemyLogic(40, profile),
-                    });
-
-                var firstTick = pipeline.RunTick(new TickInput(1));
-                var secondTick = pipeline.RunTick(new TickInput(2));
-                var thirdTick = pipeline.RunTick(new TickInput(3));
-                var fourthTick = pipeline.RunTick(new TickInput(4));
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var ticks = Enumerable.Range(1, 7)
+                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
+                    .ToArray();
+                var snapshotAfter = worldState.CreateSnapshot();
+                var stackedUnits = new List<EntityState>();
+                var allDamageResolutions = ticks
+                    .SelectMany(tick => tick.AttackPhaseResult.DamageResolutions)
+                    .ToArray();
                 var enemy = GetEntity(worldState, 40);
                 var player = GetEntity(worldState, 10);
+                var alliedUnit = GetEntity(worldState, 60);
+                var nonPlayerLaneUnit = GetEntity(worldState, 70);
+                var nonPlayerTerminalUnit = GetEntity(worldState, 80);
 
-                Assert.That(GetEntityAfterTick(firstTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
-                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-                Assert.That(GetEntityAfterTick(thirdTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-                Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
-                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(GetEntityAfterTick(ticks[0], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(ticks[1], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
+                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
+                Assert.That(GetEntityAfterTick(ticks[5], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(6, 0)));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(6, 0)));
                 Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
-                Assert.That(player.hp, Is.EqualTo(3));
-                Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
-                Assert.That(fourthTick.AttackPhaseResult.DamageResolutions, Is.Empty);
+                Assert.That(player.hp, Is.EqualTo(4));
+                Assert.That(alliedUnit.hp, Is.EqualTo(3));
+                Assert.That(nonPlayerLaneUnit.hp, Is.EqualTo(3));
+                Assert.That(nonPlayerTerminalUnit.hp, Is.EqualTo(3));
+                Assert.That(allDamageResolutions.Count(record => record.Accepted), Is.EqualTo(1));
+                Assert.That(allDamageResolutions.Select(record => record.TargetId).Distinct().ToArray(), Is.EqualTo(new[] { 10 }));
+                Assert.That(allDamageResolutions.Single(record => record.Accepted).SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
+                Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
+
+                snapshotAfter.EnumerateUnitsAt(new Vector2Int(6, 0), stackedUnits);
+                CollectionAssert.AreEquivalent(new[] { 40, 80 }, stackedUnits.Select(entity => entity.entityId).ToArray());
             }
             finally
             {
@@ -2348,38 +2362,243 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Full")]
-        public void EnemyAi_ChargingProfile_WithLocomotionCooldown_WaitsForCommittedMoves()
+        public void EnemyAi_ChargingProfile_AdjacentPlayerAndSolidDownLane_DoesNotFreezeAndContinuesPastPlayer()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(4, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var thirdTick = pipeline.RunTick(new TickInput(3));
+                var fourthTick = pipeline.RunTick(new TickInput(4));
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(thirdTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(GetEntityAfterTick(fourthTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(secondTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
+                Assert.That(secondTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_DifferentFaceTarget_DoesNotStartCharge()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 2, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).aiMode, Is.Not.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.Not.EqualTo(EnemyAiMode.Charge));
+                Assert.That(firstTick.Trace.Text, Does.Not.Contain("Reason=ChargeStart"));
+                Assert.That(secondTick.Trace.Text, Does.Not.Contain("Reason=ChargeStart"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_DiagonalTarget_DoesNotStartCharge()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 1), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 2)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(firstTick.Trace.Text, Does.Not.Contain("Reason=ChargeStart"));
+                Assert.That(secondTick.Trace.Text, Does.Not.Contain("Reason=ChargeStart"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_BlockedFirstStep_DoesNotStartCharge()
         {
             var worldState = CreateWorldState(
                 new[]
                 {
                     CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 3),
                     CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(2, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var secondTick = pipeline.RunTick(new TickInput(2));
+
+                Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(secondTick.Trace.Text, Does.Not.Contain("Reason=ChargeStart"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_WithoutPassiveContact_PassesThroughPlayerWithoutDamage()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
                     CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var pipeline = GameplayCompositionRoot.CreateTickPipeline(
-                worldState,
-                new IEntityLogic[]
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 0, includePassiveContact: false);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var ticks = Enumerable.Range(1, 6)
+                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
+                    .ToArray();
+
+                Assert.That(GetEntityAfterTick(ticks[1], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
+                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(5));
+                Assert.That(ticks.SelectMany(tick => tick.AttackPhaseResult.DamageResolutions), Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_PassiveContactFollowsPlayerCooldownWhileChargeWaitsOnPlayerCell()
+        {
+            var worldState = CreateWorldState(
+                new[]
                 {
-                    new EnemyLogic(40, CreateChargingEnemyProfile(moveCooldownTicks: 2)),
-                });
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(2, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 3);
 
-            var firstTick = pipeline.RunTick(new TickInput(1));
-            var secondTick = pipeline.RunTick(new TickInput(2));
-            var thirdTick = pipeline.RunTick(new TickInput(3));
-            var fourthTick = pipeline.RunTick(new TickInput(4));
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var ticks = Enumerable.Range(1, 7)
+                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
+                    .ToArray();
 
-            Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-            Assert.That(GetEntityAfterTick(secondTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
-            Assert.That(GetEntityAfterTick(secondTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
-            Assert.That(GetEntityAfterTick(secondTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
-            Assert.That(secondTick.MovementPhaseResult.RawIntents, Is.Empty);
-            Assert.That(GetEntityAfterTick(thirdTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-            Assert.That(GetEntityAfterTick(thirdTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
-            Assert.That(GetEntityAfterTick(fourthTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
-            Assert.That(GetEntityAfterTick(fourthTick, 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
-            Assert.That(fourthTick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[5], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[6], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(ticks[3].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(ticks[4].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
+                Assert.That(ticks[4].AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
+                Assert.That(ticks[5].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
+                Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(3));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_WithLocomotionCooldown_ContinuesSameChargeSessionUntilSolid()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var ticks = Enumerable.Range(1, 12)
+                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
+                    .ToArray();
+
+                Assert.That(GetEntityAfterTick(ticks[0], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(ticks[1], 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[3], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(GetEntityAfterTick(ticks[6], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
+                Assert.That(GetEntityAfterTick(ticks[8], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
+                Assert.That(GetEntityAfterTick(ticks[9], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[9], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
+                Assert.That(GetEntityAfterTick(ticks[10], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[10], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
+                Assert.That(GetEntityAfterTick(ticks[11], 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(GetEntityAfterTick(ticks[11], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
+                Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -2661,9 +2880,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 DefaultEnemyAiStateResolver.Instance);
         }
 
-        private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
+        private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks, bool includePassiveContact = true)
         {
-            return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks, includePassiveContact);
         }
 
         private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0, bool includePassiveContact = false)

@@ -974,6 +974,49 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_ChargingFactoryProfile_UsesPassiveContactWithoutCombat()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateCharging();
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+                Assert.That(profile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+                Assert.That(profile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+                Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
+                Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
+                Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_ChargingFactoryProfile_CanExplicitlyDisablePassiveContact()
+        {
+            var profile = EnemyAiProfileTestFactory.CreateCharging(includePassiveContact: false);
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+
+                Assert.That(profile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+                Assert.That(profile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+                Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
+                Assert.That(definition.Capabilities.TryGetPassiveContact(out _), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAiProfileCompiler_HybridAuthoring_CompilesTypedRuntimeAndCapabilities()
         {
             var profile = CreateHybridAuthoringProfile(includeCombat: true, includeJump: true, out var createdAssets);

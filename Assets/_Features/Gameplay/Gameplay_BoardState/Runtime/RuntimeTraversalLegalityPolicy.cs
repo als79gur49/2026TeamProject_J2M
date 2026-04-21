@@ -75,7 +75,8 @@ namespace Game.Feature.Gameplay.BoardState
                     reservationStatus: reservationStatus));
         }
 
-        public static LegalityResult EvaluateChargeStopCell(
+        // Charge movement ignores overlapping units and only stops on hard board blockers.
+        public static LegalityResult EvaluateChargeSolidOnlyStopCell(
             WorldSnapshot snapshot,
             SurfaceCell cell,
             ReservationStatus reservationStatus = ReservationStatus.None)
@@ -112,27 +113,6 @@ namespace Game.Feature.Gameplay.BoardState
                     cell,
                     snapshot.Topology,
                     RuntimeLegalityBlockerFactory.Create(solidSemantic.Entity),
-                    reservationStatus);
-            }
-
-            var occupants = new List<EntityState>();
-            snapshot.EnumerateUnitsAt(cell, occupants);
-            for (var i = 0; i < occupants.Count; i++)
-            {
-                var occupant = occupants[i];
-                if (!snapshot.TryGetResolvedSpatialState(occupant.entityId, out var spatialState) ||
-                    !ModifierQuery.ShouldParticipateInTraversalBlocking(spatialState) ||
-                    occupant.hp <= 0 ||
-                    occupant.markedForDeath)
-                {
-                    continue;
-                }
-
-                return LegalityResult.Blocked(
-                    LegalityDomain.Traversal,
-                    cell,
-                    snapshot.Topology,
-                    RuntimeLegalityBlockerFactory.Create(occupant),
                     reservationStatus);
             }
 

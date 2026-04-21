@@ -431,6 +431,27 @@ namespace Game.Feature.Gameplay.Entities
             return true;
         }
 
+        public static bool TryBuildChargeMoveIntentIgnoringUnits(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            Vector2Int delta,
+            out RawMovementIntent intent)
+        {
+            intent = default;
+
+            if (!CanTraverseChargeStepIgnoringUnits(snapshot, source, delta))
+            {
+                return false;
+            }
+
+            intent = new RawMovementIntent(
+                source.entityId,
+                commonSettings.MovementPriority,
+                source.position.PlanarPosition + delta);
+            return true;
+        }
+
         public static bool CanTraverseStep(
             WorldSnapshot snapshot,
             in EntityState source,
@@ -453,23 +474,9 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             Vector2Int delta)
         {
-            if (!snapshot.Topology.IsFaceActive(source.position.face))
+            if (!TryResolveStep(snapshot, source.position, delta, out var destinationCell, out var rotationKind, out var updatedTopology))
             {
                 return false;
-            }
-
-            var hasResolvedStep = snapshot.TryResolveUnitStep(
-                source.position,
-                delta,
-                out var destinationCell,
-                out var rotationKind,
-                out var updatedTopology);
-
-            if (!hasResolvedStep)
-            {
-                destinationCell = source.position + delta;
-                rotationKind = CubeRotationKind.None;
-                updatedTopology = snapshot.Topology;
             }
 
             var evaluationTopology = rotationKind == CubeRotationKind.None ? snapshot.Topology : updatedTopology;
@@ -490,6 +497,25 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return IsTraversableUnitDestination(snapshot, source, destinationCell);
+        }
+
+        public static bool CanTraverseChargeStepIgnoringUnits(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Vector2Int delta)
+        {
+            if (!TryResolveStep(snapshot, source.position, delta, out var destinationCell, out var rotationKind, out _))
+            {
+                return false;
+            }
+
+            if (rotationKind != CubeRotationKind.None)
+            {
+                return false;
+            }
+
+            return RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(snapshot, destinationCell).Verdict ==
+                   LegalityVerdict.Allowed;
         }
 
         public static Vector2Int? ResolveDelta(Direction direction)
@@ -523,6 +549,40 @@ namespace Game.Feature.Gameplay.Entities
                     delta = Vector2Int.zero;
                     return false;
             }
+        }
+
+        internal static bool TryResolveStep(
+            WorldSnapshot snapshot,
+            SurfaceCell sourceCell,
+            Vector2Int delta,
+            out SurfaceCell destinationCell,
+            out CubeRotationKind rotationKind,
+            out CubeTopologyState updatedTopology)
+        {
+            destinationCell = default;
+            rotationKind = CubeRotationKind.None;
+            updatedTopology = snapshot?.Topology ?? default;
+
+            if (snapshot == null || !snapshot.Topology.IsFaceActive(sourceCell.face))
+            {
+                return false;
+            }
+
+            var hasResolvedStep = snapshot.TryResolveUnitStep(
+                sourceCell,
+                delta,
+                out destinationCell,
+                out rotationKind,
+                out updatedTopology);
+
+            if (!hasResolvedStep)
+            {
+                destinationCell = sourceCell + delta;
+                rotationKind = CubeRotationKind.None;
+                updatedTopology = snapshot.Topology;
+            }
+
+            return true;
         }
 
         internal static bool HasWallFollowAnchor(
@@ -1058,7 +1118,7 @@ namespace Game.Feature.Gameplay.Entities
                 return false;
             }
 
-            if (!EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, delta))
+            if (!EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, source, delta))
             {
                 return false;
             }
@@ -1072,7 +1132,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source)
         {
             var delta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
-            return delta.HasValue && EnemyMovementStrategyShared.CanTraverseStep(snapshot, source, delta.Value);
+            return delta.HasValue && EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, source, delta.Value);
         }
 
         private static bool TryResolveChargeDirection(
@@ -1128,7 +1188,7 @@ namespace Game.Feature.Gameplay.Entities
             var current = source.position;
             while (TryResolveChargeScanStep(snapshot, current, delta, out var nextCell))
             {
-                if (RuntimeTraversalLegalityPolicy.EvaluateChargeStopCell(
+                if (RuntimeTraversalLegalityPolicy.EvaluateChargeSolidOnlyStopCell(
                         snapshot,
                         nextCell).Verdict == LegalityVerdict.Blocked)
                 {
@@ -1148,15 +1208,9 @@ namespace Game.Feature.Gameplay.Entities
             Vector2Int delta,
             out SurfaceCell nextCell)
         {
-            var hasResolvedStep = snapshot.TryResolveUnitStep(
-                current,
-                delta,
-                out nextCell,
-                out var rotationKind,
-                out _);
-            if (!hasResolvedStep)
+            if (!EnemyMovementStrategyShared.TryResolveStep(snapshot, current, delta, out nextCell, out var rotationKind, out _))
             {
-                nextCell = current + delta;
+                return false;
             }
 
             return rotationKind == CubeRotationKind.None;
