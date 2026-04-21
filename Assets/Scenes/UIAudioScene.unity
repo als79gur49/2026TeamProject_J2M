@@ -1685,6 +1685,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1667429459}
+  - component: {fileID: 1667429460}
   m_Layer: 0
   m_Name: WallRoot
   m_TagString: Untagged
@@ -1709,6 +1710,32 @@ Transform:
   - {fileID: 1255821669}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1667429460
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1667429458}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcd19727ab504602acda5b81874a0e21, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.TopologyVisualBridgeVisibilityController
+  sceneHost: {fileID: 1179627483}
+  bindings:
+  - TargetObject: {fileID: 124065091}
+    FirstFace: 0
+    SecondFace: 1
+  - TargetObject: {fileID: 1844535637}
+    FirstFace: 1
+    SecondFace: 2
+  - TargetObject: {fileID: 616750609}
+    FirstFace: 2
+    SecondFace: 3
+  - TargetObject: {fileID: 1973192857}
+    FirstFace: 3
+    SecondFace: 0
 --- !u!1 &1844535637
 GameObject:
   m_ObjectHideFlags: 0
