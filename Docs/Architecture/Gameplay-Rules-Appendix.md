@@ -169,6 +169,20 @@
 - regression validation은 hash, trace equality, final entities, event log를 우선 본다.
 - trace section name이나 synthetic normalized input token은 canonical contract가 아니다.
 
+## Topology Visual Bridges
+- topology visual bridge는 scene-side presentation helper다.
+- bridge는 gameplay collision, movement, query, authoritative wall/entity/runtime data에 참여하지 않는다.
+- `StageRuntimeBuilder`, `WorldSnapshot`, wall entity export와 연결하지 않는다.
+- v1 visibility rule은 logical `FaceId` pair를 사용한다.
+- topology transition 중에는 `destinationTopology` active face만 기준으로 bridge visibility를 평가한다.
+- outgoing seam bridge는 회전 시작 시점에 즉시 사라질 수 있다. incoming seam bridge만 transition 동안 유지한다.
+- authored bridge에 collider를 붙여 gameplay 의미를 주지 않는다. collider가 필요해 보이면 별도 후속 설계로 다룬다.
+- 이 controller는 presenter-derived presentation-only sync다. authoritative state owner가 아니다.
+- TODO future option A: logical `FaceId` pair 유지
+- TODO future option B: projector slot-pair visibility rule
+- TODO future option C: hard on/off 대신 alpha fade
+- TODO future option D: per-bridge policy override
+
 ## Result Carrier Metadata
 - `DamageResolutionRecord`, `DestroyResolutionRecord`, `DelayedAttackEffectRecord`는 semantic result와 provenance metadata를 함께 운반할 수 있지만, 두 층을 같은 의미로 읽으면 안 된다.
 - semantic field:
