@@ -16,12 +16,6 @@ MonoBehaviour:
   - DeprecatedStageId: Stage_CombinedGameplayShowcase
     CurrentStageId:
       value: combined-gameplay-showcase
-  - DeprecatedStageId: Stage_CombinedGameplayShowcase 1
-    CurrentStageId:
-      value: combined-gameplay-showcase
-  - DeprecatedStageId: Stage_CombinedGameplayShowcase 2
-    CurrentStageId:
-      value: combined-gameplay-showcase
   - DeprecatedStageId: Stage_TutorialSecne
     CurrentStageId:
       value: tutorial-scene

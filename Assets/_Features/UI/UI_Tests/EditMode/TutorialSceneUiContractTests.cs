@@ -134,11 +134,9 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     AssetDatabase.GetAssetPath(serializedGameplayAudioMap.objectReferenceValue),
                     Is.EqualTo(expectedGameplayAudioMapAssetPath));
-                Assert.That(
-                    serializedShowcaseInstaller.FindProperty("stageLoadSourceMode").enumValueIndex,
-                    Is.EqualTo((int)StageLoadSourceMode.CatalogResolvedStageId));
-                Assert.That(serializedShowcaseInstaller.FindProperty("stageContentEntry").objectReferenceValue, Is.Null);
-                Assert.That(serializedShowcaseInstaller.FindProperty("stageDefinition").objectReferenceValue, Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("stageLoadSourceMode"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("stageContentEntry"), Is.Null);
+                Assert.That(serializedShowcaseInstaller.FindProperty("stageDefinition"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("enemyPresentationCatalog").objectReferenceValue, Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("staticEntityPresentationCatalog").objectReferenceValue, Is.Null);
                 var defaultStageIdProperty = serializedShowcaseInstaller.FindProperty("defaultStageId");

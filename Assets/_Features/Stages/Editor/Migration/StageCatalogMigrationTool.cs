@@ -17,6 +17,8 @@ namespace Game.Feature.Stages.Editor
         private const string StageCatalogAssetPath = "Assets/_Features/Stages/Content/StageCatalog.asset";
         private const string StageCatalogProviderAssetPath = "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
         private const string StageIdAliasTableAssetPath = "Assets/_Features/Stages/Content/StageIdAliasTable.asset";
+        private const string StageAliasGovernanceLedgerAssetPath =
+            StageAliasGovernanceUpdater.DefaultAliasGovernanceLedgerAssetPath;
         private const string DefaultPlanAssetPath =
             "Assets/_Features/Stages/Editor/Migration/StageCatalogMigrationPlan.asset";
         private const string ReportRoot = "Temp/StageCatalogMigration";
@@ -51,6 +53,7 @@ namespace Game.Feature.Stages.Editor
                 catalogPath = StageCatalogAssetPath,
                 providerPath = StageCatalogProviderAssetPath,
                 aliasTablePath = StageIdAliasTableAssetPath,
+                aliasGovernanceLedgerPath = StageAliasGovernanceLedgerAssetPath,
                 dryRunHash = dryRunHash,
                 rollbackJournalPath = Path.Combine(ReportRoot, runId, "rollback.json").Replace('\\', '/'),
                 items = reportItems,
@@ -77,14 +80,17 @@ namespace Game.Feature.Stages.Editor
             var catalog = LoadOrCreateCatalog();
             var provider = LoadOrCreateProvider(catalog);
             var aliasTable = LoadOrCreateAliasTable();
+            var aliasGovernanceLedger = LoadOrCreateAliasGovernanceLedger();
             var previousCatalogEntryGuids = catalog.Entries
                 .Where(entry => entry != null)
                 .Select(entry => AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(entry)))
                 .ToArray();
             var previousAliasEntries = aliasTable.Entries.ToArray();
+            var previousAliasGovernanceEntries = aliasGovernanceLedger.Entries.ToArray();
 
             var migratedEntries = new List<StageContentEntry>();
             var mergedAliases = new List<StageIdAliasEntry>(previousAliasEntries);
+            var mergedAliasGovernanceEntries = new List<StageAliasGovernanceEntry>(previousAliasGovernanceEntries);
             var createdAssets = new List<string>();
             var updatedAssets = new List<string>();
 
@@ -104,7 +110,7 @@ namespace Game.Feature.Stages.Editor
 
                 if (disposition == StageCatalogMigrationDisposition.AliasOnly)
                 {
-                    MergeAliases(item, mergedAliases);
+                    MergeAliases(item, mergedAliases, mergedAliasGovernanceEntries);
                     continue;
                 }
 
@@ -125,20 +131,16 @@ namespace Game.Feature.Stages.Editor
                     migratedEntries.Add(entry);
                 }
 
-                MergeAliases(item, mergedAliases);
+                MergeAliases(item, mergedAliases, mergedAliasGovernanceEntries);
             }
 
             catalog.SetEntries(migratedEntries
                 .OrderBy(entry => entry.StageId.Value, StringComparer.Ordinal)
                 .ToArray());
-            aliasTable.SetEntries(mergedAliases
-                .GroupBy(entry => StageIdNormalizer.Normalize(entry.DeprecatedStageId), StringComparer.Ordinal)
-                .Select(group => group.First())
-                .ToArray());
+            StageAliasGovernanceUpdater.Apply(aliasTable, aliasGovernanceLedger, mergedAliases, mergedAliasGovernanceEntries);
             catalog.AssignStageIdAliasTable(aliasTable);
             provider.AssignCatalog(catalog);
             EditorUtility.SetDirty(catalog);
-            EditorUtility.SetDirty(aliasTable);
             EditorUtility.SetDirty(provider);
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -171,8 +173,10 @@ namespace Game.Feature.Stages.Editor
                 catalogAssetPath = StageCatalogAssetPath,
                 providerAssetPath = StageCatalogProviderAssetPath,
                 aliasTableAssetPath = StageIdAliasTableAssetPath,
+                aliasGovernanceLedgerAssetPath = StageAliasGovernanceLedgerAssetPath,
                 previousCatalogEntryGuids = previousCatalogEntryGuids,
                 previousAliasEntries = previousAliasEntries,
+                previousAliasGovernanceEntries = previousAliasGovernanceEntries,
             };
 
             WriteReports(report);
@@ -206,6 +210,7 @@ namespace Game.Feature.Stages.Editor
 
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(journal.catalogAssetPath);
             var aliasTable = AssetDatabase.LoadAssetAtPath<StageIdAliasTable>(journal.aliasTableAssetPath);
+            var aliasGovernanceLedger = AssetDatabase.LoadAssetAtPath<StageAliasGovernanceLedger>(journal.aliasGovernanceLedgerAssetPath);
             var provider = AssetDatabase.LoadAssetAtPath<ScriptableObjectStageCatalogProvider>(journal.providerAssetPath);
             if (catalog != null)
             {
@@ -226,8 +231,11 @@ namespace Game.Feature.Stages.Editor
 
             if (aliasTable != null)
             {
-                aliasTable.SetEntries(journal.previousAliasEntries ?? Array.Empty<StageIdAliasEntry>());
-                EditorUtility.SetDirty(aliasTable);
+                StageAliasGovernanceUpdater.Apply(
+                    aliasTable,
+                    aliasGovernanceLedger ?? StageAliasGovernanceUpdater.LoadOrCreateLedger(),
+                    journal.previousAliasEntries ?? Array.Empty<StageIdAliasEntry>(),
+                    journal.previousAliasGovernanceEntries ?? Array.Empty<StageAliasGovernanceEntry>());
             }
 
             if (provider != null && catalog != null)
@@ -537,7 +545,7 @@ namespace Game.Feature.Stages.Editor
 
             var enemyCatalog = FindSiblingAsset<EnemyPresentationCatalog>(item.folderPath);
             var staticCatalog = FindSiblingAsset<StaticEntityPresentationCatalog>(item.folderPath);
-            var seededPresentation = StagePresentationAssembler.ResolveLegacy(stageDefinition, enemyCatalog, staticCatalog);
+            var seededPresentation = LegacyStagePresentationEditorBridge.Resolve(stageDefinition, enemyCatalog, staticCatalog);
 
             var entry = AssetDatabase.LoadAssetAtPath<StageContentEntry>(entryPath);
             if (entry == null)
@@ -612,7 +620,10 @@ namespace Game.Feature.Stages.Editor
             return AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[0]));
         }
 
-        private static void MergeAliases(StageCatalogMigrationReportItem item, ICollection<StageIdAliasEntry> aliases)
+        private static void MergeAliases(
+            StageCatalogMigrationReportItem item,
+            ICollection<StageIdAliasEntry> aliases,
+            ICollection<StageAliasGovernanceEntry> governanceEntries)
         {
             if (!StageId.TryCreate(item.chosenStageId, out var currentStageId))
             {
@@ -622,11 +633,18 @@ namespace Game.Feature.Stages.Editor
             var aliasPlan = item.aliasPlan ?? Array.Empty<string>();
             for (var i = 0; i < aliasPlan.Length; i++)
             {
-                aliases.Add(new StageIdAliasEntry
+                var aliasEntry = new StageIdAliasEntry
                 {
                     DeprecatedStageId = aliasPlan[i],
                     CurrentStageId = currentStageId,
-                });
+                };
+                aliases.Add(aliasEntry);
+                governanceEntries.Add(StageAliasGovernanceUpdater.CreateEntry(
+                    aliasEntry,
+                    sourceKind: "catalog-migration",
+                    sourceAssetGuid: item.sourceAssetGuid,
+                    introducedBy: nameof(StageCatalogMigrationTool),
+                    reason: "Stage catalog migration rename compatibility bridge."));
             }
         }
 
@@ -670,6 +688,11 @@ namespace Game.Feature.Stages.Editor
             aliasTable.name = "StageIdAliasTable";
             AssetDatabase.CreateAsset(aliasTable, StageIdAliasTableAssetPath);
             return aliasTable;
+        }
+
+        private static StageAliasGovernanceLedger LoadOrCreateAliasGovernanceLedger()
+        {
+            return StageAliasGovernanceUpdater.LoadOrCreateLedger(StageAliasGovernanceLedgerAssetPath);
         }
 
         private static StageCatalogMigrationReportSummary BuildSummary(IEnumerable<StageCatalogMigrationReportItem> items)

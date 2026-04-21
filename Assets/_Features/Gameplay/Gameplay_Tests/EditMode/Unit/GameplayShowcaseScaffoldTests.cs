@@ -915,9 +915,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             string presentationTimingPresetAssetPath)
         {
             StringAssert.Contains(
-                "stageLoadSourceMode: 0",
-                installerBlock);
-            StringAssert.Contains(
                 $"stageCatalogProvider: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(stageCatalogProviderAssetPath)}, type: 2}}",
                 installerBlock);
             StringAssert.Contains(

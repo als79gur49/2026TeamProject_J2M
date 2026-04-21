@@ -105,6 +105,7 @@ namespace Game.Feature.Stages.Editor
         public string catalogPath;
         public string providerPath;
         public string aliasTablePath;
+        public string aliasGovernanceLedgerPath;
         public string dryRunHash;
         public string rollbackJournalPath;
         public StageCatalogMigrationReportItem[] items;
@@ -119,7 +120,9 @@ namespace Game.Feature.Stages.Editor
         public string catalogAssetPath;
         public string providerAssetPath;
         public string aliasTableAssetPath;
+        public string aliasGovernanceLedgerAssetPath;
         public string[] previousCatalogEntryGuids;
         public StageIdAliasEntry[] previousAliasEntries;
+        public StageAliasGovernanceEntry[] previousAliasGovernanceEntries;
     }
 }

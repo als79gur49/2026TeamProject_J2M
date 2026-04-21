@@ -109,22 +109,14 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             var serializedObject = new SerializedObject(installer);
-            var loadModeProperty = serializedObject.FindProperty("stageLoadSourceMode");
             var providerProperty = serializedObject.FindProperty("stageCatalogProvider");
             var defaultStageIdProperty = serializedObject.FindProperty("defaultStageId");
-            var stageDefinitionProperty = serializedObject.FindProperty("stageDefinition");
-            var stageContentEntryProperty = serializedObject.FindProperty("stageContentEntry");
-            if (loadModeProperty == null ||
-                providerProperty == null ||
-                defaultStageIdProperty == null ||
-                stageDefinitionProperty == null ||
-                stageContentEntryProperty == null)
+            if (providerProperty == null || defaultStageIdProperty == null)
             {
                 throw new InvalidOperationException(
                     $"Installer '{installer.GetType().Name}' does not expose the canonical stage bootstrap fields.");
             }
 
-            loadModeProperty.enumValueIndex = (int)StageLoadSourceMode.CatalogResolvedStageId;
             providerProperty.objectReferenceValue = stageCatalogProvider;
             var defaultStageIdValue = defaultStageIdProperty.FindPropertyRelative("value");
             if (defaultStageIdValue == null)
@@ -134,8 +126,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             defaultStageIdValue.stringValue = StageId.CreateOrThrow(defaultStageId).Value;
-            stageDefinitionProperty.objectReferenceValue = null;
-            stageContentEntryProperty.objectReferenceValue = null;
+            AssignOptionalFieldObjectReference(serializedObject, "stageDefinition", null);
+            AssignOptionalFieldObjectReference(serializedObject, "stageContentEntry", null);
             AssignOptionalFieldObjectReference(serializedObject, "enemyPresentationCatalog", null);
             AssignOptionalFieldObjectReference(serializedObject, "staticEntityPresentationCatalog", null);
             serializedObject.ApplyModifiedPropertiesWithoutUndo();

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 906fc9c2f2d2439ea6203f8d58883b37, type: 3}
+  m_Name: StageCatalogKnownWarningLedger
+  m_EditorClassIdentifier:
+  entries:
+  - IssueCode: gameplay.name-drift
+    AssetGuid: 768e58af510a487eafd9bf00b45b4ca0
+    ExpectedAssetPath: Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset
+    ExpectedAssetName: Stage_CombinedGameplayShowcase
+    ExpectedStageId: combined-gameplay-showcase
+    Owner: stage-content-refactor
+    Reason: Grandfathered gameplay asset name drift is intentionally tracked until canonicalization.
+    RemovalGate: P3-B grandfather canonicalization
+  - IssueCode: gameplay.name-drift
+    AssetGuid: 17f422e552184a24d8a666d77d93ab18
+    ExpectedAssetPath: Assets/_Features/Stages/Stage_TutorialScene/Stage_TutorialSecne.asset
+    ExpectedAssetName: Stage_TutorialSecne
+    ExpectedStageId: tutorial-scene
+    Owner: stage-content-refactor
+    Reason: Grandfathered gameplay asset name drift is intentionally tracked until canonicalization.
+    RemovalGate: P3-B grandfather canonicalization

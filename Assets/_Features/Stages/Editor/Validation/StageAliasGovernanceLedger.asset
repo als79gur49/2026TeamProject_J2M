@@ -1,0 +1,42 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4182ec7a446346df8d6f31fc1dcb8e09, type: 3}
+  m_Name: StageAliasGovernanceLedger
+  m_EditorClassIdentifier:
+  entries:
+  - DeprecatedStageId: Stage_CombinedGameplayShowcase
+    CurrentStageId:
+      value: combined-gameplay-showcase
+    SourceKind: catalog-migration
+    SourceAssetGuid: 768e58af510a487eafd9bf00b45b4ca0
+    Owner: stage-content-refactor
+    Reason: Stage catalog migration rename compatibility bridge.
+    IntroducedBy: StageCatalogMigrationTool
+    RemovalGate: P3-D alias prune
+  - DeprecatedStageId: Stage_TutorialSecne
+    CurrentStageId:
+      value: tutorial-scene
+    SourceKind: catalog-migration
+    SourceAssetGuid: 17f422e552184a24d8a666d77d93ab18
+    Owner: stage-content-refactor
+    Reason: Stage catalog migration rename compatibility bridge.
+    IntroducedBy: StageCatalogMigrationTool
+    RemovalGate: P3-D alias prune
+  - DeprecatedStageId: tutorial-secne
+    CurrentStageId:
+      value: tutorial-scene
+    SourceKind: catalog-migration
+    SourceAssetGuid: 17f422e552184a24d8a666d77d93ab18
+    Owner: stage-content-refactor
+    Reason: Stage catalog migration rename compatibility bridge.
+    IntroducedBy: StageCatalogMigrationTool
+    RemovalGate: P3-D alias prune

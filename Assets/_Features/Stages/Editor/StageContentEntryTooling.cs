@@ -194,16 +194,25 @@ namespace Game.Feature.Stages.Editor
 
             if (aliasTable != null && oldStageId.IsValid)
             {
+                var aliasLedger = StageAliasGovernanceUpdater.LoadOrCreateLedger();
+                var aliasEntry = new StageIdAliasEntry
+                {
+                    DeprecatedStageId = oldStageId.Value,
+                    CurrentStageId = newStageId,
+                };
                 var aliases = new List<StageIdAliasEntry>(aliasTable.Entries)
                 {
-                    new StageIdAliasEntry
-                    {
-                        DeprecatedStageId = oldStageId.Value,
-                        CurrentStageId = newStageId,
-                    },
+                    aliasEntry,
                 };
-                aliasTable.SetEntries(aliases.ToArray());
-                EditorUtility.SetDirty(aliasTable);
+                var governanceEntries = new List<StageAliasGovernanceEntry>(aliasLedger.Entries)
+                {
+                    StageAliasGovernanceUpdater.CreateEntry(
+                        aliasEntry,
+                        sourceKind: "stage-id-rename",
+                        sourceAssetGuid: AssetDatabase.AssetPathToGUID(AssetDatabase.GetAssetPath(entry)),
+                        introducedBy: nameof(StageIdRenameTool))
+                };
+                StageAliasGovernanceUpdater.Apply(aliasTable, aliasLedger, aliases, governanceEntries);
             }
 
             EditorUtility.SetDirty(entry);

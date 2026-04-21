@@ -4,7 +4,8 @@
   "references": [
     "Game.Feature.Stages",
     "Game.Feature.Gameplay",
-    "Game.Feature.Gameplay.Host"
+    "Game.Feature.Gameplay.Host",
+    "Game.Shared.AudioContracts"
   ],
   "includePlatforms": [
     "Editor"

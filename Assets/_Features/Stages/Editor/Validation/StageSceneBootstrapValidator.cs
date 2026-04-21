@@ -90,16 +90,17 @@ namespace Game.Feature.Stages.Editor
                         }
 
                         var serializedInstaller = new SerializedObject(stageInstaller);
-                        var mode = (StageLoadSourceMode)serializedInstaller.FindProperty("stageLoadSourceMode").enumValueIndex;
-                        switch (mode)
+                        var modeProperty = serializedInstaller.FindProperty("stageLoadSourceMode");
+                        var modeValue = modeProperty == null ? 0 : modeProperty.enumValueIndex;
+                        switch (modeValue)
                         {
-                            case StageLoadSourceMode.CatalogResolvedStageId:
+                            case 0:
                                 catalogResolvedCount++;
                                 break;
-                            case StageLoadSourceMode.SerializedStageContentEntry:
+                            case 1:
                                 serializedEntryCount++;
                                 break;
-                            case StageLoadSourceMode.LegacyStageDefinition:
+                            default:
                                 legacyDefinitionCount++;
                                 break;
                         }
@@ -177,7 +178,8 @@ namespace Game.Feature.Stages.Editor
             var stageContentEntryProperty = serializedInstaller.FindProperty("stageContentEntry");
             var enemyCatalogProperty = serializedInstaller.FindProperty("enemyPresentationCatalog");
             var staticCatalogProperty = serializedInstaller.FindProperty("staticEntityPresentationCatalog");
-            var mode = (StageLoadSourceMode)modeProperty.enumValueIndex;
+            var hasCompatModeProperty = modeProperty != null;
+            var usesCompatMode = hasCompatModeProperty && modeProperty.enumValueIndex != 0;
 
             if (stageDefinitionProperty != null && stageDefinitionProperty.objectReferenceValue != null)
             {
@@ -191,19 +193,19 @@ namespace Game.Feature.Stages.Editor
                     options);
             }
 
-            if (mode != StageLoadSourceMode.CatalogResolvedStageId)
+            if (usesCompatMode)
             {
                 AddSceneIssue(
                     report,
                     ResolveProductionSceneContractSeverity(options),
                     "scene.compat-mode.production",
-                    $"Production scene '{scenePath}' uses compat stage load mode '{mode}'.",
+                    $"Production scene '{scenePath}' uses compat stage load mode value '{modeProperty.enumValueIndex}'.",
                     installer,
                     scenePath,
                     options);
             }
 
-            if (mode == StageLoadSourceMode.CatalogResolvedStageId && providerProperty?.objectReferenceValue == null)
+            if (providerProperty?.objectReferenceValue == null)
             {
                 report.Add(
                     ResolveProductionSceneContractSeverity(options),
@@ -214,8 +216,7 @@ namespace Game.Feature.Stages.Editor
                     options.Timing);
             }
 
-            if (mode == StageLoadSourceMode.CatalogResolvedStageId &&
-                !IsSerializedStageIdValid(defaultStageIdProperty))
+            if (!IsSerializedStageIdValid(defaultStageIdProperty))
             {
                 report.Add(
                     ResolveProductionSceneContractSeverity(options),
@@ -226,8 +227,7 @@ namespace Game.Feature.Stages.Editor
                     options.Timing);
             }
 
-            if (mode == StageLoadSourceMode.CatalogResolvedStageId &&
-                stageContentEntryProperty?.objectReferenceValue != null)
+            if (stageContentEntryProperty?.objectReferenceValue != null)
             {
                 AddSceneIssue(
                     report,
@@ -239,8 +239,7 @@ namespace Game.Feature.Stages.Editor
                     options);
             }
 
-            if (mode == StageLoadSourceMode.CatalogResolvedStageId &&
-                enemyCatalogProperty?.objectReferenceValue != null)
+            if (enemyCatalogProperty?.objectReferenceValue != null)
             {
                 report.Add(
                     ResolveProductionSceneContractSeverity(options),
@@ -251,8 +250,7 @@ namespace Game.Feature.Stages.Editor
                     options.Timing);
             }
 
-            if (mode == StageLoadSourceMode.CatalogResolvedStageId &&
-                staticCatalogProperty?.objectReferenceValue != null)
+            if (staticCatalogProperty?.objectReferenceValue != null)
             {
                 report.Add(
                     ResolveProductionSceneContractSeverity(options),

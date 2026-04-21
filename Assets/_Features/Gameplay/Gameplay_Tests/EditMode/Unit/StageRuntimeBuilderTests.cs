@@ -16,6 +16,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedStageAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+        private const string CombinedPresentationAssetPath =
+            "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string TutorialStageAssetPath =
             "Assets/_Features/Stages/Stage_TutorialScene/Stage_TutorialSecne.asset";
         private const string TutorialEnemyProfileAssetPath =
@@ -289,7 +291,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
             Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
 
-            var presentation = StagePresentationAssembler.ResolveLegacy(stage);
+            var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
+            Assert.That(
+                presentationDefinition,
+                Is.Not.Null,
+                $"Missing stage presentation asset at '{CombinedPresentationAssetPath}'.");
+
+            var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
             Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var presentationBinding), Is.True);
             Assert.That(presentationBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
@@ -299,90 +307,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
             Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StagePresentationAssembler_ResolveLegacy_BuildsEnemyPresentationBindingsOnlyForEnemySpawnsWithIds()
-        {
-            var enemyProfile = ScriptableObject.CreateInstance<EnemyAiProfile>();
-
-            try
-            {
-                var stage = CreateStage(
-                    "EnemyPresentationBindings",
-                    CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                    CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Right),
-                    CreateSpawn(
-                        20,
-                        StageSpawnKind.Enemy,
-                        new SurfaceCell(FaceId.Floor, 1, 1),
-                        hp: 2,
-                        enemyAiMode: EnemyAiMode.Patrol,
-                        enemyAiProfile: enemyProfile,
-                        presentationId: $"  {WindupEnemyPresentationId}  "),
-                    CreateSpawn(
-                        21,
-                        StageSpawnKind.Enemy,
-                        new SurfaceCell(FaceId.Floor, 2, 1),
-                        hp: 2,
-                        enemyAiMode: EnemyAiMode.Patrol,
-                        enemyAiProfile: enemyProfile,
-                        presentationId: " "),
-                    CreateSpawn(
-                        30,
-                        StageSpawnKind.Box,
-                        new SurfaceCell(FaceId.Floor, 1, 2),
-                        hp: 1,
-                        presentationId: "ignored_box_presentation"));
-
-                try
-                {
-                    StageRuntimeBuilder.Build(stage);
-                    var presentation = StagePresentationAssembler.ResolveLegacy(stage);
-                    Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(1));
-                    Assert.That(presentation.EnemyPresentationBindings[0].EntityId, Is.EqualTo(20));
-                    Assert.That(presentation.EnemyPresentationBindings[0].PresentationId, Is.EqualTo(WindupEnemyPresentationId));
-                }
-                finally
-                {
-                    UnityEngine.Object.DestroyImmediate(stage);
-                }
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(enemyProfile);
-            }
-        }
-
-        [Test]
-        [Category("Extended")]
-        public void StagePresentationAssembler_ResolveLegacy_BuildsStaticPresentationBindingsOnlyForBoxAndWallSpawnsWithIds()
-        {
-            var stage = CreateStage(
-                "StaticPresentationBindings",
-                CreateBoard(new Vector2Int(0, 0), new Vector2Int(2, 2)),
-                CreateSpawn(10, StageSpawnKind.Player, new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, facing: Direction.Right),
-                CreateSpawn(30, StageSpawnKind.Box, new SurfaceCell(FaceId.Floor, 1, 1), hp: 1, presentationId: "  box_variant  "),
-                CreateSpawn(40, StageSpawnKind.Wall, new SurfaceCell(FaceId.Front, 2, 1), hp: 1, facing: Direction.None, presentationId: "wall_variant"),
-                CreateSpawn(50, StageSpawnKind.Box, new SurfaceCell(FaceId.Ceiling, 1, 2), hp: 1, presentationId: " "),
-                CreateSpawn(60, StageSpawnKind.Enemy, new SurfaceCell(FaceId.Floor, 2, 2), hp: 2, enemyAiMode: EnemyAiMode.Patrol, presentationId: "enemy_variant"));
-
-            try
-            {
-                StageRuntimeBuilder.Build(stage);
-                var presentation = StagePresentationAssembler.ResolveLegacy(stage);
-
-                Assert.That(presentation.StaticEntityPresentationBindings.Length, Is.EqualTo(2));
-                Assert.That(presentation.StaticEntityPresentationBindings[0].EntityId, Is.EqualTo(30));
-                Assert.That(presentation.StaticEntityPresentationBindings[0].PresentationId, Is.EqualTo("box_variant"));
-                Assert.That(presentation.StaticEntityPresentationBindings[1].EntityId, Is.EqualTo(40));
-                Assert.That(presentation.StaticEntityPresentationBindings[1].PresentationId, Is.EqualTo("wall_variant"));
-            }
-            finally
-            {
-                UnityEngine.Object.DestroyImmediate(stage);
-            }
         }
 
         [Test]
