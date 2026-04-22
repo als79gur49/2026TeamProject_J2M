@@ -10,54 +10,65 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 4a62f76156244efc8a61d252c819ccb9, type: 3}
-  m_Name: Player_S1_GameplayActionAudioProfile
+  m_Name: Player_S1_GameplayActionAudioProfile_Test
   m_EditorClassIdentifier: Game.Feature.Gameplay.ActionAudio::Game.Feature.Gameplay.ActionAudio.GameplayActionAudioProfile
   entries:
   - Action: 0
     Moment: 0
     Binding:
-      definition: {fileID: 11400000, guid: b8e8e64c8849e2744aee0188f2264468, type: 2}
+      definition: {fileID: 11400000, guid: 19e0694c2eeadf2408316d19229bfa90, type: 2}
       attachmentSlot:
-        id:
-      policy: {fileID: 0}
+        id: 
+      policy:
+        rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 2
     Binding:
-      definition: {fileID: 11400000, guid: c5b5d695de2213640a39c5a260b0fb68, type: 2}
+      definition: {fileID: 11400000, guid: b2ea499dbd6c5d346998ea8d2bb0bcf6, type: 2}
       attachmentSlot:
-        id:
-      policy: {fileID: 0}
+        id: 
+      policy:
+        rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 3
     Binding:
-      definition: {fileID: 11400000, guid: 994247e77e88f76458c930a9f8db8fea, type: 2}
+      definition: {fileID: 11400000, guid: 0e23faa43d5c109429b34d5580afcd51, type: 2}
       attachmentSlot:
-        id:
-      policy: {fileID: 0}
+        id: 
+      policy:
+        rid: -2
     IsOptional: 0
   - Action: 0
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: f29601f338caf084fb4466da2eedfa91, type: 2}
+      definition: {fileID: 11400000, guid: bce7ccc3940938741be5f7b35c081861, type: 2}
       attachmentSlot:
-        id:
-      policy: {fileID: 0}
+        id: 
+      policy:
+        rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 0
     Binding:
-      definition: {fileID: 11400000, guid: df0fe84f7f4b919428e8ddd52cedbde2, type: 2}
+      definition: {fileID: 11400000, guid: d710d9942b90d9d44a24ea88ade7b0b6, type: 2}
       attachmentSlot:
-        id:
-      policy: {fileID: 0}
+        id: 
+      policy:
+        rid: -2
     IsOptional: 0
   - Action: 1
     Moment: 4
     Binding:
-      definition: {fileID: 11400000, guid: f29601f338caf084fb4466da2eedfa91, type: 2}
+      definition: {fileID: 11400000, guid: e8f4827a279a3a4458dc9ed5728d2fe5, type: 2}
       attachmentSlot:
-        id:
-      policy: {fileID: 0}
+        id: 
+      policy:
+        rid: -2
     IsOptional: 0
+  references:
+    version: 2
+    RefIds:
+    - rid: -2
+      type: {class: , ns: , asm: }
