@@ -811,7 +811,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
         private const string StageCatalogProviderAssetPath =
             "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
-        private const string CombinedDefaultStageId = "combined-gameplay-showcase";
         private const string DefaultSimulationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplaySimulationTimingPreset_DefaultShowcase.asset";
         private const string DefaultPresentationTimingPresetAssetPath =
@@ -828,7 +827,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             AssertUsesTimingPresetReferences(
                 installerBlock,
                 StageCatalogProviderAssetPath,
-                CombinedDefaultStageId,
                 DefaultSimulationTimingPresetAssetPath,
                 DefaultPresentationTimingPresetAssetPath);
             StringAssert.DoesNotContain("initialMoveDelaySeconds:", installerBlock);
@@ -910,16 +908,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static void AssertUsesTimingPresetReferences(
             string installerBlock,
             string stageCatalogProviderAssetPath,
-            string defaultStageId,
             string simulationTimingPresetAssetPath,
             string presentationTimingPresetAssetPath)
         {
             StringAssert.Contains(
                 $"stageCatalogProvider: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(stageCatalogProviderAssetPath)}, type: 2}}",
                 installerBlock);
-            StringAssert.Contains(
-                $"defaultStageId:\n    value: {defaultStageId}",
-                installerBlock);
+            StringAssert.DoesNotContain("defaultStageId:", installerBlock);
             StringAssert.Contains(
                 $"simulationTimingPreset: {{fileID: 11400000, guid: {AssetDatabase.AssetPathToGUID(simulationTimingPresetAssetPath)}, type: 2}}",
                 installerBlock);

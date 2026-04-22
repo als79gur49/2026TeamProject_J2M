@@ -18,7 +18,6 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string StageCatalogProviderAssetPath =
             "Assets/_Features/Stages/Content/StageCatalogProvider.asset";
-        private const string CombinedDefaultStageId = "combined-gameplay-showcase";
         private const string GameplayAudioMapAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Audio/Maps/GameplayAudioMap_UI-Audio_Test.asset";
         private const string DefaultSimulationTimingPresetAssetPath =
@@ -38,7 +37,6 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 CombinedScenePath,
                 "Box Slide Test Scene",
                 StageCatalogProviderAssetPath,
-                CombinedDefaultStageId,
                 DefaultSimulationTimingPresetAssetPath,
                 DefaultPresentationTimingPresetAssetPath,
                 gameplayAudioMapAssetPath: GameplayAudioMapAssetPath);
@@ -48,7 +46,6 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             string scenePath,
             string rootObjectName,
             string stageCatalogProviderAssetPath,
-            string defaultStageId,
             string simulationTimingPresetAssetPath,
             string presentationTimingPresetAssetPath,
             string gameplayAudioMapAssetPath)
@@ -59,7 +56,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             var installerObject = new GameObject(rootObjectName);
             var installer = installerObject.AddComponent<TInstaller>();
             AssignActions(installer);
-            AssignStageBootstrap(installer, stageCatalogProviderAssetPath, defaultStageId);
+            AssignStageBootstrap(installer, stageCatalogProviderAssetPath);
             AssignObjectReference(
                 installer,
                 "simulationTimingPreset",
@@ -97,8 +94,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
         private static void AssignStageBootstrap(
             Component installer,
-            string stageCatalogProviderAssetPath,
-            string defaultStageId)
+            string stageCatalogProviderAssetPath)
         {
             var stageCatalogProvider =
                 AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(stageCatalogProviderAssetPath);
@@ -110,22 +106,13 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
             var serializedObject = new SerializedObject(installer);
             var providerProperty = serializedObject.FindProperty("stageCatalogProvider");
-            var defaultStageIdProperty = serializedObject.FindProperty("defaultStageId");
-            if (providerProperty == null || defaultStageIdProperty == null)
+            if (providerProperty == null)
             {
                 throw new InvalidOperationException(
                     $"Installer '{installer.GetType().Name}' does not expose the canonical stage bootstrap fields.");
             }
 
             providerProperty.objectReferenceValue = stageCatalogProvider;
-            var defaultStageIdValue = defaultStageIdProperty.FindPropertyRelative("value");
-            if (defaultStageIdValue == null)
-            {
-                throw new InvalidOperationException(
-                    $"Installer '{installer.GetType().Name}' does not expose a serialized defaultStageId.value field.");
-            }
-
-            defaultStageIdValue.stringValue = StageId.CreateOrThrow(defaultStageId).Value;
             AssignOptionalFieldObjectReference(serializedObject, "stageDefinition", null);
             AssignOptionalFieldObjectReference(serializedObject, "stageContentEntry", null);
             AssignOptionalFieldObjectReference(serializedObject, "enemyPresentationCatalog", null);

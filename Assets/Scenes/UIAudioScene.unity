@@ -1312,8 +1312,6 @@ MonoBehaviour:
   faceSeamGap: 3.5
   stageLoadSourceMode: 0
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
-  defaultStageId:
-    value: tutorial-scene
   stageContentEntry: {fileID: 0}
   stageDefinition: {fileID: 0}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}

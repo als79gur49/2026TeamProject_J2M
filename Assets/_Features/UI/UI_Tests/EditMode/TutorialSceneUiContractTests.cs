@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using Game.Feature.Flow.Audio;
 using Game.Feature.Gameplay.Host;
@@ -34,8 +35,7 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 TutorialScenePath,
                 "TutorialSceneBootstrapRoot",
-                GameplayAudioMapAssetPath,
-                "tutorial-scene");
+                GameplayAudioMapAssetPath);
         }
 
         [Test]
@@ -45,8 +45,7 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 UiAudioScenePath,
                 "UIAudioSceneBootstrapRoot",
-                GameplayAudioMapAssetPath,
-                "tutorial-scene");
+                GameplayAudioMapAssetPath);
         }
 
         [Test]
@@ -56,15 +55,13 @@ namespace Game.Feature.UI.Tests
             AssertCanonicalBootstrapScene(
                 CombinedScenePath,
                 "Box Slide Test Scene",
-                GameplayAudioMapAssetPath,
-                "combined-gameplay-showcase");
+                GameplayAudioMapAssetPath);
         }
 
         private static void AssertCanonicalBootstrapScene(
             string scenePath,
             string expectedRootName,
-            string expectedGameplayAudioMapAssetPath,
-            string expectedDefaultStageId)
+            string expectedGameplayAudioMapAssetPath)
         {
             var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -139,17 +136,14 @@ namespace Game.Feature.UI.Tests
                 Assert.That(serializedShowcaseInstaller.FindProperty("stageDefinition"), Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("enemyPresentationCatalog").objectReferenceValue, Is.Null);
                 Assert.That(serializedShowcaseInstaller.FindProperty("staticEntityPresentationCatalog").objectReferenceValue, Is.Null);
-                var defaultStageIdProperty = serializedShowcaseInstaller.FindProperty("defaultStageId");
-                Assert.That(defaultStageIdProperty, Is.Not.Null);
-                Assert.That(
-                    defaultStageIdProperty.FindPropertyRelative("value").stringValue,
-                    Is.EqualTo(expectedDefaultStageId));
+                Assert.That(serializedShowcaseInstaller.FindProperty("defaultStageId"), Is.Null);
                 var stageCatalogProvider = serializedShowcaseInstaller.FindProperty("stageCatalogProvider");
                 Assert.That(stageCatalogProvider, Is.Not.Null);
                 Assert.That(stageCatalogProvider.objectReferenceValue, Is.Not.Null);
                 Assert.That(
                     AssetDatabase.GetAssetPath(stageCatalogProvider.objectReferenceValue),
                     Is.EqualTo(StageCatalogProviderAssetPath));
+                Assert.That(ReadSceneText(scenePath), Does.Not.Contain("defaultStageId:"));
                 Assert.That(Resources.Load<GameObject>("UI/GameplayUiCanvasRootShell"), Is.Not.Null);
 
                 AssertSceneContainsNoSerializedComponent<Canvas>(rootObjects);
@@ -191,6 +185,12 @@ namespace Game.Feature.UI.Tests
         private static int CountComponentsInScene<T>(GameObject[] rootObjects) where T : Component
         {
             return rootObjects.Sum(root => root.GetComponentsInChildren<T>(true).Length);
+        }
+
+        private static string ReadSceneText(string scenePath)
+        {
+            var projectRoot = Directory.GetParent(UnityEngine.Application.dataPath)?.FullName ?? string.Empty;
+            return File.ReadAllText(Path.Combine(projectRoot, scenePath)).Replace("\r\n", "\n");
         }
     }
 }
