@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Reflection;
+using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Entities;
@@ -10,6 +11,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEngine;
@@ -112,6 +114,50 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator GameplaySceneHost_ActionAudioProfile_PlaybackReachesAudioService()
+        {
+            var trackedObjects = new List<UnityEngine.Object>();
+            var actionProfile = CreateActionAudioProfile(trackedObjects);
+            var playerEntity = CreatePlayerEntityState();
+            var context = CreateActionAudioHostContext(
+                nameof(GameplaySceneHost_ActionAudioProfile_PlaybackReachesAudioService),
+                new RuntimeActionAudioViewFactory(actionProfile),
+                playerEntity);
+            try
+            {
+                context.Host.Presenter.Present(CreateTickResult(
+                    CreatePlayerActionPresentationData(
+                        new TickPlayerActionPresentationSignal(
+                            entityId: playerEntity.entityId,
+                            activeActionKind: PlayerActionKind.Push,
+                            activeActionSequence: 1,
+                            startedThisTick: true,
+                            completedThisTick: false,
+                            canceledThisTick: false)),
+                    new[] { playerEntity }));
+                var snapshots = context.Manager.CaptureLivePlaybackSnapshots();
+                Assert.That(snapshots, Has.Length.EqualTo(1));
+                Assert.That(snapshots[0].LeafChannel, Is.EqualTo(AudioChannel.Sfx));
+                Assert.That(context.Manager.CaptureLivePlaybackCount(), Is.EqualTo(1));
+
+                // One-shot action SFX may naturally complete before the next frame in batchmode.
+                yield return null;
+            }
+            finally
+            {
+                context.Dispose();
+                for (var i = trackedObjects.Count - 1; i >= 0; i--)
+                {
+                    if (trackedObjects[i] != null)
+                    {
+                        UnityEngine.Object.Destroy(trackedObjects[i]);
+                    }
+                }
+            }
+        }
+
         private static HostAudioIntegrationContext CreateHostContext(
             string rootName,
             RecordingAudioSettingsPersistenceStore persistenceStore = null)
@@ -143,6 +189,43 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return new HostAudioIntegrationContext(hostObject, host, installer, manager, mapBundle, persistenceStore);
         }
 
+        private static HostAudioIntegrationContext CreateActionAudioHostContext(
+            string rootName,
+            IGameplayEntityViewFactory viewFactory,
+            EntityState playerEntity)
+        {
+            var hostObject = new GameObject(rootName);
+            hostObject.SetActive(false);
+
+            var installer = hostObject.AddComponent<AudioRuntimeInstaller>();
+            SetSerializedField(typeof(AudioRuntimeInstaller), installer, "installOnAwake", false);
+
+            var runtimeRootObject = new GameObject("AudioRuntimeRoot");
+            runtimeRootObject.transform.SetParent(hostObject.transform, worldPositionStays: false);
+            var runtimeRoot = runtimeRootObject.AddComponent<AudioRuntimeRoot>();
+            var manager = runtimeRootObject.AddComponent<AudioManager>();
+
+            var host = hostObject.AddComponent<GameplaySceneHost>();
+            var mapBundle = CreateGameplayAudioMapBundle();
+
+            hostObject.SetActive(true);
+            host.Initialize(new GameplaySceneHostConfiguration
+            {
+                AutoAdvanceTicks = false,
+                AutoCreateViews = true,
+                InitialBoardBounds = new BoardBounds(new Vector2Int(0, 0), new Vector2Int(0, 0)),
+                InitialEntities = new[] { playerEntity },
+                InitialTerrain = GameplayTerrainData.Empty,
+                InitialTopology = new CubeTopologyState(FaceId.Floor),
+                GameplayAudioMap = mapBundle.Map,
+                TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault(),
+                ViewFactory = viewFactory,
+            });
+
+            Assert.That(installer.RuntimeRoot, Is.SameAs(runtimeRoot));
+            return new HostAudioIntegrationContext(hostObject, host, installer, manager, mapBundle, new RecordingAudioSettingsPersistenceStore());
+        }
+
         private static GameplaySceneHostConfiguration CreateHostConfiguration(GameplayAudioMap gameplayAudioMap)
         {
             return new GameplaySceneHostConfiguration
@@ -171,6 +254,22 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
                 {
                     new TickPlayerDamagePresentationSignal(entityId, tookDamageThisTick: true, damageAmount: 1),
                 },
+                Array.Empty<TickEnemyDamagePresentationSignal>(),
+                Array.Empty<TickEnemyActionPresentationSignal>(),
+                Array.Empty<TickEnemyJumpPresentationSignal>(),
+                Array.Empty<TickEntityExitPresentationSignal>());
+        }
+
+        private static TickPresentationData CreatePlayerActionPresentationData(params TickPlayerActionPresentationSignal[] playerActionSignals)
+        {
+            return new TickPresentationData(
+                Array.Empty<TickEntityMotion>(),
+                topologyMotion: null,
+                Array.Empty<TickVisibilityChange>(),
+                Array.Empty<TickTransitionVisibilityChange>(),
+                playerActionSignals ?? Array.Empty<TickPlayerActionPresentationSignal>(),
+                Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                Array.Empty<TickPlayerDamagePresentationSignal>(),
                 Array.Empty<TickEnemyDamagePresentationSignal>(),
                 Array.Empty<TickEnemyActionPresentationSignal>(),
                 Array.Empty<TickEnemyJumpPresentationSignal>(),
@@ -228,6 +327,33 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             return new GameplayAudioMapBundle(map, definitions.ToArray());
         }
 
+        private static GameplayActionAudioProfile CreateActionAudioProfile(ICollection<UnityEngine.Object> trackedObjects)
+        {
+            var profile = Track(ScriptableObject.CreateInstance<GameplayActionAudioProfile>(), trackedObjects);
+            var definition = Track(ScriptableObject.CreateInstance<SingleAudioDefinition>(), trackedObjects);
+            var clip = Track(AudioClip.Create("ActionAudio", 4410, 1, 44100, false), trackedObjects);
+            definition.name = "ActionAudioPushWindup";
+            ConfigureDefinition(definition, clip, loop: false, AudioCategory.Sfx);
+
+            var binding = new AudioBinding();
+            SetSerializedField(typeof(AudioBinding), binding, "definition", definition);
+            SetSerializedField(typeof(AudioBinding), binding, "attachmentSlot", default(AudioAttachmentSlot));
+            SetSerializedField(typeof(AudioBinding), binding, "policy", null);
+
+            var entries = new[]
+            {
+                new GameplayActionAudioEntry
+                {
+                    Action = GameplayActionKind.Push,
+                    Moment = GameplayActionAudioMoment.Windup,
+                    Binding = binding,
+                    IsOptional = false,
+                },
+            };
+            SetSerializedField(typeof(GameplayActionAudioProfile), profile, "entries", entries);
+            return profile;
+        }
+
         private static void ConfigureDefinition(
             SingleAudioDefinition definition,
             AudioClip clip,
@@ -244,6 +370,30 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             var field = declaringType.GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null, $"Missing field '{fieldName}' on {declaringType.Name}.");
             field.SetValue(target, value);
+        }
+
+        private static EntityState CreatePlayerEntityState()
+        {
+            return new EntityState
+            {
+                entityId = 10,
+                position = new SurfaceCell(FaceId.Floor, 0, 0),
+                hp = 1,
+                maxHp = 1,
+                teamId = 1,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Player,
+                state = EntityPhaseState.Idle,
+                facing = Direction.Up,
+                boardPresence = EntityBoardPresence.Occupying,
+            };
+        }
+
+        private static T Track<T>(T unityObject, ICollection<UnityEngine.Object> trackedObjects)
+            where T : UnityEngine.Object
+        {
+            trackedObjects.Add(unityObject);
+            return unityObject;
         }
 
         private sealed class HostAudioIntegrationContext : IDisposable
@@ -279,6 +429,31 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             {
                 _mapBundle.Dispose();
                 UnityEngine.Object.DestroyImmediate(_rootObject);
+            }
+        }
+
+        private sealed class RuntimeActionAudioViewFactory : IGameplayEntityViewFactory
+        {
+            private readonly GameplayActionAudioProfile _profile;
+
+            public RuntimeActionAudioViewFactory(GameplayActionAudioProfile profile)
+            {
+                _profile = profile;
+            }
+
+            public GameplayEntityView CreateView(in EntityState entity)
+            {
+                var viewObject = new GameObject($"EntityView_{entity.entityId}");
+                var view = viewObject.AddComponent<GameplayEntityView>();
+                view.Initialize(entity.entityId);
+
+                if (entity.unitRole == UnitRole.Player)
+                {
+                    var authoring = viewObject.AddComponent<GameplayActionAudioAuthoring>();
+                    SetSerializedField(typeof(GameplayActionAudioAuthoring), authoring, "profile", _profile);
+                }
+
+                return view;
             }
         }
 

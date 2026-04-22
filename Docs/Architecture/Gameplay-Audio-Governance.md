@@ -1,12 +1,15 @@
 # Gameplay Audio Governance
 
-이 문서는 gameplay-origin one-shot SFX governance의 active supporting truth-source다.
+이 문서는 core required gameplay one-shot SFX governance의 active supporting truth-source다.
 
-이 문서는 gameplay host-orchestrated audio가 semantic drift, controller scope creep, bootstrap/map drift 없이 유지되도록 semantic family rule과 safe expansion protocol을 고정한다.
+이 문서는 gameplay host-orchestrated core audio가 semantic drift, controller scope creep, bootstrap/map drift 없이 유지되도록 semantic family rule과 safe expansion protocol을 고정한다.
 
 ## 1. Current Boundaries
 
 - gameplay-origin one-shot SFX만 `GameplayTickPresentationCoordinator`와 `GameplayAudioPresentationController`를 통해 orchestration 된다.
+- `GameplayAudioSemanticId`는 small and stable core required gameplay one-shot semantic set이다.
+- push/flip/action-specific sounds must not be added here by default.
+- action-specific gameplay audio는 [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md) 의 profile-local layer로 이동한다.
 - semantic/global ownership은 아래를 유지한다.
   - `GameplayAudioMap -> AudioBinding -> AudioDefinition`
 - shared runtime ownership은 아래를 유지한다.
@@ -46,6 +49,21 @@
 
 semantic growth는 closed-by-default다. 다만 arbitrary하지 않게, governed expansion path를 문서화한다.
 
+## 2.1 Governance Split
+
+- core one-shot semantic governance
+  - exact global set
+  - required map validation
+  - `GameplayAudioSemanticId` / `GameplayAudioMap` / `GameplayAudioRequestPlanner` / `GameplayAudioPresentationController`
+- action audio governance
+  - profile-local entries
+  - duplicate detection
+  - category/loop validation
+  - optional/required policy per profile or prefab contract
+  - action enums are not global required gameplay semantic IDs
+
+core lane의 exact-set governance를 action audio profile completeness rule로 재사용하지 않는다.
+
 ## 3. How To Add A New Gameplay Audio Semantic Safely
 
 새 gameplay audio semantic id를 추가할 때는 아래 minimum checklist를 같은 change에서 함께 수행해야 한다.
@@ -84,6 +102,8 @@ governed expansion은 허용되지만, family review 없이 “semantic id 하�
 
 future loop or flow audio가 필요해도 이 controller를 넓히지 않는다. 별도 controller/track을 추가해야 한다.
 true fade/crossfade execution도 이 controller를 넓히는 방식으로 넣지 않는다.
+
+action-specific windup/contact/blocked/impact SFX는 이 core controller가 아니라 separate gameplay action-audio controller path에 남긴다.
 
 ## 5. Pending Plan Lifecycle
 

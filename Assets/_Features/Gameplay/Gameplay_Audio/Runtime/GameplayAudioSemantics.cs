@@ -5,6 +5,8 @@ using Game.Shared.Audio;
 
 namespace Game.Feature.Gameplay.Audio
 {
+    // Core required gameplay one-shot semantic ids only.
+    // Push/flip/action-specific SFX must move through the action-audio profile layer by default.
     public enum GameplayAudioSemanticId
     {
         None = 0,
@@ -49,6 +51,9 @@ namespace Game.Feature.Gameplay.Audio
 
     public static class GameplayAudioSemanticCatalog
     {
+        // This governed descriptor set stays intentionally small and exact because it is the
+        // shared core one-shot contract for damage and entity-exit reactions, not the growing
+        // vocabulary for every gameplay action sound.
         private static readonly GameplayAudioSemanticDescriptor[] GovernedDescriptors =
         {
             new(GameplayAudioSemanticId.PlayerDamage, GameplayAudioSemanticFamily.DamageOneShot, isRequiredForHostOneShotV1: true),

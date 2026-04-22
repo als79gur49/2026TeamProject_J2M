@@ -26,12 +26,11 @@ namespace Game.Shared.Audio
 
         public void ValidateOrThrow(string ownerDescription, string semanticId)
         {
-            var validationErrors = new List<string>();
-            AppendValidationErrors(ownerDescription, semanticId, validationErrors);
-            if (validationErrors.Count > 0)
-            {
-                throw new InvalidOperationException(validationErrors[0]);
-            }
+            AudioBindingDiagnostics.ValidateOrThrow(
+                this,
+                ownerDescription,
+                $"semantic '{semanticId}'",
+                AudioBindingValidationOptions.Default);
         }
 
         internal void AppendValidationErrors(
@@ -39,24 +38,12 @@ namespace Game.Shared.Audio
             string semanticId,
             ICollection<string> validationErrors)
         {
-            if (definition == null)
-            {
-                validationErrors.Add(
-                    $"{ownerDescription} semantic '{semanticId}' is missing an AudioDefinition binding.");
-            }
-            else if (AudioDefinitionCategoryRules.TryGetReservedCategoryMessage(
-                         definition.Category,
-                         $"{ownerDescription} semantic '{semanticId}' definition '{definition.name}'",
-                         out var message))
-            {
-                validationErrors.Add(message);
-            }
-
-            if (policy != null)
-            {
-                validationErrors.Add(
-                    $"{ownerDescription} semantic '{semanticId}' configures AudioBinding.Policy, but v1 keeps policy reserved and it must remain null.");
-            }
+            AudioBindingDiagnostics.AppendValidationErrors(
+                this,
+                ownerDescription,
+                $"semantic '{semanticId}'",
+                validationErrors,
+                AudioBindingValidationOptions.Default);
         }
     }
 }

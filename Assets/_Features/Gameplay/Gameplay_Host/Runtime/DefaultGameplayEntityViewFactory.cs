@@ -98,6 +98,7 @@ namespace Game.Feature.Gameplay.Host
             ResetViewTransform(instance, entity.entityId);
             SanitizePrefabPhysics(instance);
             EnemyViewPrefabRequirements.ValidateEnemyViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
+            GameplayActionAudioPrefabRequirements.GetOptionalValidatedAuthoring(instance, nameof(DefaultGameplayEntityViewFactory));
             EnsureEnemyInactiveVisualController(instance, entity);
             EnsureRenderableVisual(instance, entity);
             view = instance;

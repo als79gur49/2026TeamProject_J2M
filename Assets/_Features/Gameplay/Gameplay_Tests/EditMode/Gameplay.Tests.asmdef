@@ -3,6 +3,7 @@
   "rootNamespace": "Game.Feature.Gameplay.Tests",
   "references": [
     "Game.Feature.Gameplay",
+    "Game.Feature.Gameplay.ActionAudio",
     "Game.Feature.Gameplay.Audio",
     "Game.Feature.Flow.Audio",
     "Game.Feature.Gameplay.UIAccess",

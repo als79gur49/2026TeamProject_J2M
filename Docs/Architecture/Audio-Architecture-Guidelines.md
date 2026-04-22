@@ -12,6 +12,7 @@
 - [UI-Architecture-Guidelines.md](./UI-Architecture-Guidelines.md)
 - [ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md](./ADR/ADR-001-Tick-Boundary-and-IR-Visibility.md)
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
+- [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
 
 Conflict rule:
@@ -81,10 +82,14 @@ TickResult
 - `GameplayAudioMap`
   - typed feature semantic dictionary
   - authoring 단계에서는 visible validation error를 남기고, bootstrap/runtime에서는 hard-fail 한다
-  - binding-local validation은 직접 재구현하지 않고 delegated `AudioBinding` diagnostics를 수집한다
+  - binding-local validation은 직접 재구현하지 않고 delegated `AudioBindingDiagnostics`를 수집한다
+  - feature map consumer는 delegated `AudioBinding` diagnostics를 집계한다
+  - validation authority reuse의 immediate policy는 deferred다
+  - shared `AudioBindingDiagnostics` facade는 binding-local validation reuse seam이다
 - `GameplayAudioSemanticId`
-  - gameplay-origin one-shot SFX vocabulary의 canonical typed id
+  - core required gameplay one-shot semantic vocabulary의 canonical typed id
   - raw string semantic literal을 대체한다
+  - push/flip/action-specific SFX를 흡수하는 expanding global vocabulary가 아니다
 - `GameplayAudioSemanticCatalog`
   - semantic descriptor metadata의 canonical owner
   - `RequiredOneShotV1`는 descriptor metadata에서 derive된다
@@ -96,6 +101,22 @@ TickResult
   - `GameplayAudioMap`, `IAudioService`, owner view resolution, continuous handle state를 소유하지 않는다
   - allowed family는 `DamageOneShot`, `EntityExitOneShot`뿐이다
   - locomotion loop, jump loop, windup/recovery loop, ambient gameplay bed, UI audio, BGM은 intentionally excluded v1 scope다
+- `GameplayActionKind` / `GameplayActionAudioMoment`
+  - gameplay action-audio profile-local typed authoring axes다
+  - global required gameplay semantic IDs가 아니다
+- `GameplayActionAudioProfile`
+  - prefab-local action + moment -> `AudioBinding` authoring asset
+  - duplicate detection, category/loop validation, optional/required policy만 소유한다
+  - global completeness governance를 소유하지 않는다
+- `GameplayActionAudioRequestPlanner`
+  - existing `PlayerActionSignals`를 frozen v1 action moments로 매핑한다
+  - `TickResult`에 audio-specific data를 추가하지 않는다
+  - same-tick duplicates를 suppress하지 않고 order-preserving layering을 유지한다
+- `GameplayActionAudioPresentationController`
+  - host-owned presentation-side controller다
+  - live owner view에서 optional `GameplayActionAudioAuthoring`를 resolve한다
+  - missing owner view / missing authoring은 runtime no-op다
+  - looping handle state나 enemy reaction governance를 소유하지 않는다
 - `GameplayAudioPresentationController`
   - host-owned orchestration controller다
   - `GameplayTickPresentationCoordinator` 내부 collaborator로 존재한다
@@ -128,6 +149,9 @@ TickResult
   3. `PlayPlayerHitEffects(result)`
   4. `PlayPlannedAudio()`
   5. `ApplyEntityExitOwnership()`
+- `RefreshAudioPlan(result)` 내부에서는 core gameplay one-shot plan과 action-audio plan을 함께 refresh한다.
+- RefreshAudioPlan(result) 내부에서는 core gameplay one-shot plan과 action-audio plan을 함께 refresh한다.
+- `PlayPlannedAudio()` 내부에서는 core gameplay one-shot requests를 먼저 실행하고, 그 다음 action-audio requests를 실행한다.
 - attached owner resolution은 exit ownership removal 이전에만 수행한다.
 - pending gameplay audio plan은 `PresentInitial`, session reset, presenter teardown에서 반드시 비워진다.
 - pending gameplay audio plan lifecycle은 아래 rule로 고정한다.
@@ -139,6 +163,8 @@ TickResult
   - UI audio는 UI presenter/controller path에 남는다.
   - BGM/scene-flow audio는 stage/scene flow presenter path에 남는다.
   - gameplay host audio controller는 `PlayBgm`을 호출하지 않는다.
+  - core enemy damage/death reaction sounds는 existing core one-shot path에 남는다.
+  - Action-side `ImpactEnemy` may coexist with core `EnemyDamage`.
   - persistent BGM ownership/access terminology는 [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md) 를 따른다.
 
 ### 4.2 Gameplay Audio Bootstrap Validation
@@ -222,11 +248,9 @@ future policy rule:
 - `AudioPlaybackPolicy`는 `AudioBinding.Policy` reserved seam에만 둔다.
 - v1에서는 `AudioBinding.Policy`가 reserved seam이며 반드시 `null`이어야 한다.
 - `AudioManager`가 가질 수 있는 policy는 pool size, category voice budget, BGM channel, source stealing rule 같은 infra-level rule뿐이다.
-- binding-local validation rule 추가는 `AudioBinding` diagnostics core만 수정한다.
-- validation authority reuse의 immediate policy는 deferred다.
-- direct consumer가 gameplay audio 하나뿐인 동안에는 current friend/internal path를 유지한다.
-- 두 번째 feature map consumer가 생기면 additional `InternalsVisibleTo` 확장 대신 shared `AudioBindingDiagnostics` facade를 우선 도입한다.
-- public `AudioBinding` surface는 그 전까지 넓히지 않는다.
+- binding-local validation rule 추가는 `AudioBindingDiagnostics`만 수정한다.
+- `AudioBindingDiagnostics`는 binding-local concerns만 알고 category/loop policy는 caller가 전달한다.
+- public `AudioBinding` surface는 feature policy hub로 넓히지 않는다.
 - 새 feature map은 binding-local rule을 직접 재구현하지 않는다. 권위는 shared에, 조합은 feature에 둔다.
 
 ## 7. PlayAttached Contract
@@ -278,6 +302,13 @@ Canonical ownership:
 - feature presenter / emitter
   - installer/root를 만들지 않는다
   - `IAudioService`만 주입받는다
+
+future extension note:
+
+- v1 action audio defaulting은 prefab-local authoring only다.
+- later stage-wide/default action audio가 필요하면 `GameplaySceneHostConfiguration` 또는 `StagePresentationDefinition`에 ad-hoc audio field를 늘리지 않는다.
+- prefer a grouped `GameplayPresentationAudioConfig`.
+- future grouped config는 core one-shot map, default action audio profile, optional enemy/entity defaults를 함께 소유해야 한다.
 
 금지:
 

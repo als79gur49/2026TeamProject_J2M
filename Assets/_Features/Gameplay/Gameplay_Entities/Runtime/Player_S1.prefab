@@ -1524,6 +1524,7 @@ GameObject:
   - component: {fileID: 1100110011001100112}
   - component: {fileID: 1100110011001100113}
   - component: {fileID: 1100110011001100114}
+  - component: {fileID: 1100110011001100115}
   m_Layer: 0
   m_Name: Player_S1
   m_TagString: Untagged
@@ -1629,9 +1630,22 @@ MonoBehaviour:
   flipRecoveryStateName: Flip_Recovery
   deathStateName: Death
   hitTriggerName: Hit
-  walkExitStateName: 
+  walkExitStateName:
   stateTransitionCrossFadeDurationSeconds: 0.04
   animationTimingAuthoring: {fileID: 1100110011001100113}
+--- !u!114 &1100110011001100115
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7651089722725020079}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 743ab0065319474a90d5137f696d2a3d, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Game.Feature.Gameplay.ActionAudio::Game.Feature.Gameplay.ActionAudio.GameplayActionAudioAuthoring
+  profile: {fileID: 11400000, guid: 42a2e109fc5141ec9e866925a0a85c3b, type: 2}
 --- !u!1 &7913118911118565083
 GameObject:
   m_ObjectHideFlags: 0
