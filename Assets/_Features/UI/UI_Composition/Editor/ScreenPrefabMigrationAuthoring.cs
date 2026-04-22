@@ -306,7 +306,8 @@ namespace Game.Feature.UI.Editor
                 "Only automatically detected resolutions are shown.");
             var fullscreenLabel = CreateLabel("FullscreenLabel", displaySection, new Vector2(0f, -110f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 14);
             var fullscreenToggle = CreateStandaloneToggle("FullscreenToggle", displaySection, "On", new Vector2(196f, -104f), new Vector2(140f, 28f));
-            var displayStatus = CreateLabel("DisplayStatus", displaySection, new Vector2(0f, -152f), new Vector2(388f, 44f), TextAnchor.UpperLeft, 12);
+            var displayStatus = CreateLabel("DisplayStatus", displaySection, new Vector2(0f, -152f), new Vector2(388f, 24f), TextAnchor.UpperLeft, 12);
+            var previewCountdown = CreateCountdownStrip("DisplayPreviewCountdown", displaySection, new Vector2(0f, -182f), new Vector2(388f, 14f));
             var applyButton = CreateButton("DisplayApplyButton", displaySection, "Apply", new Vector2(74f, -208f), new Vector2(104f, 30f));
             var revertButton = CreateButton("DisplayRevertButton", displaySection, "Revert", new Vector2(220f, -208f), new Vector2(104f, 30f));
 
@@ -347,6 +348,9 @@ namespace Game.Feature.UI.Editor
             SetField(displayView, "_fullscreenLabel", fullscreenLabel);
             SetField(displayView, "_fullscreenToggle", fullscreenToggle.Toggle);
             SetField(displayView, "_displayStatusLabel", displayStatus);
+            SetField(displayView, "_previewCountdownRoot", previewCountdown.Root);
+            SetField(displayView, "_previewCountdownLabel", previewCountdown.Label);
+            SetField(displayView, "_previewCountdownFill", previewCountdown.Fill);
             SetField(displayView, "_applyButton", applyButton.Button);
             SetField(displayView, "_applyButtonLabel", applyButton.Label);
             SetField(displayView, "_revertButton", revertButton.Button);
@@ -878,6 +882,49 @@ namespace Game.Feature.UI.Editor
             return new HoverHintParts(panelRect, label);
         }
 
+        private static CountdownStripParts CreateCountdownStrip(
+            string name,
+            RectTransform parent,
+            Vector2 anchoredPosition,
+            Vector2 sizeDelta)
+        {
+            var rootObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+            rootObject.transform.SetParent(parent, false);
+            rootObject.SetActive(false);
+
+            var rootRect = rootObject.GetComponent<RectTransform>();
+            rootRect.anchorMin = new Vector2(0f, 1f);
+            rootRect.anchorMax = new Vector2(0f, 1f);
+            rootRect.pivot = new Vector2(0f, 1f);
+            rootRect.anchoredPosition = anchoredPosition;
+            rootRect.sizeDelta = sizeDelta;
+
+            var background = rootObject.GetComponent<Image>();
+            background.color = new Color(0.10f, 0.13f, 0.18f, 1f);
+            background.raycastTarget = false;
+
+            var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fillObject.transform.SetParent(rootObject.transform, false);
+            var fillRect = fillObject.GetComponent<RectTransform>();
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = Vector2.zero;
+            fillRect.sizeDelta = new Vector2(sizeDelta.x, 0f);
+
+            var fillImage = fillObject.GetComponent<Image>();
+            fillImage.color = new Color(0.24f, 0.68f, 0.87f, 1f);
+            fillImage.type = Image.Type.Simple;
+            fillImage.fillAmount = 1f;
+            fillImage.raycastTarget = false;
+
+            var label = CreateLabel("DisplayPreviewCountdownText", rootRect, new Vector2(0f, 2f), new Vector2(388f, 18f), TextAnchor.MiddleCenter, 11);
+            label.text = string.Empty;
+            label.raycastTarget = false;
+
+            return new CountdownStripParts(rootRect, label, fillImage);
+        }
+
         private static object CreateAudioRowRefs(AudioRowParts rowParts)
         {
             var rowRefsType = typeof(SettingsAudioView).GetNestedType("AudioControlRowRefs", BindingFlags.NonPublic);
@@ -1067,6 +1114,22 @@ namespace Game.Feature.UI.Editor
             public RectTransform Panel { get; }
 
             public Text Label { get; }
+        }
+
+        private readonly struct CountdownStripParts
+        {
+            public CountdownStripParts(RectTransform root, Text label, Image fill)
+            {
+                Root = root;
+                Label = label;
+                Fill = fill;
+            }
+
+            public RectTransform Root { get; }
+
+            public Text Label { get; }
+
+            public Image Fill { get; }
         }
     }
 }

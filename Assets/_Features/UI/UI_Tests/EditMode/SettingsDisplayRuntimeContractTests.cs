@@ -4,11 +4,13 @@ using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using System;
 using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using Object = UnityEngine.Object;
 
 namespace Game.Feature.UI.Tests
 {
@@ -53,6 +55,166 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_ShowsPreviewCountdownOnlyAfterSuccessfulPopupOpen()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_CountdownSuccess");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                double now = 0d;
+                runtimeContext.TimeoutRelay.SetTimeProviderForTesting(() => now);
+                var displayPort = new FakeDisplaySettingsPort();
+                var factory = CreateFactory(runtimeContext, displayPort);
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
+                var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
+                var countdownLabel = GetDisplayPrivateField<Text>(displayView, "_previewCountdownLabel");
+                var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
+
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
+
+                displayView.SelectResolution(2);
+                displayView.SetFullscreen(true);
+                displayView.ClickApply();
+
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.True);
+                Assert.That(countdownLabel.text, Is.EqualTo("Reverting in 15s"));
+                Assert.That(countdownFill.fillAmount, Is.EqualTo(1f).Within(0.0001f));
+                var initialWidth = countdownFill.rectTransform.sizeDelta.x;
+                Assert.That(initialWidth, Is.GreaterThan(0f));
+
+                now = 1.1d;
+                InvokePrivateMethod(runtimeContext.TimeoutRelay, "Update");
+
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.True);
+                Assert.That(countdownLabel.text, Is.EqualTo("Reverting in 14s"));
+                Assert.That(countdownFill.fillAmount, Is.EqualTo(14f / 15f).Within(0.0001f));
+                Assert.That(countdownFill.rectTransform.sizeDelta.x, Is.LessThan(initialWidth));
+                Assert.That(countdownFill.rectTransform.sizeDelta.x, Is.EqualTo(initialWidth * (14f / 15f)).Within(0.01f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_UsesHostTimeoutForStatusAndConfirmCopy()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_TimeoutSource");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject, previewTimeoutSeconds: 21d);
+                var displayPort = new FakeDisplaySettingsPort();
+                var factory = CreateFactory(runtimeContext, displayPort);
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var view = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>();
+                view.SelectDisplayResolution(2);
+                view.SetDisplayFullscreen(true);
+                view.ClickDisplayApply();
+
+                Assert.That(
+                    view.DisplayStatusText,
+                    Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 21 seconds."));
+
+                Assert.That(runtimeContext.PopupController.TopPopup.HasValue, Is.True);
+                var confirmPayload = runtimeContext.PopupController.TopPopup.Value.Payload as ConfirmPopupPayload;
+                Assert.That(confirmPayload, Is.Not.Null);
+                Assert.That(confirmPayload.BodyText, Does.Contain("revert in 21 seconds unless you confirm."));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_PopupOpenFailure_RevertsPreviewWithoutShowingCountdown()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_CountdownFailure");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject, new FailingPopupRuntimeFactory());
+                var displayPort = new FakeDisplaySettingsPort();
+                var factory = CreateFactory(runtimeContext, displayPort);
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
+                var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
+
+                displayView.SelectResolution(1);
+                displayView.ClickApply();
+
+                Assert.That(displayPort.BeginPreviewCallCount, Is.EqualTo(1));
+                Assert.That(displayPort.RevertPreviewCallCount, Is.EqualTo(1));
+                Assert.That(runtimeContext.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
+                Assert.That(displayView.DisplayStatusText, Is.EqualTo("Preview reverted to the previous saved display settings."));
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsRuntime_ClearsPreviewCountdown_OnTimeoutAndReentry()
+        {
+            var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_CountdownLifecycle");
+            try
+            {
+                var runtimeContext = CreateRuntimeContext(rootObject);
+                double now = 0d;
+                runtimeContext.TimeoutRelay.SetTimeProviderForTesting(() => now);
+                var displayPort = new FakeDisplaySettingsPort();
+                var factory = CreateFactory(runtimeContext, displayPort);
+
+                var result = factory.Create(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, "settings"));
+                result.Runtime.ApplyPayload(SettingsScreenPayload.Default);
+                result.Runtime.SetIsCurrent(true);
+
+                var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
+                var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
+                var countdownLabel = GetDisplayPrivateField<Text>(displayView, "_previewCountdownLabel");
+                var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
+
+                displayView.SelectResolution(2);
+                displayView.ClickApply();
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.True);
+
+                now = 20d;
+                InvokePrivateMethod(runtimeContext.TimeoutRelay, "Update");
+
+                Assert.That(displayPort.RevertPreviewCallCount, Is.EqualTo(1));
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
+                Assert.That(countdownLabel.text, Is.EqualTo(string.Empty));
+                Assert.That(countdownFill.fillAmount, Is.Zero);
+
+                result.Runtime.SetIsCurrent(false);
+                result.Runtime.SetIsCurrent(true);
+
+                Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
+                Assert.That(countdownLabel.text, Is.EqualTo(string.Empty));
+                Assert.That(countdownFill.fillAmount, Is.Zero);
+            }
+            finally
+            {
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayScreenRuntimeFactory_SettingsRuntime_HideDuringPreview_RevertsAndClearsPopup()
         {
             var rootObject = new GameObject("SettingsDisplayRuntimeContractRoot_Hide");
@@ -77,6 +239,7 @@ namespace Game.Feature.UI.Tests
 
                 Assert.That(displayPort.RevertPreviewCallCount, Is.EqualTo(1));
                 Assert.That(runtimeContext.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(GetDisplayPrivateField<RectTransform>(view.DisplayView, "_previewCountdownRoot").gameObject.activeSelf, Is.False);
             }
             finally
             {
@@ -284,7 +447,10 @@ namespace Game.Feature.UI.Tests
                 screenCatalog ?? UiTestPrefabAssetUtility.LoadScreenCatalog());
         }
 
-        private static RuntimeContext CreateRuntimeContext(GameObject rootObject)
+        private static RuntimeContext CreateRuntimeContext(
+            GameObject rootObject,
+            IPopupRuntimeFactory popupRuntimeFactory = null,
+            double previewTimeoutSeconds = 15d)
         {
             var screenLayerRoot = new GameObject("ScreenLayerRoot", typeof(RectTransform));
             screenLayerRoot.transform.SetParent(rootObject.transform, false);
@@ -310,14 +476,14 @@ namespace Game.Feature.UI.Tests
                 backdrop.GetComponent<Button>(),
                 popupContentRootObject.GetComponent<RectTransform>());
 
-            var popupController = new PopupController(new GameplayPopupRuntimeFactory(
+            var popupController = new PopupController(popupRuntimeFactory ?? new GameplayPopupRuntimeFactory(
                 popupLayerView,
                 UiTestPrefabAssetUtility.LoadPopupCatalog()));
             var timeoutRelay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
             var lifecycleRelay = rootObject.AddComponent<DisplaySettingsLifecycleRelay>();
-            var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay);
+            var previewSessionHost = new DisplayPreviewSessionHost(popupController, timeoutRelay, previewTimeoutSeconds);
 
-            return new RuntimeContext(screenLayerView, popupController, previewSessionHost, lifecycleRelay);
+            return new RuntimeContext(screenLayerView, popupController, previewSessionHost, lifecycleRelay, timeoutRelay);
         }
 
         private static ScreenPrefabCatalog CreateCatalogWithSettingsPrefab(SettingsScreenView settingsPrefab)
@@ -327,7 +493,7 @@ namespace Game.Feature.UI.Tests
             return catalog;
         }
 
-        private static void SetNestedObjectReference(Object target, string propertyPath, Object value)
+        private static void SetNestedObjectReference(UnityEngine.Object target, string propertyPath, UnityEngine.Object value)
         {
             var serializedObject = new SerializedObject(target);
             var property = serializedObject.FindProperty(propertyPath);
@@ -336,7 +502,7 @@ namespace Game.Feature.UI.Tests
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
 
-        private static void SetObjectReference(Object target, string propertyName, Object value)
+        private static void SetObjectReference(UnityEngine.Object target, string propertyName, UnityEngine.Object value)
         {
             SetNestedObjectReference(target, propertyName, value);
         }
@@ -354,12 +520,14 @@ namespace Game.Feature.UI.Tests
                 ScreenLayerView screenLayerView,
                 PopupController popupController,
                 DisplayPreviewSessionHost previewSessionHost,
-                DisplaySettingsLifecycleRelay lifecycleRelay)
+                DisplaySettingsLifecycleRelay lifecycleRelay,
+                DisplayPreviewTimeoutRelay timeoutRelay)
             {
                 ScreenLayerView = screenLayerView;
                 PopupController = popupController;
                 PreviewSessionHost = previewSessionHost;
                 LifecycleRelay = lifecycleRelay;
+                TimeoutRelay = timeoutRelay;
             }
 
             public ScreenLayerView ScreenLayerView { get; }
@@ -369,6 +537,8 @@ namespace Game.Feature.UI.Tests
             public DisplayPreviewSessionHost PreviewSessionHost { get; }
 
             public DisplaySettingsLifecycleRelay LifecycleRelay { get; }
+
+            public DisplayPreviewTimeoutRelay TimeoutRelay { get; }
         }
 
         private static void EnterResolutionHover(SettingsDisplayView displayView)
@@ -385,6 +555,21 @@ namespace Game.Feature.UI.Tests
             var value = field.GetValue(displayView) as TField;
             Assert.That(value, Is.Not.Null, fieldName);
             return value;
+        }
+
+        private static void InvokePrivateMethod(object target, string methodName)
+        {
+            var method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(method, Is.Not.Null, methodName);
+            method.Invoke(target, null);
+        }
+
+        private sealed class FailingPopupRuntimeFactory : IPopupRuntimeFactory
+        {
+            public PopupRuntimeFactoryResult Create(PopupRequest request)
+            {
+                throw new InvalidOperationException("Synthetic popup creation failure for countdown gating.");
+            }
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Game.Feature.Gameplay.UIAccess.Models;
@@ -45,7 +46,7 @@ namespace Game.Feature.UI.Tests
                 new FakeAudioSettingsPort(),
                 new FakeDisplaySettingsPort());
 
-            presenter.Apply(SettingsScreenPayload.Default);
+            presenter.Apply(SettingsScreenPayload.Default, 15d);
 
             var enabledPayload = presenter.BuildTooltipInfoPayload();
             Assert.That(enabledPayload.TitleText, Is.EqualTo("Tooltips"));
@@ -73,7 +74,7 @@ namespace Game.Feature.UI.Tests
                 new FakeAudioSettingsPort(),
                 new FakeDisplaySettingsPort());
 
-            presenter.Apply(SettingsScreenPayload.Default);
+            presenter.Apply(SettingsScreenPayload.Default, 15d);
             presenter.ToggleLargeText();
 
             Assert.That(presenter.ViewModel.TitleText, Is.EqualTo(SettingsScreenPayload.Default.TitleText));
@@ -91,7 +92,7 @@ namespace Game.Feature.UI.Tests
                 new FakeAudioSettingsPort(),
                 new FakeDisplaySettingsPort());
 
-            presenter.Apply(SettingsScreenPayload.Default);
+            presenter.Apply(SettingsScreenPayload.Default, 15d);
             var beforeToggle = presenter.DisplayPresenter.ViewModel.ResolutionHoverHintText;
 
             presenter.ToggleTooltips();
@@ -140,7 +141,8 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default.ResolutionHoverHintText,
                 SettingsScreenPayload.Default.FullscreenLabel,
                 SettingsScreenPayload.Default.DisplayApplyLabel,
-                SettingsScreenPayload.Default.DisplayRevertLabel));
+                SettingsScreenPayload.Default.DisplayRevertLabel),
+                15d);
             presenter.StageResolution(2);
             presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
 
@@ -148,7 +150,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(presenter.ViewModel.SelectedResolutionIndex, Is.EqualTo(2));
             Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1920 x 1080"));
 
-            Assert.That(presenter.ApplyStagedSettings(), Is.True);
+            Assert.That(presenter.ApplyStagedSettings(15d), Is.True);
 
             Assert.That(displayPort.BeginPreviewCallCount, Is.EqualTo(1));
             Assert.That(presenter.ViewModel.IsDisplayPreviewActive, Is.True);
@@ -181,10 +183,11 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default.ResolutionHoverHintText,
                 SettingsScreenPayload.Default.FullscreenLabel,
                 SettingsScreenPayload.Default.DisplayApplyLabel,
-                SettingsScreenPayload.Default.DisplayRevertLabel));
+                SettingsScreenPayload.Default.DisplayRevertLabel),
+                15d);
             presenter.StageResolution(1);
             presenter.StageWindowMode(DisplayWindowMode.FullScreenWindow);
-            presenter.ApplyStagedSettings();
+            presenter.ApplyStagedSettings(15d);
 
             Assert.That(presenter.CancelPreview(), Is.True);
 
@@ -209,9 +212,10 @@ namespace Game.Feature.UI.Tests
                 SettingsScreenPayload.Default.ResolutionHoverHintText,
                 SettingsScreenPayload.Default.FullscreenLabel,
                 SettingsScreenPayload.Default.DisplayApplyLabel,
-                SettingsScreenPayload.Default.DisplayRevertLabel));
+                SettingsScreenPayload.Default.DisplayRevertLabel),
+                15d);
             displayPort.SetRuntimeDrift(1, DisplayWindowMode.FullScreenWindow);
-            presenter.ResyncState();
+            presenter.ResyncState(15d);
 
             Assert.That(presenter.ViewModel.CurrentDisplayValueText, Is.EqualTo("1600 x 900"));
             Assert.That(
@@ -239,6 +243,100 @@ namespace Game.Feature.UI.Tests
             Assert.That(viewModelPropertyNames, Has.No.Member("AreTooltipsEnabled"));
             Assert.That(inputPropertyNames, Has.No.Member("IsResolutionHoverHintVisible"));
             Assert.That(viewModelPropertyNames, Has.No.Member("IsResolutionHoverHintVisible"));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_PreviewCountdown_ShapesWholeSecondTextAndBarFromSnapshotOnly()
+        {
+            var presenter = new SettingsDisplayPresenter(new FakeDisplaySettingsPort());
+            presenter.Apply(new SettingsDisplayPresenterInput(
+                    SettingsScreenPayload.Default.DisplaySectionTitle,
+                    SettingsScreenPayload.Default.CurrentDisplayLabel,
+                    SettingsScreenPayload.Default.ResolutionLabel,
+                    SettingsScreenPayload.Default.ResolutionHoverHintText,
+                    SettingsScreenPayload.Default.FullscreenLabel,
+                    SettingsScreenPayload.Default.DisplayApplyLabel,
+                    SettingsScreenPayload.Default.DisplayRevertLabel),
+                15d);
+            presenter.StageResolution(2);
+            Assert.That(presenter.ApplyStagedSettings(15d), Is.True);
+
+            presenter.SetPreviewCountdown(DisplayPreviewCountdownSnapshot.Create(15.0, 15.0));
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo("Reverting in 15s"));
+            Assert.That(presenter.ViewModel.PreviewCountdownNormalized, Is.EqualTo(1f).Within(0.0001f));
+            Assert.That(presenter.ViewModel.IsPreviewCountdownVisible, Is.True);
+
+            presenter.SetPreviewCountdown(DisplayPreviewCountdownSnapshot.Create(14.2, 15.0));
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo("Reverting in 15s"));
+            Assert.That(presenter.ViewModel.PreviewCountdownNormalized, Is.EqualTo(1f).Within(0.0001f));
+
+            presenter.SetPreviewCountdown(DisplayPreviewCountdownSnapshot.Create(14.0, 15.0));
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo("Reverting in 15s"));
+            Assert.That(presenter.ViewModel.PreviewCountdownNormalized, Is.EqualTo(1f).Within(0.0001f));
+
+            presenter.SetPreviewCountdown(DisplayPreviewCountdownSnapshot.Create(1.0, 15.0));
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo("Reverting in 1s"));
+            Assert.That(presenter.ViewModel.PreviewCountdownNormalized, Is.EqualTo(1f / 15f).Within(0.0001f));
+
+            presenter.SetPreviewCountdown(DisplayPreviewCountdownSnapshot.Create(0.2, 15.0));
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo("Reverting in 1s"));
+            Assert.That(presenter.ViewModel.PreviewCountdownNormalized, Is.EqualTo(1f / 15f).Within(0.0001f));
+
+            presenter.ClearPreviewCountdown();
+            Assert.That(presenter.ViewModel.PreviewCountdownText, Is.EqualTo(string.Empty));
+            Assert.That(presenter.ViewModel.PreviewCountdownNormalized, Is.Zero);
+            Assert.That(presenter.ViewModel.IsPreviewCountdownVisible, Is.False);
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_UsesSuppliedTimeoutCopy_WithoutPresenterOrRuntimeHardcoded15Seconds()
+        {
+            var presenter = new SettingsDisplayPresenter(new FakeDisplaySettingsPort());
+            presenter.Apply(new SettingsDisplayPresenterInput(
+                    SettingsScreenPayload.Default.DisplaySectionTitle,
+                    SettingsScreenPayload.Default.CurrentDisplayLabel,
+                    SettingsScreenPayload.Default.ResolutionLabel,
+                    SettingsScreenPayload.Default.ResolutionHoverHintText,
+                    SettingsScreenPayload.Default.FullscreenLabel,
+                    SettingsScreenPayload.Default.DisplayApplyLabel,
+                    SettingsScreenPayload.Default.DisplayRevertLabel),
+                21d);
+            presenter.StageResolution(2);
+
+            Assert.That(presenter.ApplyStagedSettings(21d), Is.True);
+            Assert.That(
+                presenter.ViewModel.DisplayStatusText,
+                Is.EqualTo("Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 21 seconds."));
+
+            var presenterSource = ReadRepoFile("Assets/_Features/UI/UI_Application/Runtime/ScreenPresenters.cs");
+            var runtimeSource = ReadRepoFile("Assets/_Features/UI/UI_Composition/Runtime/GameplayScreenRuntimeFactory.cs");
+            Assert.That(presenterSource, Does.Not.Contain("15 seconds"));
+            Assert.That(runtimeSource, Does.Not.Contain("15 seconds"));
+        }
+
+        [Test]
+        public void SettingsDisplayPresenter_DoesNotOwnIndependentTimeoutOrTimerFields()
+        {
+            var fieldNames = typeof(SettingsDisplayPresenter)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Select(field => field.Name)
+                .ToArray();
+            var doubleFields = typeof(SettingsDisplayPresenter)
+                .GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                .Where(field => field.FieldType == typeof(double))
+                .Select(field => field.Name)
+                .ToArray();
+
+            Assert.That(fieldNames, Does.Contain("_previewCountdown"));
+            Assert.That(fieldNames, Has.No.Member("_previewTimeoutSeconds"));
+            Assert.That(fieldNames, Has.No.Member("_previewDeadline"));
+            Assert.That(fieldNames, Has.No.Member("_timeProvider"));
+            Assert.That(doubleFields, Is.Empty);
+        }
+
+        private static string ReadRepoFile(string relativePath)
+        {
+            return File.ReadAllText(Path.GetFullPath(Path.Combine(UnityEngine.Application.dataPath, "..", relativePath)));
         }
     }
 

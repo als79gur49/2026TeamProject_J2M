@@ -1172,10 +1172,62 @@ namespace Game.Feature.UI.Application
         }
     }
 
+    public readonly struct DisplayPreviewCountdownSnapshot
+    {
+        public static DisplayPreviewCountdownSnapshot Inactive => default;
+
+        public DisplayPreviewCountdownSnapshot(bool isActive, int remainingSeconds, int totalSeconds)
+        {
+            IsActive = isActive;
+            RemainingSeconds = remainingSeconds;
+            TotalSeconds = totalSeconds;
+        }
+
+        public bool IsActive { get; }
+
+        public int RemainingSeconds { get; }
+
+        public int TotalSeconds { get; }
+
+        public static DisplayPreviewCountdownSnapshot Create(double remainingSeconds, double totalSeconds)
+        {
+            var totalWholeSeconds = ComputeVisibleSeconds(totalSeconds, totalSeconds);
+            if (totalWholeSeconds <= 0)
+            {
+                return Inactive;
+            }
+
+            var visibleRemainingSeconds = ComputeVisibleSeconds(remainingSeconds, totalWholeSeconds);
+            if (visibleRemainingSeconds <= 0)
+            {
+                return Inactive;
+            }
+
+            return new DisplayPreviewCountdownSnapshot(
+                isActive: true,
+                remainingSeconds: visibleRemainingSeconds,
+                totalSeconds: totalWholeSeconds);
+        }
+
+        public static int ComputeVisibleSeconds(double remainingSeconds, double totalSeconds)
+        {
+            var totalWholeSeconds = Math.Max(0, (int)Math.Ceiling(Math.Max(0d, totalSeconds)));
+            if (totalWholeSeconds <= 0 || remainingSeconds <= 0d)
+            {
+                return 0;
+            }
+
+            if (remainingSeconds <= 1d)
+            {
+                return 1;
+            }
+
+            return Math.Min(totalWholeSeconds, (int)Math.Floor(remainingSeconds) + 1);
+        }
+    }
+
     public sealed class SettingsDisplayPresenter
     {
-        private const string PreviewActiveStatusText =
-            "Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in 15 seconds.";
         private const string PreviewRevertedStatusText =
             "Preview reverted to the previous saved display settings.";
         private const string PreviewCommittedStatusText =
@@ -1195,6 +1247,7 @@ namespace Game.Feature.UI.Application
         private int _stagedDisplayModeIndex;
         private DisplayWindowMode _stagedDisplayWindowMode;
         private string _displayStatusText = string.Empty;
+        private DisplayPreviewCountdownSnapshot _previewCountdown = DisplayPreviewCountdownSnapshot.Inactive;
 
         public SettingsDisplayPresenter(IDisplaySettingsPort displaySettingsPort)
         {
@@ -1203,13 +1256,14 @@ namespace Game.Feature.UI.Application
 
         public SettingsDisplayViewModel ViewModel { get; } = new SettingsDisplayViewModel();
 
-        public void Apply(SettingsDisplayPresenterInput input)
+        public void Apply(SettingsDisplayPresenterInput input, double previewTimeoutSeconds)
         {
             _input = input;
-            ResyncState(resetStagedToCommitted: true);
+            ClearPreviewCountdown();
+            ResyncState(resetStagedToCommitted: true, previewTimeoutSeconds: previewTimeoutSeconds);
         }
 
-        public bool ApplyStagedSettings()
+        public bool ApplyStagedSettings(double previewTimeoutSeconds)
         {
             if (_displaySnapshot.IsPreviewActive || !IsDirty())
             {
@@ -1218,22 +1272,44 @@ namespace Game.Feature.UI.Application
 
             var started = _displaySettingsPort.BeginPreview(
                 new DisplaySettingsPortPreviewRequest(_stagedDisplayModeIndex, _stagedDisplayWindowMode));
-            ResyncState(resetStagedToCommitted: false, overrideStatusText: started ? PreviewActiveStatusText : null);
+            if (!started)
+            {
+                ClearPreviewCountdown();
+            }
+
+            ResyncState(
+                resetStagedToCommitted: false,
+                previewTimeoutSeconds: previewTimeoutSeconds,
+                overrideStatusText: started ? BuildPreviewActiveStatusText(previewTimeoutSeconds) : null);
             return started;
         }
 
         public bool CancelPreview()
         {
             var reverted = _displaySettingsPort.RevertPreview();
-            ResyncState(resetStagedToCommitted: true, overrideStatusText: reverted ? PreviewRevertedStatusText : null);
+            ClearPreviewCountdown();
+            ResyncState(
+                resetStagedToCommitted: true,
+                previewTimeoutSeconds: 0d,
+                overrideStatusText: reverted ? PreviewRevertedStatusText : null);
             return reverted;
         }
 
         public bool ConfirmPreview()
         {
             var committed = _displaySettingsPort.CommitPreview();
-            ResyncState(resetStagedToCommitted: true, overrideStatusText: committed ? PreviewCommittedStatusText : null);
+            ClearPreviewCountdown();
+            ResyncState(
+                resetStagedToCommitted: true,
+                previewTimeoutSeconds: 0d,
+                overrideStatusText: committed ? PreviewCommittedStatusText : null);
             return committed;
+        }
+
+        public void ClearPreviewCountdown()
+        {
+            _previewCountdown = DisplayPreviewCountdownSnapshot.Inactive;
+            RefreshViewModel();
         }
 
         public void ResetStagedToCurrent()
@@ -1248,9 +1324,15 @@ namespace Game.Feature.UI.Application
             RefreshViewModel();
         }
 
-        public void ResyncState()
+        public void ResyncState(double previewTimeoutSeconds)
         {
-            ResyncState(resetStagedToCommitted: false);
+            ResyncState(resetStagedToCommitted: false, previewTimeoutSeconds: previewTimeoutSeconds);
+        }
+
+        public void SetPreviewCountdown(DisplayPreviewCountdownSnapshot snapshot)
+        {
+            _previewCountdown = snapshot;
+            RefreshViewModel();
         }
 
         public void StageResolution(int modeIndex)
@@ -1277,6 +1359,7 @@ namespace Game.Feature.UI.Application
 
         private void ResyncState(
             bool resetStagedToCommitted,
+            double previewTimeoutSeconds,
             string overrideStatusText = null)
         {
             _displaySnapshot = _displaySettingsPort.Read();
@@ -1301,15 +1384,23 @@ namespace Game.Feature.UI.Application
                 _stagedDisplayModeIndex = ClampDisplayModeIndex(_stagedDisplayModeIndex, _displaySnapshot.AvailableModes.Count);
             }
 
-            _displayStatusText = overrideStatusText ?? BuildDisplayStatusText();
+            _displayStatusText = overrideStatusText ?? BuildDisplayStatusText(previewTimeoutSeconds);
             RefreshViewModel();
         }
 
-        private string BuildDisplayStatusText()
+        private static string BuildPreviewActiveStatusText(double previewTimeoutSeconds)
+        {
+            var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
+                previewTimeoutSeconds,
+                previewTimeoutSeconds);
+            return $"Preview active. Current display is temporary and not saved. Confirm to keep it, or it will revert in {visibleTimeoutSeconds} seconds.";
+        }
+
+        private string BuildDisplayStatusText(double previewTimeoutSeconds)
         {
             if (_displaySnapshot.IsPreviewActive)
             {
-                return PreviewActiveStatusText;
+                return BuildPreviewActiveStatusText(previewTimeoutSeconds);
             }
 
             if (_displaySnapshot.CurrentRuntimeWindowMode != _displaySnapshot.CommittedWindowMode)
@@ -1339,6 +1430,17 @@ namespace Game.Feature.UI.Application
                 resolutionOptions.Add(_displaySnapshot.AvailableModes[i].LabelText);
             }
 
+            var isPreviewCountdownVisible = _displaySnapshot.IsPreviewActive &&
+                                            _previewCountdown.IsActive &&
+                                            _previewCountdown.TotalSeconds > 0 &&
+                                            _previewCountdown.RemainingSeconds > 0;
+            var previewCountdownText = isPreviewCountdownVisible
+                ? $"Reverting in {_previewCountdown.RemainingSeconds}s"
+                : string.Empty;
+            var previewCountdownNormalized = isPreviewCountdownVisible
+                ? Clamp01((float)_previewCountdown.RemainingSeconds / _previewCountdown.TotalSeconds)
+                : 0f;
+
             ViewModel.SetContent(
                 _input.DisplaySectionTitle,
                 _input.CurrentDisplayLabel,
@@ -1354,13 +1456,31 @@ namespace Game.Feature.UI.Application
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
                 _input.DisplayRevertLabel,
                 IsDirty() && !_displaySnapshot.IsPreviewActive,
-                _displaySnapshot.IsPreviewActive);
+                _displaySnapshot.IsPreviewActive,
+                previewCountdownText,
+                previewCountdownNormalized,
+                isPreviewCountdownVisible);
         }
 
         private bool IsDirty()
         {
             return _stagedDisplayModeIndex != ClampDisplayModeIndex(_displaySnapshot.CommittedModeIndex, _displaySnapshot.AvailableModes.Count) ||
                    _stagedDisplayWindowMode != _displaySnapshot.CommittedWindowMode;
+        }
+
+        private static float Clamp01(float value)
+        {
+            if (value < 0f)
+            {
+                return 0f;
+            }
+
+            if (value > 1f)
+            {
+                return 1f;
+            }
+
+            return value;
         }
 
         private static int ClampDisplayModeIndex(int index, int count)
@@ -1405,7 +1525,7 @@ namespace Game.Feature.UI.Application
 
         public SettingsScreenViewModel ViewModel { get; } = new SettingsScreenViewModel();
 
-        public void Apply(SettingsScreenPayload payload)
+        public void Apply(SettingsScreenPayload payload, double previewTimeoutSeconds)
         {
             _payload = payload ?? throw new ArgumentNullException(nameof(payload));
             AudioPresenter.Apply(new SettingsAudioPresenterInput(
@@ -1419,7 +1539,8 @@ namespace Game.Feature.UI.Application
                 _payload.ResolutionHoverHintText,
                 _payload.FullscreenLabel,
                 _payload.DisplayApplyLabel,
-                _payload.DisplayRevertLabel));
+                _payload.DisplayRevertLabel),
+                previewTimeoutSeconds);
             RefreshViewModel();
         }
 

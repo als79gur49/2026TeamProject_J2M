@@ -130,15 +130,20 @@ namespace Game.Feature.UI.Tests
             Assert.That(displayGuidelines, Does.Contain("DisplayRuntimeInstaller"));
             Assert.That(displayGuidelines, Does.Contain("same canonical bootstrap root"));
             Assert.That(displayGuidelines, Does.Contain("Refresh remains internal-only in v1"));
-            Assert.That(displayGuidelines, Does.Contain("15-second timeout"));
+            Assert.That(displayGuidelines, Does.Contain("preview timeout seconds"));
             Assert.That(displayGuidelines, Does.Contain("Do not add a scene-global fallback lookup."));
             Assert.That(displayGuidelines, Does.Contain("## Settings Authored Child-View Checklist"));
+            Assert.That(displayGuidelines, Does.Contain("## Settings Preview Countdown Policy"));
             Assert.That(displayGuidelines, Does.Contain("SettingsAudioSection"));
             Assert.That(displayGuidelines, Does.Contain("SettingsDisplaySection"));
             Assert.That(displayGuidelines, Does.Contain("SettingsScreenView` must serialize `_audioView` and `_displayView` directly"));
             Assert.That(
                 displayGuidelines,
                 Does.Contain("The Settings resolution hover hint is a local SettingsDisplaySection affordance, remains available regardless of the Tooltips accessibility toggle, and does not use TooltipPopup or popup flow."));
+            Assert.That(displayGuidelines, Does.Contain("DisplayPreviewSessionHost"));
+            Assert.That(displayGuidelines, Does.Contain("confirm popup open succeeds"));
+            Assert.That(displayGuidelines, Does.Contain("whole-second stepwise text plus bar"));
+            Assert.That(displayGuidelines, Does.Contain("does not add live popup countdown UI"));
             Assert.That(displayGuidelines, Does.Not.Contain("TooltipPopup auto-hide"));
             Assert.That(displayGuidelines, Does.Contain("Settings authored child-view canonicalization only"));
             Assert.That(displayGuidelines, Does.Contain("UiPrefabMigrationInventory` cleanup"));

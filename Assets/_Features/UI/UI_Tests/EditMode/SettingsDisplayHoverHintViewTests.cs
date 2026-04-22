@@ -137,6 +137,9 @@ namespace Game.Feature.UI.Tests
                     false,
                     "Revert",
                     false,
+                    false,
+                    string.Empty,
+                    0f,
                     false);
 
                 Assert.That(hintRoot.gameObject.activeSelf, Is.False);
@@ -174,6 +177,9 @@ namespace Game.Feature.UI.Tests
                 false,
                 "Revert",
                 false,
+                false,
+                string.Empty,
+                0f,
                 false);
             return viewModel;
         }

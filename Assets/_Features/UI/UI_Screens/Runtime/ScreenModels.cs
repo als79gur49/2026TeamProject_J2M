@@ -631,6 +631,12 @@ namespace Game.Feature.UI.Screens
 
         public bool IsDisplayPreviewActive { get; private set; }
 
+        public string PreviewCountdownText { get; private set; } = string.Empty;
+
+        public float PreviewCountdownNormalized { get; private set; }
+
+        public bool IsPreviewCountdownVisible { get; private set; }
+
         public void SetContent(
             string displaySectionTitle,
             string currentDisplayLabel,
@@ -646,7 +652,10 @@ namespace Game.Feature.UI.Screens
             bool isDisplayApplyInteractable,
             string displayRevertLabel,
             bool isDisplayRevertInteractable,
-            bool isDisplayPreviewActive)
+            bool isDisplayPreviewActive,
+            string previewCountdownText,
+            float previewCountdownNormalized,
+            bool isPreviewCountdownVisible)
         {
             DisplaySectionTitle = displaySectionTitle ?? string.Empty;
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
@@ -663,6 +672,9 @@ namespace Game.Feature.UI.Screens
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
             IsDisplayRevertInteractable = isDisplayRevertInteractable;
             IsDisplayPreviewActive = isDisplayPreviewActive;
+            PreviewCountdownText = previewCountdownText ?? string.Empty;
+            PreviewCountdownNormalized = previewCountdownNormalized;
+            IsPreviewCountdownVisible = isPreviewCountdownVisible;
             Changed?.Invoke();
         }
     }

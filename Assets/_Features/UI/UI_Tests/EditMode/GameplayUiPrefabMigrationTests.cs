@@ -439,6 +439,9 @@ namespace Game.Feature.UI.Tests
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_fullscreenLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_fullscreenToggle", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_displayStatusLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownRoot", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownFill", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButton", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButtonLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButton", displayView.transform);
@@ -449,6 +452,9 @@ namespace Game.Feature.UI.Tests
             var hoverRelay = (SettingsHoverRelay)serializedDisplay.FindProperty("_resolutionHoverRelay").objectReferenceValue;
             var hoverCanvasGroup = hoverHintRoot.GetComponent<CanvasGroup>();
             var hoverImage = hoverHintRoot.GetComponent<Image>();
+            var countdownRoot = (RectTransform)serializedDisplay.FindProperty("_previewCountdownRoot").objectReferenceValue;
+            var countdownLabel = (Text)serializedDisplay.FindProperty("_previewCountdownLabel").objectReferenceValue;
+            var countdownFill = (Image)serializedDisplay.FindProperty("_previewCountdownFill").objectReferenceValue;
 
             Assert.That(hoverHintRoot.gameObject.activeSelf, Is.False);
             Assert.That(hoverRelay.transform, Is.EqualTo(serializedDisplay.FindProperty("_resolutionInfoHotspot").objectReferenceValue));
@@ -458,6 +464,10 @@ namespace Game.Feature.UI.Tests
             Assert.That(hoverImage, Is.Not.Null);
             Assert.That(hoverImage.raycastTarget, Is.False);
             Assert.That(hoverHintLabel.raycastTarget, Is.False);
+            Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
+            Assert.That(countdownLabel.raycastTarget, Is.False);
+            Assert.That(countdownFill.raycastTarget, Is.False);
+            Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
         }
 
         [Test]
@@ -471,8 +481,11 @@ namespace Game.Feature.UI.Tests
             Assert.That(authoringSource, Does.Contain("_displayView"));
             Assert.That(authoringSource, Does.Contain("ResolutionInfoHotspot"));
             Assert.That(authoringSource, Does.Contain("ResolutionHoverHint"));
+            Assert.That(authoringSource, Does.Contain("DisplayPreviewCountdown"));
             Assert.That(authoringSource, Does.Contain("_resolutionHoverRelay"));
             Assert.That(authoringSource, Does.Contain("_resolutionHoverHintRoot"));
+            Assert.That(authoringSource, Does.Contain("_previewCountdownRoot"));
+            Assert.That(authoringSource, Does.Contain("CreateCountdownStrip"));
         }
 
         [TestCase(ScreenId.Gameplay)]
