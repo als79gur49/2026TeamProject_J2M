@@ -903,7 +903,7 @@ namespace Game.Feature.UI.Tests
                 GetPublicMethodSignatures(typeof(SettingsScreenPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "Apply(SettingsScreenPayload)",
+                    "Apply(SettingsScreenPayload, Double)",
                     "BuildTooltipInfoPayload()",
                     "ToggleLargeText()",
                     "ToggleTooltips()",
@@ -1007,12 +1007,14 @@ namespace Game.Feature.UI.Tests
                 GetPublicMethodSignatures(typeof(SettingsDisplayPresenter)),
                 Is.EqualTo(new[]
                 {
-                    "Apply(SettingsDisplayPresenterInput)",
-                    "ApplyStagedSettings()",
+                    "Apply(SettingsDisplayPresenterInput, Double)",
+                    "ApplyStagedSettings(Double)",
                     "CancelPreview()",
+                    "ClearPreviewCountdown()",
                     "ConfirmPreview()",
                     "ResetStagedToCurrent()",
-                    "ResyncState()",
+                    "ResyncState(Double)",
+                    "SetPreviewCountdown(DisplayPreviewCountdownSnapshot)",
                     "StageResolution(Int32)",
                     "StageWindowMode(DisplayWindowMode)",
                 }));

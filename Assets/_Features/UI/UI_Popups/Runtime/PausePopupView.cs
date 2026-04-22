@@ -12,6 +12,8 @@ namespace Game.Feature.UI.Popups
         [SerializeField] private Text _descriptionLabel;
         [SerializeField] private Button _resumeButton;
         [SerializeField] private Text _resumeButtonLabel;
+        [SerializeField] private Button _settingsButton;
+        [SerializeField] private Text _settingsButtonLabel;
 
         private PausePopupViewModel _viewModel;
         private bool _isVisible;
@@ -50,21 +52,16 @@ namespace Game.Feature.UI.Popups
 
         private void OnEnable()
         {
-            if (_resumeButton != null)
-            {
-                _resumeButton.onClick.RemoveListener(ClickResume);
-                _resumeButton.onClick.AddListener(ClickResume);
-            }
+            RebindButton(_resumeButton, ClickResume);
+            RebindButton(_settingsButton, ClickSettings);
 
             RefreshView();
         }
 
         private void OnDisable()
         {
-            if (_resumeButton != null)
-            {
-                _resumeButton.onClick.RemoveListener(ClickResume);
-            }
+            UnbindButton(_resumeButton, ClickResume);
+            UnbindButton(_settingsButton, ClickSettings);
         }
 
         public void SetIsTopmost(bool isTopmost)
@@ -88,6 +85,16 @@ namespace Game.Feature.UI.Popups
             CompletionRequested?.Invoke(PopupCompletionKind.Resumed);
         }
 
+        public void ClickSettings()
+        {
+            if (!IsVisible || _viewModel == null || _canvasGroup == null || !_canvasGroup.interactable)
+            {
+                return;
+            }
+
+            CompletionRequested?.Invoke(PopupCompletionKind.SettingsRequested);
+        }
+
         private void OnDestroy()
         {
             if (_viewModel != null)
@@ -95,10 +102,8 @@ namespace Game.Feature.UI.Popups
                 _viewModel.Changed -= HandleViewModelChanged;
             }
 
-            if (_resumeButton != null)
-            {
-                _resumeButton.onClick.RemoveListener(ClickResume);
-            }
+            UnbindButton(_resumeButton, ClickResume);
+            UnbindButton(_settingsButton, ClickSettings);
         }
 
         private void HandleViewModelChanged()
@@ -132,6 +137,32 @@ namespace Game.Feature.UI.Popups
             {
                 _resumeButtonLabel.text = _viewModel.ResumeLabel;
             }
+
+            if (_settingsButtonLabel != null)
+            {
+                _settingsButtonLabel.text = _viewModel.SettingsLabel;
+            }
+        }
+
+        private static void RebindButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveListener(action);
+            button.onClick.AddListener(action);
+        }
+
+        private static void UnbindButton(Button button, UnityEngine.Events.UnityAction action)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.onClick.RemoveListener(action);
         }
     }
 }

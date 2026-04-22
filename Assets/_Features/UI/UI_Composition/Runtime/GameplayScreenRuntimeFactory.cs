@@ -534,16 +534,18 @@ namespace Game.Feature.UI.Composition
                 view.LargeTextToggleRequested += HandleLargeTextToggleRequested;
                 view.BackRequested += HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested += HandleDisplayResyncRequested;
+                _displayPreviewSessionHost.CountdownChanged += HandleDisplayPreviewCountdownChanged;
             }
 
             public override void ApplyPayload(IScreenPayload payload)
             {
-                _presenter.Apply(ExpectPayload<SettingsScreenPayload>(payload));
+                _presenter.Apply(ExpectPayload<SettingsScreenPayload>(payload), _displayPreviewSessionHost.PreviewTimeoutSeconds);
             }
 
             public override void Dispose()
             {
                 _displayPreviewSessionHost.CancelActivePreview();
+                _presenter.DisplayPresenter.ClearPreviewCountdown();
                 _presenter.AudioPresenter.Flush();
                 _audioView.VolumeChanged -= HandleAudioVolumeChanged;
                 _audioView.MuteChanged -= HandleAudioMuteChanged;
@@ -557,6 +559,7 @@ namespace Game.Feature.UI.Composition
                 View.LargeTextToggleRequested -= HandleLargeTextToggleRequested;
                 View.BackRequested -= HandleBackRequested;
                 _displaySettingsLifecycleRelay.ResyncRequested -= HandleDisplayResyncRequested;
+                _displayPreviewSessionHost.CountdownChanged -= HandleDisplayPreviewCountdownChanged;
                 _displayView.Bind(null);
                 _audioView.Bind(null);
                 View.Bind(null);
@@ -568,6 +571,7 @@ namespace Game.Feature.UI.Composition
                 if (_isCurrent && !isCurrent)
                 {
                     _displayPreviewSessionHost.CancelActivePreview();
+                    _presenter.DisplayPresenter.ClearPreviewCountdown();
                     _presenter.AudioPresenter.Flush();
                 }
 
@@ -576,7 +580,7 @@ namespace Game.Feature.UI.Composition
 
                 if (isCurrent)
                 {
-                    _presenter.DisplayPresenter.ResyncState();
+                    _presenter.DisplayPresenter.ResyncState(_displayPreviewSessionHost.PreviewTimeoutSeconds);
                 }
             }
 
@@ -624,7 +628,7 @@ namespace Game.Feature.UI.Composition
 
             private void HandleDisplayApplyRequested()
             {
-                if (!_presenter.DisplayPresenter.ApplyStagedSettings())
+                if (!_presenter.DisplayPresenter.ApplyStagedSettings(_displayPreviewSessionHost.PreviewTimeoutSeconds))
                 {
                     return;
                 }
@@ -635,6 +639,7 @@ namespace Game.Feature.UI.Composition
                         HandleDisplayPreviewCancelled))
                 {
                     _presenter.DisplayPresenter.CancelPreview();
+                    _presenter.DisplayPresenter.ClearPreviewCountdown();
                 }
             }
 
@@ -657,8 +662,19 @@ namespace Game.Feature.UI.Composition
             {
                 if (_isCurrent)
                 {
-                    _presenter.DisplayPresenter.ResyncState();
+                    _presenter.DisplayPresenter.ResyncState(_displayPreviewSessionHost.PreviewTimeoutSeconds);
                 }
+            }
+
+            private void HandleDisplayPreviewCountdownChanged(DisplayPreviewCountdownSnapshot snapshot)
+            {
+                if (_isCurrent)
+                {
+                    _presenter.DisplayPresenter.SetPreviewCountdown(snapshot);
+                    return;
+                }
+
+                _presenter.DisplayPresenter.ClearPreviewCountdown();
             }
 
             private void HandleBackRequested()
@@ -679,10 +695,13 @@ namespace Game.Feature.UI.Composition
                 var windowModeText = displayViewModel.IsFullscreenEnabled
                     ? "Fullscreen Window"
                     : "Windowed";
+                var visibleTimeoutSeconds = DisplayPreviewCountdownSnapshot.ComputeVisibleSeconds(
+                    _displayPreviewSessionHost.PreviewTimeoutSeconds,
+                    _displayPreviewSessionHost.PreviewTimeoutSeconds);
 
                 return new ConfirmPopupPayload(
                     "Confirm Display Preview",
-                    $"Preview {resolutionLabel} in {windowModeText}. These changes are temporary and will revert in 15 seconds unless you confirm.",
+                    $"Preview {resolutionLabel} in {windowModeText}. These changes are temporary and will revert in {visibleTimeoutSeconds} seconds unless you confirm.",
                     "Keep",
                     "Revert",
                     false);

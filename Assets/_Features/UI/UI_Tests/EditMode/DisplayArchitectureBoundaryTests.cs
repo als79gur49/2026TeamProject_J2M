@@ -43,6 +43,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(rootViewSource, Does.Not.Contain("AddComponent<"));
             Assert.That(rootViewSource, Does.Not.Contain("transform.Find("));
             Assert.That(rootViewSource, Does.Not.Contain("GetComponentInChildren<"));
+            Assert.That(rootViewSource, Does.Not.Contain("ResolutionHover"));
             Assert.That(rootViewSource, Does.Not.Contain("Slider"));
             Assert.That(rootViewSource, Does.Not.Contain("Dropdown"));
         }

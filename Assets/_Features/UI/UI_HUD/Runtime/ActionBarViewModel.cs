@@ -16,11 +16,13 @@ namespace Game.Feature.UI.HUD
             HudActionSlotId slotId,
             string labelText,
             string stateText,
+            float cooldownNormalized,
             bool isArmed = false)
         {
             SlotId = slotId;
             LabelText = labelText ?? string.Empty;
             StateText = stateText ?? string.Empty;
+            CooldownNormalized = Clamp01(cooldownNormalized);
             IsArmed = isArmed;
         }
 
@@ -30,7 +32,24 @@ namespace Game.Feature.UI.HUD
 
         public string StateText { get; }
 
+        public float CooldownNormalized { get; }
+
         public bool IsArmed { get; }
+
+        private static float Clamp01(float value)
+        {
+            if (value < 0f)
+            {
+                return 0f;
+            }
+
+            if (value > 1f)
+            {
+                return 1f;
+            }
+
+            return value;
+        }
     }
 
     public sealed class ActionBarViewModel

@@ -20,7 +20,11 @@ namespace Game.Feature.UI.Application
                 throw new ArgumentNullException(nameof(payload));
             }
 
-            ViewModel.SetContent(payload.TitleText, payload.DescriptionText, payload.ResumeLabel);
+            ViewModel.SetContent(
+                payload.TitleText,
+                payload.DescriptionText,
+                payload.ResumeLabel,
+                payload.SettingsLabel);
         }
     }
 

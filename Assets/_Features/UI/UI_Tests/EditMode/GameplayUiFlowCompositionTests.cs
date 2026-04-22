@@ -199,6 +199,47 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiFlowInstaller_PauseSettingsBackRestore_UsesFreshPausePopup_AndResumesOnlyOnResume()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var rootObject = new GameObject("GameplayUiFlowInstaller_PauseSettingsBackRestore_UsesFreshPausePopup_AndResumesOnlyOnResume");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignCanonicalUiPrefabs(installer);
+                installer.Install(UiTestPortFactory.CreatePorts(pauseService: pauseService));
+
+                installer.HudView.ClickPause();
+                var originalPausePopup = installer.PausePopupView;
+
+                Assert.That(originalPausePopup, Is.Not.Null);
+                Assert.That(pauseService.IsPaused, Is.True);
+
+                originalPausePopup.ClickSettings();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(pauseService.IsPaused, Is.True);
+
+                installer.SettingsScreenView.ClickBack();
+                Assert.That(installer.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+                Assert.That(installer.PopupController.Contains(PopupId.Pause), Is.True);
+                Assert.That(installer.PausePopupView, Is.Not.Null);
+                Assert.That(installer.PausePopupView, Is.Not.SameAs(originalPausePopup));
+                Assert.That(pauseService.IsPaused, Is.True);
+
+                installer.PausePopupView.ClickResume();
+                Assert.That(installer.PopupController.PopupCount, Is.EqualTo(0));
+                Assert.That(pauseService.IsPaused, Is.False);
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void GameplayUiFlowInstaller_ObjectiveInfoPopup_UsesSharedStackWithoutDirectPopupViewMutation()
         {
             var pauseService = new FakeGameplayPauseService();

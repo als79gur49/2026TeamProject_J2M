@@ -8,6 +8,7 @@ using Game.Feature.UI.Popups;
 using Game.Shared.Display;
 using NUnit.Framework;
 using UnityEngine;
+using DisplayPreviewCountdownSnapshot = Game.Feature.UI.Application.DisplayPreviewCountdownSnapshot;
 
 namespace Game.Feature.UI.Tests
 {
@@ -217,6 +218,79 @@ namespace Game.Feature.UI.Tests
                 Assert.That(cancelCount, Is.EqualTo(2));
                 Assert.That(host.HasActiveSession, Is.False);
                 Assert.That(relay.IsArmed, Is.False);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void DisplayPreviewSessionHost_ExposesSingleTimeoutSource_AndSeedsCountdownAfterSuccessfulOpen()
+        {
+            var rootObject = new GameObject("DisplayPreviewSessionHost_ExposesSingleTimeoutSource");
+            try
+            {
+                double now = 0d;
+                var relay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
+                relay.SetTimeProviderForTesting(() => now);
+                var runtimeFactory = new TestPopupRuntimeFactory();
+                var popupController = new PopupController(runtimeFactory);
+                var host = new DisplayPreviewSessionHost(popupController, relay, 21d);
+                var snapshots = new List<DisplayPreviewCountdownSnapshot>();
+                host.CountdownChanged += snapshots.Add;
+
+                Assert.That(host.PreviewTimeoutSeconds, Is.EqualTo(21d));
+                Assert.That(host.TryOpen(
+                    new ConfirmPopupPayload("Confirm", "Body", "Keep", "Revert", false),
+                    () => { },
+                    () => { }), Is.True);
+
+                Assert.That(snapshots, Has.Count.EqualTo(1));
+                Assert.That(snapshots[0].IsActive, Is.True);
+                Assert.That(snapshots[0].RemainingSeconds, Is.EqualTo(21));
+                Assert.That(snapshots[0].TotalSeconds, Is.EqualTo(21));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
+        public void DisplayPreviewTimeoutRelay_EmitsOnlyOnWholeSecondBucketChanges_AndClearsOnce()
+        {
+            var rootObject = new GameObject("DisplayPreviewTimeoutRelay_WholeSecondBuckets");
+            try
+            {
+                double now = 0d;
+                var relay = rootObject.AddComponent<DisplayPreviewTimeoutRelay>();
+                relay.SetTimeProviderForTesting(() => now);
+                var snapshots = new List<DisplayPreviewCountdownSnapshot>();
+                relay.CountdownChanged += snapshots.Add;
+
+                relay.Arm(15d, () => { });
+
+                now = 0.8d;
+                InvokePrivateMethod(relay, "Update");
+                Assert.That(snapshots, Is.Empty);
+
+                now = 1.1d;
+                InvokePrivateMethod(relay, "Update");
+                Assert.That(snapshots, Has.Count.EqualTo(1));
+                Assert.That(snapshots[0].RemainingSeconds, Is.EqualTo(14));
+                Assert.That((float)snapshots[0].RemainingSeconds / snapshots[0].TotalSeconds, Is.EqualTo(14f / 15f).Within(0.0001f));
+
+                now = 1.8d;
+                InvokePrivateMethod(relay, "Update");
+                Assert.That(snapshots, Has.Count.EqualTo(1));
+
+                relay.Cancel();
+                Assert.That(snapshots, Has.Count.EqualTo(2));
+                Assert.That(snapshots[1].IsActive, Is.False);
+
+                relay.Cancel();
+                Assert.That(snapshots, Has.Count.EqualTo(2));
             }
             finally
             {

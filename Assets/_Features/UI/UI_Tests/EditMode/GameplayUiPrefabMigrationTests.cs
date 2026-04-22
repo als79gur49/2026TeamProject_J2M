@@ -275,6 +275,16 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void PausePopupPrefabAsset_WiresSettingsButtonAndLabel_BeneathPopupRoot()
+        {
+            var pausePopup = UiTestPrefabAssetUtility.LoadPopupPrefab<PausePopupView>(UiTestPrefabAssetUtility.PausePopupPrefabPath);
+            var serializedPausePopup = new SerializedObject(pausePopup);
+
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedPausePopup, "_settingsButton", pausePopup.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedPausePopup, "_settingsButtonLabel", pausePopup.transform);
+        }
+
+        [Test]
         public void ObjectiveInfoPopupPrefabAsset_UsesAuthoredPopupView_AndNoCrossLayerOwners()
         {
             AssertPopupPrefabContract<ObjectiveInfoPopupView>(UiTestPrefabAssetUtility.ObjectiveInfoPopupPrefabPath);
@@ -422,13 +432,42 @@ namespace Game.Feature.UI.Tests
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_currentDisplayValue", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionDropdown", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionInfoHotspot", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionHoverRelay", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionHoverHintRoot", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_resolutionHoverHintLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_fullscreenLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_fullscreenToggle", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_displayStatusLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownRoot", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownLabel", displayView.transform);
+            AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_previewCountdownFill", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButton", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_applyButtonLabel", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButton", displayView.transform);
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButtonLabel", displayView.transform);
+
+            var hoverHintRoot = (RectTransform)serializedDisplay.FindProperty("_resolutionHoverHintRoot").objectReferenceValue;
+            var hoverHintLabel = (Text)serializedDisplay.FindProperty("_resolutionHoverHintLabel").objectReferenceValue;
+            var hoverRelay = (SettingsHoverRelay)serializedDisplay.FindProperty("_resolutionHoverRelay").objectReferenceValue;
+            var hoverCanvasGroup = hoverHintRoot.GetComponent<CanvasGroup>();
+            var hoverImage = hoverHintRoot.GetComponent<Image>();
+            var countdownRoot = (RectTransform)serializedDisplay.FindProperty("_previewCountdownRoot").objectReferenceValue;
+            var countdownLabel = (Text)serializedDisplay.FindProperty("_previewCountdownLabel").objectReferenceValue;
+            var countdownFill = (Image)serializedDisplay.FindProperty("_previewCountdownFill").objectReferenceValue;
+
+            Assert.That(hoverHintRoot.gameObject.activeSelf, Is.False);
+            Assert.That(hoverRelay.transform, Is.EqualTo(serializedDisplay.FindProperty("_resolutionInfoHotspot").objectReferenceValue));
+            Assert.That(hoverCanvasGroup, Is.Not.Null);
+            Assert.That(hoverCanvasGroup.blocksRaycasts, Is.False);
+            Assert.That(hoverCanvasGroup.interactable, Is.False);
+            Assert.That(hoverImage, Is.Not.Null);
+            Assert.That(hoverImage.raycastTarget, Is.False);
+            Assert.That(hoverHintLabel.raycastTarget, Is.False);
+            Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
+            Assert.That(countdownLabel.raycastTarget, Is.False);
+            Assert.That(countdownFill.raycastTarget, Is.False);
+            Assert.That(countdownFill.type, Is.EqualTo(Image.Type.Simple));
         }
 
         [Test]
@@ -440,6 +479,13 @@ namespace Game.Feature.UI.Tests
             Assert.That(authoringSource, Does.Contain("SettingsScreenView.DisplaySectionName"));
             Assert.That(authoringSource, Does.Contain("_audioView"));
             Assert.That(authoringSource, Does.Contain("_displayView"));
+            Assert.That(authoringSource, Does.Contain("ResolutionInfoHotspot"));
+            Assert.That(authoringSource, Does.Contain("ResolutionHoverHint"));
+            Assert.That(authoringSource, Does.Contain("DisplayPreviewCountdown"));
+            Assert.That(authoringSource, Does.Contain("_resolutionHoverRelay"));
+            Assert.That(authoringSource, Does.Contain("_resolutionHoverHintRoot"));
+            Assert.That(authoringSource, Does.Contain("_previewCountdownRoot"));
+            Assert.That(authoringSource, Does.Contain("CreateCountdownStrip"));
         }
 
         [TestCase(ScreenId.Gameplay)]

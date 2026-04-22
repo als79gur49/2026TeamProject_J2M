@@ -8,6 +8,7 @@ namespace Game.Feature.UI.HUD
         [SerializeField] private GameObject _root;
         [SerializeField] private Text _titleLabel;
         [SerializeField] private Text _hpLabel;
+        [SerializeField] private Slider _hpSlider;
         [SerializeField] private Text _facingLabel;
         [SerializeField] private Text _actionLabel;
         [SerializeField] private Text _topologyLabel;
@@ -40,6 +41,7 @@ namespace Game.Feature.UI.HUD
             ValidateSerializedReference(_root, nameof(_root));
             ValidateSerializedReference(_titleLabel, nameof(_titleLabel));
             ValidateSerializedReference(_hpLabel, nameof(_hpLabel));
+            ValidateSerializedReference(_hpSlider, nameof(_hpSlider));
             ValidateSerializedReference(_facingLabel, nameof(_facingLabel));
             ValidateSerializedReference(_actionLabel, nameof(_actionLabel));
             ValidateSerializedReference(_topologyLabel, nameof(_topologyLabel));
@@ -80,7 +82,14 @@ namespace Game.Feature.UI.HUD
 
             if (_hpLabel != null)
             {
-                _hpLabel.text = $"HP: {_viewModel.CurrentHp}";
+                _hpLabel.text = _viewModel.MaxHp > 0
+                    ? $"HP: {_viewModel.CurrentHp}/{_viewModel.MaxHp}"
+                    : $"HP: {_viewModel.CurrentHp}";
+            }
+
+            if (_hpSlider != null)
+            {
+                _hpSlider.value = _viewModel.HpNormalized;
             }
 
             if (_facingLabel != null)

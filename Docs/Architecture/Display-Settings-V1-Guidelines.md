@@ -24,8 +24,8 @@ This document is the display-settings-specific supplement to the canonical UI ar
 ## Preview Lifecycle Ownership
 - `DisplaySettingsService` owns current committed state, preview-applied state, preview revert, and persistence.
 - `SettingsScreenPresenter` owns staged UI state only.
-- `DisplayPreviewSessionHost` owns the confirm popup instance, single active preview session, timeout arm/cancel, and single completion routing.
-- `DisplayPreviewTimeoutRelay` owns the 15-second timeout on the canonical root using real runtime time.
+- `DisplayPreviewSessionHost` owns the confirm popup instance, single active preview session, preview timeout seconds, timeout arm/cancel, and single completion routing.
+- `DisplayPreviewTimeoutRelay` owns preview countdown tick tracking on the canonical root using real runtime time.
 - `DisplaySettingsLifecycleRelay` is the safe resync trigger for focus regain and pause return.
 - Cancel, popup close, timeout, screen transition, `SetIsCurrent(false)`, and dispose all route to one idempotent preview-cancel path.
 
@@ -40,12 +40,20 @@ This document is the display-settings-specific supplement to the canonical UI ar
 - V1 does not add `ExclusiveFullScreen`, render scale, dynamic resolution, graphics presets, or refresh-rate UI.
 - Future refresh-rate UI must treat the current v1 behavior as “resolution labels stay visible-only while refresh remains internal and persisted.” Do not reinterpret v1 as if refresh never existed.
 
+## Settings Resolution Hover Hint Policy
+- The Settings resolution hover hint is a local SettingsDisplaySection affordance, remains available regardless of the Tooltips accessibility toggle, and does not use TooltipPopup or popup flow.
+- It is pointer-hover-only in v1 and must not be treated as precedent for popup tooltip auto-hide or global hover infrastructure.
+
+## Settings Preview Countdown Policy
+- The Settings display preview countdown is a local `SettingsDisplaySection` indicator whose timeout value comes from `DisplayPreviewSessionHost`, while confirm popup copy remains static text derived from that same timeout source.
+- Countdown visibility starts only after confirm popup open succeeds, v1 rendering is whole-second stepwise text plus bar from the same snapshot ticks, and v1 does not add live popup countdown UI.
+
 ## Settings Authored Child-View Checklist
 - `SettingsScreen.prefab` must author exactly one root shell with child section roots named `SettingsAudioSection` and `SettingsDisplaySection`.
 - `SettingsAudioSection` must carry `SettingsAudioView`, and `SettingsDisplaySection` must carry `SettingsDisplayView`.
 - `SettingsScreenView` must serialize `_audioView` and `_displayView` directly to those child views; runtime binding must not rely on hierarchy search to rediscover them.
 - `SettingsAudioView` must serialize complete authored row references for `Main`, `Bgm`, and `Sfx`: row root, label, value label, slider, mute toggle, and slider interaction relay.
-- `SettingsDisplayView` must serialize complete authored references for `_sectionTitle`, `_currentDisplayLabel`, `_currentDisplayValue`, `_resolutionLabel`, `_resolutionDropdown`, `_fullscreenLabel`, `_fullscreenToggle`, `_displayStatusLabel`, `_applyButton`, `_applyButtonLabel`, `_revertButton`, and `_revertButtonLabel`.
+- `SettingsDisplayView` must serialize complete authored references for `_sectionTitle`, `_currentDisplayLabel`, `_currentDisplayValue`, `_resolutionLabel`, `_resolutionDropdown`, `_resolutionInfoHotspot`, `_resolutionHoverRelay`, `_resolutionHoverHintRoot`, `_resolutionHoverHintLabel`, `_fullscreenLabel`, `_fullscreenToggle`, `_displayStatusLabel`, `_previewCountdownRoot`, `_previewCountdownLabel`, `_previewCountdownFill`, `_applyButton`, `_applyButtonLabel`, `_revertButton`, and `_revertButtonLabel`.
 - Authored audio controls must remain descendants of `SettingsAudioSection`, and authored display controls must remain descendants of `SettingsDisplaySection`.
 - Root-shell compatibility helpers remain passthrough-only. They do not own section-local widgets, section-local state, preview policy, or display/audio business logic.
 - This checklist closes Settings authored child-view canonicalization only. `UiPrefabMigrationInventory` cleanup and unrelated migration/helper cleanup remain later work.

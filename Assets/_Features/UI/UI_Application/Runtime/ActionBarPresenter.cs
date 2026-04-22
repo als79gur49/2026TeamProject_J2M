@@ -74,6 +74,7 @@ namespace Game.Feature.UI.Application
                     definition.SlotId,
                     definition.LabelText,
                     BuildStateText(definition, _tick, _interaction, _player),
+                    BuildCooldownNormalized(definition, _player),
                     IsSlotArmed(definition, _interaction, _player)));
                 hasInteractiveSlot |= isInteractive;
             }
@@ -160,6 +161,29 @@ namespace Game.Feature.UI.Application
             return false;
         }
 
+        private static float BuildCooldownNormalized(
+            ActionBarSlotDefinition definition,
+            UIPlayerActionSlice player)
+        {
+            if (TryGetRecoveryCooldown(definition, player, out var recoveryCooldown))
+            {
+                if (recoveryCooldown.TotalRecoveryTicks <= 0)
+                {
+                    return 0f;
+                }
+
+                var elapsedTicks = recoveryCooldown.TotalRecoveryTicks - recoveryCooldown.RemainingRecoveryTicks;
+                return Clamp01(elapsedTicks / (float)recoveryCooldown.TotalRecoveryTicks);
+            }
+
+            if (player.ActiveActionKind == definition.ActionKind)
+            {
+                return 0f;
+            }
+
+            return 1f;
+        }
+
         private static bool IsSlotInteractive(
             ActionBarSlotDefinition definition,
             UITickSlice tick,
@@ -201,6 +225,21 @@ namespace Game.Feature.UI.Application
 
             return player.CanStartAnyActionThisTick &&
                    player.HasExplicitPushCandidateInCurrentDirection;
+        }
+
+        private static float Clamp01(float value)
+        {
+            if (value < 0f)
+            {
+                return 0f;
+            }
+
+            if (value > 1f)
+            {
+                return 1f;
+            }
+
+            return value;
         }
 
         private static ActionBarSlotDefinition[] CreateDefinitions(IEnumerable<ActionBarSlotDefinition> slotDefinitions)

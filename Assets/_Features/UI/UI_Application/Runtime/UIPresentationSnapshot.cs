@@ -141,9 +141,47 @@ namespace Game.Feature.UI.Application
             UIRecoveryCooldownSlice? recoveryCooldown = null,
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false)
+            : this(
+                playerEntityId,
+                currentHp,
+                currentHp,
+                facing,
+                activeActionKind,
+                isRecoveryPhase,
+                canMoveThisTick,
+                canStartActionThisTick,
+                lastResolvedOutcome,
+                lastResolvedTickIndex,
+                tookDamageThisTick,
+                lastDamageAmount,
+                lastDamageTickIndex,
+                recoveryCooldown,
+                canStartAnyActionThisTick,
+                hasExplicitPushCandidateInCurrentDirection)
+        {
+        }
+
+        public UIPlayerActionSlice(
+            int playerEntityId,
+            int currentHp,
+            int maxHp,
+            GameplayUiDirection facing,
+            GameplayUiActionKind activeActionKind,
+            bool isRecoveryPhase,
+            bool canMoveThisTick,
+            bool canStartActionThisTick,
+            GameplayUiActionResolutionKind lastResolvedOutcome,
+            int lastResolvedTickIndex,
+            bool tookDamageThisTick,
+            int lastDamageAmount,
+            int lastDamageTickIndex,
+            UIRecoveryCooldownSlice? recoveryCooldown = null,
+            bool canStartAnyActionThisTick = false,
+            bool hasExplicitPushCandidateInCurrentDirection = false)
         {
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
+            MaxHp = maxHp > 0 ? maxHp : currentHp;
             Facing = facing;
             ActiveActionKind = activeActionKind;
             IsRecoveryPhase = isRecoveryPhase;
@@ -162,6 +200,8 @@ namespace Game.Feature.UI.Application
         public int PlayerEntityId { get; }
 
         public int CurrentHp { get; }
+
+        public int MaxHp { get; }
 
         public GameplayUiDirection Facing { get; }
 
@@ -193,6 +233,7 @@ namespace Game.Feature.UI.Application
         {
             return PlayerEntityId == other.PlayerEntityId &&
                    CurrentHp == other.CurrentHp &&
+                   MaxHp == other.MaxHp &&
                    Facing == other.Facing &&
                    ActiveActionKind == other.ActiveActionKind &&
                    IsRecoveryPhase == other.IsRecoveryPhase &&
@@ -218,12 +259,13 @@ namespace Game.Feature.UI.Application
             var hash = HashCode.Combine(
                 PlayerEntityId,
                 CurrentHp,
+                MaxHp,
                 Facing,
                 ActiveActionKind,
                 IsRecoveryPhase,
                 CanMoveThisTick,
-                CanStartActionThisTick,
-                CanStartAnyActionThisTick);
+                CanStartActionThisTick);
+            hash = HashCode.Combine(hash, CanStartAnyActionThisTick);
             hash = HashCode.Combine(hash, HasExplicitPushCandidateInCurrentDirection, LastResolvedOutcome);
             hash = HashCode.Combine(hash, LastResolvedTickIndex, TookDamageThisTick, LastDamageAmount, LastDamageTickIndex);
             hash = HashCode.Combine(hash, RecoveryCooldown);

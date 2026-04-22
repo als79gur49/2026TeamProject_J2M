@@ -297,9 +297,17 @@ namespace Game.Feature.UI.Editor
             var currentDisplayValue = CreateLabel("CurrentDisplayValue", displaySection, new Vector2(132f, -32f), new Vector2(256f, 22f), TextAnchor.MiddleLeft, 14);
             var resolutionLabel = CreateLabel("ResolutionLabel", displaySection, new Vector2(0f, -70f), new Vector2(120f, 22f), TextAnchor.MiddleLeft, 14);
             var resolutionDropdown = CreateResolutionDropdown("ResolutionDropdown", displaySection, new Vector2(132f, -64f), new Vector2(204f, 30f));
+            var resolutionInfoHotspot = CreateHoverHotspot("ResolutionInfoHotspot", displaySection, "i", new Vector2(344f, -64f), new Vector2(24f, 30f));
+            var resolutionHoverHint = CreateHoverHintPanel(
+                "ResolutionHoverHint",
+                displaySection,
+                new Vector2(140f, -8f),
+                new Vector2(248f, 48f),
+                "Only automatically detected resolutions are shown.");
             var fullscreenLabel = CreateLabel("FullscreenLabel", displaySection, new Vector2(0f, -110f), new Vector2(160f, 22f), TextAnchor.MiddleLeft, 14);
             var fullscreenToggle = CreateStandaloneToggle("FullscreenToggle", displaySection, "On", new Vector2(196f, -104f), new Vector2(140f, 28f));
-            var displayStatus = CreateLabel("DisplayStatus", displaySection, new Vector2(0f, -152f), new Vector2(388f, 44f), TextAnchor.UpperLeft, 12);
+            var displayStatus = CreateLabel("DisplayStatus", displaySection, new Vector2(0f, -152f), new Vector2(388f, 24f), TextAnchor.UpperLeft, 12);
+            var previewCountdown = CreateCountdownStrip("DisplayPreviewCountdown", displaySection, new Vector2(0f, -182f), new Vector2(388f, 14f));
             var applyButton = CreateButton("DisplayApplyButton", displaySection, "Apply", new Vector2(74f, -208f), new Vector2(104f, 30f));
             var revertButton = CreateButton("DisplayRevertButton", displaySection, "Revert", new Vector2(220f, -208f), new Vector2(104f, 30f));
 
@@ -333,9 +341,16 @@ namespace Game.Feature.UI.Editor
             SetField(displayView, "_currentDisplayValue", currentDisplayValue);
             SetField(displayView, "_resolutionLabel", resolutionLabel);
             SetField(displayView, "_resolutionDropdown", resolutionDropdown);
+            SetField(displayView, "_resolutionInfoHotspot", resolutionInfoHotspot.Root);
+            SetField(displayView, "_resolutionHoverRelay", resolutionInfoHotspot.Relay);
+            SetField(displayView, "_resolutionHoverHintRoot", resolutionHoverHint.Panel);
+            SetField(displayView, "_resolutionHoverHintLabel", resolutionHoverHint.Label);
             SetField(displayView, "_fullscreenLabel", fullscreenLabel);
             SetField(displayView, "_fullscreenToggle", fullscreenToggle.Toggle);
             SetField(displayView, "_displayStatusLabel", displayStatus);
+            SetField(displayView, "_previewCountdownRoot", previewCountdown.Root);
+            SetField(displayView, "_previewCountdownLabel", previewCountdown.Label);
+            SetField(displayView, "_previewCountdownFill", previewCountdown.Fill);
             SetField(displayView, "_applyButton", applyButton.Button);
             SetField(displayView, "_applyButtonLabel", applyButton.Label);
             SetField(displayView, "_revertButton", revertButton.Button);
@@ -805,6 +820,111 @@ namespace Game.Feature.UI.Editor
             return new ToggleParts(toggle);
         }
 
+        private static HoverHotspotParts CreateHoverHotspot(
+            string name,
+            RectTransform parent,
+            string labelText,
+            Vector2 anchoredPosition,
+            Vector2 sizeDelta)
+        {
+            var hotspotObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(SettingsHoverRelay));
+            hotspotObject.transform.SetParent(parent, false);
+
+            var hotspotRect = hotspotObject.GetComponent<RectTransform>();
+            hotspotRect.anchorMin = new Vector2(0f, 1f);
+            hotspotRect.anchorMax = new Vector2(0f, 1f);
+            hotspotRect.pivot = new Vector2(0f, 1f);
+            hotspotRect.anchoredPosition = anchoredPosition;
+            hotspotRect.sizeDelta = sizeDelta;
+
+            var hotspotImage = hotspotObject.GetComponent<Image>();
+            hotspotImage.color = new Color(0.20f, 0.25f, 0.34f, 1f);
+            hotspotImage.raycastTarget = true;
+
+            var label = CreateLabel("Label", hotspotRect, Vector2.zero, sizeDelta, TextAnchor.MiddleCenter, 14);
+            label.text = labelText;
+            label.raycastTarget = false;
+
+            return new HoverHotspotParts(hotspotRect, hotspotObject.GetComponent<SettingsHoverRelay>());
+        }
+
+        private static HoverHintParts CreateHoverHintPanel(
+            string name,
+            RectTransform parent,
+            Vector2 anchoredPosition,
+            Vector2 sizeDelta,
+            string labelText)
+        {
+            var panelObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            panelObject.transform.SetParent(parent, false);
+            panelObject.SetActive(false);
+
+            var panelRect = panelObject.GetComponent<RectTransform>();
+            panelRect.anchorMin = new Vector2(0f, 1f);
+            panelRect.anchorMax = new Vector2(0f, 1f);
+            panelRect.pivot = new Vector2(0f, 1f);
+            panelRect.anchoredPosition = anchoredPosition;
+            panelRect.sizeDelta = sizeDelta;
+
+            var panelImage = panelObject.GetComponent<Image>();
+            panelImage.color = new Color(0.08f, 0.11f, 0.15f, 0.96f);
+            panelImage.raycastTarget = false;
+
+            var canvasGroup = panelObject.GetComponent<CanvasGroup>();
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+            canvasGroup.alpha = 1f;
+
+            var label = CreateLabel("ResolutionHoverHintText", panelRect, new Vector2(8f, -8f), new Vector2(232f, 32f), TextAnchor.MiddleLeft, 12);
+            label.text = labelText;
+            label.raycastTarget = false;
+
+            return new HoverHintParts(panelRect, label);
+        }
+
+        private static CountdownStripParts CreateCountdownStrip(
+            string name,
+            RectTransform parent,
+            Vector2 anchoredPosition,
+            Vector2 sizeDelta)
+        {
+            var rootObject = new GameObject(name, typeof(RectTransform), typeof(Image));
+            rootObject.transform.SetParent(parent, false);
+            rootObject.SetActive(false);
+
+            var rootRect = rootObject.GetComponent<RectTransform>();
+            rootRect.anchorMin = new Vector2(0f, 1f);
+            rootRect.anchorMax = new Vector2(0f, 1f);
+            rootRect.pivot = new Vector2(0f, 1f);
+            rootRect.anchoredPosition = anchoredPosition;
+            rootRect.sizeDelta = sizeDelta;
+
+            var background = rootObject.GetComponent<Image>();
+            background.color = new Color(0.10f, 0.13f, 0.18f, 1f);
+            background.raycastTarget = false;
+
+            var fillObject = new GameObject("Fill", typeof(RectTransform), typeof(Image));
+            fillObject.transform.SetParent(rootObject.transform, false);
+            var fillRect = fillObject.GetComponent<RectTransform>();
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = Vector2.zero;
+            fillRect.sizeDelta = new Vector2(sizeDelta.x, 0f);
+
+            var fillImage = fillObject.GetComponent<Image>();
+            fillImage.color = new Color(0.24f, 0.68f, 0.87f, 1f);
+            fillImage.type = Image.Type.Simple;
+            fillImage.fillAmount = 1f;
+            fillImage.raycastTarget = false;
+
+            var label = CreateLabel("DisplayPreviewCountdownText", rootRect, new Vector2(0f, 2f), new Vector2(388f, 18f), TextAnchor.MiddleCenter, 11);
+            label.text = string.Empty;
+            label.raycastTarget = false;
+
+            return new CountdownStripParts(rootRect, label, fillImage);
+        }
+
         private static object CreateAudioRowRefs(AudioRowParts rowParts)
         {
             var rowRefsType = typeof(SettingsAudioView).GetNestedType("AudioControlRowRefs", BindingFlags.NonPublic);
@@ -968,6 +1088,48 @@ namespace Game.Feature.UI.Editor
             }
 
             public Toggle Toggle { get; }
+        }
+
+        private readonly struct HoverHotspotParts
+        {
+            public HoverHotspotParts(RectTransform root, SettingsHoverRelay relay)
+            {
+                Root = root;
+                Relay = relay;
+            }
+
+            public RectTransform Root { get; }
+
+            public SettingsHoverRelay Relay { get; }
+        }
+
+        private readonly struct HoverHintParts
+        {
+            public HoverHintParts(RectTransform panel, Text label)
+            {
+                Panel = panel;
+                Label = label;
+            }
+
+            public RectTransform Panel { get; }
+
+            public Text Label { get; }
+        }
+
+        private readonly struct CountdownStripParts
+        {
+            public CountdownStripParts(RectTransform root, Text label, Image fill)
+            {
+                Root = root;
+                Label = label;
+                Fill = fill;
+            }
+
+            public RectTransform Root { get; }
+
+            public Text Label { get; }
+
+            public Image Fill { get; }
         }
     }
 }

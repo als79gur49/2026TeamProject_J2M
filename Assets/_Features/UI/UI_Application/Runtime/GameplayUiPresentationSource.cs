@@ -170,6 +170,7 @@ namespace Game.Feature.UI.Application
                 _isUiGameplayInputBlocked,
                 playerHud.PlayerEntityId,
                 playerHud.CurrentHp,
+                playerHud.MaxHp,
                 playerHud.Facing,
                 playerHud.ActiveActionKind,
                 hasFramePlayer ? player.IsRecoveryPhase : playerHud.IsActionInRecoveryPhase,

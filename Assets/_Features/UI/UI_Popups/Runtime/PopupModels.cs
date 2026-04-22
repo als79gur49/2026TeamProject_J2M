@@ -14,6 +14,7 @@ namespace Game.Feature.UI.Popups
         Confirmed = 2,
         Acknowledged = 3,
         Resumed = 4,
+        SettingsRequested = 5,
     }
 
     public enum PopupBackdropMode
@@ -44,13 +45,19 @@ namespace Game.Feature.UI.Popups
         public static readonly PausePopupPayload Default = new(
             "Paused",
             "Pausing modal popup",
-            "Resume");
+            "Resume",
+            "Settings");
 
-        public PausePopupPayload(string titleText, string descriptionText, string resumeLabel)
+        public PausePopupPayload(
+            string titleText,
+            string descriptionText,
+            string resumeLabel,
+            string settingsLabel)
         {
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
+            SettingsLabel = settingsLabel ?? string.Empty;
         }
 
         public string TitleText { get; }
@@ -58,6 +65,8 @@ namespace Game.Feature.UI.Popups
         public string DescriptionText { get; }
 
         public string ResumeLabel { get; }
+
+        public string SettingsLabel { get; }
     }
 
     public sealed class ObjectiveInfoPopupPayload : IPopupPayload
@@ -173,11 +182,18 @@ namespace Game.Feature.UI.Popups
 
         public string ResumeLabel { get; private set; } = string.Empty;
 
-        public void SetContent(string titleText, string descriptionText, string resumeLabel)
+        public string SettingsLabel { get; private set; } = string.Empty;
+
+        public void SetContent(
+            string titleText,
+            string descriptionText,
+            string resumeLabel,
+            string settingsLabel)
         {
             TitleText = titleText ?? string.Empty;
             DescriptionText = descriptionText ?? string.Empty;
             ResumeLabel = resumeLabel ?? string.Empty;
+            SettingsLabel = settingsLabel ?? string.Empty;
             Changed?.Invoke();
         }
     }

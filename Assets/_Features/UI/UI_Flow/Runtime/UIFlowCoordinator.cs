@@ -8,6 +8,12 @@ namespace Game.Feature.UI.Flow
 {
     public sealed class UIFlowCoordinator : IDisposable
     {
+        private enum PauseReturnMode
+        {
+            None = 0,
+            RestorePausePopupAfterBack = 1,
+        }
+
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly IUiFlowPauseService _pauseService;
         private readonly PopupController _popupController;
@@ -15,6 +21,7 @@ namespace Game.Feature.UI.Flow
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly UIBlockPolicy _uiBlockPolicy;
         private UITickEventKey? _lastStageClearedEventKey;
+        private PauseReturnMode _pauseReturnMode;
 
         public UIFlowCoordinator(
             ScreenController screenController,
@@ -41,6 +48,7 @@ namespace Game.Feature.UI.Flow
 
         public void Initialize()
         {
+            ClearPauseReturnMode();
             _screenController.SetRoot(BuildGameplayRequest());
             RefreshBlockSnapshot();
         }
@@ -145,6 +153,13 @@ namespace Game.Feature.UI.Flow
 
             if (_screenController.HandleBackRequested())
             {
+                if (_pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack &&
+                    _screenController.CurrentScreenId == ScreenId.Gameplay &&
+                    RequestPausePopup())
+                {
+                    ClearPauseReturnMode();
+                }
+
                 return true;
             }
 
@@ -163,6 +178,7 @@ namespace Game.Feature.UI.Flow
 
         public void Dispose()
         {
+            ClearPauseReturnMode();
             _screenController.StateChanged -= HandleFlowStateChanged;
             _screenController.ActionRequested -= HandleScreenActionRequested;
             _popupController.StateChanged -= HandleFlowStateChanged;
@@ -196,7 +212,27 @@ namespace Game.Feature.UI.Flow
                 return;
             }
 
-            _pauseService.Resume();
+            switch (completion.CompletionKind)
+            {
+                case PopupCompletionKind.SettingsRequested:
+                    SetPauseReturnMode(PauseReturnMode.RestorePausePopupAfterBack);
+                    if (!PushScreen(BuildSettingsRequest(), preservePauseReturnMode: true))
+                    {
+                        ClearPauseReturnMode();
+                        RequestPausePopup();
+                    }
+
+                    break;
+
+                case PopupCompletionKind.Resumed:
+                case PopupCompletionKind.Closed:
+                    ClearPauseReturnMode();
+                    _pauseService.Resume();
+                    break;
+
+                default:
+                    break;
+            }
         }
 
         private void HandleFlowStateChanged()
@@ -248,18 +284,48 @@ namespace Game.Feature.UI.Flow
 
         private bool ShowScreen(ScreenRequest request)
         {
+            return ShowScreen(request, preservePauseReturnMode: false);
+        }
+
+        private bool ShowScreen(ScreenRequest request, bool preservePauseReturnMode)
+        {
+            if (!preservePauseReturnMode)
+            {
+                ClearPauseReturnMode();
+            }
+
             ClosePopupsForScreenTransition();
             return _screenController.Show(request);
         }
 
         private bool PushScreen(ScreenRequest request)
         {
+            return PushScreen(request, preservePauseReturnMode: false);
+        }
+
+        private bool PushScreen(ScreenRequest request, bool preservePauseReturnMode)
+        {
+            if (!preservePauseReturnMode)
+            {
+                ClearPauseReturnMode();
+            }
+
             ClosePopupsForScreenTransition();
             return _screenController.Push(request);
         }
 
         private bool ReplaceScreen(ScreenRequest request)
         {
+            return ReplaceScreen(request, preservePauseReturnMode: false);
+        }
+
+        private bool ReplaceScreen(ScreenRequest request, bool preservePauseReturnMode)
+        {
+            if (!preservePauseReturnMode)
+            {
+                ClearPauseReturnMode();
+            }
+
             ClosePopupsForScreenTransition();
             return _screenController.Replace(request);
         }
@@ -296,6 +362,7 @@ namespace Game.Feature.UI.Flow
                 }
 
                 _lastStageClearedEventKey = tickEvent.Key;
+                ClearPauseReturnMode();
                 ClosePopupsForScreenTransition();
                 _screenController.Clear();
                 OpenStageCompletionFlow();
@@ -325,6 +392,16 @@ namespace Game.Feature.UI.Flow
                         StageCompletionRewardPopupPayloadMapper.Map(readModel)),
                     out _);
             }
+        }
+
+        private void SetPauseReturnMode(PauseReturnMode mode)
+        {
+            _pauseReturnMode = mode;
+        }
+
+        private void ClearPauseReturnMode()
+        {
+            _pauseReturnMode = PauseReturnMode.None;
         }
 
         private static ScreenRequest BuildGameplayRequest()

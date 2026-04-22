@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.UI.Application;
 using Game.Feature.UI.Flow;
 using Game.Feature.UI.Popups;
 
@@ -22,9 +23,14 @@ namespace Game.Feature.UI.Composition
             this.popupController = popupController ?? throw new ArgumentNullException(nameof(popupController));
             this.timeoutRelay = timeoutRelay ?? throw new ArgumentNullException(nameof(timeoutRelay));
             this.previewTimeoutSeconds = previewTimeoutSeconds;
+            this.timeoutRelay.CountdownChanged += HandleCountdownChanged;
         }
 
         public bool HasActiveSession => hasSession;
+
+        public double PreviewTimeoutSeconds => previewTimeoutSeconds;
+
+        public event Action<DisplayPreviewCountdownSnapshot> CountdownChanged;
 
         public bool TryOpen(
             ConfirmPopupPayload payload,
@@ -36,9 +42,16 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            if (!popupController.Push(
-                    new PopupRequest(PopupId.Confirm, payload, HandlePopupCompletion),
-                    out activePopupId))
+            try
+            {
+                if (!popupController.Push(
+                        new PopupRequest(PopupId.Confirm, payload, HandlePopupCompletion),
+                        out activePopupId))
+                {
+                    return false;
+                }
+            }
+            catch
             {
                 return false;
             }
@@ -47,6 +60,7 @@ namespace Game.Feature.UI.Composition
             cancelAction = onCancelled;
             hasSession = true;
             timeoutRelay.Arm(previewTimeoutSeconds, HandleTimeoutElapsed);
+            CountdownChanged?.Invoke(timeoutRelay.ReadCurrentSnapshot());
             return true;
         }
 
@@ -127,6 +141,16 @@ namespace Game.Feature.UI.Composition
             activePopupId = default;
             confirmAction = null;
             cancelAction = null;
+        }
+
+        private void HandleCountdownChanged(DisplayPreviewCountdownSnapshot snapshot)
+        {
+            if (!hasSession)
+            {
+                return;
+            }
+
+            CountdownChanged?.Invoke(snapshot);
         }
     }
 }

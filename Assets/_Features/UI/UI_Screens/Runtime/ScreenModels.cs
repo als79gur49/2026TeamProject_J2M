@@ -247,6 +247,7 @@ namespace Game.Feature.UI.Screens
             "Display",
             "Current Display",
             "Resolution",
+            "Only automatically detected resolutions are shown.",
             "Fullscreen Window",
             "Apply",
             "Revert",
@@ -262,6 +263,7 @@ namespace Game.Feature.UI.Screens
             string displaySectionTitle,
             string currentDisplayLabel,
             string resolutionLabel,
+            string resolutionHoverHintText,
             string fullscreenLabel,
             string displayApplyLabel,
             string displayRevertLabel,
@@ -276,6 +278,7 @@ namespace Game.Feature.UI.Screens
             DisplaySectionTitle = displaySectionTitle ?? string.Empty;
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             ResolutionLabel = resolutionLabel ?? string.Empty;
+            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
             FullscreenLabel = fullscreenLabel ?? string.Empty;
             DisplayApplyLabel = displayApplyLabel ?? string.Empty;
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
@@ -297,6 +300,8 @@ namespace Game.Feature.UI.Screens
         public string CurrentDisplayLabel { get; }
 
         public string ResolutionLabel { get; }
+
+        public string ResolutionHoverHintText { get; }
 
         public string FullscreenLabel { get; }
 
@@ -617,6 +622,8 @@ namespace Game.Feature.UI.Screens
 
         public string ResolutionLabel { get; private set; } = string.Empty;
 
+        public string ResolutionHoverHintText { get; private set; } = string.Empty;
+
         public IReadOnlyList<string> ResolutionOptionTexts { get; private set; } = Array.Empty<string>();
 
         public int SelectedResolutionIndex { get; private set; }
@@ -637,11 +644,18 @@ namespace Game.Feature.UI.Screens
 
         public bool IsDisplayPreviewActive { get; private set; }
 
+        public string PreviewCountdownText { get; private set; } = string.Empty;
+
+        public float PreviewCountdownNormalized { get; private set; }
+
+        public bool IsPreviewCountdownVisible { get; private set; }
+
         public void SetContent(
             string displaySectionTitle,
             string currentDisplayLabel,
             string currentDisplayValueText,
             string resolutionLabel,
+            string resolutionHoverHintText,
             IReadOnlyList<string> resolutionOptionTexts,
             int selectedResolutionIndex,
             string fullscreenLabel,
@@ -651,12 +665,16 @@ namespace Game.Feature.UI.Screens
             bool isDisplayApplyInteractable,
             string displayRevertLabel,
             bool isDisplayRevertInteractable,
-            bool isDisplayPreviewActive)
+            bool isDisplayPreviewActive,
+            string previewCountdownText,
+            float previewCountdownNormalized,
+            bool isPreviewCountdownVisible)
         {
             DisplaySectionTitle = displaySectionTitle ?? string.Empty;
             CurrentDisplayLabel = currentDisplayLabel ?? string.Empty;
             CurrentDisplayValueText = currentDisplayValueText ?? string.Empty;
             ResolutionLabel = resolutionLabel ?? string.Empty;
+            ResolutionHoverHintText = resolutionHoverHintText ?? string.Empty;
             ResolutionOptionTexts = resolutionOptionTexts ?? Array.Empty<string>();
             SelectedResolutionIndex = selectedResolutionIndex;
             FullscreenLabel = fullscreenLabel ?? string.Empty;
@@ -667,6 +685,9 @@ namespace Game.Feature.UI.Screens
             DisplayRevertLabel = displayRevertLabel ?? string.Empty;
             IsDisplayRevertInteractable = isDisplayRevertInteractable;
             IsDisplayPreviewActive = isDisplayPreviewActive;
+            PreviewCountdownText = previewCountdownText ?? string.Empty;
+            PreviewCountdownNormalized = previewCountdownNormalized;
+            IsPreviewCountdownVisible = isPreviewCountdownVisible;
             Changed?.Invoke();
         }
     }

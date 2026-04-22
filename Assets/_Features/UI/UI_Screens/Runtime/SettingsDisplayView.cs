@@ -15,15 +15,23 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Text _currentDisplayValue;
         [SerializeField] private Text _resolutionLabel;
         [SerializeField] private Dropdown _resolutionDropdown;
+        [SerializeField] private RectTransform _resolutionInfoHotspot;
+        [SerializeField] private SettingsHoverRelay _resolutionHoverRelay;
+        [SerializeField] private RectTransform _resolutionHoverHintRoot;
+        [SerializeField] private Text _resolutionHoverHintLabel;
         [SerializeField] private Text _fullscreenLabel;
         [SerializeField] private Toggle _fullscreenToggle;
         [SerializeField] private Text _displayStatusLabel;
+        [SerializeField] private RectTransform _previewCountdownRoot;
+        [SerializeField] private Text _previewCountdownLabel;
+        [SerializeField] private Image _previewCountdownFill;
         [SerializeField] private Button _applyButton;
         [SerializeField] private Text _applyButtonLabel;
         [SerializeField] private Button _revertButton;
         [SerializeField] private Text _revertButtonLabel;
 
         private bool _isRefreshingDisplayControls;
+        private bool _isResolutionHoverHintVisible;
         private bool _isVisible;
         private SettingsDisplayViewModel _viewModel;
 
@@ -55,6 +63,9 @@ namespace Game.Feature.UI.Screens
 
         public void Bind(SettingsDisplayViewModel viewModel)
         {
+            HideResolutionHoverHint();
+            RebindResolutionHoverRelay();
+
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -77,9 +88,16 @@ namespace Game.Feature.UI.Screens
             ValidateControl(_currentDisplayValue, nameof(_currentDisplayValue), issues);
             ValidateControl(_resolutionLabel, nameof(_resolutionLabel), issues);
             ValidateControl(_resolutionDropdown, nameof(_resolutionDropdown), issues);
+            ValidateControl(_resolutionInfoHotspot, nameof(_resolutionInfoHotspot), issues);
+            ValidateControl(_resolutionHoverRelay, nameof(_resolutionHoverRelay), issues);
+            ValidateControl(_resolutionHoverHintRoot, nameof(_resolutionHoverHintRoot), issues);
+            ValidateControl(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel), issues);
             ValidateControl(_fullscreenLabel, nameof(_fullscreenLabel), issues);
             ValidateControl(_fullscreenToggle, nameof(_fullscreenToggle), issues);
             ValidateControl(_displayStatusLabel, nameof(_displayStatusLabel), issues);
+            ValidateControl(_previewCountdownRoot, nameof(_previewCountdownRoot), issues);
+            ValidateControl(_previewCountdownLabel, nameof(_previewCountdownLabel), issues);
+            ValidateControl(_previewCountdownFill, nameof(_previewCountdownFill), issues);
             ValidateControl(_applyButton, nameof(_applyButton), issues);
             ValidateControl(_applyButtonLabel, nameof(_applyButtonLabel), issues);
             ValidateControl(_revertButton, nameof(_revertButton), issues);
@@ -134,17 +152,24 @@ namespace Game.Feature.UI.Screens
         public void SetIsVisible(bool isVisible)
         {
             _isVisible = isVisible;
+            if (!isVisible)
+            {
+                HideResolutionHoverHint();
+            }
+
             RefreshView();
         }
 
         private void OnEnable()
         {
-            RebindDisplayControls();
+            RebindResolutionHoverRelay();
             RefreshView();
         }
 
         private void OnDisable()
         {
+            HideResolutionHoverHint();
+            UnbindResolutionHoverRelay();
             UnbindDisplayControls();
         }
 
@@ -156,9 +181,16 @@ namespace Game.Feature.UI.Screens
             ValidateSerializedReference(_currentDisplayValue, nameof(_currentDisplayValue));
             ValidateSerializedReference(_resolutionLabel, nameof(_resolutionLabel));
             ValidateSerializedReference(_resolutionDropdown, nameof(_resolutionDropdown));
+            ValidateSerializedReference(_resolutionInfoHotspot, nameof(_resolutionInfoHotspot));
+            ValidateSerializedReference(_resolutionHoverRelay, nameof(_resolutionHoverRelay));
+            ValidateSerializedReference(_resolutionHoverHintRoot, nameof(_resolutionHoverHintRoot));
+            ValidateSerializedReference(_resolutionHoverHintLabel, nameof(_resolutionHoverHintLabel));
             ValidateSerializedReference(_fullscreenLabel, nameof(_fullscreenLabel));
             ValidateSerializedReference(_fullscreenToggle, nameof(_fullscreenToggle));
             ValidateSerializedReference(_displayStatusLabel, nameof(_displayStatusLabel));
+            ValidateSerializedReference(_previewCountdownRoot, nameof(_previewCountdownRoot));
+            ValidateSerializedReference(_previewCountdownLabel, nameof(_previewCountdownLabel));
+            ValidateSerializedReference(_previewCountdownFill, nameof(_previewCountdownFill));
             ValidateSerializedReference(_applyButton, nameof(_applyButton));
             ValidateSerializedReference(_applyButtonLabel, nameof(_applyButtonLabel));
             ValidateSerializedReference(_revertButton, nameof(_revertButton));
@@ -168,6 +200,9 @@ namespace Game.Feature.UI.Screens
 
         private void OnDestroy()
         {
+            HideResolutionHoverHint();
+            UnbindResolutionHoverRelay();
+
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -201,6 +236,16 @@ namespace Game.Feature.UI.Screens
             RefreshView();
         }
 
+        private void HandleResolutionHoverEntered()
+        {
+            ShowResolutionHoverHint();
+        }
+
+        private void HandleResolutionHoverExited()
+        {
+            HideResolutionHoverHint();
+        }
+
         private void LayoutControls()
         {
             LayoutRect(_sectionTitle != null ? _sectionTitle.rectTransform : null, new Vector2(0f, 0f), new Vector2(160f, 22f));
@@ -208,9 +253,12 @@ namespace Game.Feature.UI.Screens
             LayoutRect(_currentDisplayValue != null ? _currentDisplayValue.rectTransform : null, new Vector2(132f, -32f), new Vector2(256f, 22f));
             LayoutRect(_resolutionLabel != null ? _resolutionLabel.rectTransform : null, new Vector2(0f, -70f), new Vector2(120f, 22f));
             LayoutRect(_resolutionDropdown != null ? _resolutionDropdown.GetComponent<RectTransform>() : null, new Vector2(132f, -64f), new Vector2(204f, 30f));
+            LayoutRect(_resolutionInfoHotspot, new Vector2(344f, -64f), new Vector2(24f, 30f));
+            LayoutRect(_resolutionHoverHintRoot, new Vector2(140f, -8f), new Vector2(248f, 48f));
             LayoutRect(_fullscreenLabel != null ? _fullscreenLabel.rectTransform : null, new Vector2(0f, -110f), new Vector2(160f, 22f));
             LayoutRect(_fullscreenToggle != null ? _fullscreenToggle.GetComponent<RectTransform>() : null, new Vector2(196f, -104f), new Vector2(140f, 28f));
-            LayoutRect(_displayStatusLabel != null ? _displayStatusLabel.rectTransform : null, new Vector2(0f, -152f), new Vector2(388f, 44f));
+            LayoutRect(_displayStatusLabel != null ? _displayStatusLabel.rectTransform : null, new Vector2(0f, -152f), new Vector2(388f, 24f));
+            LayoutRect(_previewCountdownRoot, new Vector2(0f, -182f), new Vector2(388f, 14f));
             LayoutRect(_applyButton != null ? _applyButton.GetComponent<RectTransform>() : null, new Vector2(74f, -208f), new Vector2(104f, 30f));
             LayoutRect(_revertButton != null ? _revertButton.GetComponent<RectTransform>() : null, new Vector2(220f, -208f), new Vector2(104f, 30f));
         }
@@ -240,6 +288,19 @@ namespace Game.Feature.UI.Screens
             button.onClick.AddListener(action);
         }
 
+        private void RebindResolutionHoverRelay()
+        {
+            if (_resolutionHoverRelay == null)
+            {
+                return;
+            }
+
+            _resolutionHoverRelay.HoverEntered -= HandleResolutionHoverEntered;
+            _resolutionHoverRelay.HoverExited -= HandleResolutionHoverExited;
+            _resolutionHoverRelay.HoverEntered += HandleResolutionHoverEntered;
+            _resolutionHoverRelay.HoverExited += HandleResolutionHoverExited;
+        }
+
         private void RebindDisplayControls()
         {
             if (_resolutionDropdown != null)
@@ -262,6 +323,22 @@ namespace Game.Feature.UI.Screens
         {
             if (_viewModel == null)
             {
+                if (_resolutionHoverHintLabel != null)
+                {
+                    _resolutionHoverHintLabel.text = string.Empty;
+                }
+
+                if (_previewCountdownLabel != null)
+                {
+                    _previewCountdownLabel.text = string.Empty;
+                }
+
+                if (_previewCountdownFill != null)
+                {
+                    _previewCountdownFill.fillAmount = 0f;
+                    ApplyPreviewCountdownFillWidth(0f);
+                }
+
                 return;
             }
 
@@ -288,6 +365,11 @@ namespace Game.Feature.UI.Screens
                     _resolutionLabel.text = _viewModel.ResolutionLabel;
                 }
 
+                if (_resolutionHoverHintLabel != null)
+                {
+                    _resolutionHoverHintLabel.text = _viewModel.ResolutionHoverHintText;
+                }
+
                 if (_fullscreenLabel != null)
                 {
                     _fullscreenLabel.text = _viewModel.FullscreenLabel;
@@ -296,6 +378,19 @@ namespace Game.Feature.UI.Screens
                 if (_displayStatusLabel != null)
                 {
                     _displayStatusLabel.text = _viewModel.DisplayStatusText;
+                }
+
+                if (_previewCountdownLabel != null)
+                {
+                    _previewCountdownLabel.text = _viewModel.PreviewCountdownText;
+                }
+
+                if (_previewCountdownFill != null)
+                {
+                    var normalized = Mathf.Clamp01(_viewModel.PreviewCountdownNormalized);
+                    _previewCountdownFill.type = Image.Type.Simple;
+                    _previewCountdownFill.fillAmount = normalized;
+                    ApplyPreviewCountdownFillWidth(normalized);
                 }
 
                 if (_applyButton != null)
@@ -341,9 +436,12 @@ namespace Game.Feature.UI.Screens
 
         private void RefreshView()
         {
+            HideResolutionHoverHint();
             RebindDisplayControls();
             LayoutControls();
             RefreshControls();
+            ApplyResolutionHoverHintVisibility();
+            ApplyPreviewCountdownVisibility();
         }
 
         private static void UnbindButton(Button button, UnityEngine.Events.UnityAction action)
@@ -354,6 +452,17 @@ namespace Game.Feature.UI.Screens
             }
 
             button.onClick.RemoveListener(action);
+        }
+
+        private void UnbindResolutionHoverRelay()
+        {
+            if (_resolutionHoverRelay == null)
+            {
+                return;
+            }
+
+            _resolutionHoverRelay.HoverEntered -= HandleResolutionHoverEntered;
+            _resolutionHoverRelay.HoverExited -= HandleResolutionHoverExited;
         }
 
         private void UnbindDisplayControls()
@@ -370,6 +479,71 @@ namespace Game.Feature.UI.Screens
 
             UnbindButton(_applyButton, ClickApply);
             UnbindButton(_revertButton, ClickRevert);
+        }
+
+        private void ShowResolutionHoverHint()
+        {
+            if (!_isVisible || _viewModel == null || string.IsNullOrEmpty(_viewModel.ResolutionHoverHintText))
+            {
+                HideResolutionHoverHint();
+                return;
+            }
+
+            _isResolutionHoverHintVisible = true;
+            ApplyResolutionHoverHintVisibility();
+        }
+
+        private void HideResolutionHoverHint()
+        {
+            _isResolutionHoverHintVisible = false;
+            ApplyResolutionHoverHintVisibility();
+        }
+
+        private void ApplyResolutionHoverHintVisibility()
+        {
+            if (_resolutionHoverHintRoot == null)
+            {
+                return;
+            }
+
+            var shouldShow = _isVisible &&
+                             _isResolutionHoverHintVisible &&
+                             _viewModel != null &&
+                             !string.IsNullOrEmpty(_viewModel.ResolutionHoverHintText);
+            _resolutionHoverHintRoot.gameObject.SetActive(shouldShow);
+        }
+
+        private void ApplyPreviewCountdownVisibility()
+        {
+            if (_previewCountdownRoot == null)
+            {
+                return;
+            }
+
+            var shouldShow = _isVisible &&
+                             _viewModel != null &&
+                             _viewModel.IsDisplayPreviewActive &&
+                             _viewModel.IsPreviewCountdownVisible;
+            _previewCountdownRoot.gameObject.SetActive(shouldShow);
+        }
+
+        private void ApplyPreviewCountdownFillWidth(float normalized)
+        {
+            if (_previewCountdownFill == null)
+            {
+                return;
+            }
+
+            var fillRect = _previewCountdownFill.rectTransform;
+            var rootWidth = _previewCountdownRoot != null && _previewCountdownRoot.sizeDelta.x > 0f
+                ? _previewCountdownRoot.sizeDelta.x
+                : fillRect.sizeDelta.x;
+
+            fillRect.anchorMin = new Vector2(0f, 0f);
+            fillRect.anchorMax = new Vector2(0f, 1f);
+            fillRect.pivot = new Vector2(0f, 0.5f);
+            fillRect.anchoredPosition = Vector2.zero;
+            fillRect.sizeDelta = new Vector2(rootWidth * Mathf.Clamp01(normalized), 0f);
         }
 
         private void ValidateControl(Component component, string fieldName, List<string> issues)

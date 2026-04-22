@@ -27,6 +27,53 @@ namespace Game.Feature.UI.Application
             UIRecoveryCooldownSlice? recoveryCooldown,
             bool canStartAnyActionThisTick = false,
             bool hasExplicitPushCandidateInCurrentDirection = false)
+            : this(
+                tickIndex,
+                shouldUpdateTickIndex,
+                finalTopology,
+                shouldUpdateFinalTopology,
+                isStageCleared,
+                isTopologyTransitionActive,
+                hasBlockingGameplayPresentation,
+                isPaused,
+                canAcceptGameplayCommands,
+                isUiGameplayInputBlocked,
+                playerEntityId,
+                currentHp,
+                currentHp,
+                facing,
+                activeActionKind,
+                isRecoveryPhase,
+                canMoveThisTick,
+                canStartActionThisTick,
+                recoveryCooldown,
+                canStartAnyActionThisTick,
+                hasExplicitPushCandidateInCurrentDirection)
+        {
+        }
+
+        public UIStateRefreshInput(
+            int tickIndex,
+            bool shouldUpdateTickIndex,
+            GameplayUiTopology finalTopology,
+            bool shouldUpdateFinalTopology,
+            bool isStageCleared,
+            bool isTopologyTransitionActive,
+            bool hasBlockingGameplayPresentation,
+            bool isPaused,
+            bool canAcceptGameplayCommands,
+            bool isUiGameplayInputBlocked,
+            int playerEntityId,
+            int currentHp,
+            int maxHp,
+            GameplayUiDirection facing,
+            GameplayUiActionKind activeActionKind,
+            bool isRecoveryPhase,
+            bool canMoveThisTick,
+            bool canStartActionThisTick,
+            UIRecoveryCooldownSlice? recoveryCooldown,
+            bool canStartAnyActionThisTick = false,
+            bool hasExplicitPushCandidateInCurrentDirection = false)
         {
             TickIndex = tickIndex;
             ShouldUpdateTickIndex = shouldUpdateTickIndex;
@@ -40,6 +87,7 @@ namespace Game.Feature.UI.Application
             IsUiGameplayInputBlocked = isUiGameplayInputBlocked;
             PlayerEntityId = playerEntityId;
             CurrentHp = currentHp;
+            MaxHp = maxHp > 0 ? maxHp : currentHp;
             Facing = facing;
             ActiveActionKind = activeActionKind;
             IsRecoveryPhase = isRecoveryPhase;
@@ -73,6 +121,8 @@ namespace Game.Feature.UI.Application
         public int PlayerEntityId { get; }
 
         public int CurrentHp { get; }
+
+        public int MaxHp { get; }
 
         public GameplayUiDirection Facing { get; }
 
@@ -178,6 +228,7 @@ namespace Game.Feature.UI.Application
             var player = new UIPlayerActionSlice(
                 refreshInput.PlayerEntityId,
                 refreshInput.CurrentHp,
+                refreshInput.MaxHp,
                 refreshInput.Facing,
                 refreshInput.ActiveActionKind,
                 refreshInput.IsRecoveryPhase,
@@ -212,6 +263,7 @@ namespace Game.Feature.UI.Application
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
+                            snapshot.Player.MaxHp,
                             snapshot.Player.Facing,
                             snapshot.Player.ActiveActionKind,
                             snapshot.Player.IsRecoveryPhase,
@@ -234,6 +286,7 @@ namespace Game.Feature.UI.Application
                         new UIPlayerActionSlice(
                             snapshot.Player.PlayerEntityId,
                             snapshot.Player.CurrentHp,
+                            snapshot.Player.MaxHp,
                             snapshot.Player.Facing,
                             snapshot.Player.ActiveActionKind,
                             snapshot.Player.IsRecoveryPhase,
