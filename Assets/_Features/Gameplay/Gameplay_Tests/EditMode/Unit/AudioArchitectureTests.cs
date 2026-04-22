@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.RegularExpressions;
+using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay.BoardState;
 using Game.Feature.Gameplay.Debug;
@@ -11,6 +12,7 @@ using Game.Feature.Gameplay.Host;
 using Game.Feature.Gameplay.Loop;
 using Game.Feature.Gameplay.Model.Phases;
 using Game.Feature.Gameplay.Objectives;
+using Game.Feature.Stages;
 using Game.Shared.Audio;
 using NUnit.Framework;
 using UnityEditor;
@@ -105,8 +107,28 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay"));
+            Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.ActionAudio"));
             Assert.That(references, Does.Not.Contain("Game.Feature.Gameplay.UIAccess"));
             Assert.That(references, Does.Not.Contain("Game.Feature.UI.Application"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayActionAudioAssembly_ReferencesGameplayAndShared_WhileHostReferencesActionAudio()
+        {
+            var actionAudioReferences = typeof(GameplayActionAudioProfile).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+            var hostReferences = typeof(GameplayTickViewPresenter).Assembly
+                .GetReferencedAssemblies()
+                .Select(reference => reference.Name)
+                .ToArray();
+
+            Assert.That(actionAudioReferences, Does.Contain("Game.Feature.Gameplay"));
+            Assert.That(actionAudioReferences, Does.Contain("Game.Shared.Audio"));
+            Assert.That(actionAudioReferences, Does.Not.Contain("Game.Feature.Gameplay.Host"));
+            Assert.That(hostReferences, Does.Contain("Game.Feature.Gameplay.ActionAudio"));
         }
 
         [Test]
@@ -137,8 +159,95 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 .ToArray();
 
             Assert.That(gameplayReferences, Does.Not.Contain(typeof(IAudioService).Assembly.GetName().Name));
+            Assert.That(gameplayReferences, Does.Not.Contain(typeof(GameplayActionAudioProfile).Assembly.GetName().Name));
             Assert.That(hostReferences, Does.Contain(typeof(IAudioService).Assembly.GetName().Name));
             Assert.That(hostReferences, Does.Contain(typeof(GameplayAudioRequestPlanner).Assembly.GetName().Name));
+            Assert.That(hostReferences, Does.Contain(typeof(GameplayActionAudioProfile).Assembly.GetName().Name));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void AudioBindingDiagnostics_PublicSurface_RemainsBindingLocal_AndSemanticFree()
+        {
+            var publicMethods = typeof(AudioBindingDiagnostics)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static | BindingFlags.DeclaredOnly);
+            var publicMethodSignatureText = string.Join(
+                "\n",
+                publicMethods.Select(method => $"{method.ReturnType.Name}:{method.Name}:{string.Join(",", method.GetParameters().Select(parameter => parameter.ParameterType.FullName))}"));
+
+            Assert.That(typeof(AudioBindingDiagnostics).Assembly, Is.EqualTo(typeof(IAudioService).Assembly));
+            Assert.That(typeof(AudioBindingValidationOptions).Assembly, Is.EqualTo(typeof(IAudioService).Assembly));
+            Assert.That(publicMethodSignatureText, Does.Not.Contain(nameof(GameplayActionKind)));
+            Assert.That(publicMethodSignatureText, Does.Not.Contain(nameof(GameplayActionAudioMoment)));
+            Assert.That(publicMethodSignatureText, Does.Not.Contain(nameof(GameplayAudioSemanticId)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayAudioMap_UsesAudioBindingDiagnostics_ForBindingLocalValidationOnly()
+        {
+            var source = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_Audio/Runtime/GameplayAudioMap.cs");
+
+            Assert.That(source, Does.Contain("AudioBindingDiagnostics.AppendValidationErrors"));
+            Assert.That(source, Does.Contain("AudioBindingValidationOptions.Default"));
+            Assert.That(source, Does.Not.Contain("allowedCategories:"));
+            Assert.That(source, Does.Not.Contain("allowLoopingDefinitions: false"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayActionAudioProfile_PassesSfxOnlyOneShotPolicy_IntoSharedDiagnostics()
+        {
+            var source = ReadRepoFile("Assets/_Features/Gameplay/Gameplay_ActionAudio/Runtime/GameplayActionAudioProfile.cs");
+
+            Assert.That(source, Does.Contain("AudioBindingDiagnostics.AppendValidationErrors"));
+            Assert.That(source, Does.Contain("AudioCategory.Sfx"));
+            Assert.That(source, Does.Contain("allowLoopingDefinitions: false"));
+            Assert.That(source, Does.Contain("allowNullBinding: entry.IsOptional"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void SharedAudioRuntime_SourceSentinel_DoesNotMentionGameplayActionSymbols()
+        {
+            var runtimeDirectory = Path.GetFullPath(Path.Combine(Application.dataPath, "_Shared/Audio/Runtime"));
+            var combinedSource = string.Join(
+                "\n",
+                Directory.GetFiles(runtimeDirectory, "*.cs", SearchOption.TopDirectoryOnly)
+                    .OrderBy(path => path)
+                    .Select(File.ReadAllText));
+
+            Assert.That(combinedSource, Does.Not.Contain(nameof(GameplayActionKind)));
+            Assert.That(combinedSource, Does.Not.Contain(nameof(GameplayActionAudioMoment)));
+            Assert.That(combinedSource, Does.Not.Contain(nameof(GameplayAudioSemanticId)));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayPresentationAudioConfig_IsDeferred_AndNoHostConfigAudioFieldSprawlWasAdded()
+        {
+            var hostFields = typeof(GameplaySceneHostConfiguration)
+                .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .ToArray();
+            var stagePresentationFields = typeof(StagePresentationDefinition)
+                .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .ToArray();
+
+            Assert.That(hostFields.Any(field => field.FieldType == typeof(GameplayActionAudioProfile)), Is.False);
+            Assert.That(hostFields.Any(field => field.Name.Contains("ActionAudio")), Is.False);
+            Assert.That(stagePresentationFields.Any(field => field.FieldType == typeof(GameplayActionAudioProfile)), Is.False);
+            Assert.That(stagePresentationFields.Any(field => field.Name.Contains("ActionAudio")), Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayActionAudioMoment_RemainsOneShotOnly_WithoutLoopValues()
+        {
+            var names = Enum.GetNames(typeof(GameplayActionAudioMoment));
+
+            Assert.That(names, Does.Not.Contain("Loop"));
+            Assert.That(names, Does.Not.Contain("SlideLoop"));
+            Assert.That(names, Does.Not.Contain("ChargeLoop"));
         }
 
         [Test]
@@ -180,6 +289,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
             try
             {
+                LogAssert.Expect(LogType.Error, new Regex("duplicate gameplay audio semantic 'PlayerDamage'"));
                 SetEntries(
                     map,
                     (GameplayAudioSemanticId.PlayerDamage, definition, default),
@@ -203,6 +313,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
             try
             {
+                LogAssert.Expect(LogType.Error, new Regex("contains an empty gameplay audio semantic"));
                 SetEntries(map, (GameplayAudioSemanticId.None, definition, default));
 
                 var exception = Assert.Throws<InvalidOperationException>(() => map.ValidateOrThrow());
@@ -528,6 +639,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return AppDomain.CurrentDomain.GetAssemblies()
                        .FirstOrDefault(assembly => assembly.GetName().Name == assemblyName) ??
                    Assembly.Load(assemblyName);
+        }
+
+        private static string ReadRepoFile(string relativePath)
+        {
+            var fullPath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativePath));
+            Assert.That(File.Exists(fullPath), Is.True, $"Missing file at '{fullPath}'.");
+            return File.ReadAllText(fullPath);
         }
     }
 

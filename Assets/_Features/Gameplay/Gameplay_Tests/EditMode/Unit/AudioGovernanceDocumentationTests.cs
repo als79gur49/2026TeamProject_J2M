@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(readme, Does.Contain("Audio-Architecture-Guidelines.md"));
             Assert.That(readme, Does.Contain("Gameplay-Audio-Governance.md"));
+            Assert.That(readme, Does.Contain("Gameplay-Action-Audio-Governance.md"));
             Assert.That(readme, Does.Contain("Bgm-Flow-V1-Guidelines.md"));
             Assert.That(readme, Does.Contain("2D non-spatial audio contracts"));
         }
@@ -31,6 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("GameplayAudioSemanticCatalog"));
             Assert.That(doc, Does.Contain("RequiredOneShotV1"));
             Assert.That(doc, Does.Contain("Gameplay-Audio-Governance.md"));
+            Assert.That(doc, Does.Contain("Gameplay-Action-Audio-Governance.md"));
             Assert.That(doc, Does.Contain("Bgm-Flow-V1-Guidelines.md"));
             Assert.That(doc, Does.Contain("DamageOneShot"));
             Assert.That(doc, Does.Contain("EntityExitOneShot"));
@@ -38,6 +40,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("BGM/scene-flow audio는 stage/scene flow presenter path에 남는다"));
             Assert.That(doc, Does.Contain("GameplayAudioRequestPlanner"));
             Assert.That(doc, Does.Contain("GameplayAudioPresentationController"));
+            Assert.That(doc, Does.Contain("GameplayActionAudioProfile"));
+            Assert.That(doc, Does.Contain("GameplayActionAudioRequestPlanner"));
+            Assert.That(doc, Does.Contain("GameplayActionAudioPresentationController"));
+            Assert.That(doc, Does.Contain("global required gameplay semantic IDs가 아니다"));
+            Assert.That(doc, Does.Contain("core enemy damage/death reaction sounds는 existing core one-shot path에 남는다"));
+            Assert.That(doc, Does.Contain("Action-side `ImpactEnemy` may coexist with core `EnemyDamage`."));
             Assert.That(doc, Does.Contain("IGameplayAudioPlaybackPort"));
             Assert.That(doc, Does.Contain("Owner-Bound Persistent Playback"));
             Assert.That(doc, Does.Contain("Audio Runtime Installer"));
@@ -59,11 +67,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("PlayEntityExitEffects()"));
             Assert.That(doc, Does.Contain("PlayPlayerHitEffects(result)"));
             Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
+            Assert.That(doc, Does.Contain("RefreshAudioPlan(result) 내부에서는 core gameplay one-shot plan과 action-audio plan을 함께 refresh한다."));
             Assert.That(doc, Does.Contain("ApplyEntityExitOwnership()"));
             Assert.That(doc, Does.Contain("persistent runtime owner"));
             Assert.That(doc, Does.Contain("scene-local installer access seam"));
             Assert.That(doc, Does.Contain("Immediate` is the only executed transition mode in BGM flow v1"));
             Assert.That(doc, Does.Contain("true `Crossfade` needs shared-runtime multi-lane/capability expansion beyond the current single BGM lane"));
+            Assert.That(doc, Does.Contain("prefer a grouped `GameplayPresentationAudioConfig`."));
             Assert.That(doc, Does.Not.Contain("GameplayAudioPresenter"));
             Assert.That(doc, Does.Not.Contain("IGameplayAudioCueProjector"));
             Assert.That(doc, Does.Not.Contain("GameplayAudioCue"));
@@ -76,6 +86,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var doc = ReadRepoFile("Docs/Architecture/Gameplay-Audio-Governance.md");
 
             Assert.That(doc, Does.Contain("# Gameplay Audio Governance"));
+            Assert.That(doc, Does.Contain("small and stable core required gameplay one-shot semantic set"));
+            Assert.That(doc, Does.Contain("push/flip/action-specific sounds must not be added here by default"));
+            Assert.That(doc, Does.Contain("action enums are not global required gameplay semantic IDs"));
             Assert.That(doc, Does.Contain("How To Add A New Gameplay Audio Semantic Safely"));
             Assert.That(doc, Does.Contain("catalog entry"));
             Assert.That(doc, Does.Contain("family metadata"));
@@ -92,6 +105,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(doc, Does.Contain("PlayPlannedAudio()"));
             Assert.That(doc, Does.Contain("last-write-wins"));
             Assert.That(doc, Does.Contain("Bgm-Flow-V1-Guidelines.md"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayActionAudioGovernanceDoc_DefinesProfileLocalGovernance_RuntimeVsProductionPolicy_AndFrozenMomentTable()
+        {
+            var doc = ReadRepoFile("Docs/Architecture/Gameplay-Action-Audio-Governance.md");
+
+            Assert.That(doc, Does.Contain("# Gameplay Action Audio Governance"));
+            Assert.That(doc, Does.Contain("profile-local entries"));
+            Assert.That(doc, Does.Contain("typed authoring axes"));
+            Assert.That(doc, Does.Contain("global required gameplay semantic IDs가 아니다"));
+            Assert.That(doc, Does.Contain("모든 action profile이 every action/moment combination을 가져야 한다는 global completeness rule은 없다"));
+            Assert.That(doc, Does.Contain("missing owner view => no-op"));
+            Assert.That(doc, Does.Contain("missing `GameplayActionAudioAuthoring` => no-op"));
+            Assert.That(doc, Does.Contain("component가 존재하면 profile must be non-null and valid"));
+            Assert.That(doc, Does.Contain("Push`: `Windup`, `Contact`, `Blocked`, `ImpactEnemy`"));
+            Assert.That(doc, Does.Contain("Flip`: `Windup`, `Blocked`"));
+            Assert.That(doc, Does.Contain("Windup` => `StartedThisTick`"));
+            Assert.That(doc, Does.Contain("Execute` => `ExecutedThisTick`"));
+            Assert.That(doc, Does.Contain("ImpactEnemy` => `ExecutedThisTick && ResolutionKind == Impact`"));
+            Assert.That(doc, Does.Contain("same-tick duplicate suppression은 하지 않는다"));
+            Assert.That(doc, Does.Contain("Action-side `ImpactEnemy` may coexist with core `EnemyDamage`"));
+            Assert.That(doc, Does.Contain("GameplayPresentationAudioConfig"));
+            Assert.That(doc, Does.Contain("action audio v1 is one-shot only"));
+            Assert.That(doc, Does.Contain("loop/continuous audio requires a separate owner/controller"));
         }
 
         [Test]

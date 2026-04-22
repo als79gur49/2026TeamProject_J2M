@@ -28,6 +28,8 @@
   - current supporting truth for 2D non-spatial audio contracts, runtime ownership, and audio seam vocabulary
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
   - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
+- [Gameplay-Action-Audio-Governance.md](./Gameplay-Action-Audio-Governance.md)
+  - current supporting truth for gameplay action-audio profile governance, prefab-local authoring policy, and frozen v1 moment semantics
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, and Immediate-only v1 transition governance
 - [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
