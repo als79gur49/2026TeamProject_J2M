@@ -146,6 +146,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void BgmOwnershipGateAdr_DefinesPhaseSplit_UnsupportedPath_AndImplementationGate()
+        {
+            var doc = ReadRepoFile("Docs/Architecture/ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md");
+            var readme = ReadRepoFile("Docs/Architecture/README.md");
+
+            Assert.That(doc, Does.Contain("D0. discovery"));
+            Assert.That(doc, Does.Contain("D1. decision closed"));
+            Assert.That(doc, Does.Contain("D2. implementation gate ready"));
+            Assert.That(doc, Does.Contain("D3. implementation"));
+            Assert.That(doc, Does.Contain("`GameplayAudioPresentationController` does not own BGM."));
+            Assert.That(doc, Does.Contain("no scene-global lookup"));
+            Assert.That(doc, Does.Contain("no builder/result ownership"));
+            Assert.That(doc, Does.Contain("canonical root same `GameObject`에 `AudioRuntimeInstaller`와 `GlobalAudioFlowBootstrap`이 co-located"));
+            Assert.That(doc, Does.Contain("TutorialScene` / `UIAudioScene` continuity smoke harness"));
+            Assert.That(doc, Does.Contain("decision closed를 implementation approved로 해석"));
+            Assert.That(readme, Does.Contain("ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md"));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void ArchivedUnityAudioBlueprint_PointsToActiveAudioGuidelines()
         {
             var archive = ReadRepoFile("Docs/Archive/Architecture/Unity-Audio-System-Blueprint.md");

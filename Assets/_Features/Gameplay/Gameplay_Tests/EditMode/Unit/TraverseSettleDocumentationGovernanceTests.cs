@@ -100,6 +100,31 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(baseline, Does.Contain("NotEvidenceFor=GeneralizedPhaseMovement|Pathfinding|NonClaimOccupancy|TerminalPhaseSettle"));
         }
 
+        [Test]
+        [Category("Extended")]
+        public void TerrainOccupancyGateAdr_DefinesVocabularyBoundary_And_MinimalHarnessGate()
+        {
+            var adr = ReadRepoFile("Docs/Architecture/ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md");
+            var readme = ReadRepoFile("Docs/Architecture/README.md");
+
+            Assert.That(adr, Does.Contain("E0. discovery"));
+            Assert.That(adr, Does.Contain("E1. decision closed"));
+            Assert.That(adr, Does.Contain("E2. implementation gate ready"));
+            Assert.That(adr, Does.Contain("E3. slice implementation"));
+            Assert.That(adr, Does.Contain("occupancy truth"));
+            Assert.That(adr, Does.Contain("terrain truth"));
+            Assert.That(adr, Does.Contain("blocker vocabulary"));
+            Assert.That(adr, Does.Contain("`Traverse`"));
+            Assert.That(adr, Does.Contain("`Settle`"));
+            Assert.That(adr, Does.Contain("`Modifier`"));
+            Assert.That(adr, Does.Contain("`Reservation`"));
+            Assert.That(adr, Does.Contain("Tools/check_gameplay_semantic_query_migration.py"));
+            Assert.That(adr, Does.Contain("legality context governance tests"));
+            Assert.That(adr, Does.Contain("compatibility helper와 allowlist는 현재 상태로 동결"));
+            Assert.That(adr, Does.Contain("decision closed를 근거로 즉시 runtime-wide semantics refactor"));
+            Assert.That(readme, Does.Contain("ADR-004-Terrain-Occupancy-Implementation-Gate.md"));
+        }
+
         private static string ReadRepoFile(string relativePath)
         {
             var absolutePath = Path.GetFullPath(Path.Combine(Application.dataPath, "..", relativePath));
