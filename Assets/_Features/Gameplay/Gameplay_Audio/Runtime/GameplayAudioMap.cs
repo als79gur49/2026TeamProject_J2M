@@ -131,15 +131,12 @@ namespace Game.Feature.Gameplay.Audio
                         $"{name} contains duplicate gameplay audio semantic '{semanticLabel}'.");
                 }
 
-                var binding = entries[i].Binding;
-                if (binding == null)
-                {
-                    validationErrors.Add(
-                        $"{name} semantic '{semanticLabel}' is missing an AudioBinding.");
-                    continue;
-                }
-
-                binding.AppendValidationErrors(name, semanticLabel, validationErrors);
+                AudioBindingDiagnostics.AppendValidationErrors(
+                    entries[i].Binding,
+                    name,
+                    $"semantic '{semanticLabel}'",
+                    validationErrors,
+                    AudioBindingValidationOptions.Default);
             }
 
             return validationErrors;
