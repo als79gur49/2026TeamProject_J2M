@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.Audio;
 using Game.Feature.Gameplay;
 using Game.Feature.Gameplay.BoardState;
@@ -13,6 +14,8 @@ namespace Game.Feature.Gameplay.Host
     public sealed class GameplayTickPresentationCoordinator
     {
         private readonly GameplayAnimationSyncCoordinator _animationSync = new();
+        private readonly GameplayActionAudioRequestPlanner _actionAudioRequestPlanner = new();
+        private readonly GameplayActionAudioPresentationController _actionAudioPresentationController;
         private readonly GameplayAudioRequestPlanner _audioRequestPlanner = new();
         private readonly GameplayAudioPresentationController _audioPresentationController;
         private readonly GameplayCommittedFrameBuilder _committedFrameBuilder;
@@ -37,6 +40,7 @@ namespace Game.Feature.Gameplay.Host
         public GameplayTickPresentationCoordinator()
         {
             _audioPresentationController = new GameplayAudioPresentationController(_stateStore);
+            _actionAudioPresentationController = new GameplayActionAudioPresentationController(_stateStore);
             _presentationActivityInspector = new GameplayPresentationActivityInspector(
                 _trackState,
                 _transientEffectPresenter);
@@ -138,6 +142,7 @@ namespace Game.Feature.Gameplay.Host
             _exitPresentationController.Configure(_projector, _timingProfile);
             _exitPresentationController.Reset();
             _audioPresentationController.ResetSession();
+            _actionAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
             _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
@@ -173,6 +178,7 @@ namespace Game.Feature.Gameplay.Host
 
             TraceStep("RefreshAudioPlan");
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
+            _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
                 result.FinalTopology,
@@ -206,6 +212,7 @@ namespace Game.Feature.Gameplay.Host
             PlayPlayerHitEffects(result);
             TraceStep("PlayPlannedAudio");
             _audioPresentationController.PlayPlannedAudio();
+            _actionAudioPresentationController.PlayPlannedAudio();
             TraceStep("ApplyEntityExitOwnership");
             _exitPresentationController.ApplyEntityExitOwnership();
             UpdatePresentation(0f);
@@ -221,6 +228,7 @@ namespace Game.Feature.Gameplay.Host
             EnsureInitialized();
 
             _audioPresentationController.ResetSession();
+            _actionAudioPresentationController.ResetSession();
             _entityPresentationApplier.ResetAllPlayerDeathDisplacements();
             _trackState.ResetSession();
             _exitPresentationController.Reset();
@@ -272,10 +280,12 @@ namespace Game.Feature.Gameplay.Host
             GameplayAudioMap gameplayAudioMap)
         {
             _audioPresentationController.AttachRuntime(playbackPort, gameplayAudioMap);
+            _actionAudioPresentationController.AttachRuntime(playbackPort);
         }
 
         internal void DetachGameplayAudioRuntime()
         {
+            _actionAudioPresentationController.DetachRuntime();
             _audioPresentationController.DetachRuntime();
         }
 
@@ -287,6 +297,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
+            _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
         }
 
         internal void SetTraceSink(Action<string> traceSink)

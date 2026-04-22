@@ -1,4 +1,5 @@
 using System;
+using Game.Feature.Gameplay.ActionAudio;
 using Game.Feature.Gameplay.PlayerControl;
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
@@ -199,6 +200,7 @@ namespace Game.Feature.Gameplay.Host
             UnitLocomotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
             EntityMotionPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
             EntityEffectPresentationAuthoring.GetOptionalValidatedAuthoring(playerViewPrefab);
+            GameplayActionAudioPrefabRequirements.GetOptionalValidatedAuthoring(playerViewPrefab, ownerDescription);
         }
 
         public static void ValidatePlayerViewInstance(GameplayEntityView playerViewInstance, string ownerDescription)

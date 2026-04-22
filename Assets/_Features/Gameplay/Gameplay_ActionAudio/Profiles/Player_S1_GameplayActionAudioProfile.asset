@@ -1,0 +1,63 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4a62f76156244efc8a61d252c819ccb9, type: 3}
+  m_Name: Player_S1_GameplayActionAudioProfile
+  m_EditorClassIdentifier: Game.Feature.Gameplay.ActionAudio::Game.Feature.Gameplay.ActionAudio.GameplayActionAudioProfile
+  entries:
+  - Action: 0
+    Moment: 0
+    Binding:
+      definition: {fileID: 11400000, guid: b8e8e64c8849e2744aee0188f2264468, type: 2}
+      attachmentSlot:
+        id:
+      policy: {fileID: 0}
+    IsOptional: 0
+  - Action: 0
+    Moment: 2
+    Binding:
+      definition: {fileID: 11400000, guid: c5b5d695de2213640a39c5a260b0fb68, type: 2}
+      attachmentSlot:
+        id:
+      policy: {fileID: 0}
+    IsOptional: 0
+  - Action: 0
+    Moment: 3
+    Binding:
+      definition: {fileID: 11400000, guid: 994247e77e88f76458c930a9f8db8fea, type: 2}
+      attachmentSlot:
+        id:
+      policy: {fileID: 0}
+    IsOptional: 0
+  - Action: 0
+    Moment: 4
+    Binding:
+      definition: {fileID: 11400000, guid: f29601f338caf084fb4466da2eedfa91, type: 2}
+      attachmentSlot:
+        id:
+      policy: {fileID: 0}
+    IsOptional: 0
+  - Action: 1
+    Moment: 0
+    Binding:
+      definition: {fileID: 11400000, guid: df0fe84f7f4b919428e8ddd52cedbde2, type: 2}
+      attachmentSlot:
+        id:
+      policy: {fileID: 0}
+    IsOptional: 0
+  - Action: 1
+    Moment: 4
+    Binding:
+      definition: {fileID: 11400000, guid: f29601f338caf084fb4466da2eedfa91, type: 2}
+      attachmentSlot:
+        id:
+      policy: {fileID: 0}
+    IsOptional: 0
