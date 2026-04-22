@@ -72,6 +72,71 @@
   - latest same-revision `./run_tests.sh full` green
   - cross-lane blocking handoff queue `0`
 
+## Lane A Live Row Ledger
+
+- 모든 open row는 same-revision full XML 기준 canonical test id로 import한다.
+- minimum fields:
+  - `row id/test name`
+  - `status`
+  - `classification date`
+  - `source artifact`
+  - `first wrong oracle`
+  - `owner lane`
+  - `current owner`
+  - `blocking claim`
+  - `required evidence`
+  - `next action`
+  - `last reviewed at`
+  - `rationale summary`
+- recommended fields:
+  - `handoff target`
+  - `classification confidence`
+  - `failure shape summary`
+  - `linked historical row`
+  - `confirming artifact`
+
+## Lane A Row Lifecycle And Same-Revision Refresh
+
+- lifecycle:
+  - `open -> triaged -> active -> fixed / handed-off / historical`
+- `blocked`는 `triaged` 또는 `active` 상태에서 evidence 부족, handoff acceptance 대기, prerequisite 미충족일 때만 임시로 사용한다.
+- same-revision evidence refresh rules:
+  - 같은 test id + 같은 failure shape면 기존 row를 재사용한다.
+  - 이 경우 `last reviewed at`, `required evidence`, `next action`, `classification confidence`만 갱신한다.
+  - 같은 test id라도 failure shape가 materially changed면 기존 row를 `historical`로 내리고 새 row를 만든다.
+  - 새 row는 기본적으로 `A1 provisional`에서 시작한다.
+- owner change rules:
+  - same-revision artifact에서 `first wrong oracle` 이동이 확인된 경우
+  - accepted handoff가 기록된 경우
+  - 기존 owner가 target lane reject reason과 함께 same-revision 반증을 낸 경우
+- convenience re-routing, 사람 교체, 추측만으로 owner를 바꾸지 않는다.
+
+## Lane A Classification Tie-Break And Confidence Rules
+
+- tie-breaker order:
+  1. `newness / failure-shape change`
+  2. `first wrong oracle`
+  3. `explicit lane exclusion / handoff codebook`
+  4. `A2 host/view/bootstrap adjacency`
+  5. `historical carryover`
+- `first wrong oracle`과 `owner surface`가 다르면 `first wrong oracle`를 우선한다.
+- `owner surface`는 `first wrong oracle`가 불명확할 때만 보조 기준으로 사용한다.
+- `A2` vs `Lane C/D/E` boundary:
+  - host/view/bootstrap miswire, presenter glue, installer wiring, scene composition, launcher-smoke-adjacent UX glue가 first wrong oracle면 `A2`
+  - support tree relocation, persistent BGM ownership/registry/continuity, terrain/occupancy legality/query/reservation semantics가 root cause면 handoff
+  - 증상이 host/view/bootstrap에 보여도 해결에 `Lane C/D/E` decision이 필요하면 `A2`가 아니라 handoff
+- historical continuation row라도 current revision에서 failure shape가 달라졌다면 `A4`로 carry하지 않는다.
+- 이런 row는 `shape-changed-from-historical` 태그와 함께 `A1 provisional`로 잠그고 bounded recheck 뒤에 lane을 확정한다.
+- 신규 적색 후보가 full rerun `1`회만으로 불확실하면 same-revision bounded recheck를 `1`회 추가한다.
+- 기본 recheck는 `targeted reproducer 1회`다.
+- targeted reproducer가 없거나 `first wrong oracle`를 못 자르면 same-revision full rerun `1`회 추가를 허용한다.
+- confidence:
+  - `High`: first wrong oracle 직접 캡처 + owner surface 일치
+  - `Medium`: adjacent guard/control로 owner가 충분히 유도됨
+  - `Low`: shape-changed row, mixed oracle row, 재확인 대기 row
+- `High`, `Medium`만 active queue로 승격한다.
+- `Low`는 recheck 전까지 `triaged` 또는 `blocked`로 유지한다.
+
 ## Lane A Exclusion And Handoff Codebook
 
 - Lane A에서 처리하지 않는 canonical-path row:
@@ -94,26 +159,74 @@
 
 - `source lane`
 - `target lane`
+- `row id/test name`
 - `reason`
 - `blocking claim`
 - `required evidence`
+- `created at`
+- `accepted by`
+- `status`
 
-모든 handoff row는 위 다섯 필드를 채운다. 같은 row는 동시에 두 lane에서 active 처리하지 않는다.
+모든 handoff row는 위 필드를 채운다. same-revision evidence 없이 acceptance를 기록하지 않는다.
+
+## Handoff Acceptance And Return Rules
+
+- `pending-acceptance`:
+  - target lane이 아직 handoff를 수락하지 않은 상태
+  - source lane active queue에서 row를 제거하지 않는다
+  - source ledger에는 `triaged` 또는 `blocked`로 남긴다
+- `accepted`:
+  - target lane owner가 current same-revision artifact를 확인하고 수락한 상태
+  - 이 시점에 source row status를 `handed-off`로 바꾼다
+- `rejected`:
+  - target lane이 reject reason과 required return evidence를 함께 적은 상태
+  - source lane은 자동 복귀가 아니라 owner가 새 next action을 적고 재개해야 한다
+- `closed`:
+  - target lane에서 실제 처리 또는 supersede가 끝난 상태
+- stale evidence는 handoff acceptance 근거로 쓸 수 없다.
+- historical artifact는 comparison-only reference로만 남긴다.
+- source close note는 handed-off row를 계속 `Open Functional Backlog / Handoff`에 남긴다.
+- target close note는 accepted row를 `inherited open backlog`로 기록한다.
+
+## Lane F Governance Hygiene Lock
+
+- Lane F close note는 minimum common sections에 더해 아래 섹션을 반드시 포함한다.
+  - `Reviewed Truth Sources`
+  - `Drift Triage Summary`
+  - `Claim Vocabulary Audit`
+  - `Template Alignment Result`
+- doc drift vs false positive triage order:
+  1. failing doc test / grep / audit 재현
+  2. `Gameplay-Test-Automation-Guide.md`
+  3. `Bounded-Lane-Close-Template.md`
+  4. `Post-Stage-Content-Bounded-Lane-Operations.md`
+  5. actual close note / example
+- actual close note가 상위 truth-source에 맞고 grep/doc-test만 낡았으면 `false positive`
+- actual close note 또는 lane-local doc가 상위 truth-source와 다르면 `doc drift`
+- 상위 truth-source끼리 충돌하면 `Guide -> Template -> Ops -> example/tests` 순으로 고친다.
+- Lane F audit artifact는 아래 필드를 남긴다.
+  - `searched paths`
+  - `disallowed phrases`
+  - `match count`
+  - `allowed phrase spot-check`
+  - `revision`
+  - `date/time`
+- `governance hygiene green alone does not close Lane B, Lane A, or any functional lane`
 
 ## Lane Bounded Execution Order
 
 1. `Lane F` wording/evidence lock
-2. `Lane B` soft adoption
-3. `Lane A1` new red candidate isolation
-4. `Lane A2` host/view/bootstrap adjacency
-5. `Lane C` deferred decision record
-6. `Lane D` decision closed
-7. `Lane E` decision closed
-8. `Lane B` hard enforcement
-9. `Lane A3` direct unrelated backlog
-10. `Lane A4` baseline red continuation triage
-11. `Lane D2` gate review
-12. `Lane E2` gate review
+2. `Lane B` smoke evidence template and counter rule lock
+3. `Lane B` soft adoption
+4. `Lane B` `Cycle 1` launcher smoke
+5. `Lane A` same-revision full baseline re-freeze
+6. `Lane A` row import and provisional owner lock
+7. `Lane A` low-confidence recheck and handoff proposal
+8. `Lane A` active queue open
+9. `Lane B` `Cycle 2` launcher smoke
+10. `Lane B` hard enforcement review
+11. `Lane F` final vocabulary audit and produced-note alignment review
+12. `Lane A` kickoff note / live ledger publish
 13. `full-lane baseline recovered` eligibility review
 
 ## Stage Execution Sequence
@@ -133,23 +246,38 @@
   - menu path
   - smoke checklist
   - warning text
+  - smoke cycle template
+  - counter rule
 
-### Step 3. Full Baseline Re-Freeze
+### Step 3. Direct-Play Cycle 1
+
+- execute:
+  - launcher-supported `3` scene smoke
+  - exact menu path capture
+  - warning / fail-fast capture
+  - plain Play workflow classification
+
+### Step 4. Full Baseline Re-Freeze
 
 - inputs:
+  - same-revision `./run_tests.sh full`
   - current full XML
   - per-class histogram
   - previous pinned artifact
   - handoff codebook
 
-### Step 4. Lane C/D/E Decision Close
+### Step 5. Lane A Row Import And Handoff Proposal
 
-- close:
-  - support tree deferred decision record
-  - BGM ownership gate ADR
-  - terrain/occupancy gate ADR
+- import:
+  - live row ledger
+  - handoff ledger
+- lock:
+  - row lifecycle
+  - source artifact
+  - classification confidence
+  - next action
 
-### Step 5. Direct-Play Hard Enforcement And A1/A2 Recovery
+### Step 6. Direct-Play Hard Enforcement And Lane A Owner Lock
 
 - enforce:
   - launcher bypass is unsupported misuse
@@ -157,17 +285,23 @@
   - `A1`
   - `A2`
 
-### Step 6. A3/A4 Recovery
+### Step 7. A3/A4 Recovery
 
 - recover:
   - direct unrelated backlog
   - baseline continuation
 
-### Step 7. D/E Gate Review
+### Step 8. Lane F Final Audit And Publication
 
-- allow implementation only after gate green
+- audit:
+  - claim vocabulary grep
+  - template alignment
+  - close note section completeness
+- publish:
+  - Lane A kickoff note
+  - Lane F hygiene close note
 
-### Step 8. Broad Recovery Claim Review
+### Step 9. Broad Recovery Claim Review
 
 - review `full-lane baseline recovered`
 - do not claim `broad project-wide green` without the required same-window companion evidence
@@ -185,3 +319,4 @@
 - lane 시작 전에 handoff codebook을 먼저 본다.
 - close note마다 `open functional backlog / handoff`를 남긴다.
 - mixed-date artifact는 같은 validation claim 근거로 사용하지 않는다.
+- pending handoff row는 acceptance 전 source active queue에서 제거하지 않는다.

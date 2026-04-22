@@ -82,6 +82,23 @@
 - enforcement 방식:
   - runtime fallback 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다.
 
+## Evidence Format
+
+- hard adoption evidence는 `Cycle 1`, `Cycle 2` 두 cycle note로 남긴다.
+- 두 cycle은 같은 adoption checkpoint window 안에 있어야 한다.
+- checkpoint window는 최대 `7` calendar days다.
+- same checkpoint window는 `7 calendar days`를 넘기지 않는다.
+- `Cycle 2`는 `Cycle 1` close draft가 작성된 뒤 수행해야 한다.
+- 기본 분리 기준은 다른 calendar day다.
+- 같은 날짜에 실행하면 최소 `4`시간 간격과 fresh editor session을 함께 남긴다.
+- 서로 다른 executor `2`명을 권장한다.
+- executor를 분리하지 못하면 `same executor + governance reviewer co-sign`을 예외로 허용하되 close note에 명시한다.
+- hard adoption close note는 `Counter Summary` 표를 포함해야 한다.
+- `Counter Summary`는 아래 metric을 같은 checkpoint window에서 계수한다.
+  - launcher bypass 정상 workflow 기록
+  - fallback 요구 issue
+- plain Play는 어떤 경우에도 success evidence가 아니다.
+
 ## Completion Declaration
 
 - `운영 정착 완료`는 아래가 모두 참일 때만 사용한다.
@@ -101,6 +118,7 @@
 ## Supporting Documents
 
 - [Stage-Editor-Direct-Play-Adoption-Checklist.md](./Stage-Editor-Direct-Play-Adoption-Checklist.md)
+- [Stage-Editor-Direct-Play-Smoke-Cycle-Template.md](./Stage-Editor-Direct-Play-Smoke-Cycle-Template.md)
 
 ## Reporting Rule
 

@@ -848,6 +848,7 @@ WSL CLI
 - post-stage-content bounded lane 운영 상세는 [Post-Stage-Content-Bounded-Lane-Operations.md](./Post-Stage-Content-Bounded-Lane-Operations.md)를 따른다.
 - close note minimum common format은 [Bounded-Lane-Close-Template.md](./Bounded-Lane-Close-Template.md)를 따른다.
 - direct-play adoption 운영 checklist는 [Stage-Editor-Direct-Play-Adoption-Checklist.md](./Stage-Editor-Direct-Play-Adoption-Checklist.md)를 따른다.
+- direct-play smoke cycle evidence format은 [Stage-Editor-Direct-Play-Smoke-Cycle-Template.md](./Stage-Editor-Direct-Play-Smoke-Cycle-Template.md)를 따른다.
 - 공식 claim vocabulary:
   - `core lane validated`
     - claim 가능 조건: same revision `./run_tests.sh core` 또는 동등한 core lane pass
@@ -869,6 +870,14 @@ WSL CLI
   - `all regressions are closed`
   - `full regression is closed`
   - `project-wide green` without the bounded evidence set above
+- direct-play hard adoption evidence:
+  - `Cycle 1`, `Cycle 2` cycle note를 같은 checkpoint window에 남긴다.
+  - checkpoint window는 최대 `7` calendar days다.
+  - `Counter Summary`는 `launcher bypass 정상 workflow 기록`, `fallback 요구 issue`를 함께 계수한다.
+- Lane A recovery ledger:
+  - same-revision full XML이 lane A live oracle이다.
+  - row ledger는 `status`, `classification date`, `source artifact`, `first wrong oracle`, `owner lane`, `current owner`, `required evidence`, `next action`, `last reviewed at`를 최소로 남긴다.
+  - handoff acceptance는 current same-revision artifact 없이는 기록하지 않는다.
 
 ### English Original
 - Post-stage-content follow-up must be reported as a bounded-lane set, not as one giant refactor.
@@ -876,6 +885,7 @@ WSL CLI
 - See [Post-Stage-Content-Bounded-Lane-Operations.md](./Post-Stage-Content-Bounded-Lane-Operations.md) for bounded-lane operating details.
 - See [Bounded-Lane-Close-Template.md](./Bounded-Lane-Close-Template.md) for the minimum common close-note format.
 - See [Stage-Editor-Direct-Play-Adoption-Checklist.md](./Stage-Editor-Direct-Play-Adoption-Checklist.md) for the direct-play adoption checklist.
+- See [Stage-Editor-Direct-Play-Smoke-Cycle-Template.md](./Stage-Editor-Direct-Play-Smoke-Cycle-Template.md) for the direct-play smoke cycle evidence format.
 - Official claim vocabulary:
   - `core lane validated`
     - may be claimed when the same-revision `./run_tests.sh core` or an equivalent core lane passed
@@ -897,6 +907,14 @@ WSL CLI
   - `all regressions are closed`
   - `full regression is closed`
   - `project-wide green` without the bounded evidence set above
+- Direct-play hard-adoption evidence:
+  - keep `Cycle 1` and `Cycle 2` notes inside the same checkpoint window
+  - the checkpoint window is capped at `7` calendar days
+  - `Counter Summary` tracks both `launcher bypass recorded as supported workflow` and `fallback-request issue` counts
+- Lane A recovery ledger:
+  - the same-revision full XML is the live oracle
+  - the row ledger keeps `status`, `classification date`, `source artifact`, `first wrong oracle`, `owner lane`, `current owner`, `required evidence`, `next action`, and `last reviewed at` at minimum
+  - handoff acceptance must not be recorded without current same-revision evidence
 
 ## 22. Bounded-lane close governance / bounded-lane close governance
 ### 한국어
@@ -910,6 +928,11 @@ WSL CLI
   - wording drift면 wording table과 doc tests를 같은 change에서 갱신한다.
   - tool false positive면 CI/assertion rule만 좁혀 수정한다.
   - 기능 backlog를 숨기기 위해 claim 수준을 낮추거나 wording rule을 삭제하지 않는다.
+- truth-source priority:
+  - `Gameplay-Test-Automation-Guide.md`
+  - `Bounded-Lane-Close-Template.md`
+  - `Post-Stage-Content-Bounded-Lane-Operations.md`
+  - actual close note / example
 - 모든 bounded lane close note는 최소한 아래 섹션을 가져야 한다.
   - scope
   - executed commands
@@ -919,6 +942,11 @@ WSL CLI
   - explicit non-claims
   - open functional backlog / handoff
   - open risks
+- governance lane close note는 아래 섹션을 추가로 가져야 한다.
+  - reviewed truth sources
+  - drift triage summary
+  - claim vocabulary audit
+  - template alignment result
 - artifact pairing rule:
   - 같은 claim은 same revision, same execution window, same lane artifact만 조합한다.
   - 서로 다른 날짜 artifact는 historical comparison 용도로만 쓴다.
@@ -926,6 +954,14 @@ WSL CLI
 - governance guard:
   - wording/doc/CI green만으로 functional lane closure를 주장하지 않는다.
   - close note에는 반드시 `open functional backlog / handoff`를 남긴다.
+  - `governance hygiene green alone does not close Lane B, Lane A, or any functional lane`
+- claim vocabulary audit artifact:
+  - searched paths
+  - disallowed phrases
+  - match count
+  - allowed phrase spot-check
+  - revision
+  - date/time
 
 ### English Original
 - Owner:
@@ -938,6 +974,11 @@ WSL CLI
   - if it is wording drift, update the wording table and doc tests in the same change
   - if it is a tool false positive, narrow only the CI/assertion rule
   - do not lower claim strength or delete wording rules to hide a functional backlog
+- Truth-source priority:
+  - `Gameplay-Test-Automation-Guide.md`
+  - `Bounded-Lane-Close-Template.md`
+  - `Post-Stage-Content-Bounded-Lane-Operations.md`
+  - actual close note / example
 - Every bounded-lane close note must contain at least:
   - scope
   - executed commands
@@ -947,6 +988,11 @@ WSL CLI
   - explicit non-claims
   - open functional backlog / handoff
   - open risks
+- Governance-lane close notes additionally require:
+  - reviewed truth sources
+  - drift triage summary
+  - claim vocabulary audit
+  - template alignment result
 - Artifact pairing rule:
   - one claim may combine only the same revision, same execution window, and same lane artifacts
   - artifacts from different dates are comparison-only
@@ -954,6 +1000,14 @@ WSL CLI
 - Governance guard:
   - wording/doc/CI green alone is not enough to claim functional lane closure
   - every close note must keep an `open functional backlog / handoff` section
+  - `governance hygiene green alone does not close Lane B, Lane A, or any functional lane`
+- Claim-vocabulary audit artifact:
+  - searched paths
+  - disallowed phrases
+  - match count
+  - allowed phrase spot-check
+  - revision
+  - date/time
 
 > Final principle: This guide is the operational source of truth for gameplay test execution and structure.
 >

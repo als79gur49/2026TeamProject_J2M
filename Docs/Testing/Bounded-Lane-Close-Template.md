@@ -13,6 +13,15 @@
 - `Open Functional Backlog / Handoff`
 - `Open Risks`
 
+## Lane-Local Additions
+
+- lane-local close note는 아래 섹션을 추가할 수 있다.
+  - `Reviewed Truth Sources`
+  - `Drift Triage Summary`
+  - `Claim Vocabulary Audit`
+  - `Template Alignment Result`
+- 특히 governance lane close note는 위 네 섹션을 모두 포함한다.
+
 ## Artifact Pairing Rules
 
 - 하나의 claim은 same revision, same execution window, same lane artifact만 조합한다.
@@ -37,6 +46,16 @@
 ## Result Summary
 - `<what passed / failed / remained open>`
 
+## Reviewed Truth Sources
+- `<truth-source 1>`
+- `<truth-source 2>`
+
+## Drift Triage Summary
+- `<doc drift or false positive classification>`
+
+## Claim Vocabulary Audit
+- `<audit artifact path and count summary>`
+
 ## Allowed Claims
 - `<claim>`
 
@@ -59,3 +78,4 @@
 - lane feature owner가 draft를 작성한다.
 - architecture/governance reviewer가 wording 적합성을 리뷰한다.
 - wording/doc/CI green만으로 functional lane closure를 주장하지 않는다.
+- `governance hygiene green alone does not close Lane B, Lane A, or any functional lane`
