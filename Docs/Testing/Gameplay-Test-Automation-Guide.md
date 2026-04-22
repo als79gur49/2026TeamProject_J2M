@@ -11,6 +11,7 @@
 ### 한국어
 - 현재 환경에서는 `./run_tests.sh core`와 `./run_tests.sh full`이 실제로 실행 가능하다.
 - Stage 9 UI hardening 검증용으로 `./run_tests.sh ui` 경로를 유지한다. 이 경로는 UI EditMode assembly만 대상으로 하는 집중 검증용이며 Stage 4–8 seam preservation evidence를 담당한다.
+- 이 섹션의 baseline row는 pinned snapshot reference다. 서로 다른 날짜 artifact를 한 validation claim으로 합산하는 근거가 아니다.
 - 현재 기준점은 다음과 같다.
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
   - `./run_tests.sh ui`: green, Unity UI EditMode `155 total / 0 failed`
@@ -25,6 +26,7 @@
 ### English Original
 - In the current environment, both `./run_tests.sh core` and `./run_tests.sh full` are runnable.
 - `./run_tests.sh ui` remains the targeted Stage 9 UI hardening path for the UI EditMode assembly only, preserving Stage 4–8 seams on one Unity-backed evidence lane.
+- The baseline rows in this section are pinned snapshot references. They are not permission to merge artifacts from different dates into one validation claim.
 - The current baseline is:
   - `./run_tests.sh core`: green, Core EditMode `13 total / 0 failed`, Core PlayMode `2 total / 0 failed`
   - `./run_tests.sh ui`: green, Unity UI EditMode `155 total / 0 failed`
@@ -838,6 +840,120 @@ WSL CLI
 - Fuller PlayMode stratification.
 - Broader Integration expansion.
 - CI parallelization through internal integration selections.
+
+## 21. Post-stage-content bounded lane reporting / post-stage-content bounded lane reporting
+### 한국어
+- post-stage-content 후속은 하나의 giant refactor가 아니라 bounded lane 집합으로 보고한다.
+- lane별 claim은 실제로 실행한 lane evidence만 말해야 한다.
+- post-stage-content bounded lane 운영 상세는 [Post-Stage-Content-Bounded-Lane-Operations.md](./Post-Stage-Content-Bounded-Lane-Operations.md)를 따른다.
+- close note minimum common format은 [Bounded-Lane-Close-Template.md](./Bounded-Lane-Close-Template.md)를 따른다.
+- direct-play adoption 운영 checklist는 [Stage-Editor-Direct-Play-Adoption-Checklist.md](./Stage-Editor-Direct-Play-Adoption-Checklist.md)를 따른다.
+- 공식 claim vocabulary:
+  - `core lane validated`
+    - claim 가능 조건: same revision `./run_tests.sh core` 또는 동등한 core lane pass
+    - imply하지 않는 것: `ui lane validated`, `full-lane baseline recovered`, `broad project-wide green`
+  - `ui lane validated`
+    - claim 가능 조건: same revision `./run_tests.sh ui` 또는 동등한 UI lane pass
+    - imply하지 않는 것: core lane, full lane, broad project-wide recovery
+  - `targeted architecture/CI validated`
+    - claim 가능 조건: same revision targeted architecture tests + CI/validator commands가 명시적으로 pass
+    - imply하지 않는 것: unrelated backlog closure, broad lane recovery
+  - `full-lane baseline recovered`
+    - claim 가능 조건: same revision `./run_tests.sh full` green, post-stage-content live recovery stream `A1/A2/A3/A4` open row `0`, cross-lane blocking handoff `0`
+    - imply하지 않는 것: build/manual companion lane를 포함한 `broad project-wide green`
+  - `broad project-wide green`
+    - claim 가능 조건: `full-lane baseline recovered` + required companion automation/build/manual lane가 same revision, same execution window에서 모두 validated
+    - imply하지 않는 것: none beyond that exact executed window
+- disallowed wording:
+  - `full-lane green`
+  - `all regressions are closed`
+  - `full regression is closed`
+  - `project-wide green` without the bounded evidence set above
+
+### English Original
+- Post-stage-content follow-up must be reported as a bounded-lane set, not as one giant refactor.
+- Lane claims must describe only the evidence that actually ran for that lane.
+- See [Post-Stage-Content-Bounded-Lane-Operations.md](./Post-Stage-Content-Bounded-Lane-Operations.md) for bounded-lane operating details.
+- See [Bounded-Lane-Close-Template.md](./Bounded-Lane-Close-Template.md) for the minimum common close-note format.
+- See [Stage-Editor-Direct-Play-Adoption-Checklist.md](./Stage-Editor-Direct-Play-Adoption-Checklist.md) for the direct-play adoption checklist.
+- Official claim vocabulary:
+  - `core lane validated`
+    - may be claimed when the same-revision `./run_tests.sh core` or an equivalent core lane passed
+    - does not imply `ui lane validated`, `full-lane baseline recovered`, or `broad project-wide green`
+  - `ui lane validated`
+    - may be claimed when the same-revision `./run_tests.sh ui` or an equivalent UI lane passed
+    - does not imply core, full-lane, or broad project-wide recovery
+  - `targeted architecture/CI validated`
+    - may be claimed when the same-revision targeted architecture tests plus CI/validator commands explicitly passed
+    - does not imply unrelated backlog closure or broad recovery
+  - `full-lane baseline recovered`
+    - may be claimed only when the same-revision `./run_tests.sh full` is green, live recovery streams `A1/A2/A3/A4` are all closed, and cross-lane blocking handoffs are `0`
+    - does not imply `broad project-wide green`
+  - `broad project-wide green`
+    - may be claimed only when `full-lane baseline recovered` plus the required companion automation/build/manual lanes are all validated in the same revision and same execution window
+    - does not imply anything beyond that exact executed window
+- Disallowed wording:
+  - `full-lane green`
+  - `all regressions are closed`
+  - `full regression is closed`
+  - `project-wide green` without the bounded evidence set above
+
+## 22. Bounded-lane close governance / bounded-lane close governance
+### 한국어
+- owner:
+  - wording table owner: architecture/governance doc owner
+  - close template owner: lane feature owner, architecture/governance reviewer co-sign
+  - doc tests owner: lane feature owner, cross-lane vocabulary review는 governance owner
+  - CI assertion owner: tools/CI maintainer
+- false positive / wording drift procedure:
+  - 먼저 executed artifact와 close note를 대조해 tool false positive인지 실제 wording drift인지 분리한다.
+  - wording drift면 wording table과 doc tests를 같은 change에서 갱신한다.
+  - tool false positive면 CI/assertion rule만 좁혀 수정한다.
+  - 기능 backlog를 숨기기 위해 claim 수준을 낮추거나 wording rule을 삭제하지 않는다.
+- 모든 bounded lane close note는 최소한 아래 섹션을 가져야 한다.
+  - scope
+  - executed commands
+  - artifact list with exact dates
+  - result summary
+  - allowed claims
+  - explicit non-claims
+  - open functional backlog / handoff
+  - open risks
+- artifact pairing rule:
+  - 같은 claim은 same revision, same execution window, same lane artifact만 조합한다.
+  - 서로 다른 날짜 artifact는 historical comparison 용도로만 쓴다.
+  - `2026-04-22 core/ui`와 `2026-04-21 full`을 하나의 broad recovery claim 근거로 합치면 안 된다.
+- governance guard:
+  - wording/doc/CI green만으로 functional lane closure를 주장하지 않는다.
+  - close note에는 반드시 `open functional backlog / handoff`를 남긴다.
+
+### English Original
+- Owner:
+  - wording table owner: architecture/governance doc owner
+  - close template owner: lane feature owner, with architecture/governance reviewer co-sign
+  - doc tests owner: lane feature owner, with governance owner reviewing cross-lane vocabulary
+  - CI assertion owner: tools/CI maintainer
+- False positive / wording drift procedure:
+  - first compare the executed artifacts and the close note to split tool false positives from real wording drift
+  - if it is wording drift, update the wording table and doc tests in the same change
+  - if it is a tool false positive, narrow only the CI/assertion rule
+  - do not lower claim strength or delete wording rules to hide a functional backlog
+- Every bounded-lane close note must contain at least:
+  - scope
+  - executed commands
+  - artifact list with exact dates
+  - result summary
+  - allowed claims
+  - explicit non-claims
+  - open functional backlog / handoff
+  - open risks
+- Artifact pairing rule:
+  - one claim may combine only the same revision, same execution window, and same lane artifacts
+  - artifacts from different dates are comparison-only
+  - `2026-04-22 core/ui` plus `2026-04-21 full` must not be collapsed into one broad recovery claim
+- Governance guard:
+  - wording/doc/CI green alone is not enough to claim functional lane closure
+  - every close note must keep an `open functional backlog / handoff` section
 
 > Final principle: This guide is the operational source of truth for gameplay test execution and structure.
 >

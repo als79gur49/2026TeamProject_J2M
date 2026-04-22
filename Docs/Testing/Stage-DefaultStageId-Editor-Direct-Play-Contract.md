@@ -35,6 +35,73 @@
 - direct-play smoke/manual flow는 launcher 경유로만 기록한다.
 - fail-fast message는 `Tools/Stages/Direct Play/Launch Current Scene` 사용법을 안내해야 한다.
 
+## Operational Metrics
+
+- `catalog coverage`
+  - enabled stage-backed scene direct-play catalog coverage `100%`
+- `workflow compliance`
+  - manual smoke / close note / bug reproduction note에서 stage-backed scene direct-play 실행 경로가 launcher 경유로만 기록된다.
+  - plain Play 재현은 unsupported reference case로만 기록한다.
+- `warning consistency`
+  - plain Play warning과 fail-fast message는 같은 menu path `Tools/Stages/Direct Play/Launch Current Scene`를 안내해야 한다.
+- `onboarding parity`
+  - onboarding 문서, smoke checklist, menu entry, supported scene list는 같은 scene 세트와 같은 용어를 사용해야 한다.
+
+## Supported Scene Labels
+
+- `Combined Gameplay Showcase`
+- `Tutorial Scene`
+- `UI Audio Scene`
+
+위 exact scene labels는 onboarding parity와 smoke note에 그대로 사용한다.
+
+## Soft Adoption
+
+- 목표:
+  - launcher-only contract를 팀 기본 workflow로 정착시킨다.
+- 완료 기준:
+  - catalog coverage `100%`
+  - onboarding 문서와 menu entry 일치
+  - smoke checklist가 launcher-only workflow를 명시
+  - plain Play unsupported 경고 문구가 고정
+- 허용 friction 완화책:
+  - menu shortcut discoverability
+  - `Replay Last Stage-Backed Scene`
+  - onboarding examples
+  - smoke checklist 개선
+
+## Hard Enforcement
+
+- 목표:
+  - launcher bypass를 supported workflow가 아니라 unsupported misuse로 다룬다.
+- 완료 기준:
+  - 두 번 연속 smoke/report cycle에서 launcher bypass를 정상 workflow로 기록한 사례 `0`
+  - direct-play 관련 open issue 중 fallback 요구 `0`
+  - stage-backed manual smoke note가 모두 launcher path를 명시
+  - validator/test/doc에서 plain Play unsupported 해석이 일치
+- enforcement 방식:
+  - runtime fallback 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다.
+
+## Completion Declaration
+
+- `운영 정착 완료`는 아래가 모두 참일 때만 사용한다.
+  - `Soft Adoption` 완료
+  - `Hard Enforcement` 완료
+  - same revision 또는 same checkpoint window에서 doc/menu/validator/smoke evidence가 정합
+
+## Friction Management
+
+- friction 완화는 구조 rollback이 아니라 UX/tooling/documentation으로만 해결한다.
+- 금지:
+  - `defaultStageId` 성격의 fallback 부활
+  - scene-local default 값 대체
+  - unsupported plain Play를 지원 workflow로 승격
+  - adoption friction을 이유로 canonical runtime contract 변경
+
+## Supporting Documents
+
+- [Stage-Editor-Direct-Play-Adoption-Checklist.md](./Stage-Editor-Direct-Play-Adoption-Checklist.md)
+
 ## Reporting Rule
 
 - direct-play 관련 변경은 `editor direct-play launcher contract` 또는 `defaultStageId sunset`으로만 보고한다.

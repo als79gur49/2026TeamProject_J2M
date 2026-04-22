@@ -22,12 +22,20 @@
 
 - [Docs/Testing/Gameplay-Test-Automation-Guide.md](../Testing/Gameplay-Test-Automation-Guide.md)
   - current runner/governance truth for `./run_tests.sh core`, `./run_tests.sh ui`, and PlayMode escalation expectations
+- [Docs/Testing/Post-Stage-Content-Bounded-Lane-Operations.md](../Testing/Post-Stage-Content-Bounded-Lane-Operations.md)
+  - supporting truth for post-stage-content bounded lane split, Lane A recovery streams, and cross-lane handoff codebook
 - [Audio-Architecture-Guidelines.md](./Audio-Architecture-Guidelines.md)
   - current supporting truth for 2D non-spatial audio contracts, runtime ownership, and audio seam vocabulary
 - [Gameplay-Audio-Governance.md](./Gameplay-Audio-Governance.md)
   - current supporting truth for gameplay audio semantic-family governance, host one-shot controller scope, and safe semantic expansion protocol
 - [Bgm-Flow-V1-Guidelines.md](./Bgm-Flow-V1-Guidelines.md)
   - current supporting truth for persistent BGM ownership, scene request-source boundaries, and Immediate-only v1 transition governance
+- [ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md](./ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md)
+  - active decision record for support tree deferred relocation governance, review triggers, and pilot-eligible gate
+- [ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md](./ADR/ADR-003-Persistent-Bgm-Ownership-Implementation-Gate.md)
+  - active decision record for persistent BGM ownership matrix, unsupported path, and implementation gate
+- [ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md](./ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md)
+  - active decision record for terrain/occupancy vocabulary closure, boundary gate, and slice implementation gate
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
