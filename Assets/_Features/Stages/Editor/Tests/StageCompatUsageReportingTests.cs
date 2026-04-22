@@ -23,6 +23,18 @@ namespace Game.Feature.Stages.Editor.Tests
             "Docs/Testing/Bounded-Lane-Close-Template.md";
         private const string DirectPlayChecklistPath =
             "Docs/Testing/Stage-Editor-Direct-Play-Adoption-Checklist.md";
+        private const string DirectPlayCycleTemplatePath =
+            "Docs/Testing/Stage-Editor-Direct-Play-Smoke-Cycle-Template.md";
+        private const string LaneABaselineRefreezePath =
+            "Docs/Testing/Lane-A-Full-Baseline-Refreeze-2026-04-22.md";
+        private const string LaneARowLedgerPath =
+            "Docs/Testing/Lane-A-Live-Row-Ledger-2026-04-22.md";
+        private const string LaneAHandoffLedgerPath =
+            "Docs/Testing/Lane-A-Handoff-Ledger-2026-04-22.md";
+        private const string LaneFAuditPath =
+            "Docs/Testing/Lane-F-Claim-Vocabulary-Audit-2026-04-22.md";
+        private const string LaneFHygieneClosePath =
+            "Docs/Testing/Lane-F-Governance-Hygiene-Close-2026-04-22.md";
         private const string SupportTreeDecisionPath =
             "Docs/Architecture/ADR/ADR-002-Stage-Support-Tree-Deferred-Relocation.md";
         private const string ArchitectureReadmePath = "Docs/Architecture/README.md";
@@ -190,8 +202,12 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(guide, Does.Contain("same execution window"));
             Assert.That(guide, Does.Contain("Bounded-Lane-Close-Template.md"));
             Assert.That(guide, Does.Contain("Post-Stage-Content-Bounded-Lane-Operations.md"));
+            Assert.That(guide, Does.Contain("Stage-Editor-Direct-Play-Smoke-Cycle-Template.md"));
             Assert.That(guide, Does.Contain("open functional backlog / handoff"));
             Assert.That(guide, Does.Contain("`2026-04-22 core/ui`와 `2026-04-21 full`"));
+            Assert.That(guide, Does.Contain("Counter Summary"));
+            Assert.That(guide, Does.Contain("current same-revision artifact"));
+            Assert.That(guide, Does.Contain("governance hygiene green alone does not close Lane B, Lane A, or any functional lane"));
         }
 
         [Test]
@@ -236,13 +252,22 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(contract, Does.Contain("onboarding parity"));
             Assert.That(contract, Does.Contain("## Soft Adoption"));
             Assert.That(contract, Does.Contain("## Hard Enforcement"));
+            Assert.That(contract, Does.Contain("## Evidence Format"));
             Assert.That(contract, Does.Contain("unsupported reference case"));
             Assert.That(contract, Does.Contain("runtime fallback 추가가 아니라 warning, checklist, triage policy, close wording으로 고정한다."));
+            Assert.That(contract, Does.Contain("checkpoint window"));
+            Assert.That(contract, Does.Contain("Counter Summary"));
+            Assert.That(contract, Does.Contain("same executor + governance reviewer co-sign"));
             Assert.That(checklist, Does.Contain("Tools/Stages/Direct Play/Launch Current Scene"));
             Assert.That(checklist, Does.Contain("Replay Last Stage-Backed Scene"));
             Assert.That(checklist, Does.Contain("Combined Gameplay Showcase"));
             Assert.That(checklist, Does.Contain("Tutorial Scene"));
             Assert.That(checklist, Does.Contain("UI Audio Scene"));
+            Assert.That(checklist, Does.Contain("Cycle 1"));
+            Assert.That(checklist, Does.Contain("Cycle 2"));
+            Assert.That(checklist, Does.Contain("Counter Summary"));
+            Assert.That(checklist, Does.Contain("7 calendar days"));
+            Assert.That(checklist, Does.Contain("same executor + governance reviewer co-sign"));
         }
 
         [Test]
@@ -263,6 +288,14 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(opsGuide, Does.Contain("required evidence"));
             Assert.That(opsGuide, Does.Contain("StageCatalogResolver"));
             Assert.That(opsGuide, Does.Contain("Lane F"));
+            Assert.That(opsGuide, Does.Contain("classification confidence"));
+            Assert.That(opsGuide, Does.Contain("first wrong oracle"));
+            Assert.That(opsGuide, Does.Contain("pending-acceptance"));
+            Assert.That(opsGuide, Does.Contain("accepted"));
+            Assert.That(opsGuide, Does.Contain("rejected"));
+            Assert.That(opsGuide, Does.Contain("newness / failure-shape change"));
+            Assert.That(opsGuide, Does.Contain("source artifact"));
+            Assert.That(opsGuide, Does.Contain("last reviewed at"));
         }
 
         [Test]
@@ -278,7 +311,74 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(template, Does.Contain("Explicit Non-Claims"));
             Assert.That(template, Does.Contain("Open Functional Backlog / Handoff"));
             Assert.That(template, Does.Contain("Open Risks"));
+            Assert.That(template, Does.Contain("Reviewed Truth Sources"));
+            Assert.That(template, Does.Contain("Drift Triage Summary"));
+            Assert.That(template, Does.Contain("Claim Vocabulary Audit"));
+            Assert.That(template, Does.Contain("Template Alignment Result"));
             Assert.That(template, Does.Contain("same revision, same execution window, same lane artifact"));
+            Assert.That(template, Does.Contain("governance hygiene green alone does not close Lane B, Lane A, or any functional lane"));
+        }
+
+        [Test]
+        public void DirectPlayCycleTemplate_RecordsRequiredSceneFields_AndCounterSummary()
+        {
+            var template = ReadRepoFile(DirectPlayCycleTemplatePath);
+
+            Assert.That(template, Does.Contain("# Stage Editor Direct-Play Smoke Cycle Template"));
+            Assert.That(template, Does.Contain("revision"));
+            Assert.That(template, Does.Contain("cycle id"));
+            Assert.That(template, Does.Contain("editor session identifier"));
+            Assert.That(template, Does.Contain("catalog coverage check result"));
+            Assert.That(template, Does.Contain("plain Play workflow classification"));
+            Assert.That(template, Does.Contain("scene name"));
+            Assert.That(template, Does.Contain("exact menu path"));
+            Assert.That(template, Does.Contain("execution date/time"));
+            Assert.That(template, Does.Contain("launch result"));
+            Assert.That(template, Does.Contain("observed warning/fail-fast"));
+            Assert.That(template, Does.Contain("plain Play attempted"));
+            Assert.That(template, Does.Contain("Counter Summary"));
+            Assert.That(template, Does.Contain("launcher bypass 정상 workflow 기록"));
+            Assert.That(template, Does.Contain("fallback 요구 issue"));
+        }
+
+        [Test]
+        public void FollowupArtifacts_RecordLaneABaselineRefreeze_Ledger_Handoff_Audit_AndLaneFClose()
+        {
+            var baseline = ReadRepoFile(LaneABaselineRefreezePath);
+            var rowLedger = ReadRepoFile(LaneARowLedgerPath);
+            var handoffLedger = ReadRepoFile(LaneAHandoffLedgerPath);
+            var audit = ReadRepoFile(LaneFAuditPath);
+            var laneFClose = ReadRepoFile(LaneFHygieneClosePath);
+
+            Assert.That(baseline, Does.Contain("# Lane A Full Baseline Refreeze 2026-04-22"));
+            Assert.That(baseline, Does.Contain("same-revision full baseline refreeze"));
+            Assert.That(baseline, Does.Contain("./run_tests.sh full"));
+            Assert.That(baseline, Does.Contain("Explicit Non-Claims"));
+
+            Assert.That(rowLedger, Does.Contain("# Lane A Live Row Ledger 2026-04-22"));
+            Assert.That(rowLedger, Does.Contain("classification confidence"));
+            Assert.That(rowLedger, Does.Contain("first wrong oracle"));
+            Assert.That(rowLedger, Does.Contain("First Active Queue"));
+            Assert.That(rowLedger, Does.Contain("row id/test name"));
+
+            Assert.That(handoffLedger, Does.Contain("# Lane A Handoff Ledger 2026-04-22"));
+            Assert.That(handoffLedger, Does.Contain("pending-acceptance"));
+            Assert.That(handoffLedger, Does.Contain("accepted by"));
+            Assert.That(handoffLedger, Does.Contain("historical comparison artifact"));
+
+            Assert.That(audit, Does.Contain("# Lane F Claim Vocabulary Audit 2026-04-22"));
+            Assert.That(audit, Does.Contain("searched paths"));
+            Assert.That(audit, Does.Contain("disallowed phrases"));
+            Assert.That(audit, Does.Contain("allowed phrase spot-check"));
+            Assert.That(audit, Does.Contain("revision"));
+            Assert.That(audit, Does.Contain("date/time"));
+
+            Assert.That(laneFClose, Does.Contain("# Lane F Governance Hygiene Close 2026-04-22"));
+            Assert.That(laneFClose, Does.Contain("Reviewed Truth Sources"));
+            Assert.That(laneFClose, Does.Contain("Drift Triage Summary"));
+            Assert.That(laneFClose, Does.Contain("Claim Vocabulary Audit"));
+            Assert.That(laneFClose, Does.Contain("Template Alignment Result"));
+            Assert.That(laneFClose, Does.Contain("governance hygiene green alone does not close Lane B, Lane A, or any functional lane"));
         }
 
         [Test]
