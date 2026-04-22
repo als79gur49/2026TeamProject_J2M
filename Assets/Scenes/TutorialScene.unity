@@ -425,7 +425,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: a79441f348de89743a2939f4d699eac1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalCameraData
   m_RenderShadows: 1
   m_RequiresDepthTextureOption: 2
@@ -469,7 +469,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 72ece51f2901e7445ab60da3685d6b5f, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineBrain
   ShowDebugText: 0
   ShowCameraFrustum: 1
@@ -694,7 +694,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 474bcb49853aa07438625e644c072ee6, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.RenderPipelines.Universal.Runtime::UnityEngine.Rendering.Universal.UniversalAdditionalLightData
   m_UsePipelineSettings: 1
   m_AdditionalLightsShadowResolutionTier: 2
@@ -1032,7 +1032,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: f9dfa5b682dcd46bda6128250e975f58, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Unity.Cinemachine::Unity.Cinemachine.CinemachineCamera
   Priority:
     Enabled: 0
@@ -1203,7 +1203,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 41909c3f1846cad878e314473f74442c, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller
   actions: {fileID: -944628639613478452, guid: 052faaac586de48259a63d0c4782560b, type: 3}
   autoAdvanceTicks: 1
@@ -1264,10 +1264,7 @@ MonoBehaviour:
   boardSurfaceTexture: {fileID: 2800000, guid: bbcd0420d9696f54da16e6124742b53c, type: 3}
   gameplayAudioMap: {fileID: 11400000, guid: 2e17653afa1ba264a950b76bcd5ccc56, type: 2}
   faceSeamGap: 3.5
-  stageLoadSourceMode: 0
   stageCatalogProvider: {fileID: 11400000, guid: acd8229e8e9e4f1da31d8206dfa8188e, type: 2}
-  stageContentEntry: {fileID: 0}
-  stageDefinition: {fileID: 0}
   playerViewPrefab: {fileID: 1100110011001100110, guid: dad668eb9c4d5a1459580883a9e78cfc, type: 3}
   enemyPresentationCatalog: {fileID: 0}
   staticEntityPresentationCatalog: {fileID: 0}
@@ -1286,20 +1283,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1179627487
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1179627480}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9c6e4d677b454b719df7fcbce88cf09e, type: 3}
-  m_Name:
-  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap
-  audioRuntimeInstaller: {fileID: 1179627485}
-  persistentRoot: {fileID: 0}
 --- !u!114 &1179627483
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1310,7 +1293,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7335ec577334edca1a90ae570c2443e, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplaySceneHost
 --- !u!114 &1179627484
 MonoBehaviour:
@@ -1322,7 +1305,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd3dc38e5bcbfb749b2f859a01ae0db0, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Feature.UI.Composition::Game.Feature.UI.Composition.GameplayUiFlowInstaller
   _sceneHost: {fileID: 1179627483}
   _rootView: {fileID: 0}
@@ -1340,7 +1323,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 5eec5bd69526f65458aba6ce130324f1, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Shared.Audio::Game.Shared.Audio.AudioRuntimeInstaller
   installOnAwake: 1
   bindingMode: 1
@@ -1355,9 +1338,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 1904c99858f4492687a89c8158fecc77, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Game.Shared.Display::Game.Shared.Display.DisplayRuntimeInstaller
   installOnAwake: 1
+--- !u!114 &1179627487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1179627480}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c6e4d677b454b719df7fcbce88cf09e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Feature.Flow.Audio::Game.Feature.Flow.Audio.GlobalAudioFlowBootstrap
+  audioRuntimeInstaller: {fileID: 1179627485}
+  persistentRoot: {fileID: 0}
 --- !u!1 &1255821668
 GameObject:
   m_ObjectHideFlags: 0
