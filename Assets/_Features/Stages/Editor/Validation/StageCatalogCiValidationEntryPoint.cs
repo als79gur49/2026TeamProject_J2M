@@ -24,8 +24,7 @@ namespace Game.Feature.Stages.Editor
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
-                Phase = StageValidationPhase.Phase5_Hardening,
-                GrandfatherGameplayAssetGuids = GrandfatherGameplayAssetGuidRegistry.CreateSet(),
+                Phase = StageValidationPhase.Phase6_SunsetFinalization,
             };
 
             var auditor = new StageCompatUsageAuditor();
@@ -33,32 +32,32 @@ namespace Game.Feature.Stages.Editor
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(CanonicalStageCatalogAssetPath);
             var validator = new StageCatalogValidator();
             var catalogReport = validator.Validate(catalog, options);
-            var editorSeamReport = new StageCatalogEditorSeamValidator().Validate(catalog, options);
             var knownWarningLedger = AssetDatabase.LoadAssetAtPath<StageCatalogKnownWarningLedger>(KnownWarningLedgerAssetPath);
             var knownWarningReport = new StageCatalogKnownWarningValidator().Validate(catalog, catalogReport, knownWarningLedger);
             var aliasGovernanceLedger = AssetDatabase.LoadAssetAtPath<StageAliasGovernanceLedger>(AliasGovernanceLedgerAssetPath);
             var aliasGovernanceReport = new StageAliasGovernanceValidator().Validate(
                 catalog != null ? catalog.StageIdAliasTable : null,
                 aliasGovernanceLedger);
+            var aliasUsageReport = new StageAliasUsageScanner().ValidateNoHits(StageAliasUsageScanner.P3HistoricalAliasIds);
             var sceneValidator = new StageSceneBootstrapValidator();
             var sceneReport = sceneValidator.ValidateEnabledBuildScenes(options);
-            var summary = new StageSceneBootstrapValidator().SummarizeEnabledBuildSceneModes();
+            var summary = sceneValidator.SummarizeEnabledBuildSceneModes();
 
             Directory.CreateDirectory(ReportDirectory);
             WriteAuditReport(Path.Combine(ReportDirectory, "stage-compat-audit.md"), auditReport);
             WriteReport(
                 Path.Combine(ReportDirectory, "stage-catalog-validation.md"),
                 catalogReport,
-                editorSeamReport,
                 knownWarningReport,
                 aliasGovernanceReport,
+                aliasUsageReport,
                 sceneReport,
                 summary);
 
             if (catalogReport.HasErrors ||
-                editorSeamReport.HasErrors ||
                 knownWarningReport.HasErrors ||
                 aliasGovernanceReport.HasErrors ||
+                aliasUsageReport.HasErrors ||
                 sceneReport.HasErrors)
             {
                 Debug.LogError("Stage catalog CI validation failed. See Temp/StageCatalogValidation/stage-catalog-validation.md");
@@ -72,9 +71,9 @@ namespace Game.Feature.Stages.Editor
         private static void WriteReport(
             string outputPath,
             StageValidationReport catalogReport,
-            StageValidationReport editorSeamReport,
             StageValidationReport knownWarningReport,
             StageValidationReport aliasGovernanceReport,
+            StageValidationReport aliasUsageReport,
             StageValidationReport sceneReport,
             StageSceneBootstrapUsageSummary summary)
         {
@@ -91,9 +90,9 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"LegacyStageDefinition: {summary.LegacyStageDefinitionCount}");
             writer.WriteLine();
             WriteIssues(writer, "Catalog Issues", catalogReport);
-            WriteIssues(writer, "Editor Seam Issues", editorSeamReport);
             WriteIssues(writer, "Known Warning Governance Issues", knownWarningReport);
             WriteIssues(writer, "Alias Governance Issues", aliasGovernanceReport);
+            WriteIssues(writer, "Alias Usage Issues", aliasUsageReport);
             WriteIssues(writer, "Scene Issues", sceneReport);
         }
 
@@ -108,15 +107,22 @@ namespace Game.Feature.Stages.Editor
             writer.WriteLine($"CanonicalGameplayAssetCount: {auditReport.Snapshot.CanonicalGameplayAssetGuids.Count}");
             writer.WriteLine($"CanonicalGameplayAssetsWithLegacyPresentationIds: {auditReport.CanonicalGameplayWithLegacyPresentationIds.Count}");
             writer.WriteLine($"NonCanonicalGameplayAssetsWithLegacyPresentationIds: {auditReport.NonCanonicalGameplayWithLegacyPresentationIds.Count}");
-            writer.WriteLine($"GrandfatherGameplayAssetCount: {auditReport.GrandfatherGameplayAssetCount}");
-            writer.WriteLine($"GrandfatherCountMatchesExpected: {auditReport.GrandfatherCountMatchesExpected}");
+            writer.WriteLine($"DuplicateLegacyGameplayAssetCount: {auditReport.DuplicateLegacyGameplayAssetPaths.Count}");
             writer.WriteLine($"BuildSceneResidueCount: {auditReport.BuildSceneResiduePaths.Count}");
+            writer.WriteLine($"BuildSceneDirectPlayCatalogCoverageGapCount: {auditReport.BuildSceneCoverageGapPaths.Count}");
             writer.WriteLine($"AliasCount: {auditReport.Snapshot.AliasEntries.Count}");
+            writer.WriteLine($"AliasRuntimeCodeHitCount: {auditReport.AliasUsage.RuntimeCodeHitCount}");
+            writer.WriteLine($"AliasEditorToolingHitCount: {auditReport.AliasUsage.EditorToolingHitCount}");
+            writer.WriteLine($"AliasSerializedAssetHitCount: {auditReport.AliasUsage.SerializedAssetHitCount}");
+            writer.WriteLine($"AliasDocsOrExamplesHitCount: {auditReport.AliasUsage.DocsOrExamplesHitCount}");
             writer.WriteLine();
             WriteLines(writer, "Canonical Gameplay With Legacy PresentationIds", auditReport.CanonicalGameplayWithLegacyPresentationIds);
             WriteLines(writer, "Non-Canonical Gameplay With Legacy PresentationIds", auditReport.NonCanonicalGameplayWithLegacyPresentationIds);
+            WriteLines(writer, "Duplicate Legacy Gameplay Assets", auditReport.DuplicateLegacyGameplayAssetPaths);
             WriteLines(writer, "Prunable Alias Candidates", auditReport.PrunableAliasIds);
             WriteLines(writer, "Build Scene Residues", auditReport.BuildSceneResiduePaths);
+            WriteLines(writer, "Build Scene Direct-Play Catalog Coverage Gaps", auditReport.BuildSceneCoverageGapPaths);
+            WriteAliasUsageLines(writer, auditReport.AliasUsage.Hits);
         }
 
         private static void WriteIssues(StreamWriter writer, string title, StageValidationReport report)
@@ -151,6 +157,25 @@ namespace Game.Feature.Stages.Editor
             for (var i = 0; i < values.Count; i++)
             {
                 writer.WriteLine($"- {values[i]}");
+            }
+
+            writer.WriteLine();
+        }
+
+        private static void WriteAliasUsageLines(StreamWriter writer, IReadOnlyList<StageAliasUsageHit> hits)
+        {
+            writer.WriteLine("## Alias Usage Hits");
+            if (hits == null || hits.Count == 0)
+            {
+                writer.WriteLine("None");
+                writer.WriteLine();
+                return;
+            }
+
+            for (var i = 0; i < hits.Count; i++)
+            {
+                var hit = hits[i];
+                writer.WriteLine($"- [{hit.Category}] {hit.AliasId}: {hit.AssetPath}");
             }
 
             writer.WriteLine();

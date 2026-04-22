@@ -26,6 +26,7 @@ namespace Game.Feature.Stages
         Phase3_CanonicalContentApply = 3,
         Phase4_ProductionBootstrapConversion = 4,
         Phase5_Hardening = 5,
+        Phase6_SunsetFinalization = 6,
     }
 
     public readonly struct StageValidationIssue
@@ -129,8 +130,6 @@ namespace Game.Feature.Stages
         public StageValidationWaiverList WaiverList { get; set; }
 
         public bool EnforceCanonicalLegacyPresentationBridgeWarnings { get; set; } = true;
-
-        public ISet<string> GrandfatherGameplayAssetGuids { get; set; }
     }
 
     [Serializable]

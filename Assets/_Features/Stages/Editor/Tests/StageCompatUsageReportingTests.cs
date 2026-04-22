@@ -14,20 +14,22 @@ namespace Game.Feature.Stages.Editor.Tests
         private const string AliasGovernanceLedgerAssetPath =
             StageAliasGovernanceUpdater.DefaultAliasGovernanceLedgerAssetPath;
         private const string GameplayGuidePath = "Docs/Testing/Gameplay-Test-Automation-Guide.md";
-        private const string CloseNotePath = "Docs/Testing/Stage-Content-P2-Close-Hardening-2026-04-22.md";
-        private const string DefaultStageIdContractPath =
+        private const string CloseNotePath = "Docs/Testing/Stage-Content-P3-Sunset-2026-04-22.md";
+        private const string DirectPlayContractPath =
             "Docs/Testing/Stage-DefaultStageId-Editor-Direct-Play-Contract.md";
 
         [Test]
-        public void Audit_ReportsNoBuildSceneCompatResidue_AndGrandfatherCountRemainsLocked()
+        public void Audit_ReportsNoBuildSceneResidue_NoDuplicateLegacyAssets_AndNoAliasUsageHits()
         {
             var report = new StageCompatUsageAuditor().Audit();
 
             Assert.That(report.Snapshot.CanonicalGameplayAssetGuids.Count, Is.GreaterThanOrEqualTo(1));
             Assert.That(report.CanonicalGameplayWithLegacyPresentationIds, Is.Empty);
+            Assert.That(report.NonCanonicalGameplayWithLegacyPresentationIds, Is.Empty);
             Assert.That(report.BuildSceneResiduePaths, Is.Empty);
-            Assert.That(report.GrandfatherGameplayAssetCount, Is.EqualTo(2));
-            Assert.That(report.GrandfatherCountMatchesExpected, Is.True);
+            Assert.That(report.BuildSceneCoverageGapPaths, Is.Empty);
+            Assert.That(report.DuplicateLegacyGameplayAssetPaths, Is.Empty);
+            Assert.That(report.AliasUsage.Hits, Is.Empty);
         }
 
         [Test]
@@ -42,21 +44,19 @@ namespace Game.Feature.Stages.Editor.Tests
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
-                Phase = StageValidationPhase.Phase5_Hardening,
-                GrandfatherGameplayAssetGuids = GrandfatherGameplayAssetGuidRegistry.CreateSet(),
+                Phase = StageValidationPhase.Phase6_SunsetFinalization,
             });
 
             var governanceReport = new StageCatalogKnownWarningValidator().Validate(catalog, catalogReport, ledger);
 
             Assert.That(governanceReport.Issues, Is.Empty);
-            Assert.That(catalogReport.Issues.Count(issue => issue.Severity == StageValidationSeverity.Warning), Is.EqualTo(2));
+            Assert.That(catalogReport.Issues.Any(issue => issue.Code == "gameplay.name-drift"), Is.False);
         }
 
         [Test]
-        public void KnownWarningLedger_PathDriftRequiresLedgerUpdate()
+        public void KnownWarningLedger_RejectsUnexpectedRows_WhenCatalogWarningsAreZero()
         {
             var catalog = AssetDatabase.LoadAssetAtPath<StageCatalog>(CatalogAssetPath);
-            var sourceLedger = AssetDatabase.LoadAssetAtPath<StageCatalogKnownWarningLedger>(KnownWarningLedgerAssetPath);
             var catalogReport = new StageCatalogValidator().Validate(catalog, new StageCatalogValidationOptions
             {
                 RequirePresentationDefinition = true,
@@ -64,18 +64,28 @@ namespace Game.Feature.Stages.Editor.Tests
                 RequireRewardDefinition = true,
                 RequireProgressionDefinition = true,
                 Timing = StageValidationTiming.TestOrCi,
-                Phase = StageValidationPhase.Phase5_Hardening,
-                GrandfatherGameplayAssetGuids = GrandfatherGameplayAssetGuidRegistry.CreateSet(),
+                Phase = StageValidationPhase.Phase6_SunsetFinalization,
             });
             var ledger = ScriptableObject.CreateInstance<StageCatalogKnownWarningLedger>();
-            var entries = sourceLedger.Entries.ToArray();
-            entries[0].ExpectedAssetPath = "Assets/_Features/Stages/Content/renamed.asset";
-            ledger.SetEntries(entries);
+            ledger.SetEntries(new[]
+            {
+                new StageCatalogKnownWarningEntry
+                {
+                    IssueCode = "gameplay.name-drift",
+                    AssetGuid = "synthetic-guid",
+                    ExpectedAssetPath = "Assets/_Features/Stages/Content/synthetic-stage/synthetic-stage.asset",
+                    ExpectedAssetName = "synthetic-stage",
+                    ExpectedStageId = "synthetic-stage",
+                    Owner = "stage-content-refactor",
+                    Reason = "synthetic test row",
+                    RemovalGate = "test-only",
+                },
+            });
 
             try
             {
                 var governanceReport = new StageCatalogKnownWarningValidator().Validate(catalog, catalogReport, ledger);
-                Assert.That(governanceReport.Issues.Any(issue => issue.Code == "known-warning.asset-path-drift"), Is.True);
+                Assert.That(governanceReport.Issues.Any(issue => issue.Code == "known-warning.missing"), Is.True);
             }
             finally
             {
@@ -92,18 +102,37 @@ namespace Game.Feature.Stages.Editor.Tests
             var governanceReport = new StageAliasGovernanceValidator().Validate(aliasTable, ledger);
 
             Assert.That(governanceReport.Issues, Is.Empty);
-            Assert.That(aliasTable.Entries.Count, Is.EqualTo(3));
+            Assert.That(aliasTable.Entries.Count, Is.Zero);
+            Assert.That(ledger.Entries.Count, Is.Zero);
         }
 
         [Test]
         public void AliasGovernanceLedger_MetadataDriftRequiresLedgerUpdate()
         {
-            var aliasTable = AssetDatabase.LoadAssetAtPath<StageIdAliasTable>("Assets/_Features/Stages/Content/StageIdAliasTable.asset");
-            var sourceLedger = AssetDatabase.LoadAssetAtPath<StageAliasGovernanceLedger>(AliasGovernanceLedgerAssetPath);
+            var aliasTable = ScriptableObject.CreateInstance<StageIdAliasTable>();
             var ledger = ScriptableObject.CreateInstance<StageAliasGovernanceLedger>();
-            var entries = sourceLedger.Entries.ToArray();
-            entries[0].Owner = string.Empty;
-            ledger.SetEntries(entries);
+            aliasTable.SetEntries(new[]
+            {
+                new StageIdAliasEntry
+                {
+                    DeprecatedStageId = "synthetic-stage-alias",
+                    CurrentStageId = StageId.CreateOrThrow("combined-gameplay-showcase"),
+                },
+            });
+            ledger.SetEntries(new[]
+            {
+                new StageAliasGovernanceEntry
+                {
+                    DeprecatedStageId = "synthetic-stage-alias",
+                    CurrentStageId = StageId.CreateOrThrow("combined-gameplay-showcase"),
+                    SourceKind = "test",
+                    SourceAssetGuid = "synthetic-guid",
+                    Owner = string.Empty,
+                    Reason = "synthetic row",
+                    IntroducedBy = "test",
+                    RemovalGate = "test-only",
+                },
+            });
 
             try
             {
@@ -113,51 +142,60 @@ namespace Game.Feature.Stages.Editor.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(ledger);
+                UnityEngine.Object.DestroyImmediate(aliasTable);
             }
         }
 
         [Test]
-        public void GameplayGuide_RecordsStageContentReportingWording_WithoutBroadGreenClaims()
+        public void AliasUsageScanner_ReportsNoDeprecatedAliasHitsAcrossTrackedProjectFiles()
+        {
+            var result = new StageAliasUsageScanner().Scan(StageAliasUsageScanner.P3HistoricalAliasIds);
+
+            Assert.That(result.Hits, Is.Empty);
+        }
+
+        [Test]
+        public void GameplayGuide_RecordsP3StageContentReportingWording_WithoutBroadGreenClaims()
         {
             var guide = ReadRepoFile(GameplayGuidePath);
 
             Assert.That(guide, Does.Contain("Stage content refactor reporting wording"));
-            Assert.That(guide, Does.Contain("P2 close validated"));
+            Assert.That(guide, Does.Contain("P3 sunset validated"));
             Assert.That(guide, Does.Contain("targeted architecture/CI validated"));
-            Assert.That(guide, Does.Contain("broad project-wide regression validated"));
-            Assert.That(guide, Does.Contain("project-wide green"));
-            Assert.That(guide, Does.Contain("Stage-Content-P2-Close-Hardening-2026-04-22.md"));
+            Assert.That(guide, Does.Contain("Stage-Content-P3-Sunset-2026-04-22.md"));
             Assert.That(guide, Does.Contain("Stage-DefaultStageId-Editor-Direct-Play-Contract.md"));
+            Assert.That(guide, Does.Contain("project-wide green"));
+            Assert.That(guide, Does.Contain("Disallowed wording"));
         }
 
         [Test]
-        public void CloseNote_RecordsBoundedEvidence_AndP3EntryGates()
+        public void CloseNote_RecordsBoundedEvidence_AndSeparatesRemovedItemsFromConsciousExceptions()
         {
             var closeNote = ReadRepoFile(CloseNotePath);
 
-            Assert.That(closeNote, Does.Contain("# Stage Content P2 Close Hardening 2026-04-22"));
+            Assert.That(closeNote, Does.Contain("# Stage Content P3 Sunset 2026-04-22"));
             Assert.That(closeNote, Does.Contain("`./run_tests.sh core`: green"));
             Assert.That(closeNote, Does.Contain("Stage catalog CI validation passed."));
-            Assert.That(closeNote, Does.Contain("`./run_tests.sh full`: 이 close note의 근거로 실행하지 않았다."));
-            Assert.That(closeNote, Does.Contain("## P3 Entry Gates"));
-            Assert.That(closeNote, Does.Contain("P3-A bridge sunset"));
-            Assert.That(closeNote, Does.Contain("P3-E broad verification"));
+            Assert.That(closeNote, Does.Contain("## Removed"));
+            Assert.That(closeNote, Does.Contain("## Conscious Exceptions"));
+            Assert.That(closeNote, Does.Contain("P3 sunset validated"));
+            Assert.That(closeNote, Does.Contain("targeted architecture/CI validated"));
             Assert.That(closeNote, Does.Contain("project-wide green"));
+            Assert.That(closeNote, Does.Contain("금지 claim"));
         }
 
         [Test]
-        public void DefaultStageIdContract_DocumentsEditorOnlyFallbackAndSunsetCriteria()
+        public void DirectPlayContract_DocumentsLauncherOnlyWorkflow_AndRemovedRuntimeFallback()
         {
-            var contract = ReadRepoFile(DefaultStageIdContractPath);
+            var contract = ReadRepoFile(DirectPlayContractPath);
 
-            Assert.That(contract, Does.Contain("# Stage defaultStageId Editor Direct-Play Contract"));
-            Assert.That(contract, Does.Contain("production runtime source-of-truth는 launch context다."));
-            Assert.That(contract, Does.Contain("CreateLaunchContextOnly"));
-            Assert.That(contract, Does.Contain("CreateEditorDirectPlayFallback"));
-            Assert.That(contract, Does.Contain("Application.isEditor == false"));
-            Assert.That(contract, Does.Contain("## Sunset Criteria"));
-            Assert.That(contract, Does.Contain("manual scene play without launch context"));
-            Assert.That(contract, Does.Contain("runtime fallback support"));
+            Assert.That(contract, Does.Contain("# Stage Editor Direct-Play Launcher Contract"));
+            Assert.That(contract, Does.Contain("StageLoadRequest.CreateLaunchContextOnly"));
+            Assert.That(contract, Does.Contain("StageEditorDirectPlayCatalog"));
+            Assert.That(contract, Does.Contain("StageEditorDirectPlayLauncher"));
+            Assert.That(contract, Does.Contain("Launch Current Scene"));
+            Assert.That(contract, Does.Contain("defaultStageId runtime fallback는 제거됐다"));
+            Assert.That(contract, Does.Not.Contain("CreateEditorDirectPlayFallback"));
         }
 
         private static string ReadRepoFile(string relativePath)

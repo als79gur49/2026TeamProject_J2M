@@ -122,20 +122,20 @@
 
 ## Stage content refactor reporting wording / Stage content refactor reporting wording
 ### 한국어
-- Stage Content Layer Refactor P2 close/hardening 결과는 실제로 실행한 lane와 고정한 architecture/CI contract만 말해야 한다.
+- Stage Content Layer Refactor P3 sunset 결과는 실제로 실행한 lane와 고정한 architecture/CI contract만 말해야 한다.
 - 아래 네 reporting level만 공식적으로 사용한다.
-  - `P2 close validated`
-    - claim 가능 조건: canonical runtime path, editor seam governance, exact known-warning governance, alias governance, `defaultStageId` editor direct-play contract가 코드/테스트/문서에 반영됐을 때
+  - `P3 sunset validated`
+    - claim 가능 조건: canonical runtime path, launcher-only direct-play contract, empty known-warning governance, empty alias governance, duplicate legacy asset removal이 코드/테스트/문서에 반영됐을 때
     - imply하지 않는 것: broad project-wide green, unrelated gameplay/UI regression closure
-    - approved example: `Stage content P2 close hardening is validated on the canonical path and governance lanes.`
+    - approved example: `Stage content P3 sunset is validated on the canonical path and governance lanes.`
   - `core lane validated`
     - claim 가능 조건: `./run_tests.sh core` 또는 동등한 core lane이 통과했을 때
     - imply하지 않는 것: full project-wide regression closure
-    - approved example: `Stage content close hardening is validated in core lanes.`
+    - approved example: `Stage content sunset is validated in core lanes.`
   - `targeted architecture/CI validated`
     - claim 가능 조건: `StageCatalogCiValidationEntryPoint.Run`과 targeted editor/runtime architecture tests가 통과했을 때
     - imply하지 않는 것: broad backlog closure, unrelated baseline recovery
-    - approved example: `Stage catalog governance and editor seam contracts are validated by targeted architecture/CI lanes.`
+    - approved example: `Stage catalog governance and launcher contracts are validated by targeted architecture/CI lanes.`
   - `broad project-wide regression validated`
     - claim 가능 조건: broader `full` 또는 동등한 project-wide validation lane이 실제로 실행되어 pass했을 때
     - imply하지 않는 것: none beyond that executed broad lane
@@ -146,24 +146,24 @@
   - `all stage-content regressions are closed`
   - `full regression is closed`
     - `core` + targeted architecture/CI evidence만으로는 위 표현을 사용할 수 없다.
-- Stage-content close note는 [Stage-Content-P2-Close-Hardening-2026-04-22.md](./Stage-Content-P2-Close-Hardening-2026-04-22.md)를 따른다.
-- `defaultStageId` editor direct-play contract와 sunset criteria는 [Stage-DefaultStageId-Editor-Direct-Play-Contract.md](./Stage-DefaultStageId-Editor-Direct-Play-Contract.md)를 따른다.
+- Stage-content close note는 [Stage-Content-P3-Sunset-2026-04-22.md](./Stage-Content-P3-Sunset-2026-04-22.md)를 따른다.
+- stage editor direct-play launcher contract는 [Stage-DefaultStageId-Editor-Direct-Play-Contract.md](./Stage-DefaultStageId-Editor-Direct-Play-Contract.md)를 따른다.
 
 ### English Original
-- Stage Content Layer Refactor P2 close/hardening reporting must describe only the lanes that actually ran and the architecture/CI contracts that were explicitly locked.
+- Stage Content Layer Refactor P3 sunset reporting must describe only the lanes that actually ran and the architecture/CI contracts that were explicitly locked.
 - Use only these four reporting levels.
-  - `P2 close validated`
-    - may be claimed when the canonical runtime path, editor-seam governance, exact known-warning governance, alias governance, and the `defaultStageId` editor direct-play contract are reflected in code, tests, and docs
+  - `P3 sunset validated`
+    - may be claimed when the canonical runtime path, launcher-only direct-play contract, empty known-warning governance, empty alias governance, and duplicate legacy asset removal are reflected in code, tests, and docs
     - does not imply broad project-wide green or unrelated gameplay/UI regression closure
-    - approved example: `Stage content P2 close hardening is validated on the canonical path and governance lanes.`
+    - approved example: `Stage content P3 sunset is validated on the canonical path and governance lanes.`
   - `core lane validated`
     - may be claimed when `./run_tests.sh core` or an equivalent core lane passes
     - does not imply full project-wide regression closure
-    - approved example: `Stage content close hardening is validated in core lanes.`
+    - approved example: `Stage content sunset is validated in core lanes.`
   - `targeted architecture/CI validated`
     - may be claimed when `StageCatalogCiValidationEntryPoint.Run` and the targeted editor/runtime architecture tests pass
     - does not imply broad-backlog closure or unrelated baseline recovery
-    - approved example: `Stage catalog governance and editor seam contracts are validated by targeted architecture/CI lanes.`
+    - approved example: `Stage catalog governance and launcher contracts are validated by targeted architecture/CI lanes.`
   - `broad project-wide regression validated`
     - may be claimed only when the broader `full` lane or an equivalent project-wide validation lane actually ran and passed
     - does not imply anything beyond that executed broad lane
@@ -174,8 +174,8 @@
   - `all stage-content regressions are closed`
   - `full regression is closed`
     - core plus targeted architecture/CI evidence is not enough to use those claims.
-- Follow [Stage-Content-P2-Close-Hardening-2026-04-22.md](./Stage-Content-P2-Close-Hardening-2026-04-22.md) for the stage-content close note template.
-- Follow [Stage-DefaultStageId-Editor-Direct-Play-Contract.md](./Stage-DefaultStageId-Editor-Direct-Play-Contract.md) for the `defaultStageId` editor direct-play contract and sunset criteria.
+- Follow [Stage-Content-P3-Sunset-2026-04-22.md](./Stage-Content-P3-Sunset-2026-04-22.md) for the stage-content close note template.
+- Follow [Stage-DefaultStageId-Editor-Direct-Play-Contract.md](./Stage-DefaultStageId-Editor-Direct-Play-Contract.md) for the stage editor direct-play launcher contract.
 
 ## Display settings verification wording / Display settings verification wording
 ### 한국어

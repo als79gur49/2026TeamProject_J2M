@@ -1,49 +1,41 @@
-# Stage defaultStageId Editor Direct-Play Contract
+# Stage Editor Direct-Play Launcher Contract
 
-이 문서는 `defaultStageId`를 production fallback이 아니라 editor direct-play/test fallback으로만 취급하는 계약을 고정한다.
+이 문서는 stage-backed scene의 editor direct-play를 `defaultStageId` fallback이 아니라 launcher-driven launch context 주입으로만 허용하는 계약을 고정한다.
 
 ## Canonical Rule
 
 - canonical runtime path는 `StageLaunchContextStore`가 제공하는 `StageId`를 사용한다.
 - production runtime source-of-truth는 launch context다.
-- `defaultStageId`는 launch context가 없는 editor direct-play/test 상황에서만 제한적으로 사용한다.
+- `defaultStageId` runtime fallback는 제거됐다.
 
-## Code-Level Guard
+## Supported Workflow
 
 - `StageLoadRequest.CreateLaunchContextOnly(...)`
   - canonical runtime request factory
-  - `defaultStageId`를 사용하지 않는다.
-- `StageLoadRequest.CreateEditorDirectPlayFallback(...)`
-  - editor direct-play/test fallback factory
-  - 유효한 `defaultStageId`가 없으면 생성 자체가 실패한다.
-- `StageRuntimeContentResolver.Resolve(...)`
-  - launch context가 있으면 항상 그것을 우선 사용한다.
-  - launch context가 없고 fallback policy가 `None`이면 즉시 실패한다.
-  - launch context가 없고 fallback policy가 `EditorDirectPlayOnly`여도 `Application.isEditor == false`이면 즉시 실패한다.
-
-## Allowed Call Sites
-
-- `StageBackedGameplayShowcaseInstallerBase`와 동등한 editor direct-play showcase path
-- editor test path
-
-그 외 production runtime path는 `CreateLaunchContextOnly(...)`만 사용해야 한다.
+  - stage bootstrap은 launch context가 없으면 즉시 실패한다.
+- `StageEditorDirectPlayCatalog`
+  - 지원되는 stage-backed scene path를 canonical `StageId`에 매핑한다.
+- `StageEditorDirectPlayLauncher`
+  - `Launch Current Scene`
+  - `Replay Last Stage-Backed Scene`
+  - Play mode 진입 전에 pending launch context를 주입한다.
+- `StageLaunchContextStore`
+  - pending editor direct-play stage id를 1회 소비하고 current launch context로 승격한다.
 
 ## Disallowed Interpretation
 
-- `defaultStageId`를 production runtime convenience path로 승격하지 않는다.
-- `defaultStageId`를 scene-global fallback lookup으로 해석하지 않는다.
-- continue/retry의 canonical source를 `StageNavigationRequest` / `StageId`에서 다시 scene-local default 값으로 되돌리지 않는다.
+- scene open 후 바로 Play 하는 workflow를 supported direct-play path로 취급하지 않는다.
+- `defaultStageId`를 다른 이름의 scene-local runtime fallback으로 치환하지 않는다.
+- continue/retry의 canonical source를 `StageNavigationRequest` / `StageId`에서 scene-local default 값으로 되돌리지 않는다.
 
-## Sunset Criteria
+## Required Readiness
 
-`defaultStageId` fallback 제거는 아래 조건이 모두 충족될 때만 P3-C에서 수행한다.
-
-- 지원되는 direct-play 진입점이 모두 `StageLaunchContextStore` 주입 경로를 가진다.
-- stage-backed scene smoke/test가 fallback 없이 green이다.
-- `CreateEditorDirectPlayFallback(...)` 호출이 showcase/editor test 경로에서만 남아 있고 제거 계획이 승인됐다.
-- 팀 규약과 관련 문서가 manual scene play without launch context를 더 이상 지원하지 않는다고 명시한다.
+- 지원되는 stage-backed scene은 모두 `StageEditorDirectPlayCatalog`에 등록되어야 한다.
+- `StageSceneBootstrapValidator`는 direct-play catalog coverage와 `defaultStageId` residue absence를 함께 검증한다.
+- direct-play smoke/manual flow는 launcher 경유로만 기록한다.
+- fail-fast message는 `Tools/Stages/Direct Play/Launch Current Scene` 사용법을 안내해야 한다.
 
 ## Reporting Rule
 
-- `defaultStageId` 관련 변경은 `editor direct-play fallback hardening`으로만 보고한다.
+- direct-play 관련 변경은 `editor direct-play launcher contract` 또는 `defaultStageId sunset`으로만 보고한다.
 - `runtime fallback support` 또는 `production recovery path` 같은 표현은 금지한다.

@@ -543,14 +543,12 @@ namespace Game.Feature.Stages.Editor
             var rewardPath = $"{stageFolder}/{stageId.Value}_Reward.asset";
             var progressionPath = $"{stageFolder}/{stageId.Value}_Progression.asset";
 
-            var enemyCatalog = FindSiblingAsset<EnemyPresentationCatalog>(item.folderPath);
-            var staticCatalog = FindSiblingAsset<StaticEntityPresentationCatalog>(item.folderPath);
-            var seededPresentation = LegacyStagePresentationEditorBridge.Resolve(stageDefinition, enemyCatalog, staticCatalog);
+            EnsureLegacyPresentationBridgeIsNotRequired(stageDefinition, item.sourceAssetPath);
 
             var entry = AssetDatabase.LoadAssetAtPath<StageContentEntry>(entryPath);
             if (entry == null)
             {
-                entry = StageContentEntryCreationTool.CreateForStageDefinition(stageDefinition, stageId, seededPresentation);
+                entry = StageContentEntryCreationTool.CreateForStageDefinition(stageDefinition, stageId);
                 createdAssets.Add(entryPath);
                 createdAssets.Add(presentationPath);
                 createdAssets.Add(clearPath);
@@ -572,7 +570,6 @@ namespace Game.Feature.Stages.Editor
             entry.AssignProgressionDefinition(progression);
             var entryGuid = AssetDatabase.AssetPathToGUID(entryPath);
             presentation.SetOwnerMetadata(entry, entryGuid);
-            presentation.ApplyResolvedData(seededPresentation);
             clearEvaluation.SetOwnerMetadata(entry, entryGuid);
             reward.SetOwnerMetadata(entry, entryGuid);
             progression.SetOwnerMetadata(entry, entryGuid);
@@ -591,6 +588,28 @@ namespace Game.Feature.Stages.Editor
             return entry;
         }
 
+        private static void EnsureLegacyPresentationBridgeIsNotRequired(
+            StageDefinition stageDefinition,
+            string sourceAssetPath)
+        {
+            if (stageDefinition == null)
+            {
+                throw new ArgumentNullException(nameof(stageDefinition));
+            }
+
+            var spawns = stageDefinition.Spawns;
+            for (var i = 0; i < spawns.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(spawns[i].PresentationId))
+                {
+                    continue;
+                }
+
+                throw new InvalidOperationException(
+                    $"StageDefinition '{sourceAssetPath}' still serializes legacy PresentationId authoring. Canonical migration apply no longer supports bridge-seeded rescue; author a {nameof(StagePresentationDefinition)} explicitly before apply.");
+            }
+        }
+
         private static T LoadOrCreateCompanion<T>(string assetPath, string assetName, ICollection<string> createdAssets)
             where T : StageCompanionDefinitionBase
         {
@@ -605,19 +624,6 @@ namespace Game.Feature.Stages.Editor
             AssetDatabase.CreateAsset(asset, assetPath);
             createdAssets.Add(assetPath);
             return asset;
-        }
-
-        private static T FindSiblingAsset<T>(string folderPath)
-            where T : UnityEngine.Object
-        {
-            var searchFolder = folderPath;
-            var guids = AssetDatabase.FindAssets($"t:{typeof(T).Name}", new[] { searchFolder });
-            if (guids.Length != 1)
-            {
-                return null;
-            }
-
-            return AssetDatabase.LoadAssetAtPath<T>(AssetDatabase.GUIDToAssetPath(guids[0]));
         }
 
         private static void MergeAliases(

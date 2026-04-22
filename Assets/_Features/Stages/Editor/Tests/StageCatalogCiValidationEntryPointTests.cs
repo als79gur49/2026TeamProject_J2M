@@ -6,7 +6,7 @@ namespace Game.Feature.Stages.Editor.Tests
     public sealed class StageCatalogCiValidationEntryPointTests
     {
         [Test]
-        public void Run_WritesEditorAndGovernanceValidationSections()
+        public void Run_WritesGovernanceAndAliasUsageValidationSections()
         {
             var result = StageCatalogCiValidationEntryPoint.Run();
             var reportPath = Path.Combine("Temp", "StageCatalogValidation", "stage-catalog-validation.md");
@@ -15,9 +15,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(File.Exists(reportPath), Is.True);
 
             var reportText = File.ReadAllText(reportPath);
-            Assert.That(reportText, Does.Contain("## Editor Seam Issues"));
             Assert.That(reportText, Does.Contain("## Known Warning Governance Issues"));
             Assert.That(reportText, Does.Contain("## Alias Governance Issues"));
+            Assert.That(reportText, Does.Contain("## Alias Usage Issues"));
         }
     }
 }

@@ -27,7 +27,8 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.stage-definition.direct-ref"), Is.False);
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.compat-mode.production"), Is.False);
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.catalog-provider.null"), Is.False);
-            Assert.That(report.Issues.Any(issue => issue.Code == "scene.default-stage-id.invalid"), Is.False);
+            Assert.That(report.Issues.Any(issue => issue.Code == "scene.default-stage-id.residue"), Is.False);
+            Assert.That(report.Issues.Any(issue => issue.Code == "scene.direct-play.catalog.missing"), Is.False);
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.enemy-catalog.residue"), Is.False);
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.static-catalog.residue"), Is.False);
         }

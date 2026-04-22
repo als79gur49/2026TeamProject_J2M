@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Game.Feature.Gameplay.Host;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -50,6 +51,7 @@ namespace Game.Feature.Stages.Editor
         {
             options ??= StageCatalogValidationOptions.Default;
             var report = new StageValidationReport();
+            var directPlayCatalog = StageEditorDirectPlayCatalog.LoadDefault();
             if (scenePaths == null)
             {
                 return report;
@@ -57,7 +59,7 @@ namespace Game.Feature.Stages.Editor
 
             for (var i = 0; i < scenePaths.Count; i++)
             {
-                ValidateScene(scenePaths[i], options, report);
+                ValidateScene(scenePaths[i], directPlayCatalog, options, report);
             }
 
             return report;
@@ -120,6 +122,7 @@ namespace Game.Feature.Stages.Editor
 
         private static void ValidateScene(
             string scenePath,
+            StageEditorDirectPlayCatalog directPlayCatalog,
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
@@ -147,6 +150,7 @@ namespace Game.Feature.Stages.Editor
             try
             {
                 var installers = scene.GetRootGameObjects();
+                var hasStageInstaller = false;
                 for (var i = 0; i < installers.Length; i++)
                 {
                     var stageInstaller = installers[i].GetComponentInChildren<StageBackedGameplayShowcaseInstallerBase>(true);
@@ -155,7 +159,13 @@ namespace Game.Feature.Stages.Editor
                         continue;
                     }
 
+                    hasStageInstaller = true;
                     ValidateInstaller(scenePath, stageInstaller, options, report);
+                }
+
+                if (hasStageInstaller)
+                {
+                    ValidateSceneLevelContracts(scenePath, directPlayCatalog, options, report);
                 }
             }
             finally
@@ -173,7 +183,6 @@ namespace Game.Feature.Stages.Editor
             var serializedInstaller = new SerializedObject(installer);
             var modeProperty = serializedInstaller.FindProperty("stageLoadSourceMode");
             var providerProperty = serializedInstaller.FindProperty("stageCatalogProvider");
-            var defaultStageIdProperty = serializedInstaller.FindProperty("defaultStageId");
             var stageDefinitionProperty = serializedInstaller.FindProperty("stageDefinition");
             var stageContentEntryProperty = serializedInstaller.FindProperty("stageContentEntry");
             var enemyCatalogProperty = serializedInstaller.FindProperty("enemyPresentationCatalog");
@@ -216,17 +225,6 @@ namespace Game.Feature.Stages.Editor
                     options.Timing);
             }
 
-            if (!IsSerializedStageIdValid(defaultStageIdProperty))
-            {
-                report.Add(
-                    ResolveProductionSceneContractSeverity(options),
-                    "scene.default-stage-id.invalid",
-                    $"Production scene '{scenePath}' is missing a valid defaultStageId fallback.",
-                    installer,
-                    scenePath,
-                    options.Timing);
-            }
-
             if (stageContentEntryProperty?.objectReferenceValue != null)
             {
                 AddSceneIssue(
@@ -262,15 +260,56 @@ namespace Game.Feature.Stages.Editor
             }
         }
 
-        private static bool IsSerializedStageIdValid(SerializedProperty property)
+        private static void ValidateSceneLevelContracts(
+            string scenePath,
+            StageEditorDirectPlayCatalog directPlayCatalog,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
         {
-            if (property == null)
+            if (HasSerializedDefaultStageIdResidue(scenePath))
+            {
+                report.Add(
+                    ResolveProductionSceneContractSeverity(options),
+                    "scene.default-stage-id.residue",
+                    $"Production scene '{scenePath}' still contains serialized defaultStageId residue.",
+                    assetPath: scenePath,
+                    timing: options.Timing);
+            }
+
+            if (directPlayCatalog == null)
+            {
+                report.Add(
+                    ResolveProductionSceneContractSeverity(options),
+                    "scene.direct-play.catalog.null",
+                    $"Production scene '{scenePath}' requires a {nameof(StageEditorDirectPlayCatalog)} asset at '{StageEditorDirectPlayCatalog.DefaultAssetPath}'.",
+                    assetPath: scenePath,
+                    timing: options.Timing);
+                return;
+            }
+
+            if (!directPlayCatalog.TryResolveScenePath(scenePath, out _))
+            {
+                report.Add(
+                    ResolveProductionSceneContractSeverity(options),
+                    "scene.direct-play.catalog.missing",
+                    $"Production scene '{scenePath}' is not registered in '{StageEditorDirectPlayCatalog.DefaultAssetPath}'.",
+                    directPlayCatalog,
+                    StageEditorDirectPlayCatalog.DefaultAssetPath,
+                    options.Timing);
+            }
+        }
+
+        private static bool HasSerializedDefaultStageIdResidue(string scenePath)
+        {
+            var projectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
+            var fullPath = Path.Combine(projectRoot, scenePath.Replace('/', Path.DirectorySeparatorChar));
+            if (!File.Exists(fullPath))
             {
                 return false;
             }
 
-            var valueProperty = property.FindPropertyRelative("value");
-            return valueProperty != null && StageIdNormalizer.IsCanonical(valueProperty.stringValue);
+            var sceneText = File.ReadAllText(fullPath);
+            return sceneText.Contains("\ndefaultStageId:", StringComparison.Ordinal);
         }
 
         private static StageValidationSeverity ResolveProductionSceneContractSeverity(StageCatalogValidationOptions options)
