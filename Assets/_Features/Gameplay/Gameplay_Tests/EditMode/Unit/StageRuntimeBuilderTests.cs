@@ -15,11 +15,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class StageRuntimeBuilderTests
     {
         private const string CombinedStageAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+            "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset";
         private const string CombinedPresentationAssetPath =
             "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string TutorialStageAssetPath =
-            "Assets/_Features/Stages/Stage_TutorialScene/Stage_TutorialSecne.asset";
+            "Assets/_Features/Stages/Content/tutorial-scene/tutorial-scene.asset";
         private const string TutorialEnemyProfileAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset";
         private const int ConfiguredShowcaseEnemyId = 54;

@@ -12,26 +12,26 @@ namespace Game.Feature.Stages.Editor.Tests
         public void Analyze_WithManualOverride_MarksOverrideAndUsesOverrideDisposition()
         {
             var baseline = StageCatalogMigrationTool.Analyze();
-            var staleDuplicate = baseline.items.Single(item =>
-                item.sourceAssetPath == "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase 1.asset");
+            var combinedPrimary = baseline.items.Single(item =>
+                item.sourceAssetPath == "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset");
             var plan = CreatePlan(new StageCatalogMigrationPlanEntry
             {
-                SourceAssetGuid = staleDuplicate.sourceAssetGuid,
+                SourceAssetGuid = combinedPrimary.sourceAssetGuid,
                 Disposition = StageCatalogMigrationDisposition.AliasOnly,
                 CanonicalStageId = "combined-gameplay-showcase",
-                AliasSourceIds = new[] { "Stage_CombinedGameplayShowcase 1" },
+                AliasSourceIds = new[] { "combined-gameplay-showcase-copy" },
                 ForcePrimary = false,
             });
 
             try
             {
                 var overridden = StageCatalogMigrationTool.Analyze(plan).items.Single(item =>
-                    item.sourceAssetGuid == staleDuplicate.sourceAssetGuid);
+                    item.sourceAssetGuid == combinedPrimary.sourceAssetGuid);
 
                 Assert.That(overridden.overrideApplied, Is.True);
                 Assert.That(overridden.disposition, Is.EqualTo(StageCatalogMigrationDisposition.AliasOnly.ToString()));
                 Assert.That(overridden.chosenStageId, Is.EqualTo("combined-gameplay-showcase"));
-                Assert.That(overridden.aliasPlan, Is.EqualTo(new[] { "Stage_CombinedGameplayShowcase 1" }));
+                Assert.That(overridden.aliasPlan, Is.EqualTo(new[] { "combined-gameplay-showcase-copy" }));
             }
             finally
             {

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 34338d9a5ccd4ded8ee77e24852e6087, type: 3}
-  m_Name: Stage_TutorialSecne
+  m_Name: tutorial-scene
   m_EditorClassIdentifier: 
   board:
     MinInclusive: {x: 0, y: 0}

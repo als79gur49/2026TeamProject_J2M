@@ -182,7 +182,7 @@ namespace Game.Feature.Stages
             }
 
             var gameplayAssetPath = GetAssetPath(entry.GameplayDefinition);
-            if (entry.StageId.IsValid && !IsGameplayDefinitionGrandfathered(entry.GameplayDefinition, options))
+            if (entry.StageId.IsValid)
             {
                 var expectedFolder = $"{CanonicalContentRoot}/{entry.StageId.Value}";
                 if (!gameplayAssetPath.StartsWith(expectedFolder, StringComparison.Ordinal))
@@ -190,7 +190,7 @@ namespace Game.Feature.Stages
                     report.Add(
                         ResolveGameplayPathSeverity(options),
                         "gameplay.path.noncanonical",
-                        $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' must live under canonical folder '{expectedFolder}' unless explicitly grandfathered.",
+                        $"Gameplay StageDefinition '{entry.GameplayDefinition.name}' must live under canonical folder '{expectedFolder}'.",
                         entry.GameplayDefinition,
                         gameplayAssetPath,
                         options.Timing);
@@ -913,24 +913,6 @@ namespace Game.Feature.Stages
             return options.Phase >= StageValidationPhase.Phase5_Hardening
                 ? StageValidationSeverity.Error
                 : StageValidationSeverity.Warning;
-        }
-
-        private static bool IsGameplayDefinitionGrandfathered(
-            StageDefinition gameplayDefinition,
-            StageCatalogValidationOptions options)
-        {
-            var guid = GetAssetGuid(gameplayDefinition);
-            if (string.IsNullOrEmpty(guid))
-            {
-                return false;
-            }
-
-            if (options.GrandfatherGameplayAssetGuids != null)
-            {
-                return options.GrandfatherGameplayAssetGuids.Contains(guid);
-            }
-
-            return GrandfatherGameplayAssetGuidRegistry.Contains(guid);
         }
 
         private static string GetAssetPath(UnityEngine.Object asset)

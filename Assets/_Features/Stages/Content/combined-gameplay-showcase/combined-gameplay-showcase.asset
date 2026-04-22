@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 34338d9a5ccd4ded8ee77e24852e6087, type: 3}
-  m_Name: Stage_CombinedGameplayShowcase 1
+  m_Name: combined-gameplay-showcase
   m_EditorClassIdentifier: 
   board:
     MinInclusive: {x: 0, y: 0}
@@ -29,7 +29,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   boxSpawns:
   - EntityId: 30
     Kind: 2
@@ -43,7 +43,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 31
     Kind: 2
     Cell:
@@ -56,7 +56,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 36
     Kind: 2
     Cell:
@@ -69,7 +69,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 32
     Kind: 2
     Cell:
@@ -82,7 +82,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 33
     Kind: 2
     Cell:
@@ -95,7 +95,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 34
     Kind: 2
     Cell:
@@ -108,7 +108,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 37
     Kind: 2
     Cell:
@@ -121,7 +121,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 35
     Kind: 2
     Cell:
@@ -134,7 +134,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 40
     Kind: 2
     Cell:
@@ -147,7 +147,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 41
     Kind: 2
     Cell:
@@ -160,7 +160,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 42
     Kind: 2
     Cell:
@@ -173,7 +173,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 43
     Kind: 2
     Cell:
@@ -186,8 +186,21 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   enemySpawns:
+  - EntityId: 54
+    Kind: 1
+    Cell:
+      face: 0
+      x: 6
+      y: 2
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: ecd4a3363c184a27a5b7cefde9ae2d55, type: 2}
+    PresentationId: 
   - EntityId: 55
     Kind: 1
     Cell:
@@ -200,7 +213,7 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 051f0a3982af4009b6013ba589a7f8d7, type: 2}
-    EnemyPresentationId: nonAttacking_showcase
+    PresentationId: 
   - EntityId: 56
     Kind: 1
     Cell:
@@ -213,7 +226,20 @@ MonoBehaviour:
     EnemyAiMode: 1
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 11400000, guid: 8d6b1bc1c4aa4d57b9c6d8df30d7e6a2, type: 2}
-    EnemyPresentationId: nonAttacking_showcase
+    PresentationId: 
+  - EntityId: 57
+    Kind: 1
+    Cell:
+      face: 0
+      x: 10
+      y: 2
+    Facing: 4
+    Hp: 3
+    BoxCapabilities: 0
+    EnemyAiMode: 1
+    EnemyAiStateTimer: 0
+    EnemyAiProfile: {fileID: 11400000, guid: 47dcd8d154bb4222829ef11b18507f76, type: 2}
+    PresentationId: 
   wallSpawns:
   - EntityId: 196
     Kind: 3
@@ -227,7 +253,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 197
     Kind: 3
     Cell:
@@ -240,7 +266,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 198
     Kind: 3
     Cell:
@@ -253,7 +279,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 199
     Kind: 3
     Cell:
@@ -266,7 +292,7 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 
   - EntityId: 200
     Kind: 3
     Cell:
@@ -279,4 +305,4 @@ MonoBehaviour:
     EnemyAiMode: 0
     EnemyAiStateTimer: 0
     EnemyAiProfile: {fileID: 0}
-    EnemyPresentationId: 
+    PresentationId: 

@@ -19,7 +19,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
     public sealed class CombinedGameplayShowcaseInstallerTests
     {
         private const string CombinedStageAssetPath =
-            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Stage_CombinedGameplayShowcase.asset";
+            "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase.asset";
         private const string CombinedEnemyPresentationCatalogAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
         private const string CombinedPresentationAssetPath =
@@ -630,13 +630,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(providerField, Is.Not.Null);
             providerField.SetValue(installer, provider);
 
-            var defaultStageIdField = typeof(StageBackedGameplayShowcaseInstallerBase).GetField(
-                "defaultStageId",
-                BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.That(defaultStageIdField, Is.Not.Null);
-            defaultStageIdField.SetValue(installer, StageId.CreateOrThrow("combined-gameplay-showcase"));
-
             StageLaunchContextStore.Clear();
+            StageLaunchContextStore.SetCurrent(StageId.CreateOrThrow("combined-gameplay-showcase"));
         }
 
         private static void AssignTimingPresets(CombinedGameplayShowcaseInstaller installer)
