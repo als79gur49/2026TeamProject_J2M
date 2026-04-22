@@ -470,6 +470,24 @@ namespace Game.Feature.UI.Tests
         private static UIFlowCoordinator CreateCoordinator(
             FakeGameplayPauseService pauseService,
             FakePopupRuntimeFactory runtimeFactory,
+            FakeScreenRuntimeFactory screenRuntimeFactory,
+            ManualGameplayUiPresentationSource presentationSource,
+            out ScreenController screenController,
+            out PopupController popupController)
+        {
+            return CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out screenController,
+                out popupController,
+                out _);
+        }
+
+        private static UIFlowCoordinator CreateCoordinator(
+            FakeGameplayPauseService pauseService,
+            FakePopupRuntimeFactory runtimeFactory,
             out ScreenController screenController,
             out PopupController popupController,
             out FakeStageLaunchRouter stageLaunchRouter)
@@ -482,6 +500,20 @@ namespace Game.Feature.UI.Tests
                 out screenController,
                 out popupController,
                 out stageLaunchRouter);
+        }
+
+        private static UIFlowCoordinator CreateCoordinator(
+            FakeGameplayPauseService pauseService,
+            FakePopupRuntimeFactory runtimeFactory,
+            out ScreenController screenController,
+            out PopupController popupController)
+        {
+            return CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                out screenController,
+                out popupController,
+                out _);
         }
 
         private static UITickEventBatch CreateStageClearedBatch(int tickIndex)
