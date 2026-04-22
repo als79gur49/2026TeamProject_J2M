@@ -55,26 +55,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageRuntimeContentResolver_CatalogMode_PrefersLaunchContextOverDefaultStageId()
+        public void StageRuntimeContentResolver_CatalogMode_ResolvesLaunchContextOnly()
         {
             StageLaunchContextStore.Clear();
             try
             {
-                var combinedEntry = CreateEntry("combined-gameplay-showcase");
                 var tutorialEntry = CreateEntry("tutorial-scene");
-                var provider = CreateCatalogProvider(new[] { combinedEntry, tutorialEntry }, aliasTable: null);
+                var provider = CreateCatalogProvider(new[] { CreateEntry("combined-gameplay-showcase"), tutorialEntry }, aliasTable: null);
                 var resolver = new StageRuntimeContentResolver();
                 StageLaunchContextStore.SetCurrent(tutorialEntry.StageId);
 
                 var resolved = resolver.Resolve(
-                    StageLoadRequest.CreateEditorDirectPlayFallback(
+                    StageLoadRequest.CreateLaunchContextOnly(
                         provider,
-                        combinedEntry.StageId,
                         sceneName: "StageRuntimeContentResolverTests"));
 
                 Assert.That(resolved.Entry, Is.SameAs(tutorialEntry));
                 Assert.That(resolved.UsedLaunchContext, Is.True);
-                Assert.That(resolved.UsedDefaultStageIdFallback, Is.False);
             }
             finally
             {
@@ -83,7 +80,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
-        public void StageRuntimeContentResolver_CatalogMode_DefaultStageIdFallbackRequiresExplicitOptIn()
+        public void StageRuntimeContentResolver_CatalogMode_ThrowsWhenLaunchContextIsMissing()
         {
             StageLaunchContextStore.Clear();
             var entry = CreateEntry("tutorial-scene");
@@ -97,7 +94,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         sceneName: "StageRuntimeContentResolverTests")));
 
             Assert.That(exception, Is.Not.Null);
-            StringAssert.Contains("defaultStageId fallback is not permitted", exception.Message);
+            StringAssert.Contains("Tools/Stages/Direct Play/Launch Current Scene", exception.Message);
         }
 
         [Test]

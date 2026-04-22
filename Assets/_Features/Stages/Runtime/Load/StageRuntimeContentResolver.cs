@@ -19,56 +19,29 @@ namespace Game.Feature.Stages
                 if (!resolver.TryResolve(launchStageId, out var launchEntry))
                 {
                     Debug.LogError(
-                        $"{request.SceneName} failed to resolve launch-context StageId '{launchStageId.Value}'. defaultStageId fallback not permitted when launch context is supplied.");
+                        $"{request.SceneName} failed to resolve launch-context StageId '{launchStageId.Value}'.");
                     throw new InvalidOperationException(
-                        $"{request.SceneName} failed to resolve launch-context StageId '{launchStageId.Value}'. defaultStageId fallback not permitted when launch context is supplied.");
+                        $"{request.SceneName} failed to resolve launch-context StageId '{launchStageId.Value}'.");
                 }
 
                 return new ResolvedStageContent(
                     launchStageId,
                     launchEntry,
-                    usedLaunchContext: true,
-                    usedDefaultStageIdFallback: false);
+                    usedLaunchContext: true);
             }
 
-            if (request.FallbackPolicy == StageLoadFallbackPolicy.None)
-            {
-                throw new InvalidOperationException(
-                    $"{request.SceneName} requires {nameof(StageLaunchContextStore)} to provide a StageId. defaultStageId fallback is not permitted for this runtime flow.");
-            }
+            throw new InvalidOperationException(BuildMissingLaunchContextMessage(request.SceneName));
+        }
 
-            if (request.FallbackPolicy != StageLoadFallbackPolicy.EditorDirectPlayOnly)
-            {
-                throw new InvalidOperationException(
-                    $"{request.SceneName} declared unsupported fallback policy '{request.FallbackPolicy}'.");
-            }
-
-            if (!Application.isEditor)
-            {
-                throw new InvalidOperationException(
-                    $"{request.SceneName} cannot use defaultStageId fallback outside the Unity editor direct-play flow.");
-            }
-
-            if (!request.DefaultStageId.IsValid)
-            {
-                throw new InvalidOperationException(
-                    $"{request.SceneName} is missing a valid defaultStageId for editor/test fallback.");
-            }
-
-            if (!resolver.TryResolve(request.DefaultStageId, out var defaultEntry))
-            {
-                throw new InvalidOperationException(
-                    $"{request.SceneName} failed to resolve fallback defaultStageId '{request.DefaultStageId.Value}'.");
-            }
-
-            Debug.LogWarning(
-                $"{request.SceneName} bootstrapped without launch context. Falling back to editor direct-play defaultStageId '{request.DefaultStageId.Value}'.");
-
-            return new ResolvedStageContent(
-                request.DefaultStageId,
-                defaultEntry,
-                usedLaunchContext: false,
-                usedDefaultStageIdFallback: true);
+        private static string BuildMissingLaunchContextMessage(string sceneName)
+        {
+            var baseMessage =
+                $"{sceneName} requires {nameof(StageLaunchContextStore)} to provide a canonical StageId before runtime bootstrap.";
+#if UNITY_EDITOR
+            return $"{baseMessage} Use Tools/Stages/Direct Play/Launch Current Scene or the editor direct-play launcher before entering Play mode.";
+#else
+            return baseMessage;
+#endif
         }
     }
 }

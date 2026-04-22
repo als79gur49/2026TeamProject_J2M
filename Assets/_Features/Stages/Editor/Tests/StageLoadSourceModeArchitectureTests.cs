@@ -41,7 +41,10 @@ namespace Game.Feature.Stages.Editor.Tests
                 {
                     var source = File.ReadAllText(path);
                     return source.Contains("LegacyStagePresentationEditorBridge") ||
-                           source.Contains("LegacyStagePresentationBridge");
+                           source.Contains("LegacyStagePresentationBridge") ||
+                           source.Contains("CreateEditorDirectPlayFallback") ||
+                           source.Contains("StageLoadFallbackPolicy") ||
+                           source.Contains("defaultStageId");
                 })
                 .Select(path => path.Replace('\\', '/'))
                 .ToArray();

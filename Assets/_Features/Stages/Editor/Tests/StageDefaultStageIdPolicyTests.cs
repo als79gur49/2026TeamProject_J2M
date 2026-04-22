@@ -36,58 +36,62 @@ namespace Game.Feature.Stages.Editor.Tests
         }
 
         [Test]
-        public void Resolve_PrefersLaunchContextOverDefaultStageId()
+        public void Resolve_UsesLaunchContextOnly_WhenCurrentStageIsPresent()
         {
-            Assert.That(StageId.TryCreate("combined-gameplay-showcase", out var catalogStageId), Is.True);
-            Assert.That(StageId.TryCreate("tutorial-scene", out var defaultStageId), Is.True);
-            StageLaunchContextStore.SetCurrent(catalogStageId);
+            StageLaunchContextStore.SetCurrent(entry.StageId);
 
-            var resolved = resolver.Resolve(StageLoadRequest.CreateEditorDirectPlayFallback(
+            var resolved = resolver.Resolve(StageLoadRequest.CreateLaunchContextOnly(
                 provider,
-                defaultStageId,
                 "PolicyTestScene"));
 
-            Assert.That(resolved.RequestedStageId, Is.EqualTo(catalogStageId));
+            Assert.That(resolved.RequestedStageId, Is.EqualTo(entry.StageId));
             Assert.That(resolved.UsedLaunchContext, Is.True);
-            Assert.That(resolved.UsedDefaultStageIdFallback, Is.False);
         }
 
         [Test]
-        public void Resolve_UsesDefaultStageIdOnlyWhenFallbackIsExplicitlyAllowed()
+        public void Resolve_ConsumesPendingEditorDirectPlayStageId()
         {
-            Assert.That(StageId.TryCreate("combined-gameplay-showcase", out var defaultStageId), Is.True);
+            StageLaunchContextStore.PrimePendingEditorDirectPlay(entry.StageId);
 
-            var resolved = resolver.Resolve(StageLoadRequest.CreateEditorDirectPlayFallback(
+            var resolved = resolver.Resolve(StageLoadRequest.CreateLaunchContextOnly(
                 provider,
-                defaultStageId,
                 "PolicyTestScene"));
 
-            Assert.That(resolved.RequestedStageId, Is.EqualTo(defaultStageId));
-            Assert.That(resolved.UsedLaunchContext, Is.False);
-            Assert.That(resolved.UsedDefaultStageIdFallback, Is.True);
+            Assert.That(resolved.RequestedStageId, Is.EqualTo(entry.StageId));
+            Assert.That(resolved.UsedLaunchContext, Is.True);
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out _), Is.False);
         }
 
         [Test]
-        public void Resolve_ThrowsWhenLaunchContextIsMissingAndFallbackIsDisabled()
+        public void Resolve_ThrowsWhenLaunchContextIsMissing()
         {
-            Assert.That(StageId.TryCreate("combined-gameplay-showcase", out var defaultStageId), Is.True);
-
             var exception = Assert.Throws<InvalidOperationException>(() => resolver.Resolve(StageLoadRequest.CreateLaunchContextOnly(
                 provider,
                 "PolicyTestScene")));
 
-            StringAssert.Contains("defaultStageId fallback is not permitted", exception?.Message);
+            StringAssert.Contains("Tools/Stages/Direct Play/Launch Current Scene", exception?.Message);
         }
 
         [Test]
-        public void CreateEditorDirectPlayFallback_RequiresValidDefaultStageId()
+        public void DirectPlayCatalog_ResolvesSupportedScenePaths()
         {
-            var exception = Assert.Throws<ArgumentException>(() => StageLoadRequest.CreateEditorDirectPlayFallback(
-                provider,
-                StageId.None,
-                "PolicyTestScene"));
+            var catalogAsset = StageEditorDirectPlayCatalog.LoadDefault();
 
-            StringAssert.Contains("valid defaultStageId", exception?.Message);
+            Assert.That(catalogAsset, Is.Not.Null);
+            Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/CombinedGameplayShowcase.unity", out var combinedStageId), Is.True);
+            Assert.That(combinedStageId.Value, Is.EqualTo("combined-gameplay-showcase"));
+            Assert.That(catalogAsset.TryResolveScenePath("Assets/Scenes/UIAudioScene.unity", out var uiAudioStageId), Is.True);
+            Assert.That(uiAudioStageId.Value, Is.EqualTo("tutorial-scene"));
+        }
+
+        [Test]
+        public void Launcher_PrimesPendingStageIdForRegisteredScene()
+        {
+            var stageId = StageEditorDirectPlayLauncher.PrimePendingLaunchForScene("Assets/Scenes/TutorialScene.unity");
+
+            Assert.That(stageId.Value, Is.EqualTo("tutorial-scene"));
+            Assert.That(StageLaunchContextStore.TryPeekPendingEditorDirectPlay(out var pendingStageId), Is.True);
+            Assert.That(pendingStageId, Is.EqualTo(stageId));
         }
     }
 }

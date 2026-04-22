@@ -7,8 +7,7 @@ namespace Game.Feature.Stages
         public ResolvedStageContent(
             StageId requestedStageId,
             StageContentEntry entry,
-            bool usedLaunchContext,
-            bool usedDefaultStageIdFallback)
+            bool usedLaunchContext)
         {
             if (entry == null)
             {
@@ -18,7 +17,6 @@ namespace Game.Feature.Stages
             RequestedStageId = requestedStageId;
             Entry = entry;
             UsedLaunchContext = usedLaunchContext;
-            UsedDefaultStageIdFallback = usedDefaultStageIdFallback;
         }
 
         public StageId RequestedStageId { get; }
@@ -26,7 +24,5 @@ namespace Game.Feature.Stages
         public StageContentEntry Entry { get; }
 
         public bool UsedLaunchContext { get; }
-
-        public bool UsedDefaultStageIdFallback { get; }
     }
 }

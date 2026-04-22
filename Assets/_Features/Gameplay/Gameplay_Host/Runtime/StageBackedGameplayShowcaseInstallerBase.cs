@@ -10,11 +10,8 @@ namespace Game.Feature.Gameplay.Host
 
         [Header("Stage Load")]
         [SerializeField] private ScriptableObjectStageCatalogProvider stageCatalogProvider;
-        [SerializeField] private StageId defaultStageId = StageId.None;
 
         protected ScriptableObjectStageCatalogProvider StageCatalogProvider => stageCatalogProvider;
-
-        protected StageId DefaultStageId => defaultStageId;
 
         protected sealed override InitialGameplayState BuildInitialGameplayState()
         {
@@ -40,9 +37,8 @@ namespace Game.Feature.Gameplay.Host
 
         private StageLoadRequest CreateStageLoadRequest()
         {
-            return StageLoadRequest.CreateEditorDirectPlayFallback(
+            return StageLoadRequest.CreateLaunchContextOnly(
                 stageCatalogProvider,
-                defaultStageId,
                 gameObject.scene.name);
         }
     }
