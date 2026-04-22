@@ -725,9 +725,6 @@ namespace Game.Feature.Gameplay.Loop
                     planPhaseResult.MovementActionPlanPayloads,
                     movementResolutionRecords));
             var frozenMovementReservationExport = movementReservationBook.Freeze(finalImpactReservations);
-            movementCommitEvents.Add(
-                $"ReservationExported|FreezeVersion={frozenMovementReservationExport.FreezeVersion}|ImpactCount={frozenMovementReservationExport.ImpactReservations.Count}");
-
             attackSnapshot = projectedWorld.CreateSnapshot();
             attackPlanResult = BuildAttackPlan(
                 attackSnapshot,
