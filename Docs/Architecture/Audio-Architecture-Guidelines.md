@@ -376,6 +376,52 @@ future extension note:
 - hidden channel leaf state는 내부 snapshot에 존재하지만 default `volume=1`, `muted=false`를 유지한다.
 - hidden channel은 `Master`에는 반응하지만 `Bgm` 또는 `Sfx` control에는 반응하지 않는다.
 
+### 8.7 UI SFX v1 Hidden Ui-Channel Policy And Ownership Matrix
+
+- UI SFX v1는 hidden `Ui` channel로 route한다.
+- hidden `Ui` channel은 `Master`를 따른다. `Sfx` mute/volume을 따라가지 않는다.
+- 이 동작은 v1에서 intentional하다. `Sfx`를 mute해도 UI feedback은 계속 들릴 수 있다.
+- public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다. 이번 작업 범위가 아니다.
+- UI SFX playback은 `Play2D`만 사용한다. `PlayAttached`, spatial ownership, attachment slot authoring은 금지다.
+- UI SFX owner split은 아래 둘뿐이다.
+  - flow success cue: `UIFlowCoordinator`가 `ScreenTransitioned`, `PopupOpened`, `PopupCompleted` lifecycle signal에서만 재생한다.
+  - local widget cue: `GameplayScreenRuntimeFactory` screen runtime이 widget-local interaction에서만 재생한다.
+- 위 controller lifecycle signal은 UI SFX trigger seam이다. analytics/general event bus로 widen하지 않는다.
+- canonical cue ownership truth-source table:
+
+| Interaction | Owner | Cue |
+| --- | --- | --- |
+| successful screen `Show` / `Push` / `Replace`, successful popup open | Flow | `NavigateForward` |
+| successful screen `Pop`, successful informational popup dismiss | Flow | `NavigateBack` |
+| `ConfirmPopup.Confirmed`, `PausePopup.Resumed`, `RewardPopup.Acknowledged` | Flow | `Confirm` |
+| `ConfirmPopup.Cancelled` including back-cancel | Flow | `Cancel` |
+| inventory search/filter/sort/row/primary/secondary, objective overview/session, settings resolution change | Local runtime | `Select` |
+| settings tooltip toggle, large-text toggle, fullscreen toggle, audio mute toggle | Local runtime | `Toggle` |
+| settings audio slider release commit | Local runtime | `AdjustValueCommit` |
+| initial root set, payload refresh, duplicate tooltip reject, display revert, consume/no-op/backdrop-consume, hover, disabled/no-op, cleanup close paths | Silent | none |
+
+- special cases are locked:
+  - `PausePopup.SettingsRequested`는 popup completion cue를 내지 않는다. successful `SettingsScreen` push만 `NavigateForward`를 낸다.
+  - `Display Apply`는 local cue를 내지 않는다. successful confirm popup open만 `NavigateForward`를 낸다.
+  - `Display Revert`는 v1에서 silent다.
+  - real screen pop을 만드는 back button은 `NavigateBack`을 정확히 한 번만 낸다.
+- authoring contract:
+  - canonical asset는 `UiAudioCueMap_V1.asset` 하나다.
+  - seven v1 cues는 map에 explicit entry로 모두 존재해야 한다.
+  - `AudioCategory.Ui`만 허용한다.
+  - looping definition은 금지다.
+  - `AudioBinding.Policy`는 null이어야 한다.
+  - attachment slot은 비어 있어야 한다.
+- temporary asset note:
+  - placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다.
+  - 이것은 final content polish를 의미하지 않는다.
+- reporting scope note:
+  - `build verified`
+  - `ui lane validated`
+  - `targeted UI SFX architecture validated`
+- out of scope note:
+  - hover, disabled/no-op, backdrop-consume feedback는 v1 shipped scope가 아니다.
+
 ## 9. Required Enforcement
 
 EditMode / structure guard:
