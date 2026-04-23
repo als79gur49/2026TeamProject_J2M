@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine.Events;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,6 +16,8 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private AudioControlRowRefs _sfxRow = new();
 
         private readonly Dictionary<AudioSettingsChannel, AudioControlRowRefs> _audioControls = new();
+        private readonly Dictionary<AudioSettingsChannel, UnityAction<float>> _sliderHandlers = new();
+        private readonly Dictionary<AudioSettingsChannel, UnityAction<bool>> _toggleHandlers = new();
         private bool _isVisible;
         private SettingsAudioViewModel _viewModel;
 
@@ -147,14 +150,16 @@ namespace Game.Feature.UI.Screens
 
             if (widgets.Slider != null)
             {
-                widgets.Slider.onValueChanged.RemoveAllListeners();
-                widgets.Slider.onValueChanged.AddListener(value => HandleAudioSliderChanged(channel, value));
+                var handler = GetOrCreateSliderHandler(channel);
+                widgets.Slider.onValueChanged.RemoveListener(handler);
+                widgets.Slider.onValueChanged.AddListener(handler);
             }
 
             if (widgets.Toggle != null)
             {
-                widgets.Toggle.onValueChanged.RemoveAllListeners();
-                widgets.Toggle.onValueChanged.AddListener(value => HandleAudioToggleChanged(channel, value));
+                var handler = GetOrCreateToggleHandler(channel);
+                widgets.Toggle.onValueChanged.RemoveListener(handler);
+                widgets.Toggle.onValueChanged.AddListener(handler);
             }
 
             if (widgets.InteractionRelay != null)
@@ -262,7 +267,6 @@ namespace Game.Feature.UI.Screens
         private void RefreshView()
         {
             CacheAudioControls();
-            RebindAudioControls();
             ApplyLayout();
 
             if (_viewModel == null)
@@ -294,12 +298,12 @@ namespace Game.Feature.UI.Screens
 
                 if (widgets.Slider != null)
                 {
-                    widgets.Slider.onValueChanged.RemoveAllListeners();
+                    widgets.Slider.onValueChanged.RemoveListener(GetOrCreateSliderHandler(pair.Key));
                 }
 
                 if (widgets.Toggle != null)
                 {
-                    widgets.Toggle.onValueChanged.RemoveAllListeners();
+                    widgets.Toggle.onValueChanged.RemoveListener(GetOrCreateToggleHandler(pair.Key));
                 }
 
                 if (widgets.InteractionRelay != null)
@@ -307,6 +311,30 @@ namespace Game.Feature.UI.Screens
                     widgets.InteractionRelay.InteractionCompleted -= HandleAudioInteractionCompleted;
                 }
             }
+        }
+
+        private UnityAction<float> GetOrCreateSliderHandler(AudioSettingsChannel channel)
+        {
+            if (_sliderHandlers.TryGetValue(channel, out var handler))
+            {
+                return handler;
+            }
+
+            handler = value => HandleAudioSliderChanged(channel, value);
+            _sliderHandlers[channel] = handler;
+            return handler;
+        }
+
+        private UnityAction<bool> GetOrCreateToggleHandler(AudioSettingsChannel channel)
+        {
+            if (_toggleHandlers.TryGetValue(channel, out var handler))
+            {
+                return handler;
+            }
+
+            handler = value => HandleAudioToggleChanged(channel, value);
+            _toggleHandlers[channel] = handler;
+            return handler;
         }
 
         private void ValidateRow(AudioControlRowRefs row, string rowName, List<string> issues)

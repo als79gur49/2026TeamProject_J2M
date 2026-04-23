@@ -285,6 +285,89 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
             }
         }
 
+        [UnityTest]
+        [Category("Full")]
+        public IEnumerator AudioManager_DestroyedLeasedSource_DoesNotShrinkPoolCapacity()
+        {
+            var rootObject = new GameObject("AudioDestroyedLeasedSourceCapacityRoot");
+            var clip = AudioClip.Create("DestroyedLeasedSourceCapacity", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(
+                    rootObject,
+                    new RecordingAudioSettingsPersistenceStore(),
+                    initialPoolSize: 1,
+                    maxPoolSize: 1);
+
+                var firstHandle = manager.Play2D(definition);
+                var firstSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(firstSnapshot, Has.Length.EqualTo(1));
+
+                UnityEngine.Object.DestroyImmediate(firstSnapshot[0].Source.gameObject);
+                yield return null;
+
+                Assert.That(firstHandle.IsValid, Is.False);
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+
+                var secondHandle = manager.Play2D(definition);
+                var secondSnapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(secondHandle.IsValid, Is.True);
+                Assert.That(secondSnapshot, Has.Length.EqualTo(1));
+                Assert.That(secondSnapshot[0].Source, Is.Not.Null);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void AudioManager_DestroyedAvailableSource_IsReplacedOnNextAcquire()
+        {
+            var rootObject = new GameObject("AudioDestroyedAvailableSourceCapacityRoot");
+            var clip = AudioClip.Create("DestroyedAvailableSourceCapacity", 4410, 1, 44100, false);
+            var definition = ScriptableObject.CreateInstance<SingleAudioDefinition>();
+
+            try
+            {
+                ConfigureDefinition(definition, clip, loop: true);
+                var manager = CreateInitializedManager(
+                    rootObject,
+                    new RecordingAudioSettingsPersistenceStore(),
+                    initialPoolSize: 1,
+                    maxPoolSize: 1);
+
+                var firstHandle = manager.Play2D(definition);
+                var firstSnapshot = manager.CaptureLivePlaybackSnapshots();
+                Assert.That(firstSnapshot, Has.Length.EqualTo(1));
+
+                firstHandle.Stop();
+                Assert.That(manager.CaptureLivePlaybackCount(), Is.EqualTo(0));
+
+                UnityEngine.Object.DestroyImmediate(firstSnapshot[0].Source.gameObject);
+
+                var secondHandle = manager.Play2D(definition);
+                var secondSnapshot = manager.CaptureLivePlaybackSnapshots();
+
+                Assert.That(secondHandle.IsValid, Is.True);
+                Assert.That(secondSnapshot, Has.Length.EqualTo(1));
+                Assert.That(secondSnapshot[0].Source, Is.Not.SameAs(firstSnapshot[0].Source));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(definition);
+                UnityEngine.Object.DestroyImmediate(clip);
+            }
+        }
+
         [Test]
         [Category("Full")]
         public void AudioManager_Destroy_CleansUpLiveHandleState()
@@ -426,11 +509,15 @@ namespace Game.Feature.Gameplay.Tests.PlayMode
 
         private static AudioManager CreateInitializedManager(
             GameObject rootObject,
-            RecordingAudioSettingsPersistenceStore persistenceStore)
+            RecordingAudioSettingsPersistenceStore persistenceStore,
+            int initialPoolSize = 8,
+            int maxPoolSize = 24)
         {
             var runtimeRoot = rootObject.AddComponent<AudioRuntimeRoot>();
             var manager = rootObject.AddComponent<AudioManager>();
             manager.SetPersistenceStoreOverrideForTesting(persistenceStore);
+            SetSerializedField(typeof(AudioManager), manager, "initialPoolSize", initialPoolSize);
+            SetSerializedField(typeof(AudioManager), manager, "maxPoolSize", maxPoolSize);
             runtimeRoot.InitializeRuntime();
             return manager;
         }
