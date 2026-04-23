@@ -210,7 +210,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            TryInitializeRandomWalkPatrolState(snapshot, source, input.TickIndex, writeContext, updates);
+            TryInitializePatrolStateFromProposal(snapshot, source, input.TickIndex, writeContext, updates);
 
             var suppressMovementThisTick = false;
             if (HasJumpMovementSkill())
@@ -943,21 +943,20 @@ namespace Game.Feature.Gameplay.Entities
                         return default;
                     }
 
-                    if (_patrolStrategyKind == PatrolStrategyKind.RandomWalk)
+                    if (TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var patrolProposal))
                     {
-                        var randomWalkPlan = BuildRandomWalkPlan(snapshot, source, tickIndex);
-                        if (randomWalkPlan.HasDirection &&
-                            EnemyMovementStrategyShared.ResolveDelta(randomWalkPlan.PlannedDirection) is { } patrolDelta &&
+                        if (patrolProposal.HasDirection &&
+                            EnemyMovementStrategyShared.ResolveDelta(patrolProposal.PlannedDirection) is { } patrolDelta &&
                             EnemyMovementStrategyShared.TryBuildMoveIntent(
                                 snapshot,
                                 source,
                                 _commonSettings,
                                 patrolDelta,
-                                out var randomWalkIntent))
+                                out var patrolIntent))
                         {
                             return new GroundLocomotionResolution(
                                 hasIntent: true,
-                                randomWalkIntent,
+                                patrolIntent,
                                 _locomotionTimingSettings.MoveCooldownTicks);
                         }
 
@@ -969,11 +968,11 @@ namespace Game.Feature.Gameplay.Entities
                             source,
                             _commonSettings,
                             _patrolSettings,
-                            out var patrolIntent))
+                            out var fallbackPatrolIntent))
                     {
                         return new GroundLocomotionResolution(
                             hasIntent: true,
-                            patrolIntent,
+                            fallbackPatrolIntent,
                             _locomotionTimingSettings.MoveCooldownTicks);
                     }
 
@@ -1188,11 +1187,10 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (stage == EnemyAiTransitionStage.BeforeMovement &&
-                _patrolStrategyKind == PatrolStrategyKind.RandomWalk)
+                TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var patrolProposal))
             {
-                var randomWalkPlan = BuildRandomWalkPlan(snapshot, source, tickIndex);
-                return randomWalkPlan.HasDirection && randomWalkPlan.PlannedFacing != source.facing
-                    ? randomWalkPlan.PlannedFacing
+                return patrolProposal.HasDirection && patrolProposal.PlannedFacing != source.facing
+                    ? patrolProposal.PlannedFacing
                     : (Direction?)null;
             }
 
@@ -1230,43 +1228,41 @@ namespace Game.Feature.Gameplay.Entities
             return rotateOnlyFacing;
         }
 
-        private EnemyRandomWalkPatrolPlan BuildRandomWalkPlan(
+        private bool TryBuildPatrolDecisionProposal(
             WorldSnapshot snapshot,
             in EntityState source,
-            int tickIndex)
+            int tickIndex,
+            out EnemyPatrolDecisionProposal proposal)
         {
             var patrolState = snapshot != null &&
                               snapshot.TryGetEnemyPatrolState(_entityId, out var storedState)
                 ? storedState
                 : default;
-            return EnemyRandomWalkPatrolPlanner.BuildPlan(
+            return EnemyPatrolDecisionPlanner.TryBuildProposal(
                 snapshot,
                 source,
                 tickIndex,
+                _patrolStrategyKind,
                 patrolState,
-                _patrolSettings);
+                _patrolSettings,
+                out proposal);
         }
 
-        private void TryInitializeRandomWalkPatrolState(
+        private void TryInitializePatrolStateFromProposal(
             WorldSnapshot snapshot,
             in EntityState source,
             int tickIndex,
             IPreMovementStateCommitContext writeContext,
             List<string> updates)
         {
-            if (_patrolStrategyKind != PatrolStrategyKind.RandomWalk ||
-                source.aiMode != EnemyAiMode.Patrol)
+            if (source.aiMode != EnemyAiMode.Patrol ||
+                !TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var proposal) ||
+                !proposal.ShouldInitializeState)
             {
                 return;
             }
 
             var hadPreviousState = snapshot.TryGetEnemyPatrolState(_entityId, out var previousState);
-            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex, previousState, _patrolSettings);
-            if (!plan.ShouldInitializeState)
-            {
-                return;
-            }
-
             var nextState = EnemyPatrolQueries.Initialize(previousState, source.position);
             if (!ShouldWritePatrolState(hadPreviousState, previousState, nextState))
             {
@@ -1274,7 +1270,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             writeContext.SetEnemyPatrolState(_entityId, nextState);
-            AppendPatrolUpdate(updates, _entityId, "Initialized", nextState, $"Mask={plan.CandidateMask}");
+            AppendPatrolUpdate(updates, _entityId, "Initialized", nextState, $"Mask={proposal.CandidateMask}");
         }
 
         private static bool ShouldWritePatrolState(
