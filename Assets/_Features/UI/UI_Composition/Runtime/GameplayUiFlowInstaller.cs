@@ -204,6 +204,7 @@ namespace Game.Feature.UI.Composition
                 PresentationSource,
                 uiAudioPort,
                 new CurrentSceneStageLaunchRouter(gameObject.scene.name));
+            displayPreviewSessionHost.BindAudioIntentBoundary(Coordinator);
 
             HudController.AttachView(_rootView.HudView);
             WireViewEvents();

@@ -384,27 +384,46 @@ future extension note:
 - public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다. 이번 작업 범위가 아니다.
 - UI SFX playback은 `Play2D`만 사용한다. `PlayAttached`, spatial ownership, attachment slot authoring은 금지다.
 - UI SFX owner split은 아래 둘뿐이다.
-  - flow success cue: `UIFlowCoordinator`가 `ScreenTransitioned`, `PopupOpened`, `PopupCompleted` lifecycle signal에서만 재생한다.
+  - flow cue: `UIFlowCoordinator`의 transaction/outcome layer만 재생한다.
   - local widget cue: `GameplayScreenRuntimeFactory` screen runtime이 widget-local interaction에서만 재생한다.
-- 위 controller lifecycle signal은 UI SFX trigger seam이다. analytics/general event bus로 widen하지 않는다.
-- canonical cue ownership truth-source table:
+- `ScreenTransitioned`, `PopupOpened`, `PopupCompleted`는 mechanical lifecycle signal이다. direct audio trigger가 아니다.
+- one interaction may contain multiple raw lifecycle deltas but still emit only one cue.
+- classifier governance rule:
+  - outcome classification prefers user intent over raw delta count or event ordering.
+  - 새 flow case가 추가되면 classifier matrix, ownership table, tests를 같은 change에서 함께 갱신한다.
+- canonical classifier matrix:
 
-| Interaction | Owner | Cue |
+| Root Intent | Recorded Deltas | Outcome | Cue |
+| --- | --- | --- | --- |
+| `Back` | reverse visible delta가 하나라도 있으면, nested `PopupOpen` restore가 함께 있어도 `NavigateBack` | `NavigateBack` | `NavigateBack` |
+| `Back` | reverse delta 없이 forward visible delta만 있으면 | `NavigateForward` | `NavigateForward` |
+| `OpenForward` | any real forward visible delta | `NavigateForward` | `NavigateForward` |
+| `Confirm` | user-visible confirm completion plus any nested transition | `Confirm` | `Confirm` |
+| `Cancel` | user-visible cancel completion plus any nested cleanup | `Cancel` | `Cancel` |
+| `SystemPresentation` | explicit whitelist entry가 없으면 | `Silent` | none |
+
+- canonical local-vs-flow ownership truth-source table:
+
+| Interaction | Owner | Result |
 | --- | --- | --- |
-| successful screen `Show` / `Push` / `Replace`, successful popup open | Flow | `NavigateForward` |
-| successful screen `Pop`, successful informational popup dismiss | Flow | `NavigateBack` |
-| `ConfirmPopup.Confirmed`, `PausePopup.Resumed`, `RewardPopup.Acknowledged` | Flow | `Confirm` |
-| `ConfirmPopup.Cancelled` including back-cancel | Flow | `Cancel` |
-| inventory search/filter/sort/row/primary/secondary, objective overview/session, settings resolution change | Local runtime | `Select` |
-| settings tooltip toggle, large-text toggle, fullscreen toggle, audio mute toggle | Local runtime | `Toggle` |
-| settings audio slider release commit | Local runtime | `AdjustValueCommit` |
-| initial root set, payload refresh, duplicate tooltip reject, display revert, consume/no-op/backdrop-consume, hover, disabled/no-op, cleanup close paths | Silent | none |
+| `PausePopup.SettingsRequested` | Flow only | one `NavigateForward` |
+| `Settings.Back` from gameplay origin | Flow only | one `NavigateBack` |
+| `Settings.Back` from pause origin | Flow only | one `NavigateBack` even if pause popup reopens |
+| `Display Apply` | Flow only | one `NavigateForward` when confirm popup actually opens |
+| `Display Revert` | Silent | no cue |
+| inventory row/actions/search/filter/sort | Local only | local `Select` only |
+| objective tab changes | Local only | local `Select` only |
+| popup confirm/resume/reward acknowledge | Flow only | one `Confirm` |
+| popup cancel/back-cancel | Flow only | one `Cancel` |
+| back buttons that trigger real pop | Flow only | one `NavigateBack`, never local + flow |
 
-- special cases are locked:
-  - `PausePopup.SettingsRequested`는 popup completion cue를 내지 않는다. successful `SettingsScreen` push만 `NavigateForward`를 낸다.
-  - `Display Apply`는 local cue를 내지 않는다. successful confirm popup open만 `NavigateForward`를 낸다.
-  - `Display Revert`는 v1에서 silent다.
-  - real screen pop을 만드는 back button은 `NavigateBack`을 정확히 한 번만 낸다.
+- user/system policy:
+  - user-driven navigation uses the classifier matrix above.
+  - `SystemPresentation` is silent by default and must not inherit navigation defaults accidentally.
+  - `Stage clear -> StageResult + Reward popup` is one system-driven transaction. v1에서는 silent unless future product policy explicitly whitelists it.
+- transaction/debug rule:
+  - internal trace는 root intent, collected deltas, chosen outcome, emitted cue 또는 silence reason을 기록한다.
+  - test/debug는 raw event count 대신 transaction trace를 primary evidence로 본다.
 - authoring contract:
   - canonical asset는 `UiAudioCueMap_V1.asset` 하나다.
   - seven v1 cues는 map에 explicit entry로 모두 존재해야 한다.
@@ -414,6 +433,7 @@ future extension note:
   - attachment slot은 비어 있어야 한다.
 - temporary asset note:
   - placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다.
+  - placeholder clip reuse may make distinct cues sound similar, but that is a content issue rather than the structural cause of duplicate-feeling playback.
   - 이것은 final content polish를 의미하지 않는다.
 - reporting scope note:
   - `build verified`

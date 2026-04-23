@@ -6,6 +6,19 @@ namespace Game.Feature.UI.Flow
 {
     public sealed class PopupController : IDisposable
     {
+        internal readonly struct PopupCompletionDispatchEvent
+        {
+            public PopupCompletionDispatchEvent(PopupEntry entry, PopupCompletion completion)
+            {
+                Entry = entry;
+                Completion = completion;
+            }
+
+            public PopupEntry Entry { get; }
+
+            public PopupCompletion Completion { get; }
+        }
+
         private readonly IPopupRuntimeFactory _runtimeFactory;
         private readonly List<PopupRuntimeRecord> _stack = new List<PopupRuntimeRecord>();
         private int _nextInstanceId = 1;
@@ -20,6 +33,10 @@ namespace Game.Feature.UI.Flow
         public event Action<PopupOpenedEvent> PopupOpened;
 
         public event Action<PopupCompletedEvent> PopupCompleted;
+
+        internal event Action<PopupCompletionDispatchEvent> PopupCompletionDispatching;
+
+        internal event Action<PopupCompletionDispatchEvent> PopupCompletionDispatched;
 
         public int PopupCount => _stack.Count;
 
@@ -228,13 +245,23 @@ namespace Game.Feature.UI.Flow
                 entry.PopupId,
                 completionKind,
                 closeReason);
+            var dispatchEvent = new PopupCompletionDispatchEvent(entry, completion);
+
+            PopupCompletionDispatching?.Invoke(dispatchEvent);
 
             if (ShouldPublishPopupCompleted(closeReason))
             {
                 PopupCompleted?.Invoke(new PopupCompletedEvent(entry, completion));
             }
 
-            entry.CompletionCallback?.Invoke(completion);
+            try
+            {
+                entry.CompletionCallback?.Invoke(completion);
+            }
+            finally
+            {
+                PopupCompletionDispatched?.Invoke(dispatchEvent);
+            }
         }
 
         private bool TryCloseTop(

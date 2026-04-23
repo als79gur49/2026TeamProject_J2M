@@ -213,6 +213,9 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
+            Assert.That(coordinator.LastFlowAudioTrace, Is.Not.Null);
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.OpenForward));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateForward));
         }
 
         [Test]
@@ -428,12 +431,15 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.False);
             Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
 
             Assert.That(coordinator.RequestConfirmPopup(new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
             uiAudioPort.Clear();
 
             Assert.That(coordinator.HandlePopupBackdropClicked(), Is.True);
             Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
+            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.NoVisibleDelta));
 
             Assert.That(coordinator.RequestRewardPopup(
                 new RewardPopupPayload(
@@ -445,6 +451,8 @@ namespace Game.Feature.UI.Tests
 
             Assert.That(coordinator.HandleBackRequested(), Is.True);
             Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
         }
 
         [Test]
@@ -501,6 +509,173 @@ namespace Game.Feature.UI.Tests
             uiAudioPort.Clear();
             popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
             Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_PauseOriginSettingsBack_EmitsExactlyOneNavigateBack_WithCompositeTrace()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out var screenController,
+                out var popupController,
+                out var uiAudioPort);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+
+            uiAudioPort.Clear();
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
+            Assert.That(coordinator.LastFlowAudioTrace, Is.Not.Null);
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateBack));
+            Assert.That(coordinator.LastFlowAudioTrace.MaxJoinedDepth, Is.EqualTo(1));
+            Assert.That(
+                coordinator.LastFlowAudioTrace.Deltas,
+                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                    delta.Kind == UiFlowAudioDeltaKind.ScreenTransition &&
+                    delta.ScreenTransitionKind == ScreenTransitionKind.Pop));
+            Assert.That(
+                coordinator.LastFlowAudioTrace.Deltas,
+                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                    delta.Kind == UiFlowAudioDeltaKind.PopupOpened &&
+                    delta.PopupId == PopupId.Pause));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_HandleBackFromGameplay_UsesSingleForwardOutcome_WhenPausePopupOpens()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out _,
+                out var popupController,
+                out var uiAudioPort);
+
+            coordinator.Initialize();
+            uiAudioPort.Clear();
+
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+
+            Assert.That(popupController.Contains(PopupId.Pause), Is.True);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Back));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateForward));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_ScreenTransitionCleanup_DuringForwardTransaction_DoesNotCreateExtraCue()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out _,
+                out _,
+                out var uiAudioPort);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+            uiAudioPort.Clear();
+
+            Assert.That(coordinator.OpenHelpScreen(), Is.True);
+
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateForward));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_ConfirmCompletion_CallbackDrivenScreenMutation_StillEmitsSingleConfirmCue()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                new ManualGameplayUiPresentationSource(),
+                out var screenController,
+                out _,
+                out var uiAudioPort,
+                out _);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestConfirmPopup(
+                new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false),
+                _ => coordinator.OpenHelpScreen()), Is.True);
+
+            uiAudioPort.Clear();
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Confirmed);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Help));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.Confirm));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Confirm));
+            Assert.That(coordinator.LastFlowAudioTrace.MaxJoinedDepth, Is.EqualTo(2));
+            Assert.That(
+                coordinator.LastFlowAudioTrace.Deltas,
+                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                    delta.Kind == UiFlowAudioDeltaKind.PopupCompleted &&
+                    delta.PopupId == PopupId.Confirm &&
+                    delta.PopupCompletionKind == PopupCompletionKind.Confirmed));
+            Assert.That(
+                coordinator.LastFlowAudioTrace.Deltas,
+                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                    delta.Kind == UiFlowAudioDeltaKind.ScreenTransition &&
+                    delta.ScreenTransitionKind == ScreenTransitionKind.Push &&
+                    delta.CurrentScreenId == ScreenId.Help));
+        }
+
+        [Test]
+        public void UIFlowCoordinator_StageClearSystemPresentation_RemainsSilent_AndRecordsSingleSystemTrace()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            var presentationSource = new ManualGameplayUiPresentationSource();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out var screenController,
+                out var popupController,
+                out var uiAudioPort,
+                out _);
+
+            coordinator.Initialize();
+            presentationSource.PublishStageCompletion(CreateStageCompletionReadModel(tickIndex: 9, includeReward: true));
+            uiAudioPort.Clear();
+
+            presentationSource.PublishTickEvents(CreateStageClearedBatch(tickIndex: 9));
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.StageResult));
+            Assert.That(popupController.Contains(PopupId.Reward), Is.True);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+            Assert.That(coordinator.LastFlowAudioTrace.RootIntent, Is.EqualTo(UiFlowAudioIntentKind.SystemPresentation));
+            Assert.That(coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.Silent));
+            Assert.That(coordinator.LastFlowAudioTrace.SilenceReason, Is.EqualTo(UiFlowAudioSilenceReason.SystemPresentationPolicy));
+            Assert.That(
+                coordinator.LastFlowAudioTrace.Deltas,
+                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                    delta.Kind == UiFlowAudioDeltaKind.RootScreenSet &&
+                    delta.CurrentScreenId == ScreenId.StageResult));
+            Assert.That(
+                coordinator.LastFlowAudioTrace.Deltas,
+                Has.Some.Matches<UiFlowAudioDelta>(delta =>
+                    delta.Kind == UiFlowAudioDeltaKind.PopupOpened &&
+                    delta.PopupId == PopupId.Reward));
         }
 
         [Test]

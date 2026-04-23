@@ -118,6 +118,24 @@ namespace Game.Feature.UI.Tests
             Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
         }
 
+        [Test]
+        public void GameplayScreenRuntimeFactory_SettingsBackButton_EmitsSingleFlowBackCue()
+        {
+            using var harness = UiAudioHarness.Create();
+
+            Assert.That(harness.Coordinator.OpenSettingsScreen(), Is.True);
+            harness.UiAudioPort.Clear();
+
+            var view = harness.ScreenLayerView.FindScreenView<SettingsScreenView>();
+            Assert.That(view, Is.Not.Null);
+
+            view.ClickBack();
+
+            Assert.That(harness.ScreenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(harness.UiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
+            Assert.That(harness.Coordinator.LastFlowAudioTrace.OutcomeKind, Is.EqualTo(UiFlowAudioOutcomeKind.NavigateBack));
+        }
+
         private sealed class UiAudioHarness : System.IDisposable
         {
             private readonly GameObject _rootObject;
@@ -206,6 +224,7 @@ namespace Game.Feature.UI.Tests
                     presentationSource,
                     uiAudioPort,
                     new FakeStageLaunchRouter());
+                previewSessionHost.BindAudioIntentBoundary(coordinator);
                 coordinator.Initialize();
 
                 return new UiAudioHarness(rootObject, screenLayerView, screenController, popupController, coordinator, uiAudioPort);

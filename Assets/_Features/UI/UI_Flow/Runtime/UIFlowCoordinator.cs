@@ -6,7 +6,7 @@ using Game.Feature.UI.Screens;
 
 namespace Game.Feature.UI.Flow
 {
-    public sealed class UIFlowCoordinator : IDisposable
+    public sealed class UIFlowCoordinator : IDisposable, IUiFlowAudioIntentBoundary
     {
         private enum PauseReturnMode
         {
@@ -21,6 +21,8 @@ namespace Game.Feature.UI.Flow
         private readonly IStageLaunchRouter _stageLaunchRouter;
         private readonly IUiAudioPort _uiAudioPort;
         private readonly UIBlockPolicy _uiBlockPolicy;
+        private UiFlowAudioTransaction _activeAudioTransaction;
+        private PopupController.PopupCompletionDispatchEvent? _activePopupCompletionDispatch;
         private UITickEventKey? _lastStageClearedEventKey;
         private PauseReturnMode _pauseReturnMode;
 
@@ -47,10 +49,14 @@ namespace Game.Feature.UI.Flow
             _popupController.StateChanged += HandleFlowStateChanged;
             _popupController.PopupOpened += HandlePopupOpened;
             _popupController.PopupCompleted += HandlePopupCompleted;
+            _popupController.PopupCompletionDispatching += HandlePopupCompletionDispatching;
+            _popupController.PopupCompletionDispatched += HandlePopupCompletionDispatched;
             _presentationSource.TickEventsApplied += HandleTickEventsApplied;
         }
 
         public UIBlockSnapshot CurrentBlockSnapshot { get; private set; }
+
+        internal UiFlowAudioTrace LastFlowAudioTrace { get; private set; }
 
         public void Initialize()
         {
@@ -61,25 +67,344 @@ namespace Game.Feature.UI.Flow
 
         public bool OpenHelpScreen()
         {
-            return PushScreen(BuildHelpRequest());
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildHelpRequest()));
         }
 
         public bool OpenObjectiveStatusScreen()
         {
-            return PushScreen(BuildObjectiveStatusRequest());
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildObjectiveStatusRequest()));
         }
 
         public bool OpenInventoryScreen()
         {
-            return PushScreen(BuildInventoryRequest());
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildInventoryRequest()));
         }
 
         public bool OpenSettingsScreen()
         {
-            return PushScreen(BuildSettingsRequest());
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(BuildSettingsRequest()));
         }
 
         public bool RequestPausePopup()
+        {
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, RequestPausePopupCore);
+        }
+
+        public bool RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload payload)
+        {
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => RequestObjectiveInfoPopupCore(payload));
+        }
+
+        public bool RequestConfirmPopup(
+            ConfirmPopupPayload payload,
+            Action<PopupCompletion> completionCallback = null)
+        {
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.OpenForward,
+                () => RequestConfirmPopupCore(payload, completionCallback));
+        }
+
+        public bool RequestTooltipPopup(
+            TooltipPopupPayload payload,
+            Action<PopupCompletion> completionCallback = null)
+        {
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.OpenForward,
+                () => RequestTooltipPopupCore(payload, completionCallback));
+        }
+
+        public bool RequestRewardPopup(
+            RewardPopupPayload payload,
+            Action<PopupCompletion> completionCallback = null)
+        {
+            return ExecuteIntent(
+                UiFlowAudioIntentKind.OpenForward,
+                () => RequestRewardPopupCore(payload, completionCallback));
+        }
+
+        public bool HandleBackRequested()
+        {
+            return ExecuteIntent(ResolveBackIntent(), HandleBackRequestedCore);
+        }
+
+        public bool HandlePopupBackdropClicked()
+        {
+            return ExecuteIntent(UiFlowAudioIntentKind.Back, HandlePopupBackdropClickedCore);
+        }
+
+        public void Dispose()
+        {
+            AbortActiveTransaction(UiFlowAudioSilenceReason.Cleanup);
+            ClearPauseReturnMode();
+            _screenController.StateChanged -= HandleFlowStateChanged;
+            _screenController.ActionRequested -= HandleScreenActionRequested;
+            _screenController.ScreenTransitioned -= HandleScreenTransitioned;
+            _popupController.StateChanged -= HandleFlowStateChanged;
+            _popupController.PopupOpened -= HandlePopupOpened;
+            _popupController.PopupCompleted -= HandlePopupCompleted;
+            _popupController.PopupCompletionDispatching -= HandlePopupCompletionDispatching;
+            _popupController.PopupCompletionDispatched -= HandlePopupCompletionDispatched;
+            _presentationSource.TickEventsApplied -= HandleTickEventsApplied;
+        }
+
+        bool IUiFlowAudioIntentBoundary.ExecuteOpenForwardBoundary(Func<bool> action)
+        {
+            return ExecuteIntent(UiFlowAudioIntentKind.OpenForward, action);
+        }
+
+        private void RefreshBlockSnapshot()
+        {
+            CurrentBlockSnapshot = _uiBlockPolicy.Evaluate(
+                new UIFlowStateSnapshot(
+                    _screenController.CurrentEntry,
+                    _popupController.TopPopup,
+                    _popupController.PopupCount));
+        }
+
+        private void ClosePopupsForScreenTransition()
+        {
+            if (_popupController.PopupCount == 0)
+            {
+                return;
+            }
+
+            _popupController.CloseAll(PopupCloseReason.ScreenTransition);
+        }
+
+        private void HandlePausePopupCompletion(PopupCompletion completion)
+        {
+            if (completion.PopupId != PopupId.Pause)
+            {
+                return;
+            }
+
+            switch (completion.CompletionKind)
+            {
+                case PopupCompletionKind.SettingsRequested:
+                    SetPauseReturnMode(PauseReturnMode.RestorePausePopupAfterBack);
+                    if (!PushScreenCore(BuildSettingsRequest(), preservePauseReturnMode: true))
+                    {
+                        ClearPauseReturnMode();
+                        RequestPausePopupCore();
+                    }
+
+                    break;
+
+                case PopupCompletionKind.Resumed:
+                case PopupCompletionKind.Closed:
+                    ClearPauseReturnMode();
+                    _pauseService.Resume();
+                    break;
+            }
+        }
+
+        private void HandleFlowStateChanged()
+        {
+            RefreshBlockSnapshot();
+        }
+
+        private void HandleScreenTransitioned(ScreenTransitionedEvent transitionEvent)
+        {
+            RecordDelta(UiFlowAudioDelta.FromScreenTransition(transitionEvent));
+        }
+
+        private void HandlePopupOpened(PopupOpenedEvent openedEvent)
+        {
+            RecordDelta(UiFlowAudioDelta.FromPopupOpened(openedEvent));
+        }
+
+        private void HandlePopupCompleted(PopupCompletedEvent completedEvent)
+        {
+            RecordDelta(UiFlowAudioDelta.FromPopupCompleted(completedEvent));
+        }
+
+        private void HandlePopupCompletionDispatching(PopupController.PopupCompletionDispatchEvent dispatchEvent)
+        {
+            if (_activeAudioTransaction != null)
+            {
+                return;
+            }
+
+            var intent = ResolvePopupCompletionIntent(dispatchEvent.Completion);
+            if (intent == UiFlowAudioIntentKind.None)
+            {
+                return;
+            }
+
+            _activeAudioTransaction = new UiFlowAudioTransaction(intent);
+            _activePopupCompletionDispatch = dispatchEvent;
+        }
+
+        private void HandlePopupCompletionDispatched(PopupController.PopupCompletionDispatchEvent dispatchEvent)
+        {
+            if (!_activePopupCompletionDispatch.HasValue)
+            {
+                return;
+            }
+
+            var expected = _activePopupCompletionDispatch.Value.Completion;
+            if (!expected.InstanceId.Equals(dispatchEvent.Completion.InstanceId))
+            {
+                return;
+            }
+
+            _activeAudioTransaction?.Leave();
+            _activePopupCompletionDispatch = null;
+            TryFinalizeActiveTransaction();
+        }
+
+        public void HandleScreenActionRequested(ScreenAction action)
+        {
+            switch (action.ActionKind)
+            {
+                case ScreenActionKind.BackRequested:
+                    HandleBackRequested();
+                    break;
+
+                case ScreenActionKind.ShowScreen:
+                    ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => ShowScreenCore(action.ScreenRequest));
+                    break;
+
+                case ScreenActionKind.PushScreen:
+                    ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => PushScreenCore(action.ScreenRequest));
+                    break;
+
+                case ScreenActionKind.ReplaceScreen:
+                    ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => ReplaceScreenCore(action.ScreenRequest));
+                    break;
+
+                case ScreenActionKind.RequestPopup:
+                    ExecuteIntent(UiFlowAudioIntentKind.OpenForward, () => TryPushPopupRequestCore(action.PopupRequest));
+                    break;
+
+                case ScreenActionKind.LaunchStage:
+                    LaunchStage(action.StageNavigationRequest);
+                    break;
+            }
+        }
+
+        private bool ExecuteIntent(UiFlowAudioIntentKind intent, Func<bool> action)
+        {
+            if (action == null)
+            {
+                throw new ArgumentNullException(nameof(action));
+            }
+
+            var createdRoot = BeginTransaction(intent);
+
+            try
+            {
+                var result = action();
+                if (createdRoot && !result)
+                {
+                    _activeAudioTransaction?.Abort(UiFlowAudioSilenceReason.FailedOperation);
+                }
+
+                return result;
+            }
+            catch
+            {
+                if (createdRoot)
+                {
+                    _activeAudioTransaction?.Abort(UiFlowAudioSilenceReason.Aborted);
+                }
+
+                throw;
+            }
+            finally
+            {
+                EndTransaction(createdRoot);
+            }
+        }
+
+        private bool BeginTransaction(UiFlowAudioIntentKind intent)
+        {
+            if (_activeAudioTransaction != null)
+            {
+                _activeAudioTransaction.Join();
+                return false;
+            }
+
+            _activeAudioTransaction = new UiFlowAudioTransaction(intent);
+            return true;
+        }
+
+        private void EndTransaction(bool createdRoot)
+        {
+            if (_activeAudioTransaction == null)
+            {
+                return;
+            }
+
+            _activeAudioTransaction.Leave();
+            if (createdRoot)
+            {
+                TryFinalizeActiveTransaction();
+            }
+        }
+
+        private void TryFinalizeActiveTransaction()
+        {
+            if (_activeAudioTransaction == null || _activeAudioTransaction.Depth > 0)
+            {
+                return;
+            }
+
+            var completedTransaction = _activeAudioTransaction;
+            _activeAudioTransaction = null;
+            var trace = completedTransaction.FinalizeTrace();
+            LastFlowAudioTrace = trace;
+
+            if (trace.EmittedCueId.HasValue)
+            {
+                _uiAudioPort.Play(trace.EmittedCueId.Value);
+            }
+        }
+
+        private void AbortActiveTransaction(UiFlowAudioSilenceReason reason)
+        {
+            _activeAudioTransaction?.Abort(reason);
+            _activePopupCompletionDispatch = null;
+        }
+
+        private void RecordDelta(UiFlowAudioDelta delta)
+        {
+            _activeAudioTransaction?.Record(delta);
+        }
+
+        private bool HandleBackRequestedCore()
+        {
+            if (_popupController.PopupCount > 0)
+            {
+                return _popupController.HandleBackRequested();
+            }
+
+            if (_screenController.HandleBackRequested())
+            {
+                if (_pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack &&
+                    _screenController.CurrentScreenId == ScreenId.Gameplay &&
+                    RequestPausePopupCore())
+                {
+                    ClearPauseReturnMode();
+                }
+
+                return true;
+            }
+
+            if (_screenController.CurrentScreenId == ScreenId.Gameplay)
+            {
+                return RequestPausePopupCore();
+            }
+
+            return false;
+        }
+
+        private bool HandlePopupBackdropClickedCore()
+        {
+            return _popupController.HandleBackdropClicked();
+        }
+
+        private bool RequestPausePopupCore()
         {
             if (_popupController.Contains(PopupId.Pause))
             {
@@ -100,7 +425,7 @@ namespace Game.Feature.UI.Flow
             return true;
         }
 
-        public bool RequestObjectiveInfoPopup(ObjectiveInfoPopupPayload payload)
+        private bool RequestObjectiveInfoPopupCore(ObjectiveInfoPopupPayload payload)
         {
             if (_screenController.CurrentScreenId != ScreenId.ObjectiveStatus || payload == null)
             {
@@ -110,9 +435,9 @@ namespace Game.Feature.UI.Flow
             return _popupController.Push(new PopupRequest(PopupId.ObjectiveInfo, payload), out _);
         }
 
-        public bool RequestConfirmPopup(
+        private bool RequestConfirmPopupCore(
             ConfirmPopupPayload payload,
-            Action<PopupCompletion> completionCallback = null)
+            Action<PopupCompletion> completionCallback)
         {
             if (payload == null)
             {
@@ -124,21 +449,21 @@ namespace Game.Feature.UI.Flow
                 out _);
         }
 
-        public bool RequestTooltipPopup(
+        private bool RequestTooltipPopupCore(
             TooltipPopupPayload payload,
-            Action<PopupCompletion> completionCallback = null)
+            Action<PopupCompletion> completionCallback)
         {
             if (payload == null)
             {
                 return false;
             }
 
-            return TryPushPopupRequest(new PopupRequest(PopupId.Tooltip, payload, completionCallback));
+            return TryPushPopupRequestCore(new PopupRequest(PopupId.Tooltip, payload, completionCallback));
         }
 
-        public bool RequestRewardPopup(
+        private bool RequestRewardPopupCore(
             RewardPopupPayload payload,
-            Action<PopupCompletion> completionCallback = null)
+            Action<PopupCompletion> completionCallback)
         {
             if (payload == null)
             {
@@ -150,200 +475,7 @@ namespace Game.Feature.UI.Flow
                 out _);
         }
 
-        public bool HandleBackRequested()
-        {
-            if (_popupController.PopupCount > 0)
-            {
-                return _popupController.HandleBackRequested();
-            }
-
-            if (_screenController.HandleBackRequested())
-            {
-                if (_pauseReturnMode == PauseReturnMode.RestorePausePopupAfterBack &&
-                    _screenController.CurrentScreenId == ScreenId.Gameplay &&
-                    RequestPausePopup())
-                {
-                    ClearPauseReturnMode();
-                }
-
-                return true;
-            }
-
-            if (_screenController.CurrentScreenId == ScreenId.Gameplay)
-            {
-                return RequestPausePopup();
-            }
-
-            return false;
-        }
-
-        public bool HandlePopupBackdropClicked()
-        {
-            return _popupController.HandleBackdropClicked();
-        }
-
-        public void Dispose()
-        {
-            ClearPauseReturnMode();
-            _screenController.StateChanged -= HandleFlowStateChanged;
-            _screenController.ActionRequested -= HandleScreenActionRequested;
-            _screenController.ScreenTransitioned -= HandleScreenTransitioned;
-            _popupController.StateChanged -= HandleFlowStateChanged;
-            _popupController.PopupOpened -= HandlePopupOpened;
-            _popupController.PopupCompleted -= HandlePopupCompleted;
-            _presentationSource.TickEventsApplied -= HandleTickEventsApplied;
-        }
-
-        private void RefreshBlockSnapshot()
-        {
-            CurrentBlockSnapshot = _uiBlockPolicy.Evaluate(
-                new UIFlowStateSnapshot(
-                    _screenController.CurrentEntry,
-                    _popupController.TopPopup,
-                    _popupController.PopupCount));
-        }
-
-        private void ClosePopupsForScreenTransition()
-        {
-            if (_popupController.PopupCount == 0)
-            {
-                return;
-            }
-
-            // Stage 6 default: clear the current popup stack before screen transitions.
-            _popupController.CloseAll(PopupCloseReason.ScreenTransition);
-        }
-
-        private void HandlePausePopupCompletion(PopupCompletion completion)
-        {
-            if (completion.PopupId != PopupId.Pause)
-            {
-                return;
-            }
-
-            switch (completion.CompletionKind)
-            {
-                case PopupCompletionKind.SettingsRequested:
-                    SetPauseReturnMode(PauseReturnMode.RestorePausePopupAfterBack);
-                    if (!PushScreen(BuildSettingsRequest(), preservePauseReturnMode: true))
-                    {
-                        ClearPauseReturnMode();
-                        RequestPausePopup();
-                    }
-
-                    break;
-
-                case PopupCompletionKind.Resumed:
-                case PopupCompletionKind.Closed:
-                    ClearPauseReturnMode();
-                    _pauseService.Resume();
-                    break;
-
-                default:
-                    break;
-            }
-        }
-
-        private void HandleFlowStateChanged()
-        {
-            RefreshBlockSnapshot();
-        }
-
-        private void HandleScreenTransitioned(ScreenTransitionedEvent transitionEvent)
-        {
-            switch (transitionEvent.Kind)
-            {
-                case ScreenTransitionKind.Show:
-                case ScreenTransitionKind.Push:
-                case ScreenTransitionKind.Replace:
-                    _uiAudioPort.Play(UiAudioCueId.NavigateForward);
-                    break;
-
-                case ScreenTransitionKind.Pop:
-                    _uiAudioPort.Play(UiAudioCueId.NavigateBack);
-                    break;
-            }
-        }
-
-        private void HandlePopupOpened(PopupOpenedEvent openedEvent)
-        {
-            _uiAudioPort.Play(UiAudioCueId.NavigateForward);
-        }
-
-        private void HandlePopupCompleted(PopupCompletedEvent completedEvent)
-        {
-            switch (completedEvent.Entry.PopupId)
-            {
-                case PopupId.Pause:
-                    if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Resumed)
-                    {
-                        _uiAudioPort.Play(UiAudioCueId.Confirm);
-                    }
-                    else if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Closed)
-                    {
-                        _uiAudioPort.Play(UiAudioCueId.NavigateBack);
-                    }
-
-                    break;
-
-                case PopupId.ObjectiveInfo:
-                case PopupId.Tooltip:
-                    _uiAudioPort.Play(UiAudioCueId.NavigateBack);
-                    break;
-
-                case PopupId.Confirm:
-                    if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Confirmed)
-                    {
-                        _uiAudioPort.Play(UiAudioCueId.Confirm);
-                    }
-                    else if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Cancelled)
-                    {
-                        _uiAudioPort.Play(UiAudioCueId.Cancel);
-                    }
-
-                    break;
-
-                case PopupId.Reward:
-                    if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Acknowledged)
-                    {
-                        _uiAudioPort.Play(UiAudioCueId.Confirm);
-                    }
-
-                    break;
-            }
-        }
-
-        public void HandleScreenActionRequested(ScreenAction action)
-        {
-            switch (action.ActionKind)
-            {
-                case ScreenActionKind.BackRequested:
-                    HandleBackRequested();
-                    break;
-
-                case ScreenActionKind.ShowScreen:
-                    ShowScreen(action.ScreenRequest);
-                    break;
-
-                case ScreenActionKind.PushScreen:
-                    PushScreen(action.ScreenRequest);
-                    break;
-
-                case ScreenActionKind.ReplaceScreen:
-                    ReplaceScreen(action.ScreenRequest);
-                    break;
-
-                case ScreenActionKind.RequestPopup:
-                    TryPushPopupRequest(action.PopupRequest);
-                    break;
-
-                case ScreenActionKind.LaunchStage:
-                    LaunchStage(action.StageNavigationRequest);
-                    break;
-            }
-        }
-
-        private bool TryPushPopupRequest(PopupRequest request)
+        private bool TryPushPopupRequestCore(PopupRequest request)
         {
             if (request.PopupId == PopupId.Tooltip &&
                 _popupController.TopPopup.HasValue &&
@@ -355,12 +487,12 @@ namespace Game.Feature.UI.Flow
             return _popupController.Push(request, out _);
         }
 
-        private bool ShowScreen(ScreenRequest request)
+        private bool ShowScreenCore(ScreenRequest request)
         {
-            return ShowScreen(request, preservePauseReturnMode: false);
+            return ShowScreenCore(request, preservePauseReturnMode: false);
         }
 
-        private bool ShowScreen(ScreenRequest request, bool preservePauseReturnMode)
+        private bool ShowScreenCore(ScreenRequest request, bool preservePauseReturnMode)
         {
             if (!preservePauseReturnMode)
             {
@@ -371,12 +503,12 @@ namespace Game.Feature.UI.Flow
             return _screenController.Show(request);
         }
 
-        private bool PushScreen(ScreenRequest request)
+        private bool PushScreenCore(ScreenRequest request)
         {
-            return PushScreen(request, preservePauseReturnMode: false);
+            return PushScreenCore(request, preservePauseReturnMode: false);
         }
 
-        private bool PushScreen(ScreenRequest request, bool preservePauseReturnMode)
+        private bool PushScreenCore(ScreenRequest request, bool preservePauseReturnMode)
         {
             if (!preservePauseReturnMode)
             {
@@ -387,12 +519,12 @@ namespace Game.Feature.UI.Flow
             return _screenController.Push(request);
         }
 
-        private bool ReplaceScreen(ScreenRequest request)
+        private bool ReplaceScreenCore(ScreenRequest request)
         {
-            return ReplaceScreen(request, preservePauseReturnMode: false);
+            return ReplaceScreenCore(request, preservePauseReturnMode: false);
         }
 
-        private bool ReplaceScreen(ScreenRequest request, bool preservePauseReturnMode)
+        private bool ReplaceScreenCore(ScreenRequest request, bool preservePauseReturnMode)
         {
             if (!preservePauseReturnMode)
             {
@@ -434,11 +566,15 @@ namespace Game.Feature.UI.Flow
                     return;
                 }
 
-                _lastStageClearedEventKey = tickEvent.Key;
-                ClearPauseReturnMode();
-                ClosePopupsForScreenTransition();
-                _screenController.Clear();
-                OpenStageCompletionFlow();
+                ExecuteIntent(UiFlowAudioIntentKind.SystemPresentation, () =>
+                {
+                    _lastStageClearedEventKey = tickEvent.Key;
+                    ClearPauseReturnMode();
+                    ClosePopupsForScreenTransition();
+                    _screenController.Clear();
+                    OpenStageCompletionFlow();
+                    return true;
+                });
                 return;
             }
         }
@@ -456,6 +592,7 @@ namespace Game.Feature.UI.Flow
                 ScreenId.StageResult,
                 StageCompletionStageResultPayloadMapper.Map(readModel),
                 ScreenId.StageResult.ToString()));
+            RecordDelta(UiFlowAudioDelta.FromRootScreenSet(ScreenId.StageResult));
 
             if (readModel.RewardGrantResult != null && readModel.RewardGrantResult.AnyGranted)
             {
@@ -464,6 +601,83 @@ namespace Game.Feature.UI.Flow
                         PopupId.Reward,
                         StageCompletionRewardPopupPayloadMapper.Map(readModel)),
                     out _);
+            }
+        }
+
+        private UiFlowAudioIntentKind ResolveBackIntent()
+        {
+            if (_popupController.TopPopup.HasValue &&
+                _popupController.TopPopup.Value.Policy.BackAction == PopupBackAction.Cancel)
+            {
+                return UiFlowAudioIntentKind.Cancel;
+            }
+
+            return UiFlowAudioIntentKind.Back;
+        }
+
+        private static UiFlowAudioIntentKind ResolvePopupCompletionIntent(PopupCompletion completion)
+        {
+            if (!IsUserVisibleCompletion(completion.CloseReason))
+            {
+                return UiFlowAudioIntentKind.None;
+            }
+
+            switch (completion.PopupId)
+            {
+                case PopupId.Pause:
+                    return completion.CompletionKind switch
+                    {
+                        PopupCompletionKind.SettingsRequested => UiFlowAudioIntentKind.OpenForward,
+                        PopupCompletionKind.Resumed => UiFlowAudioIntentKind.Confirm,
+                        PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
+                        _ => UiFlowAudioIntentKind.None,
+                    };
+
+                case PopupId.ObjectiveInfo:
+                    return completion.CompletionKind switch
+                    {
+                        PopupCompletionKind.Acknowledged => UiFlowAudioIntentKind.Back,
+                        PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
+                        _ => UiFlowAudioIntentKind.None,
+                    };
+
+                case PopupId.Tooltip:
+                    return completion.CompletionKind switch
+                    {
+                        PopupCompletionKind.Closed => UiFlowAudioIntentKind.Back,
+                        PopupCompletionKind.Acknowledged => UiFlowAudioIntentKind.Back,
+                        _ => UiFlowAudioIntentKind.None,
+                    };
+
+                case PopupId.Confirm:
+                    return completion.CompletionKind switch
+                    {
+                        PopupCompletionKind.Confirmed => UiFlowAudioIntentKind.Confirm,
+                        PopupCompletionKind.Cancelled => UiFlowAudioIntentKind.Cancel,
+                        _ => UiFlowAudioIntentKind.None,
+                    };
+
+                case PopupId.Reward:
+                    return completion.CompletionKind == PopupCompletionKind.Acknowledged
+                        ? UiFlowAudioIntentKind.Confirm
+                        : UiFlowAudioIntentKind.None;
+
+                default:
+                    return UiFlowAudioIntentKind.None;
+            }
+        }
+
+        private static bool IsUserVisibleCompletion(PopupCloseReason closeReason)
+        {
+            switch (closeReason)
+            {
+                case PopupCloseReason.UserAction:
+                case PopupCloseReason.Back:
+                case PopupCloseReason.BackdropClick:
+                    return true;
+
+                default:
+                    return false;
             }
         }
 
