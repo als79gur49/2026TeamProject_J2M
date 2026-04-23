@@ -194,6 +194,28 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_PausePopupSettingsRequested_EmitsSingleForwardCueWithoutPopupCompletionDoublePlay()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out var screenController,
+                out _,
+                out var uiAudioPort);
+
+            coordinator.Initialize();
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+
+            uiAudioPort.Clear();
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.SettingsRequested);
+
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Settings));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateForward }));
+        }
+
+        [Test]
         public void UIFlowCoordinator_PausePopupSettingsRequested_OpensSettingsWithoutResuming_AndMarksReturnMode()
         {
             var pauseService = new FakeGameplayPauseService();
@@ -388,13 +410,107 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void UIFlowCoordinator_DuplicateTooltipOpen_AndConsumePaths_RemainSilent()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                out _,
+                out _,
+                out var uiAudioPort);
+
+            coordinator.Initialize();
+
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.True);
+            uiAudioPort.Clear();
+
+            Assert.That(coordinator.RequestTooltipPopup(new TooltipPopupPayload("Tip", "Body")), Is.False);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+
+            Assert.That(coordinator.RequestConfirmPopup(new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
+            uiAudioPort.Clear();
+
+            Assert.That(coordinator.HandlePopupBackdropClicked(), Is.True);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+
+            Assert.That(coordinator.RequestRewardPopup(
+                new RewardPopupPayload(
+                    "Reward",
+                    new[] { new RewardPopupItemPayload("Crystal", 3) },
+                    "Summary",
+                    "Claim")), Is.True);
+            uiAudioPort.Clear();
+
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.Empty);
+        }
+
+        [Test]
+        public void UIFlowCoordinator_ScreenPop_AndPopupCompletionCueMapping_StayStable()
+        {
+            var pauseService = new FakeGameplayPauseService();
+            var popupRuntimeFactory = new FakePopupRuntimeFactory();
+            var screenRuntimeFactory = new FakeScreenRuntimeFactory();
+            using var coordinator = CreateCoordinator(
+                pauseService,
+                popupRuntimeFactory,
+                screenRuntimeFactory,
+                new ManualGameplayUiPresentationSource(),
+                out var screenController,
+                out _,
+                out var uiAudioPort,
+                out _);
+
+            coordinator.Initialize();
+
+            Assert.That(coordinator.OpenHelpScreen(), Is.True);
+            uiAudioPort.Clear();
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(screenController.CurrentScreenId, Is.EqualTo(ScreenId.Gameplay));
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
+
+            Assert.That(coordinator.RequestConfirmPopup(new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
+            uiAudioPort.Clear();
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Confirmed);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+
+            Assert.That(coordinator.RequestConfirmPopup(new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)), Is.True);
+            uiAudioPort.Clear();
+            Assert.That(coordinator.HandleBackRequested(), Is.True);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Cancel }));
+
+            Assert.That(coordinator.OpenObjectiveStatusScreen(), Is.True);
+            Assert.That(coordinator.RequestObjectiveInfoPopup(new ObjectiveInfoPopupPayload("Info", "Body")), Is.True);
+            uiAudioPort.Clear();
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.NavigateBack }));
+
+            Assert.That(coordinator.RequestPausePopup(), Is.True);
+            uiAudioPort.Clear();
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Resumed);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+
+            Assert.That(coordinator.RequestRewardPopup(
+                new RewardPopupPayload(
+                    "Reward",
+                    new[] { new RewardPopupItemPayload("Crystal", 1) },
+                    "Summary",
+                    "Claim")), Is.True);
+            uiAudioPort.Clear();
+            popupRuntimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Acknowledged);
+            Assert.That(uiAudioPort.PlayedCueIds, Is.EqualTo(new[] { UiAudioCueId.Confirm }));
+        }
+
+        [Test]
         public void UIFlowCoordinator_StageClearedAutoOpensTerminalStageResult_AndConsumesBack()
         {
             var pauseService = new FakeGameplayPauseService();
             var popupRuntimeFactory = new FakePopupRuntimeFactory();
             var screenRuntimeFactory = new FakeScreenRuntimeFactory();
             var presentationSource = new ManualGameplayUiPresentationSource();
-            using var coordinator = CreateCoordinator(
+            using var coordinator = CreateCoordinatorWithStageLaunchRouter(
                 pauseService,
                 popupRuntimeFactory,
                 screenRuntimeFactory,
@@ -445,7 +561,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(screenRuntimeFactory.CreatedRuntimes.FindAll(record => record.Request.ScreenId == ScreenId.StageResult), Has.Count.EqualTo(1));
         }
 
-        private static UIFlowCoordinator CreateCoordinator(
+        private static UIFlowCoordinator CreateCoordinatorWithStageLaunchRouter(
             FakeGameplayPauseService pauseService,
             FakePopupRuntimeFactory runtimeFactory,
             FakeScreenRuntimeFactory screenRuntimeFactory,
@@ -454,8 +570,30 @@ namespace Game.Feature.UI.Tests
             out PopupController popupController,
             out FakeStageLaunchRouter stageLaunchRouter)
         {
+            return CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out screenController,
+                out popupController,
+                out _,
+                out stageLaunchRouter);
+        }
+
+        private static UIFlowCoordinator CreateCoordinator(
+            FakeGameplayPauseService pauseService,
+            FakePopupRuntimeFactory runtimeFactory,
+            FakeScreenRuntimeFactory screenRuntimeFactory,
+            ManualGameplayUiPresentationSource presentationSource,
+            out ScreenController screenController,
+            out PopupController popupController,
+            out RecordingUiAudioPort uiAudioPort,
+            out FakeStageLaunchRouter stageLaunchRouter)
+        {
             screenController = new ScreenController(screenRuntimeFactory);
             popupController = new PopupController(runtimeFactory);
+            uiAudioPort = new RecordingUiAudioPort();
             stageLaunchRouter = new FakeStageLaunchRouter();
 
             return new UIFlowCoordinator(
@@ -464,6 +602,7 @@ namespace Game.Feature.UI.Tests
                 new UIBlockPolicy(),
                 pauseService,
                 presentationSource,
+                uiAudioPort,
                 stageLaunchRouter);
         }
 
@@ -482,10 +621,31 @@ namespace Game.Feature.UI.Tests
                 presentationSource,
                 out screenController,
                 out popupController,
+                out _,
                 out _);
         }
 
         private static UIFlowCoordinator CreateCoordinator(
+            FakeGameplayPauseService pauseService,
+            FakePopupRuntimeFactory runtimeFactory,
+            FakeScreenRuntimeFactory screenRuntimeFactory,
+            ManualGameplayUiPresentationSource presentationSource,
+            out ScreenController screenController,
+            out PopupController popupController,
+            out RecordingUiAudioPort uiAudioPort)
+        {
+            return CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                screenRuntimeFactory,
+                presentationSource,
+                out screenController,
+                out popupController,
+                out uiAudioPort,
+                out _);
+        }
+
+        private static UIFlowCoordinator CreateCoordinatorWithStageLaunchRouter(
             FakeGameplayPauseService pauseService,
             FakePopupRuntimeFactory runtimeFactory,
             out ScreenController screenController,
@@ -499,7 +659,26 @@ namespace Game.Feature.UI.Tests
                 new ManualGameplayUiPresentationSource(),
                 out screenController,
                 out popupController,
+                out _,
                 out stageLaunchRouter);
+        }
+
+        private static UIFlowCoordinator CreateCoordinator(
+            FakeGameplayPauseService pauseService,
+            FakePopupRuntimeFactory runtimeFactory,
+            out ScreenController screenController,
+            out PopupController popupController,
+            out RecordingUiAudioPort uiAudioPort)
+        {
+            return CreateCoordinator(
+                pauseService,
+                runtimeFactory,
+                new FakeScreenRuntimeFactory(),
+                new ManualGameplayUiPresentationSource(),
+                out screenController,
+                out popupController,
+                out uiAudioPort,
+                out _);
         }
 
         private static UIFlowCoordinator CreateCoordinator(

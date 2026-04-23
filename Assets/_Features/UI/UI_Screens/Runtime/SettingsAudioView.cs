@@ -267,6 +267,7 @@ namespace Game.Feature.UI.Screens
         private void RefreshView()
         {
             CacheAudioControls();
+            RebindAudioControls();
             ApplyLayout();
 
             if (_viewModel == null)

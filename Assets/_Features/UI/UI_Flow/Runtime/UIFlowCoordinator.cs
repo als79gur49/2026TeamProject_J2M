@@ -19,6 +19,7 @@ namespace Game.Feature.UI.Flow
         private readonly PopupController _popupController;
         private readonly ScreenController _screenController;
         private readonly IStageLaunchRouter _stageLaunchRouter;
+        private readonly IUiAudioPort _uiAudioPort;
         private readonly UIBlockPolicy _uiBlockPolicy;
         private UITickEventKey? _lastStageClearedEventKey;
         private PauseReturnMode _pauseReturnMode;
@@ -29,6 +30,7 @@ namespace Game.Feature.UI.Flow
             UIBlockPolicy uiBlockPolicy,
             IUiFlowPauseService pauseService,
             IGameplayUiPresentationSource presentationSource,
+            IUiAudioPort uiAudioPort,
             IStageLaunchRouter stageLaunchRouter)
         {
             _screenController = screenController ?? throw new ArgumentNullException(nameof(screenController));
@@ -36,11 +38,15 @@ namespace Game.Feature.UI.Flow
             _uiBlockPolicy = uiBlockPolicy ?? throw new ArgumentNullException(nameof(uiBlockPolicy));
             _pauseService = pauseService ?? throw new ArgumentNullException(nameof(pauseService));
             _presentationSource = presentationSource ?? throw new ArgumentNullException(nameof(presentationSource));
+            _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _stageLaunchRouter = stageLaunchRouter ?? throw new ArgumentNullException(nameof(stageLaunchRouter));
 
             _screenController.StateChanged += HandleFlowStateChanged;
             _screenController.ActionRequested += HandleScreenActionRequested;
+            _screenController.ScreenTransitioned += HandleScreenTransitioned;
             _popupController.StateChanged += HandleFlowStateChanged;
+            _popupController.PopupOpened += HandlePopupOpened;
+            _popupController.PopupCompleted += HandlePopupCompleted;
             _presentationSource.TickEventsApplied += HandleTickEventsApplied;
         }
 
@@ -181,7 +187,10 @@ namespace Game.Feature.UI.Flow
             ClearPauseReturnMode();
             _screenController.StateChanged -= HandleFlowStateChanged;
             _screenController.ActionRequested -= HandleScreenActionRequested;
+            _screenController.ScreenTransitioned -= HandleScreenTransitioned;
             _popupController.StateChanged -= HandleFlowStateChanged;
+            _popupController.PopupOpened -= HandlePopupOpened;
+            _popupController.PopupCompleted -= HandlePopupCompleted;
             _presentationSource.TickEventsApplied -= HandleTickEventsApplied;
         }
 
@@ -238,6 +247,70 @@ namespace Game.Feature.UI.Flow
         private void HandleFlowStateChanged()
         {
             RefreshBlockSnapshot();
+        }
+
+        private void HandleScreenTransitioned(ScreenTransitionedEvent transitionEvent)
+        {
+            switch (transitionEvent.Kind)
+            {
+                case ScreenTransitionKind.Show:
+                case ScreenTransitionKind.Push:
+                case ScreenTransitionKind.Replace:
+                    _uiAudioPort.Play(UiAudioCueId.NavigateForward);
+                    break;
+
+                case ScreenTransitionKind.Pop:
+                    _uiAudioPort.Play(UiAudioCueId.NavigateBack);
+                    break;
+            }
+        }
+
+        private void HandlePopupOpened(PopupOpenedEvent openedEvent)
+        {
+            _uiAudioPort.Play(UiAudioCueId.NavigateForward);
+        }
+
+        private void HandlePopupCompleted(PopupCompletedEvent completedEvent)
+        {
+            switch (completedEvent.Entry.PopupId)
+            {
+                case PopupId.Pause:
+                    if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Resumed)
+                    {
+                        _uiAudioPort.Play(UiAudioCueId.Confirm);
+                    }
+                    else if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Closed)
+                    {
+                        _uiAudioPort.Play(UiAudioCueId.NavigateBack);
+                    }
+
+                    break;
+
+                case PopupId.ObjectiveInfo:
+                case PopupId.Tooltip:
+                    _uiAudioPort.Play(UiAudioCueId.NavigateBack);
+                    break;
+
+                case PopupId.Confirm:
+                    if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Confirmed)
+                    {
+                        _uiAudioPort.Play(UiAudioCueId.Confirm);
+                    }
+                    else if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Cancelled)
+                    {
+                        _uiAudioPort.Play(UiAudioCueId.Cancel);
+                    }
+
+                    break;
+
+                case PopupId.Reward:
+                    if (completedEvent.Completion.CompletionKind == PopupCompletionKind.Acknowledged)
+                    {
+                        _uiAudioPort.Play(UiAudioCueId.Confirm);
+                    }
+
+                    break;
+            }
         }
 
         public void HandleScreenActionRequested(ScreenAction action)

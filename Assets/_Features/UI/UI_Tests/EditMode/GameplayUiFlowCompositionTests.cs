@@ -130,6 +130,32 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void GameplayUiFlowInstaller_RequiresSerializedUiAudioCueMap_ForUiSfxV1()
+        {
+            var rootObject = new GameObject("GameplayUiFlowInstaller_RequiresSerializedUiAudioCueMap_ForUiSfxV1");
+
+            try
+            {
+                var installer = rootObject.AddComponent<GameplayUiFlowInstaller>();
+                UiTestPrefabAssetUtility.AssignHudPrefab(installer);
+                UiTestPrefabAssetUtility.AssignScreenPrefabCatalog(installer);
+                UiTestPrefabAssetUtility.AssignPopupPrefabCatalog(installer);
+                rootObject.AddComponent<AudioRuntimeInstaller>();
+                rootObject.AddComponent<DisplayRuntimeInstaller>();
+
+                var exception = Assert.Throws<System.InvalidOperationException>(() => installer.Install(UiTestPortFactory.CreatePorts()));
+                Assert.That(
+                    exception.Message,
+                    Is.EqualTo("GameplayUiFlowInstaller requires a serialized UiAudioCueMap on the canonical bootstrap root for UI SFX v1."));
+            }
+            finally
+            {
+                DestroyEventSystemIfPresent();
+                Object.DestroyImmediate(rootObject);
+            }
+        }
+
+        [Test]
         public void UiTestPrefabAssetUtility_AssignPersistentAudioFlowBootstrap_ConfiguresSameRootAccessSeam()
         {
             var bootstrapRoot = new GameObject("UiTestPrefabAssetUtility_AssignPersistentAudioFlowBootstrap_ConfiguresSameRootAccessSeam");
