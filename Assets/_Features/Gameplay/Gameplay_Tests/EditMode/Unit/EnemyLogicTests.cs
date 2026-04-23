@@ -11,6 +11,7 @@ using Game.Feature.Gameplay.Movement.Collection;
 using Game.Feature.Gameplay.Movement.Expansion;
 using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Model.Groups;
+using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.Tests;
 using NUnit.Framework;
 using UnityEngine;
@@ -19,6 +20,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class EnemyLogicTests
     {
+        private readonly struct ForwardPatrolFixture
+        {
+            public ForwardPatrolFixture(string label, WorldState worldState, PatrolSettings settings)
+            {
+                Label = label;
+                WorldState = worldState;
+                Settings = settings;
+            }
+
+            public string Label { get; }
+
+            public WorldState WorldState { get; }
+
+            public PatrolSettings Settings { get; }
+        }
+
         [Test]
         [Category("Extended")]
         public void EnemyLogic_ImplementsMovementAndAttackContracts()
@@ -81,6 +98,104 @@ namespace Game.Feature.Gameplay.Tests.Unit
             logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), buffer);
 
             Assert.That(buffer, Is.Empty);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolDecisionPlanner_Forward_OpenForward_ReturnsForwardProposal()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+
+            var proposal = BuildPatrolDecisionProposal(
+                worldState,
+                PatrolStrategyKind.Forward,
+                new PatrolSettings(PatrolBlockedMovementResponse.Stop));
+
+            Assert.That(proposal.HasDirection, Is.True);
+            Assert.That(proposal.PlannedDirection, Is.EqualTo(Direction.Right));
+            Assert.That(proposal.PlannedFacing, Is.EqualTo(Direction.Right));
+            Assert.That(proposal.CandidateMask, Is.EqualTo(1 << 1));
+            Assert.That(proposal.ShouldInitializeState, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolDecisionPlanner_Forward_BlockedStop_ReturnsNoDirection_SameFacing_NoInit()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
+
+            var proposal = BuildPatrolDecisionProposal(
+                worldState,
+                PatrolStrategyKind.Forward,
+                new PatrolSettings(PatrolBlockedMovementResponse.Stop));
+
+            Assert.That(proposal.HasDirection, Is.False);
+            Assert.That(proposal.PlannedDirection, Is.EqualTo(Direction.None));
+            Assert.That(proposal.PlannedFacing, Is.EqualTo(Direction.Right));
+            Assert.That(proposal.CandidateMask, Is.Zero);
+            Assert.That(proposal.ShouldInitializeState, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolDecisionPlanner_Forward_BlockedBackward_ReturnsOppositeDirection_SameFacing_NoInit()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
+
+            var proposal = BuildPatrolDecisionProposal(
+                worldState,
+                PatrolStrategyKind.Forward,
+                new PatrolSettings(PatrolBlockedMovementResponse.TryStepBackward));
+
+            Assert.That(proposal.HasDirection, Is.True);
+            Assert.That(proposal.PlannedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(proposal.PlannedFacing, Is.EqualTo(Direction.Right));
+            Assert.That(proposal.CandidateMask, Is.EqualTo(1 << 3));
+            Assert.That(proposal.ShouldInitializeState, Is.False);
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolDecisionPlanner_Forward_Boundary_ExcludesTopologyChangeCandidate()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(
+                        entityId: 40,
+                        teamId: 2,
+                        position: new SurfaceCell(FaceId.Floor, 1, 1),
+                        aiMode: EnemyAiMode.Patrol,
+                        facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
+
+            var proposal = BuildPatrolDecisionProposal(
+                worldState,
+                PatrolStrategyKind.Forward,
+                new PatrolSettings(PatrolBlockedMovementResponse.Stop));
+
+            Assert.That(proposal.HasDirection, Is.False);
+            Assert.That(proposal.CandidateMask, Is.Zero);
+            Assert.That(proposal.PlannedDirection, Is.EqualTo(Direction.None));
+            Assert.That(proposal.PlannedFacing, Is.EqualTo(Direction.Up));
         }
 
         [Test]
@@ -169,6 +284,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyPatrolDecisionPlanner_RandomWalkAdapter_PreservesLegacyPlanFields()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 2);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = PatrolSettings.CreateDefaultRandomWalk();
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 2,
+                homeCell = sourceCell,
+                lastCommittedDirection = Direction.Up,
+            };
+
+            var legacyPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 5, patrolState, settings);
+            var built = EnemyPatrolDecisionPlanner.TryBuildProposal(
+                snapshot,
+                source,
+                tickIndex: 5,
+                PatrolStrategyKind.RandomWalk,
+                patrolState,
+                settings,
+                out var proposal);
+
+            Assert.That(built, Is.True);
+            Assert.That(proposal.HasDirection, Is.EqualTo(legacyPlan.HasDirection));
+            Assert.That(proposal.PlannedDirection, Is.EqualTo(legacyPlan.PlannedDirection));
+            Assert.That(proposal.PlannedFacing, Is.EqualTo(legacyPlan.PlannedFacing));
+            Assert.That(proposal.CandidateMask, Is.EqualTo(legacyPlan.CandidateMask));
+            Assert.That(proposal.ShouldInitializeState, Is.EqualTo(legacyPlan.ShouldInitializeState));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyRandomWalkPatrolPlanner_BoundaryCandidateMask_ExcludesTopologyChangeStep()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
@@ -223,6 +377,131 @@ namespace Game.Feature.Gameplay.Tests.Unit
             finally
             {
                 DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_ForwardProposalPath_MatchesLegacyForwardStrategy_OnCanonicalFixtures()
+        {
+            var fixtures = new[]
+            {
+                new ForwardPatrolFixture(
+                    "OpenForward",
+                    CreateWorldState(
+                        new[]
+                        {
+                            CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                        },
+                        new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0))),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop)),
+                new ForwardPatrolFixture(
+                    "BlockedStop",
+                    CreateWorldState(
+                        new[]
+                        {
+                            CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                            CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                        },
+                        new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0))),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop)),
+                new ForwardPatrolFixture(
+                    "BlockedBackward",
+                    CreateWorldState(
+                        new[]
+                        {
+                            CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                            CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                        },
+                        new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0))),
+                    new PatrolSettings(PatrolBlockedMovementResponse.TryStepBackward)),
+                new ForwardPatrolFixture(
+                    "Boundary",
+                    CreateWorldState(
+                        new[]
+                        {
+                            CreateUnit(
+                                entityId: 40,
+                                teamId: 2,
+                                position: new SurfaceCell(FaceId.Floor, 1, 1),
+                                aiMode: EnemyAiMode.Patrol,
+                                facing: Direction.Up),
+                        },
+                        new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1))),
+                    new PatrolSettings(PatrolBlockedMovementResponse.Stop)),
+            };
+
+            for (var i = 0; i < fixtures.Length; i++)
+            {
+                var fixture = fixtures[i];
+                var snapshot = fixture.WorldState.CreateSnapshot();
+                var source = GetEntity(fixture.WorldState, 40);
+                var expectedHasIntent = ForwardPatrolStrategy.Instance.TryBuildMovementIntent(
+                    snapshot,
+                    source,
+                    EnemyAiCommonSettings.CreateDefaultMelee(),
+                    fixture.Settings,
+                    out var expectedIntent);
+                var profile = CreateForwardPatrolOnlyProfile(fixture.Settings);
+
+                try
+                {
+                    var logic = new EnemyLogic(entityId: 40, profile);
+                    var actualBuffer = new List<RawMovementIntent>();
+
+                    logic.CollectMovementIntents(snapshot, new TickInput(1), actualBuffer);
+
+                    Assert.That(actualBuffer.Count > 0, Is.EqualTo(expectedHasIntent), fixture.Label);
+                    if (!expectedHasIntent)
+                    {
+                        continue;
+                    }
+
+                    Assert.That(actualBuffer, Has.Count.EqualTo(1), fixture.Label);
+                    Assert.That(actualBuffer[0].Destination, Is.EqualTo(expectedIntent.Destination), fixture.Label);
+                    Assert.That(actualBuffer[0].CommandKind, Is.EqualTo(expectedIntent.CommandKind), fixture.Label);
+                }
+                finally
+                {
+                    DestroyProfile(profile);
+                }
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_PatrolDecisionProposal_InitializesState_OnlyWhenProposalRequestsIt()
+        {
+            var forwardProfile = CreateForwardPatrolOnlyProfile(new PatrolSettings(PatrolBlockedMovementResponse.Stop));
+            var randomWalkProfile = CreateNonAttackingEnemyProfile();
+            var forwardWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(3, 0)));
+            var randomWalkWorldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+
+            try
+            {
+                CommitPreMovementState(forwardWorldState, forwardProfile, out var forwardUpdates);
+                CommitPreMovementState(randomWalkWorldState, randomWalkProfile, out var randomWalkUpdates);
+
+                Assert.That(forwardWorldState.CreateSnapshot().TryGetEnemyPatrolState(40, out _), Is.False);
+                Assert.That(forwardUpdates.Any(update => update.Contains("EnemyPatrolStateUpdated|E=40", StringComparison.Ordinal)), Is.False);
+                Assert.That(randomWalkWorldState.CreateSnapshot().TryGetEnemyPatrolState(40, out var patrolState), Is.True);
+                Assert.That(patrolState.IsInitialized, Is.True);
+                Assert.That(randomWalkUpdates.Any(update => update.Contains("EnemyPatrolStateUpdated|E=40", StringComparison.Ordinal)), Is.True);
+            }
+            finally
+            {
+                DestroyProfile(forwardProfile);
+                DestroyProfile(randomWalkProfile);
             }
         }
 
@@ -1955,6 +2234,45 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
         }
 
+        private static EnemyPatrolDecisionProposal BuildPatrolDecisionProposal(
+            WorldState worldState,
+            PatrolStrategyKind patrolKind,
+            PatrolSettings settings,
+            int tickIndex = 1)
+        {
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            snapshot.TryGetEnemyPatrolState(40, out var patrolState);
+
+            var built = EnemyPatrolDecisionPlanner.TryBuildProposal(
+                snapshot,
+                source,
+                tickIndex,
+                patrolKind,
+                patrolState,
+                settings,
+                out var proposal);
+
+            Assert.That(built, Is.True);
+            return proposal;
+        }
+
+        private static void CommitPreMovementState(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            out List<string> updates)
+        {
+            var logic = new EnemyLogic(entityId: 40, profile);
+            updates = new List<string>();
+
+            ((IPreMovementStateLogic)logic).CommitPreMovementState(
+                worldState.CreateSnapshot(),
+                new TickInput(1),
+                worldState.CreateWriteContext(),
+                updates,
+                new List<PlayerActionTransition>());
+        }
+
         private static EnemyAiProfile CreateEnemyProfile(int windupTicks, int moveCooldownTicks = 0)
         {
             return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks);
@@ -1968,6 +2286,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0)
         {
             return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateForwardPatrolOnlyProfile(PatrolSettings patrolSettings)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+                PatrolSettings = patrolSettings,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
         }
 
         private static EnemyAiProfile CreateWallFollowerProfile(

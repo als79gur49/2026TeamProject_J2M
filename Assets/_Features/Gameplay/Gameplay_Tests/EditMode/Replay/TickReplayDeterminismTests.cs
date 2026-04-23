@@ -1503,6 +1503,31 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
+        {
+            var firstReplay = RunForwardPatrolReplaySequence();
+            var secondReplay = RunForwardPatrolReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
+                secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
+            Assert.That(firstReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
+            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("AiMode=Patrol"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_WallFollowerProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
         {
             var firstReplay = RunWallFollowPatrolReplaySequence();
@@ -1513,6 +1538,39 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,0)|Hp=3"));
             Assert.That(firstReplay[7].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_ForwardProfile_BlockedStop_ProducesStableNoMove_NoPatrolTrace()
+        {
+            var firstReplay = RunForwardBlockedStopReplaySequence();
+            var secondReplay = RunForwardBlockedStopReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EventLogDump).ToArray(),
+                secondReplay.Select(frame => frame.EventLogDump).ToArray());
+            Assert.That(firstReplay[0].EventLogDump, Is.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].Trace, Does.Not.Contain("EnemyPatrolStateUpdated|E=40"));
+            Assert.That(firstReplay[0].EnemyPatrolDump, Is.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,0)|Hp=3"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("Facing=Right"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_ForwardProposalPath_DoesNotCreateEnemyPatrolStateFootprint()
+        {
+            var replay = RunForwardPatrolReplaySequence();
+
+            Assert.That(replay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
+            Assert.That(replay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
         }
 
         [Test]
@@ -1720,6 +1778,44 @@ namespace Game.Feature.Gameplay.Tests.Replay
             }
         }
 
+        private static IReadOnlyList<TickReplayFrame> RunForwardPatrolReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+                PatrolSettings = new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
+
+            try
+            {
+                return new TickReplayHarness().Run(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    },
+                    new[]
+                    {
+                        new TickInput(1),
+                        new TickInput(2),
+                        new TickInput(3),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
         private static IReadOnlyList<TickReplayFrame> RunWallFollowPatrolReplaySequence()
         {
             var worldState = CreateWorldState(
@@ -1750,6 +1846,43 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         new TickInput(6),
                         new TickInput(7),
                         new TickInput(8),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunForwardBlockedStopReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+                PatrolSettings = new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
+
+            try
+            {
+                return new TickReplayHarness().Run(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    },
+                    new[]
+                    {
+                        new TickInput(1),
                     });
             }
             finally

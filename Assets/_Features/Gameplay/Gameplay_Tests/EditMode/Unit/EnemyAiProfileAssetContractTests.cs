@@ -152,7 +152,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfileAssets_ForwardArchetypes_RetainForwardPatrolKind()
+        {
+            foreach (var expectation in ExpectedPilotPatrolKinds.Where(expectation => expectation.PatrolKind == PatrolStrategyKind.Forward))
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(expectation.AssetPath);
 
+                Assert.That(profile, Is.Not.Null, $"Missing enemy AI profile at '{expectation.AssetPath}'.");
+                Assert.That(profile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.Forward));
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolAssets_ForwardAsset_StillResolvesForwardKind_AndSettingsContract()
+        {
+            const string forwardAssetPath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Common/EnemyPatrol_Forward.asset";
+            var asset = AssetDatabase.LoadAssetAtPath<ForwardPatrolAsset>(forwardAssetPath);
+
+            Assert.That(asset, Is.Not.Null, $"Missing forward patrol asset at '{forwardAssetPath}'.");
+            Assert.That(asset.Kind, Is.EqualTo(PatrolStrategyKind.Forward));
+            Assert.That(asset.Settings.BlockedMovementResponse, Is.EqualTo(PatrolBlockedMovementResponse.Stop));
+        }
 
         [Test]
         [Category("Extended")]

@@ -370,6 +370,33 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyAi_WindupForwardBaseline_First3Ticks_MatchPinnedPatrolChaseWindupSequence()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, CreateEnemyProfile(windupTicks: 1));
+            var summaries = new List<string>();
+
+            for (var tickIndex = 1; tickIndex <= 3; tickIndex++)
+            {
+                summaries.Add(SummarizeEnemyTick(pipeline.RunTick(new TickInput(tickIndex)), 40));
+            }
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "Pos=Floor(1,0)|Facing=Right|Mode=Chase|Timer=0|Move=True|Attack=False|Reasons=",
+                    "Pos=Floor(2,0)|Facing=Right|Mode=Attack|Timer=0|Move=True|Attack=False|Reasons=",
+                    "Pos=Floor(2,0)|Facing=Right|Mode=Attack|Timer=0|Move=False|Attack=False|Reasons=",
+                },
+                summaries);
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_MoveOccupancy_BlocksAttackStartUntilFirstUnlockedTick()
         {
             var timingProfile = new GameplayTimingProfile(
@@ -869,6 +896,87 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(visited.Count, Is.GreaterThanOrEqualTo(5));
                 Assert.That(moveCommittedCount, Is.EqualTo(40));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_NonAttackingRandomWalkPilot_First10Ticks_MatchPinnedSequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var profile = CreateNonAttackingEnemyProfile();
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var summaries = new List<string>();
+
+                for (var tickIndex = 1; tickIndex <= 10; tickIndex++)
+                {
+                    summaries.Add(SummarizeEnemyTick(pipeline.RunTick(new TickInput(tickIndex)), 40));
+                }
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        "Pos=Floor(2,3)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(2,4)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(2,3)|Facing=Down|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(2,2)|Facing=Down|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(2,1)|Facing=Down|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(3,1)|Facing=Right|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(3,2)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(3,3)|Facing=Up|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(2,3)|Facing=Left|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                        "Pos=Floor(1,3)|Facing=Left|Mode=Patrol|Timer=0|Move=True|Attack=False|Reasons=",
+                    },
+                    summaries);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_ForwardBlockedStop_RemainsInPlace_WithoutUnexpectedFacingWrite()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 30, teamId: 2, position: new Vector2Int(1, 0), hp: 1),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(-1, 0), new Vector2Int(1, 0)));
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+                PatrolSettings = new PatrolSettings(PatrolBlockedMovementResponse.Stop),
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var tick = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
+
+                Assert.That(tick.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(tick.EventLog, Has.None.Contains("MoveCommitted|"));
+                Assert.That(tick.Trace.Text, Does.Not.Contain("EnemyPatrolStateUpdated|E=40"));
+                Assert.That(enemy.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
             }
             finally
             {
@@ -2160,11 +2268,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
                 var result = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
 
+                Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(result.EventLog, Has.None.Contains("MoveCommitted|"));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
             }
             finally
             {
@@ -3128,6 +3241,47 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
         {
             return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
+        }
+
+        private static string SummarizeEnemyTick(TickResult tickResult, int entityId)
+        {
+            var entity = GetEntityAfterTick(tickResult, entityId);
+            var hasMoveIntent = tickResult.MovementPhaseResult.RawIntents.Any(intent => intent.SourceId == entityId);
+            var hasAttackIntent = tickResult.AttackPhaseResult.RawIntents.Any(intent => intent.SourceId == entityId);
+            var reasons = ExtractEnemyTransitionReasons(tickResult.Trace.Text, entityId);
+
+            return $"Pos={entity.position}|Facing={entity.facing}|Mode={entity.aiMode}|Timer={entity.aiStateTimer}|Move={hasMoveIntent}|Attack={hasAttackIntent}|Reasons={reasons}";
+        }
+
+        private static string ExtractEnemyTransitionReasons(string traceText, int entityId)
+        {
+            var lines = traceText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var reasons = new List<string>();
+            var prefix = $"EnemyAiTransition|Stage=";
+            var entityToken = $"|E={entityId}|";
+
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].StartsWith(prefix, StringComparison.Ordinal) ||
+                    !lines[i].Contains(entityToken, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var reasonIndex = lines[i].IndexOf("|Reason=", StringComparison.Ordinal);
+                if (reasonIndex < 0)
+                {
+                    continue;
+                }
+
+                var reasonStart = reasonIndex + "|Reason=".Length;
+                var reasonEnd = lines[i].IndexOf("|Facing=", reasonStart, StringComparison.Ordinal);
+                reasons.Add(reasonEnd >= 0
+                    ? lines[i].Substring(reasonStart, reasonEnd - reasonStart)
+                    : lines[i].Substring(reasonStart));
+            }
+
+            return string.Join(",", reasons);
         }
 
         private static int GetPlanarDistance(SurfaceCell source, SurfaceCell target)
