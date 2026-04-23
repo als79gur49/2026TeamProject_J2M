@@ -176,6 +176,7 @@ namespace Game.Feature.Gameplay.Host
                 TickEntityMotionKind.Flip => SampleFlip(t),
                 TickEntityMotionKind.BoxSlide => SampleLinearConstant(t),
                 TickEntityMotionKind.Move => SampleLinearConstant(t),
+                TickEntityMotionKind.ChargeMove => SampleLinearConstant(t),
                 _ => SampleLinear(t),
             };
         }

@@ -1639,7 +1639,11 @@ namespace Game.Feature.Gameplay.Loop
             List<TickEntityMotion> entityMotions)
         {
             if (operation.Kind != FinalizationOperationKind.MoveEntity ||
-                !TryResolveMotionKind(operation.Metadata.MovementSemanticKind, out var motionKind) ||
+                !TryResolveMotionKind(
+                    context,
+                    operation,
+                    operation.Metadata.MovementSemanticKind,
+                    out var motionKind) ||
                 !context.PreMovementSnapshot.TryGetEntity(operation.EntityId, out var sourceEntity) ||
                 !context.PostMovementSnapshot.TryGetEntity(operation.EntityId, out var destinationEntity) ||
                 destinationEntity.boardPresence != EntityBoardPresence.Occupying)
@@ -1660,6 +1664,8 @@ namespace Game.Feature.Gameplay.Loop
         }
 
         private static bool TryResolveMotionKind(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation,
             MovementSemanticKind semanticKind,
             out TickEntityMotionKind motionKind)
         {
@@ -1673,7 +1679,26 @@ namespace Game.Feature.Gameplay.Loop
                 MovementSemanticKind.ProjectileMove => TickEntityMotionKind.ProjectileMove,
                 _ => TickEntityMotionKind.None,
             };
+
+            if (motionKind == TickEntityMotionKind.Move &&
+                semanticKind == MovementSemanticKind.Move &&
+                ShouldUseChargeMovePresentation(context, operation))
+            {
+                motionKind = TickEntityMotionKind.ChargeMove;
+            }
+
             return motionKind != TickEntityMotionKind.None;
+        }
+
+        private static bool ShouldUseChargeMovePresentation(
+            in TickPresentationBuildContext context,
+            FinalizationOperation operation)
+        {
+            // ChargeMove is presentation-only and must be tied to an actual committed move op.
+            // Active charge ticks without movement (cooldown pause, blocked, recover) never route here.
+            return IsEnemyUnit(context.PostMovementSnapshot, operation.EntityId) &&
+                   context.PostMovementSnapshot.TryGetEnemyChargeState(operation.EntityId, out var chargeState) &&
+                   chargeState.phase == EnemyChargePhase.Active;
         }
 
         private static bool DidGeneratePlayerMoveMotionThisTick(
@@ -1686,7 +1711,7 @@ namespace Game.Feature.Gameplay.Loop
                 var operation = operations[i];
                 if (operation.Kind == FinalizationOperationKind.MoveEntity &&
                     operation.EntityId == entityId &&
-                    TryResolveMotionKind(operation.Metadata.MovementSemanticKind, out var motionKind) &&
+                    TryResolveMotionKind(context, operation, operation.Metadata.MovementSemanticKind, out var motionKind) &&
                     motionKind == TickEntityMotionKind.Move)
                 {
                     return true;

@@ -127,6 +127,7 @@ namespace Game.Feature.Gameplay.Host
         public PlayerControlTimingSettings PlayerControlTiming = PlayerControlTimingSettings.CreateDefault();
         public PlayerRespawnTimingSettings PlayerRespawnTiming = PlayerRespawnTimingSettings.CreateDefault();
         public float MoveMotionDurationSeconds = -1f;
+        public float ChargeMoveDurationSeconds = -1f;
         public float PushMotionDurationSeconds = -1f;
         public float TopologyMotionDurationSeconds = -1f;
         public TopologyRotationVisualMapping TopologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
@@ -160,6 +161,7 @@ namespace Game.Feature.Gameplay.Host
             var projectileStepIntervalSeconds = ResolveProjectileStepIntervalSeconds();
             var pushMotionDurationSeconds = ResolvePushMotionDurationSeconds();
             var moveMotionDurationSeconds = ResolveMoveMotionDurationSeconds(pushMotionDurationSeconds);
+            var chargeMoveDurationSeconds = ResolveChargeMoveDurationSeconds(moveMotionDurationSeconds);
             var topologyMotionDurationSeconds = ResolveTopologyMotionDurationSeconds(pushMotionDurationSeconds);
             var flipMotionDurationSeconds = ResolveFlipMotionDurationSeconds();
             var itemConsumeEffectDurationSeconds = ResolveItemConsumeEffectDurationSeconds();
@@ -184,6 +186,7 @@ namespace Game.Feature.Gameplay.Host
                     : GameplayTimingProfile.DefaultMaxTicksPerFrame,
                 itemConsumeEffectDurationSeconds,
                 boxDestroyEffectDurationSeconds,
+                chargeMoveDurationSeconds: chargeMoveDurationSeconds,
                 enemyDeathEffectDurationSeconds: enemyDeathEffectDurationSeconds);
         }
 
@@ -259,6 +262,15 @@ namespace Game.Feature.Gameplay.Host
             return MoveMotionDurationSeconds > 0f
                 ? MoveMotionDurationSeconds
                 : pushMotionDurationSeconds;
+        }
+
+        private float ResolveChargeMoveDurationSeconds(float moveMotionDurationSeconds)
+        {
+            // ChargeMove is a separate presentation slot. Falling back here only seeds the global
+            // charge timing surface when a host configuration chooses not to override it explicitly.
+            return ChargeMoveDurationSeconds > 0f
+                ? ChargeMoveDurationSeconds
+                : moveMotionDurationSeconds;
         }
 
         private float ResolveTopologyMotionDurationSeconds(float pushMotionDurationSeconds)

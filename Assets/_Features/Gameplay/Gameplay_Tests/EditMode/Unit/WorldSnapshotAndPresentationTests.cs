@@ -773,6 +773,76 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void TickPresentationDataBuilder_BuildsChargeMoveMotionForActiveChargeEnemyMove()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);
+            var destinationCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var preMovementEnemy = CreateEntity(40, EntityType.Unit, sourceCell, Direction.Right);
+            preMovementEnemy.aiMode = EnemyAiMode.Charge;
+            var postMovementEnemy = CreateEntity(40, EntityType.Unit, destinationCell, Direction.Right);
+            postMovementEnemy.aiMode = EnemyAiMode.Charge;
+            var preMovementWorld = CreateWorldState(
+                new[]
+                {
+                    preMovementEnemy,
+                });
+            CreateWriteContext(preMovementWorld).SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 2,
+                    lockedDirection = Direction.Right,
+                    windupEndTick = 1,
+                    remainingActiveSteps = 1,
+                    recoverRemainingTicks = 0,
+                });
+
+            var postMovementWorld = CreateWorldState(
+                new[]
+                {
+                    postMovementEnemy,
+                });
+            CreateWriteContext(postMovementWorld).SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 2,
+                    lockedDirection = Direction.Right,
+                    windupEndTick = 1,
+                    remainingActiveSteps = 0,
+                    recoverRemainingTicks = 0,
+                });
+
+            var preMovementSnapshot = preMovementWorld.CreateSnapshot();
+            var postMovementSnapshot = postMovementWorld.CreateSnapshot();
+            var actionGroup = new ActionGroup(intentId: 1, sourceId: 40, priority: 5, ActionGroupKind.Move);
+            actionGroup.AssignGroupId(1);
+            actionGroup.Moves.Add(new MoveAction(40, sourceCell, destinationCell, Direction.Right));
+
+            var presentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    preMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    postMovementSnapshot,
+                    CreateMovementPhaseResult(actionGroup, ResolvedActionSemanticKind.Move),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None()));
+
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    (EntityId: 40, Kind: TickEntityMotionKind.ChargeMove, Source: sourceCell, Destination: destinationCell),
+                },
+                presentationData.EntityMotions
+                    .Select(motion => (motion.EntityId, motion.MotionKind, motion.SourceCell, motion.DestinationCell))
+                    .ToArray());
+        }
+
+        [Test]
+        [Category("Extended")]
         public void TickPresentationDataBuilder_BuildsProjectileMoveMotionForProjectileMove()
         {
             var sourceCell = new SurfaceCell(FaceId.Floor, 1, 0);

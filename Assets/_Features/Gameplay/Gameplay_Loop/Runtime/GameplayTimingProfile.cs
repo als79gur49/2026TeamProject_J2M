@@ -11,8 +11,10 @@ namespace Game.Feature.Gameplay.Loop
         public const float DefaultBoxSlideStepIntervalSeconds = 0.2f;
         public const float DefaultProjectileStepIntervalSeconds = 0.2f;
         public const float DefaultMoveMotionDurationSeconds = 0.2f;
+        public const float DefaultChargeMoveDurationSeconds = DefaultMoveMotionDurationSeconds;
         public const float DefaultMoveOccupancyDurationSeconds = DefaultMoveMotionDurationSeconds;
         private const float UseMoveMotionDurationForOccupancySentinel = -1f;
+        private const float UseMoveMotionDurationForChargeSentinel = -1f;
         public const float DefaultPushMotionDurationSeconds = 0.2f;
         public const float DefaultTopologyMotionDurationSeconds = DefaultPushMotionDurationSeconds;
         public const float DefaultFlipMotionDurationSeconds = 0.2f;
@@ -46,7 +48,8 @@ namespace Game.Feature.Gameplay.Loop
                 pushMotionDurationSeconds,
                 flipMotionDurationSeconds,
                 flipArcHeightInCells,
-                maxTicksPerFrame)
+                maxTicksPerFrame,
+                chargeMoveDurationSeconds: UseMoveMotionDurationForChargeSentinel)
         {
         }
 
@@ -72,7 +75,8 @@ namespace Game.Feature.Gameplay.Loop
                 pushMotionDurationSeconds,
                 flipMotionDurationSeconds,
                 flipArcHeightInCells,
-                maxTicksPerFrame)
+                maxTicksPerFrame,
+                chargeMoveDurationSeconds: UseMoveMotionDurationForChargeSentinel)
         {
         }
 
@@ -94,7 +98,8 @@ namespace Game.Feature.Gameplay.Loop
             float enemyDeathEffectDurationSeconds = DefaultEnemyDeathEffectDurationSeconds,
             float playerDeathDisplacementDurationSeconds = DefaultPlayerDeathDisplacementDurationSeconds,
             float playerDeathDisplacementDistanceInCells = DefaultPlayerDeathDisplacementDistanceInCells,
-            float playerDeathDisplacementCameraBiasWeight = DefaultPlayerDeathDisplacementCameraBiasWeight)
+            float playerDeathDisplacementCameraBiasWeight = DefaultPlayerDeathDisplacementCameraBiasWeight,
+            float chargeMoveDurationSeconds = UseMoveMotionDurationForChargeSentinel)
         {
             if (simulationTicksPerSecond <= 0)
             {
@@ -176,12 +181,22 @@ namespace Game.Feature.Gameplay.Loop
             var resolvedMoveOccupancyDurationSeconds = moveOccupancyDurationSeconds > 0f
                 ? moveOccupancyDurationSeconds
                 : moveMotionDurationSeconds;
+            var resolvedChargeMoveDurationSeconds = chargeMoveDurationSeconds > 0f
+                ? chargeMoveDurationSeconds
+                : moveMotionDurationSeconds;
 
             if (resolvedMoveOccupancyDurationSeconds <= 0f)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(moveOccupancyDurationSeconds),
                     "Move occupancy duration must be greater than zero.");
+            }
+
+            if (resolvedChargeMoveDurationSeconds <= 0f)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(chargeMoveDurationSeconds),
+                    "Charge move duration must be greater than zero.");
             }
 
             if (itemConsumeEffectDurationSeconds <= 0f)
@@ -234,6 +249,7 @@ namespace Game.Feature.Gameplay.Loop
             BoxSlideStepIntervalSeconds = boxSlideStepIntervalSeconds;
             ProjectileStepIntervalSeconds = projectileStepIntervalSeconds;
             MoveMotionDurationSeconds = moveMotionDurationSeconds;
+            ChargeMoveDurationSeconds = resolvedChargeMoveDurationSeconds;
             MoveOccupancyDurationSeconds = resolvedMoveOccupancyDurationSeconds;
             PushMotionDurationSeconds = pushMotionDurationSeconds;
             TopologyMotionDurationSeconds = topologyMotionDurationSeconds;
@@ -266,6 +282,8 @@ namespace Game.Feature.Gameplay.Loop
         public float ProjectileStepIntervalSeconds { get; }
 
         public float MoveMotionDurationSeconds { get; }
+
+        public float ChargeMoveDurationSeconds { get; }
 
         public float MoveOccupancyDurationSeconds { get; }
 
@@ -321,7 +339,8 @@ namespace Game.Feature.Gameplay.Loop
                 DefaultEnemyDeathEffectDurationSeconds,
                 DefaultPlayerDeathDisplacementDurationSeconds,
                 DefaultPlayerDeathDisplacementDistanceInCells,
-                DefaultPlayerDeathDisplacementCameraBiasWeight);
+                DefaultPlayerDeathDisplacementCameraBiasWeight,
+                DefaultChargeMoveDurationSeconds);
         }
 
         public static int SecondsToCeilTicks(float seconds, int simulationTicksPerSecond, bool allowZero = false)

@@ -157,6 +157,7 @@ namespace Game.Feature.Gameplay.Host
             return motionKind switch
             {
                 TickEntityMotionKind.Move => timingProfile.MoveMotionDurationSeconds,
+                TickEntityMotionKind.ChargeMove => timingProfile.ChargeMoveDurationSeconds,
                 TickEntityMotionKind.Flip => timingProfile.FlipMotionDurationSeconds,
                 TickEntityMotionKind.Push => timingProfile.PushMotionDurationSeconds,
                 TickEntityMotionKind.BoxSlide => timingProfile.BoxSlideStepIntervalSeconds,
@@ -190,6 +191,8 @@ namespace Game.Feature.Gameplay.Host
         {
             durationSeconds = 0f;
 
+            // UnitLocomotionPresentationAuthoring only owns generic walk/move presentation.
+            // ChargeMove must resolve through entity/global motion timing instead.
             if (motionKind != TickEntityMotionKind.Move ||
                 !_stateStore.EntityTypesByEntityId.TryGetValue(entityId, out var entityType) ||
                 entityType != EntityType.Unit ||
