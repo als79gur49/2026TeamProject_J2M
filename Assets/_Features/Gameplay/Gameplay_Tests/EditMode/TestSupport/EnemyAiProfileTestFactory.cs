@@ -85,6 +85,8 @@ namespace Game.Feature.Gameplay.Tests
             return Create(new EnemyAiTestProfileSpec
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = PatrolSettings.CreateDefaultRandomWalk(),
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = includePassiveContact,
             });
@@ -275,6 +277,20 @@ namespace Game.Feature.Gameplay.Tests
 
                 case PatrolStrategyKind.Stationary:
                     return CreateHiddenAsset<StationaryPatrolAsset>("Test_StationaryPatrol");
+
+                case PatrolStrategyKind.RandomWalk:
+                {
+                    var patrol = CreateHiddenAsset<RandomWalkPatrolAsset>("Test_RandomWalkPatrol");
+                    var resolvedSettings = settings.ForwardWeight + settings.SideWeight + settings.BackwardWeight > 0
+                        ? settings
+                        : PatrolSettings.CreateDefaultRandomWalk();
+                    SetSerializedField(patrol, "leashRadius", resolvedSettings.LeashRadius);
+                    SetSerializedField(patrol, "forwardWeight", resolvedSettings.ForwardWeight);
+                    SetSerializedField(patrol, "sideWeight", resolvedSettings.SideWeight);
+                    SetSerializedField(patrol, "backwardWeight", resolvedSettings.BackwardWeight);
+                    SetSerializedField(patrol, "preventImmediateBacktrack", resolvedSettings.PreventImmediateBacktrack);
+                    return patrol;
+                }
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported patrol strategy kind for tests.");

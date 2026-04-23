@@ -277,7 +277,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
 
             Assert.That(TryGetProfileOverride(buildResult, NonAttackingShowcaseEnemyId, out var nonAttackingProfile), Is.True);
+            Assert.That(nonAttackingProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
             Assert.That(nonAttackingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(nonAttackingProfile.PatrolSettings.LeashRadius, Is.EqualTo(2));
+            Assert.That(nonAttackingProfile.PatrolSettings.PreventImmediateBacktrack, Is.True);
 
             Assert.That(TryGetProfileOverride(buildResult, WallFollowerShowcaseEnemyId, out var wallFollowerProfile), Is.True);
             Assert.That(wallFollowerProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.WallFollow));

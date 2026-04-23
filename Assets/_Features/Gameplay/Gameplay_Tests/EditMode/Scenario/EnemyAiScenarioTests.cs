@@ -840,6 +840,97 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyAi_NonAttackingRandomWalkPilot_OpenRoom_VisitsMultipleCellsAndKeepsMoving()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var profile = CreateNonAttackingEnemyProfile();
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var visited = new HashSet<Vector2Int>();
+                var moveCommittedCount = 0;
+
+                for (var tickIndex = 1; tickIndex <= 40; tickIndex++)
+                {
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    visited.Add(GetEntity(worldState, 40).position.PlanarPosition);
+
+                    if (SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"))
+                    {
+                        moveCommittedCount++;
+                    }
+                }
+
+                Assert.That(visited.Count, Is.GreaterThanOrEqualTo(5));
+                Assert.That(moveCommittedCount, Is.EqualTo(40));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_NonAttackingRandomWalkPilot_AfterLosingTarget_ReturnsTowardHomeThenResumesPatrol()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 2, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Floor, 8, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: homeCell, hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(8, 0)));
+            var profile = CreateNonAttackingEnemyProfile();
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+                pipeline.RunTick(new TickInput(2));
+                pipeline.RunTick(new TickInput(3));
+
+                Assert.That(GetEntity(worldState, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 5, 0)));
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
+
+                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Front, 0, 0));
+
+                var returnTick1 = pipeline.RunTick(new TickInput(4));
+                var returnTick2 = pipeline.RunTick(new TickInput(5));
+
+                Assert.That(returnTick1.Trace.Text, Does.Contain("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Chase|FromTimer=0|To=Patrol|ToTimer=0|Reason=NoTarget"));
+                Assert.That(GetEntityAfterTick(returnTick1, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 4, 0)));
+                Assert.That(GetEntityAfterTick(returnTick2, 40).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 3, 0)));
+                Assert.That(GetEntity(worldState, 40).aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+                Assert.That(GetPlanarDistance(homeCell, GetEntityAfterTick(returnTick1, 40).position), Is.EqualTo(2));
+                Assert.That(GetPlanarDistance(homeCell, GetEntityAfterTick(returnTick2, 40).position), Is.EqualTo(1));
+
+                var resumedPatrolCells = new HashSet<Vector2Int>();
+                for (var tickIndex = 6; tickIndex <= 15; tickIndex++)
+                {
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    Assert.That(SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"), Is.True);
+                    resumedPatrolCells.Add(GetEntity(worldState, 40).position.PlanarPosition);
+                }
+
+                Assert.That(resumedPatrolCells.Count, Is.GreaterThanOrEqualTo(3));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_JumpPatrol_SameFacePlayer_StartsWindupEvenWhenGroundOpen()
         {
             var worldState = CreateWorldState(new[]
@@ -3032,6 +3123,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EntityState GetEntityAfterTick(TickResult tickResult, int entityId)
         {
             return tickResult.FinalEntities.Single(entity => entity.entityId == entityId);
+        }
+
+        private static int GetPlanarDistance(SurfaceCell source, SurfaceCell target)
+        {
+            var sourcePlanar = source.PlanarPosition;
+            var targetPlanar = target.PlanarPosition;
+            return Math.Abs(targetPlanar.x - sourcePlanar.x) + Math.Abs(targetPlanar.y - sourcePlanar.y);
         }
 
         private static EnemyActionRuntimeState GetEnemyActionState(WorldState worldState, int entityId)

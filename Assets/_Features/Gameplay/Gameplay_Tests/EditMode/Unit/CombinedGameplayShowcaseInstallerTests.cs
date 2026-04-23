@@ -31,6 +31,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const string DefaultPresentationTimingPresetAssetPath =
             "Assets/_Features/Gameplay/Gameplay_Timing/Showcase/GameplayPresentationTimingPreset_DefaultShowcase.asset";
         private const int ConfiguredShowcaseEnemyId = 54;
+        private const int NonAttackingShowcaseEnemyId = 55;
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 57;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
@@ -120,6 +121,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(showcaseProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
             Assert.That(showcaseProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
             Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForNonAttackingEnemy()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(TryGetProfileOverride(buildResult, NonAttackingShowcaseEnemyId, out var nonAttackingProfile), Is.True);
+            Assert.That(nonAttackingProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
+            Assert.That(nonAttackingProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.None));
+            Assert.That(nonAttackingProfile.PatrolSettings.LeashRadius, Is.EqualTo(2));
+            Assert.That(nonAttackingProfile.PatrolSettings.ForwardWeight, Is.EqualTo(4));
+            Assert.That(nonAttackingProfile.PatrolSettings.SideWeight, Is.EqualTo(2));
+            Assert.That(nonAttackingProfile.PatrolSettings.BackwardWeight, Is.EqualTo(1));
+            Assert.That(nonAttackingProfile.PatrolSettings.PreventImmediateBacktrack, Is.True);
         }
 
         [Test]

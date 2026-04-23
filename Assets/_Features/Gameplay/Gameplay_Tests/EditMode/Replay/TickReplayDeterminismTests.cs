@@ -90,6 +90,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.EnemyActionDump).ToArray(),
                 secondReplay.Select(frame => frame.EnemyActionDump).ToArray());
             CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
+            CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
         }
@@ -1075,6 +1078,31 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Snapshot_EnemyPatrolState_PreservesStoredRuntimeState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            worldState.CreateWriteContext().SetEnemyPatrolState(
+                40,
+                new EnemyPatrolRuntimeState
+                {
+                    sequence = 4,
+                    homeCell = new SurfaceCell(FaceId.Floor, 1, 1),
+                    lastCommittedDirection = Direction.Left,
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEnemyPatrolState(40, out var patrolState), Is.True);
+            Assert.That(patrolState.sequence, Is.EqualTo(4));
+            Assert.That(patrolState.homeCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 1)));
+            Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Snapshot_EnemyJumpState_PreservesStoredRuntimeState()
         {
             var worldState = CreateWorldState(new[]
@@ -1308,6 +1336,45 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_EnemyPatrolState_IsIncludedInCanonicalState()
+        {
+            var idleWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            var patrolWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            var replayWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 3,
+                homeCell = new SurfaceCell(FaceId.Floor, 1, 1),
+                lastCommittedDirection = Direction.Right,
+            };
+
+            patrolWorldState.CreateWriteContext().SetEnemyPatrolState(40, patrolState);
+            replayWorldState.CreateWriteContext().SetEnemyPatrolState(40, patrolState);
+
+            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var patrolResult = GameplayCompositionRoot.CreateTickPipeline(patrolWorldState).RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                replayWorldState,
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(patrolResult.DeterminismHash));
+            Assert.That(patrolResult.Trace.Text, Does.Contain("Final.EnemyPatrols"));
+            Assert.That(patrolResult.Trace.Text, Does.Contain("E=40|Seq=4|Home=Floor(1,1)|LastDirection=Right"));
+            Assert.That(replay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=4|Home=Floor(1,1)|LastDirection=Right"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void DeterminismHash_EnemyJumpState_IsIncludedInCanonicalState()
         {
             var idleWorldState = CreateWorldState(new[]
@@ -1400,6 +1467,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 firstReplay.Select(frame => frame.FinalEntitiesDump).ToArray(),
                 secondReplay.Select(frame => frame.FinalEntitiesDump).ToArray());
             CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
+            CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());
             Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
@@ -1409,6 +1479,26 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(firstReplay[1].Trace, Does.Contain("EnemyAiTransition|Stage=BeforeAttack|E=40|From=Chase|FromTimer=0|To=Attack|ToTimer=0|Reason=TargetInRange"));
             Assert.That(firstReplay[1].Trace, Does.Contain("EnemyAiTransition|Stage=AfterAttack|E=40|From=Attack|FromTimer=0|To=Recover|ToTimer=1|Reason=AttackCommitted"));
             Assert.That(firstReplay[2].FinalEntitiesDump, Does.Contain("AiTimer=0"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_RandomWalkPilotProfile_ProducesStablePerTickHashTraceAndPatrolDump()
+        {
+            var firstReplay = RunRandomWalkPatrolReplaySequence();
+            var secondReplay = RunRandomWalkPatrolReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyPatrols"));
+            Assert.That(firstReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=2|Home=Floor(2,2)|LastDirection="));
         }
 
         [Test]
@@ -1580,6 +1670,40 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new TickInput(2),
                     new TickInput(3),
                 });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunRandomWalkPatrolReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.CreateNonAttacking();
+
+            try
+            {
+                return new TickReplayHarness().Run(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    },
+                    new[]
+                    {
+                        new TickInput(1),
+                        new TickInput(2),
+                        new TickInput(3),
+                        new TickInput(4),
+                        new TickInput(5),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
         }
 
         private static IReadOnlyList<TickReplayFrame> RunPassiveContactReplaySequence()
@@ -2130,6 +2254,9 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EnemyActionDump).ToArray(),
                 secondReplay.Select(frame => frame.EnemyActionDump).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
             CollectionAssert.AreEqual(
                 firstReplay.Select(frame => frame.EventLogDump).ToArray(),
                 secondReplay.Select(frame => frame.EventLogDump).ToArray());

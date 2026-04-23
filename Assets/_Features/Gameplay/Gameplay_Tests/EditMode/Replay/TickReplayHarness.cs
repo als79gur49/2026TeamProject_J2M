@@ -45,7 +45,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         BuildEnemyChargeDump(result.Trace.Text),
                         BuildOccupancyDump(result.Trace.Text),
                         BuildMarkedForDeathDump(result.FinalEntities),
-                        BuildEventLogDump(result.EventLog)));
+                        BuildEventLogDump(result.EventLog),
+                        enemyPatrolDump: BuildEnemyPatrolDump(result.Trace.Text)));
             }
 
             return new ReadOnlyCollection<TickReplayFrame>(frames);
@@ -117,6 +118,11 @@ namespace Game.Feature.Gameplay.Tests.Replay
         private static string BuildEnemyActionDump(string trace)
         {
             return ExtractSection(trace, "Final.EnemyActions");
+        }
+
+        private static string BuildEnemyPatrolDump(string trace)
+        {
+            return ExtractSection(trace, "Final.EnemyPatrols");
         }
 
         private static string BuildEnemyChargeDump(string trace)
@@ -239,7 +245,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             string enemyChargeDump,
             string occupancyDump,
             string markedForDeathDump,
-            string eventLogDump)
+            string eventLogDump,
+            string enemyPatrolDump = "<empty>")
         {
             TickIndex = tickIndex;
             DeterminismHash = determinismHash;
@@ -252,6 +259,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
             OccupancyDump = occupancyDump;
             MarkedForDeathDump = markedForDeathDump;
             EventLogDump = eventLogDump;
+            EnemyPatrolDump = enemyPatrolDump;
         }
 
         public int TickIndex { get; }
@@ -269,6 +277,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
         public string EnemyActionDump { get; }
 
         public string EnemyChargeDump { get; }
+
+        public string EnemyPatrolDump { get; }
 
         public string OccupancyDump { get; }
 

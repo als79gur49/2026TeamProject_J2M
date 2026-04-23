@@ -85,6 +85,149 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyRandomWalkPatrolPlanner_UninitializedState_RequestsInitialization_AndKeepsSelectionStableAfterInit()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 2);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = PatrolSettings.CreateDefaultRandomWalk();
+
+            var initialPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 7, default, settings);
+            var initializedState = EnemyPatrolQueries.Initialize(default, source.position);
+            var initializedPlan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 7, initializedState, settings);
+
+            Assert.That(initialPlan.ShouldInitializeState, Is.True);
+            Assert.That(initialPlan.HasDirection, Is.True);
+            Assert.That(initialPlan.PlannedFacing, Is.EqualTo(initialPlan.PlannedDirection));
+            Assert.That(initialPlan.CandidateMask, Is.Not.EqualTo(0));
+            Assert.That(initialPlan.PlannedDirection, Is.EqualTo(initializedPlan.PlannedDirection));
+            Assert.That(initialPlan.CandidateMask, Is.EqualTo(initializedPlan.CandidateMask));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyRandomWalkPatrolPlanner_PreventsImmediateBacktrack_WhenAlternativeExists()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 2, 2);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = PatrolSettings.CreateDefaultRandomWalk();
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 2,
+                homeCell = sourceCell,
+                lastCommittedDirection = Direction.Up,
+            };
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 5, patrolState, settings);
+
+            Assert.That((plan.CandidateMask & (1 << 2)) == 0, Is.True, "Immediate reverse direction should be excluded when alternatives exist.");
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.Not.EqualTo(Direction.Down));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyRandomWalkPatrolPlanner_OutsideLeash_ChoosesOnlyDistanceReducingCandidate()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 4, 0);
+            var homeCell = new SurfaceCell(FaceId.Floor, 0, 0);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = PatrolSettings.CreateDefaultRandomWalk();
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 3,
+                homeCell = homeCell,
+                lastCommittedDirection = Direction.Right,
+            };
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 9, patrolState, settings);
+
+            Assert.That(plan.HasDirection, Is.True);
+            Assert.That(plan.PlannedDirection, Is.EqualTo(Direction.Left));
+            Assert.That(plan.CandidateMask, Is.EqualTo(1 << 3));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyRandomWalkPatrolPlanner_BoundaryCandidateMask_ExcludesTopologyChangeStep()
+        {
+            var sourceCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: sourceCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 1)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = PatrolSettings.CreateDefaultRandomWalk();
+            var patrolState = new EnemyPatrolRuntimeState
+            {
+                sequence = 2,
+                homeCell = sourceCell,
+                lastCommittedDirection = Direction.Left,
+            };
+
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex: 3, patrolState, settings);
+
+            Assert.That((plan.CandidateMask & (1 << 0)) == 0, Is.True, "Topology-changing up-step must never be emitted as a patrol candidate.");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_NonAttackingRandomWalkPatrol_InitializesAndCommitsPatrolState()
+        {
+            var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
+            var profile = CreateNonAttackingEnemyProfile();
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: homeCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+                pipeline.RunTick(new TickInput(1));
+
+                var enemy = GetEntity(worldState, 40);
+                var patrolState = GetEnemyPatrolState(worldState, 40);
+
+                Assert.That(patrolState.IsInitialized, Is.True);
+                Assert.That(patrolState.sequence, Is.EqualTo(2));
+                Assert.That(patrolState.homeCell, Is.EqualTo(homeCell));
+                Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(enemy.facing));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyLogic_StationaryPassiveContactProfile_DoesNotMove_AndProducesSameCellContactIntent()
         {
             var profile = EnemyAiProfileTestFactory.CreateStationaryPassiveContact();
@@ -1682,6 +1825,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             Assert.That(worldState.CreateSnapshot().TryGetEnemyActionState(entityId, out var actionState), Is.True);
             return actionState;
+        }
+
+        private static EnemyPatrolRuntimeState GetEnemyPatrolState(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyPatrolState(entityId, out var patrolState), Is.True);
+            return patrolState;
         }
 
         private static EntityState GetEntity(WorldState worldState, int entityId)

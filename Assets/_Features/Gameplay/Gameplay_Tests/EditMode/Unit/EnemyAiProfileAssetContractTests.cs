@@ -44,6 +44,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset",
         };
 
+        private static readonly (string AssetPath, PatrolStrategyKind PatrolKind)[] ExpectedPilotPatrolKinds =
+        {
+            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Common/EnemyAi_TutorialPassiveContact.asset", PatrolStrategyKind.Stationary),
+            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_NonAttacking/EnemyAi_NonAttacking.asset", PatrolStrategyKind.RandomWalk),
+            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WindupMelee/EnemyAi_WindupMelee.asset", PatrolStrategyKind.Forward),
+            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WallFollower/EnemyAi_WallFollower.asset", PatrolStrategyKind.WallFollow),
+            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_JumpChaser/EnemyAi_JumpChaser.asset", PatrolStrategyKind.Forward),
+            ("Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_Charge/EnemyAi_Charge.asset", PatrolStrategyKind.Forward),
+        };
+
         [Test]
         [Category("Extended")]
         public void EnemyAiProfileAssets_RepositoryProfiles_UseCanonicalAuthoringContract()
@@ -124,6 +134,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 violations,
                 Is.Empty,
                 "EnemyAiProfile asset contract violations:\n" + string.Join("\n", violations));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfileAssets_PatrolPilotRollout_MatchesExpectedPatrolKinds()
+        {
+            foreach (var expectation in ExpectedPilotPatrolKinds)
+            {
+                var profile = AssetDatabase.LoadAssetAtPath<EnemyAiProfile>(expectation.AssetPath);
+
+                Assert.That(profile, Is.Not.Null, $"Missing enemy AI profile at '{expectation.AssetPath}'.");
+                Assert.That(
+                    profile.PatrolStrategyKind,
+                    Is.EqualTo(expectation.PatrolKind),
+                    $"{expectation.AssetPath} patrol kind drifted from the bounded rollout contract.");
+            }
         }
 
         private static string[] GetVisibleSerializedFieldNames(EnemyAiProfile profile)
