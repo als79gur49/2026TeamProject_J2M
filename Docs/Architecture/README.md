@@ -38,12 +38,38 @@
   - active decision record for persistent BGM ownership matrix, unsupported path, and implementation gate
 - [ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md](./ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md)
   - active decision record for terrain/occupancy vocabulary closure, boundary gate, and slice implementation gate
+- [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)
+  - supporting truth for `EnemyLogic` patrol owner surface, `RandomWalk` special-case boundary, `Forward` readiness, and `WallFollow` out-of-scope note
+- [Gameplay-EnemyPatrol-Decision-Proposal-Contract.md](./Gameplay-EnemyPatrol-Decision-Proposal-Contract.md)
+  - supporting truth for patrol proposal contract, supported simple kinds, and owner boundary
+- [Gameplay-EnemyPatrol-Phase3-Forward-Commonization.md](./Gameplay-EnemyPatrol-Phase3-Forward-Commonization.md)
+  - supporting truth for `Forward` bounded commonization, single proposal seam consumer target, and rollback checklist
+- [Gameplay-EnemyPatrol-Forward-Rollout-Gate.md](./Gameplay-EnemyPatrol-Forward-Rollout-Gate.md)
+  - supporting truth for quantitative unchanged matrix and post-phase decision gate
 - [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
   - current supporting truth for `WallFollow` truth table, owner surface, maintain-vs-redesign verdict, and no-touch / rollback gate
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
   - broader full-suite baseline context, not the defining truth-source for the Stage 1–9 UI freeze baseline
+
+## Enemy Patrol bounded rollout
+
+읽는 순서는 아래를 기준으로 고정한다.
+
+1. [Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md](./Gameplay-EnemyPatrol-Phase2-SpecialCase-Responsibility-Map.md)
+2. [Gameplay-EnemyPatrol-Decision-Proposal-Contract.md](./Gameplay-EnemyPatrol-Decision-Proposal-Contract.md)
+3. [Gameplay-EnemyPatrol-Phase3-Forward-Commonization.md](./Gameplay-EnemyPatrol-Phase3-Forward-Commonization.md)
+4. [Gameplay-EnemyPatrol-Forward-Rollout-Gate.md](./Gameplay-EnemyPatrol-Forward-Rollout-Gate.md)
+5. [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
+
+이 묶음은 patrol bounded rollout의 active supporting truth-source다.
+
+- phase 2는 `EnemyLogic` 책임 분해, `RandomWalk` special-case 경계, `Forward` readiness, `WallFollow` no-touch 이유를 고정한다.
+- proposal contract는 patrol common decision layer가 direction / facing / init hint까지만 제안한다는 owner boundary를 고정한다.
+- phase 3는 `Forward` commonization의 single proposal seam consumer 기준과 docs-only defer / rollback checklist를 고정한다.
+- rollout gate는 quantitative unchanged matrix와 post-phase decision matrix를 고정한다.
+- phase 4는 `WallFollow` truth table, maintain-vs-redesign verdict, bounded redesign gate를 고정한다.
 
 historical/non-canonical 문서는 더 이상 이 디렉터리의 active truth-source가 아니다.
 
