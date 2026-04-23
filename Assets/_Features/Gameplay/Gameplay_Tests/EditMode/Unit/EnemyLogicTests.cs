@@ -1474,6 +1474,37 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_ChargeProfile_ConvertsWindupStepCooldownAndRecoverSecondsToTicks()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                LocomotionTimingSettings = new EnemyLocomotionTimingAuthoringSettings(moveCooldownSeconds: 5f / 60f),
+                ChargeTimingSettings = new EnemyChargeTimingAuthoringSettings(
+                    windupSeconds: 2f / 60f,
+                    activeStepCooldownSeconds: 3f / 60f,
+                    recoverSeconds: 4f / 60f),
+                StateResolverKind = EnemyAiStateResolverKind.Charge,
+            });
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(60);
+
+                Assert.That(definition.ChargeTimingSettings.WindupTicks, Is.EqualTo(2));
+                Assert.That(definition.ChargeTimingSettings.ActiveStepCooldownTicks, Is.EqualTo(3));
+                Assert.That(definition.ChargeTimingSettings.RecoverTicks, Is.EqualTo(4));
+                Assert.That(definition.LocomotionTimingSettings.MoveCooldownTicks, Is.EqualTo(5));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAiProfile_CreateRuntimeDefinition_NegativeSeconds_ThrowsArgumentException()
         {
             var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -1510,6 +1541,33 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
 
                 Assert.That(exception.ParamName, Is.EqualTo("EnemyLocomotionTimingAuthoringSettings"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_NegativeChargeStepCooldownSeconds_ThrowsArgumentException()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = new EnemyAiCommonAuthoringSettings(movementPriority: 50, attackPriority: 50, recoverSeconds: 0f),
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                ChargeTimingSettings = new EnemyChargeTimingAuthoringSettings(
+                    windupSeconds: 0f,
+                    activeStepCooldownSeconds: -0.1f,
+                    recoverSeconds: 0f),
+                StateResolverKind = EnemyAiStateResolverKind.Charge,
+            });
+
+            try
+            {
+                var exception = Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+
+                Assert.That(exception.ParamName, Is.EqualTo("EnemyChargeTimingAuthoringSettings"));
             }
             finally
             {

@@ -2678,7 +2678,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 3);
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 3, chargeStepCooldownTicks: 3);
 
             try
             {
@@ -2710,7 +2710,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Full")]
-        public void EnemyAi_ChargingProfile_WithLocomotionCooldown_ContinuesSameChargeSessionUntilSolid()
+        public void EnemyAi_ChargingProfile_WithChargeStepCooldown_ContinuesSameChargeSessionUntilSolid()
         {
             var worldState = CreateWorldState(
                 new[]
@@ -2720,7 +2720,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
                 },
                 new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
-            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2);
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 2);
 
             try
             {
@@ -2750,12 +2750,57 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntityAfterTick(ticks[11], 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
                 Assert.That(GetEntityAfterTick(ticks[11], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
                 Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
+                Assert.That(ticks[0].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.Move));
+                Assert.That(ticks[2].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.ChargeMove));
+                Assert.That(ticks[3].PresentationData.EntityMotions.Any(motion => motion.MotionKind == TickEntityMotionKind.ChargeMove), Is.False);
+                Assert.That(ticks[4].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.ChargeMove));
 
                 var chargeState = GetEnemyChargeState(worldState, 40);
                 Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.None));
                 Assert.That(chargeState.sequence, Is.GreaterThan(0));
                 Assert.That(chargeState.remainingActiveSteps, Is.Zero);
                 Assert.That(chargeState.recoverRemainingTicks, Is.Zero);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void EnemyAi_ChargingProfile_SeparatesChaseAndChargeCooldownCadence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(5, 0), hp: 5),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 50, position: new Vector2Int(6, 0)),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(6, 0)));
+            var profile = CreateChargingEnemyProfile(moveCooldownTicks: 2, chargeStepCooldownTicks: 0);
+
+            try
+            {
+                var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
+                var ticks = Enumerable.Range(1, 6)
+                    .Select(tick => pipeline.RunTick(new TickInput(tick)))
+                    .ToArray();
+
+                Assert.That(GetEntityAfterTick(ticks[0], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(ticks[0], 40).enemyLocomotionCooldownTicks, Is.EqualTo(2));
+                Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).enemyLocomotionCooldownTicks, Is.Zero);
+                Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
+                Assert.That(ticks[2].Trace.Text, Does.Contain("Reason=ChargeContinue"));
+                Assert.That(ticks[3].Trace.Text, Does.Contain("Reason=ChargeContinue"));
+                Assert.That(ticks[0].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.Move));
+                Assert.That(ticks[2].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.ChargeMove));
+                Assert.That(ticks[3].PresentationData.EntityMotions.Single().MotionKind, Is.EqualTo(TickEntityMotionKind.ChargeMove));
             }
             finally
             {
@@ -3052,9 +3097,15 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int moveCooldownTicks,
             bool includePassiveContact = true,
             int windupTicks = 0,
-            int recoverTicks = 0)
+            int recoverTicks = 0,
+            int chargeStepCooldownTicks = 0)
         {
-            return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks, includePassiveContact, windupTicks, recoverTicks);
+            return EnemyAiProfileTestFactory.CreateCharging(
+                moveCooldownTicks,
+                includePassiveContact,
+                windupTicks,
+                recoverTicks,
+                chargeStepCooldownTicks);
         }
 
         private static EnemyAiProfile CreateNonAttackingEnemyProfile(int moveCooldownTicks = 0, bool includePassiveContact = false)

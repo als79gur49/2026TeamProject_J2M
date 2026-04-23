@@ -315,21 +315,25 @@ namespace Game.Feature.Gameplay.Entities
     public struct EnemyChargeTimingSettings
     {
         [SerializeField] private int windupTicks;
+        [SerializeField] private int activeStepCooldownTicks;
         [SerializeField] private int recoverTicks;
 
-        public EnemyChargeTimingSettings(int windupTicks, int recoverTicks)
+        public EnemyChargeTimingSettings(int windupTicks, int activeStepCooldownTicks, int recoverTicks)
         {
             this.windupTicks = windupTicks;
+            this.activeStepCooldownTicks = activeStepCooldownTicks;
             this.recoverTicks = recoverTicks;
         }
 
         public int WindupTicks => windupTicks;
 
+        public int ActiveStepCooldownTicks => activeStepCooldownTicks;
+
         public int RecoverTicks => recoverTicks;
 
         public void Validate(string paramName)
         {
-            if (windupTicks < 0 || recoverTicks < 0)
+            if (windupTicks < 0 || activeStepCooldownTicks < 0 || recoverTicks < 0)
             {
                 throw new ArgumentException("Enemy charge timing settings require non-negative tick counts.", paramName);
             }
@@ -337,7 +341,7 @@ namespace Game.Feature.Gameplay.Entities
 
         public static EnemyChargeTimingSettings CreateDefault()
         {
-            return new EnemyChargeTimingSettings(windupTicks: 0, recoverTicks: 0);
+            return new EnemyChargeTimingSettings(windupTicks: 0, activeStepCooldownTicks: 0, recoverTicks: 0);
         }
     }
 
@@ -345,21 +349,25 @@ namespace Game.Feature.Gameplay.Entities
     public struct EnemyChargeTimingAuthoringSettings
     {
         [SerializeField] private float windupSeconds;
+        [SerializeField] private float activeStepCooldownSeconds;
         [SerializeField] private float recoverSeconds;
 
-        public EnemyChargeTimingAuthoringSettings(float windupSeconds, float recoverSeconds)
+        public EnemyChargeTimingAuthoringSettings(float windupSeconds, float activeStepCooldownSeconds, float recoverSeconds)
         {
             this.windupSeconds = windupSeconds;
+            this.activeStepCooldownSeconds = activeStepCooldownSeconds;
             this.recoverSeconds = recoverSeconds;
         }
 
         public float WindupSeconds => windupSeconds;
 
+        public float ActiveStepCooldownSeconds => activeStepCooldownSeconds;
+
         public float RecoverSeconds => recoverSeconds;
 
         public void Validate(string paramName)
         {
-            if (windupSeconds < 0f || recoverSeconds < 0f)
+            if (windupSeconds < 0f || activeStepCooldownSeconds < 0f || recoverSeconds < 0f)
             {
                 throw new ArgumentException("Enemy charge timing authoring settings require non-negative durations.", paramName);
             }
@@ -372,6 +380,10 @@ namespace Game.Feature.Gameplay.Entities
             return new EnemyChargeTimingSettings(
                 GameplayTimingProfile.SecondsToTicks(
                     windupSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true),
+                GameplayTimingProfile.SecondsToTicks(
+                    activeStepCooldownSeconds,
                     simulationTicksPerSecond,
                     allowZero: true),
                 GameplayTimingProfile.SecondsToTicks(
@@ -400,6 +412,7 @@ namespace Game.Feature.Gameplay.Entities
 
             return new EnemyChargeTimingAuthoringSettings(
                 runtimeSettings.WindupTicks / (float)simulationTicksPerSecond,
+                runtimeSettings.ActiveStepCooldownTicks / (float)simulationTicksPerSecond,
                 runtimeSettings.RecoverTicks / (float)simulationTicksPerSecond);
         }
     }

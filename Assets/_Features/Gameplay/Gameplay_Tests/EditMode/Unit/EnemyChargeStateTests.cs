@@ -11,7 +11,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         public void EnemyChargeQueries_StartCharge_InitializesCountersAndPhase()
         {
             var previousState = new EnemyChargeRuntimeState { sequence = 2 };
-            var timingSettings = new EnemyChargeTimingSettings(windupTicks: 1, recoverTicks: 3);
+            var timingSettings = new EnemyChargeTimingSettings(windupTicks: 1, activeStepCooldownTicks: 2, recoverTicks: 3);
 
             var startedState = EnemyChargeQueries.StartCharge(
                 previousState,
@@ -32,7 +32,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         [Category("Core")]
         public void EnemyChargeQueries_StartCharge_WithZeroWindup_StartsActiveWithoutConsumingStep()
         {
-            var timingSettings = new EnemyChargeTimingSettings(windupTicks: 0, recoverTicks: 2);
+            var timingSettings = new EnemyChargeTimingSettings(windupTicks: 0, activeStepCooldownTicks: 1, recoverTicks: 2);
 
             var startedState = EnemyChargeQueries.StartCharge(
                 previousState: default,

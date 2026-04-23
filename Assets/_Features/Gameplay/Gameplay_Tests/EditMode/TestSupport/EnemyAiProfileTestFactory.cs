@@ -95,12 +95,13 @@ namespace Game.Feature.Gameplay.Tests
             int moveCooldownTicks = 0,
             bool includePassiveContact = true,
             int windupTicks = 0,
-            int recoverTicks = 0)
+            int recoverTicks = 0,
+            int chargeStepCooldownTicks = 0)
         {
             return Create(new EnemyAiTestProfileSpec
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
-                ChargeTimingSettings = ToAuthoring(new EnemyChargeTimingSettings(windupTicks, recoverTicks)),
+                ChargeTimingSettings = ToAuthoring(new EnemyChargeTimingSettings(windupTicks, chargeStepCooldownTicks, recoverTicks)),
                 StateResolverKind = EnemyAiStateResolverKind.Charge,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = includePassiveContact,
