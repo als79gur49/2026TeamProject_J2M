@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,11 +8,11 @@ namespace Game.Feature.UI.Screens
     public sealed class ObjectiveStatusScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _badgeLabel;
-        [SerializeField] private Text _summaryLabel;
-        [SerializeField] private Text _detailLabel;
-        [SerializeField] private Text _secondaryLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _badgeLabel;
+        [SerializeField] private TMP_Text _summaryLabel;
+        [SerializeField] private TMP_Text _detailLabel;
+        [SerializeField] private TMP_Text _secondaryLabel;
         [SerializeField] private Button _overviewButton;
         [SerializeField] private Button _sessionButton;
         [SerializeField] private Button _infoButton;

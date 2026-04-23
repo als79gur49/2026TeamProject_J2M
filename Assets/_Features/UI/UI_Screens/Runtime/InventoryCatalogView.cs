@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,14 +10,14 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Button _searchButton;
         [SerializeField] private Button _filterButton;
         [SerializeField] private Button _sortButton;
-        [SerializeField] private Text _searchButtonLabel;
-        [SerializeField] private Text _filterButtonLabel;
-        [SerializeField] private Text _sortButtonLabel;
-        [SerializeField] private Text _summaryLabel;
-        [SerializeField] private Text _emptyStateLabel;
+        [SerializeField] private TMP_Text _searchButtonLabel;
+        [SerializeField] private TMP_Text _filterButtonLabel;
+        [SerializeField] private TMP_Text _sortButtonLabel;
+        [SerializeField] private TMP_Text _summaryLabel;
+        [SerializeField] private TMP_Text _emptyStateLabel;
         [SerializeField] private Button[] _rowButtons = Array.Empty<Button>();
-        [SerializeField] private Text[] _rowLabelTexts = Array.Empty<Text>();
-        [SerializeField] private Text[] _rowMetaTexts = Array.Empty<Text>();
+        [SerializeField] private TMP_Text[] _rowLabelTexts = Array.Empty<TMP_Text>();
+        [SerializeField] private TMP_Text[] _rowMetaTexts = Array.Empty<TMP_Text>();
 
         private InventoryCatalogViewModel _viewModel;
 

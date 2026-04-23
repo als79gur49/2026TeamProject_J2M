@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using Game.Feature.UI.Composition;
 using Game.Feature.UI.Screens;
+using TMPro;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -179,12 +180,12 @@ namespace Game.Feature.UI.Editor
             var summary = CreateLabel("Summary", catalogPanel, new Vector2(8f, -38f), new Vector2(232f, 18f), TextAnchor.MiddleLeft, 13);
             var empty = CreateLabel("Empty", catalogPanel, new Vector2(8f, -188f), new Vector2(232f, 24f), TextAnchor.UpperLeft, 12);
             var rowButtons = new Button[5];
-            var rowLabels = new Text[5];
-            var rowMeta = new Text[5];
+            var rowLabels = new TMP_Text[5];
+            var rowMeta = new TMP_Text[5];
             for (var i = 0; i < rowButtons.Length; i++)
             {
                 var row = CreateButton($"RowButton{i}", catalogPanel, $"Row {i + 1}", new Vector2(8f, -64f - (i * 26f)), new Vector2(122f, 24f));
-                row.Label.alignment = TextAnchor.MiddleLeft;
+                row.Label.alignment = TextAlignmentOptions.Left;
                 rowButtons[i] = row.Button;
                 rowLabels[i] = row.Label;
                 rowMeta[i] = CreateLabel($"RowMeta{i}", catalogPanel, new Vector2(136f, -64f - (i * 26f)), new Vector2(104f, 24f), TextAnchor.MiddleLeft, 12);
@@ -493,7 +494,7 @@ namespace Game.Feature.UI.Editor
             return rectTransform;
         }
 
-        private static Text CreateLabel(
+        private static TMP_Text CreateLabel(
             string name,
             RectTransform parent,
             Vector2 anchoredPosition,
@@ -502,7 +503,7 @@ namespace Game.Feature.UI.Editor
             int fontSize,
             FontStyle fontStyle = FontStyle.Normal)
         {
-            var labelObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+            var labelObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(parent, false);
 
             var rectTransform = labelObject.GetComponent<RectTransform>();
@@ -512,14 +513,14 @@ namespace Game.Feature.UI.Editor
             rectTransform.sizeDelta = sizeDelta;
             rectTransform.anchoredPosition = anchoredPosition;
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.font = GetDefaultFont();
             text.fontSize = fontSize;
-            text.fontStyle = fontStyle;
+            text.fontStyle = ConvertFontStyle(fontStyle);
             text.color = Color.white;
-            text.alignment = alignment;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.alignment = ConvertAlignment(alignment);
+            text.textWrappingMode = TextWrappingModes.Normal;
+            text.overflowMode = TextOverflowModes.Overflow;
             return text;
         }
 
@@ -546,16 +547,18 @@ namespace Game.Feature.UI.Editor
             var button = buttonObject.GetComponent<Button>();
             button.targetGraphic = image;
 
-            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(buttonObject.transform, false);
             var labelRect = labelObject.GetComponent<RectTransform>();
             Stretch(labelRect);
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.font = GetDefaultFont();
             text.fontSize = 14;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
             text.text = label;
 
             return new ButtonParts(button, text);
@@ -682,9 +685,9 @@ namespace Game.Feature.UI.Editor
             return new ToggleParts(toggle);
         }
 
-        private static Dropdown CreateResolutionDropdown(string name, RectTransform parent, Vector2 anchoredPosition, Vector2 sizeDelta)
+        private static TMP_Dropdown CreateResolutionDropdown(string name, RectTransform parent, Vector2 anchoredPosition, Vector2 sizeDelta)
         {
-            var dropdownObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Dropdown));
+            var dropdownObject = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown));
             dropdownObject.transform.SetParent(parent, false);
 
             var dropdownRect = dropdownObject.GetComponent<RectTransform>();
@@ -768,7 +771,7 @@ namespace Game.Feature.UI.Editor
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
 
-            var dropdown = dropdownObject.GetComponent<Dropdown>();
+            var dropdown = dropdownObject.GetComponent<TMP_Dropdown>();
             dropdown.targetGraphic = backgroundImage;
             dropdown.template = templateRect;
             dropdown.captionText = caption;
@@ -1008,10 +1011,38 @@ namespace Game.Feature.UI.Editor
             field.SetValue(target, value);
         }
 
-        private static Font GetDefaultFont()
+        private static TMP_FontAsset GetDefaultFont()
         {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ??
-                   Resources.GetBuiltinResource<Font>("Arial.ttf");
+            return TMP_Settings.defaultFontAsset ??
+                   AssetDatabase.LoadAssetAtPath<TMP_FontAsset>("Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF.asset");
+        }
+
+        private static TextAlignmentOptions ConvertAlignment(TextAnchor alignment)
+        {
+            return alignment switch
+            {
+                TextAnchor.UpperLeft => TextAlignmentOptions.TopLeft,
+                TextAnchor.UpperCenter => TextAlignmentOptions.Top,
+                TextAnchor.UpperRight => TextAlignmentOptions.TopRight,
+                TextAnchor.MiddleLeft => TextAlignmentOptions.Left,
+                TextAnchor.MiddleCenter => TextAlignmentOptions.Center,
+                TextAnchor.MiddleRight => TextAlignmentOptions.Right,
+                TextAnchor.LowerLeft => TextAlignmentOptions.BottomLeft,
+                TextAnchor.LowerCenter => TextAlignmentOptions.Bottom,
+                TextAnchor.LowerRight => TextAlignmentOptions.BottomRight,
+                _ => TextAlignmentOptions.Left,
+            };
+        }
+
+        private static FontStyles ConvertFontStyle(FontStyle fontStyle)
+        {
+            return fontStyle switch
+            {
+                FontStyle.Bold => FontStyles.Bold,
+                FontStyle.Italic => FontStyles.Italic,
+                FontStyle.BoldAndItalic => FontStyles.Bold | FontStyles.Italic,
+                _ => FontStyles.Normal,
+            };
         }
 
         private static void Stretch(RectTransform rectTransform)
@@ -1025,7 +1056,7 @@ namespace Game.Feature.UI.Editor
 
         private readonly struct ButtonParts
         {
-            public ButtonParts(Button button, Text label)
+            public ButtonParts(Button button, TMP_Text label)
             {
                 Button = button;
                 Label = label;
@@ -1033,15 +1064,15 @@ namespace Game.Feature.UI.Editor
 
             public Button Button { get; }
 
-            public Text Label { get; }
+            public TMP_Text Label { get; }
         }
 
         private readonly struct AudioRowParts
         {
             public AudioRowParts(
                 RectTransform rowRoot,
-                Text label,
-                Text value,
+                TMP_Text label,
+                TMP_Text value,
                 Slider slider,
                 Toggle toggle,
                 SettingsSliderInteractionRelay interactionRelay)
@@ -1056,9 +1087,9 @@ namespace Game.Feature.UI.Editor
 
             public RectTransform RowRoot { get; }
 
-            public Text Label { get; }
+            public TMP_Text Label { get; }
 
-            public Text Value { get; }
+            public TMP_Text Value { get; }
 
             public Slider Slider { get; }
 
@@ -1105,7 +1136,7 @@ namespace Game.Feature.UI.Editor
 
         private readonly struct HoverHintParts
         {
-            public HoverHintParts(RectTransform panel, Text label)
+            public HoverHintParts(RectTransform panel, TMP_Text label)
             {
                 Panel = panel;
                 Label = label;
@@ -1113,12 +1144,12 @@ namespace Game.Feature.UI.Editor
 
             public RectTransform Panel { get; }
 
-            public Text Label { get; }
+            public TMP_Text Label { get; }
         }
 
         private readonly struct CountdownStripParts
         {
-            public CountdownStripParts(RectTransform root, Text label, Image fill)
+            public CountdownStripParts(RectTransform root, TMP_Text label, Image fill)
             {
                 Root = root;
                 Label = label;
@@ -1127,7 +1158,7 @@ namespace Game.Feature.UI.Editor
 
             public RectTransform Root { get; }
 
-            public Text Label { get; }
+            public TMP_Text Label { get; }
 
             public Image Fill { get; }
         }

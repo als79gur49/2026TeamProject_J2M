@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,11 +8,11 @@ namespace Game.Feature.UI.Screens
     public sealed class StageResultScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _summaryLabel;
-        [SerializeField] private Text _detailLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _summaryLabel;
+        [SerializeField] private TMP_Text _detailLabel;
         [SerializeField] private Button _continueButton;
-        [SerializeField] private Text _continueButtonLabel;
+        [SerializeField] private TMP_Text _continueButtonLabel;
 
         private StageResultScreenViewModel _viewModel;
         private bool _isVisible;
