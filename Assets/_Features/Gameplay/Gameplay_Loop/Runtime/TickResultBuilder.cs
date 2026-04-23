@@ -354,6 +354,7 @@ namespace Game.Feature.Gameplay.Loop
             var enemyActionSignals = new List<TickEnemyActionPresentationSignal>();
             var enemyDamageSignals = new List<TickEnemyDamagePresentationSignal>();
             var enemyJumpSignals = new List<TickEnemyJumpPresentationSignal>();
+            var enemyChargeSignals = new List<TickEnemyChargePresentationSignal>();
             var playerActionSignals = new List<TickPlayerActionPresentationSignal>();
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
@@ -376,6 +377,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyDamagePresentation(context, enemyDamageSignals);
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
+            BuildEnemyChargePresentation(context, enemyChargeSignals);
 
             var topologyMotion = BuildTopologyMotion(context);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
@@ -384,6 +386,7 @@ namespace Game.Feature.Gameplay.Loop
                    enemyActionSignals.Count == 0 &&
                    enemyDamageSignals.Count == 0 &&
                    enemyJumpSignals.Count == 0 &&
+                   enemyChargeSignals.Count == 0 &&
                    entityExitSignals.Count == 0 &&
                    impactTransientSignals.Count == 0 &&
                    flipImpactSignals.Count == 0 &&
@@ -407,6 +410,7 @@ namespace Game.Feature.Gameplay.Loop
                     enemyDamageSignals,
                     enemyActionSignals,
                     enemyJumpSignals,
+                    enemyChargeSignals,
                     entityExitSignals,
                     impactTransientSignals,
                     flipImpactSignals);
@@ -1375,6 +1379,118 @@ namespace Game.Feature.Gameplay.Loop
 
                 candidateEntityIds.Add(entry.EntityId);
             }
+        }
+
+        private static void BuildEnemyChargePresentation(
+            in TickPresentationBuildContext context,
+            List<TickEnemyChargePresentationSignal> enemyChargeSignals)
+        {
+            var candidateEntityIds = new List<int>();
+            var seenEntityIds = new HashSet<int>();
+            var preMovementEntries = new List<EnemyChargeSnapshotEntry>();
+            var postMovementEntries = new List<EnemyChargeSnapshotEntry>();
+            var finalEntries = new List<EnemyChargeSnapshotEntry>();
+
+            context.PreMovementSnapshot.EnumerateEnemyChargeStatesOrdered(preMovementEntries);
+            context.PostMovementSnapshot.EnumerateEnemyChargeStatesOrdered(postMovementEntries);
+            context.FinalAuthoritativeSnapshot.EnumerateEnemyChargeStatesOrdered(finalEntries);
+
+            CollectEnemyChargeCandidateIds(preMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyChargeCandidateIds(postMovementEntries, seenEntityIds, candidateEntityIds);
+            CollectEnemyChargeCandidateIds(finalEntries, seenEntityIds, candidateEntityIds);
+
+            for (var i = 0; i < candidateEntityIds.Count; i++)
+            {
+                var entityId = candidateEntityIds[i];
+                var hasPreviousState = context.PreMovementSnapshot.TryGetEnemyChargeState(entityId, out var previousChargeState);
+                var hasPostMovementState = context.PostMovementSnapshot.TryGetEnemyChargeState(entityId, out var postMovementChargeState);
+                var hasFinalState = context.FinalAuthoritativeSnapshot.TryGetEnemyChargeState(entityId, out var finalChargeState);
+
+                var resolvedState = ResolvePresentationChargeState(
+                    hasPreviousState,
+                    previousChargeState,
+                    hasPostMovementState,
+                    postMovementChargeState,
+                    hasFinalState,
+                    finalChargeState);
+                if (!ShouldEmitChargeSignal(
+                        hasPreviousState,
+                        previousChargeState,
+                        hasPostMovementState,
+                        postMovementChargeState,
+                        hasFinalState,
+                        finalChargeState))
+                {
+                    continue;
+                }
+
+                enemyChargeSignals.Add(
+                    new TickEnemyChargePresentationSignal(
+                        entityId,
+                        resolvedState.sequence,
+                        resolvedState.phase,
+                        startedWindupThisTick: resolvedState.phase == EnemyChargePhase.Windup &&
+                                               (!hasPreviousState || previousChargeState.phase != EnemyChargePhase.Windup),
+                        startedActiveThisTick: resolvedState.phase == EnemyChargePhase.Active &&
+                                               (!hasPreviousState || previousChargeState.phase != EnemyChargePhase.Active),
+                        startedRecoverThisTick: resolvedState.phase == EnemyChargePhase.Recover &&
+                                                (!hasPreviousState || previousChargeState.phase != EnemyChargePhase.Recover),
+                        lockedDirection: resolvedState.lockedDirection));
+            }
+        }
+
+        private static void CollectEnemyChargeCandidateIds(
+            List<EnemyChargeSnapshotEntry> entries,
+            HashSet<int> seenEntityIds,
+            List<int> candidateEntityIds)
+        {
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                if (entry.State.phase == EnemyChargePhase.None ||
+                    !seenEntityIds.Add(entry.EntityId))
+                {
+                    continue;
+                }
+
+                candidateEntityIds.Add(entry.EntityId);
+            }
+        }
+
+        private static EnemyChargeRuntimeState ResolvePresentationChargeState(
+            bool hasPreviousState,
+            in EnemyChargeRuntimeState previousChargeState,
+            bool hasPostMovementState,
+            in EnemyChargeRuntimeState postMovementChargeState,
+            bool hasFinalState,
+            in EnemyChargeRuntimeState finalChargeState)
+        {
+            if (hasFinalState)
+            {
+                return finalChargeState;
+            }
+
+            if (hasPostMovementState)
+            {
+                return postMovementChargeState;
+            }
+
+            return hasPreviousState
+                ? previousChargeState
+                : default;
+        }
+
+        private static bool ShouldEmitChargeSignal(
+            bool hasPreviousState,
+            in EnemyChargeRuntimeState previousChargeState,
+            bool hasPostMovementState,
+            in EnemyChargeRuntimeState postMovementChargeState,
+            bool hasFinalState,
+            in EnemyChargeRuntimeState finalChargeState)
+        {
+            return (hasPreviousState && previousChargeState.phase != EnemyChargePhase.None) ||
+                   (hasPostMovementState && postMovementChargeState.phase != EnemyChargePhase.None) ||
+                   (hasFinalState && finalChargeState.phase != EnemyChargePhase.None);
         }
 
         private static EnemyJumpRuntimeState ResolvePresentationJumpState(

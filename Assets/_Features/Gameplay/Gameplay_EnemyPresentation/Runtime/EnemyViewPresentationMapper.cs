@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
                 aiMode,
                 activeActionKind,
                 EnemyJumpPhase.None,
+                EnemyChargePhase.None,
                 isMoving,
                 startedWindupThisTick,
                 executedThisTick,
@@ -33,6 +34,9 @@ namespace Game.Feature.Gameplay.Host
                 startedJumpAirborneThisTick: false,
                 landedFromJumpThisTick: false,
                 retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
                 tookDamage,
                 didDie)
         {
@@ -54,12 +58,56 @@ namespace Game.Feature.Gameplay.Host
             bool retryingJumpAirborneThisTick,
             bool tookDamage,
             bool didDie)
+            : this(
+                entityId,
+                tickIndex,
+                aiMode,
+                activeActionKind,
+                jumpPhase,
+                EnemyChargePhase.None,
+                isMoving,
+                startedWindupThisTick,
+                executedThisTick,
+                startedRecoveryThisTick,
+                startedJumpWindupThisTick,
+                startedJumpAirborneThisTick,
+                landedFromJumpThisTick,
+                retryingJumpAirborneThisTick,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
+                tookDamage,
+                didDie)
+        {
+        }
+
+        public EnemyViewPresentationState(
+            int entityId,
+            int tickIndex,
+            EnemyAiMode aiMode,
+            EnemyActionKind activeActionKind,
+            EnemyJumpPhase jumpPhase,
+            EnemyChargePhase chargePhase,
+            bool isMoving,
+            bool startedWindupThisTick,
+            bool executedThisTick,
+            bool startedRecoveryThisTick,
+            bool startedJumpWindupThisTick,
+            bool startedJumpAirborneThisTick,
+            bool landedFromJumpThisTick,
+            bool retryingJumpAirborneThisTick,
+            bool startedChargeWindupThisTick,
+            bool startedChargeActiveThisTick,
+            bool startedChargeRecoverThisTick,
+            bool tookDamage,
+            bool didDie)
         {
             EntityId = entityId;
             TickIndex = tickIndex;
             AiMode = aiMode;
             ActiveActionKind = activeActionKind;
             JumpPhase = jumpPhase;
+            ChargePhase = chargePhase;
             IsMoving = isMoving;
             StartedWindupThisTick = startedWindupThisTick;
             ExecutedThisTick = executedThisTick;
@@ -68,6 +116,9 @@ namespace Game.Feature.Gameplay.Host
             StartedJumpAirborneThisTick = startedJumpAirborneThisTick;
             LandedFromJumpThisTick = landedFromJumpThisTick;
             RetryingJumpAirborneThisTick = retryingJumpAirborneThisTick;
+            StartedChargeWindupThisTick = startedChargeWindupThisTick;
+            StartedChargeActiveThisTick = startedChargeActiveThisTick;
+            StartedChargeRecoverThisTick = startedChargeRecoverThisTick;
             TookDamage = tookDamage;
             DidDie = didDie;
         }
@@ -81,6 +132,8 @@ namespace Game.Feature.Gameplay.Host
         public EnemyActionKind ActiveActionKind { get; }
 
         public EnemyJumpPhase JumpPhase { get; }
+
+        public EnemyChargePhase ChargePhase { get; }
 
         public bool IsMoving { get; }
 
@@ -98,6 +151,12 @@ namespace Game.Feature.Gameplay.Host
 
         public bool RetryingJumpAirborneThisTick { get; }
 
+        public bool StartedChargeWindupThisTick { get; }
+
+        public bool StartedChargeActiveThisTick { get; }
+
+        public bool StartedChargeRecoverThisTick { get; }
+
         public bool DidAttack => ExecutedThisTick;
 
         public bool TookDamage { get; }
@@ -111,6 +170,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly Dictionary<int, TickEnemyActionPresentationSignal> _enemyActionSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyDamagePresentationSignal> _enemyDamageSignalsByEntityId = new();
         private readonly Dictionary<int, TickEnemyJumpPresentationSignal> _enemyJumpSignalsByEntityId = new();
+        private readonly Dictionary<int, TickEnemyChargePresentationSignal> _enemyChargeSignalsByEntityId = new();
         private readonly Dictionary<int, EntityState> _finalEntitiesById = new();
         private readonly HashSet<int> _movingEntityIds = new();
         private readonly HashSet<int> _removedEntityIds = new();
@@ -141,6 +201,7 @@ namespace Game.Feature.Gameplay.Host
             _enemyActionSignalsByEntityId.Clear();
             _enemyDamageSignalsByEntityId.Clear();
             _enemyJumpSignalsByEntityId.Clear();
+            _enemyChargeSignalsByEntityId.Clear();
             _removedEntityIds.Clear();
             _finalEntitiesById.Clear();
 
@@ -149,6 +210,7 @@ namespace Game.Feature.Gameplay.Host
             CollectEnemyActionSignals(result.PresentationData);
             CollectEnemyDamageSignals(result.PresentationData);
             CollectEnemyJumpSignals(result.PresentationData);
+            CollectEnemyChargeSignals(result.PresentationData);
             CollectRemovalSignals(result.PresentationData);
 
             foreach (var entityId in _candidateEntityIds)
@@ -174,6 +236,10 @@ namespace Game.Feature.Gameplay.Host
                 var startedJumpAirborneThisTick = false;
                 var landedFromJumpThisTick = false;
                 var retryingJumpAirborneThisTick = false;
+                var chargePhase = EnemyChargePhase.None;
+                var startedChargeWindupThisTick = false;
+                var startedChargeActiveThisTick = false;
+                var startedChargeRecoverThisTick = false;
                 var tookDamageThisTick = false;
 
                 if (_enemyActionSignalsByEntityId.TryGetValue(entityId, out var actionSignal))
@@ -198,12 +264,23 @@ namespace Game.Feature.Gameplay.Host
                     retryingJumpAirborneThisTick = jumpSignal.RetryThisTick;
                 }
 
+                if (_enemyChargeSignalsByEntityId.TryGetValue(entityId, out var chargeSignal))
+                {
+                    chargePhase = chargeSignal.Phase;
+                    startedChargeWindupThisTick = chargeSignal.StartedWindupThisTick;
+                    startedChargeActiveThisTick = chargeSignal.StartedActiveThisTick;
+                    startedChargeRecoverThisTick = chargeSignal.StartedRecoverThisTick;
+                    startedWindupThisTick |= chargeSignal.StartedWindupThisTick;
+                    startedRecoveryThisTick |= chargeSignal.StartedRecoverThisTick;
+                }
+
                 buffer[entityId] = new EnemyViewPresentationState(
                     entityId,
                     result.TickIndex,
                     aiMode,
                     activeActionKind,
                     jumpPhase,
+                    chargePhase,
                     _movingEntityIds.Contains(entityId),
                     startedWindupThisTick,
                     executedThisTick,
@@ -212,6 +289,9 @@ namespace Game.Feature.Gameplay.Host
                     startedJumpAirborneThisTick,
                     landedFromJumpThisTick,
                     retryingJumpAirborneThisTick,
+                    startedChargeWindupThisTick,
+                    startedChargeActiveThisTick,
+                    startedChargeRecoverThisTick,
                     tookDamageThisTick,
                     didDie);
             }
@@ -231,6 +311,7 @@ namespace Game.Feature.Gameplay.Host
                 entity.aiMode,
                 EnemyActionKind.None,
                 EnemyJumpPhase.None,
+                EnemyChargePhase.None,
                 isMoving: false,
                 startedWindupThisTick: false,
                 executedThisTick: false,
@@ -239,6 +320,9 @@ namespace Game.Feature.Gameplay.Host
                 startedJumpAirborneThisTick: false,
                 landedFromJumpThisTick: false,
                 retryingJumpAirborneThisTick: false,
+                startedChargeWindupThisTick: false,
+                startedChargeActiveThisTick: false,
+                startedChargeRecoverThisTick: false,
                 tookDamage: false,
                 didDie: entity.aiMode == EnemyAiMode.Dead || entity.markedForDeath);
             return true;
@@ -298,6 +382,17 @@ namespace Game.Feature.Gameplay.Host
                 var signal = enemyJumpSignals[i];
                 _candidateEntityIds.Add(signal.EntityId);
                 _enemyJumpSignalsByEntityId[signal.EntityId] = signal;
+            }
+        }
+
+        private void CollectEnemyChargeSignals(TickPresentationData presentationData)
+        {
+            var enemyChargeSignals = presentationData.EnemyChargeSignals;
+            for (var i = 0; i < enemyChargeSignals.Count; i++)
+            {
+                var signal = enemyChargeSignals[i];
+                _candidateEntityIds.Add(signal.EntityId);
+                _enemyChargeSignalsByEntityId[signal.EntityId] = signal;
             }
         }
 

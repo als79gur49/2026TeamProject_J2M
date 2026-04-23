@@ -455,6 +455,41 @@ namespace Game.Feature.Gameplay.Loop
         public int RetryCount { get; }
     }
 
+    public readonly struct TickEnemyChargePresentationSignal
+    {
+        public TickEnemyChargePresentationSignal(
+            int entityId,
+            int sequence,
+            EnemyChargePhase phase,
+            bool startedWindupThisTick,
+            bool startedActiveThisTick,
+            bool startedRecoverThisTick,
+            Direction lockedDirection = Direction.None)
+        {
+            EntityId = entityId;
+            Sequence = sequence;
+            Phase = phase;
+            StartedWindupThisTick = startedWindupThisTick;
+            StartedActiveThisTick = startedActiveThisTick;
+            StartedRecoverThisTick = startedRecoverThisTick;
+            LockedDirection = lockedDirection;
+        }
+
+        public int EntityId { get; }
+
+        public int Sequence { get; }
+
+        public EnemyChargePhase Phase { get; }
+
+        public bool StartedWindupThisTick { get; }
+
+        public bool StartedActiveThisTick { get; }
+
+        public bool StartedRecoverThisTick { get; }
+
+        public Direction LockedDirection { get; }
+    }
+
     public enum TickEntityExitCause
     {
         None = 0,
@@ -624,6 +659,7 @@ namespace Game.Feature.Gameplay.Loop
             Array.Empty<TickEnemyDamagePresentationSignal>(),
             Array.Empty<TickEnemyActionPresentationSignal>(),
             Array.Empty<TickEnemyJumpPresentationSignal>(),
+            Array.Empty<TickEnemyChargePresentationSignal>(),
             Array.Empty<TickEntityExitPresentationSignal>(),
             Array.Empty<FlipImpactPresentationSignal>());
 
@@ -633,6 +669,7 @@ namespace Game.Feature.Gameplay.Loop
         private readonly ReadOnlyCollection<TickEnemyActionPresentationSignal> _enemyActionSignals;
         private readonly ReadOnlyCollection<TickEnemyDamagePresentationSignal> _enemyDamageSignals;
         private readonly ReadOnlyCollection<TickEnemyJumpPresentationSignal> _enemyJumpSignals;
+        private readonly ReadOnlyCollection<TickEnemyChargePresentationSignal> _enemyChargeSignals;
         private readonly ReadOnlyCollection<TickEntityMotion> _entityMotions;
         private readonly ReadOnlyCollection<TickPlayerActionPresentationSignal> _playerActionSignals;
         private readonly ReadOnlyCollection<TickPlayerDamagePresentationSignal> _playerDamageSignals;
@@ -878,6 +915,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyDamageSignals,
                 enemyActionSignals,
                 enemyJumpSignals,
+                Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals,
                 impactTransientSignals,
                 Array.Empty<FlipImpactPresentationSignal>())
@@ -910,6 +948,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyDamageSignals,
                 enemyActionSignals,
                 enemyJumpSignals,
+                Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals,
                 impactTransientSignals,
                 flipImpactSignals)
@@ -940,12 +979,13 @@ namespace Game.Feature.Gameplay.Loop
                 enemyDamageSignals,
                 enemyActionSignals,
                 enemyJumpSignals,
+                Array.Empty<TickEnemyChargePresentationSignal>(),
                 entityExitSignals,
                 Array.Empty<FlipImpactPresentationSignal>())
         {
         }
 
-        public TickPresentationData(
+        internal TickPresentationData(
             IEnumerable<TickEntityMotion> entityMotions,
             TickTopologyMotion? topologyMotion,
             IEnumerable<TickVisibilityChange> visibilityChanges,
@@ -957,6 +997,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
             IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEnemyChargePresentationSignal> enemyChargeSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
             IEnumerable<FlipImpactPresentationSignal> flipImpactSignals)
         {
@@ -1010,6 +1051,11 @@ namespace Game.Feature.Gameplay.Loop
                 throw new ArgumentNullException(nameof(enemyJumpSignals));
             }
 
+            if (enemyChargeSignals == null)
+            {
+                throw new ArgumentNullException(nameof(enemyChargeSignals));
+            }
+
             if (entityExitSignals == null)
             {
                 throw new ArgumentNullException(nameof(entityExitSignals));
@@ -1039,12 +1085,46 @@ namespace Game.Feature.Gameplay.Loop
                 new List<TickEnemyActionPresentationSignal>(enemyActionSignals));
             _enemyJumpSignals = new ReadOnlyCollection<TickEnemyJumpPresentationSignal>(
                 new List<TickEnemyJumpPresentationSignal>(enemyJumpSignals));
+            _enemyChargeSignals = new ReadOnlyCollection<TickEnemyChargePresentationSignal>(
+                new List<TickEnemyChargePresentationSignal>(enemyChargeSignals));
             _entityExitSignals = new ReadOnlyCollection<TickEntityExitPresentationSignal>(
                 new List<TickEntityExitPresentationSignal>(entityExitSignals));
             _flipImpactSignals = new ReadOnlyCollection<FlipImpactPresentationSignal>(
                 new List<FlipImpactPresentationSignal>(flipImpactSignals));
             _impactTransientSignals = new ReadOnlyCollection<TickImpactTransientPresentationSignal>(
                 new List<TickImpactTransientPresentationSignal>());
+        }
+
+        public TickPresentationData(
+            IEnumerable<TickEntityMotion> entityMotions,
+            TickTopologyMotion? topologyMotion,
+            IEnumerable<TickVisibilityChange> visibilityChanges,
+            IEnumerable<TickTransitionVisibilityChange> transitionVisibilityChanges,
+            IEnumerable<TickPlayerActionPresentationSignal> playerActionSignals,
+            IEnumerable<TickPlayerLocomotionPresentationSignal> playerLocomotionSignals,
+            IEnumerable<TickPlayerDamagePresentationSignal> playerDamageSignals,
+            IEnumerable<TickPlayerDeathPresentationSignal> playerDeathSignals,
+            IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
+            IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
+            IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
+            IEnumerable<FlipImpactPresentationSignal> flipImpactSignals)
+            : this(
+                entityMotions,
+                topologyMotion,
+                visibilityChanges,
+                transitionVisibilityChanges,
+                playerActionSignals,
+                playerLocomotionSignals,
+                playerDamageSignals,
+                playerDeathSignals,
+                enemyDamageSignals,
+                enemyActionSignals,
+                enemyJumpSignals,
+                Array.Empty<TickEnemyChargePresentationSignal>(),
+                entityExitSignals,
+                flipImpactSignals)
+        {
         }
 
         internal TickPresentationData(
@@ -1059,6 +1139,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
             IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEnemyChargePresentationSignal> enemyChargeSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
             IEnumerable<TickImpactTransientPresentationSignal> impactTransientSignals)
             : this(
@@ -1073,6 +1154,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyDamageSignals,
                 enemyActionSignals,
                 enemyJumpSignals,
+                enemyChargeSignals,
                 entityExitSignals,
                 impactTransientSignals,
                 Array.Empty<FlipImpactPresentationSignal>())
@@ -1091,6 +1173,7 @@ namespace Game.Feature.Gameplay.Loop
             IEnumerable<TickEnemyDamagePresentationSignal> enemyDamageSignals,
             IEnumerable<TickEnemyActionPresentationSignal> enemyActionSignals,
             IEnumerable<TickEnemyJumpPresentationSignal> enemyJumpSignals,
+            IEnumerable<TickEnemyChargePresentationSignal> enemyChargeSignals,
             IEnumerable<TickEntityExitPresentationSignal> entityExitSignals,
             IEnumerable<TickImpactTransientPresentationSignal> impactTransientSignals,
             IEnumerable<FlipImpactPresentationSignal> flipImpactSignals)
@@ -1106,6 +1189,7 @@ namespace Game.Feature.Gameplay.Loop
                 enemyDamageSignals,
                 enemyActionSignals,
                 enemyJumpSignals,
+                enemyChargeSignals,
                 entityExitSignals,
                 flipImpactSignals)
         {
@@ -1139,6 +1223,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<TickEnemyActionPresentationSignal> EnemyActionSignals => _enemyActionSignals;
 
         public IReadOnlyList<TickEnemyJumpPresentationSignal> EnemyJumpSignals => _enemyJumpSignals;
+
+        public IReadOnlyList<TickEnemyChargePresentationSignal> EnemyChargeSignals => _enemyChargeSignals;
 
         public IReadOnlyList<TickEntityExitPresentationSignal> EntityExitSignals => _entityExitSignals;
 

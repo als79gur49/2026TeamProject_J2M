@@ -10,10 +10,12 @@ namespace Game.Feature.Gameplay.Host
         private const string AiModeParameterName = "EnemyAiMode";
         private const string ActiveActionKindParameterName = "EnemyActionKind";
         private const string JumpPhaseParameterName = "EnemyJumpPhase";
+        private const string ChargePhaseParameterName = "EnemyChargePhase";
         private const string MovingParameterName = "IsMoving";
         private static readonly int AiModeParameterHash = Animator.StringToHash(AiModeParameterName);
         private static readonly int ActiveActionKindParameterHash = Animator.StringToHash(ActiveActionKindParameterName);
         private static readonly int JumpPhaseParameterHash = Animator.StringToHash(JumpPhaseParameterName);
+        private static readonly int ChargePhaseParameterHash = Animator.StringToHash(ChargePhaseParameterName);
         private static readonly int MovingParameterHash = Animator.StringToHash(MovingParameterName);
 
         [SerializeField] private Animator animator;
@@ -21,6 +23,7 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private string windupStateName = "Windup";
         [SerializeField] private string jumpWindupStateName = "JumpWindup";
         [SerializeField] private string jumpAirborneStateName = "JumpAirborne";
+        [SerializeField] private string chargeActiveStateName = "Charge";
         [SerializeField] private string recoveryStateName = "Recover";
         [SerializeField] private string windupTriggerName = "Windup";
         [SerializeField] private string jumpWindupTriggerName = "JumpWindup";
@@ -52,6 +55,8 @@ namespace Game.Feature.Gameplay.Host
 
         public int JumpAirborneSignalCount { get; private set; }
 
+        public int ChargeActiveSignalCount { get; private set; }
+
         public int HitSignalCount { get; private set; }
 
         public int DeathSignalCount { get; private set; }
@@ -74,6 +79,7 @@ namespace Game.Feature.Gameplay.Host
         private bool _supportsAiModeParameter;
         private bool _supportsActiveActionKindParameter;
         private bool _supportsJumpPhaseParameter;
+        private bool _supportsChargePhaseParameter;
         private bool _supportsMovingParameter;
         private int _windupTriggerDispatchCount;
         private int _recoveryTriggerDispatchCount;
@@ -86,6 +92,7 @@ namespace Game.Feature.Gameplay.Host
 
         public void Apply(in EnemyViewPresentationState state)
         {
+            var previousState = LastPresentationState;
             LastPresentationState = state;
             CurrentAiMode = state.AiMode;
             CurrentActiveActionKind = state.ActiveActionKind;
@@ -117,6 +124,13 @@ namespace Game.Feature.Gameplay.Host
             if (state.LandedFromJumpThisTick)
             {
                 TryApplyNamedStateCrossFade(targetAnimator, DefaultLocomotionStateName);
+            }
+
+            if (state.StartedChargeActiveThisTick ||
+                (state.ChargePhase == EnemyChargePhase.Active && previousState.ChargePhase != EnemyChargePhase.Active))
+            {
+                ChargeActiveSignalCount++;
+                TryApplyPresentationCrossFade(targetAnimator, EnemyPresentationPhase.ChargeActive);
             }
 
             if (state.StartedWindupThisTick)
@@ -280,6 +294,10 @@ namespace Game.Feature.Gameplay.Host
                 case EnemyPresentationPhase.Windup:
                     return animationTiming.TryGetAttackWindupAnimatorDurationOverride(out durationSeconds);
 
+                case EnemyPresentationPhase.ChargeActive:
+                    durationSeconds = EnemyAnimationTimingAuthoring.UseDriverDefaultSentinel;
+                    return false;
+
                 case EnemyPresentationPhase.Recovery:
                     return animationTiming.TryGetRecoverAnimatorDurationOverride(out durationSeconds);
 
@@ -327,6 +345,10 @@ namespace Game.Feature.Gameplay.Host
                     return animationTiming.TryGetAttackWindupReferenceClipLengthSeconds(
                         out referenceClipLengthSeconds);
 
+                case EnemyPresentationPhase.ChargeActive:
+                    referenceClipLengthSeconds = 0f;
+                    return false;
+
                 case EnemyPresentationPhase.Recovery:
                     return animationTiming.TryGetRecoverReferenceClipLengthSeconds(
                         out referenceClipLengthSeconds);
@@ -353,6 +375,9 @@ namespace Game.Feature.Gameplay.Host
 
                 case EnemyPresentationPhase.Windup:
                     return windupStateName;
+
+                case EnemyPresentationPhase.ChargeActive:
+                    return chargeActiveStateName;
 
                 case EnemyPresentationPhase.Recovery:
                     return recoveryStateName;
@@ -384,6 +409,18 @@ namespace Game.Feature.Gameplay.Host
                     return EnemyPresentationPhase.JumpAirborne;
             }
 
+            switch (state.ChargePhase)
+            {
+                case EnemyChargePhase.Windup:
+                    return EnemyPresentationPhase.Windup;
+
+                case EnemyChargePhase.Active:
+                    return EnemyPresentationPhase.ChargeActive;
+
+                case EnemyChargePhase.Recover:
+                    return EnemyPresentationPhase.Recovery;
+            }
+
             switch (state.AiMode)
             {
                 case EnemyAiMode.Attack:
@@ -412,6 +449,11 @@ namespace Game.Feature.Gameplay.Host
             if (SupportsJumpPhaseParameter(targetAnimator))
             {
                 targetAnimator.SetInteger(JumpPhaseParameterHash, ResolveAnimatorJumpPhase(state.JumpPhase));
+            }
+
+            if (SupportsChargePhaseParameter(targetAnimator))
+            {
+                targetAnimator.SetInteger(ChargePhaseParameterHash, (int)state.ChargePhase);
             }
 
             SyncOptionalMovingParameter(targetAnimator, state.IsMoving);
@@ -471,6 +513,17 @@ namespace Game.Feature.Gameplay.Host
             return _supportsJumpPhaseParameter;
         }
 
+        private bool SupportsChargePhaseParameter(Animator targetAnimator)
+        {
+            if (targetAnimator == null)
+            {
+                return false;
+            }
+
+            RefreshOptionalParameterSupport(targetAnimator);
+            return _supportsChargePhaseParameter;
+        }
+
         private void RefreshOptionalParameterSupport(Animator targetAnimator)
         {
             if (targetAnimator == null)
@@ -490,6 +543,7 @@ namespace Game.Feature.Gameplay.Host
             _supportsAiModeParameter = false;
             _supportsActiveActionKindParameter = false;
             _supportsJumpPhaseParameter = false;
+            _supportsChargePhaseParameter = false;
             _supportsMovingParameter = false;
 
              if (controller == null)
@@ -514,6 +568,10 @@ namespace Game.Feature.Gameplay.Host
                     else if (parameter.nameHash == JumpPhaseParameterHash)
                     {
                         _supportsJumpPhaseParameter = true;
+                    }
+                    else if (parameter.nameHash == ChargePhaseParameterHash)
+                    {
+                        _supportsChargePhaseParameter = true;
                     }
                 }
                 else if (parameter.type == AnimatorControllerParameterType.Bool &&
@@ -602,7 +660,8 @@ namespace Game.Feature.Gameplay.Host
             Recovery = 2,
             JumpWindup = 3,
             JumpAirborne = 4,
-            Death = 5,
+            ChargeActive = 5,
+            Death = 6,
         }
     }
 }
