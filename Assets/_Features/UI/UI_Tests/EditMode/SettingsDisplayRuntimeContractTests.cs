@@ -6,6 +6,7 @@ using Game.Feature.UI.Screens;
 using NUnit.Framework;
 using System;
 using System.Reflection;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -72,7 +73,7 @@ namespace Game.Feature.UI.Tests
 
                 var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
-                var countdownLabel = GetDisplayPrivateField<Text>(displayView, "_previewCountdownLabel");
+                var countdownLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_previewCountdownLabel");
                 var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
 
                 Assert.That(countdownRoot.gameObject.activeSelf, Is.False);
@@ -186,7 +187,7 @@ namespace Game.Feature.UI.Tests
 
                 var displayView = runtimeContext.ScreenLayerView.FindScreenView<SettingsScreenView>().DisplayView;
                 var countdownRoot = GetDisplayPrivateField<RectTransform>(displayView, "_previewCountdownRoot");
-                var countdownLabel = GetDisplayPrivateField<Text>(displayView, "_previewCountdownLabel");
+                var countdownLabel = GetDisplayPrivateField<TMP_Text>(displayView, "_previewCountdownLabel");
                 var countdownFill = GetDisplayPrivateField<Image>(displayView, "_previewCountdownFill");
 
                 displayView.SelectResolution(2);
