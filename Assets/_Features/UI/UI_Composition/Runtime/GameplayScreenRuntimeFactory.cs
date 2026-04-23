@@ -14,6 +14,7 @@ namespace Game.Feature.UI.Composition
         private readonly IGameplayUiPresentationSource _presentationSource;
         private readonly IAudioSettingsPort _audioSettingsPort;
         private readonly IDisplaySettingsPort _displaySettingsPort;
+        private readonly IUiAudioPort _uiAudioPort;
         private readonly DisplayPreviewSessionHost _displayPreviewSessionHost;
         private readonly DisplaySettingsLifecycleRelay _displaySettingsLifecycleRelay;
         private readonly ScreenPrefabCatalog _screenPrefabCatalog;
@@ -27,6 +28,7 @@ namespace Game.Feature.UI.Composition
             AccessibilitySettingsStore accessibilitySettingsStore,
             IAudioSettingsPort audioSettingsPort,
             IDisplaySettingsPort displaySettingsPort,
+            IUiAudioPort uiAudioPort,
             DisplayPreviewSessionHost displayPreviewSessionHost,
             DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
             ScreenPrefabCatalog screenPrefabCatalog)
@@ -37,6 +39,7 @@ namespace Game.Feature.UI.Composition
             _accessibilitySettingsStore = accessibilitySettingsStore ?? throw new ArgumentNullException(nameof(accessibilitySettingsStore));
             _audioSettingsPort = audioSettingsPort ?? throw new ArgumentNullException(nameof(audioSettingsPort));
             _displaySettingsPort = displaySettingsPort ?? throw new ArgumentNullException(nameof(displaySettingsPort));
+            _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
             _displayPreviewSessionHost = displayPreviewSessionHost ?? throw new ArgumentNullException(nameof(displayPreviewSessionHost));
             _displaySettingsLifecycleRelay = displaySettingsLifecycleRelay ?? throw new ArgumentNullException(nameof(displaySettingsLifecycleRelay));
             _screenPrefabCatalog = screenPrefabCatalog ?? throw new ArgumentNullException(nameof(screenPrefabCatalog));
@@ -83,7 +86,7 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.None,
                     HudShellMode.Visible,
                     blocksUiGameplayInput: false),
-                new GameplayRuntime(view, presenter, () => DestroyObject(view.gameObject)));
+                new GameplayRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateHelpRuntime()
@@ -100,7 +103,7 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.Pop,
                     HudShellMode.Visible,
                     blocksUiGameplayInput: true),
-                new HelpRuntime(view, presenter, () => DestroyObject(view.gameObject)));
+                new HelpRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateObjectiveStatusRuntime()
@@ -118,7 +121,7 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.Pop,
                     HudShellMode.Visible,
                     blocksUiGameplayInput: true),
-                new ObjectiveStatusRuntime(view, presenter, () => DestroyObject(view.gameObject)));
+                new ObjectiveStatusRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateInventoryRuntime()
@@ -144,7 +147,7 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.Pop,
                     HudShellMode.Visible,
                     blocksUiGameplayInput: true),
-                new InventoryRuntime(view, presenter, () => DestroyObject(view.gameObject)));
+                new InventoryRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private ScreenRuntimeFactoryResult CreateSettingsRuntime()
@@ -170,6 +173,7 @@ namespace Game.Feature.UI.Composition
                 new SettingsRuntime(
                     view,
                     presenter,
+                    _uiAudioPort,
                     _displayPreviewSessionHost,
                     _displaySettingsLifecycleRelay,
                     () => DestroyObject(view.gameObject)));
@@ -189,7 +193,7 @@ namespace Game.Feature.UI.Composition
                     ScreenBackAction.Consume,
                     HudShellMode.Hidden,
                     blocksUiGameplayInput: true),
-                new StageResultRuntime(view, presenter, () => DestroyObject(view.gameObject)));
+                new StageResultRuntime(view, presenter, _uiAudioPort, () => DestroyObject(view.gameObject)));
         }
 
         private TView InstantiateScreenPrefab<TView>(TView prefab, ScreenId screenId)
@@ -253,10 +257,12 @@ namespace Game.Feature.UI.Composition
         private abstract class ScreenRuntimeBase<TView> : IScreenRuntime where TView : Component, IScreenView
         {
             private readonly Action _dispose;
+            private readonly IUiAudioPort _uiAudioPort;
 
-            protected ScreenRuntimeBase(TView view, Action dispose)
+            protected ScreenRuntimeBase(TView view, IUiAudioPort uiAudioPort, Action dispose)
             {
                 View = view ?? throw new ArgumentNullException(nameof(view));
+                _uiAudioPort = uiAudioPort ?? throw new ArgumentNullException(nameof(uiAudioPort));
                 _dispose = dispose ?? throw new ArgumentNullException(nameof(dispose));
             }
 
@@ -281,6 +287,11 @@ namespace Game.Feature.UI.Composition
             {
                 ActionRequested?.Invoke(action);
             }
+
+            protected void PlayLocalCue(UiAudioCueId cueId)
+            {
+                _uiAudioPort.Play(cueId);
+            }
         }
 
         private sealed class GameplayRuntime : ScreenRuntimeBase<GameplayScreenView>
@@ -290,8 +301,9 @@ namespace Game.Feature.UI.Composition
             public GameplayRuntime(
                 GameplayScreenView view,
                 GameplayScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
                 Action dispose)
-                : base(view, dispose)
+                : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
                 view.HelpRequested += HandleHelpRequested;
@@ -343,8 +355,8 @@ namespace Game.Feature.UI.Composition
         {
             private readonly HelpScreenPresenter _presenter;
 
-            public HelpRuntime(HelpScreenView view, HelpScreenPresenter presenter, Action dispose)
-                : base(view, dispose)
+            public HelpRuntime(HelpScreenView view, HelpScreenPresenter presenter, IUiAudioPort uiAudioPort, Action dispose)
+                : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
                 view.BackRequested += HandleBackRequested;
@@ -375,8 +387,9 @@ namespace Game.Feature.UI.Composition
             public ObjectiveStatusRuntime(
                 ObjectiveStatusScreenView view,
                 ObjectiveStatusScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
                 Action dispose)
-                : base(view, dispose)
+                : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
                 view.OverviewRequested += HandleOverviewRequested;
@@ -404,11 +417,13 @@ namespace Game.Feature.UI.Composition
             private void HandleOverviewRequested()
             {
                 _presenter.ShowOverview();
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleSessionRequested()
             {
                 _presenter.ShowSession();
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleInfoRequested()
@@ -429,8 +444,9 @@ namespace Game.Feature.UI.Composition
             public InventoryRuntime(
                 InventoryScreenView view,
                 InventoryScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
                 Action dispose)
-                : base(view, dispose)
+                : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
                 view.BackRequested += HandleBackRequested;
@@ -472,31 +488,37 @@ namespace Game.Feature.UI.Composition
             private void HandleFilterRequested()
             {
                 _presenter.CatalogPresenter.CycleFilter();
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandlePrimaryActionRequested()
             {
                 _presenter.ActionPresenter.RequestPrimaryAction();
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleRowRequested(int visibleIndex)
             {
                 _presenter.CatalogPresenter.SelectVisibleRow(visibleIndex);
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleSearchRequested()
             {
                 _presenter.CatalogPresenter.CycleSearch();
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleSecondaryActionRequested()
             {
                 _presenter.ActionPresenter.RequestSecondaryAction();
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleSortRequested()
             {
                 _presenter.CatalogPresenter.CycleSort();
+                PlayLocalCue(UiAudioCueId.Select);
             }
         }
 
@@ -512,10 +534,11 @@ namespace Game.Feature.UI.Composition
             public SettingsRuntime(
                 SettingsScreenView view,
                 SettingsScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
                 DisplayPreviewSessionHost displayPreviewSessionHost,
                 DisplaySettingsLifecycleRelay displaySettingsLifecycleRelay,
                 Action dispose)
-                : base(view, dispose)
+                : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
                 _audioView = view.AudioView ?? throw new ArgumentNullException(nameof(view.AudioView));
@@ -592,6 +615,7 @@ namespace Game.Feature.UI.Composition
             private void HandleTooltipToggleRequested()
             {
                 _presenter.ToggleTooltips();
+                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleAudioVolumeChanged(AudioSettingsChannel channel, float value)
@@ -602,21 +626,25 @@ namespace Game.Feature.UI.Composition
             private void HandleAudioMuteChanged(AudioSettingsChannel channel, bool isMuted)
             {
                 _presenter.AudioPresenter.SetMuted(channel, isMuted);
+                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleAudioInteractionCompleted()
             {
                 _presenter.AudioPresenter.Flush();
+                PlayLocalCue(UiAudioCueId.AdjustValueCommit);
             }
 
             private void HandleLargeTextToggleRequested()
             {
                 _presenter.ToggleLargeText();
+                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleDisplayResolutionChanged(int modeIndex)
             {
                 _presenter.DisplayPresenter.StageResolution(modeIndex);
+                PlayLocalCue(UiAudioCueId.Select);
             }
 
             private void HandleDisplayFullscreenToggled(bool isFullscreen)
@@ -624,6 +652,7 @@ namespace Game.Feature.UI.Composition
                 _presenter.DisplayPresenter.StageWindowMode(isFullscreen
                     ? DisplayWindowMode.FullScreenWindow
                     : DisplayWindowMode.Windowed);
+                PlayLocalCue(UiAudioCueId.Toggle);
             }
 
             private void HandleDisplayApplyRequested()
@@ -713,8 +742,12 @@ namespace Game.Feature.UI.Composition
             private readonly StageResultScreenPresenter _presenter;
             private StageResultScreenPayload _payload;
 
-            public StageResultRuntime(StageResultScreenView view, StageResultScreenPresenter presenter, Action dispose)
-                : base(view, dispose)
+            public StageResultRuntime(
+                StageResultScreenView view,
+                StageResultScreenPresenter presenter,
+                IUiAudioPort uiAudioPort,
+                Action dispose)
+                : base(view, uiAudioPort, dispose)
             {
                 _presenter = presenter;
                 view.ContinueRequested += HandleContinueRequested;

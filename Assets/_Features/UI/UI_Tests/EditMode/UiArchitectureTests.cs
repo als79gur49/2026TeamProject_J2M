@@ -756,7 +756,7 @@ namespace Game.Feature.UI.Tests
                 GetConstructorSignatures(typeof(UIFlowCoordinator)),
                 Is.EqualTo(new[]
                 {
-                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IStageLaunchRouter)",
+                    "UIFlowCoordinator(ScreenController, PopupController, UIBlockPolicy, IUiFlowPauseService, IGameplayUiPresentationSource, IUiAudioPort, IStageLaunchRouter)",
                 }));
         }
 
@@ -774,7 +774,7 @@ namespace Game.Feature.UI.Tests
                 }));
             Assert.That(
                 GetPublicEventNames(typeof(ScreenController)),
-                Is.EqualTo(new[] { "ActionRequested", "StateChanged" }));
+                Is.EqualTo(new[] { "ActionRequested", "ScreenTransitioned", "StateChanged" }));
             Assert.That(
                 GetPublicMethodSignatures(typeof(ScreenController)),
                 Is.EqualTo(new[]
@@ -805,7 +805,7 @@ namespace Game.Feature.UI.Tests
                     "PopupCount",
                     "TopPopup",
                 }));
-            Assert.That(GetPublicEventNames(typeof(PopupController)), Is.EqualTo(new[] { "StateChanged" }));
+            Assert.That(GetPublicEventNames(typeof(PopupController)), Is.EqualTo(new[] { "PopupCompleted", "PopupOpened", "StateChanged" }));
             Assert.That(
                 GetPublicMethodSignatures(typeof(PopupController)),
                 Is.EqualTo(new[]

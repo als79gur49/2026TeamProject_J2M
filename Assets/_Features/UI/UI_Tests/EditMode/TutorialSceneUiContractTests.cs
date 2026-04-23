@@ -117,6 +117,10 @@ namespace Game.Feature.UI.Tests
                 Assert.That(
                     AssetDatabase.GetAssetPath(serializedInstaller.FindProperty("_popupPrefabCatalog").objectReferenceValue),
                     Is.EqualTo(UiTestPrefabAssetUtility.PopupCatalogPath));
+                Assert.That(serializedInstaller.FindProperty("_uiAudioCueMap").objectReferenceValue, Is.Not.Null);
+                Assert.That(
+                    AssetDatabase.GetAssetPath(serializedInstaller.FindProperty("_uiAudioCueMap").objectReferenceValue),
+                    Is.EqualTo(UiTestPrefabAssetUtility.UiAudioCueMapAssetPath));
                 Assert.That(serializedInstaller.FindProperty("_installOnStart").boolValue, Is.True);
                 Assert.That(
                     serializedAudioInstaller.FindProperty("bindingMode").enumValueIndex,

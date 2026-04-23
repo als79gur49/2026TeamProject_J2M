@@ -79,6 +79,9 @@ namespace Game.Feature.UI.Tests
             Assert.That(guidelines, Does.Contain("`UI_Application` owns presenter-level orchestration for screen, popup, and HUD slices."));
             Assert.That(guidelines, Does.Contain("`UI_Screens`, `UI_Popups`, and `UI_HUD` own view-facing feature assets and local UI types; they do not own application-layer presenter orchestration."));
             Assert.That(guidelines, Does.Contain("`UI_Composition` instantiates presenters and binds them to canonical views at runtime."));
+            Assert.That(guidelines, Does.Contain("UI SFX ownership is split between coordinator-owned flow outcome cues and screen-runtime-owned local widget cues"));
+            Assert.That(guidelines, Does.Contain("the coordinator transaction/outcome layer is the only flow-cue trigger seam"));
+            Assert.That(guidelines, Does.Contain("Audio-Architecture-Guidelines.md"));
             Assert.That(
                 guidelines,
                 Does.Contain("PausePopup completion semantics are coordinator-owned: Resumed and Closed are resume-equivalent exits, while SettingsRequested keeps gameplay paused, opens SettingsScreen, and returns back to a fresh PausePopup."));
@@ -152,6 +155,38 @@ namespace Game.Feature.UI.Tests
             Assert.That(buildChecklist, Does.Contain("timeout revert"));
             Assert.That(buildChecklist, Does.Contain("alt-tab"));
             Assert.That(buildChecklist, Does.Contain("CanvasScaler / anchor stability"));
+        }
+
+        [Test]
+        public void UiSfxGuidelines_AndReportingRules_RecordHiddenUiChannelPolicy_AndScopedClaims()
+        {
+            var audioGuidelines = ReadRepoFile("Docs/Architecture/Audio-Architecture-Guidelines.md");
+            var automationGuide = ReadRepoFile("Docs/Testing/Gameplay-Test-Automation-Guide.md");
+
+            Assert.That(audioGuidelines, Does.Contain("UI SFX v1 Hidden Ui-Channel Policy And Ownership Matrix"));
+            Assert.That(audioGuidelines, Does.Contain("hidden `Ui` channel은 `Master`를 따른다. `Sfx` mute/volume을 따라가지 않는다."));
+            Assert.That(audioGuidelines, Does.Contain("public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다."));
+            Assert.That(audioGuidelines, Does.Contain("mechanical lifecycle signal이다. direct audio trigger가 아니다."));
+            Assert.That(audioGuidelines, Does.Contain("one interaction may contain multiple raw lifecycle deltas but still emit only one cue"));
+            Assert.That(audioGuidelines, Does.Contain("canonical classifier matrix"));
+            Assert.That(audioGuidelines, Does.Contain("classification prefers user intent over raw delta count or event ordering"));
+            Assert.That(audioGuidelines, Does.Contain("canonical local-vs-flow ownership truth-source table"));
+            Assert.That(audioGuidelines, Does.Contain("PausePopup.SettingsRequested"));
+            Assert.That(audioGuidelines, Does.Contain("Display Apply"));
+            Assert.That(audioGuidelines, Does.Contain("Display Revert"));
+            Assert.That(audioGuidelines, Does.Contain("Settings.Back` from pause origin"));
+            Assert.That(audioGuidelines, Does.Contain("`SystemPresentation` is silent by default"));
+            Assert.That(audioGuidelines, Does.Contain("Stage clear -> StageResult + Reward popup"));
+            Assert.That(audioGuidelines, Does.Contain("placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다."));
+            Assert.That(audioGuidelines, Does.Contain("placeholder clip reuse may make distinct cues sound similar"));
+            Assert.That(audioGuidelines, Does.Contain("hover, disabled/no-op, backdrop-consume feedback는 v1 shipped scope가 아니다."));
+            Assert.That(audioGuidelines, Does.Not.Contain("flow success cue: `UIFlowCoordinator`가 `ScreenTransitioned`, `PopupOpened`, `PopupCompleted` lifecycle signal에서만 재생한다."));
+            Assert.That(audioGuidelines, Does.Not.Contain("controller lifecycle signal은 UI SFX trigger seam이다"));
+            Assert.That(automationGuide, Does.Contain("UI SFX verification wording"));
+            Assert.That(automationGuide, Does.Contain("build verified"));
+            Assert.That(automationGuide, Does.Contain("ui lane validated"));
+            Assert.That(automationGuide, Does.Contain("targeted UI SFX architecture validated"));
+            Assert.That(automationGuide, Does.Contain("Placeholder `Ui` asset authoring is wiring evidence only"));
         }
 
         [Test]

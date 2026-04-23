@@ -442,6 +442,7 @@ namespace Game.Feature.UI.Tests
                 new AccessibilitySettingsStore(),
                 new FakeAudioSettingsPort(),
                 displayPort,
+                new RecordingUiAudioPort(),
                 runtimeContext.PreviewSessionHost,
                 runtimeContext.LifecycleRelay,
                 screenCatalog ?? UiTestPrefabAssetUtility.LoadScreenCatalog());

@@ -21,6 +21,7 @@ namespace Game.Feature.UI.Tests
         internal const string SettingsScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/SettingsScreen.prefab";
         internal const string StageResultScreenPrefabPath = "Assets/_Features/UI/UI_Screens/Prefabs/StageResultScreen.prefab";
         internal const string PopupCatalogPath = "Assets/_Features/UI/UI_Popups/Prefabs/GameplayPopupPrefabCatalog.asset";
+        internal const string UiAudioCueMapAssetPath = "Assets/_Features/UI/UI_Composition/Authoring/UiAudioCueMap_V1.asset";
         internal const string PausePopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/PausePopup.prefab";
         internal const string ObjectiveInfoPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ObjectiveInfoPopup.prefab";
         internal const string ConfirmPopupPrefabPath = "Assets/_Features/UI/UI_Popups/Prefabs/ConfirmPopup.prefab";
@@ -111,6 +112,24 @@ namespace Game.Feature.UI.Tests
             serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
         }
 
+        internal static UiAudioCueMap LoadUiAudioCueMap()
+        {
+            var cueMap = AssetDatabase.LoadAssetAtPath<UiAudioCueMap>(UiAudioCueMapAssetPath);
+            Assert.That(cueMap, Is.Not.Null, UiAudioCueMapAssetPath);
+            return cueMap;
+        }
+
+        internal static void AssignUiAudioCueMap(GameplayUiFlowInstaller installer)
+        {
+            Assert.That(installer, Is.Not.Null);
+
+            var serializedInstaller = new SerializedObject(installer);
+            var cueMapProperty = serializedInstaller.FindProperty("_uiAudioCueMap");
+            Assert.That(cueMapProperty, Is.Not.Null);
+            cueMapProperty.objectReferenceValue = LoadUiAudioCueMap();
+            serializedInstaller.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         internal static void AssignCanonicalUiPrefabs(GameplayUiFlowInstaller installer)
         {
             if (installer.GetComponent<AudioRuntimeInstaller>() == null)
@@ -126,6 +145,7 @@ namespace Game.Feature.UI.Tests
             AssignHudPrefab(installer);
             AssignScreenPrefabCatalog(installer);
             AssignPopupPrefabCatalog(installer);
+            AssignUiAudioCueMap(installer);
         }
 
         internal static void ConfigureAudioInstallerBindingMode(

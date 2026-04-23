@@ -376,6 +376,72 @@ future extension note:
 - hidden channel leaf state는 내부 snapshot에 존재하지만 default `volume=1`, `muted=false`를 유지한다.
 - hidden channel은 `Master`에는 반응하지만 `Bgm` 또는 `Sfx` control에는 반응하지 않는다.
 
+### 8.7 UI SFX v1 Hidden Ui-Channel Policy And Ownership Matrix
+
+- UI SFX v1는 hidden `Ui` channel로 route한다.
+- hidden `Ui` channel은 `Master`를 따른다. `Sfx` mute/volume을 따라가지 않는다.
+- 이 동작은 v1에서 intentional하다. `Sfx`를 mute해도 UI feedback은 계속 들릴 수 있다.
+- public `Ui` slider 또는 mute를 Settings에 노출하는 것은 separate future product decision이다. 이번 작업 범위가 아니다.
+- UI SFX playback은 `Play2D`만 사용한다. `PlayAttached`, spatial ownership, attachment slot authoring은 금지다.
+- UI SFX owner split은 아래 둘뿐이다.
+  - flow cue: `UIFlowCoordinator`의 transaction/outcome layer만 재생한다.
+  - local widget cue: `GameplayScreenRuntimeFactory` screen runtime이 widget-local interaction에서만 재생한다.
+- `ScreenTransitioned`, `PopupOpened`, `PopupCompleted`는 mechanical lifecycle signal이다. direct audio trigger가 아니다.
+- one interaction may contain multiple raw lifecycle deltas but still emit only one cue.
+- classifier governance rule:
+  - outcome classification prefers user intent over raw delta count or event ordering.
+  - 새 flow case가 추가되면 classifier matrix, ownership table, tests를 같은 change에서 함께 갱신한다.
+- canonical classifier matrix:
+
+| Root Intent | Recorded Deltas | Outcome | Cue |
+| --- | --- | --- | --- |
+| `Back` | reverse visible delta가 하나라도 있으면, nested `PopupOpen` restore가 함께 있어도 `NavigateBack` | `NavigateBack` | `NavigateBack` |
+| `Back` | reverse delta 없이 forward visible delta만 있으면 | `NavigateForward` | `NavigateForward` |
+| `OpenForward` | any real forward visible delta | `NavigateForward` | `NavigateForward` |
+| `Confirm` | user-visible confirm completion plus any nested transition | `Confirm` | `Confirm` |
+| `Cancel` | user-visible cancel completion plus any nested cleanup | `Cancel` | `Cancel` |
+| `SystemPresentation` | explicit whitelist entry가 없으면 | `Silent` | none |
+
+- canonical local-vs-flow ownership truth-source table:
+
+| Interaction | Owner | Result |
+| --- | --- | --- |
+| `PausePopup.SettingsRequested` | Flow only | one `NavigateForward` |
+| `Settings.Back` from gameplay origin | Flow only | one `NavigateBack` |
+| `Settings.Back` from pause origin | Flow only | one `NavigateBack` even if pause popup reopens |
+| `Display Apply` | Flow only | one `NavigateForward` when confirm popup actually opens |
+| `Display Revert` | Silent | no cue |
+| inventory row/actions/search/filter/sort | Local only | local `Select` only |
+| objective tab changes | Local only | local `Select` only |
+| popup confirm/resume/reward acknowledge | Flow only | one `Confirm` |
+| popup cancel/back-cancel | Flow only | one `Cancel` |
+| back buttons that trigger real pop | Flow only | one `NavigateBack`, never local + flow |
+
+- user/system policy:
+  - user-driven navigation uses the classifier matrix above.
+  - `SystemPresentation` is silent by default and must not inherit navigation defaults accidentally.
+  - `Stage clear -> StageResult + Reward popup` is one system-driven transaction. v1에서는 silent unless future product policy explicitly whitelists it.
+- transaction/debug rule:
+  - internal trace는 root intent, collected deltas, chosen outcome, emitted cue 또는 silence reason을 기록한다.
+  - test/debug는 raw event count 대신 transaction trace를 primary evidence로 본다.
+- authoring contract:
+  - canonical asset는 `UiAudioCueMap_V1.asset` 하나다.
+  - seven v1 cues는 map에 explicit entry로 모두 존재해야 한다.
+  - `AudioCategory.Ui`만 허용한다.
+  - looping definition은 금지다.
+  - `AudioBinding.Policy`는 null이어야 한다.
+  - attachment slot은 비어 있어야 한다.
+- temporary asset note:
+  - placeholder `Ui` definitions/clips는 wiring과 architecture validation 용도로 허용된다.
+  - placeholder clip reuse may make distinct cues sound similar, but that is a content issue rather than the structural cause of duplicate-feeling playback.
+  - 이것은 final content polish를 의미하지 않는다.
+- reporting scope note:
+  - `build verified`
+  - `ui lane validated`
+  - `targeted UI SFX architecture validated`
+- out of scope note:
+  - hover, disabled/no-op, backdrop-consume feedback는 v1 shipped scope가 아니다.
+
 ## 9. Required Enforcement
 
 EditMode / structure guard:

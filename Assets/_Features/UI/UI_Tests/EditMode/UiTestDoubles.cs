@@ -198,6 +198,23 @@ namespace Game.Feature.UI.Tests
         }
     }
 
+    internal sealed class RecordingUiAudioPort : IUiAudioPort
+    {
+        private readonly List<UiAudioCueId> _playedCueIds = new();
+
+        public IReadOnlyList<UiAudioCueId> PlayedCueIds => _playedCueIds;
+
+        public void Play(UiAudioCueId cueId)
+        {
+            _playedCueIds.Add(cueId);
+        }
+
+        public void Clear()
+        {
+            _playedCueIds.Clear();
+        }
+    }
+
     internal sealed class FakeDisplaySettingsPort : IDisplaySettingsPort
     {
         private readonly List<DisplaySettingsPortModeOption> _availableModes = new()
