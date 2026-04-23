@@ -51,6 +51,8 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings => RequireCoreAuthoring().LocomotionTimingSettings;
 
+        public EnemyChargeTimingAuthoringSettings ChargeTimingSettings => RequireCoreAuthoring().ChargeTimingSettings;
+
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings =>
             GetMovementSkillCapabilityAsset()?.JumpTimingSettings ?? global::Game.Feature.Gameplay.Entities.EnemyJumpTimingAuthoringSettings.CreateDefault();
 

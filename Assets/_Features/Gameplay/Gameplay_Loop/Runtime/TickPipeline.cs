@@ -6059,11 +6059,12 @@ namespace Game.Feature.Gameplay.Loop
         ApplyEnemyAiState = 10,
         SetEnemyActionState = 11,
         SetEnemyJumpState = 12,
-        SpawnEntity = 13,
-        ApplyDamage = 14,
-        MarkDestroy = 15,
-        EnqueueDelayedAttackEffect = 16,
-        SetPhasedState = 17,
+        SetEnemyChargeState = 13,
+        SpawnEntity = 14,
+        ApplyDamage = 15,
+        MarkDestroy = 16,
+        EnqueueDelayedAttackEffect = 17,
+        SetPhasedState = 18,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -6204,6 +6205,7 @@ namespace Game.Feature.Gameplay.Loop
             int enemyAiStateTimer = 0,
             EnemyActionRuntimeState enemyActionState = default,
             EnemyJumpRuntimeState enemyJumpState = default,
+            EnemyChargeRuntimeState enemyChargeState = default,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
             DelayedAttackEffectRecord delayedAttackEffect = default)
@@ -6230,6 +6232,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyAiStateTimer = enemyAiStateTimer;
             EnemyActionState = enemyActionState;
             EnemyJumpState = enemyJumpState;
+            EnemyChargeState = enemyChargeState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
             DelayedAttackEffect = delayedAttackEffect;
@@ -6279,6 +6282,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyJumpRuntimeState EnemyJumpState { get; }
 
+        public EnemyChargeRuntimeState EnemyChargeState { get; }
+
         public PhasedRuntimeState PhasedState { get; }
 
         public EntityState SpawnedEntity { get; }
@@ -6310,6 +6315,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyAiStateTimer,
                 EnemyActionState,
                 EnemyJumpState,
+                EnemyChargeState,
                 PhasedState,
                 SpawnedEntity,
                 DelayedAttackEffect);
@@ -6454,6 +6460,17 @@ namespace Game.Feature.Gameplay.Loop
                 enemyJumpState: enemyJumpState);
         }
 
+        public static FinalizationOperation SetEnemyChargeState(long sequence, int entityId, EnemyChargeRuntimeState enemyChargeState, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyChargeState,
+                metadata,
+                entityId: entityId,
+                enemyChargeState: enemyChargeState);
+        }
+
         public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -6582,6 +6599,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyJumpState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyChargeState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
@@ -6706,6 +6728,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyJumpState(operation.EntityId, operation.EnemyJumpState);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyChargeState:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemyChargeState(operation.EntityId, operation.EnemyChargeState);
+                        break;
+
                     case FinalizationOperationKind.SetPhasedState:
                         ((IPhasedStateCommitContext)writeContext).SetPhasedState(operation.EntityId, operation.PhasedState);
                         break;
@@ -6785,6 +6811,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             _batch.SetEnemyJumpState(entityId, state, CreateJumpStateMetadata(entityId, state));
+        }
+
+        public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
+        {
+            _batch.SetEnemyChargeState(entityId, state);
         }
 
         public void SetPhasedState(int entityId, PhasedRuntimeState state)
@@ -6986,6 +7017,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetEnemyJumpState(entityId, out var enemyJumpState))
                 {
                     writeContext.SetEnemyJumpState(entityId, enemyJumpState);
+                }
+
+                if (snapshot.TryGetEnemyChargeState(entityId, out var enemyChargeState))
+                {
+                    writeContext.SetEnemyChargeState(entityId, enemyChargeState);
                 }
 
                 if (snapshot.TryGetPhasedState(entityId, out var phasedState))

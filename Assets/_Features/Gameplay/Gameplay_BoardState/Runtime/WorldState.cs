@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
+        private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
         private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
@@ -70,6 +71,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
+                new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
                 new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
@@ -133,6 +135,7 @@ namespace Game.Feature.Gameplay.BoardState
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
             _enemyActionStatesByEntityId.Remove(entityId);
+            _enemyChargeStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
             _phasedStatesByEntityId.Remove(entityId);
@@ -151,6 +154,7 @@ namespace Game.Feature.Gameplay.BoardState
             UpdateStoredEntity(entity);
             if (entity.hp <= 0)
             {
+                ClearChargeState(entityId);
                 _phasedStatesByEntityId.Remove(entityId);
             }
         }
@@ -199,6 +203,7 @@ namespace Game.Feature.Gameplay.BoardState
 
             entity.markedForDeath = true;
             UpdateStoredEntity(entity);
+            ClearChargeState(entityId);
             _phasedStatesByEntityId.Remove(entityId);
         }
 
@@ -243,6 +248,7 @@ namespace Game.Feature.Gameplay.BoardState
             entity.boardPresence = boardPresence;
             if (boardPresence != EntityBoardPresence.Occupying)
             {
+                ClearChargeState(entityId);
                 _phasedStatesByEntityId.Remove(entityId);
             }
 
@@ -291,6 +297,16 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyActionStatesByEntityId[entityId] = state;
         }
 
+        private void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _enemyChargeStatesByEntityId[entityId] = state;
+        }
+
         private void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             if (!_entitiesById.ContainsKey(entityId))
@@ -307,6 +323,14 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyJumpStatesByEntityId[entityId] = state;
+        }
+
+        private void ClearChargeState(int entityId)
+        {
+            if (_enemyChargeStatesByEntityId.TryGetValue(entityId, out var currentState))
+            {
+                _enemyChargeStatesByEntityId[entityId] = EnemyChargeQueries.Clear(currentState);
+            }
         }
 
         private void SetPhasedState(int entityId, PhasedRuntimeState state)
@@ -606,6 +630,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             SetEnemyActionState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
+        {
+            SetEnemyChargeState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)

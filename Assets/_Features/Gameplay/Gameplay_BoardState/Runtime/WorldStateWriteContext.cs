@@ -43,6 +43,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyActionState(entityId, state);
         }
 
+        public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
+        {
+            _port.SetEnemyChargeState(entityId, state);
+        }
+
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             _port.SetEnemyJumpState(entityId, state);

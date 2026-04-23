@@ -107,6 +107,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
@@ -227,6 +228,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Phase={entry.State.phase}|Sequence={entry.State.sequence}|UnlockTickExclusive={entry.State.unlockTickExclusive}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemyChargeEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyChargeSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemyChargeStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Direction={entry.State.lockedDirection}|WindupEnd={entry.State.windupEndTick}");
             }
 
             return lines;

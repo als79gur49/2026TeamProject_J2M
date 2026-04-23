@@ -20,6 +20,7 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
+            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings);
     }
 
@@ -44,6 +45,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly DetectionSettings _detectionSettings;
         private readonly ChaseSettings _chaseSettings;
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
+        private readonly EnemyChargeTimingSettings _chargeTimingSettings;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly IChaseStrategy _chaseStrategy;
@@ -51,6 +53,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyMovementSkillCapabilityRuntime _movementSkillCapability;
         private readonly EnemyPassiveContactCapabilityRuntime _passiveContactCapability;
         private readonly IEnemyAiStateResolver _stateResolver;
+        private readonly bool _usesChargeStateResolver;
         private readonly List<EntityState> _sharedCellUnits = new();
 
         public EnemyLogic(int entityId)
@@ -81,10 +84,12 @@ namespace Game.Feature.Gameplay.Entities
             _detectionSettings = aiDefinition.DetectionSettings;
             _chaseSettings = aiDefinition.ChaseSettings;
             _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
+            _chargeTimingSettings = aiDefinition.ChargeTimingSettings;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
             _stateResolver = aiDefinition.StateResolver;
+            _usesChargeStateResolver = aiDefinition.Brain.StateResolver.Kind == EnemyAiStateResolverKind.Charge;
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
@@ -139,6 +144,7 @@ namespace Game.Feature.Gameplay.Entities
                 _detectionStrategy,
                 _combatCapability,
                 _commonSettings,
+                _chargeTimingSettings,
                 _detectionSettings);
             var resolvedFacing = ResolvePatrolFacing(snapshot, source, stage, decision);
 
@@ -202,6 +208,11 @@ namespace Game.Feature.Gameplay.Entities
                 }
 
                 suppressMovementThisTick = CommitJumpState(snapshot, in input, source, writeContext, jumpWriteContext, updates);
+            }
+
+            if (_usesChargeStateResolver)
+            {
+                CommitChargeState(snapshot, in input, source, writeContext, updates);
             }
 
             if (HasPhaseMovementSkill())
@@ -313,6 +324,7 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             if (_passiveContactCapability != null &&
+                CanCollectPassiveContact(snapshot) &&
                 TryResolvePassiveContactTarget(snapshot, source, out var passiveContactTarget) &&
                 _passiveContactCapability.AttackDecisionStrategy.TryBuildAttackIntent(
                     snapshot,
@@ -370,6 +382,52 @@ namespace Game.Feature.Gameplay.Entities
             jumpState = default;
             return HasJumpMovementSkill() &&
                    snapshot.TryGetEnemyJumpState(_entityId, out jumpState);
+        }
+
+        private bool TryGetChargeState(WorldSnapshot snapshot, out EnemyChargeRuntimeState chargeState)
+        {
+            chargeState = default;
+            return _usesChargeStateResolver &&
+                   snapshot != null &&
+                   snapshot.TryGetEnemyChargeState(_entityId, out chargeState);
+        }
+
+        private bool TryResolveActiveChargeDirection(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            out Direction direction)
+        {
+            direction = Direction.None;
+            if (!_usesChargeStateResolver)
+            {
+                return false;
+            }
+
+            if (TryGetChargeState(snapshot, out var chargeState) &&
+                chargeState.phase == EnemyChargePhase.Active &&
+                chargeState.lockedDirection != Direction.None)
+            {
+                direction = chargeState.lockedDirection;
+                return true;
+            }
+
+            if (source.aiMode == EnemyAiMode.Charge)
+            {
+                direction = source.facing;
+            }
+
+            return false;
+        }
+
+        private bool CanCollectPassiveContact(WorldSnapshot snapshot)
+        {
+            if (!_usesChargeStateResolver)
+            {
+                return true;
+            }
+
+            return TryGetChargeState(snapshot, out var chargeState) &&
+                   chargeState.phase == EnemyChargePhase.Active;
         }
 
         private bool TryGetEnemyOwnedPhasedState(WorldSnapshot snapshot, out PhasedRuntimeState phasedState)
@@ -632,6 +690,129 @@ namespace Game.Feature.Gameplay.Entities
             return suppressMovementThisTick;
         }
 
+        private void CommitChargeState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext stateWriteContext,
+            List<string> updates)
+        {
+            var hasPreviousState = snapshot.TryGetEnemyChargeState(_entityId, out var previousState);
+            var nextState = hasPreviousState ? previousState : default;
+
+            if (source.hp <= 0 ||
+                source.markedForDeath ||
+                source.aiMode == EnemyAiMode.Dead ||
+                source.boardPresence != EntityBoardPresence.Occupying)
+            {
+                if (hasPreviousState &&
+                    ShouldWriteChargeState(hasPreviousState, previousState, EnemyChargeQueries.Clear(previousState)))
+                {
+                    nextState = EnemyChargeQueries.Clear(previousState);
+                    stateWriteContext.SetEnemyChargeState(_entityId, nextState);
+                    AppendChargeUpdate(updates, _entityId, "ClearDead", nextState);
+                }
+
+                return;
+            }
+
+            switch (source.aiMode)
+            {
+                case EnemyAiMode.Charge:
+                    if (!hasPreviousState || previousState.phase == EnemyChargePhase.None)
+                    {
+                        nextState = EnemyChargeQueries.StartCharge(
+                            hasPreviousState ? previousState : default,
+                            source.facing,
+                            input.TickIndex,
+                            _chargeTimingSettings);
+                        AppendChargeUpdate(updates, _entityId, "Start", nextState);
+                    }
+
+                    if (nextState.phase == EnemyChargePhase.Windup &&
+                        input.TickIndex >= nextState.windupEndTick)
+                    {
+                        nextState = EnemyChargeQueries.BeginActive(nextState);
+                        AppendChargeUpdate(updates, _entityId, "BeginActive", nextState);
+                    }
+                    break;
+
+                case EnemyAiMode.Recover:
+                    if (hasPreviousState &&
+                        previousState.phase != EnemyChargePhase.None &&
+                        previousState.phase != EnemyChargePhase.Recover)
+                    {
+                        nextState = EnemyChargeQueries.EnterRecover(previousState);
+                        AppendChargeUpdate(updates, _entityId, "EnterRecover", nextState);
+                    }
+                    break;
+
+                default:
+                    if (hasPreviousState &&
+                        previousState.phase != EnemyChargePhase.None)
+                    {
+                        nextState = EnemyChargeQueries.Clear(previousState);
+                        AppendChargeUpdate(updates, _entityId, "Clear", nextState);
+                    }
+                    break;
+            }
+
+            if (ShouldWriteChargeState(hasPreviousState, previousState, nextState))
+            {
+                stateWriteContext.SetEnemyChargeState(_entityId, nextState);
+            }
+        }
+
+        private static bool ShouldWriteChargeState(
+            bool hadPreviousState,
+            in EnemyChargeRuntimeState previousState,
+            in EnemyChargeRuntimeState nextState)
+        {
+            return hadPreviousState ||
+                   nextState.IsActive ||
+                   nextState.sequence != 0 ||
+                   !AreEqual(previousState, nextState);
+        }
+
+        private static bool AreEqual(
+            in EnemyChargeRuntimeState left,
+            in EnemyChargeRuntimeState right)
+        {
+            return left.phase == right.phase &&
+                   left.sequence == right.sequence &&
+                   left.lockedDirection == right.lockedDirection &&
+                   left.windupEndTick == right.windupEndTick;
+        }
+
+        private static void AppendChargeUpdate(
+            List<string> updates,
+            int entityId,
+            string label,
+            in EnemyChargeRuntimeState state,
+            string extra = null)
+        {
+            if (updates == null)
+            {
+                throw new ArgumentNullException(nameof(updates));
+            }
+
+            var builder = new System.Text.StringBuilder();
+            builder
+                .Append("EnemyChargeStateUpdated|E=").Append(entityId)
+                .Append("|Label=").Append(label ?? string.Empty)
+                .Append("|Phase=").Append(state.phase)
+                .Append("|Seq=").Append(state.sequence)
+                .Append("|Direction=").Append(state.lockedDirection)
+                .Append("|WindupEnd=").Append(state.windupEndTick);
+
+            if (!string.IsNullOrEmpty(extra))
+            {
+                builder.Append('|').Append(extra);
+            }
+
+            updates.Add(builder.ToString());
+        }
+
         private GroundLocomotionResolution ResolveBaselineGroundLocomotion(
             WorldSnapshot snapshot,
             in EntityState source)
@@ -685,13 +866,13 @@ namespace Game.Feature.Gameplay.Entities
                     return default;
 
                 case EnemyAiMode.Charge:
-                    var chargeDelta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
-                    if (chargeDelta.HasValue &&
+                    if (TryResolveActiveChargeDirection(snapshot, source, out var chargeDirection) &&
+                        EnemyMovementStrategyShared.ResolveDelta(chargeDirection) is { } chargeDelta &&
                         EnemyMovementStrategyShared.TryBuildChargeMoveIntentIgnoringUnits(
                             snapshot,
                             source,
                             _commonSettings,
-                            chargeDelta.Value,
+                            chargeDelta,
                             out var chargeIntent))
                     {
                         return new GroundLocomotionResolution(
@@ -974,6 +1155,7 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
+            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
         {
             if (snapshot == null)
@@ -1182,6 +1364,7 @@ namespace Game.Feature.Gameplay.Entities
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
             in EnemyAiCommonSettings commonSettings,
+            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
         {
             if (snapshot == null)
@@ -1204,16 +1387,16 @@ namespace Game.Feature.Gameplay.Entities
                 EnemyAiTransitionStage.BeforeMovement => ResolveBeforeMovement(
                     snapshot,
                     source,
+                    tickIndex,
                     detectionStrategy,
                     combatCapability,
-                    commonSettings,
+                    chargeTimingSettings,
                     detectionSettings),
                 EnemyAiTransitionStage.BeforeAttack => ResolveBeforeAttack(
                     snapshot,
                     source,
                     detectionStrategy,
                     combatCapability,
-                    commonSettings,
                     detectionSettings),
                 EnemyAiTransitionStage.AfterAttack => ResolveAfterAttack(snapshot, source, tickIndex, combatCapability, commonSettings),
                 _ => throw new ArgumentOutOfRangeException(nameof(stage), stage, "Unknown enemy AI transition stage."),
@@ -1261,9 +1444,10 @@ namespace Game.Feature.Gameplay.Entities
         private static EnemyAiTransitionDecision ResolveBeforeMovement(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
-            in EnemyAiCommonSettings commonSettings,
+            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
         {
             switch (source.aiMode)
@@ -1281,30 +1465,32 @@ namespace Game.Feature.Gameplay.Entities
                     return new EnemyAiTransitionDecision(EnemyAiMode.Patrol, 0, "NoTarget");
 
                 case EnemyAiMode.Chase:
-                    return ResolveChase(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
+                    return ResolveChase(snapshot, source, detectionStrategy, combatCapability, chargeTimingSettings, detectionSettings);
 
                 case EnemyAiMode.Charge:
-                    if (source.enemyLocomotionCooldownTicks > 0)
-                    {
-                        return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
-                    }
-
-                    if (source.aiStateTimer == 0)
-                    {
-                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeComplete");
-                    }
-
-                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source))
-                    {
-                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeBlocked");
-                    }
-
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer - 1, "ChargeContinue");
+                    return ResolveChargeBeforeMovement(
+                        snapshot,
+                        source,
+                        tickIndex,
+                        detectionStrategy,
+                        combatCapability,
+                        chargeTimingSettings,
+                        detectionSettings);
 
                 case EnemyAiMode.Attack:
                     return ResolveAttackOrFallback(snapshot, source, detectionStrategy, combatCapability, detectionSettings);
 
                 case EnemyAiMode.Recover:
+                    if (TryGetChargeRecoverState(snapshot, source.entityId, out _))
+                    {
+                        if (source.aiStateTimer > 0)
+                        {
+                            return new EnemyAiTransitionDecision(EnemyAiMode.Recover, source.aiStateTimer - 1, "ChargeRecoverTick");
+                        }
+
+                        return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeRecoverComplete");
+                    }
+
                     if (source.aiStateTimer > 0)
                     {
                         return new EnemyAiTransitionDecision(EnemyAiMode.Recover, source.aiStateTimer - 1, "RecoverTick");
@@ -1324,14 +1510,22 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
-            in EnemyAiCommonSettings commonSettings,
             in DetectionSettings detectionSettings)
         {
             if (source.aiMode == EnemyAiMode.Charge)
             {
-                if (source.enemyLocomotionCooldownTicks > 0)
+                if (snapshot.TryGetEnemyChargeState(source.entityId, out var chargeState))
                 {
-                    return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
+                    return new EnemyAiTransitionDecision(
+                        EnemyAiMode.Charge,
+                        source.aiStateTimer,
+                        chargeState.phase switch
+                        {
+                            EnemyChargePhase.Windup => "ChargeWindup",
+                            EnemyChargePhase.Active => source.aiStateTimer == 0 ? "ChargeFinalStep" : "ChargeInProgress",
+                            EnemyChargePhase.Recover => "ChargeRecover",
+                            _ => "ChargeInProgress",
+                        });
                 }
 
                 return new EnemyAiTransitionDecision(
@@ -1353,6 +1547,7 @@ namespace Game.Feature.Gameplay.Entities
             in EntityState source,
             IDetectionStrategy detectionStrategy,
             EnemyCombatCapabilityRuntime combatCapability,
+            in EnemyChargeTimingSettings chargeTimingSettings,
             in DetectionSettings detectionSettings)
         {
             if (!detectionStrategy.TryFindTarget(snapshot, source, detectionSettings, out var target))
@@ -1368,7 +1563,10 @@ namespace Game.Feature.Gameplay.Entities
 
             if (EnemyChargeStrategyShared.TryResolveChargeStart(snapshot, source, target, out var chargeFacing, out var reachableSteps))
             {
-                return new EnemyAiTransitionDecision(EnemyAiMode.Charge, reachableSteps - 1, "ChargeStart", chargeFacing);
+                var remainingSteps = chargeTimingSettings.WindupTicks == 0
+                    ? Math.Max(0, reachableSteps - 1)
+                    : reachableSteps;
+                return new EnemyAiTransitionDecision(EnemyAiMode.Charge, remainingSteps, "ChargeStart", chargeFacing);
             }
 
             return new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, "TargetSensed");
@@ -1432,6 +1630,132 @@ namespace Game.Feature.Gameplay.Entities
                    combatCapability.AttackDecisionStrategy.IsTargetInRange(source, target, combatCapability.AttackDecisionSettings)
                 ? new EnemyAiTransitionDecision(EnemyAiMode.Attack, 0, reason)
                 : new EnemyAiTransitionDecision(EnemyAiMode.Chase, 0, reason);
+        }
+
+        private static EnemyAiTransitionDecision ResolveChargeBeforeMovement(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex,
+            IDetectionStrategy detectionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
+            in EnemyChargeTimingSettings chargeTimingSettings,
+            in DetectionSettings detectionSettings)
+        {
+            if (!snapshot.TryGetEnemyChargeState(source.entityId, out var chargeState) ||
+                chargeState.phase == EnemyChargePhase.None)
+            {
+                return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargePendingStateStart");
+            }
+
+            switch (chargeState.phase)
+            {
+                case EnemyChargePhase.Windup:
+                    if (tickIndex < chargeState.windupEndTick)
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWindup");
+                    }
+
+                    if (!CanMoveThisTick(source))
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWindupCompleteWaitingForLocomotionCooldown");
+                    }
+
+                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source, chargeState.lockedDirection))
+                    {
+                        return ResolveChargeRecoveryOrImmediate(
+                            snapshot,
+                            source,
+                            detectionStrategy,
+                            combatCapability,
+                            chargeTimingSettings,
+                            detectionSettings,
+                            "ChargeBlocked");
+                    }
+
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Charge, Math.Max(0, source.aiStateTimer - 1), "ChargeContinue");
+
+                case EnemyChargePhase.Active:
+                    if (source.aiStateTimer == 0)
+                    {
+                        if (source.enemyLocomotionCooldownTicks > 0)
+                        {
+                            return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
+                        }
+
+                        return ResolveChargeRecoveryOrImmediate(
+                            snapshot,
+                            source,
+                            detectionStrategy,
+                            combatCapability,
+                            chargeTimingSettings,
+                            detectionSettings,
+                            "ChargeComplete");
+                    }
+
+                    if (!CanMoveThisTick(source))
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer, "ChargeWaitingForLocomotionCooldown");
+                    }
+
+                    if (!EnemyChargeStrategyShared.CanAdvanceChargeStep(snapshot, source, chargeState.lockedDirection))
+                    {
+                        return ResolveChargeRecoveryOrImmediate(
+                            snapshot,
+                            source,
+                            detectionStrategy,
+                            combatCapability,
+                            chargeTimingSettings,
+                            detectionSettings,
+                            "ChargeBlocked");
+                    }
+
+                    return new EnemyAiTransitionDecision(EnemyAiMode.Charge, source.aiStateTimer - 1, "ChargeContinue");
+
+                case EnemyChargePhase.Recover:
+                    if (source.aiStateTimer > 0)
+                    {
+                        return new EnemyAiTransitionDecision(EnemyAiMode.Recover, source.aiStateTimer - 1, "ChargeRecoverTick");
+                    }
+
+                    return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, "ChargeRecoverComplete");
+
+                default:
+                    return new EnemyAiTransitionDecision(source.aiMode, source.aiStateTimer, "UnhandledChargePhase");
+            }
+        }
+
+        private static EnemyAiTransitionDecision ResolveChargeRecoveryOrImmediate(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            IDetectionStrategy detectionStrategy,
+            EnemyCombatCapabilityRuntime combatCapability,
+            in EnemyChargeTimingSettings chargeTimingSettings,
+            in DetectionSettings detectionSettings,
+            string reason)
+        {
+            if (chargeTimingSettings.RecoverTicks == 0)
+            {
+                return ResolvePostCharge(snapshot, source, detectionStrategy, combatCapability, detectionSettings, reason);
+            }
+
+            return new EnemyAiTransitionDecision(
+                EnemyAiMode.Recover,
+                Math.Max(0, chargeTimingSettings.RecoverTicks - 1),
+                reason);
+        }
+
+        private static bool TryGetChargeRecoverState(
+            WorldSnapshot snapshot,
+            int entityId,
+            out EnemyChargeRuntimeState chargeState)
+        {
+            return snapshot.TryGetEnemyChargeState(entityId, out chargeState) &&
+                   chargeState.phase == EnemyChargePhase.Recover;
+        }
+
+        private static bool CanMoveThisTick(in EntityState source)
+        {
+            return source.enemyLocomotionCooldownTicks <= 1;
         }
     }
 

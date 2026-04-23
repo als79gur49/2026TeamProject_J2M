@@ -1131,7 +1131,15 @@ namespace Game.Feature.Gameplay.Entities
             WorldSnapshot snapshot,
             in EntityState source)
         {
-            var delta = EnemyMovementStrategyShared.ResolveDelta(source.facing);
+            return CanAdvanceChargeStep(snapshot, source, source.facing);
+        }
+
+        public static bool CanAdvanceChargeStep(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Direction direction)
+        {
+            var delta = EnemyMovementStrategyShared.ResolveDelta(direction);
             return delta.HasValue && EnemyMovementStrategyShared.CanTraverseChargeStepIgnoringUnits(snapshot, source, delta.Value);
         }
 

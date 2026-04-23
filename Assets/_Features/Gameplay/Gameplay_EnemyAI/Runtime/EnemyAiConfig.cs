@@ -312,6 +312,99 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
+    public struct EnemyChargeTimingSettings
+    {
+        [SerializeField] private int windupTicks;
+        [SerializeField] private int recoverTicks;
+
+        public EnemyChargeTimingSettings(int windupTicks, int recoverTicks)
+        {
+            this.windupTicks = windupTicks;
+            this.recoverTicks = recoverTicks;
+        }
+
+        public int WindupTicks => windupTicks;
+
+        public int RecoverTicks => recoverTicks;
+
+        public void Validate(string paramName)
+        {
+            if (windupTicks < 0 || recoverTicks < 0)
+            {
+                throw new ArgumentException("Enemy charge timing settings require non-negative tick counts.", paramName);
+            }
+        }
+
+        public static EnemyChargeTimingSettings CreateDefault()
+        {
+            return new EnemyChargeTimingSettings(windupTicks: 0, recoverTicks: 0);
+        }
+    }
+
+    [Serializable]
+    public struct EnemyChargeTimingAuthoringSettings
+    {
+        [SerializeField] private float windupSeconds;
+        [SerializeField] private float recoverSeconds;
+
+        public EnemyChargeTimingAuthoringSettings(float windupSeconds, float recoverSeconds)
+        {
+            this.windupSeconds = windupSeconds;
+            this.recoverSeconds = recoverSeconds;
+        }
+
+        public float WindupSeconds => windupSeconds;
+
+        public float RecoverSeconds => recoverSeconds;
+
+        public void Validate(string paramName)
+        {
+            if (windupSeconds < 0f || recoverSeconds < 0f)
+            {
+                throw new ArgumentException("Enemy charge timing authoring settings require non-negative durations.", paramName);
+            }
+        }
+
+        public EnemyChargeTimingSettings ToRuntimeSettings(int simulationTicksPerSecond)
+        {
+            Validate(nameof(EnemyChargeTimingAuthoringSettings));
+
+            return new EnemyChargeTimingSettings(
+                GameplayTimingProfile.SecondsToTicks(
+                    windupSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true),
+                GameplayTimingProfile.SecondsToTicks(
+                    recoverSeconds,
+                    simulationTicksPerSecond,
+                    allowZero: true));
+        }
+
+        public static EnemyChargeTimingAuthoringSettings CreateDefault()
+        {
+            return FromRuntimeSettings(
+                EnemyChargeTimingSettings.CreateDefault(),
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        public static EnemyChargeTimingAuthoringSettings FromRuntimeSettings(
+            EnemyChargeTimingSettings runtimeSettings,
+            int simulationTicksPerSecond)
+        {
+            if (simulationTicksPerSecond <= 0)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(simulationTicksPerSecond),
+                    "Simulation tick rate must be greater than zero.");
+            }
+
+            return new EnemyChargeTimingAuthoringSettings(
+                runtimeSettings.WindupTicks / (float)simulationTicksPerSecond,
+                runtimeSettings.RecoverTicks / (float)simulationTicksPerSecond);
+        }
+    }
+
+    [Serializable]
     public struct EnemyJumpTimingSettings
     {
         [SerializeField] private int windupTicks;
@@ -513,7 +606,7 @@ namespace Game.Feature.Gameplay.Entities
             IAttackDecisionStrategy attackDecisionStrategy,
             IEnemyAiStateResolver stateResolver)
             : this(
-                new EnemyCoreRuntime(commonSettings, locomotionTimingSettings),
+                new EnemyCoreRuntime(commonSettings, locomotionTimingSettings, EnemyChargeTimingSettings.CreateDefault()),
                 new EnemyBrainRuntime(
                     new EnemyStateResolverRuntime(ResolveStateResolverKind(stateResolver), stateResolver),
                     new EnemyPatrolRuntime(ResolvePatrolStrategyKind(patrolStrategy), patrolSettings, patrolStrategy),
@@ -551,6 +644,8 @@ namespace Game.Feature.Gameplay.Entities
             : global::Game.Feature.Gameplay.Entities.EnemyAttackTimingSettings.CreateDefaultMelee();
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings => Core.LocomotionTimingSettings;
+
+        public EnemyChargeTimingSettings ChargeTimingSettings => Core.ChargeTimingSettings;
 
         public MovementSkillStrategyKind MovementSkillStrategyKind => Capabilities.TryGetMovementSkill(out var movementSkill)
             ? movementSkill.Kind

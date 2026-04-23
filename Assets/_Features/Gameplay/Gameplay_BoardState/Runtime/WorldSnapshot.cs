@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.BoardState
     {
         private readonly BoardBounds _boardBounds;
         private readonly IReadOnlyDictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
@@ -30,6 +31,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<SurfaceCell, int> solidOccupancy,
             Dictionary<SurfaceCell, int> projectileOccupancy,
             Dictionary<int, EnemyActionRuntimeState> enemyActionStatesByEntityId,
+            Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
             Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
             Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
@@ -44,6 +46,7 @@ namespace Game.Feature.Gameplay.BoardState
             _solidOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(solidOccupancy ?? throw new ArgumentNullException(nameof(solidOccupancy)));
             _projectileOccupancy = new ReadOnlyDictionary<SurfaceCell, int>(projectileOccupancy ?? throw new ArgumentNullException(nameof(projectileOccupancy)));
             _enemyActionStatesByEntityId = new ReadOnlyDictionary<int, EnemyActionRuntimeState>(enemyActionStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyActionStatesByEntityId)));
+            _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
             _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
             _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
@@ -80,6 +83,11 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyActionState(int entityId, out EnemyActionRuntimeState state)
         {
             return _enemyActionStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEnemyChargeState(int entityId, out EnemyChargeRuntimeState state)
+        {
+            return _enemyChargeStatesByEntityId.TryGetValue(entityId, out state);
         }
 
         public bool TryGetEntityExecutionLockState(int entityId, out EntityExecutionLockState state)
@@ -610,6 +618,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyJumpStatesByEntityId)
             {
                 buffer.Add(new EnemyJumpSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateEnemyChargeStatesOrdered(List<EnemyChargeSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyChargeStatesByEntityId)
+            {
+                buffer.Add(new EnemyChargeSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

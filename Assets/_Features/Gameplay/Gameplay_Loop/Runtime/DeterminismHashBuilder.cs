@@ -65,6 +65,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyJumps").Append('\n');
             AppendEnemyJumpLines(builder, GetOrderedEnemyJumpStates(finalSnapshot));
 
+            builder.Append("EnemyCharges").Append('\n');
+            AppendEnemyChargeLines(builder, GetOrderedEnemyChargeStates(finalSnapshot));
+
             builder.Append("PhasedStates").Append('\n');
             AppendPhasedStateLines(builder, GetOrderedPhasedStates(finalSnapshot));
 
@@ -146,6 +149,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpEntries = new List<EnemyJumpSnapshotEntry>();
             finalSnapshot.EnumerateEnemyJumpStatesOrdered(enemyJumpEntries);
             return enemyJumpEntries;
+        }
+
+        private static List<EnemyChargeSnapshotEntry> GetOrderedEnemyChargeStates(WorldSnapshot finalSnapshot)
+        {
+            var enemyChargeEntries = new List<EnemyChargeSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyChargeStatesOrdered(enemyChargeEntries);
+            return enemyChargeEntries;
         }
 
         private static List<EntityExecutionLockSnapshotEntry> GetOrderedExecutionLockStates(WorldSnapshot finalSnapshot)
@@ -411,6 +421,28 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.landingTick).Append('|')
                     .Append(entry.State.cooldownRemainingTicks).Append('|')
                     .Append(entry.State.retryCount).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyChargeLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyChargeSnapshotEntry> enemyChargeEntries)
+        {
+            if (enemyChargeEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < enemyChargeEntries.Count; i++)
+            {
+                var entry = enemyChargeEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append((int)entry.State.phase).Append('|')
+                    .Append(entry.State.sequence).Append('|')
+                    .Append((int)entry.State.lockedDirection).Append('|')
+                    .Append(entry.State.windupEndTick).Append('\n');
             }
         }
 

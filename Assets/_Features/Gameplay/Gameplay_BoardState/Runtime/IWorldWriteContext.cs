@@ -31,6 +31,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
 
+        void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
+
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
     }
 

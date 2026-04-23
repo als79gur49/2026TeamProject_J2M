@@ -14,9 +14,21 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyCoreRuntime(
             EnemyAiCommonSettings commonSettings,
             EnemyLocomotionTimingSettings locomotionTimingSettings)
+            : this(
+                commonSettings,
+                locomotionTimingSettings,
+                EnemyChargeTimingSettings.CreateDefault())
+        {
+        }
+
+        public EnemyCoreRuntime(
+            EnemyAiCommonSettings commonSettings,
+            EnemyLocomotionTimingSettings locomotionTimingSettings,
+            EnemyChargeTimingSettings chargeTimingSettings)
         {
             CommonSettings = commonSettings;
             LocomotionTimingSettings = locomotionTimingSettings;
+            ChargeTimingSettings = chargeTimingSettings;
             Validate(nameof(EnemyCoreRuntime));
         }
 
@@ -24,10 +36,13 @@ namespace Game.Feature.Gameplay.Entities
 
         public EnemyLocomotionTimingSettings LocomotionTimingSettings { get; }
 
+        public EnemyChargeTimingSettings ChargeTimingSettings { get; }
+
         public void Validate(string paramName)
         {
             CommonSettings.Validate(paramName);
             LocomotionTimingSettings.Validate(paramName);
+            ChargeTimingSettings.Validate(paramName);
         }
     }
 
