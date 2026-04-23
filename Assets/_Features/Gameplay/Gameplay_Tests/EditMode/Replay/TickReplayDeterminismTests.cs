@@ -1059,6 +1059,33 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Snapshot_EnemyChargeState_PreservesStoredRuntimeState()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Charge),
+            });
+            worldState.CreateWriteContext().SetEnemyChargeState(
+                40,
+                new EnemyChargeRuntimeState
+                {
+                    phase = EnemyChargePhase.Active,
+                    sequence = 3,
+                    lockedDirection = Direction.Right,
+                    windupEndTick = 7,
+                });
+
+            var snapshot = worldState.CreateSnapshot();
+
+            Assert.That(snapshot.TryGetEnemyChargeState(40, out var chargeState), Is.True);
+            Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.Active));
+            Assert.That(chargeState.sequence, Is.EqualTo(3));
+            Assert.That(chargeState.lockedDirection, Is.EqualTo(Direction.Right));
+            Assert.That(chargeState.windupEndTick, Is.EqualTo(7));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Snapshot_BoxKineticOwner_PreservesStoredRuntimeState()
         {
             var worldState = CreateWorldState(new[]
@@ -1257,6 +1284,46 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(jumpResult.DeterminismHash));
             Assert.That(jumpResult.Trace.Text, Does.Contain("Final.EnemyJumps"));
             Assert.That(jumpResult.Trace.Text, Does.Contain("E=40|Phase=Airborne|Seq=2|Source=Floor(0,1)|Locked=Floor(4,1)|WindupEnd=4|Landing=6|Cooldown=0|Retry=3"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_EnemyChargeState_IsIncludedInCanonicalState()
+        {
+            var idleWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Charge),
+            });
+            var chargeWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Charge),
+            });
+            var replayWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Charge),
+            });
+            var chargeState = new EnemyChargeRuntimeState
+            {
+                phase = EnemyChargePhase.Recover,
+                sequence = 5,
+                lockedDirection = Direction.Right,
+                windupEndTick = 4,
+            };
+
+            chargeWorldState.CreateWriteContext().SetEnemyChargeState(40, chargeState);
+            replayWorldState.CreateWriteContext().SetEnemyChargeState(40, chargeState);
+
+            var idleResult = GameplayCompositionRoot.CreateTickPipeline(idleWorldState).RunTick(new TickInput(1));
+            var chargeResult = GameplayCompositionRoot.CreateTickPipeline(chargeWorldState).RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                replayWorldState,
+                new IEntityLogic[0],
+                new[] { new TickInput(1) });
+
+            Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(chargeResult.DeterminismHash));
+            Assert.That(chargeResult.Trace.Text, Does.Contain("Final.EnemyCharges"));
+            Assert.That(chargeResult.Trace.Text, Does.Contain("E=40|Phase=Recover|Seq=5|Direction=Right|WindupEnd=4"));
+            Assert.That(replay[0].EnemyChargeDump, Does.Contain("E=40|Phase=Recover|Seq=5|Direction=Right|WindupEnd=4"));
         }
 
         [Test]

@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.Tests
     {
         public EnemyAiCommonAuthoringSettings CommonSettings = EnemyAiCommonAuthoringSettings.CreateDefaultMelee();
         public EnemyLocomotionTimingAuthoringSettings LocomotionTimingSettings = EnemyLocomotionTimingAuthoringSettings.CreateDefaultMelee();
+        public EnemyChargeTimingAuthoringSettings ChargeTimingSettings = EnemyChargeTimingAuthoringSettings.CreateDefault();
         public EnemyAiStateResolverKind StateResolverKind = EnemyAiStateResolverKind.Default;
         public PatrolStrategyKind PatrolStrategyKind = PatrolStrategyKind.Forward;
         public PatrolSettings PatrolSettings = PatrolSettings.CreateDefault();
@@ -49,6 +50,7 @@ namespace Game.Feature.Gameplay.Tests
 
             SetSerializedField(core, "commonSettings", spec.CommonSettings);
             SetSerializedField(core, "locomotionTimingSettings", spec.LocomotionTimingSettings);
+            SetSerializedField(core, "chargeTimingSettings", spec.ChargeTimingSettings);
             SetSerializedField(brain, "stateResolver", stateResolver);
             SetSerializedField(brain, "patrolStrategy", patrol);
             SetSerializedField(brain, "detectionStrategy", detection);
@@ -89,11 +91,16 @@ namespace Game.Feature.Gameplay.Tests
         }
 
         // Charging profiles rely on same-cell passive contact, so repeated hits follow receiver cooldown cadence.
-        public static EnemyAiProfile CreateCharging(int moveCooldownTicks = 0, bool includePassiveContact = true)
+        public static EnemyAiProfile CreateCharging(
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = true,
+            int windupTicks = 0,
+            int recoverTicks = 0)
         {
             return Create(new EnemyAiTestProfileSpec
             {
                 LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                ChargeTimingSettings = ToAuthoring(new EnemyChargeTimingSettings(windupTicks, recoverTicks)),
                 StateResolverKind = EnemyAiStateResolverKind.Charge,
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 IncludePassiveContact = includePassiveContact,
@@ -386,6 +393,13 @@ namespace Game.Feature.Gameplay.Tests
         private static EnemyLocomotionTimingAuthoringSettings ToAuthoring(EnemyLocomotionTimingSettings settings)
         {
             return EnemyLocomotionTimingAuthoringSettings.FromRuntimeSettings(
+                settings,
+                GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+        }
+
+        private static EnemyChargeTimingAuthoringSettings ToAuthoring(EnemyChargeTimingSettings settings)
+        {
+            return EnemyChargeTimingAuthoringSettings.FromRuntimeSettings(
                 settings,
                 GameplayTimingProfile.DefaultSimulationTicksPerSecond);
         }

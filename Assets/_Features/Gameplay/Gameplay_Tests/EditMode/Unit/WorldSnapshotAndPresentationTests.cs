@@ -1846,6 +1846,144 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(retryPresentationData.EnemyActionSignals, Is.Empty);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void TickPresentationDataBuilder_BuildsEnemyChargeSignal_ForWindupActiveAndRecoverTransitions()
+        {
+            const int enemyId = 40;
+            var enemyCell = new SurfaceCell(FaceId.Floor, 1, 1);
+            var windupState = CreateEnemyChargeState(
+                EnemyChargePhase.Windup,
+                sequence: 2,
+                lockedDirection: Direction.Right,
+                windupEndTick: 6);
+            var activeState = CreateEnemyChargeState(
+                EnemyChargePhase.Active,
+                sequence: 2,
+                lockedDirection: Direction.Right,
+                windupEndTick: 6);
+            var recoverState = CreateEnemyChargeState(
+                EnemyChargePhase.Recover,
+                sequence: 2,
+                lockedDirection: Direction.Right,
+                windupEndTick: 6);
+
+            var windupPresentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        }),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, windupState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, windupState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, windupState)),
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 5));
+
+            var windupSignal = windupPresentationData.EnemyChargeSignals.Single();
+            Assert.That(windupSignal.EntityId, Is.EqualTo(enemyId));
+            Assert.That(windupSignal.Sequence, Is.EqualTo(2));
+            Assert.That(windupSignal.Phase, Is.EqualTo(EnemyChargePhase.Windup));
+            Assert.That(windupSignal.StartedWindupThisTick, Is.True);
+            Assert.That(windupSignal.StartedActiveThisTick, Is.False);
+            Assert.That(windupSignal.StartedRecoverThisTick, Is.False);
+            Assert.That(windupSignal.LockedDirection, Is.EqualTo(Direction.Right));
+
+            var activePresentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, windupState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, activeState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, activeState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Charge, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, activeState)),
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 6));
+
+            var activeSignal = activePresentationData.EnemyChargeSignals.Single();
+            Assert.That(activeSignal.Phase, Is.EqualTo(EnemyChargePhase.Active));
+            Assert.That(activeSignal.StartedWindupThisTick, Is.False);
+            Assert.That(activeSignal.StartedActiveThisTick, Is.True);
+            Assert.That(activeSignal.StartedRecoverThisTick, Is.False);
+            Assert.That(activeSignal.LockedDirection, Is.EqualTo(Direction.Right));
+
+            var recoverPresentationData = new TickPresentationDataBuilder().Build(
+                new TickPresentationBuildContext(
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Recover, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, activeState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Recover, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, recoverState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Recover, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, recoverState)),
+                    CreateSnapshotWithEnemyChargeStates(
+                        new[]
+                        {
+                            CreateEnemyEntity(enemyId, enemyCell, EnemyAiMode.Recover, Direction.Right),
+                        },
+                        new EnemyChargeStateSeed(enemyId, recoverState)),
+                    CreateMovementPhaseResult(),
+                    AttackPhaseResult.Empty,
+                    CleanupFixtureFactory.None(),
+                    currentTickIndex: 7));
+
+            var recoverSignal = recoverPresentationData.EnemyChargeSignals.Single();
+            Assert.That(recoverSignal.Phase, Is.EqualTo(EnemyChargePhase.Recover));
+            Assert.That(recoverSignal.StartedWindupThisTick, Is.False);
+            Assert.That(recoverSignal.StartedActiveThisTick, Is.False);
+            Assert.That(recoverSignal.StartedRecoverThisTick, Is.True);
+            Assert.That(recoverSignal.LockedDirection, Is.EqualTo(Direction.Right));
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
@@ -1933,6 +2071,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 for (var i = 0; i < jumpStates.Length; i++)
                 {
                     writeContext.SetEnemyJumpState(jumpStates[i].EntityId, jumpStates[i].State);
+                }
+            }
+
+            return CreateSnapshot(worldState);
+        }
+
+        private static WorldSnapshot CreateSnapshotWithEnemyChargeStates(
+            IEnumerable<EntityState> initialEntities,
+            params EnemyChargeStateSeed[] chargeStates)
+        {
+            var worldState = CreateWorldState(initialEntities);
+            if (chargeStates != null && chargeStates.Length > 0)
+            {
+                var writeContext = CreateWriteContext(worldState);
+                for (var i = 0; i < chargeStates.Length; i++)
+                {
+                    writeContext.SetEnemyChargeState(chargeStates[i].EntityId, chargeStates[i].State);
                 }
             }
 
@@ -2083,6 +2238,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             };
         }
 
+        private static EnemyChargeRuntimeState CreateEnemyChargeState(
+            EnemyChargePhase phase,
+            int sequence,
+            Direction lockedDirection,
+            int windupEndTick)
+        {
+            return new EnemyChargeRuntimeState
+            {
+                phase = phase,
+                sequence = sequence,
+                lockedDirection = lockedDirection,
+                windupEndTick = windupEndTick,
+            };
+        }
+
         private static EntityState CreateEnemyEntity(
             int entityId,
             SurfaceCell position,
@@ -2176,6 +2346,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public int EntityId { get; }
 
             public EnemyJumpRuntimeState State { get; }
+        }
+
+        private readonly struct EnemyChargeStateSeed
+        {
+            public EnemyChargeStateSeed(int entityId, EnemyChargeRuntimeState state)
+            {
+                EntityId = entityId;
+                State = state;
+            }
+
+            public int EntityId { get; }
+
+            public EnemyChargeRuntimeState State { get; }
         }
 
         private sealed class StubEntityLogic : IMovementEntityLogic, IAttackEntityLogic, IEntityLogicSourceBinding

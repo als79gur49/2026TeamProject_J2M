@@ -86,6 +86,85 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(state.DidDie, Is.False);
         }
 
+        [Test]
+        [Category("Extended")]
+        public void EnemyViewPresentationMapper_MapsChargeWindupActiveAndRecoverStates()
+        {
+            const int enemyId = 40;
+            var mapper = new EnemyViewPresentationMapper();
+            var states = new Dictionary<int, EnemyViewPresentationState>();
+            var viewsByEntityId = new Dictionary<int, GameplayEntityView>();
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 1,
+                    CreateEnemy(enemyId, EnemyAiMode.Charge),
+                    new TickEnemyChargePresentationSignal(
+                        enemyId,
+                        sequence: 2,
+                        phase: EnemyChargePhase.Windup,
+                        startedWindupThisTick: true,
+                        startedActiveThisTick: false,
+                        startedRecoverThisTick: false,
+                        lockedDirection: Direction.Right)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var windupState), Is.True);
+            Assert.That(windupState.ChargePhase, Is.EqualTo(EnemyChargePhase.Windup));
+            Assert.That(windupState.StartedChargeWindupThisTick, Is.True);
+            Assert.That(windupState.StartedChargeActiveThisTick, Is.False);
+            Assert.That(windupState.StartedChargeRecoverThisTick, Is.False);
+            Assert.That(windupState.StartedWindupThisTick, Is.True);
+            Assert.That(windupState.StartedRecoveryThisTick, Is.False);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 2,
+                    CreateEnemy(enemyId, EnemyAiMode.Charge),
+                    new TickEnemyChargePresentationSignal(
+                        enemyId,
+                        sequence: 2,
+                        phase: EnemyChargePhase.Active,
+                        startedWindupThisTick: false,
+                        startedActiveThisTick: true,
+                        startedRecoverThisTick: false,
+                        lockedDirection: Direction.Right)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var activeState), Is.True);
+            Assert.That(activeState.ChargePhase, Is.EqualTo(EnemyChargePhase.Active));
+            Assert.That(activeState.StartedChargeWindupThisTick, Is.False);
+            Assert.That(activeState.StartedChargeActiveThisTick, Is.True);
+            Assert.That(activeState.StartedChargeRecoverThisTick, Is.False);
+            Assert.That(activeState.StartedWindupThisTick, Is.False);
+            Assert.That(activeState.StartedRecoveryThisTick, Is.False);
+
+            mapper.Build(
+                CreateResult(
+                    tickIndex: 3,
+                    CreateEnemy(enemyId, EnemyAiMode.Recover),
+                    new TickEnemyChargePresentationSignal(
+                        enemyId,
+                        sequence: 2,
+                        phase: EnemyChargePhase.Recover,
+                        startedWindupThisTick: false,
+                        startedActiveThisTick: false,
+                        startedRecoverThisTick: true,
+                        lockedDirection: Direction.Right)),
+                viewsByEntityId,
+                states);
+
+            Assert.That(states.TryGetValue(enemyId, out var recoverState), Is.True);
+            Assert.That(recoverState.ChargePhase, Is.EqualTo(EnemyChargePhase.Recover));
+            Assert.That(recoverState.StartedChargeWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedChargeActiveThisTick, Is.False);
+            Assert.That(recoverState.StartedChargeRecoverThisTick, Is.True);
+            Assert.That(recoverState.StartedWindupThisTick, Is.False);
+            Assert.That(recoverState.StartedRecoveryThisTick, Is.True);
+        }
+
         private static TickResult CreateResult(
             int tickIndex,
             EntityState enemy,
@@ -109,6 +188,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Array.Empty<TickEnemyActionPresentationSignal>(),
                     new[] { jumpSignal },
                     Array.Empty<TickEntityExitPresentationSignal>()),
+                string.Empty,
+                TickTrace.Empty);
+        }
+
+        private static TickResult CreateResult(
+            int tickIndex,
+            EntityState enemy,
+            TickEnemyChargePresentationSignal chargeSignal)
+        {
+            return new TickResult(
+                tickIndex,
+                Array.Empty<TickPhase>(),
+                Array.Empty<string>(),
+                MovementPhaseResult.Empty,
+                AttackPhaseResult.Empty,
+                new[] { enemy },
+                Array.Empty<string>(),
+                new CubeTopologyState(FaceId.Floor),
+                new TickPresentationData(
+                    Array.Empty<TickEntityMotion>(),
+                    topologyMotion: null,
+                    Array.Empty<TickVisibilityChange>(),
+                    Array.Empty<TickTransitionVisibilityChange>(),
+                    Array.Empty<TickPlayerActionPresentationSignal>(),
+                    Array.Empty<TickPlayerLocomotionPresentationSignal>(),
+                    Array.Empty<TickPlayerDamagePresentationSignal>(),
+                    Array.Empty<TickPlayerDeathPresentationSignal>(),
+                    Array.Empty<TickEnemyDamagePresentationSignal>(),
+                    Array.Empty<TickEnemyActionPresentationSignal>(),
+                    Array.Empty<TickEnemyJumpPresentationSignal>(),
+                    new[] { chargeSignal },
+                    Array.Empty<TickEntityExitPresentationSignal>(),
+                    Array.Empty<TickImpactTransientPresentationSignal>()),
                 string.Empty,
                 TickTrace.Empty);
         }
