@@ -2242,7 +2242,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyChargePhase phase,
             int sequence,
             Direction lockedDirection,
-            int windupEndTick)
+            int windupEndTick,
+            int remainingActiveSteps = 0,
+            int recoverRemainingTicks = 0)
         {
             return new EnemyChargeRuntimeState
             {
@@ -2250,6 +2252,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 sequence = sequence,
                 lockedDirection = lockedDirection,
                 windupEndTick = windupEndTick,
+                remainingActiveSteps = remainingActiveSteps,
+                recoverRemainingTicks = recoverRemainingTicks,
             };
         }
 

@@ -2544,16 +2544,22 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
                 Assert.That(GetEntityAfterTick(firstTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
                 Assert.That(GetEntityAfterTick(windupTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(windupTick, 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(windupTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
                 Assert.That(windupState.phase, Is.EqualTo(EnemyChargePhase.Windup));
                 Assert.That(windupState.lockedDirection, Is.EqualTo(Direction.Right));
+                Assert.That(windupState.remainingActiveSteps, Is.EqualTo(2));
+                Assert.That(windupState.recoverRemainingTicks, Is.Zero);
                 Assert.That(windupTick.Trace.Text, Does.Contain("Reason=ChargeStart"));
                 Assert.That(windupTick.AttackPhaseResult.DamageResolutions, Is.Empty);
 
                 Assert.That(GetEntityAfterTick(activeTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(activeTick, 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(activeTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(activeState.phase, Is.EqualTo(EnemyChargePhase.Active));
                 Assert.That(activeState.lockedDirection, Is.EqualTo(Direction.Right));
+                Assert.That(activeState.remainingActiveSteps, Is.EqualTo(1));
+                Assert.That(activeState.recoverRemainingTicks, Is.Zero);
                 Assert.That(activeTick.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(GetEntityHp(worldState, 10), Is.EqualTo(4));
             }
@@ -2588,13 +2594,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
                 Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).aiStateTimer, Is.Zero);
                 Assert.That(ticks[2].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
 
                 Assert.That(GetEntityAfterTick(ticks[3], 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(GetEntityAfterTick(ticks[3], 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
                 Assert.That(GetEntityAfterTick(ticks[4], 40).aiMode, Is.EqualTo(EnemyAiMode.Recover));
+                Assert.That(GetEntityAfterTick(ticks[4], 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
                 Assert.That(recoverState.phase, Is.EqualTo(EnemyChargePhase.Recover));
+                Assert.That(recoverState.remainingActiveSteps, Is.Zero);
+                Assert.That(recoverState.recoverRemainingTicks, Is.EqualTo(1));
                 Assert.That(ticks[3].Trace.Text, Does.Contain("Reason=ChargeComplete"));
                 Assert.That(ticks[3].AttackPhaseResult.DamageResolutions, Is.Empty);
                 Assert.That(ticks[4].AttackPhaseResult.DamageResolutions, Is.Empty);
@@ -2636,12 +2647,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntityAfterTick(windupTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
                 Assert.That(windupState.phase, Is.EqualTo(EnemyChargePhase.Windup));
                 Assert.That(windupState.lockedDirection, Is.EqualTo(Direction.Right));
+                Assert.That(windupState.remainingActiveSteps, Is.EqualTo(3));
+                Assert.That(GetEntityAfterTick(windupTick, 40).aiStateTimer, Is.Zero);
 
                 Assert.That(GetEntityAfterTick(activeTick, 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(activeTick, 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(activeTick, 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(GetEntityAfterTick(activeTick, 40).facing, Is.EqualTo(Direction.Right));
                 Assert.That(activeState.phase, Is.EqualTo(EnemyChargePhase.Active));
                 Assert.That(activeState.lockedDirection, Is.EqualTo(Direction.Right));
+                Assert.That(activeState.remainingActiveSteps, Is.EqualTo(2));
                 Assert.That(activeTick.Trace.Text, Does.Contain("Reason=ChargeContinue"));
                 Assert.That(activeTick.AttackPhaseResult.DamageResolutions, Is.Empty);
             }
@@ -2676,6 +2691,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(GetEntityAfterTick(ticks[5], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(GetEntityAfterTick(ticks[6], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
+                Assert.That(GetEntityAfterTick(ticks[1], 40).aiStateTimer, Is.Zero);
+                Assert.That(GetEntityAfterTick(ticks[2], 40).aiStateTimer, Is.Zero);
+                Assert.That(GetEntityAfterTick(ticks[3], 40).aiStateTimer, Is.Zero);
+                Assert.That(GetEntityAfterTick(ticks[4], 40).aiStateTimer, Is.Zero);
+                Assert.That(GetEntityAfterTick(ticks[5], 40).aiStateTimer, Is.Zero);
                 Assert.That(ticks[3].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(ticks[4].AttackPhaseResult.DamageResolutions.Single().Accepted, Is.False);
                 Assert.That(ticks[4].AttackPhaseResult.DamageResolutions.Single().RejectReason, Is.EqualTo(DamageRejectReason.ReceiverCooldown));
@@ -2713,19 +2733,29 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 Assert.That(GetEntityAfterTick(ticks[1], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 0)));
                 Assert.That(GetEntityAfterTick(ticks[1], 40).enemyLocomotionCooldownTicks, Is.EqualTo(1));
                 Assert.That(GetEntityAfterTick(ticks[2], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[2], 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(ticks[2], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(GetEntityAfterTick(ticks[3], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[3], 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(ticks[3], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(2, 0)));
                 Assert.That(GetEntityAfterTick(ticks[4], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(3, 0)));
                 Assert.That(GetEntityAfterTick(ticks[6], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
                 Assert.That(GetEntityAfterTick(ticks[8], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
                 Assert.That(GetEntityAfterTick(ticks[9], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[9], 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(ticks[9], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
                 Assert.That(GetEntityAfterTick(ticks[10], 40).aiMode, Is.EqualTo(EnemyAiMode.Charge));
+                Assert.That(GetEntityAfterTick(ticks[10], 40).aiStateTimer, Is.Zero);
                 Assert.That(GetEntityAfterTick(ticks[10], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(5, 0)));
                 Assert.That(GetEntityAfterTick(ticks[11], 40).aiMode, Is.EqualTo(EnemyAiMode.Chase));
                 Assert.That(GetEntityAfterTick(ticks[11], 40).position.PlanarPosition, Is.EqualTo(new Vector2Int(4, 0)));
                 Assert.That(ticks[1].Trace.Text, Does.Contain("Reason=ChargeStart"));
+
+                var chargeState = GetEnemyChargeState(worldState, 40);
+                Assert.That(chargeState.phase, Is.EqualTo(EnemyChargePhase.None));
+                Assert.That(chargeState.sequence, Is.GreaterThan(0));
+                Assert.That(chargeState.remainingActiveSteps, Is.Zero);
+                Assert.That(chargeState.recoverRemainingTicks, Is.Zero);
             }
             finally
             {

@@ -1073,6 +1073,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     sequence = 3,
                     lockedDirection = Direction.Right,
                     windupEndTick = 7,
+                    remainingActiveSteps = 2,
+                    recoverRemainingTicks = 0,
                 });
 
             var snapshot = worldState.CreateSnapshot();
@@ -1082,6 +1084,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             Assert.That(chargeState.sequence, Is.EqualTo(3));
             Assert.That(chargeState.lockedDirection, Is.EqualTo(Direction.Right));
             Assert.That(chargeState.windupEndTick, Is.EqualTo(7));
+            Assert.That(chargeState.remainingActiveSteps, Is.EqualTo(2));
+            Assert.That(chargeState.recoverRemainingTicks, Is.Zero);
         }
 
         [Test]
@@ -1308,6 +1312,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 sequence = 5,
                 lockedDirection = Direction.Right,
                 windupEndTick = 4,
+                remainingActiveSteps = 0,
+                recoverRemainingTicks = 2,
             };
 
             chargeWorldState.CreateWriteContext().SetEnemyChargeState(40, chargeState);
@@ -1322,8 +1328,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
             Assert.That(idleResult.DeterminismHash, Is.Not.EqualTo(chargeResult.DeterminismHash));
             Assert.That(chargeResult.Trace.Text, Does.Contain("Final.EnemyCharges"));
-            Assert.That(chargeResult.Trace.Text, Does.Contain("E=40|Phase=Recover|Seq=5|Direction=Right|WindupEnd=4"));
-            Assert.That(replay[0].EnemyChargeDump, Does.Contain("E=40|Phase=Recover|Seq=5|Direction=Right|WindupEnd=4"));
+            Assert.That(chargeResult.Trace.Text, Does.Contain("E=40|Phase=Recover|Seq=5|Direction=Right|WindupEnd=4|ActiveSteps=0|RecoverTicks=2"));
+            Assert.That(replay[0].EnemyChargeDump, Does.Contain("E=40|Phase=Recover|Seq=5|Direction=Right|WindupEnd=4|ActiveSteps=0|RecoverTicks=2"));
         }
 
         [Test]
