@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,12 +9,12 @@ namespace Game.Feature.UI.Popups
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _bodyLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _bodyLabel;
         [SerializeField] private Button _confirmButton;
         [SerializeField] private Button _cancelButton;
-        [SerializeField] private Text _confirmButtonLabel;
-        [SerializeField] private Text _cancelButtonLabel;
+        [SerializeField] private TMP_Text _confirmButtonLabel;
+        [SerializeField] private TMP_Text _cancelButtonLabel;
         [SerializeField] private Image _confirmButtonImage;
 
         private ConfirmPopupViewModel _viewModel;

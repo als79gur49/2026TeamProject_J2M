@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -47,7 +48,7 @@ namespace Game.Feature.UI.Composition
             return rectTransform;
         }
 
-        public static Text CreateLabel(
+        public static TMP_Text CreateLabel(
             string name,
             RectTransform parent,
             Vector2 anchoredPosition,
@@ -55,7 +56,7 @@ namespace Game.Feature.UI.Composition
             TextAnchor alignment = TextAnchor.MiddleLeft,
             int fontSize = 14)
         {
-            var labelObject = new GameObject(name, typeof(RectTransform), typeof(Text));
+            var labelObject = new GameObject(name, typeof(RectTransform), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(parent, false);
 
             var rectTransform = labelObject.GetComponent<RectTransform>();
@@ -65,13 +66,13 @@ namespace Game.Feature.UI.Composition
             rectTransform.sizeDelta = sizeDelta;
             rectTransform.anchoredPosition = anchoredPosition;
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.font = LoadDefaultFont();
             text.fontSize = fontSize;
             text.color = Color.white;
-            text.alignment = alignment;
-            text.horizontalOverflow = HorizontalWrapMode.Wrap;
-            text.verticalOverflow = VerticalWrapMode.Overflow;
+            text.alignment = ConvertAlignment(alignment);
+            text.textWrappingMode = TextWrappingModes.Normal;
+            text.overflowMode = TextOverflowModes.Overflow;
             return text;
         }
 
@@ -97,30 +98,32 @@ namespace Game.Feature.UI.Composition
 
             var button = buttonObject.GetComponent<Button>();
 
-            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(Text));
+            var labelObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
             labelObject.transform.SetParent(buttonObject.transform, false);
             var labelRect = labelObject.GetComponent<RectTransform>();
             Stretch(labelRect);
 
-            var text = labelObject.GetComponent<Text>();
+            var text = labelObject.GetComponent<TextMeshProUGUI>();
             text.font = LoadDefaultFont();
             text.fontSize = 14;
-            text.alignment = TextAnchor.MiddleCenter;
+            text.alignment = TextAlignmentOptions.Center;
             text.color = Color.white;
+            text.textWrappingMode = TextWrappingModes.NoWrap;
+            text.overflowMode = TextOverflowModes.Overflow;
             text.text = label;
 
             return button;
         }
 
-        public static Text GetButtonLabel(Button button)
+        public static TMP_Text GetButtonLabel(Button button)
         {
-            return button != null ? button.GetComponentInChildren<Text>() : null;
+            return button != null ? button.GetComponentInChildren<TMP_Text>() : null;
         }
 
-        public static Font LoadDefaultFont()
+        public static TMP_FontAsset LoadDefaultFont()
         {
-            return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf") ??
-                   Resources.GetBuiltinResource<Font>("Arial.ttf");
+            return TMP_Settings.defaultFontAsset ??
+                   Resources.Load<TMP_FontAsset>("Fonts & Materials/LiberationSans SDF");
         }
 
         public static void Stretch(RectTransform rectTransform)
@@ -130,6 +133,23 @@ namespace Game.Feature.UI.Composition
             rectTransform.pivot = new Vector2(0.5f, 0.5f);
             rectTransform.sizeDelta = Vector2.zero;
             rectTransform.anchoredPosition = Vector2.zero;
+        }
+
+        private static TextAlignmentOptions ConvertAlignment(TextAnchor alignment)
+        {
+            return alignment switch
+            {
+                TextAnchor.UpperLeft => TextAlignmentOptions.TopLeft,
+                TextAnchor.UpperCenter => TextAlignmentOptions.Top,
+                TextAnchor.UpperRight => TextAlignmentOptions.TopRight,
+                TextAnchor.MiddleLeft => TextAlignmentOptions.Left,
+                TextAnchor.MiddleCenter => TextAlignmentOptions.Center,
+                TextAnchor.MiddleRight => TextAlignmentOptions.Right,
+                TextAnchor.LowerLeft => TextAlignmentOptions.BottomLeft,
+                TextAnchor.LowerCenter => TextAlignmentOptions.Bottom,
+                TextAnchor.LowerRight => TextAlignmentOptions.BottomRight,
+                _ => TextAlignmentOptions.Left,
+            };
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,12 +9,12 @@ namespace Game.Feature.UI.Popups
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _descriptionLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _descriptionLabel;
         [SerializeField] private Button _resumeButton;
-        [SerializeField] private Text _resumeButtonLabel;
+        [SerializeField] private TMP_Text _resumeButtonLabel;
         [SerializeField] private Button _settingsButton;
-        [SerializeField] private Text _settingsButtonLabel;
+        [SerializeField] private TMP_Text _settingsButtonLabel;
 
         private PausePopupViewModel _viewModel;
         private bool _isVisible;

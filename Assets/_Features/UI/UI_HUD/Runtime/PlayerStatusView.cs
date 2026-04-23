@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,14 +7,14 @@ namespace Game.Feature.UI.HUD
     public sealed class PlayerStatusView : MonoBehaviour
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _hpLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _hpLabel;
         [SerializeField] private Slider _hpSlider;
-        [SerializeField] private Text _facingLabel;
-        [SerializeField] private Text _actionLabel;
-        [SerializeField] private Text _topologyLabel;
-        [SerializeField] private Text _statusLabel;
-        [SerializeField] private Text _damageLabel;
+        [SerializeField] private TMP_Text _facingLabel;
+        [SerializeField] private TMP_Text _actionLabel;
+        [SerializeField] private TMP_Text _topologyLabel;
+        [SerializeField] private TMP_Text _statusLabel;
+        [SerializeField] private TMP_Text _damageLabel;
 
         private PlayerStatusViewModel _viewModel;
 

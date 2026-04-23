@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -9,10 +10,10 @@ namespace Game.Feature.UI.Composition
     {
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _canvasGroup;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _summaryLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _summaryLabel;
         [SerializeField] private GameObject _detailRoot;
-        [SerializeField] private Text _detailLabel;
+        [SerializeField] private TMP_Text _detailLabel;
 
         private UiArchitectureDiagnosticsTracker _tracker;
         private bool _isExpanded;
@@ -52,10 +53,10 @@ namespace Game.Feature.UI.Composition
         public void Configure(
             GameObject root,
             CanvasGroup canvasGroup,
-            Text titleLabel,
-            Text summaryLabel,
+            TMP_Text titleLabel,
+            TMP_Text summaryLabel,
             GameObject detailRoot,
-            Text detailLabel)
+            TMP_Text detailLabel)
         {
             _root = root;
             _canvasGroup = canvasGroup;

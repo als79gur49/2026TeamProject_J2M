@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,14 +8,14 @@ namespace Game.Feature.UI.HUD
     public sealed class ActionBarView : MonoBehaviour
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _primaryLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _primaryLabel;
         [SerializeField] private Slider _primaryCooldownSlider;
-        [SerializeField] private Text _primaryStateLabel;
-        [SerializeField] private Text _secondaryLabel;
+        [SerializeField] private TMP_Text _primaryStateLabel;
+        [SerializeField] private TMP_Text _secondaryLabel;
         [SerializeField] private Slider _secondaryCooldownSlider;
-        [SerializeField] private Text _secondaryStateLabel;
-        [SerializeField] private Text _outcomeLabel;
+        [SerializeField] private TMP_Text _secondaryStateLabel;
+        [SerializeField] private TMP_Text _outcomeLabel;
         private ActionBarViewModel _viewModel;
 
         public ActionBarViewModel ViewModel => _viewModel;
@@ -93,9 +94,9 @@ namespace Game.Feature.UI.HUD
 
         private void ApplySlot(
             HudActionSlotId slotId,
-            Text label,
+            TMP_Text label,
             Slider cooldownSlider,
-            Text stateLabel)
+            TMP_Text stateLabel)
         {
             var hasSlot = TryGetSlot(slotId, out var slotViewModel);
             if (label != null)

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,25 +11,25 @@ namespace Game.Feature.UI.Screens
         private const string MissingControlsMessage =
             "Settings display section is missing required authored controls. Repair: open SettingsScreen.prefab and assign every SettingsDisplayView serialized reference.";
 
-        [SerializeField] private Text _sectionTitle;
-        [SerializeField] private Text _currentDisplayLabel;
-        [SerializeField] private Text _currentDisplayValue;
-        [SerializeField] private Text _resolutionLabel;
-        [SerializeField] private Dropdown _resolutionDropdown;
+        [SerializeField] private TMP_Text _sectionTitle;
+        [SerializeField] private TMP_Text _currentDisplayLabel;
+        [SerializeField] private TMP_Text _currentDisplayValue;
+        [SerializeField] private TMP_Text _resolutionLabel;
+        [SerializeField] private TMP_Dropdown _resolutionDropdown;
         [SerializeField] private RectTransform _resolutionInfoHotspot;
         [SerializeField] private SettingsHoverRelay _resolutionHoverRelay;
         [SerializeField] private RectTransform _resolutionHoverHintRoot;
-        [SerializeField] private Text _resolutionHoverHintLabel;
-        [SerializeField] private Text _fullscreenLabel;
+        [SerializeField] private TMP_Text _resolutionHoverHintLabel;
+        [SerializeField] private TMP_Text _fullscreenLabel;
         [SerializeField] private Toggle _fullscreenToggle;
-        [SerializeField] private Text _displayStatusLabel;
+        [SerializeField] private TMP_Text _displayStatusLabel;
         [SerializeField] private RectTransform _previewCountdownRoot;
-        [SerializeField] private Text _previewCountdownLabel;
+        [SerializeField] private TMP_Text _previewCountdownLabel;
         [SerializeField] private Image _previewCountdownFill;
         [SerializeField] private Button _applyButton;
-        [SerializeField] private Text _applyButtonLabel;
+        [SerializeField] private TMP_Text _applyButtonLabel;
         [SerializeField] private Button _revertButton;
-        [SerializeField] private Text _revertButtonLabel;
+        [SerializeField] private TMP_Text _revertButtonLabel;
 
         private bool _isRefreshingDisplayControls;
         private bool _isResolutionHoverHintVisible;

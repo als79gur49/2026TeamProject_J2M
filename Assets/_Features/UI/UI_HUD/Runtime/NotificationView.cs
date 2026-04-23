@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,10 +7,10 @@ namespace Game.Feature.UI.HUD
     public sealed class NotificationView : MonoBehaviour
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _firstLabel;
-        [SerializeField] private Text _secondLabel;
-        [SerializeField] private Text _thirdLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _firstLabel;
+        [SerializeField] private TMP_Text _secondLabel;
+        [SerializeField] private TMP_Text _thirdLabel;
 
         private NotificationViewModel _viewModel;
 
@@ -72,7 +73,7 @@ namespace Game.Feature.UI.HUD
             ApplyLabel(_thirdLabel, 2);
         }
 
-        private void ApplyLabel(Text label, int index)
+        private void ApplyLabel(TMP_Text label, int index)
         {
             if (label == null)
             {
