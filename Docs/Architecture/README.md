@@ -38,6 +38,8 @@
   - active decision record for persistent BGM ownership matrix, unsupported path, and implementation gate
 - [ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md](./ADR/ADR-004-Terrain-Occupancy-Implementation-Gate.md)
   - active decision record for terrain/occupancy vocabulary closure, boundary gate, and slice implementation gate
+- [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
+  - current supporting truth for `WallFollow` truth table, owner surface, maintain-vs-redesign verdict, and no-touch / rollback gate
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
