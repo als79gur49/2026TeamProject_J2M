@@ -559,6 +559,8 @@ namespace Game.Shared.Audio
 
             public AudioSource Acquire()
             {
+                PruneDestroyedEntries();
+
                 AudioSource source = null;
                 if (available.Count > 0)
                 {
@@ -579,7 +581,12 @@ namespace Game.Shared.Audio
 
             public void Release(AudioSource source)
             {
-                if (source == null || !leased.Remove(source))
+                if (ReferenceEquals(source, null) || !RemoveLeasedEntry(source))
+                {
+                    return;
+                }
+
+                if (source == null)
                 {
                     return;
                 }
@@ -591,6 +598,88 @@ namespace Game.Shared.Audio
                 source.pitch = 1f;
                 source.transform.SetParent(poolRoot, worldPositionStays: false);
                 available.Push(source);
+            }
+
+            private bool RemoveLeasedEntry(AudioSource source)
+            {
+                if (leased.Remove(source))
+                {
+                    return true;
+                }
+
+                AudioSource matchedSource = null;
+                foreach (var leasedSource in leased)
+                {
+                    if (ReferenceEquals(leasedSource, source))
+                    {
+                        matchedSource = leasedSource;
+                        break;
+                    }
+                }
+
+                if (ReferenceEquals(matchedSource, null))
+                {
+                    return false;
+                }
+
+                leased.Remove(matchedSource);
+                return true;
+            }
+
+            private void PruneDestroyedEntries()
+            {
+                PruneDestroyedLeasedEntries();
+                PruneDestroyedAvailableEntries();
+            }
+
+            private void PruneDestroyedLeasedEntries()
+            {
+                if (leased.Count == 0)
+                {
+                    return;
+                }
+
+                var staleSources = new List<AudioSource>();
+                foreach (var leasedSource in leased)
+                {
+                    if (leasedSource == null)
+                    {
+                        staleSources.Add(leasedSource);
+                    }
+                }
+
+                for (var i = 0; i < staleSources.Count; i++)
+                {
+                    RemoveLeasedEntry(staleSources[i]);
+                }
+            }
+
+            private void PruneDestroyedAvailableEntries()
+            {
+                if (available.Count == 0)
+                {
+                    return;
+                }
+
+                var aliveSources = new List<AudioSource>(available.Count);
+                foreach (var availableSource in available)
+                {
+                    if (availableSource != null)
+                    {
+                        aliveSources.Add(availableSource);
+                    }
+                }
+
+                if (aliveSources.Count == available.Count)
+                {
+                    return;
+                }
+
+                available.Clear();
+                for (var i = aliveSources.Count - 1; i >= 0; i--)
+                {
+                    available.Push(aliveSources[i]);
+                }
             }
 
             private AudioSource CreateSource(int index)
@@ -663,10 +752,15 @@ namespace Game.Shared.Audio
                 owner.UnregisterLivePlayback(this);
                 invalidateAttached?.Invoke();
 
+                if (sourcePool != null)
+                {
+                    sourcePool.Release(Source);
+                    return;
+                }
+
                 if (Source != null)
                 {
                     Source.Stop();
-                    sourcePool?.Release(Source);
                 }
             }
 
