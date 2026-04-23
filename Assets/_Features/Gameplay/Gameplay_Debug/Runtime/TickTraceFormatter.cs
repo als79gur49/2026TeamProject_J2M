@@ -105,6 +105,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.PlayerControl", GetPlayerControlEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.PlayerDamage", GetPlayerDamageEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyActions", GetEnemyActionEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemyPatrols", GetEnemyPatrolEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
@@ -196,6 +197,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Kind={entry.State.kind}|Seq={entry.State.sequence}|Target={entry.State.lockedTargetEntityId}|Direction={entry.State.direction}|Start={entry.State.startTick}|Execute={entry.State.executeTick}|Attempted={(entry.State.executionAttempted ? 1 : 0)}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemyPatrolEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyPatrolSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemyPatrolStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"E={entry.EntityId}|Seq={entry.State.sequence}|Home={entry.State.homeCell}|LastDirection={entry.State.lastCommittedDirection}");
             }
 
             return lines;

@@ -32,17 +32,32 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private WallFollowTurnPreference turnPreference;
         [SerializeField] private bool followWalls;
         [SerializeField] private bool followBoxes;
+        [SerializeField] private int leashRadius;
+        [SerializeField] private int forwardWeight;
+        [SerializeField] private int sideWeight;
+        [SerializeField] private int backwardWeight;
+        [SerializeField] private bool preventImmediateBacktrack;
 
         public PatrolSettings(
             PatrolBlockedMovementResponse blockedMovementResponse,
             WallFollowTurnPreference turnPreference = WallFollowTurnPreference.Right,
             bool followWalls = true,
-            bool followBoxes = true)
+            bool followBoxes = true,
+            int leashRadius = 0,
+            int forwardWeight = 0,
+            int sideWeight = 0,
+            int backwardWeight = 0,
+            bool preventImmediateBacktrack = false)
         {
             this.blockedMovementResponse = blockedMovementResponse;
             this.turnPreference = turnPreference;
             this.followWalls = followWalls;
             this.followBoxes = followBoxes;
+            this.leashRadius = leashRadius;
+            this.forwardWeight = forwardWeight;
+            this.sideWeight = sideWeight;
+            this.backwardWeight = backwardWeight;
+            this.preventImmediateBacktrack = preventImmediateBacktrack;
         }
 
         public PatrolBlockedMovementResponse BlockedMovementResponse => blockedMovementResponse;
@@ -53,11 +68,50 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool FollowBoxes => followBoxes;
 
+        public int LeashRadius => leashRadius;
+
+        public int ForwardWeight => forwardWeight;
+
+        public int SideWeight => sideWeight;
+
+        public int BackwardWeight => backwardWeight;
+
+        public bool PreventImmediateBacktrack => preventImmediateBacktrack;
+
         public bool StopWhenForwardBlocked => blockedMovementResponse == PatrolBlockedMovementResponse.Stop;
+
+        public void ValidateRandomWalk(string paramName)
+        {
+            if (leashRadius < 0)
+            {
+                throw new ArgumentException("Random walk patrol settings require a non-negative leash radius.", paramName);
+            }
+
+            if (forwardWeight < 0 || sideWeight < 0 || backwardWeight < 0)
+            {
+                throw new ArgumentException("Random walk patrol weights must be zero or greater.", paramName);
+            }
+
+            if (forwardWeight + sideWeight + backwardWeight <= 0)
+            {
+                throw new ArgumentException("Random walk patrol settings require at least one positive movement weight.", paramName);
+            }
+        }
 
         public static PatrolSettings CreateDefault()
         {
             return new PatrolSettings(PatrolBlockedMovementResponse.Stop);
+        }
+
+        public static PatrolSettings CreateDefaultRandomWalk()
+        {
+            return new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 2,
+                forwardWeight: 4,
+                sideWeight: 2,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
         }
     }
 
@@ -255,6 +309,22 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public sealed class RandomWalkPatrolStrategy : IPatrolStrategy
+    {
+        public static readonly RandomWalkPatrolStrategy Instance = new();
+
+        public bool TryBuildMovementIntent(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in EnemyAiCommonSettings commonSettings,
+            in PatrolSettings settings,
+            out RawMovementIntent intent)
+        {
+            throw new InvalidOperationException(
+                "RandomWalk patrol dispatch is owned by EnemyLogic in the Phase 1 bounded rollout.");
+        }
+    }
+
     public sealed class AxisPriorityChaseStrategy : IChaseStrategy
     {
         public static readonly AxisPriorityChaseStrategy Instance = new();
@@ -381,6 +451,28 @@ namespace Game.Feature.Gameplay.Entities
 
     internal static class EnemyMovementStrategyShared
     {
+        internal readonly struct RandomWalkPatrolCandidate
+        {
+            public RandomWalkPatrolCandidate(Direction direction, SurfaceCell destinationCell)
+            {
+                Direction = direction;
+                DestinationCell = destinationCell;
+            }
+
+            public Direction Direction { get; }
+
+            public SurfaceCell DestinationCell { get; }
+
+            public int CandidateMaskBit => Direction switch
+            {
+                Direction.Up => 1 << 0,
+                Direction.Right => 1 << 1,
+                Direction.Down => 1 << 2,
+                Direction.Left => 1 << 3,
+                _ => 0,
+            };
+        }
+
         private enum RelativeDirection
         {
             Forward = 0,
@@ -549,6 +641,55 @@ namespace Game.Feature.Gameplay.Entities
                     delta = Vector2Int.zero;
                     return false;
             }
+        }
+
+        public static bool TryResolveDirection(Vector2Int delta, out Direction direction)
+        {
+            if (delta == Vector2Int.up)
+            {
+                direction = Direction.Up;
+                return true;
+            }
+
+            if (delta == Vector2Int.right)
+            {
+                direction = Direction.Right;
+                return true;
+            }
+
+            if (delta == Vector2Int.down)
+            {
+                direction = Direction.Down;
+                return true;
+            }
+
+            if (delta == Vector2Int.left)
+            {
+                direction = Direction.Left;
+                return true;
+            }
+
+            direction = Direction.None;
+            return false;
+        }
+
+        internal static bool TryEvaluateRandomWalkCandidate(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            Direction direction,
+            out RandomWalkPatrolCandidate candidate)
+        {
+            candidate = default;
+
+            if (!TryResolveDelta(direction, out var delta) ||
+                !CanTraverseStep(snapshot, source, delta) ||
+                !TryResolveAdjacentCellWithoutTopologyChange(snapshot, source, delta, out var destinationCell))
+            {
+                return false;
+            }
+
+            candidate = new RandomWalkPatrolCandidate(direction, destinationCell);
+            return true;
         }
 
         internal static bool TryResolveStep(
@@ -893,7 +1034,7 @@ namespace Game.Feature.Gameplay.Entities
             return TryResolveDelta(direction, out delta);
         }
 
-        private static bool TryResolveAdjacentCellWithoutTopologyChange(
+        internal static bool TryResolveAdjacentCellWithoutTopologyChange(
             WorldSnapshot snapshot,
             in EntityState source,
             Vector2Int delta,
@@ -902,7 +1043,7 @@ namespace Game.Feature.Gameplay.Entities
             return TryResolveAdjacentCellWithoutTopologyChange(snapshot, source.position, delta, out adjacentCell);
         }
 
-        private static bool TryResolveAdjacentCellWithoutTopologyChange(
+        internal static bool TryResolveAdjacentCellWithoutTopologyChange(
             WorldSnapshot snapshot,
             SurfaceCell sourceCell,
             Vector2Int delta,

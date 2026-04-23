@@ -31,6 +31,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
 
+        void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
+
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
 
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
@@ -64,6 +66,8 @@ namespace Game.Feature.Gameplay.BoardState
 
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
 
+        void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
+
         void SetEntityExecutionLockState(int entityId, EntityExecutionLockState state);
 
         void SetTopology(CubeTopologyState topology);
@@ -93,5 +97,6 @@ namespace Game.Feature.Gameplay.BoardState
 
     internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IPhasedStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IRespawnCommitContext, IEnemyActionCommitContext
     {
+        new void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
     }
 }

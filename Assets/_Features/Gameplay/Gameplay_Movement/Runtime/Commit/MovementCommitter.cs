@@ -60,6 +60,22 @@ namespace Game.Feature.Gameplay.Movement.Commit
         public int CooldownTicks { get; }
     }
 
+    internal readonly struct MovementEnemyPatrolResolutionRecord
+    {
+        public MovementEnemyPatrolResolutionRecord(int groupId, int entityId, EnemyPatrolRuntimeState state)
+        {
+            GroupId = groupId;
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int GroupId { get; }
+
+        public int EntityId { get; }
+
+        public EnemyPatrolRuntimeState State { get; }
+    }
+
     internal readonly struct MovementPlayerControlResolutionRecord
     {
         public MovementPlayerControlResolutionRecord(int groupId, int entityId, PlayerControlState state)
@@ -206,6 +222,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             var facingResolutions = ResolveFacingResolutions(snapshot, sortedIntents, selectedGroups);
             var executionLockResolutions = ResolveExecutionLockResolutions(snapshot, tickIndex, selectedGroups);
             var enemyLocomotionResolutions = ResolveEnemyLocomotionResolutions(snapshot, sortedIntents, selectedGroups);
+            var enemyPatrolResolutions = ResolveEnemyPatrolResolutions(snapshot, sortedIntents, selectedGroups);
             var playerControlResolutions = ResolvePlayerControlResolutions(snapshot, sortedIntents, tickIndex, selectedGroups);
             CommitResolved(
                 writeContext,
@@ -216,6 +233,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 facingResolutions,
                 executionLockResolutions,
                 enemyLocomotionResolutions,
+                enemyPatrolResolutions,
                 playerControlResolutions,
                 commitEvents);
         }
@@ -229,6 +247,7 @@ namespace Game.Feature.Gameplay.Movement.Commit
             IReadOnlyList<MovementFacingResolutionRecord> facingResolutions,
             IReadOnlyList<MovementExecutionLockResolutionRecord> executionLockResolutions,
             IReadOnlyList<MovementEnemyLocomotionResolutionRecord> enemyLocomotionResolutions,
+            IReadOnlyList<MovementEnemyPatrolResolutionRecord> enemyPatrolResolutions,
             IReadOnlyList<MovementPlayerControlResolutionRecord> playerControlResolutions,
             List<string> commitEvents)
         {
@@ -270,6 +289,11 @@ namespace Game.Feature.Gameplay.Movement.Commit
             if (enemyLocomotionResolutions == null)
             {
                 throw new ArgumentNullException(nameof(enemyLocomotionResolutions));
+            }
+
+            if (enemyPatrolResolutions == null)
+            {
+                throw new ArgumentNullException(nameof(enemyPatrolResolutions));
             }
 
             if (playerControlResolutions == null)
@@ -427,6 +451,13 @@ namespace Game.Feature.Gameplay.Movement.Commit
                 if (TryFindEnemyLocomotionResolution(enemyLocomotionResolutions, group.GroupId, out var enemyLocomotionResolution))
                 {
                     writeContext.SetEnemyLocomotionCooldown(enemyLocomotionResolution.EntityId, enemyLocomotionResolution.CooldownTicks);
+                }
+
+                if (TryFindEnemyPatrolResolution(enemyPatrolResolutions, group.GroupId, out var enemyPatrolResolution))
+                {
+                    writeContext.SetEnemyPatrolState(enemyPatrolResolution.EntityId, enemyPatrolResolution.State);
+                    commitEvents.Add(
+                        $"EnemyPatrolStateUpdated|G={group.GroupId}|I={group.IntentId}|E={enemyPatrolResolution.EntityId}|Label=CommittedMove|Seq={enemyPatrolResolution.State.sequence}|Home={enemyPatrolResolution.State.homeCell}|LastDirection={enemyPatrolResolution.State.lastCommittedDirection}");
                 }
 
                 if (TryFindPlayerControlResolution(playerControlResolutions, group.GroupId, out var playerControlResolution))
@@ -666,6 +697,60 @@ namespace Game.Feature.Gameplay.Movement.Commit
             return locomotionResolutions;
         }
 
+        internal List<MovementEnemyPatrolResolutionRecord> ResolveEnemyPatrolResolutions(
+            WorldSnapshot snapshot,
+            IReadOnlyList<MoveIntent> sortedIntents,
+            IReadOnlyList<ActionGroup> selectedGroups)
+        {
+            if (snapshot == null)
+            {
+                throw new ArgumentNullException(nameof(snapshot));
+            }
+
+            if (sortedIntents == null)
+            {
+                throw new ArgumentNullException(nameof(sortedIntents));
+            }
+
+            if (selectedGroups == null)
+            {
+                throw new ArgumentNullException(nameof(selectedGroups));
+            }
+
+            var patrolResolutions = new List<MovementEnemyPatrolResolutionRecord>();
+
+            for (var groupIndex = 0; groupIndex < selectedGroups.Count; groupIndex++)
+            {
+                var group = selectedGroups[groupIndex];
+                if (!snapshot.TryGetEntity(group.SourceId, out var source) ||
+                    source.type != EntityType.Unit ||
+                    source.aiMode != EnemyAiMode.Patrol)
+                {
+                    continue;
+                }
+
+                var intent = FindIntent(sortedIntents, group.IntentId);
+                if (intent == null ||
+                    intent.CommandKind != MovementCommandKind.Move ||
+                    !snapshot.TryGetEnemyPatrolState(group.SourceId, out var currentState) ||
+                    !currentState.IsInitialized ||
+                    !EnemyMovementStrategyShared.TryResolveDirection(
+                        intent.Destination - source.position.PlanarPosition,
+                        out var direction))
+                {
+                    continue;
+                }
+
+                patrolResolutions.Add(
+                    new MovementEnemyPatrolResolutionRecord(
+                        group.GroupId,
+                        group.SourceId,
+                        EnemyPatrolQueries.CommitMove(currentState, direction)));
+            }
+
+            return patrolResolutions;
+        }
+
         internal List<MovementPlayerControlResolutionRecord> ResolvePlayerControlResolutions(
             WorldSnapshot snapshot,
             IReadOnlyList<MoveIntent> sortedIntents,
@@ -872,6 +957,24 @@ namespace Game.Feature.Gameplay.Movement.Commit
             }
 
             enemyLocomotionResolution = default;
+            return false;
+        }
+
+        private static bool TryFindEnemyPatrolResolution(
+            IReadOnlyList<MovementEnemyPatrolResolutionRecord> enemyPatrolResolutions,
+            int groupId,
+            out MovementEnemyPatrolResolutionRecord enemyPatrolResolution)
+        {
+            for (var i = 0; i < enemyPatrolResolutions.Count; i++)
+            {
+                if (enemyPatrolResolutions[i].GroupId == groupId)
+                {
+                    enemyPatrolResolution = enemyPatrolResolutions[i];
+                    return true;
+                }
+            }
+
+            enemyPatrolResolution = default;
             return false;
         }
 

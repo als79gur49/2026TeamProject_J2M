@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly ChaseSettings _chaseSettings;
         private readonly EnemyLocomotionTimingSettings _locomotionTimingSettings;
         private readonly EnemyChargeTimingSettings _chargeTimingSettings;
+        private readonly PatrolStrategyKind _patrolStrategyKind;
         private readonly IPatrolStrategy _patrolStrategy;
         private readonly IDetectionStrategy _detectionStrategy;
         private readonly IChaseStrategy _chaseStrategy;
@@ -88,6 +89,7 @@ namespace Game.Feature.Gameplay.Entities
             _chaseSettings = aiDefinition.ChaseSettings;
             _locomotionTimingSettings = aiDefinition.LocomotionTimingSettings;
             _chargeTimingSettings = aiDefinition.ChargeTimingSettings;
+            _patrolStrategyKind = aiDefinition.Brain.Patrol.Kind;
             _patrolStrategy = aiDefinition.PatrolStrategy;
             _detectionStrategy = aiDefinition.DetectionStrategy;
             _chaseStrategy = aiDefinition.ChaseStrategy;
@@ -149,7 +151,7 @@ namespace Game.Feature.Gameplay.Entities
                 _commonSettings,
                 _chargeTimingSettings,
                 _detectionSettings);
-            var resolvedFacing = ResolvePatrolFacing(snapshot, source, stage, decision);
+            var resolvedFacing = ResolvePatrolFacing(snapshot, source, input.TickIndex, stage, decision);
 
             if (decision.Mode == source.aiMode && decision.Timer == source.aiStateTimer)
             {
@@ -207,6 +209,8 @@ namespace Game.Feature.Gameplay.Entities
             {
                 return;
             }
+
+            TryInitializeRandomWalkPatrolState(snapshot, source, input.TickIndex, writeContext, updates);
 
             var suppressMovementThisTick = false;
             if (HasJumpMovementSkill())
@@ -272,7 +276,7 @@ namespace Game.Feature.Gameplay.Entities
                 return;
             }
 
-            var locomotion = ResolveBaselineGroundLocomotion(snapshot, source);
+            var locomotion = ResolveBaselineGroundLocomotion(snapshot, source, input.TickIndex);
             if (locomotion.HasIntent)
             {
                 buffer.Add(ApplyMovementCooldown(locomotion.Intent, locomotion.CooldownTicks));
@@ -923,7 +927,8 @@ namespace Game.Feature.Gameplay.Entities
 
         private GroundLocomotionResolution ResolveBaselineGroundLocomotion(
             WorldSnapshot snapshot,
-            in EntityState source)
+            in EntityState source,
+            int tickIndex)
         {
             if (source.enemyLocomotionCooldownTicks > 0)
             {
@@ -935,6 +940,27 @@ namespace Game.Feature.Gameplay.Entities
                 case EnemyAiMode.Patrol:
                     if (ShouldHoldWallFollowForSameCellPassiveContact(snapshot, source))
                     {
+                        return default;
+                    }
+
+                    if (_patrolStrategyKind == PatrolStrategyKind.RandomWalk)
+                    {
+                        var randomWalkPlan = BuildRandomWalkPlan(snapshot, source, tickIndex);
+                        if (randomWalkPlan.HasDirection &&
+                            EnemyMovementStrategyShared.ResolveDelta(randomWalkPlan.PlannedDirection) is { } patrolDelta &&
+                            EnemyMovementStrategyShared.TryBuildMoveIntent(
+                                snapshot,
+                                source,
+                                _commonSettings,
+                                patrolDelta,
+                                out var randomWalkIntent))
+                        {
+                            return new GroundLocomotionResolution(
+                                hasIntent: true,
+                                randomWalkIntent,
+                                _locomotionTimingSettings.MoveCooldownTicks);
+                        }
+
                         return default;
                     }
 
@@ -1146,6 +1172,7 @@ namespace Game.Feature.Gameplay.Entities
         private Direction? ResolvePatrolFacing(
             WorldSnapshot snapshot,
             in EntityState source,
+            int tickIndex,
             EnemyAiTransitionStage stage,
             in EnemyAiTransitionDecision decision)
         {
@@ -1158,6 +1185,15 @@ namespace Game.Feature.Gameplay.Entities
                 source.enemyLocomotionCooldownTicks > 0)
             {
                 return null;
+            }
+
+            if (stage == EnemyAiTransitionStage.BeforeMovement &&
+                _patrolStrategyKind == PatrolStrategyKind.RandomWalk)
+            {
+                var randomWalkPlan = BuildRandomWalkPlan(snapshot, source, tickIndex);
+                return randomWalkPlan.HasDirection && randomWalkPlan.PlannedFacing != source.facing
+                    ? randomWalkPlan.PlannedFacing
+                    : (Direction?)null;
             }
 
             if (stage == EnemyAiTransitionStage.BeforeMovement &&
@@ -1192,6 +1228,100 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return rotateOnlyFacing;
+        }
+
+        private EnemyRandomWalkPatrolPlan BuildRandomWalkPlan(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex)
+        {
+            var patrolState = snapshot != null &&
+                              snapshot.TryGetEnemyPatrolState(_entityId, out var storedState)
+                ? storedState
+                : default;
+            return EnemyRandomWalkPatrolPlanner.BuildPlan(
+                snapshot,
+                source,
+                tickIndex,
+                patrolState,
+                _patrolSettings);
+        }
+
+        private void TryInitializeRandomWalkPatrolState(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            if (_patrolStrategyKind != PatrolStrategyKind.RandomWalk ||
+                source.aiMode != EnemyAiMode.Patrol)
+            {
+                return;
+            }
+
+            var hadPreviousState = snapshot.TryGetEnemyPatrolState(_entityId, out var previousState);
+            var plan = EnemyRandomWalkPatrolPlanner.BuildPlan(snapshot, source, tickIndex, previousState, _patrolSettings);
+            if (!plan.ShouldInitializeState)
+            {
+                return;
+            }
+
+            var nextState = EnemyPatrolQueries.Initialize(previousState, source.position);
+            if (!ShouldWritePatrolState(hadPreviousState, previousState, nextState))
+            {
+                return;
+            }
+
+            writeContext.SetEnemyPatrolState(_entityId, nextState);
+            AppendPatrolUpdate(updates, _entityId, "Initialized", nextState, $"Mask={plan.CandidateMask}");
+        }
+
+        private static bool ShouldWritePatrolState(
+            bool hadPreviousState,
+            in EnemyPatrolRuntimeState previousState,
+            in EnemyPatrolRuntimeState nextState)
+        {
+            return hadPreviousState ||
+                   nextState.IsInitialized ||
+                   !AreEqual(previousState, nextState);
+        }
+
+        private static bool AreEqual(
+            in EnemyPatrolRuntimeState left,
+            in EnemyPatrolRuntimeState right)
+        {
+            return left.sequence == right.sequence &&
+                   left.homeCell == right.homeCell &&
+                   left.lastCommittedDirection == right.lastCommittedDirection;
+        }
+
+        private static void AppendPatrolUpdate(
+            List<string> updates,
+            int entityId,
+            string label,
+            in EnemyPatrolRuntimeState state,
+            string extra = null)
+        {
+            if (updates == null)
+            {
+                throw new ArgumentNullException(nameof(updates));
+            }
+
+            var builder = new System.Text.StringBuilder();
+            builder
+                .Append("EnemyPatrolStateUpdated|E=").Append(entityId)
+                .Append("|Label=").Append(label ?? string.Empty)
+                .Append("|Seq=").Append(state.sequence)
+                .Append("|Home=").Append(state.homeCell)
+                .Append("|LastDirection=").Append(state.lastCommittedDirection);
+
+            if (!string.IsNullOrEmpty(extra))
+            {
+                builder.Append('|').Append(extra);
+            }
+
+            updates.Add(builder.ToString());
         }
     }
 

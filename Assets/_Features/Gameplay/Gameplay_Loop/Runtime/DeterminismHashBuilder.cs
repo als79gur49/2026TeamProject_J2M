@@ -59,6 +59,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyActions").Append('\n');
             AppendEnemyActionLines(builder, GetOrderedEnemyActionStates(finalSnapshot));
 
+            builder.Append("EnemyPatrols").Append('\n');
+            AppendEnemyPatrolLines(builder, GetOrderedEnemyPatrolStates(finalSnapshot));
+
             builder.Append("ExecutionLocks").Append('\n');
             AppendExecutionLockLines(builder, GetOrderedExecutionLockStates(finalSnapshot));
 
@@ -149,6 +152,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyJumpEntries = new List<EnemyJumpSnapshotEntry>();
             finalSnapshot.EnumerateEnemyJumpStatesOrdered(enemyJumpEntries);
             return enemyJumpEntries;
+        }
+
+        private static List<EnemyPatrolSnapshotEntry> GetOrderedEnemyPatrolStates(WorldSnapshot finalSnapshot)
+        {
+            var enemyPatrolEntries = new List<EnemyPatrolSnapshotEntry>();
+            finalSnapshot.EnumerateEnemyPatrolStatesOrdered(enemyPatrolEntries);
+            return enemyPatrolEntries;
         }
 
         private static List<EnemyChargeSnapshotEntry> GetOrderedEnemyChargeStates(WorldSnapshot finalSnapshot)
@@ -421,6 +431,29 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.landingTick).Append('|')
                     .Append(entry.State.cooldownRemainingTicks).Append('|')
                     .Append(entry.State.retryCount).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyPatrolLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyPatrolSnapshotEntry> enemyPatrolEntries)
+        {
+            if (enemyPatrolEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < enemyPatrolEntries.Count; i++)
+            {
+                var entry = enemyPatrolEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(entry.State.sequence).Append('|')
+                    .Append((int)entry.State.homeCell.face).Append('|')
+                    .Append(entry.State.homeCell.x).Append('|')
+                    .Append(entry.State.homeCell.y).Append('|')
+                    .Append((int)entry.State.lastCommittedDirection).Append('\n');
             }
         }
 

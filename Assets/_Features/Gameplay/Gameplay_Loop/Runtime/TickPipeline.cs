@@ -1197,6 +1197,26 @@ namespace Game.Feature.Gameplay.Loop
                     }
                 }
 
+                var enemyPatrolWrites = new List<EnemyPatrolWritePayload>();
+                if (sourceEntity.type == EntityType.Unit &&
+                    sourceEntity.aiMode == EnemyAiMode.Patrol)
+                {
+                    var intent = FindMovementIntent(sortedIntents, group.IntentId);
+                    if (intent != null &&
+                        intent.CommandKind == Movement.MovementCommandKind.Move &&
+                        snapshot.TryGetEnemyPatrolState(group.SourceId, out var enemyPatrolState) &&
+                        enemyPatrolState.IsInitialized &&
+                        EnemyMovementStrategyShared.TryResolveDirection(
+                            intent.Destination - sourceEntity.position.PlanarPosition,
+                            out var patrolDirection))
+                    {
+                        enemyPatrolWrites.Add(
+                            new EnemyPatrolWritePayload(
+                                group.SourceId,
+                                EnemyPatrolQueries.CommitMove(enemyPatrolState, patrolDirection)));
+                    }
+                }
+
                 var playerControlWrites = new List<PlayerControlWritePayload>();
                 if (snapshot.TryGetPlayerControlState(group.SourceId, out var playerControlState))
                 {
@@ -1257,6 +1277,7 @@ namespace Game.Feature.Gameplay.Loop
                     topologyWrites,
                     executionLockWrites,
                     enemyLocomotionWrites,
+                    enemyPatrolWrites,
                     playerControlWrites,
                     destroyWrites,
                     hasImpactReservationPayload,
@@ -2822,6 +2843,17 @@ namespace Game.Feature.Gameplay.Loop
                         locomotionWrite.EntityId,
                         locomotionWrite.CooldownTicks,
                         CreateMovementMetadata(payload, baseResolution, locomotionIndex));
+                }
+
+                for (var patrolIndex = 0; patrolIndex < payload.EnemyPatrolWrites.Count; patrolIndex++)
+                {
+                    var enemyPatrolWrite = payload.EnemyPatrolWrites[patrolIndex];
+                    batch.SetEnemyPatrolState(
+                        enemyPatrolWrite.EntityId,
+                        enemyPatrolWrite.EnemyPatrolState,
+                        CreateMovementMetadata(payload, baseResolution, patrolIndex));
+                    commitEvents.Add(
+                        $"EnemyPatrolStateUpdated|G={actionPlanId}|I={payload.IntentId}|E={enemyPatrolWrite.EntityId}|Label=CommittedMove|Seq={enemyPatrolWrite.EnemyPatrolState.sequence}|Home={enemyPatrolWrite.EnemyPatrolState.homeCell}|LastDirection={enemyPatrolWrite.EnemyPatrolState.lastCommittedDirection}");
                 }
 
                 for (var controlIndex = 0; controlIndex < payload.PlayerControlWrites.Count; controlIndex++)
@@ -5381,6 +5413,19 @@ namespace Game.Feature.Gameplay.Loop
         public int CooldownTicks { get; }
     }
 
+    internal readonly struct EnemyPatrolWritePayload
+    {
+        public EnemyPatrolWritePayload(int entityId, EnemyPatrolRuntimeState enemyPatrolState)
+        {
+            EntityId = entityId;
+            EnemyPatrolState = enemyPatrolState;
+        }
+
+        public int EntityId { get; }
+
+        public EnemyPatrolRuntimeState EnemyPatrolState { get; }
+    }
+
     internal readonly struct PlayerControlWritePayload
     {
         public PlayerControlWritePayload(int entityId, PlayerControlState playerControlState)
@@ -5536,6 +5581,7 @@ namespace Game.Feature.Gameplay.Loop
             IReadOnlyList<TopologyWritePayload> topologyWrites,
             IReadOnlyList<ExecutionLockWritePayload> executionLockWrites,
             IReadOnlyList<EnemyLocomotionWritePayload> enemyLocomotionWrites,
+            IReadOnlyList<EnemyPatrolWritePayload> enemyPatrolWrites,
             IReadOnlyList<PlayerControlWritePayload> playerControlWrites,
             IReadOnlyList<DestroyWritePayload> destroyWrites,
             bool hasImpactReservationPayload,
@@ -5560,6 +5606,7 @@ namespace Game.Feature.Gameplay.Loop
             TopologyWrites = topologyWrites ?? throw new ArgumentNullException(nameof(topologyWrites));
             ExecutionLockWrites = executionLockWrites ?? throw new ArgumentNullException(nameof(executionLockWrites));
             EnemyLocomotionWrites = enemyLocomotionWrites ?? throw new ArgumentNullException(nameof(enemyLocomotionWrites));
+            EnemyPatrolWrites = enemyPatrolWrites ?? throw new ArgumentNullException(nameof(enemyPatrolWrites));
             PlayerControlWrites = playerControlWrites ?? throw new ArgumentNullException(nameof(playerControlWrites));
             DestroyWrites = destroyWrites ?? throw new ArgumentNullException(nameof(destroyWrites));
             HasImpactReservationPayload = hasImpactReservationPayload;
@@ -5599,6 +5646,8 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<ExecutionLockWritePayload> ExecutionLockWrites { get; }
 
         public IReadOnlyList<EnemyLocomotionWritePayload> EnemyLocomotionWrites { get; }
+
+        public IReadOnlyList<EnemyPatrolWritePayload> EnemyPatrolWrites { get; }
 
         public IReadOnlyList<PlayerControlWritePayload> PlayerControlWrites { get; }
 
@@ -6058,13 +6107,14 @@ namespace Game.Feature.Gameplay.Loop
         SetPlayerDamageState = 9,
         ApplyEnemyAiState = 10,
         SetEnemyActionState = 11,
-        SetEnemyJumpState = 12,
-        SetEnemyChargeState = 13,
-        SpawnEntity = 14,
-        ApplyDamage = 15,
-        MarkDestroy = 16,
-        EnqueueDelayedAttackEffect = 17,
-        SetPhasedState = 18,
+        SetEnemyPatrolState = 12,
+        SetEnemyJumpState = 13,
+        SetEnemyChargeState = 14,
+        SpawnEntity = 15,
+        ApplyDamage = 16,
+        MarkDestroy = 17,
+        EnqueueDelayedAttackEffect = 18,
+        SetPhasedState = 19,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -6204,6 +6254,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyAiMode enemyAiMode = default,
             int enemyAiStateTimer = 0,
             EnemyActionRuntimeState enemyActionState = default,
+            EnemyPatrolRuntimeState enemyPatrolState = default,
             EnemyJumpRuntimeState enemyJumpState = default,
             EnemyChargeRuntimeState enemyChargeState = default,
             PhasedRuntimeState phasedState = default,
@@ -6231,6 +6282,7 @@ namespace Game.Feature.Gameplay.Loop
             EnemyAiMode = enemyAiMode;
             EnemyAiStateTimer = enemyAiStateTimer;
             EnemyActionState = enemyActionState;
+            EnemyPatrolState = enemyPatrolState;
             EnemyJumpState = enemyJumpState;
             EnemyChargeState = enemyChargeState;
             PhasedState = phasedState;
@@ -6280,6 +6332,8 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyActionRuntimeState EnemyActionState { get; }
 
+        public EnemyPatrolRuntimeState EnemyPatrolState { get; }
+
         public EnemyJumpRuntimeState EnemyJumpState { get; }
 
         public EnemyChargeRuntimeState EnemyChargeState { get; }
@@ -6314,6 +6368,7 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyAiMode,
                 EnemyAiStateTimer,
                 EnemyActionState,
+                EnemyPatrolState,
                 EnemyJumpState,
                 EnemyChargeState,
                 PhasedState,
@@ -6447,6 +6502,17 @@ namespace Game.Feature.Gameplay.Loop
                 metadata,
                 entityId: entityId,
                 enemyActionState: enemyActionState);
+        }
+
+        public static FinalizationOperation SetEnemyPatrolState(long sequence, int entityId, EnemyPatrolRuntimeState enemyPatrolState, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyPatrolState,
+                metadata,
+                entityId: entityId,
+                enemyPatrolState: enemyPatrolState);
         }
 
         public static FinalizationOperation SetEnemyJumpState(long sequence, int entityId, EnemyJumpRuntimeState enemyJumpState, FinalizationOperationMetadata metadata = default)
@@ -6594,6 +6660,11 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyActionState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyPatrolState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetEnemyJumpState(_nextSequence++, entityId, state, metadata));
@@ -6724,6 +6795,10 @@ namespace Game.Feature.Gameplay.Loop
                         ((IEnemyActionCommitContext)writeContext).SetEnemyActionState(operation.EntityId, operation.EnemyActionState);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyPatrolState:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemyPatrolState(operation.EntityId, operation.EnemyPatrolState);
+                        break;
+
                     case FinalizationOperationKind.SetEnemyJumpState:
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyJumpState(operation.EntityId, operation.EnemyJumpState);
                         break;
@@ -6806,6 +6881,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             _batch.SetEnemyActionState(entityId, state);
+        }
+
+        public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
+        {
+            _batch.SetEnemyPatrolState(entityId, state);
         }
 
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
@@ -7007,6 +7087,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetEnemyActionState(entityId, out var enemyActionState))
                 {
                     writeContext.SetEnemyActionState(entityId, enemyActionState);
+                }
+
+                if (snapshot.TryGetEnemyPatrolState(entityId, out var enemyPatrolState))
+                {
+                    writeContext.SetEnemyPatrolState(entityId, enemyPatrolState);
                 }
 
                 if (snapshot.TryGetEntityExecutionLockState(entityId, out var executionLockState))

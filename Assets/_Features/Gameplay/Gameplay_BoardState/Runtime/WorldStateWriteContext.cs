@@ -43,6 +43,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyActionState(entityId, state);
         }
 
+        public void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
+        {
+            _port.SetEnemyPatrolState(entityId, state);
+        }
+
         public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
         {
             _port.SetEnemyChargeState(entityId, state);

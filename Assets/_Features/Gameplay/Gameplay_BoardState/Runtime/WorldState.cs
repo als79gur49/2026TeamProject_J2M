@@ -13,6 +13,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<SurfaceCell, int> _solidOccupancy = new();
         private readonly BoardBounds _boardBounds;
         private readonly Dictionary<int, EnemyActionRuntimeState> _enemyActionStatesByEntityId = new();
+        private readonly Dictionary<int, EnemyPatrolRuntimeState> _enemyPatrolStatesByEntityId = new();
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
@@ -71,6 +72,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<SurfaceCell, int>(_solidOccupancy),
                 new Dictionary<SurfaceCell, int>(_projectileOccupancy),
                 new Dictionary<int, EnemyActionRuntimeState>(_enemyActionStatesByEntityId),
+                new Dictionary<int, EnemyPatrolRuntimeState>(_enemyPatrolStatesByEntityId),
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
@@ -135,6 +137,7 @@ namespace Game.Feature.Gameplay.BoardState
             ClearOccupancyForEntity(entity);
             _entitiesById.Remove(entityId);
             _enemyActionStatesByEntityId.Remove(entityId);
+            _enemyPatrolStatesByEntityId.Remove(entityId);
             _enemyChargeStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
@@ -295,6 +298,16 @@ namespace Game.Feature.Gameplay.BoardState
             }
 
             _enemyActionStatesByEntityId[entityId] = state;
+        }
+
+        private void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _enemyPatrolStatesByEntityId[entityId] = state;
         }
 
         private void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
@@ -630,6 +643,11 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyActionState(int entityId, EnemyActionRuntimeState state)
         {
             SetEnemyActionState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state)
+        {
+            SetEnemyPatrolState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)

@@ -14,6 +14,7 @@ namespace Game.Feature.Gameplay.BoardState
         void ApplyEnemyAiState(int entityId, EnemyAiMode aiMode, int aiStateTimer);
         void SetEnemyLocomotionCooldown(int entityId, int cooldownTicks);
         void SetEnemyActionState(int entityId, EnemyActionRuntimeState state);
+        void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
         void SetPhasedState(int entityId, PhasedRuntimeState state);

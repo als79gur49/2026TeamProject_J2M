@@ -15,6 +15,7 @@ namespace Game.Feature.Gameplay.Entities
         Forward = 0,
         WallFollow = 1,
         Stationary = 2,
+        RandomWalk = 3,
     }
 
     public enum DetectionStrategyKind
@@ -749,6 +750,7 @@ namespace Game.Feature.Gameplay.Entities
                 ForwardPatrolStrategy _ => PatrolStrategyKind.Forward,
                 WallFollowPatrolStrategy _ => PatrolStrategyKind.WallFollow,
                 StationaryPatrolStrategy _ => PatrolStrategyKind.Stationary,
+                RandomWalkPatrolStrategy _ => PatrolStrategyKind.RandomWalk,
                 null => throw new ArgumentNullException(nameof(patrolStrategy)),
                 _ => throw new ArgumentOutOfRangeException(nameof(patrolStrategy), patrolStrategy, "Unknown patrol strategy implementation."),
             };
