@@ -17,6 +17,10 @@ namespace Game.Feature.UI.Flow
 
         public event Action StateChanged;
 
+        public event Action<PopupOpenedEvent> PopupOpened;
+
+        public event Action<PopupCompletedEvent> PopupCompleted;
+
         public int PopupCount => _stack.Count;
 
         public bool CanPop => _stack.Count > 0;
@@ -52,6 +56,7 @@ namespace Game.Feature.UI.Flow
             _stack.Add(record);
             ApplyTopmostState();
             StateChanged?.Invoke();
+            PopupOpened?.Invoke(new PopupOpenedEvent(entry));
             return true;
         }
 
@@ -218,11 +223,18 @@ namespace Game.Feature.UI.Flow
             PopupCompletionKind completionKind,
             PopupCloseReason closeReason)
         {
-            entry.CompletionCallback?.Invoke(new PopupCompletion(
+            var completion = new PopupCompletion(
                 entry.InstanceId,
                 entry.PopupId,
                 completionKind,
-                closeReason));
+                closeReason);
+
+            if (ShouldPublishPopupCompleted(closeReason))
+            {
+                PopupCompleted?.Invoke(new PopupCompletedEvent(entry, completion));
+            }
+
+            entry.CompletionCallback?.Invoke(completion);
         }
 
         private bool TryCloseTop(
@@ -245,6 +257,20 @@ namespace Game.Feature.UI.Flow
             StateChanged?.Invoke();
             NotifyCompletion(closedRecord.Entry, completionKind, closeReason);
             return true;
+        }
+
+        private static bool ShouldPublishPopupCompleted(PopupCloseReason closeReason)
+        {
+            switch (closeReason)
+            {
+                case PopupCloseReason.UserAction:
+                case PopupCloseReason.Back:
+                case PopupCloseReason.BackdropClick:
+                    return true;
+
+                default:
+                    return false;
+            }
         }
 
         private sealed class PopupRuntimeRecord
