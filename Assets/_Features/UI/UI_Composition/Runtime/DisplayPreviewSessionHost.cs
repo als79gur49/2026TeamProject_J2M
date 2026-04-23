@@ -7,6 +7,7 @@ namespace Game.Feature.UI.Composition
 {
     internal sealed class DisplayPreviewSessionHost
     {
+        private IUiFlowAudioIntentBoundary audioIntentBoundary;
         private readonly PopupController popupController;
         private readonly double previewTimeoutSeconds;
         private readonly DisplayPreviewTimeoutRelay timeoutRelay;
@@ -32,6 +33,11 @@ namespace Game.Feature.UI.Composition
 
         public event Action<DisplayPreviewCountdownSnapshot> CountdownChanged;
 
+        internal void BindAudioIntentBoundary(IUiFlowAudioIntentBoundary boundary)
+        {
+            audioIntentBoundary = boundary;
+        }
+
         public bool TryOpen(
             ConfirmPopupPayload payload,
             Action onConfirmed,
@@ -42,16 +48,24 @@ namespace Game.Feature.UI.Composition
                 return false;
             }
 
-            try
+            bool TryPushPopup()
             {
-                if (!popupController.Push(
+                try
+                {
+                    return popupController.Push(
                         new PopupRequest(PopupId.Confirm, payload, HandlePopupCompletion),
-                        out activePopupId))
+                        out activePopupId);
+                }
+                catch
                 {
                     return false;
                 }
             }
-            catch
+
+            var opened = audioIntentBoundary != null
+                ? audioIntentBoundary.ExecuteOpenForwardBoundary(TryPushPopup)
+                : TryPushPopup();
+            if (!opened)
             {
                 return false;
             }

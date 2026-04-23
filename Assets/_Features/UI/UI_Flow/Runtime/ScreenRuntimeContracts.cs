@@ -147,6 +147,33 @@ namespace Game.Feature.UI.Flow
         public string ReuseKey { get; }
     }
 
+    public enum ScreenTransitionKind
+    {
+        Show = 0,
+        Push = 1,
+        Replace = 2,
+        Pop = 3,
+    }
+
+    public readonly struct ScreenTransitionedEvent
+    {
+        public ScreenTransitionedEvent(
+            ScreenTransitionKind kind,
+            ScreenEntry? previousEntry,
+            ScreenEntry? currentEntry)
+        {
+            Kind = kind;
+            PreviousEntry = previousEntry;
+            CurrentEntry = currentEntry;
+        }
+
+        public ScreenTransitionKind Kind { get; }
+
+        public ScreenEntry? PreviousEntry { get; }
+
+        public ScreenEntry? CurrentEntry { get; }
+    }
+
     public enum ScreenActionKind
     {
         None = 0,

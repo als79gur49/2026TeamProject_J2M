@@ -118,6 +118,40 @@ namespace Game.Feature.UI.Tests
         }
 
         [Test]
+        public void ScreenController_ScreenTransitioned_FiresOnlyOnRealCurrentInstanceChanges()
+        {
+            var runtimeFactory = new FakeScreenRuntimeFactory();
+            using var controller = new ScreenController(runtimeFactory);
+            var transitions = new System.Collections.Generic.List<ScreenTransitionedEvent>();
+            controller.ScreenTransitioned += transitions.Add;
+
+            controller.SetRoot(new ScreenRequest(ScreenId.Gameplay, GameplayScreenPayload.Default, ScreenId.Gameplay.ToString()));
+            Assert.That(transitions, Is.Empty);
+
+            Assert.That(controller.Show(new ScreenRequest(ScreenId.Help, HelpScreenPayload.Default, ScreenId.Help.ToString())), Is.True);
+            Assert.That(transitions, Has.Count.EqualTo(1));
+            Assert.That(transitions[0].Kind, Is.EqualTo(ScreenTransitionKind.Show));
+            Assert.That(transitions[0].PreviousEntry.HasValue, Is.True);
+            Assert.That(transitions[0].CurrentEntry.HasValue, Is.True);
+            Assert.That(transitions[0].CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.Help));
+
+            Assert.That(controller.Show(new ScreenRequest(
+                ScreenId.Help,
+                new HelpScreenPayload("Help", "Updated", "Back"),
+                ScreenId.Help.ToString())), Is.True);
+            Assert.That(transitions, Has.Count.EqualTo(1));
+
+            Assert.That(controller.Push(new ScreenRequest(ScreenId.Settings, SettingsScreenPayload.Default, ScreenId.Settings.ToString())), Is.True);
+            Assert.That(transitions, Has.Count.EqualTo(2));
+            Assert.That(transitions[1].Kind, Is.EqualTo(ScreenTransitionKind.Push));
+
+            Assert.That(controller.Pop(), Is.True);
+            Assert.That(transitions, Has.Count.EqualTo(3));
+            Assert.That(transitions[2].Kind, Is.EqualTo(ScreenTransitionKind.Pop));
+            Assert.That(transitions[2].CurrentEntry.Value.ScreenId, Is.EqualTo(ScreenId.Help));
+        }
+
+        [Test]
         public void PopupController_PushCloseAndBackHandling_UseExplicitIdentityAndTopmostState()
         {
             var runtimeFactory = new FakePopupRuntimeFactory();
@@ -199,6 +233,41 @@ namespace Game.Feature.UI.Tests
             Assert.That(completions[0].CloseReason, Is.EqualTo(PopupCloseReason.ScreenTransition));
             Assert.That(runtimeFactory.CreatedRuntimes[0].Runtime.IsDisposed, Is.True);
             Assert.That(runtimeFactory.CreatedRuntimes[1].Runtime.IsDisposed, Is.True);
+        }
+
+        [Test]
+        public void PopupController_LifecycleSignalEvents_OnlyFireForSuccessfulUserVisibleTransitions()
+        {
+            var runtimeFactory = new FakePopupRuntimeFactory();
+            using var controller = new PopupController(runtimeFactory);
+            var opened = new System.Collections.Generic.List<PopupOpenedEvent>();
+            var completed = new System.Collections.Generic.List<PopupCompletedEvent>();
+            controller.PopupOpened += opened.Add;
+            controller.PopupCompleted += completed.Add;
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body")),
+                out var tooltipId), Is.True);
+            Assert.That(opened, Has.Count.EqualTo(1));
+            Assert.That(opened[0].Entry.PopupId, Is.EqualTo(PopupId.Tooltip));
+            Assert.That(completed, Is.Empty);
+
+            Assert.That(controller.Close(tooltipId, PopupCloseReason.Programmatic), Is.True);
+            Assert.That(completed, Is.Empty);
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Confirm, new ConfirmPopupPayload("Confirm", "Body", "Yes", "No", false)),
+                out _), Is.True);
+            runtimeFactory.CreatedRuntimes[^1].Runtime.Emit(PopupCompletionKind.Confirmed);
+            Assert.That(completed, Has.Count.EqualTo(1));
+            Assert.That(completed[0].Completion.CloseReason, Is.EqualTo(PopupCloseReason.UserAction));
+            Assert.That(completed[0].Completion.CompletionKind, Is.EqualTo(PopupCompletionKind.Confirmed));
+
+            Assert.That(controller.Push(
+                new PopupRequest(PopupId.Tooltip, new TooltipPopupPayload("Tip", "Body")),
+                out _), Is.True);
+            controller.CloseAll(PopupCloseReason.ScreenTransition);
+            Assert.That(completed, Has.Count.EqualTo(1));
         }
 
         [Test]

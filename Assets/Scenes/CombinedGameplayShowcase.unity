@@ -632,6 +632,7 @@ MonoBehaviour:
   _hudPrefab: {fileID: 114100, guid: fa9c5047a8eb470483992e6b85ed3a2b, type: 3}
   _screenPrefabCatalog: {fileID: 11400000, guid: 96b947be919f0ab4dabd973a4925ff83, type: 2}
   _popupPrefabCatalog: {fileID: 11400000, guid: b2310c16b9b12f0478d2bff3c647ea03, type: 2}
+  _uiAudioCueMap: {fileID: 11400000, guid: f22f968bc51249c19c72dc545d349f23, type: 2}
   _installOnStart: 1
 --- !u!114 &1179627485
 MonoBehaviour:

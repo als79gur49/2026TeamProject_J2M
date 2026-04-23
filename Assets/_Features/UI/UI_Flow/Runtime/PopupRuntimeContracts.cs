@@ -118,6 +118,29 @@ namespace Game.Feature.UI.Flow
         public PopupCloseReason CloseReason { get; }
     }
 
+    public readonly struct PopupOpenedEvent
+    {
+        public PopupOpenedEvent(PopupEntry entry)
+        {
+            Entry = entry;
+        }
+
+        public PopupEntry Entry { get; }
+    }
+
+    public readonly struct PopupCompletedEvent
+    {
+        public PopupCompletedEvent(PopupEntry entry, PopupCompletion completion)
+        {
+            Entry = entry;
+            Completion = completion;
+        }
+
+        public PopupEntry Entry { get; }
+
+        public PopupCompletion Completion { get; }
+    }
+
     public readonly struct PopupRequest
     {
         public PopupRequest(

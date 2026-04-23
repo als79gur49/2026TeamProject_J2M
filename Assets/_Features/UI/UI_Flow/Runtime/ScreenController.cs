@@ -20,6 +20,8 @@ namespace Game.Feature.UI.Flow
 
         public event Action<ScreenAction> ActionRequested;
 
+        public event Action<ScreenTransitionedEvent> ScreenTransitioned;
+
         public ScreenId CurrentScreenId => CurrentEntry.HasValue ? CurrentEntry.Value.ScreenId : ScreenId.None;
 
         public ScreenEntry? CurrentEntry => _current != null ? _current.Entry : null;
@@ -49,6 +51,7 @@ namespace Game.Feature.UI.Flow
                 return true;
             }
 
+            var previousEntry = CurrentEntry;
             RemoveMatchingHistoryEntries(request.ReuseKey);
 
             if (_current != null)
@@ -59,6 +62,7 @@ namespace Game.Feature.UI.Flow
             _current = CreateRuntimeRecord(request);
             _current.Runtime.SetIsCurrent(true);
             StateChanged?.Invoke();
+            RaiseScreenTransitioned(ScreenTransitionKind.Show, previousEntry, CurrentEntry);
             return true;
         }
 
@@ -70,11 +74,12 @@ namespace Game.Feature.UI.Flow
                 return true;
             }
 
-            if (TryRestoreReusableEntry(request))
+            if (TryRestoreReusableEntry(request, ScreenTransitionKind.Push))
             {
                 return true;
             }
 
+            var previousEntry = CurrentEntry;
             var previousCurrent = _current;
             if (previousCurrent.Entry.Policy.RetentionMode == ScreenRetentionMode.RetainMountedHistory)
             {
@@ -91,6 +96,7 @@ namespace Game.Feature.UI.Flow
             _current = CreateRuntimeRecord(request);
             _current.Runtime.SetIsCurrent(true);
             StateChanged?.Invoke();
+            RaiseScreenTransitioned(ScreenTransitionKind.Push, previousEntry, CurrentEntry);
             return true;
         }
 
@@ -104,6 +110,7 @@ namespace Game.Feature.UI.Flow
                 return true;
             }
 
+            var previousEntry = CurrentEntry;
             RemoveMatchingHistoryEntries(request.ReuseKey);
 
             if (_current != null)
@@ -114,6 +121,7 @@ namespace Game.Feature.UI.Flow
             _current = CreateRuntimeRecord(request);
             _current.Runtime.SetIsCurrent(true);
             StateChanged?.Invoke();
+            RaiseScreenTransitioned(ScreenTransitionKind.Replace, previousEntry, CurrentEntry);
             return true;
         }
 
@@ -124,6 +132,7 @@ namespace Game.Feature.UI.Flow
                 return false;
             }
 
+            var previousEntry = CurrentEntry;
             if (_current != null)
             {
                 DetachAndDispose(_current);
@@ -145,6 +154,7 @@ namespace Game.Feature.UI.Flow
             _current.Runtime.ApplyPayload(_current.Entry.Payload);
             _current.Runtime.SetIsCurrent(true);
             StateChanged?.Invoke();
+            RaiseScreenTransitioned(ScreenTransitionKind.Pop, previousEntry, CurrentEntry);
             return true;
         }
 
@@ -157,7 +167,7 @@ namespace Game.Feature.UI.Flow
                     continue;
                 }
 
-                return RestoreHistoryEntry(i, _backStack[i].Entry.Payload);
+                return RestoreHistoryEntry(i, _backStack[i].Entry.Payload, ScreenTransitionKind.Pop);
             }
 
             return false;
@@ -212,7 +222,7 @@ namespace Game.Feature.UI.Flow
             StateChanged?.Invoke();
         }
 
-        private bool TryRestoreReusableEntry(ScreenRequest request)
+        private bool TryRestoreReusableEntry(ScreenRequest request, ScreenTransitionKind transitionKind)
         {
             if (string.IsNullOrEmpty(request.ReuseKey))
             {
@@ -234,19 +244,23 @@ namespace Game.Feature.UI.Flow
                     continue;
                 }
 
-                return RestoreHistoryEntry(i, request.Payload);
+                return RestoreHistoryEntry(i, request.Payload, transitionKind);
             }
 
             return false;
         }
 
-        private bool RestoreHistoryEntry(int historyIndex, IScreenPayload payload)
+        private bool RestoreHistoryEntry(
+            int historyIndex,
+            IScreenPayload payload,
+            ScreenTransitionKind transitionKind)
         {
             if (historyIndex < 0 || historyIndex >= _backStack.Count)
             {
                 return false;
             }
 
+            var previousEntry = CurrentEntry;
             if (_current != null)
             {
                 DetachAndDispose(_current);
@@ -282,6 +296,7 @@ namespace Game.Feature.UI.Flow
             _current = restoredRecord;
             _current.Runtime.SetIsCurrent(true);
             StateChanged?.Invoke();
+            RaiseScreenTransitioned(transitionKind, previousEntry, CurrentEntry);
             return true;
         }
 
@@ -344,6 +359,28 @@ namespace Game.Feature.UI.Flow
         private void HandleRuntimeActionRequested(ScreenAction action)
         {
             ActionRequested?.Invoke(action);
+        }
+
+        private void RaiseScreenTransitioned(
+            ScreenTransitionKind transitionKind,
+            ScreenEntry? previousEntry,
+            ScreenEntry? currentEntry)
+        {
+            if (!currentEntry.HasValue)
+            {
+                return;
+            }
+
+            if (previousEntry.HasValue &&
+                previousEntry.Value.InstanceId.Equals(currentEntry.Value.InstanceId))
+            {
+                return;
+            }
+
+            ScreenTransitioned?.Invoke(new ScreenTransitionedEvent(
+                transitionKind,
+                previousEntry,
+                currentEntry));
         }
 
         private static void DetachAndDispose(ScreenRuntimeRecord record)
