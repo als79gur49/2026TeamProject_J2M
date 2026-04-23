@@ -12,7 +12,7 @@ namespace Game.Feature.Gameplay.Host
         public bool UseAuthoredSceneCameraLens = true;
         public float PitchDegrees = 35f;
         public float YawDegrees = 0f;
-        public GameplayCameraRig.DistanceMode DistanceMode = GameplayCameraRig.DistanceMode.AutoFit;
+        public CameraDistanceMode DistanceMode = CameraDistanceMode.AutoFit;
         public float ManualDistance = 8f;
         public float FramingPadding = 1.2f;
         public float PerspectiveFieldOfView = 60f;
@@ -48,7 +48,7 @@ namespace Game.Feature.Gameplay.Host
                 UseAuthoredSceneCameraLens = true,
                 PitchDegrees = 18f,
                 YawDegrees = 0f,
-                DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                DistanceMode = CameraDistanceMode.AutoFit,
                 ManualDistance = 8f,
                 FramingPadding = 1.2f,
                 PerspectiveFieldOfView = 60f,
@@ -67,7 +67,7 @@ namespace Game.Feature.Gameplay.Host
                 UseAuthoredSceneCameraLens = true,
                 PitchDegrees = 35f,
                 YawDegrees = 0f,
-                DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                DistanceMode = CameraDistanceMode.Manual,
                 ManualDistance = 16f,
                 FramingPadding = 1.2f,
                 PerspectiveFieldOfView = 50f,

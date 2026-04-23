@@ -128,7 +128,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     UseAuthoredSceneCameraLens = true,
                     PitchDegrees = 10f,
                     YawDegrees = 15f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                    DistanceMode = CameraDistanceMode.AutoFit,
                     ManualDistance = 2f,
                     FramingPadding = 1.2f,
                     PerspectiveFieldOfView = 60f,

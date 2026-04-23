@@ -1693,7 +1693,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 60f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    DistanceMode = CameraDistanceMode.Manual,
                     ManualDistance = 7f,
                 });
                 rig.Initialize(viewCamera, targetObject.transform, visibleBounds);
@@ -1705,7 +1705,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 30f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    DistanceMode = CameraDistanceMode.Manual,
                     ManualDistance = 7f,
                 });
 
@@ -1741,7 +1741,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 60f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                    DistanceMode = CameraDistanceMode.AutoFit,
                 });
                 rig.Initialize(viewCamera, targetObject.transform, visibleBounds);
                 var initialDistance = Vector3.Distance(viewCamera.transform.position, targetObject.transform.position);
@@ -1752,7 +1752,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 30f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                    DistanceMode = CameraDistanceMode.AutoFit,
                 });
                 var narrowedDistance = Vector3.Distance(viewCamera.transform.position, targetObject.transform.position);
 
@@ -4777,7 +4777,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     PitchDegrees = 18f,
                     YawDegrees = 31f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    DistanceMode = CameraDistanceMode.Manual,
                     ManualDistance = 9f,
                     FramingPadding = 1.35f,
                     PerspectiveFieldOfView = 47f,
@@ -4869,7 +4869,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             UseAuthoredSceneCameraLens = true,
                             PitchDegrees = 5f,
                             YawDegrees = 17f,
-                            DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                            DistanceMode = CameraDistanceMode.AutoFit,
                             ManualDistance = 1f,
                             FramingPadding = 1.2f,
                             PerspectiveFieldOfView = 60f,

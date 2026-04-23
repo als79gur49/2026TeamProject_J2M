@@ -12,15 +12,9 @@ namespace Game.Feature.Gameplay.Host
         private const string CameraPoseRootObjectName = "CameraPoseRoot";
         private const string CameraEffectsRootObjectName = "CameraEffectsRoot";
 
-        public enum DistanceMode
-        {
-            AutoFit = 0,
-            Manual = 1,
-        }
-
         [SerializeField] private float pitchDegrees = DefaultSettings.PitchDegrees;
         [SerializeField] private float yawDegrees = DefaultSettings.YawDegrees;
-        [SerializeField] private DistanceMode distanceMode = DefaultSettings.DistanceMode;
+        [SerializeField] private CameraDistanceMode distanceMode = DefaultSettings.DistanceMode;
         [SerializeField] private float manualDistance = DefaultSettings.ManualDistance;
         [SerializeField] private float framingPadding = DefaultSettings.FramingPadding;
         [SerializeField] private float perspectiveFieldOfView = DefaultSettings.PerspectiveFieldOfView;
@@ -51,7 +45,7 @@ namespace Game.Feature.Gameplay.Host
         private Vector3 _authoredSceneCameraBaselineLocalPosition;
         private Quaternion _authoredSceneCameraBaselineLocalRotation = Quaternion.identity;
 
-        public DistanceMode CurrentDistanceMode => distanceMode;
+        public CameraDistanceMode CurrentDistanceMode => distanceMode;
 
         public float ManualDistance => manualDistance;
 
@@ -416,7 +410,7 @@ namespace Game.Feature.Gameplay.Host
             Bounds visibleCubeBounds,
             float pitchDegrees,
             float yawDegrees,
-            DistanceMode distanceMode,
+            CameraDistanceMode distanceMode,
             float manualDistance,
             float framingPadding,
             float perspectiveFieldOfView,
@@ -451,12 +445,12 @@ namespace Game.Feature.Gameplay.Host
         private static float ResolveCameraDistance(
             float aspect,
             Bounds visibleCubeBounds,
-            DistanceMode distanceMode,
+            CameraDistanceMode distanceMode,
             float manualDistance,
             float framingPadding,
             float perspectiveFieldOfView)
         {
-            return distanceMode == DistanceMode.Manual
+            return distanceMode == CameraDistanceMode.Manual
                 ? Mathf.Max(0.01f, manualDistance)
                 : ResolveAutoFitDistance(
                     aspect,
