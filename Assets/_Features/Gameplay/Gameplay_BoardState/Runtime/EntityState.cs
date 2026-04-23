@@ -32,6 +32,9 @@ namespace Game.Feature.Gameplay.BoardState
         public int kineticInstigatorEntityId;
         public int kineticInstigatorTeamId;
         public EnemyAiMode aiMode;
+        // Temporary generic recover countdown only. Charge progress is authoritative in
+        // EnemyChargeRuntimeState, and future richer recover semantics should move to
+        // a dedicated EnemyRecoverRuntimeState instead of expanding this field again.
         public int aiStateTimer;
         public int enemyLocomotionCooldownTicks;
     }

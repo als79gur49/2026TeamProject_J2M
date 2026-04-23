@@ -442,7 +442,9 @@ namespace Game.Feature.Gameplay.Loop
                     .Append((int)entry.State.phase).Append('|')
                     .Append(entry.State.sequence).Append('|')
                     .Append((int)entry.State.lockedDirection).Append('|')
-                    .Append(entry.State.windupEndTick).Append('\n');
+                    .Append(entry.State.windupEndTick).Append('|')
+                    .Append(entry.State.remainingActiveSteps).Append('|')
+                    .Append(entry.State.recoverRemainingTicks).Append('\n');
             }
         }
 

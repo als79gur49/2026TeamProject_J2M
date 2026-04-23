@@ -243,7 +243,7 @@ namespace Game.Feature.Gameplay.Debug
             {
                 var entry = entries[i];
                 lines.Add(
-                    $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Direction={entry.State.lockedDirection}|WindupEnd={entry.State.windupEndTick}");
+                    $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Direction={entry.State.lockedDirection}|WindupEnd={entry.State.windupEndTick}|ActiveSteps={entry.State.remainingActiveSteps}|RecoverTicks={entry.State.recoverRemainingTicks}");
             }
 
             return lines;
