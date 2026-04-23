@@ -1503,6 +1503,20 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_WallFollowerProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
+        {
+            var firstReplay = RunWallFollowPatrolReplaySequence();
+            var secondReplay = RunWallFollowPatrolReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
+            Assert.That(firstReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=40|Pos=(0,0)|Hp=3"));
+            Assert.That(firstReplay[7].FinalEntitiesDump, Does.Contain("E=40|Pos=(1,0)|Hp=3"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_PassiveContactScenario_ProducesStableHashTraceAndPlayerDamage()
         {
             var firstReplay = RunPassiveContactReplaySequence();
@@ -1698,6 +1712,44 @@ namespace Game.Feature.Gameplay.Tests.Replay
                         new TickInput(3),
                         new TickInput(4),
                         new TickInput(5),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunWallFollowPatrolReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateWall(entityId: 90, position: new Vector2Int(1, 1)),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.CreateWallFollower(WallFollowTurnPreference.Right);
+
+            try
+            {
+                return new TickReplayHarness().Run(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    },
+                    new[]
+                    {
+                        new TickInput(1),
+                        new TickInput(2),
+                        new TickInput(3),
+                        new TickInput(4),
+                        new TickInput(5),
+                        new TickInput(6),
+                        new TickInput(7),
+                        new TickInput(8),
                     });
             }
             finally
@@ -2099,9 +2151,10 @@ namespace Game.Feature.Gameplay.Tests.Replay
             int hp,
             EnemyAiMode aiMode = EnemyAiMode.None,
             int aiStateTimer = 0,
-            int enemyLocomotionCooldownTicks = 0)
+            int enemyLocomotionCooldownTicks = 0,
+            Direction facing = Direction.Right)
         {
-            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer, enemyLocomotionCooldownTicks);
+            return CreateUnit(entityId, teamId, SurfaceCell.FromPlanar(position), hp, aiMode, aiStateTimer, enemyLocomotionCooldownTicks, facing);
         }
 
         private static EntityState CreateUnit(
@@ -2111,7 +2164,8 @@ namespace Game.Feature.Gameplay.Tests.Replay
             int hp,
             EnemyAiMode aiMode = EnemyAiMode.None,
             int aiStateTimer = 0,
-            int enemyLocomotionCooldownTicks = 0)
+            int enemyLocomotionCooldownTicks = 0,
+            Direction facing = Direction.Right)
         {
             return new EntityState
             {
@@ -2123,7 +2177,7 @@ namespace Game.Feature.Gameplay.Tests.Replay
                 type = EntityType.Unit,
                 state = EntityPhaseState.Idle,
                 stateTimer = 0,
-                facing = Direction.Right,
+                facing = facing,
                 markedForDeath = false,
                 spawnTick = 0,
                 aiMode = aiMode,

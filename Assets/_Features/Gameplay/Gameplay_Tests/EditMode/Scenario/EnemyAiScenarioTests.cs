@@ -2214,11 +2214,16 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             {
                 var pipeline = CreateEnemyPipeline(worldState, profile, playerDamageCooldownTicks: 1);
                 var result = pipeline.RunTick(new TickInput(1));
+                var enemy = GetEntity(worldState, 40);
 
+                Assert.That(result.MovementPhaseResult.RawIntents, Is.Empty);
+                Assert.That(result.EventLog, Has.None.Contains("MoveCommitted|"));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Select(record => record.SourceKind).ToArray(), Is.EqualTo(new[] { AttackSourceKind.PassiveContact }));
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().Accepted, Is.True);
                 Assert.That(result.AttackPhaseResult.DamageResolutions.Single().SourceKind, Is.EqualTo(AttackSourceKind.PassiveContact));
                 Assert.That(GetEntity(worldState, 10).hp, Is.EqualTo(4));
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(0, 0)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Left));
             }
             finally
             {

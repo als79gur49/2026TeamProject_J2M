@@ -1007,6 +1007,27 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
+        public void EnemyMovementStrategyShared_WallFollowDirection_UsesBoardEdgeWeakAnchorFallback_WhenNoStrongAnchorExists()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(2, 2)));
+            var snapshot = worldState.CreateSnapshot();
+            var source = GetEntity(worldState, 40);
+            var settings = new PatrolSettings(PatrolBlockedMovementResponse.Stop, WallFollowTurnPreference.Right);
+
+            Assert.That(EnemyMovementStrategyShared.HasWallFollowAnchor(snapshot, source, settings), Is.False);
+            Assert.That(
+                EnemyMovementStrategyShared.TryChooseWallFollowDirection(snapshot, source, settings, out var direction),
+                Is.True);
+            Assert.That(direction, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyMovementStrategyShared_WallFollowResultAnchor_IgnoresUnitsIncludingPlayers()
         {
             var worldState = CreateWorldState(
@@ -1025,6 +1046,62 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     out var direction),
                 Is.True);
             Assert.That(direction, Is.EqualTo(Direction.Right));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyMovementStrategyShared_WallFollowRotateOnlyFacing_UsesTurnPreferenceSymmetry()
+        {
+            Assert.That(
+                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
+                    Direction.Up,
+                    WallFollowTurnPreference.Right,
+                    out var rightFacing),
+                Is.True);
+            Assert.That(rightFacing, Is.EqualTo(Direction.Right));
+
+            Assert.That(
+                EnemyMovementStrategyShared.TryChooseWallFollowRotateOnlyFacing(
+                    Direction.Up,
+                    WallFollowTurnPreference.Left,
+                    out var leftFacing),
+                Is.True);
+            Assert.That(leftFacing, Is.EqualTo(Direction.Left));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_WallFollowBeforeAttackStage_DeadEnd_CommitsRotateOnlyFacing()
+        {
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Right);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateWall(entityId: 90, position: new Vector2Int(1, 2)),
+                CreateWall(entityId: 91, position: new Vector2Int(2, 1)),
+                CreateWall(entityId: 92, position: new Vector2Int(0, 1)),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), aiMode: EnemyAiMode.Patrol, facing: Direction.Up),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var transitions = new List<string>();
+
+            try
+            {
+                ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    EnemyAiTransitionStage.BeforeAttack,
+                    worldState.CreateWriteContext(),
+                    transitions);
+
+                var enemy = GetEntity(worldState, 40);
+                Assert.That(enemy.position.PlanarPosition, Is.EqualTo(new Vector2Int(1, 1)));
+                Assert.That(enemy.facing, Is.EqualTo(Direction.Right));
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
         }
 
         [Test]
@@ -1130,6 +1207,40 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(definition.Capabilities.TryGetCombat(out _), Is.False);
                 Assert.That(definition.Capabilities.TryGetPassiveContact(out var passiveContact), Is.True);
                 Assert.That(passiveContact.Kind, Is.EqualTo(AttackDecisionStrategyKind.ContactSameCell));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_WallFollowPassiveContact_SameCellHold_SuppressesMovementIntent_AndStillProducesPassiveContact()
+        {
+            var profile = CreateWallFollowerProfile(WallFollowTurnPreference.Left, includePassiveContact: true);
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var movementBuffer = new List<RawMovementIntent>();
+            var attackBuffer = new List<RawAttackIntent>();
+
+            try
+            {
+                logic.CollectMovementIntents(worldState.CreateSnapshot(), new TickInput(1), movementBuffer);
+                logic.CollectAttackIntents(worldState.CreateSnapshot(), new TickInput(1), attackBuffer);
+
+                Assert.That(movementBuffer, Is.Empty);
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceId: 40, TargetId: 10, SourceKind: AttackSourceKind.PassiveContact),
+                    },
+                    attackBuffer.Select(intent => (intent.SourceId, intent.TargetId, intent.SourceKind)).ToArray());
             }
             finally
             {
@@ -1861,9 +1972,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static EnemyAiProfile CreateWallFollowerProfile(
             WallFollowTurnPreference turnPreference,
-            int moveCooldownTicks = 0)
+            int moveCooldownTicks = 0,
+            bool includePassiveContact = false)
         {
-            return EnemyAiProfileTestFactory.CreateWallFollower(turnPreference, moveCooldownTicks);
+            return EnemyAiProfileTestFactory.CreateWallFollower(turnPreference, moveCooldownTicks, includePassiveContact);
         }
 
         private static EnemyAiProfile CreateJumpPatrolProfile()

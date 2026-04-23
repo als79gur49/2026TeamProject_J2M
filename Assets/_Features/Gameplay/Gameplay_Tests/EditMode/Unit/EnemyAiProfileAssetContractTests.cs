@@ -152,6 +152,23 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyPatrolAssets_WallFollowAsset_StillResolvesWallFollowKind_AndSettingsContract()
+        {
+            const string wallFollowAssetPath = "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Profiles/Enemy_WallFollower/EnemyPatrol_WallFollow_Left.asset";
+            var asset = AssetDatabase.LoadAssetAtPath<WallFollowPatrolAsset>(wallFollowAssetPath);
+
+            Assert.That(asset, Is.Not.Null, $"Missing wall-follow patrol asset at '{wallFollowAssetPath}'.");
+            Assert.That(asset.Kind, Is.EqualTo(PatrolStrategyKind.WallFollow));
+            Assert.That(asset.Settings.BlockedMovementResponse, Is.EqualTo(PatrolBlockedMovementResponse.Stop));
+            Assert.That(asset.Settings.TurnPreference, Is.EqualTo(WallFollowTurnPreference.Left));
+            Assert.That(asset.Settings.FollowWalls, Is.True);
+            Assert.That(asset.Settings.FollowBoxes, Is.True);
+        }
+
         private static string[] GetVisibleSerializedFieldNames(EnemyAiProfile profile)
         {
             var serializedObject = new SerializedObject(profile);
