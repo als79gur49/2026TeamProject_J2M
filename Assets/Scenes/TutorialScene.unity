@@ -1236,14 +1236,13 @@ MonoBehaviour:
   sourceMode: 1
   preset: {fileID: 11400000, guid: 887fe82849e743a2b4de1b930dd2ef9c, type: 2}
   configureMainCamera: 0
-  useAuthoredSceneCameraPose: 1
-  useAuthoredSceneCameraLens: 1
+  baselineAuthoringPolicy:
+    UseAuthoredSceneCameraPose: 1
+    UseAuthoredSceneCameraLens: 1
   topologyRotationVisualMapping: 1
   topologyRotationTweenSettings:
     Ease: 9
   cameraSettings:
-    UseAuthoredSceneCameraPose: 1
-    UseAuthoredSceneCameraLens: 1
     PitchDegrees: 35
     YawDegrees: 0
     DistanceMode: 1
