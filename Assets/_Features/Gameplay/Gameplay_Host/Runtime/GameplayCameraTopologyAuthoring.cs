@@ -7,6 +7,7 @@ namespace Game.Feature.Gameplay.Host
     {
         public GameplayCameraTopologyAuthoringSnapshot(
             bool configureMainCamera,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
             TopologyRotationVisualMapping topologyRotationVisualMapping,
             TopologyRotationTweenSettings topologyRotationTweenSettings,
             GameplayCameraSettings cameraSettings,
@@ -14,6 +15,7 @@ namespace Game.Feature.Gameplay.Host
             TopologyTransitionPostFxProfile topologyTransitionPostFxProfile)
         {
             ConfigureMainCamera = configureMainCamera;
+            BaselineAuthoringPolicy = baselineAuthoringPolicy;
             TopologyRotationVisualMapping = topologyRotationVisualMapping;
             TopologyRotationTweenSettings = topologyRotationTweenSettings;
             CameraSettings = cameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
@@ -24,6 +26,8 @@ namespace Game.Feature.Gameplay.Host
         }
 
         public bool ConfigureMainCamera { get; }
+
+        public GameplayCameraBaselineAuthoringPolicy BaselineAuthoringPolicy { get; }
 
         public TopologyRotationVisualMapping TopologyRotationVisualMapping { get; }
 
@@ -39,21 +43,20 @@ namespace Game.Feature.Gameplay.Host
     /// <summary>
     /// Scene-local camera topology authority entrypoint.
     /// Preset mode resolves stage-shared tuning from a referenced preset, while authored-baseline
-    /// usage flags remain local effective policy on this component.
+    /// policy remains local on this component.
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GameplayCameraTopologyAuthoring : MonoBehaviour
     {
-        [Tooltip("Inline uses the local shared-tuning fields below. Preset uses only the referenced preset for shared tuning, while configureMainCamera and authored-baseline usage remain local scene policy.")]
+        [Tooltip("Inline uses the local shared-tuning fields below. Preset uses only the referenced preset for shared tuning, while configureMainCamera and authored-baseline policy remain local scene policy.")]
         [SerializeField] private GameplayCameraTopologySourceMode sourceMode = GameplayCameraTopologySourceMode.Inline;
         [Tooltip("Stage-scoped shared tuning asset. In Preset mode, shared tuning resolves only from this asset. Inline shared-tuning fields below remain serialized fallback and are not authoritative.")]
         [SerializeField] private GameplayCameraTopologyPreset preset;
         [Tooltip("Scene-local camera bootstrap policy. This remains local even when Preset mode is active.")]
         [SerializeField] private bool configureMainCamera = true;
-        [Tooltip("Scene-local authored-baseline pose policy. In Preset mode this is the final effective value and overrides the same-named value carried inside preset camera settings.")]
-        [SerializeField] private bool useAuthoredSceneCameraPose = true;
-        [Tooltip("Scene-local authored-baseline lens policy. In Preset mode this is the final effective value and overrides the same-named value carried inside preset camera settings.")]
-        [SerializeField] private bool useAuthoredSceneCameraLens = true;
+        [Tooltip("Scene-local authored-baseline policy. This remains local even when Preset mode is active.")]
+        [SerializeField] private GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy =
+            GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault();
         [Tooltip("Shared topology rotation mapping for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping =
             TopologyRotationVisualMapping.ForwardUsesPositiveX;
@@ -73,13 +76,13 @@ namespace Game.Feature.Gameplay.Host
         {
             Validate();
             var sharedSnapshot = ResolveSharedSnapshot();
-            var effectiveCameraSettings = ResolveEffectiveCameraSettings(sharedSnapshot.CameraSettings);
 
             return new GameplayCameraTopologyAuthoringSnapshot(
                 configureMainCamera,
+                baselineAuthoringPolicy,
                 sharedSnapshot.TopologyRotationVisualMapping,
                 sharedSnapshot.TopologyRotationTweenSettings,
-                effectiveCameraSettings,
+                sharedSnapshot.CameraSettings,
                 sharedSnapshot.TopologyTransitionCameraShakeProfile,
                 sharedSnapshot.TopologyTransitionPostFxProfile);
         }
@@ -113,7 +116,14 @@ namespace Game.Feature.Gameplay.Host
         public GameplayCameraSettings GetCameraSettings()
         {
             Validate();
-            return ResolveEffectiveCameraSettings(ResolveSharedSnapshot().CameraSettings);
+            return ResolveSharedSnapshot().CameraSettings?.Clone() ??
+                   GameplayCameraSettings.CreateShowcaseDefault();
+        }
+
+        public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()
+        {
+            Validate();
+            return baselineAuthoringPolicy;
         }
 
         public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()
@@ -161,34 +171,6 @@ namespace Game.Feature.Gameplay.Host
 
             throw new InvalidOperationException(
                 $"{nameof(GameplayCameraTopologyAuthoring)} on '{gameObject.name}' is set to {nameof(GameplayCameraTopologySourceMode.Preset)} mode but has no {nameof(GameplayCameraTopologyPreset)} assigned. Inline shared-tuning fallback is not authoritative in Preset mode; assign a preset or switch Source Mode to Inline.");
-        }
-
-        private GameplayCameraSettings ResolveEffectiveCameraSettings(GameplayCameraSettings sharedCameraSettings)
-        {
-            // Authored-baseline usage flags remain scene-local effective policy. In Preset mode they
-            // intentionally override same-named values carried inside the preset camera settings payload.
-            var effectiveCameraSettings = sharedCameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
-            effectiveCameraSettings.UseAuthoredSceneCameraPose =
-                ResolveEffectiveUseAuthoredSceneCameraPose(effectiveCameraSettings);
-            effectiveCameraSettings.UseAuthoredSceneCameraLens =
-                ResolveEffectiveUseAuthoredSceneCameraLens(effectiveCameraSettings);
-            return effectiveCameraSettings;
-        }
-
-        private bool ResolveEffectiveUseAuthoredSceneCameraPose(GameplayCameraSettings sharedCameraSettings)
-        {
-            return sourceMode == GameplayCameraTopologySourceMode.Preset
-                ? useAuthoredSceneCameraPose
-                : sharedCameraSettings?.UseAuthoredSceneCameraPose ??
-                  GameplayCameraSettings.CreateShowcaseDefault().UseAuthoredSceneCameraPose;
-        }
-
-        private bool ResolveEffectiveUseAuthoredSceneCameraLens(GameplayCameraSettings sharedCameraSettings)
-        {
-            return sourceMode == GameplayCameraTopologySourceMode.Preset
-                ? useAuthoredSceneCameraLens
-                : sharedCameraSettings?.UseAuthoredSceneCameraLens ??
-                  GameplayCameraSettings.CreateShowcaseDefault().UseAuthoredSceneCameraLens;
         }
     }
 }

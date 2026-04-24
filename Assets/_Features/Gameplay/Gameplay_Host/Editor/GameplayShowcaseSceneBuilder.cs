@@ -78,6 +78,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 installerObject,
                 installer.GetCameraSettings(),
+                installer.GetBaselineAuthoringPolicy(),
                 installer.GetTopologyTransitionCameraShakeProfile());
             EnsureCanonicalBootstrapRuntime(installerObject);
             installer.ConfigureBootstrapCamera(Camera.main);

@@ -40,7 +40,7 @@ namespace Game.Feature.Gameplay.Host
         [Tooltip("Stage-scoped shared topology rotation tween settings.")]
         [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings =
             TopologyRotationTweenSettings.CreateDefault();
-        [Tooltip("Stage-scoped shared camera tuning payload. In Preset mode, authored-baseline usage flags remain scene-local policy.")]
+        [Tooltip("Stage-scoped shared camera tuning payload.")]
         [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
         [Tooltip("Stage-scoped shared topology-transition camera shake tuning.")]
         [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile =

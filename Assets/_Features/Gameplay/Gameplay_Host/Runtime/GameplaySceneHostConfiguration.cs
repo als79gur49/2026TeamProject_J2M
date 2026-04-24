@@ -136,6 +136,8 @@ namespace Game.Feature.Gameplay.Host
         public float RepeatedMoveIntervalSeconds = -1f;
         public int SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         public GameplayCameraSettings CameraSettings = GameplayCameraSettings.CreateRuntimeDefault();
+        public GameplayCameraBaselineAuthoringPolicy CameraBaselineAuthoringPolicy =
+            GameplayCameraBaselineAuthoringPolicy.CreateRuntimeDefault();
         public TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
         public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
         public Texture2D BoardSurfaceTexture;

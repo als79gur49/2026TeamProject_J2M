@@ -12,6 +12,7 @@ namespace Game.Feature.Gameplay.Host
             GameObject installerRoot,
             GameplayBoardRoot boardRoot,
             GameplayCameraSettings cameraSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
             TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile)
         {
             if (installerRoot == null)
@@ -26,14 +27,20 @@ namespace Game.Feature.Gameplay.Host
                 topologyTransitionCameraShakeProfile ?? TopologyTransitionCameraShakeProfile.CreateDefault());
 
             ConfigureSceneOutputCameras(installerRoot.scene);
-            ConfigureSceneCinemachinePath(installerRoot.scene, boardRoot, rig, resolvedCameraSettings);
+            ConfigureSceneCinemachinePath(
+                installerRoot.scene,
+                boardRoot,
+                rig,
+                resolvedCameraSettings,
+                baselineAuthoringPolicy);
         }
 
         private static void ConfigureSceneCinemachinePath(
             Scene scene,
             GameplayBoardRoot boardRoot,
             GameplayCameraRig rig,
-            GameplayCameraSettings cameraSettings)
+            GameplayCameraSettings cameraSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy)
         {
             if (!scene.IsValid() || boardRoot == null)
             {
@@ -52,7 +59,12 @@ namespace Game.Feature.Gameplay.Host
                 var cinemachineCameras = rootObject.GetComponentsInChildren<CinemachineCamera>(includeInactive: true);
                 for (var j = 0; j < cinemachineCameras.Length; j++)
                 {
-                    ConfigureCinemachineCamera(cinemachineCameras[j], boardRoot, rig, cameraSettings);
+                    ConfigureCinemachineCamera(
+                        cinemachineCameras[j],
+                        boardRoot,
+                        rig,
+                        cameraSettings,
+                        baselineAuthoringPolicy);
                 }
 
                 var brains = rootObject.GetComponentsInChildren<CinemachineBrain>(includeInactive: true);
@@ -100,7 +112,8 @@ namespace Game.Feature.Gameplay.Host
             CinemachineCamera cinemachineCamera,
             GameplayBoardRoot boardRoot,
             GameplayCameraRig rig,
-            GameplayCameraSettings cameraSettings)
+            GameplayCameraSettings cameraSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy)
         {
             if (cinemachineCamera == null ||
                 boardRoot?.CameraEffectsRoot == null ||
@@ -128,7 +141,7 @@ namespace Game.Feature.Gameplay.Host
                 CustomLookAtTarget = true,
             };
 
-            if (!cameraSettings.UseAuthoredSceneCameraLens)
+            if (!baselineAuthoringPolicy.UseAuthoredSceneCameraLens)
             {
                 lens.FieldOfView = cameraSettings.PerspectiveFieldOfView;
                 lens.NearClipPlane = cameraSettings.NearClipPlane;

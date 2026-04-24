@@ -104,13 +104,16 @@ namespace Game.Feature.Gameplay.Host
             var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
             var baseCameraSettings = cameraTopologyAuthoring.CameraSettings?.Clone() ??
                                      GameplayCameraSettings.CreateShowcaseDefault();
+            var baselineAuthoringPolicy = cameraTopologyAuthoring.BaselineAuthoringPolicy;
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 gameObject,
                 baseCameraSettings,
+                baselineAuthoringPolicy,
                 cameraTopologyAuthoring.TopologyTransitionCameraShakeProfile);
             var resolvedCameraSettings = ResolveEffectiveCameraSettings(
                 initialState,
                 baseCameraSettings,
+                baselineAuthoringPolicy,
                 cameraTopologyAuthoring.TopologyRotationVisualMapping);
             var rig = GetComponent<GameplayCameraRig>();
             rig?.ApplySettings(resolvedCameraSettings);
@@ -127,6 +130,11 @@ namespace Game.Feature.Gameplay.Host
         protected virtual GameplayCameraSettings CreateCameraSettings()
         {
             return ResolveCameraTopologyAuthoring().GetCameraSettings();
+        }
+
+        protected virtual GameplayCameraBaselineAuthoringPolicy CreateBaselineAuthoringPolicy()
+        {
+            return ResolveCameraTopologyAuthoring().GetBaselineAuthoringPolicy();
         }
 
         protected virtual IGameplayEntityViewFactory CreateViewFactory(
@@ -183,6 +191,11 @@ namespace Game.Feature.Gameplay.Host
             return CreateCameraSettings();
         }
 
+        public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()
+        {
+            return CreateBaselineAuthoringPolicy();
+        }
+
         public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()
         {
             return ResolveCameraTopologyAuthoring().GetTopologyTransitionCameraShakeProfile();
@@ -203,6 +216,7 @@ namespace Game.Feature.Gameplay.Host
                 ResolveEffectiveCameraSettings(
                     initialState,
                     cameraTopologyAuthoring.CameraSettings,
+                    cameraTopologyAuthoring.BaselineAuthoringPolicy,
                     cameraTopologyAuthoring.TopologyRotationVisualMapping),
                 initialState.InitialTopology);
         }
@@ -315,6 +329,7 @@ namespace Game.Feature.Gameplay.Host
         private GameplayCameraSettings ResolveEffectiveCameraSettings(
             InitialGameplayState initialState,
             GameplayCameraSettings baseCameraSettings,
+            GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
             TopologyRotationVisualMapping topologyRotationVisualMapping)
         {
             var rig = GetComponent<GameplayCameraRig>();
@@ -334,6 +349,7 @@ namespace Game.Feature.Gameplay.Host
 
             return rig.ResolveConfiguredSettings(
                 baseCameraSettings,
+                baselineAuthoringPolicy,
                 cubeCenterWorld,
                 initialState.InitialTopology,
                 topologyRotationVisualMapping);

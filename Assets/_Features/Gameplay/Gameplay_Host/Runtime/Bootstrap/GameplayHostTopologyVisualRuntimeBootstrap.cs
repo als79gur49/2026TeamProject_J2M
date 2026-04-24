@@ -91,6 +91,7 @@ namespace Game.Feature.Gameplay.Host
             cameraRig.ConfigureTopologyTransitionCameraShake(configuration.TopologyTransitionCameraShakeProfile);
             var resolvedCameraSettings = cameraRig.ResolveConfiguredSettings(
                 configuration.CameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault(),
+                configuration.CameraBaselineAuthoringPolicy,
                 viewCameraTarget.position,
                 configuration.InitialTopology,
                 configuration.TopologyRotationVisualMapping);

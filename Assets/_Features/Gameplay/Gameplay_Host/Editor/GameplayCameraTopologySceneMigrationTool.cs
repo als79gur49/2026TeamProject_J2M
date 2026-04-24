@@ -88,11 +88,11 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             var shakeProfileBlock = ReadSerializedBlock(sourceBlock, "topologyTransitionCameraShakeProfile", 2);
             var postFxProfileBlock = ReadSerializedBlock(sourceBlock, "topologyTransitionPostFxProfile", 2);
             var distortionProfileBlock = ReadSerializedBlock(postFxProfileBlock, "distortionProfile", 4);
+            var baselineAuthoringPolicy = ReadBaselineAuthoringPolicy(sourceBlock, cameraSettingsBlock);
 
             return new SerializedGameplayCameraTopologyAuthoring(
                 ReadSerializedBoolValue(sourceBlock, "configureMainCamera"),
-                ReadSerializedBoolValue(cameraSettingsBlock, nameof(GameplayCameraSettings.UseAuthoredSceneCameraPose)),
-                ReadSerializedBoolValue(cameraSettingsBlock, nameof(GameplayCameraSettings.UseAuthoredSceneCameraLens)),
+                baselineAuthoringPolicy,
                 (TopologyRotationVisualMapping)ReadSerializedIntValue(sourceBlock, "topologyRotationVisualMapping"),
                 new TopologyRotationTweenSettings
                 {
@@ -102,8 +102,6 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 },
                 new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = ReadSerializedBoolValue(cameraSettingsBlock, nameof(GameplayCameraSettings.UseAuthoredSceneCameraPose)),
-                    UseAuthoredSceneCameraLens = ReadSerializedBoolValue(cameraSettingsBlock, nameof(GameplayCameraSettings.UseAuthoredSceneCameraLens)),
                     PitchDegrees = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.PitchDegrees)),
                     YawDegrees = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.YawDegrees)),
                     DistanceMode = (CameraDistanceMode)ReadSerializedIntValue(cameraSettingsBlock, nameof(GameplayCameraSettings.DistanceMode)),
@@ -162,14 +160,52 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             SetPrivateField(authoring, "configureMainCamera", serializedData.ConfigureMainCamera);
             SetPrivateField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Inline);
             SetPrivateField(authoring, "preset", null);
-            SetPrivateField(authoring, "useAuthoredSceneCameraPose", serializedData.UseAuthoredSceneCameraPose);
-            SetPrivateField(authoring, "useAuthoredSceneCameraLens", serializedData.UseAuthoredSceneCameraLens);
+            SetPrivateField(authoring, "baselineAuthoringPolicy", serializedData.BaselineAuthoringPolicy);
             SetPrivateField(authoring, "topologyRotationVisualMapping", serializedData.TopologyRotationVisualMapping);
             SetPrivateField(authoring, "topologyRotationTweenSettings", serializedData.TopologyRotationTweenSettings);
             SetPrivateField(authoring, "cameraSettings", serializedData.CameraSettings.Clone());
             SetPrivateField(authoring, "topologyTransitionCameraShakeProfile", serializedData.TopologyTransitionCameraShakeProfile.Clone());
             SetPrivateField(authoring, "topologyTransitionPostFxProfile", serializedData.TopologyTransitionPostFxProfile.Clone());
             authoring.Validate();
+        }
+
+        private static GameplayCameraBaselineAuthoringPolicy ReadBaselineAuthoringPolicy(
+            string sourceBlock,
+            string cameraSettingsBlock)
+        {
+            var baselineAuthoringPolicyBlock = TryReadSerializedBlock(sourceBlock, "baselineAuthoringPolicy", 2);
+            if (!string.IsNullOrWhiteSpace(baselineAuthoringPolicyBlock))
+            {
+                return new GameplayCameraBaselineAuthoringPolicy
+                {
+                    UseAuthoredSceneCameraPose = ReadSerializedBoolValue(
+                        baselineAuthoringPolicyBlock,
+                        nameof(GameplayCameraBaselineAuthoringPolicy.UseAuthoredSceneCameraPose)),
+                    UseAuthoredSceneCameraLens = ReadSerializedBoolValue(
+                        baselineAuthoringPolicyBlock,
+                        nameof(GameplayCameraBaselineAuthoringPolicy.UseAuthoredSceneCameraLens)),
+                };
+            }
+
+            if (TryReadSerializedIntValue(sourceBlock, "useAuthoredSceneCameraPose", out var useAuthoredSceneCameraPose) &&
+                TryReadSerializedIntValue(sourceBlock, "useAuthoredSceneCameraLens", out var useAuthoredSceneCameraLens))
+            {
+                return new GameplayCameraBaselineAuthoringPolicy
+                {
+                    UseAuthoredSceneCameraPose = useAuthoredSceneCameraPose != 0,
+                    UseAuthoredSceneCameraLens = useAuthoredSceneCameraLens != 0,
+                };
+            }
+
+            return new GameplayCameraBaselineAuthoringPolicy
+            {
+                UseAuthoredSceneCameraPose = ReadSerializedBoolValue(
+                    cameraSettingsBlock,
+                    nameof(GameplayCameraBaselineAuthoringPolicy.UseAuthoredSceneCameraPose)),
+                UseAuthoredSceneCameraLens = ReadSerializedBoolValue(
+                    cameraSettingsBlock,
+                    nameof(GameplayCameraBaselineAuthoringPolicy.UseAuthoredSceneCameraLens)),
+            };
         }
 
         private static TopologyTransitionPostFxProfile CreatePostFxProfile(
@@ -284,6 +320,18 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             return match.Groups["block"].Value;
         }
 
+        private static string TryReadSerializedBlock(string source, string key, int indentation)
+        {
+            var parentIndentation = new string(' ', indentation);
+            var childIndentation = new string(' ', indentation + 2);
+            var match = Regex.Match(
+                source,
+                $@"(?ms)^{Regex.Escape(parentIndentation)}{Regex.Escape(key)}:\s*$\n(?<block>(?:^{Regex.Escape(childIndentation)}.*$\n?)*)",
+                RegexOptions.CultureInvariant);
+
+            return match.Success ? match.Groups["block"].Value : null;
+        }
+
         private static bool ReadSerializedBoolValue(string source, string key)
         {
             return ReadSerializedIntValue(source, key) != 0;
@@ -302,6 +350,23 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             return int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+        }
+
+        private static bool TryReadSerializedIntValue(string source, string key, out int value)
+        {
+            var match = Regex.Match(
+                source,
+                $@"(?m)^\s+{Regex.Escape(key)}:\s*(-?\d+)\s*$",
+                RegexOptions.CultureInvariant);
+
+            if (!match.Success)
+            {
+                value = default;
+                return false;
+            }
+
+            value = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            return true;
         }
 
         private static float ReadSerializedFloatValue(string source, string key)
@@ -418,8 +483,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         {
             internal SerializedGameplayCameraTopologyAuthoring(
                 bool configureMainCamera,
-                bool useAuthoredSceneCameraPose,
-                bool useAuthoredSceneCameraLens,
+                GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
                 TopologyRotationVisualMapping topologyRotationVisualMapping,
                 TopologyRotationTweenSettings topologyRotationTweenSettings,
                 GameplayCameraSettings cameraSettings,
@@ -427,8 +491,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 TopologyTransitionPostFxProfile topologyTransitionPostFxProfile)
             {
                 ConfigureMainCamera = configureMainCamera;
-                UseAuthoredSceneCameraPose = useAuthoredSceneCameraPose;
-                UseAuthoredSceneCameraLens = useAuthoredSceneCameraLens;
+                BaselineAuthoringPolicy = baselineAuthoringPolicy;
                 TopologyRotationVisualMapping = topologyRotationVisualMapping;
                 TopologyRotationTweenSettings = topologyRotationTweenSettings;
                 CameraSettings = cameraSettings;
@@ -438,9 +501,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
             internal bool ConfigureMainCamera { get; }
 
-            internal bool UseAuthoredSceneCameraPose { get; }
-
-            internal bool UseAuthoredSceneCameraLens { get; }
+            internal GameplayCameraBaselineAuthoringPolicy BaselineAuthoringPolicy { get; }
 
             internal TopologyRotationVisualMapping TopologyRotationVisualMapping { get; }
 

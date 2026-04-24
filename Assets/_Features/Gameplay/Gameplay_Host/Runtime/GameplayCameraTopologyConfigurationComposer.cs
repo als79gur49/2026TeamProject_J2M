@@ -17,6 +17,7 @@ namespace Game.Feature.Gameplay.Host
             }
 
             configuration.SnapViewCameraToTarget = snapshot.ConfigureMainCamera;
+            configuration.CameraBaselineAuthoringPolicy = snapshot.BaselineAuthoringPolicy;
             configuration.TopologyRotationVisualMapping = snapshot.TopologyRotationVisualMapping;
             configuration.TopologyRotationTween = snapshot.TopologyRotationTweenSettings;
             configuration.CameraSettings = resolvedCameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
