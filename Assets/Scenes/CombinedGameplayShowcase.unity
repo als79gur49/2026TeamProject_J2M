@@ -553,7 +553,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 970b8cce4cb043879c79b43f28da51dd, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring
+  sourceMode: 1
+  preset: {fileID: 11400000, guid: acb35a5b51a14e9abf7ac2d763b36eee, type: 2}
   configureMainCamera: 0
+  useAuthoredSceneCameraPose: 1
+  useAuthoredSceneCameraLens: 1
   topologyRotationVisualMapping: 1
   topologyRotationTweenSettings:
     Ease: 9
