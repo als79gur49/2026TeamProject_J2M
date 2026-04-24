@@ -111,8 +111,7 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
-            _runtimeVolumeProfile = Object.Instantiate(sourceProfile);
-            _runtimeVolumeProfile.name = $"{sourceProfile.name} (TopologyTransitionRuntime)";
+            _runtimeVolumeProfile = CreateRuntimeProfileClone(sourceProfile);
             _runtimeVolume.sharedProfile = sourceProfile;
             _runtimeVolume.profile = _runtimeVolumeProfile;
             _runtimeVolume.enabled = true;
@@ -130,6 +129,20 @@ namespace Game.Feature.Gameplay.Host
             _profile.ApplyMotionBlurDefaults(_motionBlur);
             _profile.ApplyDistortionDefaults(_lensDistortion);
             NotifyRuntimeProfileChanged();
+        }
+
+        // VolumeProfile.Instantiate does not deep-clone its component list, so clone components explicitly.
+        private static VolumeProfile CreateRuntimeProfileClone(VolumeProfile sourceProfile)
+        {
+            var runtimeProfile = ScriptableObject.CreateInstance<VolumeProfile>();
+            runtimeProfile.name = $"{sourceProfile.name} (TopologyTransitionRuntime)";
+
+            foreach (var component in sourceProfile.components)
+            {
+                runtimeProfile.components.Add(Instantiate(component));
+            }
+
+            return runtimeProfile;
         }
 
         private GameObject ResolveOrCreateRuntimeVolumeRoot()
