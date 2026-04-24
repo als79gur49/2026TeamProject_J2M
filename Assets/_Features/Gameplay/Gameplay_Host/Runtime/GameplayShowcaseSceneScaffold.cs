@@ -67,9 +67,11 @@ namespace Game.Feature.Gameplay.Host
                 return;
             }
 
+            // This stays a scene utility wrapper only; bootstrap and runtime wiring live elsewhere.
+            var resolvedCameraSettings = cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault();
             GameplayCameraRig.ApplySettingsToCamera(
                 camera,
-                cameraSettings ?? GameplayCameraSettings.CreateShowcaseDefault(),
+                resolvedCameraSettings,
                 targetPosition,
                 visibleCubeBounds);
         }
