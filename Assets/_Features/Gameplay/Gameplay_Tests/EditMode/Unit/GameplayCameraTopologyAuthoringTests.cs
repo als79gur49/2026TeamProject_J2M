@@ -28,10 +28,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
-                var cameraSettings = new GameplayCameraSettings
+                var baselineAuthoringPolicy = new GameplayCameraBaselineAuthoringPolicy
                 {
                     UseAuthoredSceneCameraPose = false,
                     UseAuthoredSceneCameraLens = false,
+                };
+                var cameraSettings = new GameplayCameraSettings
+                {
                     PitchDegrees = 18f,
                     YawDegrees = 22f,
                     DistanceMode = CameraDistanceMode.AutoFit,
@@ -76,6 +79,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         Ease = TopologyRotationTweenEase.InOutBounce,
                     });
+                SetAuthoringField(authoring, "baselineAuthoringPolicy", baselineAuthoringPolicy);
                 SetAuthoringField(authoring, "cameraSettings", cameraSettings);
                 SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", shakeProfile);
                 SetAuthoringField(authoring, "topologyTransitionPostFxProfile", postFxProfile);
@@ -83,6 +87,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var snapshot = authoring.CreateSnapshot();
 
                 Assert.That(snapshot.ConfigureMainCamera, Is.False);
+                AssertBaselineAuthoringPolicy(snapshot.BaselineAuthoringPolicy, baselineAuthoringPolicy);
                 Assert.That(snapshot.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
                 Assert.That(snapshot.TopologyRotationTweenSettings.Ease, Is.EqualTo(TopologyRotationTweenEase.InOutBounce));
                 Assert.That(snapshot.CameraSettings, Is.Not.SameAs(cameraSettings));
@@ -122,6 +127,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 authoring.Validate();
                 var snapshot = authoring.CreateSnapshot();
 
+                AssertBaselineAuthoringPolicy(
+                    snapshot.BaselineAuthoringPolicy,
+                    GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
                 AssertCameraSettings(snapshot.CameraSettings, GameplayCameraSettings.CreateShowcaseDefault());
                 Assert.That(snapshot.TopologyTransitionCameraShakeProfile.ImpactStart01, Is.EqualTo(0.02f).Within(0.0001f));
                 Assert.That(snapshot.TopologyTransitionPostFxProfile.MaxBlurIntensity, Is.EqualTo(0.3f).Within(0.0001f));
@@ -134,9 +142,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void PresetMode_LocalAuthoredBaselineFlags_AreFinalAuthority()
+        public void PresetMode_LocalBaselinePolicy_RemainsFinalAuthority()
         {
-            var rootObject = new GameObject("GameplayCameraTopologyAuthoring_PresetMode_LocalAuthoredBaselineFlags");
+            var rootObject = new GameObject("GameplayCameraTopologyAuthoring_PresetMode_LocalBaselinePolicy");
             var preset = ScriptableObject.CreateInstance<GameplayCameraTopologyPreset>();
 
             try
@@ -144,8 +152,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
                 var presetCameraSettings = new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = true,
                     PitchDegrees = 41f,
                     YawDegrees = 6f,
                     DistanceMode = CameraDistanceMode.Manual,
@@ -161,13 +167,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetPresetField(preset, "cameraSettings", presetCameraSettings);
                 SetAuthoringField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Preset);
                 SetAuthoringField(authoring, "preset", preset);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraPose", false);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraLens", false);
+                SetAuthoringField(
+                    authoring,
+                    "baselineAuthoringPolicy",
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = false,
+                    });
 
                 var snapshot = authoring.CreateSnapshot();
 
-                Assert.That(snapshot.CameraSettings.UseAuthoredSceneCameraPose, Is.False);
-                Assert.That(snapshot.CameraSettings.UseAuthoredSceneCameraLens, Is.False);
+                AssertBaselineAuthoringPolicy(
+                    snapshot.BaselineAuthoringPolicy,
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = false,
+                    });
                 Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(41f).Within(0.0001f));
                 Assert.That(snapshot.CameraSettings.PerspectiveFieldOfView, Is.EqualTo(47f).Within(0.0001f));
             }
@@ -180,9 +197,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void PresetMode_BaselineUsageFlags_OverridePresetCameraSettingsFlags()
+        public void PresetMode_BaselinePolicy_IsCarriedIntoComposedConfiguration()
         {
-            var rootObject = new GameObject("GameplayCameraTopologyAuthoring_PresetMode_BaselineUsageFlags");
+            var rootObject = new GameObject("GameplayCameraTopologyAuthoring_PresetMode_BaselinePolicy");
             var preset = ScriptableObject.CreateInstance<GameplayCameraTopologyPreset>();
             var viewCameraObject = new GameObject("GameplayCameraTopologyAuthoring_PresetMode_ViewCamera");
 
@@ -191,8 +208,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
                 var presetCameraSettings = new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = false,
                     PitchDegrees = 38f,
                     YawDegrees = 2f,
                     DistanceMode = CameraDistanceMode.AutoFit,
@@ -208,8 +223,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetPresetField(preset, "cameraSettings", presetCameraSettings);
                 SetAuthoringField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Preset);
                 SetAuthoringField(authoring, "preset", preset);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraPose", false);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraLens", true);
+                SetAuthoringField(
+                    authoring,
+                    "baselineAuthoringPolicy",
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = true,
+                    });
 
                 var snapshot = authoring.CreateSnapshot();
                 var configuration = new GameplaySceneHostConfiguration();
@@ -217,8 +238,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 InvokeComposer(configuration, snapshot, snapshot.CameraSettings, viewCamera);
 
-                Assert.That(configuration.CameraSettings.UseAuthoredSceneCameraPose, Is.False);
-                Assert.That(configuration.CameraSettings.UseAuthoredSceneCameraLens, Is.True);
+                AssertBaselineAuthoringPolicy(
+                    configuration.CameraBaselineAuthoringPolicy,
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = true,
+                    });
+                AssertCameraSettings(configuration.CameraSettings, snapshot.CameraSettings);
                 Assert.That(configuration.CameraSettings, Is.Not.SameAs(snapshot.CameraSettings));
             }
             finally
@@ -241,8 +268,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
                 var presetCameraSettings = new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = true,
                     PitchDegrees = 44f,
                     YawDegrees = 13f,
                     DistanceMode = CameraDistanceMode.Manual,
@@ -281,8 +306,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 SetAuthoringField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Preset);
                 SetAuthoringField(authoring, "preset", preset);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraPose", true);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraLens", true);
+                SetAuthoringField(
+                    authoring,
+                    "baselineAuthoringPolicy",
+                    GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
                 SetAuthoringField(authoring, "topologyRotationVisualMapping", TopologyRotationVisualMapping.ForwardUsesPositiveX);
                 SetAuthoringField(
                     authoring,
@@ -296,8 +323,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "cameraSettings",
                     new GameplayCameraSettings
                     {
-                        UseAuthoredSceneCameraPose = false,
-                        UseAuthoredSceneCameraLens = false,
                         PitchDegrees = 12f,
                         PerspectiveFieldOfView = 78f,
                     });
@@ -318,6 +343,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var snapshot = authoring.CreateSnapshot();
 
+                AssertBaselineAuthoringPolicy(
+                    snapshot.BaselineAuthoringPolicy,
+                    GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
                 Assert.That(snapshot.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
                 Assert.That(snapshot.TopologyRotationTweenSettings.Ease, Is.EqualTo(TopologyRotationTweenEase.Linear));
                 Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(44f).Within(0.0001f));
@@ -361,8 +389,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "cameraSettings",
                     new GameplayCameraSettings
                     {
-                        UseAuthoredSceneCameraPose = true,
-                        UseAuthoredSceneCameraLens = true,
                         PitchDegrees = 29f,
                         YawDegrees = 7f,
                         DistanceMode = CameraDistanceMode.Manual,
@@ -378,15 +404,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 SetAuthoringField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Preset);
                 SetAuthoringField(authoring, "preset", preset);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraPose", false);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraLens", true);
+                SetAuthoringField(
+                    authoring,
+                    "baselineAuthoringPolicy",
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = true,
+                    });
                 SetAuthoringField(
                     authoring,
                     "cameraSettings",
                     new GameplayCameraSettings
                     {
-                        UseAuthoredSceneCameraPose = true,
-                        UseAuthoredSceneCameraLens = false,
                         PitchDegrees = 9f,
                         PerspectiveFieldOfView = 79f,
                         NearClipPlane = 0.2f,
@@ -409,8 +439,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 var snapshot = authoring.CreateSnapshot();
 
-                Assert.That(snapshot.CameraSettings.UseAuthoredSceneCameraPose, Is.False);
-                Assert.That(snapshot.CameraSettings.UseAuthoredSceneCameraLens, Is.True);
+                AssertBaselineAuthoringPolicy(
+                    snapshot.BaselineAuthoringPolicy,
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = true,
+                    });
                 Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(29f).Within(0.0001f));
                 Assert.That(snapshot.CameraSettings.NearClipPlane, Is.EqualTo(0.08f).Within(0.0001f));
                 Assert.That(snapshot.TopologyTransitionPostFxProfile.AuthoritativeVolumeProfile, Is.SameAs(authoritativeProfile));
@@ -453,8 +488,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "cameraSettings",
                     new GameplayCameraSettings
                     {
-                        UseAuthoredSceneCameraPose = true,
-                        UseAuthoredSceneCameraLens = true,
                         PitchDegrees = 33f,
                         YawDegrees = 5f,
                         DistanceMode = CameraDistanceMode.Manual,
@@ -467,15 +500,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 SetAuthoringField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Preset);
                 SetAuthoringField(authoring, "preset", preset);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraPose", false);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraLens", false);
+                SetAuthoringField(
+                    authoring,
+                    "baselineAuthoringPolicy",
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = false,
+                    });
                 SetAuthoringField(
                     authoring,
                     "cameraSettings",
                     new GameplayCameraSettings
                     {
-                        UseAuthoredSceneCameraPose = true,
-                        UseAuthoredSceneCameraLens = true,
                         PitchDegrees = 11f,
                     });
                 var inlineShake = TopologyTransitionCameraShakeProfile.CreateDefault();
@@ -494,11 +531,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetAuthoringField(authoring, "topologyTransitionPostFxProfile", inlinePostFx);
 
                 var cameraSettings = authoring.GetCameraSettings();
+                var baselineAuthoringPolicy = authoring.GetBaselineAuthoringPolicy();
                 var shakeProfile = authoring.GetTopologyTransitionCameraShakeProfile();
                 var postFxProfile = authoring.GetTopologyTransitionPostFxProfile();
 
-                Assert.That(cameraSettings.UseAuthoredSceneCameraPose, Is.False);
-                Assert.That(cameraSettings.UseAuthoredSceneCameraLens, Is.False);
+                AssertBaselineAuthoringPolicy(
+                    baselineAuthoringPolicy,
+                    new GameplayCameraBaselineAuthoringPolicy
+                    {
+                        UseAuthoredSceneCameraPose = false,
+                        UseAuthoredSceneCameraLens = false,
+                    });
                 Assert.That(cameraSettings.PitchDegrees, Is.EqualTo(33f).Within(0.0001f));
                 Assert.That(shakeProfile.ImpactDuration01, Is.EqualTo(0.16f).Within(0.0001f));
                 Assert.That(postFxProfile.MaxBlurIntensity, Is.EqualTo(0.45f).Within(0.0001f));
@@ -513,9 +556,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void InlineMode_LocalCameraSettingsFlags_RemainEffective()
+        public void InlineMode_LocalBaselinePolicy_RemainsIndependentFromCameraSettings()
         {
-            var rootObject = new GameObject("GameplayCameraTopologyAuthoring_InlineMode_LocalCameraSettingsFlags");
+            var rootObject = new GameObject("GameplayCameraTopologyAuthoring_InlineMode_LocalBaselinePolicy");
 
             try
             {
@@ -525,17 +568,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     "cameraSettings",
                     new GameplayCameraSettings
                     {
-                        UseAuthoredSceneCameraPose = false,
-                        UseAuthoredSceneCameraLens = false,
                         PitchDegrees = 26f,
                     });
-                SetAuthoringField(authoring, "useAuthoredSceneCameraPose", true);
-                SetAuthoringField(authoring, "useAuthoredSceneCameraLens", true);
+                SetAuthoringField(
+                    authoring,
+                    "baselineAuthoringPolicy",
+                    GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
 
                 var snapshot = authoring.CreateSnapshot();
 
-                Assert.That(snapshot.CameraSettings.UseAuthoredSceneCameraPose, Is.False);
-                Assert.That(snapshot.CameraSettings.UseAuthoredSceneCameraLens, Is.False);
+                AssertBaselineAuthoringPolicy(
+                    snapshot.BaselineAuthoringPolicy,
+                    GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
                 Assert.That(snapshot.CameraSettings.PitchDegrees, Is.EqualTo(26f).Within(0.0001f));
             }
             finally
@@ -597,10 +641,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
-                var resolvedCameraSettings = new GameplayCameraSettings
+                var baselineAuthoringPolicy = new GameplayCameraBaselineAuthoringPolicy
                 {
                     UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = true,
+                    UseAuthoredSceneCameraLens = false,
+                };
+                var resolvedCameraSettings = new GameplayCameraSettings
+                {
                     PitchDegrees = 27f,
                     YawDegrees = 4f,
                     DistanceMode = CameraDistanceMode.Manual,
@@ -634,6 +681,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         Ease = TopologyRotationTweenEase.Linear,
                     });
+                SetAuthoringField(authoring, "baselineAuthoringPolicy", baselineAuthoringPolicy);
                 SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", shakeProfile);
                 SetAuthoringField(authoring, "topologyTransitionPostFxProfile", postFxProfile);
 
@@ -647,6 +695,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     InvokeComposer(configuration, snapshot, resolvedCameraSettings, viewCamera);
 
                     Assert.That(configuration.SnapViewCameraToTarget, Is.False);
+                    AssertBaselineAuthoringPolicy(configuration.CameraBaselineAuthoringPolicy, baselineAuthoringPolicy);
                     Assert.That(configuration.TopologyRotationVisualMapping, Is.EqualTo(TopologyRotationVisualMapping.ForwardUsesNegativeX));
                     Assert.That(configuration.TopologyRotationTween.Ease, Is.EqualTo(TopologyRotationTweenEase.Linear));
                     Assert.That(configuration.ViewCamera, Is.SameAs(viewCamera));
@@ -706,8 +755,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertCameraSettings(GameplayCameraSettings actual, GameplayCameraSettings expected)
         {
-            Assert.That(actual.UseAuthoredSceneCameraPose, Is.EqualTo(expected.UseAuthoredSceneCameraPose));
-            Assert.That(actual.UseAuthoredSceneCameraLens, Is.EqualTo(expected.UseAuthoredSceneCameraLens));
             Assert.That(actual.DistanceMode, Is.EqualTo(expected.DistanceMode));
             Assert.That(actual.PitchDegrees, Is.EqualTo(expected.PitchDegrees).Within(0.0001f));
             Assert.That(actual.YawDegrees, Is.EqualTo(expected.YawDegrees).Within(0.0001f));
@@ -719,10 +766,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.ClearFlags, Is.EqualTo(expected.ClearFlags));
             Assert.That(actual.BackgroundColor, Is.EqualTo(expected.BackgroundColor));
         }
+
+        private static void AssertBaselineAuthoringPolicy(
+            GameplayCameraBaselineAuthoringPolicy actual,
+            GameplayCameraBaselineAuthoringPolicy expected)
+        {
+            Assert.That(actual.UseAuthoredSceneCameraPose, Is.EqualTo(expected.UseAuthoredSceneCameraPose));
+            Assert.That(actual.UseAuthoredSceneCameraLens, Is.EqualTo(expected.UseAuthoredSceneCameraLens));
+        }
     }
 
     public sealed class GameplayCameraTopologyAuthoringExtractionArchitectureTests
     {
+        private const string BaselinePolicyRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraBaselineAuthoringPolicy.cs";
         private const string AuthoringRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologyAuthoring.cs";
         private const string SourceModeRelativePath =
@@ -769,7 +826,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("public sealed class GameplayCameraTopologyAuthoring : MonoBehaviour"));
             Assert.That(source, Does.Contain("public GameplayCameraTopologyAuthoringSnapshot CreateSnapshot()"));
             Assert.That(source, Does.Contain("public void Validate()"));
+            Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()"));
             Assert.That(source, Does.Contain("public static GameplayCameraTopologyAuthoring GetRequiredValidated(Component owner)"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayCameraBaselineAuthoringPolicy_Source_Exists_WithCanonicalPublicSurface()
+        {
+            var source = ReadRepoFile(BaselinePolicyRelativePath);
+
+            Assert.That(source, Does.Contain("public struct GameplayCameraBaselineAuthoringPolicy"));
+            Assert.That(source, Does.Contain("public bool UseAuthoredSceneCameraPose;"));
+            Assert.That(source, Does.Contain("public bool UseAuthoredSceneCameraLens;"));
+            Assert.That(source, Does.Contain("public static GameplayCameraBaselineAuthoringPolicy CreateRuntimeDefault()"));
+            Assert.That(source, Does.Contain("public static GameplayCameraBaselineAuthoringPolicy CreateShowcaseDefault()"));
         }
 
         [Test]
@@ -797,10 +868,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("private GameplayCameraTopologyPresetSnapshot ResolveSharedSnapshot()"));
             Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Preset => ResolveRequiredPreset().CreateSnapshot()"));
             Assert.That(source, Does.Contain("Preset mode never reads inline shared tuning"));
-            Assert.That(source, Does.Contain("useAuthoredSceneCameraPose"));
-            Assert.That(source, Does.Contain("useAuthoredSceneCameraLens"));
-            Assert.That(source, Does.Contain("ResolveEffectiveUseAuthoredSceneCameraPose("));
-            Assert.That(source, Does.Contain("ResolveEffectiveUseAuthoredSceneCameraLens("));
+            Assert.That(source, Does.Contain("baselineAuthoringPolicy"));
+            Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy BaselineAuthoringPolicy { get; }"));
+            Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()"));
+            Assert.That(source, Does.Not.Contain("ResolveEffectiveUseAuthoredSceneCameraPose("));
+            Assert.That(source, Does.Not.Contain("ResolveEffectiveUseAuthoredSceneCameraLens("));
             Assert.That(source, Does.Contain("Inline shared-tuning fallback is not authoritative in Preset mode"));
         }
 
@@ -826,9 +898,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = ReadRepoFile(InstallerRelativePath);
 
             Assert.That(source, Does.Contain("public GameplayCameraSettings GetCameraSettings()"));
+            Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()"));
             Assert.That(source, Does.Contain("public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()"));
             Assert.That(source, Does.Contain("public TopologyTransitionPostFxProfile GetTopologyTransitionPostFxProfile()"));
             Assert.That(source, Does.Contain("ResolveCameraTopologyAuthoring().GetCameraSettings();"));
+            Assert.That(source, Does.Contain("ResolveCameraTopologyAuthoring().GetBaselineAuthoringPolicy();"));
             Assert.That(source, Does.Contain("ResolveCameraTopologyAuthoring().GetTopologyTransitionCameraShakeProfile();"));
             Assert.That(source, Does.Contain("ResolveCameraTopologyAuthoring().GetTopologyTransitionPostFxProfile();"));
             Assert.That(source, Does.Contain("GameplayCameraTopologyAuthoring.GetRequiredValidated(this)"));
@@ -843,6 +917,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = ReadRepoFile(ComposerRelativePath);
 
             Assert.That(source, Does.Contain("configuration.SnapViewCameraToTarget = snapshot.ConfigureMainCamera;"));
+            Assert.That(source, Does.Contain("configuration.CameraBaselineAuthoringPolicy = snapshot.BaselineAuthoringPolicy;"));
             Assert.That(source, Does.Contain("configuration.TopologyRotationVisualMapping = snapshot.TopologyRotationVisualMapping;"));
             Assert.That(source, Does.Contain("configuration.TopologyRotationTween = snapshot.TopologyRotationTweenSettings;"));
             Assert.That(source, Does.Contain("configuration.CameraSettings = resolvedCameraSettings?.Clone()"));
@@ -860,6 +935,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var sceneText = ReadRepoFile(scenePath);
                 var installerBlock = ReadSceneComponentBlock(sceneText, CombinedGameplayShowcaseInstallerMarker);
                 var authoringBlock = ReadSceneComponentBlock(sceneText, GameplayCameraTopologyAuthoringMarker);
+                var cameraSettingsBlock = ReadSerializedBlock(authoringBlock, "cameraSettings", 2);
 
                 Assert.That(CountMatches(sceneText, Regex.Escape(GameplayCameraTopologyAuthoringMarker)), Is.EqualTo(1));
                 StringAssert.DoesNotContain("configureMainCamera:", installerBlock);
@@ -871,11 +947,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringAssert.Contains("configureMainCamera:", authoringBlock);
                 StringAssert.Contains("sourceMode:", authoringBlock);
                 StringAssert.Contains("preset:", authoringBlock);
-                StringAssert.Contains("useAuthoredSceneCameraPose:", authoringBlock);
-                StringAssert.Contains("useAuthoredSceneCameraLens:", authoringBlock);
+                StringAssert.Contains("baselineAuthoringPolicy:", authoringBlock);
+                StringAssert.DoesNotContain("useAuthoredSceneCameraPose:", authoringBlock);
+                StringAssert.DoesNotContain("useAuthoredSceneCameraLens:", authoringBlock);
                 StringAssert.Contains("topologyRotationVisualMapping:", authoringBlock);
                 StringAssert.Contains("topologyRotationTweenSettings:", authoringBlock);
                 StringAssert.Contains("cameraSettings:", authoringBlock);
+                StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", cameraSettingsBlock);
+                StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", cameraSettingsBlock);
                 StringAssert.Contains("topologyTransitionCameraShakeProfile:", authoringBlock);
                 StringAssert.Contains("topologyTransitionPostFxProfile:", authoringBlock);
             }
@@ -891,14 +970,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var scenePath in ScenePaths)
             {
                 var authoringBlock = ReadSceneComponentBlock(ReadRepoFile(scenePath), GameplayCameraTopologyAuthoringMarker);
+                var baselineAuthoringPolicyBlock = ReadSerializedBlock(authoringBlock, "baselineAuthoringPolicy", 2);
                 var expectedPresetGuid = scenePath == "Assets/Scenes/CombinedGameplayShowcase.unity"
                     ? combinedPresetGuid
                     : tutorialPresetGuid;
 
                 Assert.That(ReadSerializedIntValue(authoringBlock, "sourceMode"), Is.EqualTo((int)GameplayCameraTopologySourceMode.Preset));
                 Assert.That(ReadSerializedObjectGuid(authoringBlock, "preset"), Is.EqualTo(expectedPresetGuid));
-                Assert.That(ReadSerializedIntValue(authoringBlock, "useAuthoredSceneCameraPose"), Is.EqualTo(1));
-                Assert.That(ReadSerializedIntValue(authoringBlock, "useAuthoredSceneCameraLens"), Is.EqualTo(1));
+                Assert.That(ReadSerializedIntValue(baselineAuthoringPolicyBlock, "UseAuthoredSceneCameraPose"), Is.EqualTo(1));
+                Assert.That(ReadSerializedIntValue(baselineAuthoringPolicyBlock, "UseAuthoredSceneCameraLens"), Is.EqualTo(1));
             }
         }
 
@@ -915,6 +995,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(tutorialPresetGuid, Is.EqualTo(uiAudioPresetGuid));
             Assert.That(combinedPresetGuid, Is.Not.EqualTo(tutorialPresetGuid));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CameraTopologyPresetAssets_SerializeCameraSettingsAsTuningOnly()
+        {
+            var combinedPresetCameraSettings = ReadSerializedBlock(
+                ReadRepoFile(CombinedGameplayShowcasePresetAssetPath),
+                "cameraSettings",
+                2);
+            var tutorialPresetCameraSettings = ReadSerializedBlock(
+                ReadRepoFile(TutorialScenePresetAssetPath),
+                "cameraSettings",
+                2);
+
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", combinedPresetCameraSettings);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", combinedPresetCameraSettings);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", tutorialPresetCameraSettings);
+            StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", tutorialPresetCameraSettings);
         }
 
         [Test]
@@ -1067,6 +1166,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return sceneText.Substring(blockStart, blockEnd - blockStart);
         }
 
+        private static string ReadSerializedBlock(string source, string key, int indentation)
+        {
+            var parentIndentation = new string(' ', indentation);
+            var childIndentation = new string(' ', indentation + 2);
+            var match = Regex.Match(
+                source,
+                $@"(?ms)^{Regex.Escape(parentIndentation)}{Regex.Escape(key)}:\s*$\n(?<block>(?:^{Regex.Escape(childIndentation)}.*$\n?)*)",
+                RegexOptions.CultureInvariant);
+
+            Assert.That(match.Success, Is.True, $"Serialized block '{key}' was not found.");
+            return match.Groups["block"].Value;
+        }
+
         private static int ReadSerializedIntValue(string source, string key)
         {
             var match = Regex.Match(
@@ -1118,11 +1230,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(doc, Does.Contain("GameplayCameraTopologyAuthoring is the scene-local authority entrypoint."));
             Assert.That(doc, Does.Contain("GameplayCameraTopologyPreset owns stage-scoped shared tuning only."));
+            Assert.That(doc, Does.Contain("GameplayCameraSettings is shared tuning only."));
+            Assert.That(doc, Does.Contain("GameplayCameraBaselineAuthoringPolicy is the dedicated scene-local authored-baseline policy type."));
             Assert.That(doc, Does.Contain("configureMainCamera remains local."));
-            Assert.That(doc, Does.Contain("UseAuthoredSceneCameraPose/Lens remain local effective policy."));
+            Assert.That(doc, Does.Contain("UseAuthoredSceneCameraPose/Lens live in scene-local baseline policy, not GameplayCameraSettings."));
             Assert.That(doc, Does.Contain("Preset mode ignores inline shared-tuning values for runtime snapshot resolution."));
             Assert.That(doc, Does.Contain("inline shared-tuning persistence in Preset mode is transitional fallback, not canonical source-of-truth."));
-            Assert.That(doc, Does.Contain("candidate A"));
+            Assert.That(doc, Does.Not.Contain("future cleanup candidate A"));
             Assert.That(doc, Does.Contain("candidate B"));
         }
 

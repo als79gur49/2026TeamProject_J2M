@@ -126,6 +126,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(helperSource, Does.Contain("presenter.AttachOutputCamera(outputCamera);"));
             Assert.That(helperSource, Does.Contain("cameraRig.ConfigureTopologyTransitionCameraShake(configuration.TopologyTransitionCameraShakeProfile);"));
             Assert.That(helperSource, Does.Contain("cameraRig.ResolveConfiguredSettings("));
+            Assert.That(helperSource, Does.Contain("configuration.CameraBaselineAuthoringPolicy"));
             Assert.That(helperSource, Does.Contain("cameraRig.ApplySettings(resolvedCameraSettings);"));
             Assert.That(helperSource, Does.Contain("cameraRig.Initialize("));
             Assert.That(helperSource, Does.Contain("topologyTransitionPostFxController.Initialize(configuration.TopologyTransitionPostFxProfile, outputCamera);"));

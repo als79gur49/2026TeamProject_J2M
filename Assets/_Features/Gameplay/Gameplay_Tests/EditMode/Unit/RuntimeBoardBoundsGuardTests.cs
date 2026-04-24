@@ -1794,10 +1794,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     nearClipPlane: 0.2f,
                     farClipPlane: 90f);
 
+                var baselineAuthoringPolicy = GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault();
                 var baseSettings = new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = true,
                     PitchDegrees = 10f,
                     YawDegrees = 15f,
                     DistanceMode = CameraDistanceMode.AutoFit,
@@ -1809,6 +1808,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 };
                 var resolvedSettings = rig.ResolveConfiguredSettings(
                     baseSettings,
+                    baselineAuthoringPolicy,
                     targetWorldPosition,
                     new CubeTopologyState(FaceId.Floor),
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
@@ -1918,10 +1918,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 directRig.CaptureAuthoredSceneCameraPose(authoredPoseObject.transform, 44f, 0.2f, 88f);
                 hierarchyRig.CaptureAuthoredSceneCameraPose(authoredPoseObject.transform, 44f, 0.2f, 88f);
 
-                var baseSettings = new GameplayCameraSettings
+                var baselineAuthoringPolicy = new GameplayCameraBaselineAuthoringPolicy
                 {
                     UseAuthoredSceneCameraPose = true,
                     UseAuthoredSceneCameraLens = false,
+                };
+                var baseSettings = new GameplayCameraSettings
+                {
                     PitchDegrees = 5f,
                     YawDegrees = 17f,
                     DistanceMode = CameraDistanceMode.AutoFit,
@@ -1933,11 +1936,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 };
                 var directResolvedSettings = directRig.ResolveConfiguredSettings(
                     baseSettings,
+                    baselineAuthoringPolicy,
                     targetWorldPosition,
                     new CubeTopologyState(FaceId.Floor),
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
                 var hierarchyResolvedSettings = hierarchyRig.ResolveConfiguredSettings(
                     baseSettings,
+                    baselineAuthoringPolicy,
                     targetWorldPosition,
                     new CubeTopologyState(FaceId.Floor),
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
@@ -5110,10 +5115,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     {
                         AutoAdvanceTicks = false,
                         AutoCreateViews = true,
+                        CameraBaselineAuthoringPolicy = GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault(),
                         CameraSettings = new GameplayCameraSettings
                         {
-                            UseAuthoredSceneCameraPose = true,
-                            UseAuthoredSceneCameraLens = true,
                             PitchDegrees = 5f,
                             YawDegrees = 17f,
                             DistanceMode = CameraDistanceMode.AutoFit,

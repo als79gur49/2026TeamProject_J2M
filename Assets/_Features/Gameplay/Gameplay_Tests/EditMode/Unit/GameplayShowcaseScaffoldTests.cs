@@ -124,10 +124,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     authoredWorldRotation);
                 SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
 
+                var baselineAuthoringPolicy = GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault();
                 var baseCameraSettings = new GameplayCameraSettings
                 {
-                    UseAuthoredSceneCameraPose = true,
-                    UseAuthoredSceneCameraLens = true,
                     PitchDegrees = 10f,
                     YawDegrees = 15f,
                     DistanceMode = CameraDistanceMode.AutoFit,
@@ -140,12 +139,14 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                     installerObject,
-                    baseCameraSettings);
+                    baseCameraSettings,
+                    baselineAuthoringPolicy);
 
                 var rig = installerObject.GetComponent<GameplayCameraRig>();
                 Assert.That(rig, Is.Not.Null);
                 var resolvedCameraSettings = rig.ResolveConfiguredSettings(
                     baseCameraSettings,
+                    baselineAuthoringPolicy,
                     Vector3.zero,
                     new CubeTopologyState(FaceId.Floor),
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
@@ -170,6 +171,89 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.LessThan(0.001f));
                 Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.position, authoredWorldPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.rotation, authoredWorldRotation),
+                    Is.LessThan(0.001f));
+            }
+            finally
+            {
+                ResetIsolatedTestScene();
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayShowcaseSceneScaffold_EnsureInstallerScaffold_UsesConfiguredLens_WhenBaselinePolicyDisablesAuthoredLens()
+        {
+            var scene = CreateIsolatedTestScene();
+
+            try
+            {
+                var installerObject = new GameObject("GameplayShowcaseInstaller");
+                SceneManager.MoveGameObjectToScene(installerObject, scene);
+
+                var mainCameraObject = new GameObject("Main Camera");
+                mainCameraObject.AddComponent<Camera>();
+                mainCameraObject.AddComponent<CinemachineBrain>();
+                SceneManager.MoveGameObjectToScene(mainCameraObject, scene);
+
+                var cinemachineCameraObject = new GameObject("CinemachineCamera");
+                var cinemachineCamera = cinemachineCameraObject.AddComponent<CinemachineCamera>();
+                var lens = cinemachineCamera.Lens;
+                lens.FieldOfView = 44f;
+                lens.NearClipPlane = 0.2f;
+                lens.FarClipPlane = 90f;
+                cinemachineCamera.Lens = lens;
+                var authoredWorldPosition = new Vector3(3f, 4f, -8f);
+                var authoredWorldRotation = Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up);
+                cinemachineCamera.transform.SetPositionAndRotation(
+                    authoredWorldPosition,
+                    authoredWorldRotation);
+                SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
+
+                var baselineAuthoringPolicy = new GameplayCameraBaselineAuthoringPolicy
+                {
+                    UseAuthoredSceneCameraPose = true,
+                    UseAuthoredSceneCameraLens = false,
+                };
+                var baseCameraSettings = new GameplayCameraSettings
+                {
+                    PitchDegrees = 10f,
+                    YawDegrees = 15f,
+                    DistanceMode = CameraDistanceMode.AutoFit,
+                    ManualDistance = 2f,
+                    FramingPadding = 1.2f,
+                    PerspectiveFieldOfView = 60f,
+                    NearClipPlane = 0.03f,
+                    FarClipPlane = 100f,
+                };
+
+                GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
+                    installerObject,
+                    baseCameraSettings,
+                    baselineAuthoringPolicy);
+
+                var rig = installerObject.GetComponent<GameplayCameraRig>();
+                Assert.That(rig, Is.Not.Null);
+                var resolvedCameraSettings = rig.ResolveConfiguredSettings(
+                    baseCameraSettings,
+                    baselineAuthoringPolicy,
+                    Vector3.zero,
+                    new CubeTopologyState(FaceId.Floor),
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
+                var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
+                rig.ApplySettings(resolvedCameraSettings);
+                rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                Assert.That(resolvedCameraSettings.PerspectiveFieldOfView, Is.EqualTo(60f).Within(0.0001f));
+                Assert.That(resolvedCameraSettings.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
+                Assert.That(resolvedCameraSettings.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.FieldOfView, Is.EqualTo(60f).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.NearClipPlane, Is.EqualTo(0.03f).Within(0.0001f));
+                Assert.That(cinemachineCamera.Lens.FarClipPlane, Is.EqualTo(100f).Within(0.0001f));
                 Assert.That(
                     Vector3.Distance(boardRoot.CameraEffectsRoot.position, authoredWorldPosition),
                     Is.LessThan(0.001f));
@@ -628,8 +712,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static void AssertCameraSettings(GameplayCameraSettings actual, GameplayCameraSettings expected)
         {
-            Assert.That(actual.UseAuthoredSceneCameraPose, Is.EqualTo(expected.UseAuthoredSceneCameraPose));
-            Assert.That(actual.UseAuthoredSceneCameraLens, Is.EqualTo(expected.UseAuthoredSceneCameraLens));
             Assert.That(actual.DistanceMode, Is.EqualTo(expected.DistanceMode));
             Assert.That(actual.PitchDegrees, Is.EqualTo(expected.PitchDegrees).Within(0.0001f));
             Assert.That(actual.YawDegrees, Is.EqualTo(expected.YawDegrees).Within(0.0001f));

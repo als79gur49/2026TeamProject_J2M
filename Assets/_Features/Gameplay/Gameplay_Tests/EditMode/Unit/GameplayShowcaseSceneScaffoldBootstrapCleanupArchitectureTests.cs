@@ -117,8 +117,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(helperSource, Does.Contain("rig.ApplySettings(resolvedCameraSettings);"));
             Assert.That(helperSource, Does.Contain("rig.ConfigureTopologyTransitionCameraShake("));
+            Assert.That(helperSource, Does.Contain("GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy"));
             Assert.That(helperSource, Does.Contain("camera.GetUniversalAdditionalCameraData().renderPostProcessing = true;"));
             Assert.That(helperSource, Does.Contain("rig?.CaptureAuthoredSceneCameraPose("));
+            Assert.That(helperSource, Does.Contain("if (!baselineAuthoringPolicy.UseAuthoredSceneCameraLens)"));
             Assert.That(helperSource, Does.Contain("brains[j].DefaultBlend ="));
             Assert.That(helperSource, Does.Contain("cinemachineCamera.Target = new CameraTarget"));
 
