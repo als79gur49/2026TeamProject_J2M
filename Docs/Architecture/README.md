@@ -48,6 +48,12 @@
   - supporting truth for quantitative unchanged matrix and post-phase decision gate
 - [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
   - current supporting truth for `WallFollow` truth table, owner surface, maintain-vs-redesign verdict, and no-touch / rollback gate
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md)
+  - current supporting truth for `WindupMelee` bounded rollout drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, and next-archetype gate
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md)
+  - current supporting truth for `WindupMelee RandomWalk pilot` runtime parity closure, patrol-state ownership fixup, replay/trace evidence, and phase 5 close gate
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md)
+  - current supporting truth for `WindupMelee RandomWalk pilot` red-closure hardening, baseline-control-first close retry order, green-vs-red evidence split, and same-revision Unity close retry evidence
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
@@ -62,6 +68,9 @@
 3. [Gameplay-EnemyPatrol-Phase3-Forward-Commonization.md](./Gameplay-EnemyPatrol-Phase3-Forward-Commonization.md)
 4. [Gameplay-EnemyPatrol-Forward-Rollout-Gate.md](./Gameplay-EnemyPatrol-Forward-Rollout-Gate.md)
 5. [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
+6. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md)
+7. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md)
+8. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md)
 
 이 묶음은 patrol bounded rollout의 active supporting truth-source다.
 
@@ -70,6 +79,9 @@
 - phase 3는 `Forward` commonization의 single proposal seam consumer 기준과 docs-only defer / rollback checklist를 고정한다.
 - rollout gate는 quantitative unchanged matrix와 post-phase decision matrix를 고정한다.
 - phase 4는 `WallFollow` truth table, maintain-vs-redesign verdict, bounded redesign gate를 고정한다.
+- phase 5는 `WindupMelee` bounded rollout의 `exact-contract` / `bounded-exposure` drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, fallback / rollback / success / failure를 고정한다.
+- phase 5 fixup은 `WindupMelee RandomWalk pilot` runtime parity red 상태, patrol-state origin/init ownership fix, replay/trace same-revision evidence, close / failure gate를 고정한다.
+- phase 5 red-closure plan은 baseline-control-first hard gate, `AttackCommitted` 4-gate / `LockedTargetLost` 4-gate 분리, patrol ownership duplicate triage, green-vs-red evidence split, `baseline-control-targeted.xml`, and `evidence-summary.md`를 포함한 `TestResults/phase5-red-closure/` targeted Unity evidence bundle을 고정한다.
 
 historical/non-canonical 문서는 더 이상 이 디렉터리의 active truth-source가 아니다.
 
