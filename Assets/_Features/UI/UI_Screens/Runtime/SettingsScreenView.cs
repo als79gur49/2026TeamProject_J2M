@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -17,16 +18,16 @@ namespace Game.Feature.UI.Screens
             "Settings screen is missing or miswired required authored display section. Repair: assign SettingsScreenView._displayView to the SettingsDisplaySection child view.";
 
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _tooltipStatusLabel;
-        [SerializeField] private Text _largeTextStatusLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _tooltipStatusLabel;
+        [SerializeField] private TMP_Text _largeTextStatusLabel;
         [SerializeField] private Button _tooltipInfoButton;
         [SerializeField] private Button _tooltipToggleButton;
         [SerializeField] private Button _largeTextToggleButton;
         [SerializeField] private Button _backButton;
-        [SerializeField] private Text _tooltipToggleButtonLabel;
-        [SerializeField] private Text _largeTextToggleButtonLabel;
-        [SerializeField] private Text _backButtonLabel;
+        [SerializeField] private TMP_Text _tooltipToggleButtonLabel;
+        [SerializeField] private TMP_Text _largeTextToggleButtonLabel;
+        [SerializeField] private TMP_Text _backButtonLabel;
         [SerializeField] private SettingsAudioView _audioView;
         [SerializeField] private SettingsDisplayView _displayView;
 

@@ -1,6 +1,7 @@
 using System.Reflection;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -23,7 +24,7 @@ namespace Game.Feature.UI.Tests
 
                 var relay = GetPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
                 var hintRoot = GetPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
-                var hintLabel = GetPrivateField<Text>(displayView, "_resolutionHoverHintLabel");
+                var hintLabel = GetPrivateField<TMP_Text>(displayView, "_resolutionHoverHintLabel");
 
                 Assert.That(hintRoot.gameObject.activeSelf, Is.False);
 
@@ -117,7 +118,7 @@ namespace Game.Feature.UI.Tests
 
                 var relay = GetPrivateField<SettingsHoverRelay>(displayView, "_resolutionHoverRelay");
                 var hintRoot = GetPrivateField<RectTransform>(displayView, "_resolutionHoverHintRoot");
-                var hintLabel = GetPrivateField<Text>(displayView, "_resolutionHoverHintLabel");
+                var hintLabel = GetPrivateField<TMP_Text>(displayView, "_resolutionHoverHintLabel");
 
                 relay.OnPointerEnter(null);
                 Assert.That(hintRoot.gameObject.activeSelf, Is.True);

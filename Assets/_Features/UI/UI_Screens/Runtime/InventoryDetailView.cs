@@ -1,3 +1,4 @@
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -5,10 +6,10 @@ namespace Game.Feature.UI.Screens
 {
     public sealed class InventoryDetailView : MonoBehaviour
     {
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _badgeLabel;
-        [SerializeField] private Text _descriptionLabel;
-        [SerializeField] private Text _detailLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _badgeLabel;
+        [SerializeField] private TMP_Text _descriptionLabel;
+        [SerializeField] private TMP_Text _detailLabel;
 
         private InventoryDetailViewModel _viewModel;
 

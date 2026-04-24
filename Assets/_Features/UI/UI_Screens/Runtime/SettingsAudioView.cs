@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using TMPro;
 using UnityEngine.Events;
 using UnityEngine;
 using UnityEngine.UI;
@@ -403,17 +404,17 @@ namespace Game.Feature.UI.Screens
         private sealed class AudioControlRowRefs
         {
             [SerializeField] private RectTransform _rowRoot;
-            [SerializeField] private Text _label;
-            [SerializeField] private Text _value;
+            [SerializeField] private TMP_Text _label;
+            [SerializeField] private TMP_Text _value;
             [SerializeField] private Slider _slider;
             [SerializeField] private Toggle _toggle;
             [SerializeField] private SettingsSliderInteractionRelay _interactionRelay;
 
             public RectTransform RowRoot => _rowRoot;
 
-            public Text Label => _label;
+            public TMP_Text Label => _label;
 
-            public Text Value => _value;
+            public TMP_Text Value => _value;
 
             public Slider Slider => _slider;
 
