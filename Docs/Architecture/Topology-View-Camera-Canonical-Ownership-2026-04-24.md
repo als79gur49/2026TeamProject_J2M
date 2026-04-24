@@ -56,6 +56,22 @@ This document is the slice-local supporting truth-source for the current topolog
 - `GameplayShowcaseSceneCameraBootstrap` is the showcase-scene glue owner only. It wires scene output cameras, Cinemachine path setup, authored scene camera pose capture, and default blend/bootstrap behavior without reclaiming runtime evaluation behavior.
 - `GameplayShowcaseSceneScaffold` remains above both helpers as the scene orchestrator. Its responsibilities are limited to installer-scaffold orchestration, board-root ensure/find, legacy world-label cleanup, and wrapper-only `ConfigureDefaultSceneCamera(...)`.
 
+## Authoring And Preset Authority
+
+- `GameplayCameraTopologyAuthoring` is the scene-local authority entrypoint.
+- `GameplayCameraTopologyPreset` owns stage-scoped shared tuning only.
+- `configureMainCamera` remains local.
+- `UseAuthoredSceneCameraPose/Lens` remain local effective policy.
+- `Preset` mode ignores inline shared-tuning values for runtime snapshot resolution.
+- inline shared-tuning persistence in `Preset` mode is transitional fallback, not canonical source-of-truth.
+- The current transitional state intentionally allows two tolerated leftovers:
+  - preset `cameraSettings` still carries authored-baseline bool fields even though `Preset` mode treats scene-local authoring as the final authority for those effective values
+  - scene-local inline shared-tuning fields still serialize in `Preset` mode for migration safety even though they are non-authoritative at runtime
+- future cleanup candidate A:
+  - move authored-baseline usage flags out of `GameplayCameraSettings` so scene-local policy and shared numeric camera tuning are split at the type level
+- future cleanup candidate B:
+  - remove or hide/read-only the non-authoritative inline shared-tuning fields after preset adoption is stable
+
 ## Explicit non-ownership
 
 - scaffold is not camera-bootstrap behavior owner
