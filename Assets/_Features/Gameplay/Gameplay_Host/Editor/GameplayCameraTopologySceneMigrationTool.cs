@@ -91,6 +91,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
             return new SerializedGameplayCameraTopologyAuthoring(
                 ReadSerializedBoolValue(sourceBlock, "configureMainCamera"),
+                ReadSerializedBoolValue(cameraSettingsBlock, nameof(GameplayCameraSettings.UseAuthoredSceneCameraPose)),
+                ReadSerializedBoolValue(cameraSettingsBlock, nameof(GameplayCameraSettings.UseAuthoredSceneCameraLens)),
                 (TopologyRotationVisualMapping)ReadSerializedIntValue(sourceBlock, "topologyRotationVisualMapping"),
                 new TopologyRotationTweenSettings
                 {
@@ -158,6 +160,10 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             SetPrivateField(authoring, "configureMainCamera", serializedData.ConfigureMainCamera);
+            SetPrivateField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Inline);
+            SetPrivateField(authoring, "preset", null);
+            SetPrivateField(authoring, "useAuthoredSceneCameraPose", serializedData.UseAuthoredSceneCameraPose);
+            SetPrivateField(authoring, "useAuthoredSceneCameraLens", serializedData.UseAuthoredSceneCameraLens);
             SetPrivateField(authoring, "topologyRotationVisualMapping", serializedData.TopologyRotationVisualMapping);
             SetPrivateField(authoring, "topologyRotationTweenSettings", serializedData.TopologyRotationTweenSettings);
             SetPrivateField(authoring, "cameraSettings", serializedData.CameraSettings.Clone());
@@ -412,6 +418,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         {
             internal SerializedGameplayCameraTopologyAuthoring(
                 bool configureMainCamera,
+                bool useAuthoredSceneCameraPose,
+                bool useAuthoredSceneCameraLens,
                 TopologyRotationVisualMapping topologyRotationVisualMapping,
                 TopologyRotationTweenSettings topologyRotationTweenSettings,
                 GameplayCameraSettings cameraSettings,
@@ -419,6 +427,8 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                 TopologyTransitionPostFxProfile topologyTransitionPostFxProfile)
             {
                 ConfigureMainCamera = configureMainCamera;
+                UseAuthoredSceneCameraPose = useAuthoredSceneCameraPose;
+                UseAuthoredSceneCameraLens = useAuthoredSceneCameraLens;
                 TopologyRotationVisualMapping = topologyRotationVisualMapping;
                 TopologyRotationTweenSettings = topologyRotationTweenSettings;
                 CameraSettings = cameraSettings;
@@ -427,6 +437,10 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             internal bool ConfigureMainCamera { get; }
+
+            internal bool UseAuthoredSceneCameraPose { get; }
+
+            internal bool UseAuthoredSceneCameraLens { get; }
 
             internal TopologyRotationVisualMapping TopologyRotationVisualMapping { get; }
 

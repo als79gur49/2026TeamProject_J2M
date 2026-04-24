@@ -36,31 +36,52 @@ namespace Game.Feature.Gameplay.Host
         public TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile { get; }
     }
 
+    /// <summary>
+    /// Scene-local camera topology authority entrypoint.
+    /// Preset mode resolves stage-shared tuning from a referenced preset, while authored-baseline
+    /// usage flags remain local effective policy on this component.
+    /// </summary>
     [DisallowMultipleComponent]
     public sealed class GameplayCameraTopologyAuthoring : MonoBehaviour
     {
+        [Tooltip("Inline uses the local shared-tuning fields below. Preset uses only the referenced preset for shared tuning, while configureMainCamera and authored-baseline usage remain local scene policy.")]
+        [SerializeField] private GameplayCameraTopologySourceMode sourceMode = GameplayCameraTopologySourceMode.Inline;
+        [Tooltip("Stage-scoped shared tuning asset. In Preset mode, shared tuning resolves only from this asset. Inline shared-tuning fields below remain serialized fallback and are not authoritative.")]
+        [SerializeField] private GameplayCameraTopologyPreset preset;
+        [Tooltip("Scene-local camera bootstrap policy. This remains local even when Preset mode is active.")]
         [SerializeField] private bool configureMainCamera = true;
+        [Tooltip("Scene-local authored-baseline pose policy. In Preset mode this is the final effective value and overrides the same-named value carried inside preset camera settings.")]
+        [SerializeField] private bool useAuthoredSceneCameraPose = true;
+        [Tooltip("Scene-local authored-baseline lens policy. In Preset mode this is the final effective value and overrides the same-named value carried inside preset camera settings.")]
+        [SerializeField] private bool useAuthoredSceneCameraLens = true;
+        [Tooltip("Shared topology rotation mapping for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
         [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping =
             TopologyRotationVisualMapping.ForwardUsesPositiveX;
+        [Tooltip("Shared topology rotation tween settings for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
         [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings =
             TopologyRotationTweenSettings.CreateDefault();
+        [Tooltip("Shared camera tuning payload for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
         [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
+        [Tooltip("Shared topology-transition camera shake tuning for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
         [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile =
             TopologyTransitionCameraShakeProfile.CreateDefault();
+        [Tooltip("Shared topology-transition post-fx tuning for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
         [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile =
             TopologyTransitionPostFxProfile.CreateDefault();
 
         public GameplayCameraTopologyAuthoringSnapshot CreateSnapshot()
         {
             Validate();
+            var sharedSnapshot = ResolveSharedSnapshot();
+            var effectiveCameraSettings = ResolveEffectiveCameraSettings(sharedSnapshot.CameraSettings);
 
             return new GameplayCameraTopologyAuthoringSnapshot(
                 configureMainCamera,
-                topologyRotationVisualMapping,
-                topologyRotationTweenSettings,
-                cameraSettings,
-                topologyTransitionCameraShakeProfile,
-                topologyTransitionPostFxProfile);
+                sharedSnapshot.TopologyRotationVisualMapping,
+                sharedSnapshot.TopologyRotationTweenSettings,
+                effectiveCameraSettings,
+                sharedSnapshot.TopologyTransitionCameraShakeProfile,
+                sharedSnapshot.TopologyTransitionPostFxProfile);
         }
 
         public void Validate()
@@ -68,6 +89,7 @@ namespace Game.Feature.Gameplay.Host
             cameraSettings ??= GameplayCameraSettings.CreateShowcaseDefault();
             topologyTransitionCameraShakeProfile ??= TopologyTransitionCameraShakeProfile.CreateDefault();
             topologyTransitionPostFxProfile ??= TopologyTransitionPostFxProfile.CreateDefault();
+            preset?.Validate();
         }
 
         public static GameplayCameraTopologyAuthoring GetRequiredValidated(Component owner)
@@ -91,19 +113,82 @@ namespace Game.Feature.Gameplay.Host
         public GameplayCameraSettings GetCameraSettings()
         {
             Validate();
-            return cameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
+            return ResolveEffectiveCameraSettings(ResolveSharedSnapshot().CameraSettings);
         }
 
         public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()
         {
             Validate();
-            return topologyTransitionCameraShakeProfile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
+            return ResolveSharedSnapshot().TopologyTransitionCameraShakeProfile?.Clone() ??
+                   TopologyTransitionCameraShakeProfile.CreateDefault();
         }
 
         public TopologyTransitionPostFxProfile GetTopologyTransitionPostFxProfile()
         {
             Validate();
-            return topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault();
+            return ResolveSharedSnapshot().TopologyTransitionPostFxProfile?.Clone() ??
+                   TopologyTransitionPostFxProfile.CreateDefault();
+        }
+
+        // Preset mode never reads inline shared tuning. Those serialized fields remain transitional
+        // fallback only and are not the canonical runtime source while Preset mode is active.
+        private GameplayCameraTopologyPresetSnapshot ResolveSharedSnapshot()
+        {
+            return sourceMode switch
+            {
+                GameplayCameraTopologySourceMode.Inline => CreateInlineSharedSnapshot(),
+                GameplayCameraTopologySourceMode.Preset => ResolveRequiredPreset().CreateSnapshot(),
+                _ => throw new ArgumentOutOfRangeException(nameof(sourceMode), sourceMode, "Unknown camera topology source mode."),
+            };
+        }
+
+        private GameplayCameraTopologyPresetSnapshot CreateInlineSharedSnapshot()
+        {
+            return new GameplayCameraTopologyPresetSnapshot(
+                topologyRotationVisualMapping,
+                topologyRotationTweenSettings,
+                cameraSettings,
+                topologyTransitionCameraShakeProfile,
+                topologyTransitionPostFxProfile);
+        }
+
+        private GameplayCameraTopologyPreset ResolveRequiredPreset()
+        {
+            if (preset != null)
+            {
+                return preset;
+            }
+
+            throw new InvalidOperationException(
+                $"{nameof(GameplayCameraTopologyAuthoring)} on '{gameObject.name}' is set to {nameof(GameplayCameraTopologySourceMode.Preset)} mode but has no {nameof(GameplayCameraTopologyPreset)} assigned. Inline shared-tuning fallback is not authoritative in Preset mode; assign a preset or switch Source Mode to Inline.");
+        }
+
+        private GameplayCameraSettings ResolveEffectiveCameraSettings(GameplayCameraSettings sharedCameraSettings)
+        {
+            // Authored-baseline usage flags remain scene-local effective policy. In Preset mode they
+            // intentionally override same-named values carried inside the preset camera settings payload.
+            var effectiveCameraSettings = sharedCameraSettings?.Clone() ?? GameplayCameraSettings.CreateShowcaseDefault();
+            effectiveCameraSettings.UseAuthoredSceneCameraPose =
+                ResolveEffectiveUseAuthoredSceneCameraPose(effectiveCameraSettings);
+            effectiveCameraSettings.UseAuthoredSceneCameraLens =
+                ResolveEffectiveUseAuthoredSceneCameraLens(effectiveCameraSettings);
+            return effectiveCameraSettings;
+        }
+
+        private bool ResolveEffectiveUseAuthoredSceneCameraPose(GameplayCameraSettings sharedCameraSettings)
+        {
+            return sourceMode == GameplayCameraTopologySourceMode.Preset
+                ? useAuthoredSceneCameraPose
+                : sharedCameraSettings?.UseAuthoredSceneCameraPose ??
+                  GameplayCameraSettings.CreateShowcaseDefault().UseAuthoredSceneCameraPose;
+        }
+
+        private bool ResolveEffectiveUseAuthoredSceneCameraLens(GameplayCameraSettings sharedCameraSettings)
+        {
+            return sourceMode == GameplayCameraTopologySourceMode.Preset
+                ? useAuthoredSceneCameraLens
+                : sharedCameraSettings?.UseAuthoredSceneCameraLens ??
+                  GameplayCameraSettings.CreateShowcaseDefault().UseAuthoredSceneCameraLens;
         }
     }
 }
