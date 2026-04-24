@@ -5,7 +5,9 @@ namespace Game.Feature.UI.Screens
 {
     internal static class ScreenEnterTweenUtility
     {
-        private const float EnterDurationSeconds = 0.18f;
+        private const float ScreenEnterFadeDurationSeconds = 0.18f;
+        private const Ease ScreenEnterFadeEase = Ease.OutCubic;
+        private const bool ScreenEnterUseUnscaledTime = true;
 
         internal static CanvasGroup EnsureCanvasGroup(GameObject target, CanvasGroup currentCanvasGroup)
         {
@@ -59,9 +61,9 @@ namespace Game.Feature.UI.Screens
             restAlpha = canvasGroup.alpha;
             canvasGroup.alpha = 0f;
             return canvasGroup
-                .DOFade(restAlpha, EnterDurationSeconds)
-                .SetEase(Ease.OutCubic)
-                .SetUpdate(true);
+                .DOFade(restAlpha, ScreenEnterFadeDurationSeconds)
+                .SetEase(ScreenEnterFadeEase)
+                .SetUpdate(ScreenEnterUseUnscaledTime);
         }
     }
 }

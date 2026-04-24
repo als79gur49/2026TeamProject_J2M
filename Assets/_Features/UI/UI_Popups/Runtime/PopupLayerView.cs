@@ -8,7 +8,9 @@ namespace Game.Feature.UI.Popups
     public sealed class PopupLayerView : MonoBehaviour
     {
         private const float BackdropDimAlpha = 0.58f;
-        private const float BackdropFadeDurationSeconds = 0.15f;
+        private const float BackdropOpenFadeDurationSeconds = 0.15f;
+        private const Ease BackdropOpenFadeEase = Ease.OutQuad;
+        private const bool BackdropOpenUseUnscaledTime = true;
 
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _backdropCanvasGroup;
@@ -183,9 +185,9 @@ namespace Game.Feature.UI.Popups
             StopBackdropTween();
             ApplyBackdropVisualAlpha(0f);
             _backdropTween = DOTween
-                .To(GetBackdropVisualAlpha, ApplyBackdropVisualAlpha, targetAlpha, BackdropFadeDurationSeconds)
-                .SetEase(Ease.OutQuad)
-                .SetUpdate(true);
+                .To(GetBackdropVisualAlpha, ApplyBackdropVisualAlpha, targetAlpha, BackdropOpenFadeDurationSeconds)
+                .SetEase(BackdropOpenFadeEase)
+                .SetUpdate(BackdropOpenUseUnscaledTime);
         }
 
         private float GetBackdropVisualAlpha()

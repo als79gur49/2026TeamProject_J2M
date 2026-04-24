@@ -7,6 +7,12 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class HUDRootView : MonoBehaviour
     {
+        private const float HudNormalAlpha = 1.0f;
+        private const float HudDimmedAlpha = 0.82f;
+        private const float HudDimTweenDurationSeconds = 0.12f;
+        private const Ease HudDimTweenEase = Ease.OutQuad;
+        private const bool HudDimUseUnscaledTime = true;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _shellCanvasGroup;
         [SerializeField] private Button _pauseButton;
@@ -19,7 +25,7 @@ namespace Game.Feature.UI.HUD
         private Tween _shellTween;
         private bool _lastRootVisibleState;
         private bool _hasShellAlphaTarget;
-        private float _lastShellAlphaTarget = 1f;
+        private float _lastShellAlphaTarget = HudNormalAlpha;
 
         public event Action PauseRequested;
 
@@ -121,7 +127,7 @@ namespace Game.Feature.UI.HUD
         private void RefreshView()
         {
             var isRootVisible = IsVisible && (_viewModel == null || _viewModel.IsVisible);
-            var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? 0.82f : 1f;
+            var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? HudDimmedAlpha : HudNormalAlpha;
             var becameVisible = !_lastRootVisibleState && isRootVisible;
             var becameHidden = _lastRootVisibleState && !isRootVisible;
 
@@ -198,9 +204,9 @@ namespace Game.Feature.UI.HUD
 
             KillShellTween();
             _shellTween = _shellCanvasGroup
-                .DOFade(targetAlpha, 0.12f)
-                .SetEase(Ease.OutQuad)
-                .SetUpdate(true);
+                .DOFade(targetAlpha, HudDimTweenDurationSeconds)
+                .SetEase(HudDimTweenEase)
+                .SetUpdate(HudDimUseUnscaledTime);
         }
 
         private void KillShellTween()

@@ -5,9 +5,12 @@ namespace Game.Feature.UI.Popups
 {
     internal static class PopupEnterTweenUtility
     {
-        private const float ModalEnterDurationSeconds = 0.20f;
-        private const float TooltipEnterDurationSeconds = 0.12f;
-        private const float ModalStartScaleMultiplier = 0.96f;
+        private const float ModalPopupEnterDurationSeconds = 0.20f;
+        private const float ModalPopupEnterStartScaleMultiplier = 0.96f;
+        private const Ease ModalPopupEnterEase = Ease.OutCubic;
+        private const float TooltipPopupEnterDurationSeconds = 0.12f;
+        private const Ease TooltipPopupEnterEase = Ease.OutQuad;
+        private const bool PopupEnterUseUnscaledTime = true;
 
         internal static void Kill(ref Tween tween)
         {
@@ -58,7 +61,7 @@ namespace Game.Feature.UI.Popups
             if (targetTransform != null)
             {
                 restScale = targetTransform.localScale;
-                targetTransform.localScale = restScale * ModalStartScaleMultiplier;
+                targetTransform.localScale = restScale * ModalPopupEnterStartScaleMultiplier;
             }
 
             if (canvasGroup == null && targetTransform == null)
@@ -66,15 +69,15 @@ namespace Game.Feature.UI.Popups
                 return null;
             }
 
-            var sequence = DOTween.Sequence().SetUpdate(true);
+            var sequence = DOTween.Sequence().SetUpdate(PopupEnterUseUnscaledTime);
             if (canvasGroup != null)
             {
-                sequence.Join(canvasGroup.DOFade(restAlpha, ModalEnterDurationSeconds).SetEase(Ease.OutCubic));
+                sequence.Join(canvasGroup.DOFade(restAlpha, ModalPopupEnterDurationSeconds).SetEase(ModalPopupEnterEase));
             }
 
             if (targetTransform != null)
             {
-                sequence.Join(targetTransform.DOScale(restScale, ModalEnterDurationSeconds).SetEase(Ease.OutCubic));
+                sequence.Join(targetTransform.DOScale(restScale, ModalPopupEnterDurationSeconds).SetEase(ModalPopupEnterEase));
             }
 
             return sequence;
@@ -91,9 +94,9 @@ namespace Game.Feature.UI.Popups
             restAlpha = canvasGroup.alpha;
             canvasGroup.alpha = 0f;
             return canvasGroup
-                .DOFade(restAlpha, TooltipEnterDurationSeconds)
-                .SetEase(Ease.OutQuad)
-                .SetUpdate(true);
+                .DOFade(restAlpha, TooltipPopupEnterDurationSeconds)
+                .SetEase(TooltipPopupEnterEase)
+                .SetUpdate(PopupEnterUseUnscaledTime);
         }
     }
 }
