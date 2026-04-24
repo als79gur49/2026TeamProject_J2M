@@ -36,6 +36,229 @@ namespace Game.Feature.Gameplay.Tests.Unit
             public PatrolSettings Settings { get; }
         }
 
+        private readonly struct RandomWalkScorecardMetrics
+        {
+            public RandomWalkScorecardMetrics(
+                int maxHomeDistance,
+                int forwardCommittedMoves,
+                int scoredMoves,
+                int committedMoves,
+                int immediateBacktrackCount,
+                int avoidableImmediateBacktrackCount)
+            {
+                MaxHomeDistance = maxHomeDistance;
+                ForwardCommittedMoves = forwardCommittedMoves;
+                ScoredMoves = scoredMoves;
+                CommittedMoves = committedMoves;
+                ImmediateBacktrackCount = immediateBacktrackCount;
+                AvoidableImmediateBacktrackCount = avoidableImmediateBacktrackCount;
+            }
+
+            public int MaxHomeDistance { get; }
+
+            public int ForwardCommittedMoves { get; }
+
+            public int ScoredMoves { get; }
+
+            public int CommittedMoves { get; }
+
+            public int ImmediateBacktrackCount { get; }
+
+            public int AvoidableImmediateBacktrackCount { get; }
+
+            public float ForwardCommittedShare => ScoredMoves == 0 ? 0f : (float)ForwardCommittedMoves / ScoredMoves;
+        }
+
+        private enum PatrolWriteTriageKind
+        {
+            None,
+            ActualDuplicateWrite,
+            TraceOnlyDuplication,
+            SemanticCorrelationMismatch,
+        }
+
+        private readonly struct PatrolWriteTriageMetrics
+        {
+            public PatrolWriteTriageMetrics(
+                int initializedWriteCount,
+                int expectedCommittedMoveCount,
+                int actualCommittedMoveWrites,
+                int traceCommittedMoveCount,
+                int semanticCommittedMoveCount)
+            {
+                InitializedWriteCount = initializedWriteCount;
+                ExpectedCommittedMoveCount = expectedCommittedMoveCount;
+                ActualCommittedMoveWrites = actualCommittedMoveWrites;
+                TraceCommittedMoveCount = traceCommittedMoveCount;
+                SemanticCommittedMoveCount = semanticCommittedMoveCount;
+            }
+
+            public int InitializedWriteCount { get; }
+
+            public int ExpectedCommittedMoveCount { get; }
+
+            public int ActualCommittedMoveWrites { get; }
+
+            public int TraceCommittedMoveCount { get; }
+
+            public int SemanticCommittedMoveCount { get; }
+
+            public PatrolWriteTriageKind Classification
+            {
+                get
+                {
+                    if (ActualCommittedMoveWrites > ExpectedCommittedMoveCount)
+                    {
+                        return PatrolWriteTriageKind.ActualDuplicateWrite;
+                    }
+
+                    if (TraceCommittedMoveCount > ActualCommittedMoveWrites)
+                    {
+                        return PatrolWriteTriageKind.TraceOnlyDuplication;
+                    }
+
+                    if (SemanticCommittedMoveCount != ActualCommittedMoveWrites)
+                    {
+                        return PatrolWriteTriageKind.SemanticCorrelationMismatch;
+                    }
+
+                    return PatrolWriteTriageKind.None;
+                }
+            }
+        }
+
+        private readonly struct WindupContractMetrics
+        {
+            public WindupContractMetrics(
+                int targetSensedTick,
+                int targetInRangeTick,
+                int attackEntryTick,
+                int actionStartTick,
+                int attackExecuteTick,
+                int attackExecuteActionStateActiveTick,
+                int attackExecuteExecutionAttemptedTick,
+                int attackCommittedTraceTick,
+                int attackCommittedRecoverTick,
+                int recoverEntryTick,
+                int recoverCompleteTick,
+                int recoverTickCount,
+                int recoverPatrolWriteCount,
+                int firstCombatDamageTick)
+            {
+                TargetSensedTick = targetSensedTick;
+                TargetInRangeTick = targetInRangeTick;
+                AttackEntryTick = attackEntryTick;
+                ActionStartTick = actionStartTick;
+                AttackExecuteTick = attackExecuteTick;
+                AttackExecuteActionStateActiveTick = attackExecuteActionStateActiveTick;
+                AttackExecuteExecutionAttemptedTick = attackExecuteExecutionAttemptedTick;
+                AttackCommittedTraceTick = attackCommittedTraceTick;
+                AttackCommittedRecoverTick = attackCommittedRecoverTick;
+                RecoverEntryTick = recoverEntryTick;
+                RecoverCompleteTick = recoverCompleteTick;
+                RecoverTickCount = recoverTickCount;
+                RecoverPatrolWriteCount = recoverPatrolWriteCount;
+                FirstCombatDamageTick = firstCombatDamageTick;
+            }
+
+            public int TargetSensedTick { get; }
+
+            public int TargetInRangeTick { get; }
+
+            public int AttackEntryTick { get; }
+
+            public int ActionStartTick { get; }
+
+            public int AttackExecuteTick { get; }
+
+            public int AttackExecuteActionStateActiveTick { get; }
+
+            public int AttackExecuteExecutionAttemptedTick { get; }
+
+            public int AttackCommittedTraceTick { get; }
+
+            public int AttackCommittedRecoverTick { get; }
+
+            public int AttackCommittedTick => AttackCommittedTraceTick != 0
+                ? AttackCommittedTraceTick
+                : AttackCommittedRecoverTick;
+
+            public int RecoverEntryTick { get; }
+
+            public int RecoverCompleteTick { get; }
+
+            public int RecoverTickCount { get; }
+
+            public int RecoverPatrolWriteCount { get; }
+
+            public int FirstCombatDamageTick { get; }
+        }
+
+        private readonly struct PatrolStateUpdateRecord
+        {
+            public PatrolStateUpdateRecord(string label, int sequence, string home, string lastDirection)
+            {
+                Label = label;
+                Sequence = sequence;
+                Home = home;
+                LastDirection = lastDirection;
+            }
+
+            public string Label { get; }
+
+            public int Sequence { get; }
+
+            public string Home { get; }
+
+            public string LastDirection { get; }
+        }
+
+        private readonly struct LockedTargetLostMetrics
+        {
+            public LockedTargetLostMetrics(
+                int activeWindupEntryTick,
+                int cancelOwnerTick,
+                int cancelTraceTick,
+                EnemyAiMode fallbackMode,
+                IReadOnlyList<int> homeDistanceSeries)
+            {
+                ActiveWindupEntryTick = activeWindupEntryTick;
+                CancelOwnerTick = cancelOwnerTick;
+                CancelTraceTick = cancelTraceTick;
+                FallbackMode = fallbackMode;
+                HomeDistanceSeries = homeDistanceSeries ?? Array.Empty<int>();
+            }
+
+            public int ActiveWindupEntryTick { get; }
+
+            public int CancelOwnerTick { get; }
+
+            public int CancelTraceTick { get; }
+
+            public EnemyAiMode FallbackMode { get; }
+
+            public IReadOnlyList<int> HomeDistanceSeries { get; }
+        }
+
+        private readonly struct WindupParityComparisonMetrics
+        {
+            public WindupParityComparisonMetrics(
+                in WindupContractMetrics baseline,
+                in WindupContractMetrics pilot,
+                int firstDivergentPositionOrFacingTick)
+            {
+                Baseline = baseline;
+                Pilot = pilot;
+                FirstDivergentPositionOrFacingTick = firstDivergentPositionOrFacingTick;
+            }
+
+            public WindupContractMetrics Baseline { get; }
+
+            public WindupContractMetrics Pilot { get; }
+
+            public int FirstDivergentPositionOrFacingTick { get; }
+        }
+
         [Test]
         [Category("Extended")]
         public void EnemyLogic_ImplementsMovementAndAttackContracts()
@@ -373,6 +596,372 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(patrolState.sequence, Is.EqualTo(2));
                 Assert.That(patrolState.homeCell, Is.EqualTo(homeCell));
                 Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(enemy.facing));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove()
+        {
+            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new SurfaceCell(FaceId.Front, 4, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var tick1 = pipeline.RunTick(new TickInput(1));
+                worldState.CreateWriteContext().MoveEntity(10, new SurfaceCell(FaceId.Floor, 4, 0));
+                var tick2 = pipeline.RunTick(new TickInput(2));
+                var tick3 = pipeline.RunTick(new TickInput(3));
+                var tick4 = pipeline.RunTick(new TickInput(4));
+                var patrolState = GetEnemyPatrolState(worldState, 40);
+                var tick1Updates = ParsePatrolStateUpdates(tick1.Trace.Text, 40);
+                var tick2Updates = ParsePatrolStateUpdates(tick2.Trace.Text, 40);
+                var tick3Updates = ParsePatrolStateUpdates(tick3.Trace.Text, 40);
+                var tick4Updates = ParsePatrolStateUpdates(tick4.Trace.Text, 40);
+                var committedMoveSemanticCount = SemanticEventAssertions.FilterEvents(tick1.EventLog, "MoveCommitted")
+                    .Count(evt => evt.Contains("|E=40|", StringComparison.Ordinal));
+                var triageMetrics = BuildPatrolWriteTriageMetrics(
+                    initialSequence: 0,
+                    finalSequence: patrolState.sequence,
+                    initializedWriteCount: tick1Updates.Count(update => update.Label == "Initialized"),
+                    expectedCommittedMoveCount: 1,
+                    traceCommittedMoveCount: tick1Updates.Count(update => update.Label == "CommittedMove"),
+                    semanticCommittedMoveCount: committedMoveSemanticCount);
+
+                TestContext.Progress.WriteLine($"PatrolTraceDiagnostic|Tick=1|Entity=40|RawCount={CountPatrolStateUpdates(tick1.Trace.Text, 40)}");
+                TestContext.Progress.WriteLine($"PatrolWriteTriage|{BuildPatrolWriteTriageSummary(triageMetrics)}");
+                Assert.That(
+                    tick1Updates.All(update => update.Label == "Initialized" || update.Label == "CommittedMove"),
+                    Is.True,
+                    $"Unexpected patrol labels: {string.Join(", ", tick1Updates.Select(update => update.Label))}");
+                Assert.That(tick1Updates.Count(update => update.Label == "Initialized"), Is.EqualTo(1), "duplicate Initialized patrol writes");
+                Assert.That(tick1Updates.Count(update => update.Label == "CommittedMove"), Is.EqualTo(1), "duplicate CommittedMove patrol writes");
+                Assert.That(tick1Updates.Select(update => update.Sequence).ToArray(), Is.EqualTo(new[] { 1, 2 }));
+                Assert.That(tick1Updates.Select(update => update.Home).Distinct().ToArray(), Is.EqualTo(new[] { "Floor(0,0)" }));
+                Assert.That(tick1Updates.Select(update => update.LastDirection).ToArray(), Is.EqualTo(new[] { "None", "Right" }));
+                Assert.That(triageMetrics.Classification, Is.EqualTo(PatrolWriteTriageKind.None), BuildPatrolWriteTriageSummary(triageMetrics));
+                Assert.That(triageMetrics.ActualCommittedMoveWrites, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
+                Assert.That(triageMetrics.TraceCommittedMoveCount, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
+                Assert.That(triageMetrics.SemanticCommittedMoveCount, Is.EqualTo(1), BuildPatrolWriteTriageSummary(triageMetrics));
+                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
+                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|"));
+                Assert.That(tick1.Trace.Text, Does.Contain("Label=CommittedMove"));
+                Assert.That(tick2Updates, Is.Empty);
+                Assert.That(tick3Updates, Is.Empty);
+                Assert.That(tick4Updates, Is.Empty);
+                Assert.That(patrolState.IsInitialized, Is.True);
+                Assert.That(patrolState.homeCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(patrolState.sequence, Is.EqualTo(2));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_WindupRandomWalkPilot_CapturesPatrolOrigin_WhenLeavingPatrolBeforeFirstCommittedMove()
+        {
+            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(4, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var logic = new EnemyLogic(entityId: 40, profile);
+            var transitions = new List<string>();
+
+            try
+            {
+                ((IEnemyAiStateLogic)logic).CommitAiTransitions(
+                    worldState.CreateSnapshot(),
+                    new TickInput(1),
+                    EnemyAiTransitionStage.BeforeMovement,
+                    worldState.CreateWriteContext(),
+                    transitions);
+
+                var enemy = GetEntity(worldState, 40);
+                var patrolState = GetEnemyPatrolState(worldState, 40);
+
+                Assert.That(enemy.aiMode, Is.EqualTo(EnemyAiMode.Chase));
+                Assert.That(patrolState.IsInitialized, Is.True);
+                Assert.That(patrolState.homeCell, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(patrolState.sequence, Is.EqualTo(1));
+                Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(Direction.None));
+                Assert.That(transitions, Has.Some.Contains("EnemyPatrolStateUpdated|E=40|Label=Initialized|Seq=1|Home=Floor(0,0)|LastDirection=None"));
+                Assert.That(transitions, Has.Some.Contains("EnemyAiTransition|Stage=BeforeMovement|E=40|From=Patrol|FromTimer=0|To=Chase|ToTimer=0|Reason=TargetSensed"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover()
+        {
+            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var tick1 = pipeline.RunTick(new TickInput(1));
+                var tick2 = pipeline.RunTick(new TickInput(2));
+                var tick3 = pipeline.RunTick(new TickInput(3));
+                var tick4 = pipeline.RunTick(new TickInput(4));
+                var patrolState = GetEnemyPatrolState(worldState, 40);
+                var tick1Updates = ParsePatrolStateUpdates(tick1.Trace.Text, 40);
+                var tick2Updates = ParsePatrolStateUpdates(tick2.Trace.Text, 40);
+                var tick3Updates = ParsePatrolStateUpdates(tick3.Trace.Text, 40);
+                var tick4Updates = ParsePatrolStateUpdates(tick4.Trace.Text, 40);
+
+                TestContext.Progress.WriteLine($"PatrolTraceDiagnostic|Tick=1|Entity=40|RawCount={CountPatrolStateUpdates(tick1.Trace.Text, 40)}");
+                TestContext.Progress.WriteLine(
+                    $"PatrolNoWriteZone|Tick2={tick2Updates.Length}|Tick3={tick3Updates.Length}|Tick4={tick4Updates.Length}");
+                Assert.That(tick1Updates.All(update => update.Label == "Initialized"), Is.True);
+                Assert.That(tick1Updates.Select(update => update.Sequence).ToArray(), Is.EqualTo(new[] { 1 }));
+                Assert.That(tick1Updates.Select(update => update.Home).Distinct().ToArray(), Is.EqualTo(new[] { "Floor(0,0)" }));
+                Assert.That(tick1Updates.Select(update => update.LastDirection).Distinct().ToArray(), Is.EqualTo(new[] { "None" }));
+                Assert.That(tick1.Trace.Text, Does.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
+                Assert.That(tick1.Trace.Text, Does.Not.Contain("Label=CommittedMove"));
+                Assert.That(tick2Updates, Is.Empty);
+                Assert.That(tick3Updates, Is.Empty);
+                Assert.That(tick4Updates, Is.Empty);
+                Assert.That(patrolState.sequence, Is.EqualTo(1));
+                Assert.That(patrolState.lastCommittedDirection, Is.EqualTo(Direction.None));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupForwardBaseline_AttackCommittedControlProbe_IsComplete()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 1);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+
+            try
+            {
+                var metrics = RunWindupContractMetrics(worldState, profile, ticks: 4);
+                TestContext.Progress.WriteLine($"WindupGateSummary|Label=forward baseline self-check|{BuildWindupMetricsSummary(metrics)}");
+                AssertWindupAttackControlGreen(metrics, "forward baseline self-check", ResolveRecoverTicks(profile));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupForwardBaseline_LockedTargetLostControlProbe_IsComplete()
+        {
+            var profile = CreateEnemyProfile(windupTicks: 2);
+            var metrics = RunLockedTargetLostControlProbe(profile);
+
+            try
+            {
+                TestContext.Progress.WriteLine($"LockedTargetLostGateSummary|Label=forward locked-target-lost self-check|{BuildLockedTargetLostMetricsSummary(metrics)}");
+                AssertLockedTargetLostControlGreen(metrics, "forward locked-target-lost self-check", EnemyAiMode.Patrol);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline()
+        {
+            var controlProfile = CreateEnemyProfile(windupTicks: 1);
+            var baselineProfile = CreateEnemyProfile(windupTicks: 1);
+            var pilotProfile = CreateWindupRandomWalkPilotProfile(windupTicks: 1);
+            var controlWorld = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+            var baselineWorld = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+            var pilotWorld = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+
+            try
+            {
+                var expectedRecoverTicks = ResolveRecoverTicks(controlProfile);
+                AssertWindupAttackControlGreen(
+                    RunWindupContractMetrics(controlWorld, controlProfile, ticks: 4),
+                    "forward baseline self-check",
+                    expectedRecoverTicks);
+                var comparison = RunWindupParityComparison(baselineWorld, baselineProfile, pilotWorld, pilotProfile, ticks: 6);
+                var baselineMetrics = comparison.Baseline;
+                var pilotMetrics = comparison.Pilot;
+                TestContext.Progress.WriteLine($"WindupGateSummary|Label=baseline direct-lane|{BuildWindupMetricsSummary(baselineMetrics)}");
+                TestContext.Progress.WriteLine($"WindupGateSummary|Label=pilot direct-lane|{BuildWindupMetricsSummary(pilotMetrics)}");
+                AssertWindupProbeComplete(baselineMetrics, "baseline direct-lane", ResolveRecoverTicks(baselineProfile));
+                AssertWindupProbeComplete(pilotMetrics, "pilot direct-lane", ResolveRecoverTicks(pilotProfile));
+
+                Assert.That(pilotMetrics.TargetSensedTick, Is.EqualTo(baselineMetrics.TargetSensedTick));
+                Assert.That(pilotMetrics.TargetInRangeTick, Is.EqualTo(baselineMetrics.TargetInRangeTick));
+                Assert.That(pilotMetrics.AttackEntryTick, Is.EqualTo(baselineMetrics.AttackEntryTick));
+                Assert.That(pilotMetrics.ActionStartTick, Is.EqualTo(baselineMetrics.ActionStartTick));
+                Assert.That(pilotMetrics.AttackExecuteTick, Is.EqualTo(baselineMetrics.AttackExecuteTick));
+                Assert.That(pilotMetrics.AttackExecuteActionStateActiveTick, Is.EqualTo(baselineMetrics.AttackExecuteActionStateActiveTick));
+                Assert.That(pilotMetrics.AttackExecuteExecutionAttemptedTick, Is.EqualTo(baselineMetrics.AttackExecuteExecutionAttemptedTick));
+                Assert.That(pilotMetrics.AttackCommittedTraceTick, Is.EqualTo(baselineMetrics.AttackCommittedTraceTick));
+                Assert.That(pilotMetrics.AttackCommittedRecoverTick, Is.EqualTo(baselineMetrics.AttackCommittedRecoverTick));
+                Assert.That(pilotMetrics.RecoverEntryTick, Is.EqualTo(baselineMetrics.RecoverEntryTick));
+                Assert.That(pilotMetrics.RecoverCompleteTick, Is.EqualTo(baselineMetrics.RecoverCompleteTick));
+                Assert.That(pilotMetrics.RecoverTickCount, Is.EqualTo(baselineMetrics.RecoverTickCount));
+                Assert.That(pilotMetrics.RecoverPatrolWriteCount, Is.EqualTo(baselineMetrics.RecoverPatrolWriteCount));
+                Assert.That(
+                    pilotMetrics.AttackCommittedTick - pilotMetrics.AttackEntryTick,
+                    Is.EqualTo(baselineMetrics.AttackCommittedTick - baselineMetrics.AttackEntryTick));
+                Assert.That(
+                    pilotMetrics.RecoverEntryTick - pilotMetrics.AttackCommittedTick,
+                    Is.EqualTo(baselineMetrics.RecoverEntryTick - baselineMetrics.AttackCommittedTick));
+                Assert.That(
+                    pilotMetrics.RecoverCompleteTick - pilotMetrics.RecoverEntryTick,
+                    Is.EqualTo(baselineMetrics.RecoverCompleteTick - baselineMetrics.RecoverEntryTick));
+                Assert.That(pilotMetrics.FirstCombatDamageTick, Is.EqualTo(baselineMetrics.FirstCombatDamageTick));
+                Assert.That(comparison.FirstDivergentPositionOrFacingTick, Is.Zero);
+            }
+            finally
+            {
+                DestroyProfile(controlProfile);
+                DestroyProfile(baselineProfile);
+                DestroyProfile(pilotProfile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyRandomWalkPatrolPlanner_WindupPilotPreset_MeetsMeleeScorecard()
+        {
+            var shippingSettings = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilotPatrolSettings();
+            var controlSettings = PatrolSettings.CreateDefaultRandomWalk();
+            var rejectControlSettings = new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 8,
+                sideWeight: 1,
+                backwardWeight: 0,
+                preventImmediateBacktrack: true);
+
+            var shippingMetrics = SampleRandomWalkScorecardMetrics(shippingSettings);
+            var controlMetrics = SampleRandomWalkScorecardMetrics(controlSettings);
+            var rejectControlMetrics = SampleRandomWalkScorecardMetrics(rejectControlSettings);
+            var baselineCombatTick = MeasureFirstCombatDamageTick(CreateEnemyProfile(windupTicks: 0));
+            var shippingCombatTick = MeasureFirstCombatDamageTick(CreateWindupRandomWalkPilotProfile(windupTicks: 0, includePassiveContact: false));
+
+            Assert.That(shippingMetrics.MaxHomeDistance, Is.LessThanOrEqualTo(1));
+            Assert.That(shippingMetrics.ForwardCommittedShare, Is.GreaterThanOrEqualTo(0.6f));
+            Assert.That(shippingMetrics.AvoidableImmediateBacktrackCount, Is.EqualTo(0));
+            Assert.That(shippingCombatTick, Is.GreaterThanOrEqualTo(baselineCombatTick));
+            Assert.That(shippingCombatTick, Is.LessThanOrEqualTo(baselineCombatTick + 1));
+            Assert.That(controlMetrics.MaxHomeDistance, Is.GreaterThanOrEqualTo(shippingMetrics.MaxHomeDistance));
+            TestContext.Progress.WriteLine(
+                $"WindupPilotScorecard|ShippingCommitted={shippingMetrics.CommittedMoves}|RejectControlCommitted={rejectControlMetrics.CommittedMoves}|ShippingImmediateBacktracks={shippingMetrics.ImmediateBacktrackCount}|RejectImmediateBacktracks={rejectControlMetrics.ImmediateBacktrackCount}");
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyAi_WindupRandomWalkPilot_SameCellCombatPassiveOrdering_IsExact()
+        {
+            var profile = CreateWindupRandomWalkPilotProfile(windupTicks: 1, includePassiveContact: true);
+            var sharedCell = new SurfaceCell(FaceId.Floor, 2, 1);
+
+            try
+            {
+                var passiveOnlyWorld = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Chase, facing: Direction.Left),
+                });
+                var passiveOnlyLogic = new EnemyLogic(entityId: 40, profile);
+                var passiveOnlyBuffer = new List<RawAttackIntent>();
+
+                passiveOnlyLogic.CollectAttackIntents(passiveOnlyWorld.CreateSnapshot(), new TickInput(1), passiveOnlyBuffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceKind: AttackSourceKind.PassiveContact, LocalSequence: 1),
+                    },
+                    passiveOnlyBuffer.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray());
+
+                var primedWorld = CreateWorldState(new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: sharedCell, aiMode: EnemyAiMode.None),
+                    CreateUnit(entityId: 40, teamId: 2, position: sharedCell, aiMode: EnemyAiMode.Attack, facing: Direction.Left),
+                });
+                primedWorld.CreateWriteContext().SetEnemyActionState(
+                    40,
+                    new EnemyActionRuntimeState
+                    {
+                        kind = EnemyActionKind.Melee,
+                        sequence = 1,
+                        lockedTargetEntityId = 10,
+                        direction = Direction.Left,
+                        startTick = 0,
+                        executeTick = 1,
+                    });
+                var primedLogic = new EnemyLogic(entityId: 40, profile);
+                var primedBuffer = new List<RawAttackIntent>();
+
+                primedLogic.CollectAttackIntents(primedWorld.CreateSnapshot(), new TickInput(1), primedBuffer);
+
+                CollectionAssert.AreEqual(
+                    new[]
+                    {
+                        (SourceKind: AttackSourceKind.Combat, LocalSequence: 0),
+                        (SourceKind: AttackSourceKind.PassiveContact, LocalSequence: 1),
+                    },
+                    primedBuffer.Select(intent => (intent.SourceKind, intent.LocalSequence)).ToArray());
             }
             finally
             {
@@ -2288,6 +2877,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
             return EnemyAiProfileTestFactory.CreateNonAttacking(moveCooldownTicks);
         }
 
+        private static EnemyAiProfile CreateWindupRandomWalkPilotProfile(
+            int windupTicks = 1,
+            int moveCooldownTicks = 0,
+            int recoverTicks = 1,
+            bool includePassiveContact = true)
+        {
+            return EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(
+                windupTicks,
+                moveCooldownTicks,
+                recoverTicks,
+                includePassiveContact);
+        }
+
         private static EnemyAiProfile CreateForwardPatrolOnlyProfile(PatrolSettings patrolSettings)
         {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
@@ -2311,6 +2913,685 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             return EnemyAiProfileTestFactory.CreateJumpPatrol(
                 new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1));
+        }
+
+        private static int CountPatrolStateUpdates(string traceText, int entityId)
+        {
+            if (string.IsNullOrEmpty(traceText))
+            {
+                return 0;
+            }
+
+            return traceText
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Count(line => line.Contains("EnemyPatrolStateUpdated|", StringComparison.Ordinal) &&
+                               line.Contains($"|E={entityId}|", StringComparison.Ordinal));
+        }
+
+        private static PatrolStateUpdateRecord[] ParsePatrolStateUpdates(string traceText, int entityId)
+        {
+            if (string.IsNullOrEmpty(traceText))
+            {
+                return Array.Empty<PatrolStateUpdateRecord>();
+            }
+
+            return traceText
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(line => line.Contains("EnemyPatrolStateUpdated|", StringComparison.Ordinal) &&
+                               line.Contains($"|E={entityId}|", StringComparison.Ordinal))
+                .Select(line => new PatrolStateUpdateRecord(
+                    ReadDelimitedField(line, "Label"),
+                    int.Parse(ReadDelimitedField(line, "Seq")),
+                    ReadDelimitedField(line, "Home"),
+                    ReadDelimitedField(line, "LastDirection")))
+                .ToArray();
+        }
+
+        private static RandomWalkScorecardMetrics SampleRandomWalkScorecardMetrics(PatrolSettings patrolSettings)
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = patrolSettings,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+            });
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(2, 2), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(Vector2Int.zero, new Vector2Int(4, 4)));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var homeCell = new SurfaceCell(FaceId.Floor, 2, 2);
+                var maxHomeDistance = 0;
+                var forwardMoves = 0;
+                var scoredMoves = 0;
+                var committedMoves = 0;
+                var immediateBacktracks = 0;
+                var avoidableImmediateBacktracks = 0;
+                var lastCommittedDirection = Direction.None;
+
+                for (var tickIndex = 1; tickIndex <= 20; tickIndex++)
+                {
+                    var snapshot = worldState.CreateSnapshot();
+                    var enemyBeforeTick = GetEntity(worldState, 40);
+                    snapshot.TryGetEnemyPatrolState(40, out var patrolStateBeforeTick);
+                    var builtProposal = EnemyPatrolDecisionPlanner.TryBuildProposal(
+                        snapshot,
+                        enemyBeforeTick,
+                        tickIndex,
+                        PatrolStrategyKind.RandomWalk,
+                        patrolStateBeforeTick,
+                        patrolSettings,
+                        out var proposal);
+                    var forwardCandidateAvailable = builtProposal &&
+                                                    (proposal.CandidateMask & GetCandidateMaskBit(enemyBeforeTick.facing)) != 0;
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    var enemy = GetEntity(worldState, 40);
+                    var patrolState = GetEnemyPatrolState(worldState, 40);
+                    var homeDistance = Mathf.Abs(enemy.position.x - homeCell.x) + Mathf.Abs(enemy.position.y - homeCell.y);
+
+                    maxHomeDistance = Mathf.Max(maxHomeDistance, homeDistance);
+
+                    if (!SemanticEventAssertions.ContainsEvent(tick.EventLog, "MoveCommitted", "E=40"))
+                    {
+                        continue;
+                    }
+
+                    committedMoves++;
+                    var committedDirection = patrolState.lastCommittedDirection;
+                    if (forwardCandidateAvailable)
+                    {
+                        scoredMoves++;
+                        if (committedDirection == enemyBeforeTick.facing)
+                        {
+                            forwardMoves++;
+                        }
+                    }
+
+                    if (lastCommittedDirection != Direction.None &&
+                        committedDirection == ResolveOppositeDirection(lastCommittedDirection))
+                    {
+                        immediateBacktracks++;
+                        if (builtProposal &&
+                            HasAlternativeCandidateDirection(proposal.CandidateMask, committedDirection))
+                        {
+                            avoidableImmediateBacktracks++;
+                        }
+                    }
+
+                    lastCommittedDirection = committedDirection;
+                }
+
+                return new RandomWalkScorecardMetrics(
+                    maxHomeDistance,
+                    forwardMoves,
+                    scoredMoves,
+                    committedMoves,
+                    immediateBacktracks,
+                    avoidableImmediateBacktracks);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        private static bool HasAlternativeCandidateDirection(int candidateMask, Direction chosenDirection)
+        {
+            return (candidateMask & ~GetCandidateMaskBit(chosenDirection)) != 0;
+        }
+
+        private static int MeasureFirstCombatDamageTick(EnemyAiProfile profile)
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+                for (var tickIndex = 1; tickIndex <= 6; tickIndex++)
+                {
+                    var tick = pipeline.RunTick(new TickInput(tickIndex));
+                    if (tick.AttackPhaseResult.DamageResolutions.Any(record =>
+                            record.Accepted &&
+                            record.SourceId == 40 &&
+                            record.TargetId == 10 &&
+                            record.SourceKind == AttackSourceKind.Combat))
+                    {
+                        return tickIndex;
+                    }
+                }
+
+                Assert.Fail("Expected a combat damage tick within the bounded scorecard window.");
+                return -1;
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        private static LockedTargetLostMetrics RunLockedTargetLostControlProbe(EnemyAiProfile profile)
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None, hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Chase, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 0)));
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var activeWindupEntryTick = 0;
+            var cancelOwnerTick = 0;
+            var cancelTraceTick = 0;
+
+            var windupTick = pipeline.RunTick(new TickInput(1));
+            var windupSignals = windupTick.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40).ToArray();
+            if (windupSignals.Any(signal => signal.StartedThisTick) || GetEnemyActionState(worldState, 40).IsActive)
+            {
+                activeWindupEntryTick = 1;
+            }
+
+            worldState.CreateWriteContext().ApplyDamage(10, 3);
+            var cancelTick = pipeline.RunTick(new TickInput(2));
+            var enemyAfterCancelTick = GetEntity(worldState, 40);
+            var actionStateAfterCancelTick = GetEnemyActionState(worldState, 40);
+            var cancelSignals = cancelTick.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40).ToArray();
+            if (cancelSignals.Any(signal => signal.CanceledThisTick) &&
+                !actionStateAfterCancelTick.IsActive &&
+                enemyAfterCancelTick.aiMode == EnemyAiMode.Patrol)
+            {
+                cancelOwnerTick = 2;
+            }
+
+            if (cancelTick.Trace.Text.Contains("LockedTargetLost", StringComparison.Ordinal))
+            {
+                cancelTraceTick = 2;
+            }
+
+            return new LockedTargetLostMetrics(
+                activeWindupEntryTick,
+                cancelOwnerTick,
+                cancelTraceTick,
+                enemyAfterCancelTick.aiMode,
+                Array.Empty<int>());
+        }
+
+        private static WindupParityComparisonMetrics RunWindupParityComparison(
+            WorldState baselineWorldState,
+            EnemyAiProfile baselineProfile,
+            WorldState pilotWorldState,
+            EnemyAiProfile pilotProfile,
+            int ticks)
+        {
+            var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState, baselineProfile);
+            var pilotPipeline = GameplayCompositionRoot.CreateTickPipeline(pilotWorldState, pilotProfile);
+            var baselineMetrics = default(WindupContractMetrics);
+            var pilotMetrics = default(WindupContractMetrics);
+            var firstDivergentPositionOrFacingTick = 0;
+
+            for (var tickIndex = 1; tickIndex <= ticks; tickIndex++)
+            {
+                var baselineTick = baselinePipeline.RunTick(new TickInput(tickIndex));
+                var pilotTick = pilotPipeline.RunTick(new TickInput(tickIndex));
+
+                baselineMetrics = UpdateWindupContractMetrics(baselineMetrics, baselineWorldState, baselineTick, tickIndex);
+                pilotMetrics = UpdateWindupContractMetrics(pilotMetrics, pilotWorldState, pilotTick, tickIndex);
+
+                if (firstDivergentPositionOrFacingTick == 0)
+                {
+                    var baselineEnemy = GetEntityAfterTick(baselineTick, 40);
+                    var pilotEnemy = GetEntityAfterTick(pilotTick, 40);
+                    if (baselineEnemy.position != pilotEnemy.position ||
+                        baselineEnemy.facing != pilotEnemy.facing)
+                    {
+                        firstDivergentPositionOrFacingTick = tickIndex;
+                    }
+                }
+            }
+
+            return new WindupParityComparisonMetrics(baselineMetrics, pilotMetrics, firstDivergentPositionOrFacingTick);
+        }
+
+        private static WindupContractMetrics RunWindupContractMetrics(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            int ticks)
+        {
+            var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var metrics = default(WindupContractMetrics);
+
+            for (var tickIndex = 1; tickIndex <= ticks; tickIndex++)
+            {
+                var tick = pipeline.RunTick(new TickInput(tickIndex));
+                metrics = UpdateWindupContractMetrics(metrics, worldState, tick, tickIndex);
+            }
+
+            return metrics;
+        }
+
+        private static WindupContractMetrics UpdateWindupContractMetrics(
+            WindupContractMetrics metrics,
+            WorldState worldState,
+            TickResult tick,
+            int tickIndex)
+        {
+            var trace = tick.Trace.Text;
+            var actionSignals = tick.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40).ToArray();
+            var targetSensedTick = CaptureFirstTransitionTick(trace, 40, "TargetSensed", tickIndex, metrics.TargetSensedTick);
+            var targetInRangeTick = CaptureFirstTransitionTick(trace, 40, "TargetInRange", tickIndex, metrics.TargetInRangeTick);
+            var attackEntryTick = CaptureFirstTransitionIntoModeTick(trace, 40, EnemyAiMode.Attack, tickIndex, metrics.AttackEntryTick);
+            var actionStartTick = metrics.ActionStartTick;
+            if (actionStartTick == 0 && actionSignals.Any(signal => signal.StartedThisTick))
+            {
+                actionStartTick = tickIndex;
+            }
+
+            var attackExecuteTick = metrics.AttackExecuteTick;
+            var attackExecuteActionStateActiveTick = metrics.AttackExecuteActionStateActiveTick;
+            var attackExecuteExecutionAttemptedTick = metrics.AttackExecuteExecutionAttemptedTick;
+            if (attackExecuteTick == 0 &&
+                (actionSignals.Any(signal => signal.ExecutedThisTick) ||
+                 tick.AttackPhaseResult.DamageResolutions.Any(record =>
+                     record.Accepted &&
+                     record.SourceId == 40 &&
+                     record.TargetId == 10 &&
+                     record.SourceKind == AttackSourceKind.Combat)))
+            {
+                attackExecuteTick = tickIndex;
+                var actionState = GetEnemyActionState(worldState, 40);
+                if (actionState.IsActive)
+                {
+                    attackExecuteActionStateActiveTick = tickIndex;
+                }
+
+                if (actionState.executionAttempted)
+                {
+                    attackExecuteExecutionAttemptedTick = tickIndex;
+                }
+            }
+
+            var attackCommittedTraceTick = CaptureFirstTransitionTick(trace, 40, "AttackCommitted", tickIndex, metrics.AttackCommittedTraceTick);
+            var attackCommittedRecoverTick = CaptureFirstTransitionExactTick(
+                trace,
+                40,
+                EnemyAiMode.Attack,
+                EnemyAiMode.Recover,
+                tickIndex,
+                metrics.AttackCommittedRecoverTick);
+            var recoverEntryTick = CaptureFirstTransitionIntoModeTick(trace, 40, EnemyAiMode.Recover, tickIndex, metrics.RecoverEntryTick);
+            var recoverCompleteTick = CaptureFirstTransitionReasonPrefixTick(
+                trace,
+                40,
+                "RecoverComplete",
+                tickIndex,
+                metrics.RecoverCompleteTick);
+            var recoverTickCount = metrics.RecoverTickCount + CountTransitionReasonsWithPrefix(trace, 40, "RecoverTick");
+            var recoverPatrolWriteCount = metrics.RecoverPatrolWriteCount;
+            if (IsRecoverLaneTick(trace, 40))
+            {
+                recoverPatrolWriteCount += CountPatrolStateUpdates(trace, 40);
+            }
+            var firstCombatDamageTick = metrics.FirstCombatDamageTick;
+
+            if (firstCombatDamageTick == 0 &&
+                tick.AttackPhaseResult.DamageResolutions.Any(record =>
+                    record.Accepted &&
+                    record.SourceId == 40 &&
+                    record.TargetId == 10 &&
+                    record.SourceKind == AttackSourceKind.Combat))
+            {
+                firstCombatDamageTick = tickIndex;
+            }
+
+            return new WindupContractMetrics(
+                targetSensedTick,
+                targetInRangeTick,
+                attackEntryTick,
+                actionStartTick,
+                attackExecuteTick,
+                attackExecuteActionStateActiveTick,
+                attackExecuteExecutionAttemptedTick,
+                attackCommittedTraceTick,
+                attackCommittedRecoverTick,
+                recoverEntryTick,
+                recoverCompleteTick,
+                recoverTickCount,
+                recoverPatrolWriteCount,
+                firstCombatDamageTick);
+        }
+
+        private static int CaptureFirstTransitionTick(string traceText, int entityId, string reason, int tickIndex, int currentTick)
+        {
+            if (currentTick != 0 || string.IsNullOrEmpty(traceText))
+            {
+                return currentTick;
+            }
+
+            var lines = traceText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Contains("EnemyAiTransition|", StringComparison.Ordinal) &&
+                    lines[i].Contains($"|E={entityId}|", StringComparison.Ordinal) &&
+                    lines[i].Contains($"|Reason={reason}", StringComparison.Ordinal))
+                {
+                    return tickIndex;
+                }
+            }
+
+            return currentTick;
+        }
+
+        private static int CaptureFirstTransitionReasonPrefixTick(
+            string traceText,
+            int entityId,
+            string reasonPrefix,
+            int tickIndex,
+            int currentTick)
+        {
+            if (currentTick != 0 || string.IsNullOrEmpty(traceText))
+            {
+                return currentTick;
+            }
+
+            var lines = traceText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].Contains("EnemyAiTransition|", StringComparison.Ordinal) ||
+                    !lines[i].Contains($"|E={entityId}|", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var reason = ReadDelimitedField(lines[i], "Reason");
+                if (reason.StartsWith(reasonPrefix, StringComparison.Ordinal))
+                {
+                    return tickIndex;
+                }
+            }
+
+            return currentTick;
+        }
+
+        private static int CaptureFirstTransitionIntoModeTick(
+            string traceText,
+            int entityId,
+            EnemyAiMode targetMode,
+            int tickIndex,
+            int currentTick)
+        {
+            if (currentTick != 0 || string.IsNullOrEmpty(traceText))
+            {
+                return currentTick;
+            }
+
+            var lines = traceText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (!lines[i].Contains("EnemyAiTransition|", StringComparison.Ordinal) ||
+                    !lines[i].Contains($"|E={entityId}|", StringComparison.Ordinal) ||
+                    !lines[i].Contains($"|To={targetMode}", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                if (lines[i].Contains($"|From={targetMode}|", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return tickIndex;
+            }
+
+            return currentTick;
+        }
+
+        private static int CaptureFirstTransitionExactTick(
+            string traceText,
+            int entityId,
+            EnemyAiMode fromMode,
+            EnemyAiMode toMode,
+            int tickIndex,
+            int currentTick)
+        {
+            if (currentTick != 0 || string.IsNullOrEmpty(traceText))
+            {
+                return currentTick;
+            }
+
+            var lines = traceText.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            for (var i = 0; i < lines.Length; i++)
+            {
+                if (lines[i].Contains("EnemyAiTransition|", StringComparison.Ordinal) &&
+                    lines[i].Contains($"|E={entityId}|", StringComparison.Ordinal) &&
+                    lines[i].Contains($"|From={fromMode}|", StringComparison.Ordinal) &&
+                    lines[i].Contains($"|To={toMode}", StringComparison.Ordinal))
+                {
+                    return tickIndex;
+                }
+            }
+
+            return currentTick;
+        }
+
+        private static int CountTransitionReasonsWithPrefix(string traceText, int entityId, string reasonPrefix)
+        {
+            if (string.IsNullOrEmpty(traceText))
+            {
+                return 0;
+            }
+
+            return traceText
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Count(line =>
+                    line.Contains("EnemyAiTransition|", StringComparison.Ordinal) &&
+                    line.Contains($"|E={entityId}|", StringComparison.Ordinal) &&
+                    ReadDelimitedField(line, "Reason").StartsWith(reasonPrefix, StringComparison.Ordinal));
+        }
+
+        private static bool IsRecoverLaneTick(string traceText, int entityId)
+        {
+            if (string.IsNullOrEmpty(traceText))
+            {
+                return false;
+            }
+
+            return traceText
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Any(line =>
+                    line.Contains("EnemyAiTransition|", StringComparison.Ordinal) &&
+                    line.Contains($"|E={entityId}|", StringComparison.Ordinal) &&
+                    (line.Contains("|From=Recover|", StringComparison.Ordinal) ||
+                     line.Contains("|To=Recover|", StringComparison.Ordinal)));
+        }
+
+        private static void AssertWindupAttackControlGreen(in WindupContractMetrics metrics, string label, int expectedRecoverTicks)
+        {
+            AssertCombatStartGateComplete(metrics, label, requireTargetSensed: false);
+            AssertExecuteGateComplete(metrics, label);
+            AssertCommitTraceGateComplete(metrics, label);
+            AssertRecoverGateComplete(metrics, label, expectedRecoverTicks);
+        }
+
+        private static void AssertWindupProbeComplete(in WindupContractMetrics metrics, string label, int expectedRecoverTicks)
+        {
+            AssertCombatStartGateComplete(metrics, label, requireTargetSensed: true);
+            AssertExecuteGateComplete(metrics, label);
+            AssertCommitTraceGateComplete(metrics, label);
+            AssertRecoverGateComplete(metrics, label, expectedRecoverTicks);
+        }
+
+        private static void AssertCombatStartGateComplete(in WindupContractMetrics metrics, string label, bool requireTargetSensed)
+        {
+            if (requireTargetSensed)
+            {
+                Assert.That(metrics.TargetSensedTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            }
+
+            Assert.That(metrics.TargetInRangeTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.AttackEntryTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.ActionStartTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+        }
+
+        private static void AssertExecuteGateComplete(in WindupContractMetrics metrics, string label)
+        {
+            Assert.That(metrics.AttackExecuteTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.AttackExecuteActionStateActiveTick, Is.EqualTo(metrics.AttackExecuteTick), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.AttackExecuteExecutionAttemptedTick, Is.EqualTo(metrics.AttackExecuteTick), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.FirstCombatDamageTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+        }
+
+        private static void AssertCommitTraceGateComplete(in WindupContractMetrics metrics, string label)
+        {
+            Assert.That(metrics.AttackCommittedTraceTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.AttackCommittedRecoverTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.AttackCommittedTraceTick, Is.EqualTo(metrics.AttackCommittedRecoverTick), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+        }
+
+        private static void AssertRecoverGateComplete(in WindupContractMetrics metrics, string label, int expectedRecoverTicks)
+        {
+            Assert.That(metrics.RecoverEntryTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.RecoverCompleteTick, Is.GreaterThan(0), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.RecoverTickCount, Is.EqualTo(expectedRecoverTicks), $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.RecoverPatrolWriteCount, Is.Zero, $"{label}: {BuildWindupMetricsSummary(metrics)}");
+        }
+
+        private static void AssertLockedTargetLostControlGreen(
+            in LockedTargetLostMetrics metrics,
+            string label,
+            EnemyAiMode expectedFallbackMode)
+        {
+            AssertLockedTargetLostEntryGreen(metrics, label);
+            AssertLockedTargetLostCancelOwnerGreen(metrics, label, expectedFallbackMode);
+            AssertLockedTargetLostWordingGreen(metrics, label);
+        }
+
+        private static void AssertLockedTargetLostEntryGreen(in LockedTargetLostMetrics metrics, string label)
+        {
+            Assert.That(metrics.ActiveWindupEntryTick, Is.GreaterThan(0), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+        }
+
+        private static void AssertLockedTargetLostCancelOwnerGreen(
+            in LockedTargetLostMetrics metrics,
+            string label,
+            EnemyAiMode expectedFallbackMode)
+        {
+            Assert.That(metrics.CancelOwnerTick, Is.GreaterThan(0), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+            Assert.That(metrics.FallbackMode, Is.EqualTo(expectedFallbackMode), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+        }
+
+        private static void AssertLockedTargetLostWordingGreen(in LockedTargetLostMetrics metrics, string label)
+        {
+            Assert.That(metrics.CancelTraceTick, Is.GreaterThan(0), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+            Assert.That(metrics.CancelTraceTick, Is.EqualTo(metrics.CancelOwnerTick), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+        }
+
+        private static void AssertLockedTargetLostHomeReturnGreen(in LockedTargetLostMetrics metrics, string label, int leashRadius)
+        {
+            Assert.That(metrics.HomeDistanceSeries, Is.Not.Empty, $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+            for (var i = 1; i < metrics.HomeDistanceSeries.Count; i++)
+            {
+                Assert.That(
+                    metrics.HomeDistanceSeries[i],
+                    Is.LessThanOrEqualTo(metrics.HomeDistanceSeries[i - 1]),
+                    $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+            }
+
+            Assert.That(metrics.HomeDistanceSeries[^1], Is.LessThanOrEqualTo(leashRadius), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+        }
+
+        private static string BuildWindupMetricsSummary(in WindupContractMetrics metrics)
+        {
+            return $"TargetSensed={metrics.TargetSensedTick}, TargetInRange={metrics.TargetInRangeTick}, AttackEntry={metrics.AttackEntryTick}, ActionStart={metrics.ActionStartTick}, AttackExecute={metrics.AttackExecuteTick}, ExecuteActionStateActive={metrics.AttackExecuteActionStateActiveTick}, ExecuteAttempted={metrics.AttackExecuteExecutionAttemptedTick}, AttackCommittedTrace={metrics.AttackCommittedTraceTick}, AttackCommittedRecover={metrics.AttackCommittedRecoverTick}, RecoverEntry={metrics.RecoverEntryTick}, RecoverComplete={metrics.RecoverCompleteTick}, RecoverTickCount={metrics.RecoverTickCount}, RecoverPatrolWrites={metrics.RecoverPatrolWriteCount}, FirstCombatDamage={metrics.FirstCombatDamageTick}";
+        }
+
+        private static string BuildLockedTargetLostMetricsSummary(in LockedTargetLostMetrics metrics)
+        {
+            var homeDistanceSeries = metrics.HomeDistanceSeries.Count == 0
+                ? "<none>"
+                : string.Join(">", metrics.HomeDistanceSeries);
+            return $"ActiveWindupEntry={metrics.ActiveWindupEntryTick}, CancelOwner={metrics.CancelOwnerTick}, CancelTrace={metrics.CancelTraceTick}, FallbackMode={metrics.FallbackMode}, HomeDistanceSeries={homeDistanceSeries}";
+        }
+
+        private static PatrolWriteTriageMetrics BuildPatrolWriteTriageMetrics(
+            int initialSequence,
+            int finalSequence,
+            int initializedWriteCount,
+            int expectedCommittedMoveCount,
+            int traceCommittedMoveCount,
+            int semanticCommittedMoveCount)
+        {
+            var actualCommittedMoveWrites = Math.Max(0, finalSequence - initialSequence - initializedWriteCount);
+            return new PatrolWriteTriageMetrics(
+                initializedWriteCount,
+                expectedCommittedMoveCount,
+                actualCommittedMoveWrites,
+                traceCommittedMoveCount,
+                semanticCommittedMoveCount);
+        }
+
+        private static string BuildPatrolWriteTriageSummary(in PatrolWriteTriageMetrics metrics)
+        {
+            return $"InitializedWrites={metrics.InitializedWriteCount}, ExpectedCommittedMoveWrites={metrics.ExpectedCommittedMoveCount}, ActualCommittedMoveWrites={metrics.ActualCommittedMoveWrites}, TraceCommittedMoveWrites={metrics.TraceCommittedMoveCount}, SemanticCommittedMoves={metrics.SemanticCommittedMoveCount}, Classification={metrics.Classification}";
+        }
+
+        private static string ReadDelimitedField(string line, string fieldName)
+        {
+            var fieldPrefix = $"{fieldName}=";
+            var startIndex = line.IndexOf(fieldPrefix, StringComparison.Ordinal);
+            if (startIndex < 0)
+            {
+                return string.Empty;
+            }
+
+            startIndex += fieldPrefix.Length;
+            var endIndex = line.IndexOf('|', startIndex);
+            return endIndex >= 0
+                ? line.Substring(startIndex, endIndex - startIndex)
+                : line.Substring(startIndex);
+        }
+
+        private static int ResolveRecoverTicks(EnemyAiProfile profile)
+        {
+            return profile
+                .CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond)
+                .CommonSettings
+                .RecoverTicks;
+        }
+
+        private static int GetCandidateMaskBit(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => 1 << 0,
+                Direction.Right => 1 << 1,
+                Direction.Down => 1 << 2,
+                Direction.Left => 1 << 3,
+                _ => 0,
+            };
+        }
+
+        private static Direction ResolveOppositeDirection(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Down,
+                Direction.Right => Direction.Left,
+                Direction.Down => Direction.Up,
+                Direction.Left => Direction.Right,
+                _ => Direction.None,
+            };
         }
 
         private static EnemyAiProfile CreateJumpEnemyProfile(
