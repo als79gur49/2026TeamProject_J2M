@@ -34,9 +34,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int NonAttackingShowcaseEnemyId = 55;
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 57;
+        private const int ChargeShowcaseEnemyId = 58;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
         private const string JumpEnemyPresentationId = "Jump_showcase";
+        private const string ChargeEnemyPresentationId = "Charge_showcase";
 
         [Test]
         [Category("Full")]
@@ -114,13 +116,32 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var buildResult = BuildCombinedStage();
 
             Assert.That(buildResult.EnemyAiProfileOverrides, Is.Not.Null);
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(4));
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(5));
 
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(showcaseProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
             Assert.That(showcaseProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
             Assert.That(showcaseProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
             Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
+        }
+
+        [Test]
+        [Category("Full")]
+        public void CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy()
+        {
+            var buildResult = BuildCombinedStage();
+
+            Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var windupPilotProfile), Is.True);
+            Assert.That(windupPilotProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
+            Assert.That(windupPilotProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
+            Assert.That(windupPilotProfile.PatrolSettings.LeashRadius, Is.EqualTo(1));
+            Assert.That(windupPilotProfile.PatrolSettings.ForwardWeight, Is.EqualTo(6));
+            Assert.That(windupPilotProfile.PatrolSettings.SideWeight, Is.EqualTo(1));
+            Assert.That(windupPilotProfile.PatrolSettings.BackwardWeight, Is.EqualTo(1));
+            Assert.That(windupPilotProfile.PatrolSettings.PreventImmediateBacktrack, Is.True);
+            Assert.That(windupPilotProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
+            Assert.That(windupPilotProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
         }
 
         [Test]
@@ -152,13 +173,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
 
             Assert.That(presentation.EnemyPresentationBindings, Is.Not.Null);
-            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(5));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var configuredBinding), Is.True);
             Assert.That(configuredBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, WallFollowerShowcaseEnemyId, out var wallFollowerBinding), Is.True);
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
             Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
+            Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
         }
 
         [Test]

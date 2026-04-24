@@ -26,10 +26,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private const int NonAttackingShowcaseEnemyId = 55;
         private const int WallFollowerShowcaseEnemyId = 56;
         private const int JumpShowcaseEnemyId = 57;
+        private const int ChargeShowcaseEnemyId = 58;
         private const int TutorialEnemyId = 101;
         private const string AttackingEnemyPresentationId = "Attacking_showcase";
         private const string NonAttackingEnemyPresentationId = "nonAttacking_showcase";
         private const string JumpEnemyPresentationId = "Jump_showcase";
+        private const string ChargeEnemyPresentationId = "Charge_showcase";
         private const string WindupEnemyPresentationId = "windup_melee_showcase";
 
         [Test]
@@ -193,7 +195,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(stage, Is.Not.Null, $"Missing stage asset at '{CombinedStageAssetPath}'.");
             Assert.That(stage.PlayerSpawns.Length, Is.EqualTo(1));
             Assert.That(stage.BoxSpawns.Length, Is.EqualTo(12));
-            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(4));
+            Assert.That(stage.EnemySpawns.Length, Is.EqualTo(5));
             Assert.That(stage.WallSpawns.Length, Is.EqualTo(5));
 
             var buildResult = StageRuntimeBuilder.Build(stage);
@@ -269,12 +271,24 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
             Assert.That(jumpEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
 
-            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(4));
+            Assert.That(TryGetEntity(buildResult.InitialEntities, ChargeShowcaseEnemyId, out var chargeEnemy), Is.True);
+            Assert.That(chargeEnemy.position, Is.EqualTo(new SurfaceCell(FaceId.Back, 7, 7)));
+            Assert.That(chargeEnemy.facing, Is.EqualTo(Direction.Left));
+            Assert.That(chargeEnemy.aiMode, Is.EqualTo(EnemyAiMode.Patrol));
+            Assert.That(chargeEnemy.unitRole, Is.EqualTo(UnitRole.Enemy));
+
+            Assert.That(buildResult.EnemyAiProfileOverrides.Length, Is.EqualTo(5));
             Assert.That(TryGetProfileOverride(buildResult, ConfiguredShowcaseEnemyId, out var showcaseProfile), Is.True);
             Assert.That(showcaseProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Default));
+            Assert.That(showcaseProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
             Assert.That(showcaseProfile.AttackDecisionStrategyKind, Is.EqualTo(AttackDecisionStrategyKind.Melee));
             Assert.That(showcaseProfile.AttackTimingSettings.WindupSeconds, Is.EqualTo(1f));
             Assert.That(showcaseProfile.LocomotionTimingSettings.MoveCooldownSeconds, Is.EqualTo(1f));
+            Assert.That(showcaseProfile.PatrolSettings.LeashRadius, Is.EqualTo(1));
+            Assert.That(showcaseProfile.PatrolSettings.ForwardWeight, Is.EqualTo(6));
+            Assert.That(showcaseProfile.PatrolSettings.SideWeight, Is.EqualTo(1));
+            Assert.That(showcaseProfile.PatrolSettings.BackwardWeight, Is.EqualTo(1));
+            Assert.That(showcaseProfile.PatrolSettings.PreventImmediateBacktrack, Is.True);
 
             Assert.That(TryGetProfileOverride(buildResult, NonAttackingShowcaseEnemyId, out var nonAttackingProfile), Is.True);
             Assert.That(nonAttackingProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.RandomWalk));
@@ -294,6 +308,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(jumpProfile.JumpTimingSettings.AirborneSeconds, Is.EqualTo(1f));
             Assert.That(jumpProfile.JumpTimingSettings.CooldownSeconds, Is.EqualTo(3f));
 
+            Assert.That(TryGetProfileOverride(buildResult, ChargeShowcaseEnemyId, out var chargeProfile), Is.True);
+            Assert.That(chargeProfile.StateResolverKind, Is.EqualTo(EnemyAiStateResolverKind.Charge));
+            Assert.That(chargeProfile.PatrolStrategyKind, Is.EqualTo(PatrolStrategyKind.Forward));
+
             var presentationDefinition = AssetDatabase.LoadAssetAtPath<StagePresentationDefinition>(CombinedPresentationAssetPath);
             Assert.That(
                 presentationDefinition,
@@ -301,7 +319,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 $"Missing stage presentation asset at '{CombinedPresentationAssetPath}'.");
 
             var presentation = StagePresentationAssembler.Resolve(presentationDefinition);
-            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(4));
+            Assert.That(presentation.EnemyPresentationBindings.Length, Is.EqualTo(5));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ConfiguredShowcaseEnemyId, out var presentationBinding), Is.True);
             Assert.That(presentationBinding.PresentationId, Is.EqualTo(AttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, NonAttackingShowcaseEnemyId, out var nonAttackingBinding), Is.True);
@@ -310,6 +328,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(wallFollowerBinding.PresentationId, Is.EqualTo(NonAttackingEnemyPresentationId));
             Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, JumpShowcaseEnemyId, out var jumpBinding), Is.True);
             Assert.That(jumpBinding.PresentationId, Is.EqualTo(JumpEnemyPresentationId));
+            Assert.That(TryGetPresentationBinding(presentation.EnemyPresentationBindings, ChargeShowcaseEnemyId, out var chargeBinding), Is.True);
+            Assert.That(chargeBinding.PresentationId, Is.EqualTo(ChargeEnemyPresentationId));
         }
 
         [Test]
