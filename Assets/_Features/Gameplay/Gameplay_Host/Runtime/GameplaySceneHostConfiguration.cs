@@ -28,12 +28,6 @@ namespace Game.Feature.Gameplay.Host
         public IReadOnlyDictionary<int, EnemyAiRuntimeDefinition> DefinitionsByEntityId { get; }
     }
 
-    public enum TopologyRotationVisualMapping
-    {
-        ForwardUsesNegativeX = 0,
-        ForwardUsesPositiveX = 1,
-    }
-
     public readonly struct PlayerRespawnTimingAuthoritativeSnapshot
     {
         public PlayerRespawnTimingAuthoritativeSnapshot(

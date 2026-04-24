@@ -1693,7 +1693,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 60f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    DistanceMode = CameraDistanceMode.Manual,
                     ManualDistance = 7f,
                 });
                 rig.Initialize(viewCamera, targetObject.transform, visibleBounds);
@@ -1705,7 +1705,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 30f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    DistanceMode = CameraDistanceMode.Manual,
                     ManualDistance = 7f,
                 });
 
@@ -1741,7 +1741,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 60f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                    DistanceMode = CameraDistanceMode.AutoFit,
                 });
                 rig.Initialize(viewCamera, targetObject.transform, visibleBounds);
                 var initialDistance = Vector3.Distance(viewCamera.transform.position, targetObject.transform.position);
@@ -1752,7 +1752,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     YawDegrees = 0f,
                     PerspectiveFieldOfView = 30f,
                     FramingPadding = 1.2f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                    DistanceMode = CameraDistanceMode.AutoFit,
                 });
                 var narrowedDistance = Vector3.Distance(viewCamera.transform.position, targetObject.transform.position);
 
@@ -1763,6 +1763,253 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(rigObject);
                 UnityEngine.Object.DestroyImmediate(cameraObject);
                 UnityEngine.Object.DestroyImmediate(targetObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayCameraRig_DirectCameraAuthoredBaselineAndShake_MatchesFinalHierarchyPose_AndResets()
+        {
+            var rootObject = new GameObject("GameplayCameraRig_DirectCameraAuthoredBaselineAndShake_MatchesFinalHierarchyPose_AndResets");
+            var cameraObject = new GameObject("GameplayCameraRig_DirectCameraAuthoredBaselineAndShake_MatchesFinalHierarchyPose_AndResets_ViewCamera");
+
+            try
+            {
+                var boardRoot = rootObject.AddComponent<GameplayBoardRoot>();
+                boardRoot.EnsureHierarchy();
+                var targetWorldPosition = new Vector3(1.5f, -2f, 3.5f);
+                boardRoot.CameraTargetRoot.position = targetWorldPosition;
+
+                var viewCamera = cameraObject.AddComponent<Camera>();
+                viewCamera.aspect = 16f / 9f;
+
+                var rig = rootObject.AddComponent<GameplayCameraRig>();
+                var authoredWorldPosition = new Vector3(4f, 6f, -5f);
+                var authoredWorldRotation =
+                    Quaternion.LookRotation((targetWorldPosition - authoredWorldPosition).normalized, Vector3.up);
+                viewCamera.transform.SetPositionAndRotation(authoredWorldPosition, authoredWorldRotation);
+                rig.CaptureAuthoredSceneCameraPose(
+                    viewCamera.transform,
+                    fieldOfView: 42f,
+                    nearClipPlane: 0.2f,
+                    farClipPlane: 90f);
+
+                var baseSettings = new GameplayCameraSettings
+                {
+                    UseAuthoredSceneCameraPose = true,
+                    UseAuthoredSceneCameraLens = true,
+                    PitchDegrees = 10f,
+                    YawDegrees = 15f,
+                    DistanceMode = CameraDistanceMode.AutoFit,
+                    ManualDistance = 3f,
+                    FramingPadding = 1.2f,
+                    PerspectiveFieldOfView = 60f,
+                    NearClipPlane = 0.03f,
+                    FarClipPlane = 100f,
+                };
+                var resolvedSettings = rig.ResolveConfiguredSettings(
+                    baseSettings,
+                    targetWorldPosition,
+                    new CubeTopologyState(FaceId.Floor),
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
+
+                rig.ApplySettings(resolvedSettings);
+                rig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                rig.Initialize(viewCamera, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                var presentedOrbit = Quaternion.Euler(90f, 0f, 0f);
+                rig.SetPresentedTopologyOrbit(presentedOrbit);
+                rig.ApplyTopologyTransitionVisualState(
+                    CreateTopologyTransitionVisualState(
+                        progress01: 0.12f,
+                        CubeRotationKind.Forward,
+                        presentedOrbit));
+                rig.SnapToTarget();
+
+                var authoredBaselineLocalPosition = authoredWorldPosition - targetWorldPosition;
+                var authoredBaselineLocalRotation = authoredWorldRotation;
+                var expectedUnshakenWorldRotation = presentedOrbit * authoredBaselineLocalRotation;
+                var expectedUnshakenWorldPosition =
+                    targetWorldPosition + (presentedOrbit * authoredBaselineLocalPosition);
+                var expectedShakenWorldPosition = expectedUnshakenWorldPosition +
+                                                  (expectedUnshakenWorldRotation * rig.TopologyTransitionShakeLocalPosition);
+                var expectedShakenWorldRotation =
+                    expectedUnshakenWorldRotation * rig.TopologyTransitionShakeLocalRotation;
+
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, presentedOrbit),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraPoseRoot.localPosition, authoredBaselineLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraPoseRoot.localRotation, authoredBaselineLocalRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.localPosition, rig.TopologyTransitionShakeLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.localRotation, rig.TopologyTransitionShakeLocalRotation),
+                    Is.LessThan(0.001f));
+                AssertTransformPoseApproximately(
+                    viewCamera.transform,
+                    expectedShakenWorldPosition,
+                    expectedShakenWorldRotation);
+                AssertTransformPoseApproximately(viewCamera.transform, boardRoot.CameraEffectsRoot);
+
+                rig.ApplyTopologyTransitionVisualState(
+                    TopologyTransitionVisualState.Inactive(new CubeTopologyState(FaceId.Floor), presentedOrbit));
+                rig.SnapToTarget();
+
+                Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraPoseRoot.localPosition, authoredBaselineLocalPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraPoseRoot.localRotation, authoredBaselineLocalRotation),
+                    Is.LessThan(0.001f));
+                AssertTransformPoseApproximately(
+                    viewCamera.transform,
+                    expectedUnshakenWorldPosition,
+                    expectedUnshakenWorldRotation);
+                AssertTransformPoseApproximately(viewCamera.transform, boardRoot.CameraEffectsRoot);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(cameraObject);
+            }
+        }
+
+        [Test]
+        [Category("Full")]
+        public void GameplayCameraRig_DirectCameraAndHierarchyPaths_PreserveBaselineOrbitShakeParity()
+        {
+            var directRootObject =
+                new GameObject("GameplayCameraRig_DirectCameraAndHierarchyPaths_PreserveBaselineOrbitShakeParity_Direct");
+            var hierarchyRootObject =
+                new GameObject("GameplayCameraRig_DirectCameraAndHierarchyPaths_PreserveBaselineOrbitShakeParity_Hierarchy");
+            var directCameraObject =
+                new GameObject("GameplayCameraRig_DirectCameraAndHierarchyPaths_PreserveBaselineOrbitShakeParity_ViewCamera");
+            var authoredPoseObject =
+                new GameObject("GameplayCameraRig_DirectCameraAndHierarchyPaths_PreserveBaselineOrbitShakeParity_AuthoredPose");
+
+            try
+            {
+                var directBoardRoot = directRootObject.AddComponent<GameplayBoardRoot>();
+                directBoardRoot.EnsureHierarchy();
+                var hierarchyBoardRoot = hierarchyRootObject.AddComponent<GameplayBoardRoot>();
+                hierarchyBoardRoot.EnsureHierarchy();
+
+                var targetWorldPosition = new Vector3(-1.5f, 0.5f, 2.5f);
+                directBoardRoot.CameraTargetRoot.position = targetWorldPosition;
+                hierarchyBoardRoot.CameraTargetRoot.position = targetWorldPosition;
+
+                var authoredWorldPosition = new Vector3(6f, 5f, -7f);
+                var authoredWorldRotation =
+                    Quaternion.LookRotation((targetWorldPosition - authoredWorldPosition).normalized, Vector3.up);
+                authoredPoseObject.transform.SetPositionAndRotation(authoredWorldPosition, authoredWorldRotation);
+
+                var directCamera = directCameraObject.AddComponent<Camera>();
+                directCamera.aspect = 16f / 9f;
+                var directRig = directRootObject.AddComponent<GameplayCameraRig>();
+                var hierarchyRig = hierarchyRootObject.AddComponent<GameplayCameraRig>();
+                directRig.CaptureAuthoredSceneCameraPose(authoredPoseObject.transform, 44f, 0.2f, 88f);
+                hierarchyRig.CaptureAuthoredSceneCameraPose(authoredPoseObject.transform, 44f, 0.2f, 88f);
+
+                var baseSettings = new GameplayCameraSettings
+                {
+                    UseAuthoredSceneCameraPose = true,
+                    UseAuthoredSceneCameraLens = false,
+                    PitchDegrees = 5f,
+                    YawDegrees = 17f,
+                    DistanceMode = CameraDistanceMode.AutoFit,
+                    ManualDistance = 2f,
+                    FramingPadding = 1.2f,
+                    PerspectiveFieldOfView = 60f,
+                    NearClipPlane = 0.03f,
+                    FarClipPlane = 100f,
+                };
+                var directResolvedSettings = directRig.ResolveConfiguredSettings(
+                    baseSettings,
+                    targetWorldPosition,
+                    new CubeTopologyState(FaceId.Floor),
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
+                var hierarchyResolvedSettings = hierarchyRig.ResolveConfiguredSettings(
+                    baseSettings,
+                    targetWorldPosition,
+                    new CubeTopologyState(FaceId.Floor),
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
+
+                directRig.ApplySettings(directResolvedSettings);
+                hierarchyRig.ApplySettings(hierarchyResolvedSettings);
+                directRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                hierarchyRig.ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile.CreateDefault());
+                directRig.Initialize(directCamera, directBoardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+                hierarchyRig.Initialize(null, hierarchyBoardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+
+                var hierarchyCameraProxy = new GameObject("HierarchyCameraProxy");
+                hierarchyCameraProxy.transform.SetParent(hierarchyBoardRoot.CameraEffectsRoot, worldPositionStays: false);
+                hierarchyCameraProxy.transform.localPosition = Vector3.zero;
+                hierarchyCameraProxy.transform.localRotation = Quaternion.identity;
+
+                var presentedOrbit = Quaternion.Euler(90f, 0f, 0f);
+                var activeVisualState = CreateTopologyTransitionVisualState(
+                    progress01: 0.12f,
+                    CubeRotationKind.Forward,
+                    presentedOrbit);
+
+                directRig.SetPresentedTopologyOrbit(presentedOrbit);
+                hierarchyRig.SetPresentedTopologyOrbit(presentedOrbit);
+                directRig.ApplyTopologyTransitionVisualState(activeVisualState);
+                hierarchyRig.ApplyTopologyTransitionVisualState(activeVisualState);
+                directRig.SnapToTarget();
+                hierarchyRig.SnapToTarget();
+
+                Assert.That(
+                    Vector3.Distance(
+                        directBoardRoot.CameraPoseRoot.localPosition,
+                        hierarchyBoardRoot.CameraPoseRoot.localPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(
+                        directBoardRoot.CameraPoseRoot.localRotation,
+                        hierarchyBoardRoot.CameraPoseRoot.localRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Vector3.Distance(
+                        directBoardRoot.CameraEffectsRoot.localPosition,
+                        hierarchyBoardRoot.CameraEffectsRoot.localPosition),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(
+                        directBoardRoot.CameraEffectsRoot.localRotation,
+                        hierarchyBoardRoot.CameraEffectsRoot.localRotation),
+                    Is.LessThan(0.001f));
+                AssertTransformPoseApproximately(directCamera.transform, hierarchyCameraProxy.transform);
+
+                var inactiveVisualState =
+                    TopologyTransitionVisualState.Inactive(new CubeTopologyState(FaceId.Floor), presentedOrbit);
+                directRig.ApplyTopologyTransitionVisualState(inactiveVisualState);
+                hierarchyRig.ApplyTopologyTransitionVisualState(inactiveVisualState);
+                directRig.SnapToTarget();
+                hierarchyRig.SnapToTarget();
+
+                Assert.That(directBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(hierarchyBoardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(directBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(hierarchyBoardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                AssertTransformPoseApproximately(directCamera.transform, hierarchyCameraProxy.transform);
+
+                UnityEngine.Object.DestroyImmediate(hierarchyCameraProxy);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(directRootObject);
+                UnityEngine.Object.DestroyImmediate(hierarchyRootObject);
+                UnityEngine.Object.DestroyImmediate(directCameraObject);
+                UnityEngine.Object.DestroyImmediate(authoredPoseObject);
             }
         }
 
@@ -4777,7 +5024,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     PitchDegrees = 18f,
                     YawDegrees = 31f,
-                    DistanceMode = GameplayCameraRig.DistanceMode.Manual,
+                    DistanceMode = CameraDistanceMode.Manual,
                     ManualDistance = 9f,
                     FramingPadding = 1.35f,
                     PerspectiveFieldOfView = 47f,
@@ -4869,7 +5116,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                             UseAuthoredSceneCameraLens = true,
                             PitchDegrees = 5f,
                             YawDegrees = 17f,
-                            DistanceMode = GameplayCameraRig.DistanceMode.AutoFit,
+                            DistanceMode = CameraDistanceMode.AutoFit,
                             ManualDistance = 1f,
                             FramingPadding = 1.2f,
                             PerspectiveFieldOfView = 60f,
@@ -6729,9 +6976,39 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.001f));
         }
 
+        private static void AssertTransformPoseApproximately(
+            Transform actual,
+            Vector3 expectedPosition,
+            Quaternion expectedRotation)
+        {
+            Assert.That(Vector3.Distance(actual.position, expectedPosition), Is.LessThan(0.0001f));
+            Assert.That(Quaternion.Angle(actual.rotation, expectedRotation), Is.LessThan(0.001f));
+        }
+
+        private static void AssertTransformPoseApproximately(Transform actual, Transform expected)
+        {
+            AssertTransformPoseApproximately(actual, expected.position, expected.rotation);
+        }
+
         private static void AssertVectorApproximately(Vector3 actual, Vector3 expected)
         {
             Assert.That(Vector3.Distance(actual, expected), Is.LessThan(0.001f));
+        }
+
+        private static TopologyTransitionVisualState CreateTopologyTransitionVisualState(
+            float progress01,
+            CubeRotationKind rotationKind,
+            Quaternion presentedVisualRotation)
+        {
+            return new TopologyTransitionVisualState(
+                isActive: true,
+                progress01: progress01,
+                sourceTopology: new CubeTopologyState(FaceId.Floor),
+                destinationTopology: new CubeTopologyState(FaceId.Front),
+                rotationKind: rotationKind,
+                durationSeconds: 0.2f,
+                presentedVisualRotation: presentedVisualRotation,
+                angularVelocityNormalized: 1f);
         }
 
         private static int[] GetUnitIdsAt(WorldSnapshot snapshot, SurfaceCell cell)

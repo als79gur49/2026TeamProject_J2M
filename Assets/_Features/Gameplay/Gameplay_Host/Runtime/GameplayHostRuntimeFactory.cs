@@ -10,7 +10,6 @@ using Game.Feature.Gameplay.PlayerControl;
 using Game.Feature.Gameplay.UIAccess.Queries;
 using Game.Shared.Audio;
 using GameplayTerrainData = Game.Feature.Gameplay.BoardState.TerrainData;
-using Unity.Cinemachine;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Host
@@ -126,25 +125,15 @@ namespace Game.Feature.Gameplay.Host
                 faceSeamGap,
                 configuration.BoardSurfaceTexture);
 
-            var viewCamera = ResolveViewCamera(configuration);
-            var outputCamera = ResolveOutputCamera(configuration);
-            var outputCameraBrain = ResolveOutputCameraBrain(outputCamera);
-            presenter.AttachOutputCamera(outputCamera);
             var viewCameraTarget = boardRoot.CameraTargetRoot;
-            var viewCameraRig = ConfigureViewCameraRig(
+            var visualRuntime = GameplayHostTopologyVisualRuntimeBootstrap.Attach(
                 hostObject,
                 configuration,
-                viewCamera,
-                outputCameraBrain,
+                presenter,
                 viewCameraTarget,
                 presenter.VisibleCubeBounds);
-            presenter.AttachCameraRuntime(viewCameraRig, outputCameraBrain);
-
-            var topologyTransitionPostFxController =
-                hostObject.GetComponent<TopologyTransitionPostFxController>() ??
-                hostObject.AddComponent<TopologyTransitionPostFxController>();
-            topologyTransitionPostFxController.Initialize(configuration.TopologyTransitionPostFxProfile, outputCamera);
-            presenter.AttachTopologyTransitionPostFxController(topologyTransitionPostFxController);
+            var viewCamera = visualRuntime.ViewCamera;
+            var viewCameraRig = visualRuntime.ViewCameraRig;
 
             presenter.PresentInitial(presentedInitialEntities, configuration.InitialTopology);
             inputHost.Initialize(
@@ -272,41 +261,6 @@ namespace Game.Feature.Gameplay.Host
             return entityLogics;
         }
 
-        private static GameplayCameraRig ConfigureViewCameraRig(
-            GameObject hostObject,
-            GameplaySceneHostConfiguration configuration,
-            Camera viewCamera,
-            CinemachineBrain outputCameraBrain,
-            Transform viewCameraTarget,
-            Bounds visibleCubeBounds)
-        {
-            if (viewCameraTarget == null)
-            {
-                var existingRig = hostObject.GetComponent<GameplayCameraRig>();
-                if (existingRig != null)
-                {
-                    existingRig.enabled = false;
-                }
-
-                return existingRig;
-            }
-
-            var cameraRig = hostObject.GetComponent<GameplayCameraRig>() ?? hostObject.AddComponent<GameplayCameraRig>();
-            cameraRig.enabled = true;
-            cameraRig.ConfigureTopologyTransitionCameraShake(configuration.TopologyTransitionCameraShakeProfile);
-            var resolvedCameraSettings = cameraRig.ResolveConfiguredSettings(
-                configuration.CameraSettings ?? GameplayCameraSettings.CreateRuntimeDefault(),
-                viewCameraTarget.position,
-                configuration.InitialTopology,
-                configuration.TopologyRotationVisualMapping);
-            cameraRig.ApplySettings(resolvedCameraSettings);
-            cameraRig.Initialize(
-                outputCameraBrain == null ? viewCamera : null,
-                viewCameraTarget,
-                visibleCubeBounds);
-            return cameraRig;
-        }
-
         private static GameplayBoardRoot EnsureBoardRootHierarchy(Transform hostTransform)
         {
             var boardRoot = FindExistingBoardRoot(hostTransform);
@@ -347,11 +301,6 @@ namespace Game.Feature.Gameplay.Host
             return null;
         }
 
-        private static Camera ResolveViewCamera(GameplaySceneHostConfiguration configuration)
-        {
-            return configuration.ViewCamera ?? (configuration.SnapViewCameraToTarget ? Camera.main : null);
-        }
-
         private static void AttachGameplayAudioRuntimeIfConfigured(
             GameObject hostObject,
             GameplayTickViewPresenter presenter,
@@ -377,18 +326,6 @@ namespace Game.Feature.Gameplay.Host
             presenter.AttachGameplayAudioRuntime(
                 new GameplayAudioPlaybackPortAdapter(audioRuntimeInstaller.AudioService),
                 configuration.GameplayAudioMap);
-        }
-
-        private static Camera ResolveOutputCamera(GameplaySceneHostConfiguration configuration)
-        {
-            return configuration.ViewCamera ?? Camera.main;
-        }
-
-        private static CinemachineBrain ResolveOutputCameraBrain(Camera outputCamera)
-        {
-            return outputCamera != null
-                ? outputCamera.GetComponent<CinemachineBrain>()
-                : null;
         }
 
         private static GameplayEntityView ResolvePlayerViewPrefab(GameplaySceneHostConfiguration configuration)

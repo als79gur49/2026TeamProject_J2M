@@ -11,6 +11,12 @@ using UnityEngine.Rendering.Universal;
 
 namespace Game.Feature.Gameplay.Tests.Unit
 {
+    /*
+     * Phase 5A post-fx extraction guardrail:
+     * - representative blur/distortion samples freeze extraction parity only
+     * - these samples are not long-term tuning law
+     * - runtime clone assertions protect authoritative asset immutability during extraction
+     */
     public sealed class TopologyTransitionPostFxTests
     {
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
@@ -102,7 +108,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TopologyTransitionPostFxController_UsesAngularVelocityEnvelopeAndFastLandingFade()
+        public void TopologyTransitionPostFxController_ExtractionParityFreeze_RepresentativeBlurEnvelopeSamples_PreserveAngularVelocityAndLandingFade()
         {
             var controllerObject = new GameObject("TopologyTransitionPostFxController");
             var cameraObject = new GameObject("TopologyTransitionPostFxOutputCamera");
@@ -181,7 +187,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Extended")]
-        public void TopologyTransitionPostFxController_UsesConfiguredDistortionImpactAndLandingPulses()
+        public void TopologyTransitionPostFxController_ExtractionParityFreeze_RepresentativeDistortionPulseSamples_PreserveConfiguredImpactAndLandingPulses()
         {
             var controllerObject = new GameObject("TopologyTransitionPostFxController_Distortion");
             var cameraObject = new GameObject("TopologyTransitionPostFxOutputCamera_Distortion");
@@ -256,6 +262,68 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Extended")]
+        public void TopologyTransitionPostFxController_ExtractionParityFreeze_RuntimeCloneMutation_DoesNotModifyAuthoritativeAssetAfterApply()
+        {
+            var controllerObject = new GameObject("TopologyTransitionPostFxController_AuthoritativeAsset");
+            var cameraObject = new GameObject("TopologyTransitionPostFxOutputCamera_AuthoritativeAsset");
+            var authoritativeProfile = AssetDatabase.LoadAssetAtPath<VolumeProfile>(AuthoritativeVolumeProfileAssetPath);
+
+            try
+            {
+                Assert.That(authoritativeProfile, Is.Not.Null);
+                Assert.That(authoritativeProfile.TryGet(out MotionBlur authoritativeMotionBlur), Is.True);
+                Assert.That(authoritativeProfile.TryGet(out LensDistortion authoritativeLensDistortion), Is.True);
+
+                var baselineMotionBlurIntensity = authoritativeMotionBlur.intensity.value;
+                var baselineMotionBlurMode = authoritativeMotionBlur.mode.value;
+                var baselineMotionBlurQuality = authoritativeMotionBlur.quality.value;
+                var baselineLensDistortionIntensity = authoritativeLensDistortion.intensity.value;
+                var baselineLensDistortionScale = authoritativeLensDistortion.scale.value;
+
+                var controller = controllerObject.AddComponent<TopologyTransitionPostFxController>();
+                var outputCamera = cameraObject.AddComponent<Camera>();
+
+                controller.Initialize(
+                    TopologyTransitionPostFxProfile.Create(
+                        authoritativeProfile,
+                        maxBlurIntensity: 0.5f,
+                        distortionProfile: TopologyTransitionDistortionProfile.Create(
+                            impactStart01: 0.1f,
+                            impactDuration01: 0.2f,
+                            impactIntensity: -0.3f,
+                            landingStart01: 0.7f,
+                            landingDuration01: 0.2f,
+                            landingIntensity: 0.15f,
+                            xMultiplier: 0.8f,
+                            yMultiplier: 0.6f,
+                            center: new Vector2(0.45f, 0.55f),
+                            scale: 1.08f)),
+                    outputCamera);
+
+                controller.Apply(CreateActiveVisualState(progress01: 0.2f, angularVelocityNormalized: 1f));
+
+                Assert.That(controller.RuntimeVolumeProfile, Is.Not.Null);
+                Assert.That(controller.RuntimeVolumeProfile, Is.Not.SameAs(authoritativeProfile));
+                Assert.That(controller.RuntimeVolume.sharedProfile, Is.SameAs(authoritativeProfile));
+                Assert.That(controller.RuntimeVolume.profile, Is.SameAs(controller.RuntimeVolumeProfile));
+                Assert.That(controller.MotionBlurOverride.intensity.value, Is.GreaterThan(0f));
+                Assert.That(Mathf.Abs(controller.LensDistortionOverride.intensity.value), Is.GreaterThan(0f));
+
+                Assert.That(authoritativeMotionBlur.intensity.value, Is.EqualTo(baselineMotionBlurIntensity).Within(0.0001f));
+                Assert.That(authoritativeMotionBlur.mode.value, Is.EqualTo(baselineMotionBlurMode));
+                Assert.That(authoritativeMotionBlur.quality.value, Is.EqualTo(baselineMotionBlurQuality));
+                Assert.That(authoritativeLensDistortion.intensity.value, Is.EqualTo(baselineLensDistortionIntensity).Within(0.0001f));
+                Assert.That(authoritativeLensDistortion.scale.value, Is.EqualTo(baselineLensDistortionScale).Within(0.0001f));
+            }
+            finally
+            {
+                Object.DestroyImmediate(controllerObject);
+                Object.DestroyImmediate(cameraObject);
+            }
+        }
+
+        [Test]
         [Category("Full")]
         public void ShowcaseScenes_InstallerSerialization_UsesAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
@@ -313,6 +381,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 System.IO.Directory.GetParent(Application.dataPath)?.FullName ?? string.Empty,
                 assetPath.Replace('/', System.IO.Path.DirectorySeparatorChar));
             return System.IO.File.ReadAllText(fullPath).Replace("\r\n", "\n");
+        }
+
+        private static TopologyTransitionVisualState CreateActiveVisualState(float progress01, float angularVelocityNormalized)
+        {
+            return new TopologyTransitionVisualState(
+                isActive: true,
+                progress01: progress01,
+                sourceTopology: new CubeTopologyState(FaceId.Floor),
+                destinationTopology: new CubeTopologyState(FaceId.Front),
+                rotationKind: CubeRotationKind.Forward,
+                durationSeconds: 0.4f,
+                presentedVisualRotation: Quaternion.identity,
+                angularVelocityNormalized: angularVelocityNormalized);
         }
     }
 }
