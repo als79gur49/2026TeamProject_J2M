@@ -9,8 +9,10 @@ namespace Game.Feature.Gameplay.Loop
         public static readonly CleanupPhaseResult Empty = new(
             Array.Empty<int>(),
             Array.Empty<string>(),
+            Array.Empty<string>(),
             Array.Empty<string>());
 
+        private readonly ReadOnlyCollection<string> _eventLogEntries;
         private readonly ReadOnlyCollection<int> _removedEntityIds;
         private readonly ReadOnlyCollection<string> _stateTransitions;
         private readonly ReadOnlyCollection<string> _timerChanges;
@@ -18,7 +20,8 @@ namespace Game.Feature.Gameplay.Loop
         public CleanupPhaseResult(
             IEnumerable<int> removedEntityIds,
             IEnumerable<string> timerChanges,
-            IEnumerable<string> stateTransitions)
+            IEnumerable<string> stateTransitions,
+            IEnumerable<string> eventLogEntries = null)
         {
             if (removedEntityIds == null)
             {
@@ -38,6 +41,7 @@ namespace Game.Feature.Gameplay.Loop
             _removedEntityIds = new ReadOnlyCollection<int>(new List<int>(removedEntityIds));
             _timerChanges = new ReadOnlyCollection<string>(new List<string>(timerChanges));
             _stateTransitions = new ReadOnlyCollection<string>(new List<string>(stateTransitions));
+            _eventLogEntries = new ReadOnlyCollection<string>(new List<string>(eventLogEntries ?? Array.Empty<string>()));
         }
 
         public IReadOnlyList<int> RemovedEntityIds => _removedEntityIds;
@@ -45,5 +49,7 @@ namespace Game.Feature.Gameplay.Loop
         public IReadOnlyList<string> TimerChanges => _timerChanges;
 
         public IReadOnlyList<string> StateTransitions => _stateTransitions;
+
+        public IReadOnlyList<string> EventLogEntries => _eventLogEntries;
     }
 }

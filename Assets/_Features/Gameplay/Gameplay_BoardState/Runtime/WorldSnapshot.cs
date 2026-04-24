@@ -7,6 +7,54 @@ using UnityEngine;
 
 namespace Game.Feature.Gameplay.BoardState
 {
+    public readonly struct BoxInteractionLockState
+    {
+        public BoxInteractionLockState(
+            int sourceEntityId,
+            int sourceEffectIndex,
+            int expiresTickExclusive,
+            bool blocksPush,
+            bool blocksFlip)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceEffectIndex = sourceEffectIndex;
+            ExpiresTickExclusive = expiresTickExclusive;
+            BlocksPush = blocksPush;
+            BlocksFlip = blocksFlip;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SourceEffectIndex { get; }
+
+        public int ExpiresTickExclusive { get; }
+
+        public bool BlocksPush { get; }
+
+        public bool BlocksFlip { get; }
+    }
+
+    internal readonly struct BoxInteractionLockSnapshotEntry
+    {
+        public BoxInteractionLockSnapshotEntry(int entityId, BoxInteractionLockState state)
+        {
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int EntityId { get; }
+
+        public BoxInteractionLockState State { get; }
+    }
+
+    internal static class BoxInteractionLockQueries
+    {
+        public static bool IsActive(in BoxInteractionLockState state, int tickIndex)
+        {
+            return tickIndex < state.ExpiresTickExclusive;
+        }
+    }
+
     // Read-only view over committed gameplay state. Entity positions and occupancy are the only gameplay coordinates.
     public sealed class WorldSnapshot
     {
@@ -17,6 +65,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
         private readonly IReadOnlyDictionary<int, PhasedRuntimeState> _phasedStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerDamageState> _playerDamageStatesByEntityId;
@@ -39,6 +88,7 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
             Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
             Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
+            Dictionary<int, BoxInteractionLockState> boxInteractionLockStatesByEntityId,
             Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
@@ -57,6 +107,7 @@ namespace Game.Feature.Gameplay.BoardState
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
             _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
             _enemyUtilityStatesByEntityId = new ReadOnlyDictionary<int, EnemyUtilityRuntimeState>(enemyUtilityStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyUtilityStatesByEntityId)));
+            _boxInteractionLockStatesByEntityId = new ReadOnlyDictionary<int, BoxInteractionLockState>(boxInteractionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(boxInteractionLockStatesByEntityId)));
             _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
             _playerDamageStatesByEntityId = new ReadOnlyDictionary<int, PlayerDamageState>(playerDamageStatesByEntityId ?? throw new ArgumentNullException(nameof(playerDamageStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
@@ -117,6 +168,23 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
         {
             return _enemyUtilityStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetBoxInteractionLockState(int entityId, out BoxInteractionLockState state)
+        {
+            return _boxInteractionLockStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetActiveBoxInteractionLockState(int entityId, int tickIndex, out BoxInteractionLockState state)
+        {
+            if (!_boxInteractionLockStatesByEntityId.TryGetValue(entityId, out state) ||
+                !BoxInteractionLockQueries.IsActive(state, tickIndex))
+            {
+                state = default;
+                return false;
+            }
+
+            return true;
         }
 
         public bool TryGetSummonedEntityState(int entityId, out SummonedEntityState state)
@@ -693,6 +761,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyChargeStatesByEntityId)
             {
                 buffer.Add(new EnemyChargeSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateBoxInteractionLockStatesOrdered(List<BoxInteractionLockSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _boxInteractionLockStatesByEntityId)
+            {
+                buffer.Add(new BoxInteractionLockSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

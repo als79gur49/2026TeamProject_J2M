@@ -42,7 +42,8 @@ namespace Game.Feature.Gameplay.Cleanup
             return new CleanupPhaseResult(
                 removedEntityIds,
                 timerChanges,
-                stateTransitions);
+                stateTransitions,
+                Array.Empty<string>());
         }
     }
 }

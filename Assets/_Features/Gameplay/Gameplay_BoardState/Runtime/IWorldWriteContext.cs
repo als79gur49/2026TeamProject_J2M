@@ -38,6 +38,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
 
         void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state);
+
+        void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
     }
 
     internal interface IEnemyJumpCommitContext
@@ -91,6 +93,8 @@ namespace Game.Feature.Gameplay.BoardState
         void ApplyStateChange(int entityId, EntityPhaseState state, int stateTimer);
 
         void RemoveEntity(int entityId);
+
+        void RemoveBoxInteractionLockState(int entityId);
     }
 
     internal interface IEnemyUtilityTriggerSink
@@ -107,5 +111,9 @@ namespace Game.Feature.Gameplay.BoardState
         new void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
 
         void SetSummonedEntityState(int entityId, SummonedEntityState state);
+
+        new void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state);
+
+        new void RemoveBoxInteractionLockState(int entityId);
     }
 }

@@ -115,7 +115,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
                         break;
 
                     case MovementCommandKind.Flip:
-                        ExpandFlip(snapshot, entity, intent, buffer, rejectedReasons);
+                        ExpandFlip(snapshot, entity, intent, tickIndex, buffer, rejectedReasons);
                         break;
 
                     default:
@@ -174,6 +174,14 @@ namespace Game.Feature.Gameplay.Movement.Expansion
 
             if (hasTargetBox)
             {
+                if (intent.CommandKind == MovementCommandKind.Push &&
+                    TryGetBlockingBoxInteractionLock(snapshot, targetBox.entityId, tickIndex, blocksPush: true, out var pushLockState))
+                {
+                    rejectedReasons.Add(
+                        $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=PushTargetLocked|Cell={FormatCell(targetBox.position)}|Target={targetBox.entityId}|Expires={pushLockState.ExpiresTickExclusive}");
+                    return;
+                }
+
                 if (HasBoxCapability(targetBox, BoxCapabilities.Item))
                 {
                     ExpandItem(source, targetBox, intent, destinationCell, stepFacing, rotationKind, updatedTopology, buffer);
@@ -278,6 +286,7 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             WorldSnapshot snapshot,
             EntityState source,
             MoveIntent intent,
+            int tickIndex,
             List<ActionGroup> buffer,
             List<string> rejectedReasons)
         {
@@ -304,6 +313,12 @@ namespace Game.Feature.Gameplay.Movement.Expansion
             }
 
             var target = targetSemantic.Entity;
+            if (TryGetBlockingBoxInteractionLock(snapshot, target.entityId, tickIndex, blocksPush: false, out var flipLockState))
+            {
+                rejectedReasons.Add(
+                    $"MovementRejected|Stage=Expand|Source={intent.SourceId}|I={intent.IntentId}|Reason=FlipTargetLocked|Cell={FormatCell(target.position)}|Target={target.entityId}|Expires={flipLockState.ExpiresTickExclusive}");
+                return;
+            }
 
             var landingContext = CreateSettlementContext(snapshot, target, landingCell);
             var landingLegality = RuntimeSettlementLegalityPolicy.EvaluateLandingPlacement(landingContext);
@@ -727,6 +742,23 @@ namespace Game.Feature.Gameplay.Movement.Expansion
         private static bool HasBoxCapability(EntityState entity, BoxCapabilities capability)
         {
             return entity.type == EntityType.Box && (entity.boxCapabilities & capability) == capability;
+        }
+
+        private static bool TryGetBlockingBoxInteractionLock(
+            WorldSnapshot snapshot,
+            int boxEntityId,
+            int tickIndex,
+            bool blocksPush,
+            out BoxInteractionLockState lockState)
+        {
+            if (!snapshot.TryGetActiveBoxInteractionLockState(boxEntityId, tickIndex, out lockState))
+            {
+                return false;
+            }
+
+            return blocksPush
+                ? lockState.BlocksPush
+                : lockState.BlocksFlip;
         }
 
         private static bool IsSlidingPushBox(EntityState entity)

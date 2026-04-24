@@ -153,12 +153,78 @@ namespace Game.Feature.Gameplay.Entities
     }
 
     [Serializable]
+    public sealed class LockNearbyBoxesAuthoring
+    {
+        [SerializeField] private int radius = 1;
+        [SerializeField] private float durationSeconds = 2f;
+        [SerializeField] private bool blocksPush = true;
+        [SerializeField] private bool blocksFlip = true;
+        [SerializeField] private bool includeSourceCell;
+        [SerializeField] private BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius;
+
+        public int Radius => radius;
+
+        public float DurationSeconds => durationSeconds;
+
+        public bool BlocksPush => blocksPush;
+
+        public bool BlocksFlip => blocksFlip;
+
+        public bool IncludeSourceCell => includeSourceCell;
+
+        public BoxLockTargetPattern TargetPattern => targetPattern;
+
+        internal LockNearbyBoxesRuntime Compile(int simulationTicksPerSecond)
+        {
+            if (radius <= 0)
+            {
+                throw new ArgumentException("Lock nearby boxes authoring requires a positive radius.", nameof(radius));
+            }
+
+            if (durationSeconds <= 0f)
+            {
+                throw new ArgumentException("Lock nearby boxes authoring requires a positive duration.", nameof(durationSeconds));
+            }
+
+            if (!blocksPush && !blocksFlip)
+            {
+                throw new ArgumentException("Lock nearby boxes authoring must block push or flip.", nameof(blocksPush));
+            }
+
+            switch (targetPattern)
+            {
+                case BoxLockTargetPattern.OrthogonalAdjacent4:
+                case BoxLockTargetPattern.ManhattanRadius:
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(targetPattern), targetPattern, "Unsupported box lock target pattern.");
+            }
+
+            var durationTicks = GameplayTimingProfile.SecondsToTicks(durationSeconds, simulationTicksPerSecond);
+            if (durationTicks <= 0)
+            {
+                throw new ArgumentException("Lock nearby boxes authoring must compile to a positive duration.", nameof(durationSeconds));
+            }
+
+            return new LockNearbyBoxesRuntime(
+                radius,
+                durationTicks,
+                blocksPush,
+                blocksFlip,
+                includeSourceCell,
+                targetPattern);
+        }
+    }
+
+    [Serializable]
     public sealed class EnemyUtilityEffectAuthoring
     {
         [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.SummonMinion;
         [SerializeField] private float initialDelaySeconds = 0f;
         [SerializeField] private float intervalSeconds = 1f;
         [SerializeField] private SummonMinionAuthoring summon = new();
+        [SerializeField] private LockNearbyBoxesAuthoring lockNearbyBoxes = new();
 
         public EnemyUtilityEffectKind Kind => kind;
 
@@ -167,6 +233,8 @@ namespace Game.Feature.Gameplay.Entities
         public float IntervalSeconds => intervalSeconds;
 
         public SummonMinionAuthoring Summon => summon;
+
+        public LockNearbyBoxesAuthoring LockNearbyBoxes => lockNearbyBoxes;
 
         internal EnemyUtilityEffectRuntime Compile(int simulationTicksPerSecond)
         {
@@ -186,7 +254,12 @@ namespace Game.Feature.Gameplay.Entities
                     kind,
                     GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
                     GameplayTimingProfile.SecondsToTicks(intervalSeconds, simulationTicksPerSecond),
-                    (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile()),
+                    summon: (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile()),
+                EnemyUtilityEffectKind.LockNearbyBoxes => new EnemyUtilityEffectRuntime(
+                    kind,
+                    GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
+                    GameplayTimingProfile.SecondsToTicks(intervalSeconds, simulationTicksPerSecond),
+                    lockNearbyBoxes: (lockNearbyBoxes ?? throw new ArgumentException("Lock nearby boxes utility effect requires authoring data.", nameof(lockNearbyBoxes))).Compile(simulationTicksPerSecond)),
                 _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported enemy utility effect kind."),
             };
         }

@@ -69,6 +69,7 @@ namespace Game.Feature.Gameplay.Loop
                 cleanupPhaseResult.RemovedEntityIds.Count +
                 cleanupPhaseResult.TimerChanges.Count +
                 cleanupPhaseResult.StateTransitions.Count +
+                cleanupPhaseResult.EventLogEntries.Count +
                 respawnPhaseResult.EventLogEntries.Count);
 
             AddRange(eventLog, movementPhaseResult.CommitEvents);
@@ -81,6 +82,7 @@ namespace Game.Feature.Gameplay.Loop
 
             AddRange(eventLog, cleanupPhaseResult.TimerChanges);
             AddRange(eventLog, cleanupPhaseResult.StateTransitions);
+            AddRange(eventLog, cleanupPhaseResult.EventLogEntries);
             AddRange(eventLog, respawnPhaseResult.EventLogEntries);
 
             return new TickResultData(

@@ -18,6 +18,7 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
         private readonly Dictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId = new();
+        private readonly Dictionary<int, BoxInteractionLockState> _boxInteractionLockStatesByEntityId = new();
         private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
         private readonly Dictionary<int, PlayerDamageState> _playerDamageStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
@@ -79,6 +80,7 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
                 new Dictionary<int, EnemyUtilityRuntimeState>(_enemyUtilityStatesByEntityId),
+                new Dictionary<int, BoxInteractionLockState>(_boxInteractionLockStatesByEntityId),
                 new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
                 new Dictionary<int, PlayerDamageState>(_playerDamageStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
@@ -146,6 +148,7 @@ namespace Game.Feature.Gameplay.BoardState
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
             _enemyUtilityStatesByEntityId.Remove(entityId);
+            _boxInteractionLockStatesByEntityId.Remove(entityId);
             _phasedStatesByEntityId.Remove(entityId);
             _playerDamageStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
@@ -365,6 +368,22 @@ namespace Game.Feature.Gameplay.BoardState
             _summonedEntitiesByEntityId[entityId] = state;
         }
 
+        internal void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
+        {
+            if (!_entitiesById.TryGetValue(entityId, out var entity) ||
+                entity.type != EntityType.Box)
+            {
+                return;
+            }
+
+            _boxInteractionLockStatesByEntityId[entityId] = state;
+        }
+
+        internal void RemoveBoxInteractionLockState(int entityId)
+        {
+            _boxInteractionLockStatesByEntityId.Remove(entityId);
+        }
+
         private void ClearChargeState(int entityId)
         {
             if (_enemyChargeStatesByEntityId.TryGetValue(entityId, out var currentState))
@@ -550,6 +569,27 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyUtilityStatesByEntityId)
             {
                 buffer.Add(new EnemyUtilitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal bool TryGetBoxInteractionLockState(int entityId, out BoxInteractionLockState state)
+        {
+            return _boxInteractionLockStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal void EnumerateBoxInteractionLockStatesOrdered(List<BoxInteractionLockSnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _boxInteractionLockStatesByEntityId)
+            {
+                buffer.Add(new BoxInteractionLockSnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
@@ -747,6 +787,16 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetSummonedEntityState(int entityId, SummonedEntityState state)
         {
             SetSummonedEntityState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
+        {
+            SetBoxInteractionLockState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.RemoveBoxInteractionLockState(int entityId)
+        {
+            RemoveBoxInteractionLockState(entityId);
         }
 
         void IWorldStateMutationPort.SetPhasedState(int entityId, PhasedRuntimeState state)

@@ -71,6 +71,9 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyUtilities").Append('\n');
             AppendEnemyUtilityLines(builder, GetOrderedEnemyUtilityStates(finalSnapshot));
 
+            builder.Append("BoxInteractionLocks").Append('\n');
+            AppendBoxInteractionLockLines(builder, GetOrderedBoxInteractionLockStates(finalSnapshot));
+
             builder.Append("EnemyCharges").Append('\n');
             AppendEnemyChargeLines(builder, GetOrderedEnemyChargeStates(finalSnapshot));
 
@@ -179,6 +182,13 @@ namespace Game.Feature.Gameplay.Loop
             var enemyUtilityEntries = new List<EnemyUtilitySnapshotEntry>();
             finalSnapshot.EnumerateEnemyUtilityStatesOrdered(enemyUtilityEntries);
             return enemyUtilityEntries;
+        }
+
+        private static List<BoxInteractionLockSnapshotEntry> GetOrderedBoxInteractionLockStates(WorldSnapshot finalSnapshot)
+        {
+            var boxInteractionLockEntries = new List<BoxInteractionLockSnapshotEntry>();
+            finalSnapshot.EnumerateBoxInteractionLockStatesOrdered(boxInteractionLockEntries);
+            return boxInteractionLockEntries;
         }
 
         private static List<EntityExecutionLockSnapshotEntry> GetOrderedExecutionLockStates(WorldSnapshot finalSnapshot)
@@ -362,6 +372,29 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(summonedEntries[i].EntityId).Append('|')
                     .Append(summonedEntries[i].State.SourceEntityId).Append('|')
                     .Append(summonedEntries[i].State.SourceEffectIndex).Append('\n');
+            }
+        }
+
+        private static void AppendBoxInteractionLockLines(
+            StringBuilder builder,
+            IReadOnlyList<BoxInteractionLockSnapshotEntry> boxInteractionLockEntries)
+        {
+            if (boxInteractionLockEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < boxInteractionLockEntries.Count; i++)
+            {
+                var entry = boxInteractionLockEntries[i];
+                builder
+                    .Append(entry.EntityId).Append('|')
+                    .Append(entry.State.SourceEntityId).Append('|')
+                    .Append(entry.State.SourceEffectIndex).Append('|')
+                    .Append(entry.State.ExpiresTickExclusive).Append('|')
+                    .Append(entry.State.BlocksPush ? 1 : 0).Append('|')
+                    .Append(entry.State.BlocksFlip ? 1 : 0).Append('\n');
             }
         }
 

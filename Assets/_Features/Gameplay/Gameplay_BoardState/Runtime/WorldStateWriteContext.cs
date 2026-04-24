@@ -63,6 +63,11 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyUtilityState(entityId, state);
         }
 
+        public void SetBoxInteractionLockState(int entityId, BoxInteractionLockState state)
+        {
+            _port.SetBoxInteractionLockState(entityId, state);
+        }
+
         public void SetSummonedEntityState(int entityId, SummonedEntityState state)
         {
             _port.SetSummonedEntityState(entityId, state);
@@ -111,6 +116,11 @@ namespace Game.Feature.Gameplay.BoardState
         public void RemoveEntity(int entityId)
         {
             _port.RemoveEntity(entityId);
+        }
+
+        public void RemoveBoxInteractionLockState(int entityId)
+        {
+            _port.RemoveBoxInteractionLockState(entityId);
         }
 
         public void SetBoardPresence(int entityId, EntityBoardPresence boardPresence)

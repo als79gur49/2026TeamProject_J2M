@@ -39,6 +39,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "PreMovement.PlayerControlUpdates", preMovementStatePhaseResult.Updates, FormatString);
             AppendSection(builder, "PreMovement.PlayerActionTransitions", preMovementStatePhaseResult.PlayerActionTransitions, FormatPlayerActionTransition);
             AppendSection(builder, "PreMovement.UtilityTriggers", preMovementStatePhaseResult.UtilityTriggerIntents, FormatEnemyUtilityTriggerIntent);
+            AppendSection(builder, "PreMovement.EventLogEntries", preMovementStatePhaseResult.EventLogEntries, FormatString);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
             AppendSection(builder, "Movement.RejectedReasons", movementPhaseResult.RejectedReasons, FormatString);
@@ -74,6 +75,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "Cleanup.RemovedIds", cleanupPhaseResult.RemovedEntityIds, value => value.ToString());
             AppendSection(builder, "Cleanup.TimerChanges", cleanupPhaseResult.TimerChanges, FormatString);
             AppendSection(builder, "Cleanup.StateTransitions", cleanupPhaseResult.StateTransitions, FormatString);
+            AppendSection(builder, "Cleanup.EventLogEntries", cleanupPhaseResult.EventLogEntries, FormatString);
             AppendSection(builder, "Respawn.Events", respawnPhaseResult.EventLogEntries, FormatString);
             AppendSection(
                 builder,
@@ -115,6 +117,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyUtilities", GetEnemyUtilityEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.BoxInteractionLocks", GetBoxInteractionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.SummonedEntities", GetSummonedEntityEntries(snapshot), FormatString);
@@ -269,6 +272,22 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Direction={entry.State.lockedDirection}|WindupEnd={entry.State.windupEndTick}|ActiveSteps={entry.State.remainingActiveSteps}|RecoverTicks={entry.State.recoverRemainingTicks}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetBoxInteractionLockEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<BoxInteractionLockSnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateBoxInteractionLockStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                var entry = entries[i];
+                lines.Add(
+                    $"Box={entry.EntityId}|Source={entry.State.SourceEntityId}|Effect={entry.State.SourceEffectIndex}|Expires={entry.State.ExpiresTickExclusive}|BlocksPush={(entry.State.BlocksPush ? 1 : 0)}|BlocksFlip={(entry.State.BlocksFlip ? 1 : 0)}");
             }
 
             return lines;
@@ -508,6 +527,18 @@ namespace Game.Feature.Gameplay.Debug
                             .Append(':')
                             .Append(operation.EnemyUtilityState.EffectStates[effectIndex].cooldownTicksRemaining);
                     }
+                    break;
+
+                case FinalizationOperationKind.SetBoxInteractionLockState:
+                    builder.Append("|LockSource=").Append(operation.BoxInteractionLockState.SourceEntityId)
+                        .Append("|LockEffect=").Append(operation.BoxInteractionLockState.SourceEffectIndex)
+                        .Append("|Expires=").Append(operation.BoxInteractionLockState.ExpiresTickExclusive)
+                        .Append("|BlocksPush=").Append(operation.BoxInteractionLockState.BlocksPush ? 1 : 0)
+                        .Append("|BlocksFlip=").Append(operation.BoxInteractionLockState.BlocksFlip ? 1 : 0);
+                    break;
+
+                case FinalizationOperationKind.RemoveBoxInteractionLockState:
+                    builder.Append("|RemoveLock=1");
                     break;
 
                 case FinalizationOperationKind.SetTopology:

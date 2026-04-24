@@ -15,11 +15,18 @@ namespace Game.Feature.Gameplay.Entities
     public enum EnemyUtilityEffectKind
     {
         SummonMinion = 0,
+        LockNearbyBoxes = 1,
     }
 
     public enum SummonCandidatePattern
     {
         OrthogonalAdjacent4 = 0,
+    }
+
+    public enum BoxLockTargetPattern
+    {
+        OrthogonalAdjacent4 = 0,
+        ManhattanRadius = 1,
     }
 
     public readonly struct EnemyCoreRuntime
@@ -345,18 +352,80 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public readonly struct LockNearbyBoxesRuntime
+    {
+        public LockNearbyBoxesRuntime(
+            int radius,
+            int durationTicks,
+            bool blocksPush,
+            bool blocksFlip,
+            bool includeSourceCell,
+            BoxLockTargetPattern targetPattern)
+        {
+            Radius = radius;
+            DurationTicks = durationTicks;
+            BlocksPush = blocksPush;
+            BlocksFlip = blocksFlip;
+            IncludeSourceCell = includeSourceCell;
+            TargetPattern = targetPattern;
+            Validate(nameof(LockNearbyBoxesRuntime));
+        }
+
+        public int Radius { get; }
+
+        public int DurationTicks { get; }
+
+        public bool BlocksPush { get; }
+
+        public bool BlocksFlip { get; }
+
+        public bool IncludeSourceCell { get; }
+
+        public BoxLockTargetPattern TargetPattern { get; }
+
+        public void Validate(string paramName)
+        {
+            if (Radius <= 0)
+            {
+                throw new ArgumentException("Lock nearby boxes runtime requires a positive radius.", paramName);
+            }
+
+            if (DurationTicks <= 0)
+            {
+                throw new ArgumentException("Lock nearby boxes runtime requires a positive duration.", paramName);
+            }
+
+            if (!BlocksPush && !BlocksFlip)
+            {
+                throw new ArgumentException("Lock nearby boxes runtime must block push or flip.", paramName);
+            }
+
+            switch (TargetPattern)
+            {
+                case BoxLockTargetPattern.OrthogonalAdjacent4:
+                case BoxLockTargetPattern.ManhattanRadius:
+                    return;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(TargetPattern), TargetPattern, "Unsupported box lock target pattern.");
+            }
+        }
+    }
+
     public sealed class EnemyUtilityEffectRuntime
     {
         public EnemyUtilityEffectRuntime(
             EnemyUtilityEffectKind kind,
             int initialDelayTicks,
             int intervalTicks,
-            SummonMinionRuntime summon)
+            SummonMinionRuntime summon = default,
+            LockNearbyBoxesRuntime lockNearbyBoxes = default)
         {
             Kind = kind;
             InitialDelayTicks = initialDelayTicks;
             IntervalTicks = intervalTicks;
             Summon = summon;
+            LockNearbyBoxes = lockNearbyBoxes;
             Validate(nameof(EnemyUtilityEffectRuntime));
         }
 
@@ -367,6 +436,8 @@ namespace Game.Feature.Gameplay.Entities
         public int IntervalTicks { get; }
 
         public SummonMinionRuntime Summon { get; }
+
+        public LockNearbyBoxesRuntime LockNearbyBoxes { get; }
 
         public void Validate(string paramName)
         {
@@ -384,6 +455,10 @@ namespace Game.Feature.Gameplay.Entities
             {
                 case EnemyUtilityEffectKind.SummonMinion:
                     Summon.Validate(paramName);
+                    break;
+
+                case EnemyUtilityEffectKind.LockNearbyBoxes:
+                    LockNearbyBoxes.Validate(paramName);
                     break;
 
                 default:
