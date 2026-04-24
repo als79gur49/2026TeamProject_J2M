@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -16,6 +17,10 @@ namespace Game.Feature.UI.Popups
 
         private TooltipPopupViewModel _viewModel;
         private bool _isVisible;
+        private Tween _enterTween;
+        private bool _lastVisibleState;
+        private bool _hasRootRestAlpha;
+        private float _rootRestAlpha = 1f;
 
         public event Action<PopupCompletionKind> CompletionRequested;
 
@@ -66,6 +71,7 @@ namespace Game.Feature.UI.Popups
 
         private void OnDisable()
         {
+            StopRootEnterMotion();
             if (_dismissButton != null)
             {
                 _dismissButton.onClick.RemoveListener(ClickDismiss);
@@ -95,6 +101,7 @@ namespace Game.Feature.UI.Popups
 
         private void OnDestroy()
         {
+            StopRootEnterMotion();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -113,10 +120,7 @@ namespace Game.Feature.UI.Popups
 
         private void RefreshView()
         {
-            if (_root != null)
-            {
-                _root.SetActive(IsVisible);
-            }
+            ApplyRootVisibility();
 
             if (_viewModel == null)
             {
@@ -134,6 +138,52 @@ namespace Game.Feature.UI.Popups
             }
 
             ApplyAnchor(_viewModel.AnchorPreset);
+        }
+
+        private void ApplyRootVisibility()
+        {
+            var becameVisible = !_lastVisibleState && IsVisible;
+            var becameHidden = _lastVisibleState && !IsVisible;
+
+            if (becameVisible)
+            {
+                _lastVisibleState = true;
+                if (_root != null)
+                {
+                    _root.SetActive(true);
+                }
+
+                PlayRootEnterMotion();
+                return;
+            }
+
+            if (becameHidden || !IsVisible)
+            {
+                StopRootEnterMotion();
+            }
+
+            if (_root != null)
+            {
+                _root.SetActive(IsVisible);
+            }
+
+            _lastVisibleState = IsVisible;
+        }
+
+        private void PlayRootEnterMotion()
+        {
+            PopupEnterTweenUtility.Kill(ref _enterTween);
+            _enterTween = PopupEnterTweenUtility.PlayTooltipEnter(_canvasGroup, out _rootRestAlpha);
+            _hasRootRestAlpha = _canvasGroup != null;
+        }
+
+        private void StopRootEnterMotion()
+        {
+            PopupEnterTweenUtility.Kill(ref _enterTween);
+            if (_hasRootRestAlpha)
+            {
+                PopupEnterTweenUtility.RestoreAlpha(_canvasGroup, _rootRestAlpha);
+            }
         }
 
         private void ApplyAnchor(TooltipPopupAnchorPreset anchorPreset)

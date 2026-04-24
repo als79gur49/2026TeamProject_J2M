@@ -1,4 +1,8 @@
 {
   "name": "Game.Feature.UI.Popups",
-  "rootNamespace": "Game.Feature.UI.Popups"
+  "rootNamespace": "Game.Feature.UI.Popups",
+  "references": [
+    "Unity.TextMeshPro",
+    "DOTween.Modules"
+  ]
 }

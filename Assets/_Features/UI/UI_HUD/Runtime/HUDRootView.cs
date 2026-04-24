@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -6,6 +7,12 @@ namespace Game.Feature.UI.HUD
 {
     public sealed class HUDRootView : MonoBehaviour
     {
+        private const float HudNormalAlpha = 1.0f;
+        private const float HudDimmedAlpha = 0.82f;
+        private const float HudDimTweenDurationSeconds = 0.12f;
+        private const Ease HudDimTweenEase = Ease.OutQuad;
+        private const bool HudDimUseUnscaledTime = true;
+
         [SerializeField] private GameObject _root;
         [SerializeField] private CanvasGroup _shellCanvasGroup;
         [SerializeField] private Button _pauseButton;
@@ -15,6 +22,10 @@ namespace Game.Feature.UI.HUD
 
         private HUDRootViewModel _viewModel;
         private bool _isVisible = true;
+        private Tween _shellTween;
+        private bool _lastRootVisibleState;
+        private bool _hasShellAlphaTarget;
+        private float _lastShellAlphaTarget = HudNormalAlpha;
 
         public event Action PauseRequested;
 
@@ -75,6 +86,7 @@ namespace Game.Feature.UI.HUD
 
         private void OnDisable()
         {
+            KillShellTween();
             if (_pauseButton != null)
             {
                 _pauseButton.onClick.RemoveListener(ClickPause);
@@ -95,6 +107,7 @@ namespace Game.Feature.UI.HUD
 
         private void OnDestroy()
         {
+            KillShellTween();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -113,20 +126,98 @@ namespace Game.Feature.UI.HUD
 
         private void RefreshView()
         {
-            if (_root != null)
-            {
-                _root.SetActive(IsVisible && (_viewModel == null || _viewModel.IsVisible));
-            }
+            var isRootVisible = IsVisible && (_viewModel == null || _viewModel.IsVisible);
+            var targetShellAlpha = _viewModel != null && _viewModel.IsDimmed ? HudDimmedAlpha : HudNormalAlpha;
+            var becameVisible = !_lastRootVisibleState && isRootVisible;
+            var becameHidden = _lastRootVisibleState && !isRootVisible;
 
-            if (_shellCanvasGroup != null)
+            if (becameVisible)
             {
-                _shellCanvasGroup.alpha = _viewModel != null && _viewModel.IsDimmed ? 0.82f : 1f;
+                _lastRootVisibleState = true;
+                _hasShellAlphaTarget = true;
+                _lastShellAlphaTarget = targetShellAlpha;
+                if (_root != null)
+                {
+                    _root.SetActive(true);
+                }
+
+                ApplyShellAlphaImmediate(targetShellAlpha);
+            }
+            else
+            {
+                if (becameHidden || !isRootVisible)
+                {
+                    KillShellTween();
+                    ApplyShellAlphaImmediate(targetShellAlpha);
+                }
+
+                if (_root != null)
+                {
+                    _root.SetActive(isRootVisible);
+                }
+
+                if (isRootVisible)
+                {
+                    if (!_hasShellAlphaTarget)
+                    {
+                        ApplyShellAlphaImmediate(targetShellAlpha);
+                    }
+                    else if (!Mathf.Approximately(_lastShellAlphaTarget, targetShellAlpha))
+                    {
+                        PlayShellAlphaTween(targetShellAlpha);
+                    }
+
+                    _hasShellAlphaTarget = true;
+                    _lastShellAlphaTarget = targetShellAlpha;
+                }
+                else
+                {
+                    _hasShellAlphaTarget = true;
+                    _lastShellAlphaTarget = targetShellAlpha;
+                }
+
+                _lastRootVisibleState = isRootVisible;
             }
 
             if (_pauseButton != null)
             {
                 _pauseButton.interactable = _viewModel != null && _viewModel.IsPauseButtonEnabled;
             }
+        }
+
+        private void ApplyShellAlphaImmediate(float alpha)
+        {
+            if (_shellCanvasGroup == null)
+            {
+                return;
+            }
+
+            _shellCanvasGroup.alpha = alpha;
+        }
+
+        private void PlayShellAlphaTween(float targetAlpha)
+        {
+            if (_shellCanvasGroup == null)
+            {
+                return;
+            }
+
+            KillShellTween();
+            _shellTween = _shellCanvasGroup
+                .DOFade(targetAlpha, HudDimTweenDurationSeconds)
+                .SetEase(HudDimTweenEase)
+                .SetUpdate(HudDimUseUnscaledTime);
+        }
+
+        private void KillShellTween()
+        {
+            if (_shellTween == null)
+            {
+                return;
+            }
+
+            _shellTween.Kill();
+            _shellTween = null;
         }
 
 #if UNITY_EDITOR
