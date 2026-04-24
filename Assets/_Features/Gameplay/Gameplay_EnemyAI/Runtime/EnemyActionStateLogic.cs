@@ -249,6 +249,11 @@ namespace Game.Feature.Gameplay.Entities
                 return true;
             }
 
+            if (CanStartExecutionLockedWindupCombat(snapshot, tickIndex))
+            {
+                return true;
+            }
+
             if (_combatCapability == null ||
                 _combatCapability.AttackTimingSettings.WindupTicks != 0 ||
                 !snapshot.TryGetEntityExecutionLockState(_entityId, out var executionLockState))
@@ -258,6 +263,23 @@ namespace Game.Feature.Gameplay.Entities
 
             return executionLockState.phase == EntityExecutionPhase.Move &&
                    EntityExecutionLockQueries.IsLocked(executionLockState, tickIndex);
+        }
+
+        private bool CanStartExecutionLockedWindupCombat(WorldSnapshot snapshot, int tickIndex)
+        {
+            if (_combatCapability == null ||
+                _combatCapability.AttackTimingSettings.WindupTicks <= 0 ||
+                UsesReceiverOwnedContactCadence() ||
+                !snapshot.TryGetEntityExecutionLockState(_entityId, out var executionLockState))
+            {
+                return false;
+            }
+
+            // Preserve the existing short lock behavior while preventing long move-occupancy
+            // presentation windows from starving enemy windup start during patrol/chase closure.
+            return executionLockState.phase == EntityExecutionPhase.Move &&
+                   EntityExecutionLockQueries.IsLocked(executionLockState, tickIndex) &&
+                   executionLockState.unlockTickExclusive > tickIndex + 1;
         }
 
         private static bool ShouldWriteActionState(

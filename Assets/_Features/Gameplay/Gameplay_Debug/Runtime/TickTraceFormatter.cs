@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Game.Feature.Gameplay.Attack;
@@ -86,7 +87,11 @@ namespace Game.Feature.Gameplay.Debug
                 "TickResult.FinalEntities",
                 tickResultData.FinalEntities,
                 entity => FormatEntityState(finalSnapshot, entity));
-            AppendSection(builder, "TickResult.EventLog", tickResultData.EventLog, FormatString);
+            AppendSection(
+                builder,
+                "TickResult.EventLog",
+                FilterDisplayedEventLog(tickResultData.EventLog, movementPhaseResult.CommitEvents),
+                FormatString);
             AppendSection(builder, "DeterminismHash", new[] { determinismHash }, FormatString);
 
             return builder.ToString();
@@ -332,6 +337,51 @@ namespace Game.Feature.Gameplay.Debug
             {
                 builder.Append("  ").Append(formatter(values[i])).Append('\n');
             }
+        }
+
+        private static IReadOnlyList<string> FilterDisplayedEventLog(
+            IReadOnlyList<string> eventLog,
+            IReadOnlyList<string> movementCommitEvents)
+        {
+            if (eventLog.Count == 0 || movementCommitEvents.Count == 0)
+            {
+                return eventLog;
+            }
+
+            var filtered = new List<string>(eventLog.Count);
+            for (var i = 0; i < eventLog.Count; i++)
+            {
+                var entry = eventLog[i];
+                if (IsMovementOwnedPatrolCommitEvent(entry) &&
+                    ContainsExactString(movementCommitEvents, entry))
+                {
+                    continue;
+                }
+
+                filtered.Add(entry);
+            }
+
+            return filtered;
+        }
+
+        private static bool IsMovementOwnedPatrolCommitEvent(string entry)
+        {
+            return !string.IsNullOrEmpty(entry) &&
+                   entry.Contains("EnemyPatrolStateUpdated|", StringComparison.Ordinal) &&
+                   entry.Contains("Label=CommittedMove", StringComparison.Ordinal);
+        }
+
+        private static bool ContainsExactString(IReadOnlyList<string> values, string target)
+        {
+            for (var i = 0; i < values.Count; i++)
+            {
+                if (string.Equals(values[i], target, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static string FormatString(string value)

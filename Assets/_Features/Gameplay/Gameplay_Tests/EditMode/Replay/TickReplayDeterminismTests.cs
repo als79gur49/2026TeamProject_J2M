@@ -1503,6 +1503,71 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump()
+        {
+            var firstReplay = RunWindupRandomWalkPilotReplaySequence();
+            var secondReplay = RunWindupRandomWalkPilotReplaySequence();
+
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.DeterminismHash).ToArray(),
+                secondReplay.Select(frame => frame.DeterminismHash).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.Trace).ToArray(),
+                secondReplay.Select(frame => frame.Trace).ToArray());
+            CollectionAssert.AreEqual(
+                firstReplay.Select(frame => frame.EnemyPatrolDump).ToArray(),
+                secondReplay.Select(frame => frame.EnemyPatrolDump).ToArray());
+            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyPatrols"));
+            Assert.That(firstReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=1|Home=Floor(0,0)|LastDirection=None"));
+            Assert.That(firstReplay[1].Trace, Does.Not.Contain("EnemyPatrolStateUpdated|E=40|Label=Initialized"));
+            Assert.That(firstReplay[1].EnemyPatrolDump, Does.Contain("E=40|Seq=1|Home=Floor(0,0)|LastDirection=None"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState()
+        {
+            var replay = RunWindupRandomWalkPilotReplaySequence();
+            var snapshotDumps = RunWindupRandomWalkPilotSnapshotDumpSequence();
+
+            CollectionAssert.AreEqual(
+                snapshotDumps,
+                replay.Select(frame => frame.EnemyPatrolDump).ToArray());
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_WindupRandomWalkPilot_DoesNotRegressForwardOrNonAttackingReplays()
+        {
+            var windupReplay = RunWindupRandomWalkPilotReplaySequence();
+            var forwardReplay = RunForwardPatrolReplaySequence();
+            var randomWalkReplay = RunRandomWalkPatrolReplaySequence();
+
+            Assert.That(windupReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=1|Home=Floor(0,0)|LastDirection=None"));
+            Assert.That(forwardReplay.Select(frame => frame.EnemyPatrolDump), Has.All.EqualTo("<empty>"));
+            Assert.That(forwardReplay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40"));
+            Assert.That(randomWalkReplay[0].EnemyPatrolDump, Does.Contain("E=40|Seq=2|Home=Floor(2,2)|LastDirection="));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState()
+        {
+            var replay = RunWindupRandomWalkPilotReplaySequence();
+
+            Assert.That(replay.Select(frame => frame.EnemyPatrolDump), Has.All.Not.EqualTo("<empty>"));
+            foreach (var frame in replay)
+            {
+                Assert.That(frame.EnemyPatrolDump.StartsWith("E=40|Seq=", StringComparison.Ordinal), Is.True);
+                Assert.That(frame.EnemyPatrolDump.Contains("|Home=Floor(", StringComparison.Ordinal), Is.True);
+                Assert.That(frame.EnemyPatrolDump.Contains("|LastDirection=", StringComparison.Ordinal), Is.True);
+            }
+
+            Assert.That(replay.Select(frame => frame.Trace), Has.All.Not.Contains("EnemyPatrolStateUpdated|E=40|Label=Initialized|Seq=3"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites()
         {
             var firstReplay = RunForwardPatrolReplaySequence();
@@ -1776,6 +1841,87 @@ namespace Game.Feature.Gameplay.Tests.Replay
             {
                 EnemyAiProfileTestFactory.Destroy(profile);
             }
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunWindupRandomWalkPilotReplaySequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(windupTicks: 1);
+
+            try
+            {
+                return new TickReplayHarness().Run(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        new EnemyLogic(40, profile),
+                    },
+                    new[]
+                    {
+                        new TickInput(1),
+                        new TickInput(2),
+                        new TickInput(3),
+                        new TickInput(4),
+                        new TickInput(5),
+                        new TickInput(6),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static IReadOnlyList<string> RunWindupRandomWalkPilotSnapshotDumpSequence()
+        {
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(3, 0), hp: 3),
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(4, 0)),
+                GameplayTerrainData.Empty);
+            var profile = EnemyAiProfileTestFactory.CreateWindupRandomWalkPilot(windupTicks: 1);
+            var dumps = new List<string>();
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                for (var tickIndex = 1; tickIndex <= 6; tickIndex++)
+                {
+                    pipeline.RunTick(new TickInput(tickIndex));
+                    dumps.Add(BuildEnemyPatrolDump(worldState.CreateSnapshot()));
+                }
+
+                return dumps;
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(profile);
+            }
+        }
+
+        private static string BuildEnemyPatrolDump(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyPatrolSnapshotEntry>();
+            snapshot.EnumerateEnemyPatrolStatesOrdered(entries);
+            if (entries.Count == 0)
+            {
+                return "<empty>";
+            }
+
+            return string.Join(
+                "\n",
+                entries.Select(entry =>
+                    $"E={entry.EntityId}|Seq={entry.State.sequence}|Home={entry.State.homeCell}|LastDirection={entry.State.lastCommittedDirection}"));
         }
 
         private static IReadOnlyList<TickReplayFrame> RunForwardPatrolReplaySequence()

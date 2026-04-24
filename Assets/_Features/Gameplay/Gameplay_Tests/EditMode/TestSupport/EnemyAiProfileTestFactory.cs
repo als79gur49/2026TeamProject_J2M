@@ -92,6 +92,37 @@ namespace Game.Feature.Gameplay.Tests
             });
         }
 
+        public static PatrolSettings CreateWindupRandomWalkPilotPatrolSettings()
+        {
+            return new PatrolSettings(
+                PatrolBlockedMovementResponse.Stop,
+                leashRadius: 1,
+                forwardWeight: 6,
+                sideWeight: 1,
+                backwardWeight: 1,
+                preventImmediateBacktrack: true);
+        }
+
+        public static EnemyAiProfile CreateWindupRandomWalkPilot(
+            int windupTicks = 1,
+            int moveCooldownTicks = 0,
+            int recoverTicks = 1,
+            bool includePassiveContact = true)
+        {
+            return Create(new EnemyAiTestProfileSpec
+            {
+                CommonSettings = ToAuthoring(new EnemyAiCommonSettings(
+                    movementPriority: 50,
+                    attackPriority: 50,
+                    recoverTicks: recoverTicks)),
+                LocomotionTimingSettings = ToAuthoring(new EnemyLocomotionTimingSettings(moveCooldownTicks)),
+                PatrolStrategyKind = PatrolStrategyKind.RandomWalk,
+                PatrolSettings = CreateWindupRandomWalkPilotPatrolSettings(),
+                AttackTimingSettings = ToAuthoring(new EnemyAttackTimingSettings(windupTicks)),
+                IncludePassiveContact = includePassiveContact,
+            });
+        }
+
         // Charging profiles rely on same-cell passive contact, so repeated hits follow receiver cooldown cadence.
         public static EnemyAiProfile CreateCharging(
             int moveCooldownTicks = 0,

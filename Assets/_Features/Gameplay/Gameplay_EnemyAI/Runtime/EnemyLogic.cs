@@ -152,6 +152,14 @@ namespace Game.Feature.Gameplay.Entities
                 _chargeTimingSettings,
                 _detectionSettings);
             var resolvedFacing = ResolvePatrolFacing(snapshot, source, input.TickIndex, stage, decision);
+            TryCapturePatrolOriginBeforeLeavingPatrol(
+                snapshot,
+                source,
+                input.TickIndex,
+                stage,
+                decision,
+                writeContext,
+                transitions);
 
             if (decision.Mode == source.aiMode && decision.Timer == source.aiStateTimer)
             {
@@ -1246,6 +1254,42 @@ namespace Game.Feature.Gameplay.Entities
                 patrolState,
                 _patrolSettings,
                 out proposal);
+        }
+
+        private void TryCapturePatrolOriginBeforeLeavingPatrol(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            int tickIndex,
+            EnemyAiTransitionStage stage,
+            in EnemyAiTransitionDecision decision,
+            IEnemyAiCommitContext writeContext,
+            List<string> transitions)
+        {
+            if (stage != EnemyAiTransitionStage.BeforeMovement ||
+                source.aiMode != EnemyAiMode.Patrol ||
+                decision.Mode == EnemyAiMode.Patrol ||
+                _patrolStrategyKind != PatrolStrategyKind.RandomWalk ||
+                writeContext is not IPreMovementStateCommitContext patrolWriteContext)
+            {
+                return;
+            }
+
+            var hadPreviousState = snapshot.TryGetEnemyPatrolState(_entityId, out var previousState);
+            if (previousState.IsInitialized ||
+                !TryBuildPatrolDecisionProposal(snapshot, source, tickIndex, out var proposal) ||
+                !proposal.ShouldInitializeState)
+            {
+                return;
+            }
+
+            var nextState = EnemyPatrolQueries.Initialize(previousState, source.position);
+            if (!ShouldWritePatrolState(hadPreviousState, previousState, nextState))
+            {
+                return;
+            }
+
+            patrolWriteContext.SetEnemyPatrolState(_entityId, nextState);
+            AppendPatrolUpdate(transitions, _entityId, "Initialized", nextState, $"Mask={proposal.CandidateMask}");
         }
 
         private void TryInitializePatrolStateFromProposal(

@@ -23,7 +23,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 int targetSensedTick,
                 int targetInRangeTick,
                 int attackEntryTick,
+                int actionStartTargetResolvedTick,
+                int actionStartBlockedByMoveLockTick,
+                int actionStartActiveWithoutSignalTick,
                 int actionStartTick,
+                int attackExecuteRawIntentTick,
+                int attackExecuteRejectedByExecutionLockTick,
                 int attackExecuteTick,
                 int attackExecuteActionStateActiveTick,
                 int attackExecuteExecutionAttemptedTick,
@@ -38,7 +43,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 TargetSensedTick = targetSensedTick;
                 TargetInRangeTick = targetInRangeTick;
                 AttackEntryTick = attackEntryTick;
+                ActionStartTargetResolvedTick = actionStartTargetResolvedTick;
+                ActionStartBlockedByMoveLockTick = actionStartBlockedByMoveLockTick;
+                ActionStartActiveWithoutSignalTick = actionStartActiveWithoutSignalTick;
                 ActionStartTick = actionStartTick;
+                AttackExecuteRawIntentTick = attackExecuteRawIntentTick;
+                AttackExecuteRejectedByExecutionLockTick = attackExecuteRejectedByExecutionLockTick;
                 AttackExecuteTick = attackExecuteTick;
                 AttackExecuteActionStateActiveTick = attackExecuteActionStateActiveTick;
                 AttackExecuteExecutionAttemptedTick = attackExecuteExecutionAttemptedTick;
@@ -57,7 +67,17 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
             public int AttackEntryTick { get; }
 
+            public int ActionStartTargetResolvedTick { get; }
+
+            public int ActionStartBlockedByMoveLockTick { get; }
+
+            public int ActionStartActiveWithoutSignalTick { get; }
+
             public int ActionStartTick { get; }
+
+            public int AttackExecuteRawIntentTick { get; }
+
+            public int AttackExecuteRejectedByExecutionLockTick { get; }
 
             public int AttackExecuteTick { get; }
 
@@ -1318,7 +1338,9 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     RunLockedTargetLostControlProbe(controlProfile),
                     "forward locked-target-lost self-check",
                     EnemyAiMode.Patrol);
-                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                // Keep the bounded lose-target window free of player respawn reacquisition so the
+                // scenario measures cancel -> home-return -> resumed patrol, not post-respawn chase.
+                var pipeline = CreateEnemyPipelineWithRespawnDelay(worldState, profile, playerRespawnDelayTicks: 32);
 
                 var tick1 = pipeline.RunTick(new TickInput(1));
                 var activeWindupTick = default(TickResult);
@@ -3911,6 +3933,8 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             var baselinePipeline = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState, baselineProfile);
             var pilotPipeline = GameplayCompositionRoot.CreateTickPipeline(pilotWorldState, pilotProfile);
+            var baselineDefinition = baselineProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            var pilotDefinition = pilotProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             var baselineMetrics = default(WindupContractMetrics);
             var pilotMetrics = default(WindupContractMetrics);
             var firstDivergentPositionOrFacingTick = 0;
@@ -3920,8 +3944,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 var baselineTick = baselinePipeline.RunTick(new TickInput(tickIndex));
                 var pilotTick = pilotPipeline.RunTick(new TickInput(tickIndex));
 
-                baselineMetrics = UpdateWindupContractMetrics(baselineMetrics, baselineWorldState, baselineTick, tickIndex);
-                pilotMetrics = UpdateWindupContractMetrics(pilotMetrics, pilotWorldState, pilotTick, tickIndex);
+                baselineMetrics = UpdateWindupContractMetrics(
+                    baselineMetrics,
+                    baselineWorldState,
+                    baselineDefinition,
+                    baselineTick,
+                    tickIndex);
+                pilotMetrics = UpdateWindupContractMetrics(
+                    pilotMetrics,
+                    pilotWorldState,
+                    pilotDefinition,
+                    pilotTick,
+                    tickIndex);
 
                 if (firstDivergentPositionOrFacingTick == 0)
                 {
@@ -3944,12 +3978,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int ticks)
         {
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+            var runtimeDefinition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
             var metrics = default(WindupContractMetrics);
 
             for (var tickIndex = 1; tickIndex <= ticks; tickIndex++)
             {
                 var tick = pipeline.RunTick(new TickInput(tickIndex));
-                metrics = UpdateWindupContractMetrics(metrics, worldState, tick, tickIndex);
+                metrics = UpdateWindupContractMetrics(metrics, worldState, runtimeDefinition, tick, tickIndex);
             }
 
             return metrics;
@@ -3958,18 +3993,84 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static WindupContractMetrics UpdateWindupContractMetrics(
             WindupContractMetrics metrics,
             WorldState worldState,
+            EnemyAiRuntimeDefinition runtimeDefinition,
             TickResult tick,
             int tickIndex)
         {
             var trace = tick.Trace.Text;
             var actionSignals = tick.PresentationData.EnemyActionSignals.Where(signal => signal.EntityId == 40).ToArray();
+            var snapshot = worldState.CreateSnapshot();
+            snapshot.TryGetEntity(40, out var source);
+            snapshot.TryGetEnemyActionState(40, out var currentActionState);
             var targetSensedTick = CaptureFirstTransitionTick(trace, 40, "TargetSensed", tickIndex, metrics.TargetSensedTick);
             var targetInRangeTick = CaptureFirstTransitionTick(trace, 40, "TargetInRange", tickIndex, metrics.TargetInRangeTick);
             var attackEntryTick = CaptureFirstTransitionIntoModeTick(trace, 40, EnemyAiMode.Attack, tickIndex, metrics.AttackEntryTick);
+            var actionStartTargetResolvedTick = metrics.ActionStartTargetResolvedTick;
+            var actionStartBlockedByMoveLockTick = metrics.ActionStartBlockedByMoveLockTick;
+            var actionStartActiveWithoutSignalTick = metrics.ActionStartActiveWithoutSignalTick;
             var actionStartTick = metrics.ActionStartTick;
+
+            if (source.entityId == 40 &&
+                source.aiMode == EnemyAiMode.Attack &&
+                !currentActionState.IsActive)
+            {
+                var canResolveStart = EnemyActionStateTargeting.TryResolveStartAction(
+                    snapshot,
+                    source,
+                    runtimeDefinition.DetectionStrategy,
+                    runtimeDefinition.AttackDecisionStrategy,
+                    runtimeDefinition.DetectionSettings,
+                    runtimeDefinition.AttackDecisionSettings,
+                    out _,
+                    out _);
+
+                if (actionStartTargetResolvedTick == 0 && canResolveStart)
+                {
+                    actionStartTargetResolvedTick = tickIndex;
+                }
+
+                if (actionStartBlockedByMoveLockTick == 0 &&
+                    canResolveStart &&
+                    !snapshot.CanStartAction(40, tickIndex) &&
+                    snapshot.TryGetEntityExecutionLockState(40, out var executionLockState) &&
+                    executionLockState.phase == EntityExecutionPhase.Move &&
+                    EntityExecutionLockQueries.IsLocked(executionLockState, tickIndex))
+                {
+                    actionStartBlockedByMoveLockTick = tickIndex;
+                }
+            }
+
             if (actionStartTick == 0 && actionSignals.Any(signal => signal.StartedThisTick))
             {
                 actionStartTick = tickIndex;
+            }
+
+            if (actionStartActiveWithoutSignalTick == 0 &&
+                actionStartTick == 0 &&
+                currentActionState.IsActive &&
+                !actionSignals.Any(signal => signal.StartedThisTick))
+            {
+                actionStartActiveWithoutSignalTick = tickIndex;
+            }
+
+            var attackExecuteRawIntentTick = metrics.AttackExecuteRawIntentTick;
+            var attackExecuteRejectedByExecutionLockTick = metrics.AttackExecuteRejectedByExecutionLockTick;
+            var hasCombatRawIntent = tick.AttackPhaseResult.RawIntents.Any(intent =>
+                intent.SourceId == 40 &&
+                intent.TargetId == 10 &&
+                intent.SourceKind == AttackSourceKind.Combat);
+            if (attackExecuteRawIntentTick == 0 && hasCombatRawIntent)
+            {
+                attackExecuteRawIntentTick = tickIndex;
+            }
+
+            if (attackExecuteRejectedByExecutionLockTick == 0 &&
+                hasCombatRawIntent &&
+                tick.AttackPhaseResult.RejectedReasons.Any(reason =>
+                    reason.Contains("AttackRejected|Stage=ExecutionLock|", StringComparison.Ordinal) &&
+                    reason.Contains("Source=40|", StringComparison.Ordinal)))
+            {
+                attackExecuteRejectedByExecutionLockTick = tickIndex;
             }
 
             var attackExecuteTick = metrics.AttackExecuteTick;
@@ -4011,9 +4112,11 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 "RecoverComplete",
                 tickIndex,
                 metrics.RecoverCompleteTick);
-            var recoverTickCount = metrics.RecoverTickCount + CountTransitionReasonsWithPrefix(trace, 40, "RecoverTick");
+            var recoverTickCount = metrics.RecoverCompleteTick == 0
+                ? metrics.RecoverTickCount + CountTransitionReasonsWithPrefix(trace, 40, "RecoverTick")
+                : metrics.RecoverTickCount;
             var recoverPatrolWriteCount = metrics.RecoverPatrolWriteCount;
-            if (IsRecoverLaneTick(trace, 40))
+            if (metrics.RecoverCompleteTick == 0 && IsRecoverLaneTick(trace, 40))
             {
                 recoverPatrolWriteCount += CountPatrolStateUpdates(trace, 40);
             }
@@ -4033,7 +4136,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                 targetSensedTick,
                 targetInRangeTick,
                 attackEntryTick,
+                actionStartTargetResolvedTick,
+                actionStartBlockedByMoveLockTick,
+                actionStartActiveWithoutSignalTick,
                 actionStartTick,
+                attackExecuteRawIntentTick,
+                attackExecuteRejectedByExecutionLockTick,
                 attackExecuteTick,
                 attackExecuteActionStateActiveTick,
                 attackExecuteExecutionAttemptedTick,
@@ -4196,6 +4304,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertExecuteGateComplete(metrics, label);
             AssertCommitTraceGateComplete(metrics, label);
             AssertRecoverGateComplete(metrics, label, expectedRecoverTicks);
+            AssertWindupDiagnosticsClean(metrics, label);
         }
 
         private static void AssertWindupProbeComplete(in WindupContractMetrics metrics, string label, int expectedRecoverTicks)
@@ -4204,6 +4313,7 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             AssertExecuteGateComplete(metrics, label);
             AssertCommitTraceGateComplete(metrics, label);
             AssertRecoverGateComplete(metrics, label, expectedRecoverTicks);
+            AssertWindupDiagnosticsClean(metrics, label);
         }
 
         private static void AssertCombatStartGateComplete(in WindupContractMetrics metrics, string label, bool requireTargetSensed)
@@ -4241,6 +4351,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             Assert.That(metrics.RecoverPatrolWriteCount, Is.Zero, $"{label}: {BuildWindupMetricsSummary(metrics)}");
         }
 
+        private static void AssertWindupDiagnosticsClean(in WindupContractMetrics metrics, string label)
+        {
+            Assert.That(metrics.ActionStartActiveWithoutSignalTick, Is.Zero, $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.ActionStartBlockedByMoveLockTick, Is.Zero, $"{label}: {BuildWindupMetricsSummary(metrics)}");
+            Assert.That(metrics.AttackExecuteRejectedByExecutionLockTick, Is.Zero, $"{label}: {BuildWindupMetricsSummary(metrics)}");
+        }
+
         private static void AssertLockedTargetLostControlGreen(
             in LockedTargetLostMetrics metrics,
             string label,
@@ -4274,7 +4391,18 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static void AssertLockedTargetLostHomeReturnGreen(in LockedTargetLostMetrics metrics, string label, int leashRadius)
         {
             Assert.That(metrics.HomeDistanceSeries, Is.Not.Empty, $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
-            for (var i = 1; i < metrics.HomeDistanceSeries.Count; i++)
+            var firstHomeIndex = -1;
+            for (var i = 0; i < metrics.HomeDistanceSeries.Count; i++)
+            {
+                if (metrics.HomeDistanceSeries[i] == 0)
+                {
+                    firstHomeIndex = i;
+                    break;
+                }
+            }
+
+            Assert.That(firstHomeIndex, Is.GreaterThanOrEqualTo(0), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
+            for (var i = 1; i <= firstHomeIndex; i++)
             {
                 Assert.That(
                     metrics.HomeDistanceSeries[i],
@@ -4282,12 +4410,13 @@ namespace Game.Feature.Gameplay.Tests.Scenario
                     $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
             }
 
+            Assert.That(metrics.HomeDistanceSeries[firstHomeIndex], Is.LessThanOrEqualTo(leashRadius), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
             Assert.That(metrics.HomeDistanceSeries[^1], Is.LessThanOrEqualTo(leashRadius), $"{label}: {BuildLockedTargetLostMetricsSummary(metrics)}");
         }
 
         private static string BuildWindupMetricsSummary(in WindupContractMetrics metrics)
         {
-            return $"TargetSensed={metrics.TargetSensedTick}, TargetInRange={metrics.TargetInRangeTick}, AttackEntry={metrics.AttackEntryTick}, ActionStart={metrics.ActionStartTick}, AttackExecute={metrics.AttackExecuteTick}, ExecuteActionStateActive={metrics.AttackExecuteActionStateActiveTick}, ExecuteAttempted={metrics.AttackExecuteExecutionAttemptedTick}, AttackCommittedTrace={metrics.AttackCommittedTraceTick}, AttackCommittedRecover={metrics.AttackCommittedRecoverTick}, RecoverEntry={metrics.RecoverEntryTick}, RecoverComplete={metrics.RecoverCompleteTick}, RecoverTickCount={metrics.RecoverTickCount}, RecoverPatrolWrites={metrics.RecoverPatrolWriteCount}, FirstCombatDamage={metrics.FirstCombatDamageTick}";
+            return $"TargetSensed={metrics.TargetSensedTick}, TargetInRange={metrics.TargetInRangeTick}, AttackEntry={metrics.AttackEntryTick}, ActionStartResolved={metrics.ActionStartTargetResolvedTick}, ActionStartBlockedByMoveLock={metrics.ActionStartBlockedByMoveLockTick}, ActionStartActiveWithoutSignal={metrics.ActionStartActiveWithoutSignalTick}, ActionStart={metrics.ActionStartTick}, AttackRawIntent={metrics.AttackExecuteRawIntentTick}, AttackRejectedByExecutionLock={metrics.AttackExecuteRejectedByExecutionLockTick}, AttackExecute={metrics.AttackExecuteTick}, ExecuteActionStateActive={metrics.AttackExecuteActionStateActiveTick}, ExecuteAttempted={metrics.AttackExecuteExecutionAttemptedTick}, AttackCommittedTrace={metrics.AttackCommittedTraceTick}, AttackCommittedRecover={metrics.AttackCommittedRecoverTick}, RecoverEntry={metrics.RecoverEntryTick}, RecoverComplete={metrics.RecoverCompleteTick}, RecoverTickCount={metrics.RecoverTickCount}, RecoverPatrolWrites={metrics.RecoverPatrolWriteCount}, FirstCombatDamage={metrics.FirstCombatDamageTick}";
         }
 
         private static string BuildLockedTargetLostMetricsSummary(in LockedTargetLostMetrics metrics)
@@ -4336,6 +4465,25 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
                 worldState,
                 entityLogics ?? Array.Empty<IEntityLogic>());
+        }
+
+        private static TickPipeline CreateEnemyPipelineWithRespawnDelay(
+            WorldState worldState,
+            EnemyAiProfile profile,
+            int playerRespawnDelayTicks,
+            params IEntityLogic[] entityLogics)
+        {
+            var timingProfile = GameplayTimingProfile.CreateDefault();
+            var playerTiming = PlayerControlTimingSettings.CreateDefault().CreateAuthoritativeSnapshot(
+                timingProfile.SimulationTicksPerSecond,
+                timingProfile.RepeatedMoveIntervalSeconds);
+
+            return GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                worldState,
+                entityLogics ?? Array.Empty<IEntityLogic>(),
+                timingProfile,
+                playerTiming,
+                playerRespawnDelayTicks);
         }
 
         private static TickPipeline CreateEnemyPipeline(
