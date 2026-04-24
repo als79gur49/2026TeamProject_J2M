@@ -33,9 +33,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PostFx/Profiles.meta";
         private const string ProfileMetaRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PostFx/Profiles/TopologyTransitionPostFxProfile.cs.meta";
-        private const string InstallerPropertyPath = "topologyTransitionPostFxProfile";
-        private const string CombinedGameplayShowcaseInstallerMarker =
-            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
+        private const string AuthoringPropertyPath = "topologyTransitionPostFxProfile";
+        private const string GameplayCameraTopologyAuthoringMarker =
+            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
         private const string ExpectedProfileGuid = "e9c2d74380794db68d7b3d0c8acaf812";
 
         private static readonly string[] ExpectedSerializedHolders =
@@ -437,11 +437,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                     Assert.That(installer, Is.Not.Null, $"Missing installer in '{scene.path}'.");
+                    var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
+                    Assert.That(authoring, Is.Not.Null, $"Missing {nameof(GameplayCameraTopologyAuthoring)} in '{scene.path}'.");
 
-                    var serializedObject = new SerializedObject(installer);
-                    var profileProperty = serializedObject.FindProperty(InstallerPropertyPath);
+                    var serializedObject = new SerializedObject(authoring);
+                    var profileProperty = serializedObject.FindProperty(AuthoringPropertyPath);
 
-                    Assert.That(profileProperty, Is.Not.Null, $"Missing serialized path '{InstallerPropertyPath}' in '{scene.path}'.");
+                    Assert.That(profileProperty, Is.Not.Null, $"Missing serialized path '{AuthoringPropertyPath}' in '{scene.path}'.");
                     serializedObject.Update();
                     AssertSerializedPropertyMatches(profileProperty, expectedProfile, scene.path);
                     AssertProfileMatches(expectedProfile, installer.GetTopologyTransitionPostFxProfile(), scene.path);
@@ -455,7 +457,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static bool ContainsPostFxProfileHolder(string relativePath)
         {
-            return ReadRepoFile(relativePath).IndexOf($"{InstallerPropertyPath}:", StringComparison.Ordinal) >= 0;
+            return ReadRepoFile(relativePath).IndexOf($"{AuthoringPropertyPath}:", StringComparison.Ordinal) >= 0;
         }
 
         private static bool HasSerializedAssetExtension(string absolutePath)
@@ -482,8 +484,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static SerializedTopologyTransitionPostFxProfile ReadSerializedProfile(string installerBlock)
         {
-            Assert.That(installerBlock, Does.Contain($"{InstallerPropertyPath}:"));
-            var profileBlock = ReadSerializedBlock(installerBlock, InstallerPropertyPath, 2);
+            Assert.That(installerBlock, Does.Contain($"{AuthoringPropertyPath}:"));
+            var profileBlock = ReadSerializedBlock(installerBlock, AuthoringPropertyPath, 2);
             var distortionBlock = ReadSerializedBlock(profileBlock, "distortionProfile", 4);
 
             return new SerializedTopologyTransitionPostFxProfile(
@@ -511,7 +513,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         private static string ReadCombinedGameplayInstallerBlock(string scenePath)
         {
             var sceneText = ReadRepoFile(scenePath);
-            var markerIndex = sceneText.IndexOf(CombinedGameplayShowcaseInstallerMarker, StringComparison.Ordinal);
+            var markerIndex = sceneText.IndexOf(GameplayCameraTopologyAuthoringMarker, StringComparison.Ordinal);
 
             Assert.That(markerIndex, Is.GreaterThanOrEqualTo(0), $"Missing installer block in {scenePath}.");
 

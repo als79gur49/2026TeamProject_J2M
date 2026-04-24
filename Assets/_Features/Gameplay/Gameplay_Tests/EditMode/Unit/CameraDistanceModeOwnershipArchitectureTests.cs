@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -22,7 +23,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraSettings.cs";
         private const string GuardrailRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CameraDistanceModeOwnershipArchitectureTests.cs";
-        private const string InstallerCameraDistanceModePropertyPath = "cameraSettings.DistanceMode";
+        private const string AuthoringCameraDistanceModePropertyPath = "cameraSettings.DistanceMode";
+        private const string GameplayCameraTopologyAuthoringMarker =
+            "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
         private static readonly string[] ScenePaths =
         {
             "Assets/Scenes/CombinedGameplayShowcase.unity",
@@ -109,9 +112,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             foreach (var scenePath in ScenePaths)
             {
-                var installerBlock = ReadCombinedGameplayInstallerBlock(scenePath);
+                var authoringBlock = ReadCombinedGameplayCameraTopologyAuthoringBlock(scenePath);
                 Assert.That(
-                    ReadSerializedDistanceModeValue(installerBlock),
+                    ReadSerializedDistanceModeValue(authoringBlock),
                     Is.EqualTo((int)CameraDistanceMode.Manual),
                     $"Unexpected authored DistanceMode in {scenePath}.");
 
@@ -121,9 +124,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 {
                     var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                     Assert.That(installer, Is.Not.Null, $"Missing installer in {scene.path}.");
+                    var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
+                    Assert.That(authoring, Is.Not.Null, $"Missing {nameof(GameplayCameraTopologyAuthoring)} in {scene.path}.");
 
-                    var serializedObject = new SerializedObject(installer);
-                    var distanceModeProperty = serializedObject.FindProperty(InstallerCameraDistanceModePropertyPath);
+                    var serializedObject = new SerializedObject(authoring);
+                    var distanceModeProperty = serializedObject.FindProperty(AuthoringCameraDistanceModePropertyPath);
 
                     Assert.That(distanceModeProperty, Is.Not.Null, $"Missing serialized path in {scene.path}.");
                     serializedObject.Update();
@@ -147,9 +152,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             {
                 var installer = Object.FindFirstObjectByType<CombinedGameplayShowcaseInstaller>();
                 Assert.That(installer, Is.Not.Null);
+                var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
+                Assert.That(authoring, Is.Not.Null);
 
-                var serializedObject = new SerializedObject(installer);
-                var distanceModeProperty = serializedObject.FindProperty(InstallerCameraDistanceModePropertyPath);
+                var serializedObject = new SerializedObject(authoring);
+                var distanceModeProperty = serializedObject.FindProperty(AuthoringCameraDistanceModePropertyPath);
 
                 Assert.That(distanceModeProperty, Is.Not.Null);
                 serializedObject.Update();
@@ -176,19 +183,17 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
-        private static string ReadCombinedGameplayInstallerBlock(string scenePath)
+        private static string ReadCombinedGameplayCameraTopologyAuthoringBlock(string scenePath)
         {
             var sceneText = ReadRepoFile(scenePath);
-            var marker =
-                "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.CombinedGameplayShowcaseInstaller";
-            var markerIndex = sceneText.IndexOf(marker);
+            var markerIndex = sceneText.IndexOf(GameplayCameraTopologyAuthoringMarker, StringComparison.Ordinal);
 
             Assert.That(markerIndex, Is.GreaterThanOrEqualTo(0), $"Missing installer block in {scenePath}.");
 
-            var blockStart = sceneText.LastIndexOf("--- !u!114", markerIndex);
+            var blockStart = sceneText.LastIndexOf("--- !u!114", markerIndex, StringComparison.Ordinal);
             Assert.That(blockStart, Is.GreaterThanOrEqualTo(0), $"Missing block start in {scenePath}.");
 
-            var blockEnd = sceneText.IndexOf("\n--- !u!", markerIndex);
+            var blockEnd = sceneText.IndexOf("\n--- !u!", markerIndex, StringComparison.Ordinal);
             if (blockEnd < 0)
             {
                 blockEnd = sceneText.Length;

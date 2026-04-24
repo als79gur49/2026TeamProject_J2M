@@ -243,15 +243,16 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var cameraTopologyAuthoring = EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(
-                    installer,
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
                     "topologyRotationVisualMapping",
                     TopologyRotationVisualMapping.ForwardUsesPositiveX);
-                SetBaseInstallerField(
-                    installer,
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
                     "topologyRotationTweenSettings",
                     new TopologyRotationTweenSettings
                     {
@@ -309,6 +310,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
 
@@ -339,6 +341,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
 
@@ -372,6 +375,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(playerPrefabObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
@@ -412,6 +416,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
@@ -448,6 +453,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                EnsureCameraTopologyAuthoring(installer);
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
@@ -535,6 +541,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(typeof(GameplayShowcaseSceneInstallerBase), target, fieldName, value);
         }
 
+        private static void SetTopologyAuthoringField(object target, string fieldName, object value)
+        {
+            SetPrivateField(typeof(GameplayCameraTopologyAuthoring), target, fieldName, value);
+        }
+
         private static void SetPrivateField(Type ownerType, object target, string fieldName, object value)
         {
             var field = ownerType.GetField(
@@ -543,6 +554,13 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(field, Is.Not.Null);
             field.SetValue(target, value);
+        }
+
+        private static GameplayCameraTopologyAuthoring EnsureCameraTopologyAuthoring(Component owner)
+        {
+            Assert.That(owner, Is.Not.Null);
+            return owner.GetComponent<GameplayCameraTopologyAuthoring>() ??
+                   owner.gameObject.AddComponent<GameplayCameraTopologyAuthoring>();
         }
 
         private static GameplaySimulationTimingPreset CreateSimulationTimingPreset(
@@ -639,6 +657,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var cameraTopologyAuthoring = EnsureCameraTopologyAuthoring(installer);
                 var authoredShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
                 authoredShakeProfile.ImpactStart01 = 0.05f;
                 authoredShakeProfile.ImpactDuration01 = 0.11f;
@@ -650,7 +669,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(installer, "topologyTransitionCameraShakeProfile", authoredShakeProfile);
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
+                    "topologyTransitionCameraShakeProfile",
+                    authoredShakeProfile);
 
                 var configuration = installer.BuildConfigurationForTests();
 
@@ -692,6 +714,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SceneManager.MoveGameObjectToScene(installerObject, scene);
 
                 var installer = installerObject.AddComponent<TestGameplayShowcaseInstaller>();
+                var cameraTopologyAuthoring = EnsureCameraTopologyAuthoring(installer);
                 var authoredPostFxProfile = TopologyTransitionPostFxProfile.Create(
                     authoritativeProfile,
                     maxBlurIntensity: 0.42f,
@@ -714,7 +737,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 SetBaseInstallerField(installer, "actions", actions);
                 SetBaseInstallerField(installer, "simulationTimingPreset", simulationTimingPreset);
                 SetBaseInstallerField(installer, "presentationTimingPreset", presentationTimingPreset);
-                SetBaseInstallerField(installer, "topologyTransitionPostFxProfile", authoredPostFxProfile);
+                SetTopologyAuthoringField(
+                    cameraTopologyAuthoring,
+                    "topologyTransitionPostFxProfile",
+                    authoredPostFxProfile);
 
                 var configuration = installer.BuildConfigurationForTests();
 
