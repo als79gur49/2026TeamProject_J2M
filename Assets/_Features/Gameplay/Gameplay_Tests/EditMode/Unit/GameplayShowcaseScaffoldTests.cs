@@ -117,9 +117,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 lens.NearClipPlane = 0.2f;
                 lens.FarClipPlane = 90f;
                 cinemachineCamera.Lens = lens;
+                var authoredWorldPosition = new Vector3(3f, 4f, -8f);
+                var authoredWorldRotation = Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up);
                 cinemachineCamera.transform.SetPositionAndRotation(
-                    new Vector3(3f, 4f, -8f),
-                    Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up));
+                    authoredWorldPosition,
+                    authoredWorldRotation);
                 SceneManager.MoveGameObjectToScene(cinemachineCameraObject, scene);
 
                 var baseCameraSettings = new GameplayCameraSettings
@@ -150,6 +152,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var boardRoot = installerObject.GetComponentInChildren<GameplayBoardRoot>();
                 rig.ApplySettings(resolvedCameraSettings);
                 rig.Initialize(null, boardRoot.CameraTargetRoot, new Bounds(Vector3.zero, Vector3.one));
+                var authoredBaselineLocalPosition = authoredWorldPosition - boardRoot.CameraTargetRoot.position;
 
                 Assert.That(resolvedCameraSettings.PerspectiveFieldOfView, Is.EqualTo(44f).Within(0.0001f));
                 Assert.That(resolvedCameraSettings.NearClipPlane, Is.EqualTo(0.2f).Within(0.0001f));
@@ -157,12 +160,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(cinemachineCamera.transform.parent, Is.EqualTo(boardRoot.CameraEffectsRoot));
                 Assert.That(cinemachineCamera.transform.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(
-                    Vector3.Distance(boardRoot.CameraEffectsRoot.position, new Vector3(3f, 4f, -8f)),
+                    Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, Quaternion.identity),
                     Is.LessThan(0.001f));
                 Assert.That(
-                    Quaternion.Angle(
-                        boardRoot.CameraEffectsRoot.rotation,
-                        Quaternion.LookRotation(new Vector3(-3f, -4f, 8f).normalized, Vector3.up)),
+                    Vector3.Distance(boardRoot.CameraPoseRoot.localPosition, authoredBaselineLocalPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraPoseRoot.localRotation, authoredWorldRotation),
+                    Is.LessThan(0.001f));
+                Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
+                Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.position, authoredWorldPosition),
+                    Is.LessThan(0.001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.rotation, authoredWorldRotation),
                     Is.LessThan(0.001f));
             }
             finally
@@ -486,7 +498,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     0f);
                 var expectedWorldRotation = orbitRotation * expectedLocalRotation;
                 var expectedWorldPosition =
-                    boardRoot.CameraTargetRoot.position + (expectedWorldRotation * (Vector3.back * cameraSettings.ManualDistance));
+                    boardRoot.CameraTargetRoot.position + (orbitRotation * (Vector3.back * cameraSettings.ManualDistance));
 
                 Assert.That(Quaternion.Angle(boardRoot.CameraOrbitPivot.localRotation, orbitRotation), Is.LessThan(0.001f));
                 Assert.That(
@@ -494,6 +506,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Is.LessThan(0.001f));
                 Assert.That(boardRoot.CameraEffectsRoot.localPosition, Is.EqualTo(Vector3.zero));
                 Assert.That(boardRoot.CameraEffectsRoot.localRotation, Is.EqualTo(Quaternion.identity));
+                Assert.That(
+                    Vector3.Distance(boardRoot.CameraEffectsRoot.position, boardRoot.CameraPoseRoot.position),
+                    Is.LessThan(0.0001f));
+                Assert.That(
+                    Quaternion.Angle(boardRoot.CameraEffectsRoot.rotation, boardRoot.CameraPoseRoot.rotation),
+                    Is.LessThan(0.001f));
                 Assert.That(
                     Vector3.Distance(
                         boardRoot.CameraPoseRoot.localPosition,
