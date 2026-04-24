@@ -7,68 +7,53 @@ namespace Game.Feature.Gameplay.Host
     {
         private const float ZeroEpsilon = 0.000001f;
 
-        private TopologyTransitionCameraShakeProfile _profile = TopologyTransitionCameraShakeProfile.CreateDefault();
-
-        public Vector3 LocalPosition { get; private set; }
-
-        public Quaternion LocalRotation { get; private set; } = Quaternion.identity;
-
-        public void Initialize(TopologyTransitionCameraShakeProfile profile)
-        {
-            _profile = profile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
-            Reset();
-        }
-
-        public void Apply(in TopologyTransitionVisualState visualState)
+        public TopologyTransitionCameraShakeResult Evaluate(
+            in TopologyTransitionVisualState visualState,
+            TopologyTransitionCameraShakeProfile profile)
         {
             if (!visualState.IsActive)
             {
-                Reset();
-                return;
+                return TopologyTransitionCameraShakeResult.Zero;
             }
 
+            var resolvedProfile = profile ?? TopologyTransitionCameraShakeProfile.CreateDefault();
             var directionSign = visualState.RotationKind == CubeRotationKind.Backward ? -1f : 1f;
             var localPosition =
                 EvaluatePulse(
                     visualState.Progress01,
-                    _profile.ImpactStart01,
-                    _profile.ImpactDuration01,
-                    ResolveSignedPositionAmplitude(_profile.ImpactLocalPositionAmplitude, directionSign),
-                    Mathf.Max(1, _profile.ImpactOscillationCycles),
+                    resolvedProfile.ImpactStart01,
+                    resolvedProfile.ImpactDuration01,
+                    ResolveSignedPositionAmplitude(resolvedProfile.ImpactLocalPositionAmplitude, directionSign),
+                    Mathf.Max(1, resolvedProfile.ImpactOscillationCycles),
                     phaseOffsetRadians: -Mathf.PI * 0.5f) +
                 EvaluatePulse(
                     visualState.Progress01,
-                    _profile.LandingStart01,
-                    _profile.LandingDuration01,
-                    ResolveSignedPositionAmplitude(_profile.LandingLocalPositionAmplitude, -directionSign),
-                    Mathf.Max(1, _profile.LandingOscillationCycles),
+                    resolvedProfile.LandingStart01,
+                    resolvedProfile.LandingDuration01,
+                    ResolveSignedPositionAmplitude(resolvedProfile.LandingLocalPositionAmplitude, -directionSign),
+                    Mathf.Max(1, resolvedProfile.LandingOscillationCycles),
                     phaseOffsetRadians: Mathf.PI * 0.25f);
             var localRotationEuler =
                 EvaluatePulse(
                     visualState.Progress01,
-                    _profile.ImpactStart01,
-                    _profile.ImpactDuration01,
-                    ResolveSignedRotationAmplitude(_profile.ImpactLocalRotationAmplitudeDegrees, directionSign),
-                    Mathf.Max(1, _profile.ImpactOscillationCycles),
+                    resolvedProfile.ImpactStart01,
+                    resolvedProfile.ImpactDuration01,
+                    ResolveSignedRotationAmplitude(resolvedProfile.ImpactLocalRotationAmplitudeDegrees, directionSign),
+                    Mathf.Max(1, resolvedProfile.ImpactOscillationCycles),
                     phaseOffsetRadians: -Mathf.PI * 0.5f) +
                 EvaluatePulse(
                     visualState.Progress01,
-                    _profile.LandingStart01,
-                    _profile.LandingDuration01,
-                    ResolveSignedRotationAmplitude(_profile.LandingLocalRotationAmplitudeDegrees, -directionSign),
-                    Mathf.Max(1, _profile.LandingOscillationCycles),
+                    resolvedProfile.LandingStart01,
+                    resolvedProfile.LandingDuration01,
+                    ResolveSignedRotationAmplitude(resolvedProfile.LandingLocalRotationAmplitudeDegrees, -directionSign),
+                    Mathf.Max(1, resolvedProfile.LandingOscillationCycles),
                     phaseOffsetRadians: Mathf.PI * 0.25f);
-
-            LocalPosition = Sanitize(localPosition);
-            LocalRotation = localRotationEuler.sqrMagnitude <= ZeroEpsilon
+            var sanitizedLocalPosition = Sanitize(localPosition);
+            var sanitizedLocalRotationEuler = Sanitize(localRotationEuler);
+            var localRotation = localRotationEuler.sqrMagnitude <= ZeroEpsilon
                 ? Quaternion.identity
-                : Quaternion.Euler(Sanitize(localRotationEuler));
-        }
-
-        public void Reset()
-        {
-            LocalPosition = Vector3.zero;
-            LocalRotation = Quaternion.identity;
+                : Quaternion.Euler(sanitizedLocalRotationEuler);
+            return new TopologyTransitionCameraShakeResult(sanitizedLocalPosition, localRotation);
         }
 
         private static Vector3 EvaluatePulse(

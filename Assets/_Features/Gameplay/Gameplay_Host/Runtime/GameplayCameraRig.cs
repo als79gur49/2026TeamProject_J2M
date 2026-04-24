@@ -30,6 +30,8 @@ namespace Game.Feature.Gameplay.Host
         private Quaternion _presentedTopologyOrbit = Quaternion.identity;
         private float _presentedTopologyOrbitXDegrees;
         private readonly TopologyTransitionCameraShakeController _topologyTransitionCameraShakeController = new();
+        private TopologyTransitionCameraShakeProfile _topologyTransitionCameraShakeProfile =
+            TopologyTransitionCameraShakeProfile.CreateDefault();
         private Transform _target;
         private Vector3 _topologyTransitionShakeLocalPosition;
         private Quaternion _topologyTransitionShakeLocalRotation = Quaternion.identity;
@@ -143,7 +145,7 @@ namespace Game.Feature.Gameplay.Host
 
         internal void ConfigureTopologyTransitionCameraShake(TopologyTransitionCameraShakeProfile profile)
         {
-            _topologyTransitionCameraShakeController.Initialize(profile);
+            _topologyTransitionCameraShakeProfile = profile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
             _topologyTransitionShakeLocalPosition = Vector3.zero;
             _topologyTransitionShakeLocalRotation = Quaternion.identity;
 
@@ -264,9 +266,11 @@ namespace Game.Feature.Gameplay.Host
 
         internal void ApplyTopologyTransitionVisualState(in TopologyTransitionVisualState visualState)
         {
-            _topologyTransitionCameraShakeController.Apply(visualState);
-            _topologyTransitionShakeLocalPosition = _topologyTransitionCameraShakeController.LocalPosition;
-            _topologyTransitionShakeLocalRotation = _topologyTransitionCameraShakeController.LocalRotation;
+            var shakeResult = _topologyTransitionCameraShakeController.Evaluate(
+                visualState,
+                _topologyTransitionCameraShakeProfile);
+            _topologyTransitionShakeLocalPosition = shakeResult.LocalPosition;
+            _topologyTransitionShakeLocalRotation = shakeResult.LocalRotation;
         }
 
         private void LateUpdate()
