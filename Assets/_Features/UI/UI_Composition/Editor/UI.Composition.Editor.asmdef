@@ -3,7 +3,8 @@
   "rootNamespace": "Game.Feature.UI.Editor",
   "references": [
     "Game.Feature.UI.Composition",
-    "Game.Feature.UI.Screens"
+    "Game.Feature.UI.Screens",
+    "Unity.TextMeshPro"
   ],
   "includePlatforms": [
     "Editor"

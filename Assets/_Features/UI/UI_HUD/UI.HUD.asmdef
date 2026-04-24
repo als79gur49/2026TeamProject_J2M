@@ -1,4 +1,8 @@
 {
   "name": "Game.Feature.UI.HUD",
-  "rootNamespace": "Game.Feature.UI.HUD"
+  "rootNamespace": "Game.Feature.UI.HUD",
+  "references": [
+    "Unity.TextMeshPro",
+    "DOTween.Modules"
+  ]
 }
