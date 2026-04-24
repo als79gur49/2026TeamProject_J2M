@@ -21,6 +21,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
     {
         private const string CombinedScenePath = "Assets/Scenes/CombinedGameplayShowcase.unity";
         private const string TutorialScenePath = "Assets/Scenes/TutorialScene.unity";
+        private const string CombinedPresetAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
+        private const string TutorialPresetAssetPath =
+            "Assets/_Features/Stages/Stage_TutorialScene/Camera/Presets/GameplayCameraTopologyPreset_TutorialScene.asset";
         private const string AuthoritativeVolumeProfileAssetPath = "Assets/DefaultVolumeProfile.asset";
         private const string DeprecatedVolumeProfileGuid = "eda47df5b85f4f249abf7abd73db2cb2";
 
@@ -42,6 +46,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(authoritativeProfile, Is.Not.Null);
                 Assert.That(authoritativeProfile.TryGet(out MotionBlur authoritativeMotionBlur), Is.True);
                 Assert.That(authoritativeProfile.TryGet(out LensDistortion authoritativeLensDistortion), Is.True);
+                var authoritativeMotionBlurMode = authoritativeMotionBlur.mode.value;
+                var authoritativeMotionBlurQuality = authoritativeMotionBlur.quality.value;
+                var authoritativeMotionBlurIntensity = authoritativeMotionBlur.intensity.value;
+                var authoritativeLensDistortionIntensity = authoritativeLensDistortion.intensity.value;
+                var authoritativeLensDistortionScale = authoritativeLensDistortion.scale.value;
 
                 host.Initialize(
                     new GameplaySceneHostConfiguration
@@ -92,11 +101,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(controller.LensDistortionOverride.scale.value, Is.EqualTo(1.05f).Within(0.0001f));
                 Assert.That(outputCamera.GetUniversalAdditionalCameraData().renderPostProcessing, Is.True);
 
-                Assert.That(authoritativeMotionBlur.mode.value, Is.EqualTo(MotionBlurMode.CameraOnly));
-                Assert.That(authoritativeMotionBlur.quality.value, Is.EqualTo(MotionBlurQuality.Low));
-                Assert.That(authoritativeMotionBlur.intensity.value, Is.EqualTo(0f));
-                Assert.That(authoritativeLensDistortion.intensity.value, Is.EqualTo(0f));
-                Assert.That(authoritativeLensDistortion.scale.value, Is.EqualTo(1f));
+                Assert.That(authoritativeMotionBlur.mode.value, Is.EqualTo(authoritativeMotionBlurMode));
+                Assert.That(authoritativeMotionBlur.quality.value, Is.EqualTo(authoritativeMotionBlurQuality));
+                Assert.That(authoritativeMotionBlur.intensity.value, Is.EqualTo(authoritativeMotionBlurIntensity));
+                Assert.That(authoritativeLensDistortion.intensity.value, Is.EqualTo(authoritativeLensDistortionIntensity));
+                Assert.That(authoritativeLensDistortion.scale.value, Is.EqualTo(authoritativeLensDistortionScale));
             }
             finally
             {
@@ -325,22 +334,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Full")]
-        public void ShowcaseScenes_InstallerSerialization_UsesAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
+        public void ShowcaseCameraTopologyPresetAssets_UseAssetsDefaultVolumeProfileInsteadOfDeprecatedSettingsProfile()
         {
+            var combinedPresetText = ReadNormalizedText(CombinedPresetAssetPath);
+            var tutorialPresetText = ReadNormalizedText(TutorialPresetAssetPath);
             var combinedSceneText = ReadNormalizedText(CombinedScenePath);
             var tutorialSceneText = ReadNormalizedText(TutorialScenePath);
             var authoritativeGuid = AssetDatabase.AssetPathToGUID(AuthoritativeVolumeProfileAssetPath);
+            var combinedPresetGuid = AssetDatabase.AssetPathToGUID(CombinedPresetAssetPath);
+            var tutorialPresetGuid = AssetDatabase.AssetPathToGUID(TutorialPresetAssetPath);
 
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", combinedSceneText);
-            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialSceneText);
-            StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedSceneText);
-            StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialSceneText);
-            StringAssert.Contains("distortionProfile:", combinedSceneText);
-            StringAssert.Contains("ImpactIntensity: -0.2", combinedSceneText);
-            StringAssert.Contains("distortionProfile:", tutorialSceneText);
-            StringAssert.Contains("ImpactIntensity: -0.2", tutorialSceneText);
+            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", combinedPresetText);
+            StringAssert.Contains($"authoritativeVolumeProfile: {{fileID: 11400000, guid: {authoritativeGuid}, type: 2}}", tutorialPresetText);
+            StringAssert.Contains("angularVelocityResponseExponent: 0.65", combinedPresetText);
+            StringAssert.Contains("angularVelocityResponseExponent: 0.65", tutorialPresetText);
+            StringAssert.Contains("distortionProfile:", combinedPresetText);
+            StringAssert.Contains("ImpactIntensity: -0.2", combinedPresetText);
+            StringAssert.Contains("distortionProfile:", tutorialPresetText);
+            StringAssert.Contains("ImpactIntensity: -0.2", tutorialPresetText);
+            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {combinedPresetGuid}, type: 2}}", combinedSceneText);
+            StringAssert.Contains($"preset: {{fileID: 11400000, guid: {tutorialPresetGuid}, type: 2}}", tutorialSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedSceneText);
             StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialSceneText);
+            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, combinedPresetText);
+            StringAssert.DoesNotContain(DeprecatedVolumeProfileGuid, tutorialPresetText);
         }
 
         [Test]

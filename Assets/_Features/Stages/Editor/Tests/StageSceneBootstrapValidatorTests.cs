@@ -31,6 +31,9 @@ namespace Game.Feature.Stages.Editor.Tests
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.direct-play.catalog.missing"), Is.False);
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.enemy-catalog.residue"), Is.False);
             Assert.That(report.Issues.Any(issue => issue.Code == "scene.static-catalog.residue"), Is.False);
+            Assert.That(report.Issues.Any(issue => issue.Code == "scene.camera-topology.inline.production"), Is.False);
+            Assert.That(report.Issues.Any(issue => issue.Code == "scene.camera-topology.preset.null"), Is.False);
+            Assert.That(report.Issues.Any(issue => issue.Code == "scene.camera-topology.stage-preset.mismatch"), Is.False);
         }
     }
 }
