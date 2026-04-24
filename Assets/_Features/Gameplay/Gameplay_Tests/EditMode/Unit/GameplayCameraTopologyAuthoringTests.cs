@@ -71,18 +71,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         scale: 1.12f));
 
                 SetAuthoringField(authoring, "configureMainCamera", false);
-                SetAuthoringField(authoring, "topologyRotationVisualMapping", TopologyRotationVisualMapping.ForwardUsesNegativeX);
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "topologyRotationTweenSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationVisualMapping),
+                    TopologyRotationVisualMapping.ForwardUsesNegativeX);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationTweenSettings),
                     new TopologyRotationTweenSettings
                     {
                         Ease = TopologyRotationTweenEase.InOutBounce,
                     });
                 SetAuthoringField(authoring, "baselineAuthoringPolicy", baselineAuthoringPolicy);
-                SetAuthoringField(authoring, "cameraSettings", cameraSettings);
-                SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", shakeProfile);
-                SetAuthoringField(authoring, "topologyTransitionPostFxProfile", postFxProfile);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
+                    cameraSettings);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    shakeProfile);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    postFxProfile);
 
                 var snapshot = authoring.CreateSnapshot();
 
@@ -120,9 +132,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
-                SetAuthoringField(authoring, "cameraSettings", null);
-                SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", null);
-                SetAuthoringField(authoring, "topologyTransitionPostFxProfile", null);
+                SetAuthoringField(
+                    authoring,
+                    "inlineSharedTuning",
+                    new GameplayCameraTopologyInlineSharedTuning
+                    {
+                        CameraSettings = null,
+                        TopologyTransitionCameraShakeProfile = null,
+                        TopologyTransitionPostFxProfile = null,
+                    });
 
                 authoring.Validate();
                 var snapshot = authoring.CreateSnapshot();
@@ -310,17 +328,20 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     authoring,
                     "baselineAuthoringPolicy",
                     GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault());
-                SetAuthoringField(authoring, "topologyRotationVisualMapping", TopologyRotationVisualMapping.ForwardUsesPositiveX);
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "topologyRotationTweenSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationVisualMapping),
+                    TopologyRotationVisualMapping.ForwardUsesPositiveX);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationTweenSettings),
                     new TopologyRotationTweenSettings
                     {
                         Ease = TopologyRotationTweenEase.InOutBounce,
                     });
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "cameraSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 12f,
@@ -328,7 +349,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     });
                 var inlineShake = TopologyTransitionCameraShakeProfile.CreateDefault();
                 inlineShake.ImpactDuration01 = 0.44f;
-                SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", inlineShake);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    inlineShake);
                 var inlinePostFx = TopologyTransitionPostFxProfile.Create(
                     null,
                     MotionBlurMode.CameraAndObjects,
@@ -339,7 +363,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     landingFadeStart01: 0.64f,
                     landingFadeExponent: 1.8f,
                     distortionProfile: TopologyTransitionDistortionProfile.Create(scale: 1.44f));
-                SetAuthoringField(authoring, "topologyTransitionPostFxProfile", inlinePostFx);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    inlinePostFx);
 
                 var snapshot = authoring.CreateSnapshot();
 
@@ -412,9 +439,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         UseAuthoredSceneCameraPose = false,
                         UseAuthoredSceneCameraLens = true,
                     });
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "cameraSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 9f,
@@ -423,9 +450,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         FarClipPlane = 20f,
                         BackgroundColor = Color.magenta,
                     });
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "topologyTransitionPostFxProfile",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
                     TopologyTransitionPostFxProfile.Create(
                         null,
                         MotionBlurMode.CameraAndObjects,
@@ -508,16 +535,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                         UseAuthoredSceneCameraPose = false,
                         UseAuthoredSceneCameraLens = false,
                     });
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "cameraSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 11f,
                     });
                 var inlineShake = TopologyTransitionCameraShakeProfile.CreateDefault();
                 inlineShake.ImpactDuration01 = 0.48f;
-                SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", inlineShake);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    inlineShake);
                 var inlinePostFx = TopologyTransitionPostFxProfile.Create(
                     null,
                     MotionBlurMode.CameraAndObjects,
@@ -528,7 +558,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     landingFadeStart01: 0.7f,
                     landingFadeExponent: 1.9f,
                     distortionProfile: TopologyTransitionDistortionProfile.Create(scale: 1.28f));
-                SetAuthoringField(authoring, "topologyTransitionPostFxProfile", inlinePostFx);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    inlinePostFx);
 
                 var cameraSettings = authoring.GetCameraSettings();
                 var baselineAuthoringPolicy = authoring.GetBaselineAuthoringPolicy();
@@ -563,9 +596,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = rootObject.AddComponent<GameplayCameraTopologyAuthoring>();
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "cameraSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.CameraSettings),
                     new GameplayCameraSettings
                     {
                         PitchDegrees = 26f,
@@ -673,17 +706,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     distortionProfile: TopologyTransitionDistortionProfile.Create(scale: 1.09f));
 
                 SetAuthoringField(authoring, "configureMainCamera", false);
-                SetAuthoringField(authoring, "topologyRotationVisualMapping", TopologyRotationVisualMapping.ForwardUsesNegativeX);
-                SetAuthoringField(
+                SetInlineSharedTuningProperty(
                     authoring,
-                    "topologyRotationTweenSettings",
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationVisualMapping),
+                    TopologyRotationVisualMapping.ForwardUsesNegativeX);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyRotationTweenSettings),
                     new TopologyRotationTweenSettings
                     {
                         Ease = TopologyRotationTweenEase.Linear,
                     });
                 SetAuthoringField(authoring, "baselineAuthoringPolicy", baselineAuthoringPolicy);
-                SetAuthoringField(authoring, "topologyTransitionCameraShakeProfile", shakeProfile);
-                SetAuthoringField(authoring, "topologyTransitionPostFxProfile", postFxProfile);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionCameraShakeProfile),
+                    shakeProfile);
+                SetInlineSharedTuningProperty(
+                    authoring,
+                    nameof(GameplayCameraTopologyInlineSharedTuning.TopologyTransitionPostFxProfile),
+                    postFxProfile);
 
                 var configuration = new GameplaySceneHostConfiguration();
                 var viewCameraObject = new GameObject("GameplayCameraTopologyConfigurationComposer_ViewCamera");
@@ -738,6 +780,34 @@ namespace Game.Feature.Gameplay.Tests.Unit
             SetPrivateField(typeof(GameplayCameraTopologyAuthoring), authoring, fieldName, value);
         }
 
+        private static void SetInlineSharedTuningProperty(
+            GameplayCameraTopologyAuthoring authoring,
+            string propertyName,
+            object value)
+        {
+            var inlineSharedTuningField = typeof(GameplayCameraTopologyAuthoring).GetField(
+                "inlineSharedTuning",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+
+            Assert.That(inlineSharedTuningField, Is.Not.Null, "Missing private field 'inlineSharedTuning'.");
+
+            var inlineSharedTuning =
+                (GameplayCameraTopologyInlineSharedTuning)inlineSharedTuningField.GetValue(authoring) ??
+                GameplayCameraTopologyInlineSharedTuning.CreateShowcaseDefault();
+
+            inlineSharedTuningField.SetValue(authoring, inlineSharedTuning);
+
+            var property = typeof(GameplayCameraTopologyInlineSharedTuning).GetProperty(
+                propertyName,
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
+            Assert.That(
+                property,
+                Is.Not.Null,
+                $"Missing property '{propertyName}' on '{nameof(GameplayCameraTopologyInlineSharedTuning)}'.");
+            property.SetValue(inlineSharedTuning, value);
+        }
+
         private static void SetPresetField(GameplayCameraTopologyPreset preset, string fieldName, object value)
         {
             SetPrivateField(typeof(GameplayCameraTopologyPreset), preset, fieldName, value);
@@ -747,7 +817,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
         {
             var field = ownerType.GetField(
                 fieldName,
-                BindingFlags.Instance | BindingFlags.NonPublic);
+                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
             Assert.That(field, Is.Not.Null, $"Missing private field '{fieldName}' on '{ownerType.Name}'.");
             field.SetValue(target, value);
@@ -782,6 +852,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraBaselineAuthoringPolicy.cs";
         private const string AuthoringRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologyAuthoring.cs";
+        private const string InlineSharedTuningRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologyInlineSharedTuning.cs";
         private const string SourceModeRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologySourceMode.cs";
         private const string PresetRelativePath =
@@ -790,6 +862,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraTopologyConfigurationComposer.cs";
         private const string InstallerRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayShowcaseSceneInstallerBase.cs";
+        private const string AuthoringEditorRelativePath =
+            "Assets/_Features/Gameplay/Gameplay_Host/Editor/GameplayCameraTopologyAuthoringEditor.cs";
         private const string CombinedGameplayShowcasePresetAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Camera/Presets/GameplayCameraTopologyPreset_CombinedGameplayShowcase.asset";
         private const string TutorialScenePresetAssetPath =
@@ -828,6 +902,12 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("public void Validate()"));
             Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()"));
             Assert.That(source, Does.Contain("public static GameplayCameraTopologyAuthoring GetRequiredValidated(Component owner)"));
+            Assert.That(source, Does.Contain("[SerializeField] private GameplayCameraTopologyInlineSharedTuning inlineSharedTuning"));
+            Assert.That(source, Does.Not.Contain("[SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping"));
+            Assert.That(source, Does.Not.Contain("[SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings"));
+            Assert.That(source, Does.Not.Contain("[SerializeField] private GameplayCameraSettings cameraSettings"));
+            Assert.That(source, Does.Not.Contain("[SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile"));
+            Assert.That(source, Does.Not.Contain("[SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile"));
         }
 
         [Test]
@@ -841,6 +921,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(source, Does.Contain("public bool UseAuthoredSceneCameraLens;"));
             Assert.That(source, Does.Contain("public static GameplayCameraBaselineAuthoringPolicy CreateRuntimeDefault()"));
             Assert.That(source, Does.Contain("public static GameplayCameraBaselineAuthoringPolicy CreateShowcaseDefault()"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayCameraTopologyInlineSharedTuning_Source_Exists_WithCanonicalPublicSurface()
+        {
+            var source = ReadRepoFile(InlineSharedTuningRelativePath);
+
+            Assert.That(source, Does.Contain("public sealed class GameplayCameraTopologyInlineSharedTuning"));
+            Assert.That(source, Does.Contain("public void Validate()"));
+            Assert.That(source, Does.Contain("public GameplayCameraTopologyPresetSnapshot CreateSnapshot()"));
+            Assert.That(source, Does.Contain("public static GameplayCameraTopologyInlineSharedTuning CreateShowcaseDefault()"));
+            Assert.That(source, Does.Contain("[SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping"));
+            Assert.That(source, Does.Contain("[SerializeField] private GameplayCameraSettings cameraSettings"));
+            Assert.That(source, Does.Contain("public GameplayCameraSettings CameraSettings"));
         }
 
         [Test]
@@ -866,14 +961,30 @@ namespace Game.Feature.Gameplay.Tests.Unit
             var source = ReadRepoFile(AuthoringRelativePath);
 
             Assert.That(source, Does.Contain("private GameplayCameraTopologyPresetSnapshot ResolveSharedSnapshot()"));
+            Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Inline => inlineSharedTuning.CreateSnapshot()"));
             Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Preset => ResolveRequiredPreset().CreateSnapshot()"));
             Assert.That(source, Does.Contain("Preset mode never reads inline shared tuning"));
+            Assert.That(source, Does.Contain("inlineSharedTuning.Validate();"));
             Assert.That(source, Does.Contain("baselineAuthoringPolicy"));
             Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy BaselineAuthoringPolicy { get; }"));
             Assert.That(source, Does.Contain("public GameplayCameraBaselineAuthoringPolicy GetBaselineAuthoringPolicy()"));
             Assert.That(source, Does.Not.Contain("ResolveEffectiveUseAuthoredSceneCameraPose("));
             Assert.That(source, Does.Not.Contain("ResolveEffectiveUseAuthoredSceneCameraLens("));
             Assert.That(source, Does.Contain("Inline shared-tuning fallback is not authoritative in Preset mode"));
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void GameplayCameraTopologyAuthoringEditor_Source_HidesInlineSharedTuning_InPresetMode()
+        {
+            var source = ReadRepoFile(AuthoringEditorRelativePath);
+
+            Assert.That(source, Does.Contain("[CustomEditor(typeof(GameplayCameraTopologyAuthoring))]"));
+            Assert.That(source, Does.Contain("serializedObject.FindProperty(\"inlineSharedTuning\")"));
+            Assert.That(source, Does.Contain("GameplayCameraTopologySourceMode.Inline"));
+            Assert.That(source, Does.Contain("EditorGUILayout.PropertyField(_inlineSharedTuningProperty, includeChildren: true);"));
+            Assert.That(source, Does.Contain("EditorGUILayout.HelpBox("));
+            Assert.That(source, Does.Contain("not authoritative in Preset mode"));
         }
 
         [Test]
@@ -935,7 +1046,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 var sceneText = ReadRepoFile(scenePath);
                 var installerBlock = ReadSceneComponentBlock(sceneText, CombinedGameplayShowcaseInstallerMarker);
                 var authoringBlock = ReadSceneComponentBlock(sceneText, GameplayCameraTopologyAuthoringMarker);
-                var cameraSettingsBlock = ReadSerializedBlock(authoringBlock, "cameraSettings", 2);
+                var inlineSharedTuningBlock = ReadSerializedBlock(authoringBlock, "inlineSharedTuning", 2);
+                var cameraSettingsBlock = ReadSerializedBlock(inlineSharedTuningBlock, "cameraSettings", 4);
 
                 Assert.That(CountMatches(sceneText, Regex.Escape(GameplayCameraTopologyAuthoringMarker)), Is.EqualTo(1));
                 StringAssert.DoesNotContain("configureMainCamera:", installerBlock);
@@ -948,15 +1060,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 StringAssert.Contains("sourceMode:", authoringBlock);
                 StringAssert.Contains("preset:", authoringBlock);
                 StringAssert.Contains("baselineAuthoringPolicy:", authoringBlock);
+                StringAssert.Contains("inlineSharedTuning:", authoringBlock);
                 StringAssert.DoesNotContain("useAuthoredSceneCameraPose:", authoringBlock);
                 StringAssert.DoesNotContain("useAuthoredSceneCameraLens:", authoringBlock);
-                StringAssert.Contains("topologyRotationVisualMapping:", authoringBlock);
-                StringAssert.Contains("topologyRotationTweenSettings:", authoringBlock);
-                StringAssert.Contains("cameraSettings:", authoringBlock);
+                StringAssert.DoesNotContain("\n  topologyRotationVisualMapping:", authoringBlock);
+                StringAssert.DoesNotContain("\n  topologyRotationTweenSettings:", authoringBlock);
+                StringAssert.DoesNotContain("\n  cameraSettings:", authoringBlock);
                 StringAssert.DoesNotContain("UseAuthoredSceneCameraPose:", cameraSettingsBlock);
                 StringAssert.DoesNotContain("UseAuthoredSceneCameraLens:", cameraSettingsBlock);
-                StringAssert.Contains("topologyTransitionCameraShakeProfile:", authoringBlock);
-                StringAssert.Contains("topologyTransitionPostFxProfile:", authoringBlock);
+                StringAssert.DoesNotContain("\n  topologyTransitionCameraShakeProfile:", authoringBlock);
+                StringAssert.DoesNotContain("\n  topologyTransitionPostFxProfile:", authoringBlock);
+                StringAssert.Contains("topologyRotationVisualMapping:", inlineSharedTuningBlock);
+                StringAssert.Contains("topologyRotationTweenSettings:", inlineSharedTuningBlock);
+                StringAssert.Contains("cameraSettings:", inlineSharedTuningBlock);
+                StringAssert.Contains("topologyTransitionCameraShakeProfile:", inlineSharedTuningBlock);
+                StringAssert.Contains("topologyTransitionPostFxProfile:", inlineSharedTuningBlock);
             }
         }
 
@@ -1057,7 +1175,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var scenePath in ScenePaths)
             {
                 var authoringBlock = ReadSceneComponentBlock(ReadRepoFile(scenePath), GameplayCameraTopologyAuthoringMarker);
-                Assert.That(ReadSerializedIntValue(authoringBlock, "topologyRotationVisualMapping"), Is.EqualTo((int)TopologyRotationVisualMapping.ForwardUsesPositiveX));
+                var inlineSharedTuningBlock = ReadSerializedBlock(authoringBlock, "inlineSharedTuning", 2);
+                Assert.That(
+                    ReadSerializedIntValue(inlineSharedTuningBlock, "topologyRotationVisualMapping"),
+                    Is.EqualTo((int)TopologyRotationVisualMapping.ForwardUsesPositiveX));
 
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -1069,7 +1190,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(authoring, Is.Not.Null);
 
                     var serializedObject = new SerializedObject(authoring);
-                    var mappingProperty = serializedObject.FindProperty("topologyRotationVisualMapping");
+                    var mappingProperty = serializedObject.FindProperty("inlineSharedTuning.topologyRotationVisualMapping");
 
                     Assert.That(mappingProperty, Is.Not.Null);
                     serializedObject.Update();
@@ -1092,7 +1213,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
             foreach (var scenePath in ScenePaths)
             {
                 var authoringBlock = ReadSceneComponentBlock(ReadRepoFile(scenePath), GameplayCameraTopologyAuthoringMarker);
-                Assert.That(ReadSerializedIntValue(authoringBlock, "Ease"), Is.EqualTo((int)TopologyRotationTweenEase.InOutCubic));
+                var inlineSharedTuningBlock = ReadSerializedBlock(authoringBlock, "inlineSharedTuning", 2);
+                var tweenSettingsBlock = ReadSerializedBlock(inlineSharedTuningBlock, "topologyRotationTweenSettings", 4);
+                Assert.That(
+                    ReadSerializedIntValue(tweenSettingsBlock, "Ease"),
+                    Is.EqualTo((int)TopologyRotationTweenEase.InOutCubic));
 
                 var scene = EditorSceneManager.OpenScene(scenePath, OpenSceneMode.Single);
 
@@ -1104,7 +1229,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     Assert.That(authoring, Is.Not.Null);
 
                     var serializedObject = new SerializedObject(authoring);
-                    var easeProperty = serializedObject.FindProperty("topologyRotationTweenSettings.Ease");
+                    var easeProperty = serializedObject.FindProperty("inlineSharedTuning.topologyRotationTweenSettings.Ease");
 
                     Assert.That(easeProperty, Is.Not.Null);
                     serializedObject.Update();

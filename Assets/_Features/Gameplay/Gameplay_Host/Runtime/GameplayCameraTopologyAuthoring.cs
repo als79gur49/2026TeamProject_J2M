@@ -48,29 +48,18 @@ namespace Game.Feature.Gameplay.Host
     [DisallowMultipleComponent]
     public sealed class GameplayCameraTopologyAuthoring : MonoBehaviour
     {
-        [Tooltip("Inline uses the local shared-tuning fields below. Preset uses only the referenced preset for shared tuning, while configureMainCamera and authored-baseline policy remain local scene policy.")]
+        [Tooltip("Inline uses the local inline shared-tuning block. Preset uses only the referenced preset for shared tuning, while configureMainCamera and authored-baseline policy remain local scene policy.")]
         [SerializeField] private GameplayCameraTopologySourceMode sourceMode = GameplayCameraTopologySourceMode.Inline;
-        [Tooltip("Stage-scoped shared tuning asset. In Preset mode, shared tuning resolves only from this asset. Inline shared-tuning fields below remain serialized fallback and are not authoritative.")]
+        [Tooltip("Stage-scoped shared tuning asset. In Preset mode, shared tuning resolves only from this asset.")]
         [SerializeField] private GameplayCameraTopologyPreset preset;
         [Tooltip("Scene-local camera bootstrap policy. This remains local even when Preset mode is active.")]
         [SerializeField] private bool configureMainCamera = true;
         [Tooltip("Scene-local authored-baseline policy. This remains local even when Preset mode is active.")]
         [SerializeField] private GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy =
             GameplayCameraBaselineAuthoringPolicy.CreateShowcaseDefault();
-        [Tooltip("Shared topology rotation mapping for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
-        [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping =
-            TopologyRotationVisualMapping.ForwardUsesPositiveX;
-        [Tooltip("Shared topology rotation tween settings for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
-        [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings =
-            TopologyRotationTweenSettings.CreateDefault();
-        [Tooltip("Shared camera tuning payload for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
-        [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
-        [Tooltip("Shared topology-transition camera shake tuning for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
-        [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile =
-            TopologyTransitionCameraShakeProfile.CreateDefault();
-        [Tooltip("Shared topology-transition post-fx tuning for Inline mode. In Preset mode this serialized fallback is retained for migration safety only and is not authoritative.")]
-        [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile =
-            TopologyTransitionPostFxProfile.CreateDefault();
+        [Tooltip("Inline-only shared tuning. This block is authoritative only when Source Mode is Inline.")]
+        [SerializeField] private GameplayCameraTopologyInlineSharedTuning inlineSharedTuning =
+            GameplayCameraTopologyInlineSharedTuning.CreateShowcaseDefault();
 
         public GameplayCameraTopologyAuthoringSnapshot CreateSnapshot()
         {
@@ -89,9 +78,8 @@ namespace Game.Feature.Gameplay.Host
 
         public void Validate()
         {
-            cameraSettings ??= GameplayCameraSettings.CreateShowcaseDefault();
-            topologyTransitionCameraShakeProfile ??= TopologyTransitionCameraShakeProfile.CreateDefault();
-            topologyTransitionPostFxProfile ??= TopologyTransitionPostFxProfile.CreateDefault();
+            inlineSharedTuning ??= GameplayCameraTopologyInlineSharedTuning.CreateShowcaseDefault();
+            inlineSharedTuning.Validate();
             preset?.Validate();
         }
 
@@ -140,26 +128,17 @@ namespace Game.Feature.Gameplay.Host
                    TopologyTransitionPostFxProfile.CreateDefault();
         }
 
-        // Preset mode never reads inline shared tuning. Those serialized fields remain transitional
-        // fallback only and are not the canonical runtime source while Preset mode is active.
+        // Preset mode never reads inline shared tuning. The nested inline lane exists only as the
+        // explicit Inline-mode authority surface and is not the canonical runtime source while
+        // Preset mode is active.
         private GameplayCameraTopologyPresetSnapshot ResolveSharedSnapshot()
         {
             return sourceMode switch
             {
-                GameplayCameraTopologySourceMode.Inline => CreateInlineSharedSnapshot(),
+                GameplayCameraTopologySourceMode.Inline => inlineSharedTuning.CreateSnapshot(),
                 GameplayCameraTopologySourceMode.Preset => ResolveRequiredPreset().CreateSnapshot(),
                 _ => throw new ArgumentOutOfRangeException(nameof(sourceMode), sourceMode, "Unknown camera topology source mode."),
             };
-        }
-
-        private GameplayCameraTopologyPresetSnapshot CreateInlineSharedSnapshot()
-        {
-            return new GameplayCameraTopologyPresetSnapshot(
-                topologyRotationVisualMapping,
-                topologyRotationTweenSettings,
-                cameraSettings,
-                topologyTransitionCameraShakeProfile,
-                topologyTransitionPostFxProfile);
         }
 
         private GameplayCameraTopologyPreset ResolveRequiredPreset()

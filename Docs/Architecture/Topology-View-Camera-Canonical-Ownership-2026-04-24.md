@@ -62,16 +62,18 @@ This document is the slice-local supporting truth-source for the current topolog
 - `GameplayCameraTopologyPreset` owns stage-scoped shared tuning only.
 - `GameplayCameraSettings` is shared tuning only.
 - `GameplayCameraBaselineAuthoringPolicy` is the dedicated scene-local authored-baseline policy type.
+- `GameplayCameraTopologyInlineSharedTuning` is the explicit inline-only shared-tuning fallback lane.
 - `configureMainCamera` remains local.
 - `UseAuthoredSceneCameraPose/Lens` live in scene-local baseline policy, not `GameplayCameraSettings`.
 - `Preset` mode ignores inline shared-tuning values for runtime snapshot resolution.
-- inline shared-tuning persistence in `Preset` mode is transitional fallback, not canonical source-of-truth.
 - Candidate A is complete:
   - authored-baseline usage flags no longer live in `GameplayCameraSettings`
   - scene-local baseline policy is carried explicitly through authoring snapshot, host configuration, bootstrap glue, and rig resolution
   - preset `cameraSettings` now serializes shared tuning only
-- future cleanup candidate B:
-  - remove or hide/read-only the non-authoritative inline shared-tuning fields after preset adoption is stable
+- Candidate B is complete:
+  - non-authoritative inline shared tuning no longer lives as five root fields on `GameplayCameraTopologyAuthoring`
+  - scene-local authoring now serializes one explicit `inlineSharedTuning` block for `Inline` mode only
+  - `Preset` mode inspector UX hides the inline lane and keeps the referenced preset as the only authoritative shared-tuning source
 
 ## Explicit non-ownership
 

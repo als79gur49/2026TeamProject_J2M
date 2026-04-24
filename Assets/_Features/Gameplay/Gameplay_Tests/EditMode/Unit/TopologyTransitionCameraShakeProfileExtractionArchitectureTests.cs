@@ -30,7 +30,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Camera/Profiles.meta";
         private const string ProfileMetaRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/Camera/Profiles/TopologyTransitionCameraShakeProfile.cs.meta";
-        private const string AuthoringPropertyPath = "topologyTransitionCameraShakeProfile";
+        private const string AuthoringPropertyPath = "inlineSharedTuning.topologyTransitionCameraShakeProfile";
+        private const string SerializedProfileKey = "topologyTransitionCameraShakeProfile";
         private const string SourceModePropertyPath = "sourceMode";
         private const string PresetPropertyPath = "preset";
         private const string GameplayCameraTopologyAuthoringMarker =
@@ -316,7 +317,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static bool ContainsCameraShakeProfileHolder(string relativePath)
         {
-            return ReadRepoFile(relativePath).IndexOf($"{AuthoringPropertyPath}:", StringComparison.Ordinal) >= 0;
+            return ReadRepoFile(relativePath).IndexOf($"{SerializedProfileKey}:", StringComparison.Ordinal) >= 0;
         }
 
         private static bool HasSerializedAssetExtension(string absolutePath)
@@ -343,7 +344,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static SerializedCameraShakeProfile ReadSerializedProfile(string installerBlock)
         {
-            Assert.That(installerBlock, Does.Contain($"{AuthoringPropertyPath}:"));
+            Assert.That(installerBlock, Does.Contain($"{SerializedProfileKey}:"));
 
             return new SerializedCameraShakeProfile(
                 ReadSerializedFloatValue(installerBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactStart01)),

@@ -33,7 +33,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PostFx/Profiles.meta";
         private const string ProfileMetaRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/PostFx/Profiles/TopologyTransitionPostFxProfile.cs.meta";
-        private const string AuthoringPropertyPath = "topologyTransitionPostFxProfile";
+        private const string AuthoringPropertyPath = "inlineSharedTuning.topologyTransitionPostFxProfile";
+        private const string SerializedProfileKey = "topologyTransitionPostFxProfile";
         private const string SourceModePropertyPath = "sourceMode";
         private const string PresetPropertyPath = "preset";
         private const string GameplayCameraTopologyAuthoringMarker =
@@ -473,7 +474,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static bool ContainsPostFxProfileHolder(string relativePath)
         {
-            return ReadRepoFile(relativePath).IndexOf($"{AuthoringPropertyPath}:", StringComparison.Ordinal) >= 0;
+            return ReadRepoFile(relativePath).IndexOf($"{SerializedProfileKey}:", StringComparison.Ordinal) >= 0;
         }
 
         private static bool HasSerializedAssetExtension(string absolutePath)
@@ -500,9 +501,11 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         private static SerializedTopologyTransitionPostFxProfile ReadSerializedProfile(string installerBlock)
         {
-            Assert.That(installerBlock, Does.Contain($"{AuthoringPropertyPath}:"));
-            var profileBlock = ReadSerializedBlock(installerBlock, AuthoringPropertyPath, 2);
-            var distortionBlock = ReadSerializedBlock(profileBlock, "distortionProfile", 4);
+            Assert.That(installerBlock, Does.Contain($"{SerializedProfileKey}:"));
+            var profileBlock = TryReadSerializedBlock(installerBlock, SerializedProfileKey, 2) ??
+                               ReadSerializedBlock(installerBlock, SerializedProfileKey, 4);
+            var distortionBlock = TryReadSerializedBlock(profileBlock, "distortionProfile", 4) ??
+                                  ReadSerializedBlock(profileBlock, "distortionProfile", 6);
 
             return new SerializedTopologyTransitionPostFxProfile(
                 ReadSerializedObjectGuid(profileBlock, "authoritativeVolumeProfile"),
@@ -602,6 +605,18 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             Assert.That(match.Success, Is.True, $"Serialized block '{key}' was not found.");
             return match.Groups["block"].Value;
+        }
+
+        private static string TryReadSerializedBlock(string source, string key, int indentation)
+        {
+            var parentIndentation = new string(' ', indentation);
+            var childIndentation = new string(' ', indentation + 2);
+            var match = Regex.Match(
+                source,
+                $@"(?ms)^{Regex.Escape(parentIndentation)}{Regex.Escape(key)}:\s*$\n(?<block>(?:^{Regex.Escape(childIndentation)}.*$\n?)*)",
+                RegexOptions.CultureInvariant);
+
+            return match.Success ? match.Groups["block"].Value : null;
         }
 
         private static void AssertSerializedPropertyMatches(

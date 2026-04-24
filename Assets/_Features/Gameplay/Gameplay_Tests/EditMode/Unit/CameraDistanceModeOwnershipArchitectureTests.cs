@@ -23,7 +23,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Gameplay/Gameplay_Host/Runtime/GameplayCameraSettings.cs";
         private const string GuardrailRelativePath =
             "Assets/_Features/Gameplay/Gameplay_Tests/EditMode/Unit/CameraDistanceModeOwnershipArchitectureTests.cs";
-        private const string AuthoringCameraDistanceModePropertyPath = "cameraSettings.DistanceMode";
+        private const string AuthoringCameraDistanceModePropertyPath = "inlineSharedTuning.cameraSettings.DistanceMode";
         private const string GameplayCameraTopologyAuthoringMarker =
             "m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.GameplayCameraTopologyAuthoring";
         private static readonly string[] ScenePaths =
@@ -156,13 +156,19 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(authoring, Is.Not.Null);
 
                 var serializedObject = new SerializedObject(authoring);
+                var sourceModeProperty = serializedObject.FindProperty("sourceMode");
                 var distanceModeProperty = serializedObject.FindProperty(AuthoringCameraDistanceModePropertyPath);
 
+                Assert.That(sourceModeProperty, Is.Not.Null);
                 Assert.That(distanceModeProperty, Is.Not.Null);
                 serializedObject.Update();
 
+                var originalSourceMode = sourceModeProperty.enumValueIndex;
                 var originalValue = distanceModeProperty.intValue;
                 Assert.That(originalValue, Is.EqualTo((int)CameraDistanceMode.Manual));
+
+                sourceModeProperty.enumValueIndex = (int)GameplayCameraTopologySourceMode.Inline;
+                serializedObject.ApplyModifiedPropertiesWithoutUndo();
 
                 distanceModeProperty.intValue = (int)CameraDistanceMode.AutoFit;
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();
@@ -175,6 +181,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
                 serializedObject.Update();
                 distanceModeProperty.intValue = originalValue;
+                sourceModeProperty.enumValueIndex = originalSourceMode;
                 serializedObject.ApplyModifiedPropertiesWithoutUndo();
             }
             finally

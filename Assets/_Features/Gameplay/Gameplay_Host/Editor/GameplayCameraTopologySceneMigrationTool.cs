@@ -27,6 +27,12 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         [MenuItem("Tools/Gameplay/Migration/Extract Camera Topology Authoring (All Showcase Scenes)")]
         public static void ExtractCameraTopologyAuthoringForAllShowcaseScenes()
         {
+            NormalizeCameraTopologyInlineSharedTuningForAllShowcaseScenes();
+        }
+
+        [MenuItem("Tools/Gameplay/Migration/Normalize Camera Topology Inline Shared Tuning (Candidate B)")]
+        public static void NormalizeCameraTopologyInlineSharedTuningForAllShowcaseScenes()
+        {
             for (var i = 0; i < ScenePaths.Length; i++)
             {
                 MigrateScene(ScenePaths[i]);
@@ -80,72 +86,104 @@ namespace Game.Feature.Gameplay.Host.EditorTools
                     $"Scene '{scenePath}' does not contain a supported camera topology source block.");
             }
 
+            var inlineSharedTuningBlock = TryReadSerializedBlock(sourceBlock, "inlineSharedTuning", 2);
+            var sharedTuningSourceBlock = inlineSharedTuningBlock ?? sourceBlock;
+            var sharedTuningIndentation = inlineSharedTuningBlock == null ? 2 : 4;
             var topologyRotationTweenSettingsBlock = ReadSerializedBlock(
-                sourceBlock,
+                sharedTuningSourceBlock,
                 "topologyRotationTweenSettings",
-                2);
-            var cameraSettingsBlock = ReadSerializedBlock(sourceBlock, "cameraSettings", 2);
-            var shakeProfileBlock = ReadSerializedBlock(sourceBlock, "topologyTransitionCameraShakeProfile", 2);
-            var postFxProfileBlock = ReadSerializedBlock(sourceBlock, "topologyTransitionPostFxProfile", 2);
-            var distortionProfileBlock = ReadSerializedBlock(postFxProfileBlock, "distortionProfile", 4);
+                sharedTuningIndentation);
+            var cameraSettingsBlock = ReadSerializedBlock(sharedTuningSourceBlock, "cameraSettings", sharedTuningIndentation);
+            var shakeProfileBlock = ReadSerializedBlock(
+                sharedTuningSourceBlock,
+                "topologyTransitionCameraShakeProfile",
+                sharedTuningIndentation);
+            var postFxProfileBlock = ReadSerializedBlock(
+                sharedTuningSourceBlock,
+                "topologyTransitionPostFxProfile",
+                sharedTuningIndentation);
+            var distortionProfileBlock = ReadSerializedBlock(
+                postFxProfileBlock,
+                "distortionProfile",
+                sharedTuningIndentation + 2);
             var baselineAuthoringPolicy = ReadBaselineAuthoringPolicy(sourceBlock, cameraSettingsBlock);
+            var sourceMode = TryReadSerializedIntValue(sourceBlock, "sourceMode", out var sourceModeValue)
+                ? (GameplayCameraTopologySourceMode)sourceModeValue
+                : GameplayCameraTopologySourceMode.Inline;
+            GameplayCameraTopologyPreset preset = null;
+
+            if (TryReadSerializedObjectGuid(sourceBlock, "preset", out var presetGuid))
+            {
+                preset = LoadAssetByGuid(presetGuid) as GameplayCameraTopologyPreset;
+                if (!string.IsNullOrWhiteSpace(presetGuid) && preset == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Could not resolve {nameof(GameplayCameraTopologyPreset)} GUID '{presetGuid}'.");
+                }
+            }
 
             return new SerializedGameplayCameraTopologyAuthoring(
                 ReadSerializedBoolValue(sourceBlock, "configureMainCamera"),
+                sourceMode,
+                preset,
                 baselineAuthoringPolicy,
-                (TopologyRotationVisualMapping)ReadSerializedIntValue(sourceBlock, "topologyRotationVisualMapping"),
-                new TopologyRotationTweenSettings
+                new GameplayCameraTopologyInlineSharedTuning
                 {
-                    Ease = (TopologyRotationTweenEase)ReadSerializedIntValue(
-                        topologyRotationTweenSettingsBlock,
-                        nameof(TopologyRotationTweenSettings.Ease)),
-                },
-                new GameplayCameraSettings
-                {
-                    PitchDegrees = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.PitchDegrees)),
-                    YawDegrees = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.YawDegrees)),
-                    DistanceMode = (CameraDistanceMode)ReadSerializedIntValue(cameraSettingsBlock, nameof(GameplayCameraSettings.DistanceMode)),
-                    ManualDistance = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.ManualDistance)),
-                    FramingPadding = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.FramingPadding)),
-                    PerspectiveFieldOfView = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.PerspectiveFieldOfView)),
-                    NearClipPlane = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.NearClipPlane)),
-                    FarClipPlane = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.FarClipPlane)),
-                    ClearFlags = (CameraClearFlags)ReadSerializedIntValue(cameraSettingsBlock, nameof(GameplayCameraSettings.ClearFlags)),
-                    BackgroundColor = ReadSerializedColorValue(cameraSettingsBlock, nameof(GameplayCameraSettings.BackgroundColor)),
-                },
-                new TopologyTransitionCameraShakeProfile
-                {
-                    ImpactStart01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactStart01)),
-                    ImpactDuration01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactDuration01)),
-                    ImpactOscillationCycles = ReadSerializedIntValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactOscillationCycles)),
-                    ImpactLocalPositionAmplitude = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactLocalPositionAmplitude)),
-                    ImpactLocalRotationAmplitudeDegrees = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactLocalRotationAmplitudeDegrees)),
-                    LandingStart01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingStart01)),
-                    LandingDuration01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingDuration01)),
-                    LandingOscillationCycles = ReadSerializedIntValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingOscillationCycles)),
-                    LandingLocalPositionAmplitude = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingLocalPositionAmplitude)),
-                    LandingLocalRotationAmplitudeDegrees = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingLocalRotationAmplitudeDegrees)),
-                },
-                CreatePostFxProfile(
-                    LoadAssetByGuid(ReadSerializedObjectGuid(postFxProfileBlock, "authoritativeVolumeProfile")),
-                    ReadSerializedIntValue(postFxProfileBlock, "motionBlurMode"),
-                    ReadSerializedIntValue(postFxProfileBlock, "motionBlurQuality"),
-                    ReadSerializedFloatValue(postFxProfileBlock, "maxBlurIntensity"),
-                    ReadSerializedFloatValue(postFxProfileBlock, "cameraClamp"),
-                    ReadSerializedFloatValue(postFxProfileBlock, "angularVelocityResponseExponent"),
-                    ReadSerializedFloatValue(postFxProfileBlock, "landingFadeStart01"),
-                    ReadSerializedFloatValue(postFxProfileBlock, "landingFadeExponent"),
-                    TopologyTransitionDistortionProfile.Create(
-                        impactStart01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.ImpactStart01)),
-                        impactDuration01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.ImpactDuration01)),
-                        impactIntensity: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.ImpactIntensity)),
-                        landingStart01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.LandingStart01)),
-                        landingDuration01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.LandingDuration01)),
-                        landingIntensity: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.LandingIntensity)),
-                        xMultiplier: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.XMultiplier)),
-                        yMultiplier: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.YMultiplier)),
-                        center: ReadSerializedVector2Value(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.Center)),
-                        scale: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.Scale)))));
+                    TopologyRotationVisualMapping =
+                        (TopologyRotationVisualMapping)ReadSerializedIntValue(sharedTuningSourceBlock, "topologyRotationVisualMapping"),
+                    TopologyRotationTweenSettings = new TopologyRotationTweenSettings
+                    {
+                        Ease = (TopologyRotationTweenEase)ReadSerializedIntValue(
+                            topologyRotationTweenSettingsBlock,
+                            nameof(TopologyRotationTweenSettings.Ease)),
+                    },
+                    CameraSettings = new GameplayCameraSettings
+                    {
+                        PitchDegrees = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.PitchDegrees)),
+                        YawDegrees = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.YawDegrees)),
+                        DistanceMode = (CameraDistanceMode)ReadSerializedIntValue(cameraSettingsBlock, nameof(GameplayCameraSettings.DistanceMode)),
+                        ManualDistance = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.ManualDistance)),
+                        FramingPadding = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.FramingPadding)),
+                        PerspectiveFieldOfView = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.PerspectiveFieldOfView)),
+                        NearClipPlane = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.NearClipPlane)),
+                        FarClipPlane = ReadSerializedFloatValue(cameraSettingsBlock, nameof(GameplayCameraSettings.FarClipPlane)),
+                        ClearFlags = (CameraClearFlags)ReadSerializedIntValue(cameraSettingsBlock, nameof(GameplayCameraSettings.ClearFlags)),
+                        BackgroundColor = ReadSerializedColorValue(cameraSettingsBlock, nameof(GameplayCameraSettings.BackgroundColor)),
+                    },
+                    TopologyTransitionCameraShakeProfile = new TopologyTransitionCameraShakeProfile
+                    {
+                        ImpactStart01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactStart01)),
+                        ImpactDuration01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactDuration01)),
+                        ImpactOscillationCycles = ReadSerializedIntValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactOscillationCycles)),
+                        ImpactLocalPositionAmplitude = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactLocalPositionAmplitude)),
+                        ImpactLocalRotationAmplitudeDegrees = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.ImpactLocalRotationAmplitudeDegrees)),
+                        LandingStart01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingStart01)),
+                        LandingDuration01 = ReadSerializedFloatValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingDuration01)),
+                        LandingOscillationCycles = ReadSerializedIntValue(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingOscillationCycles)),
+                        LandingLocalPositionAmplitude = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingLocalPositionAmplitude)),
+                        LandingLocalRotationAmplitudeDegrees = ReadSerializedVector3Value(shakeProfileBlock, nameof(TopologyTransitionCameraShakeProfile.LandingLocalRotationAmplitudeDegrees)),
+                    },
+                    TopologyTransitionPostFxProfile = CreatePostFxProfile(
+                        LoadAssetByGuid(ReadSerializedObjectGuid(postFxProfileBlock, "authoritativeVolumeProfile")),
+                        ReadSerializedIntValue(postFxProfileBlock, "motionBlurMode"),
+                        ReadSerializedIntValue(postFxProfileBlock, "motionBlurQuality"),
+                        ReadSerializedFloatValue(postFxProfileBlock, "maxBlurIntensity"),
+                        ReadSerializedFloatValue(postFxProfileBlock, "cameraClamp"),
+                        ReadSerializedFloatValue(postFxProfileBlock, "angularVelocityResponseExponent"),
+                        ReadSerializedFloatValue(postFxProfileBlock, "landingFadeStart01"),
+                        ReadSerializedFloatValue(postFxProfileBlock, "landingFadeExponent"),
+                        TopologyTransitionDistortionProfile.Create(
+                            impactStart01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.ImpactStart01)),
+                            impactDuration01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.ImpactDuration01)),
+                            impactIntensity: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.ImpactIntensity)),
+                            landingStart01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.LandingStart01)),
+                            landingDuration01: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.LandingDuration01)),
+                            landingIntensity: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.LandingIntensity)),
+                            xMultiplier: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.XMultiplier)),
+                            yMultiplier: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.YMultiplier)),
+                            center: ReadSerializedVector2Value(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.Center)),
+                            scale: ReadSerializedFloatValue(distortionProfileBlock, nameof(TopologyTransitionDistortionProfile.Scale))))
+                });
         }
 
         private static void Apply(
@@ -158,14 +196,22 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             }
 
             SetPrivateField(authoring, "configureMainCamera", serializedData.ConfigureMainCamera);
-            SetPrivateField(authoring, "sourceMode", GameplayCameraTopologySourceMode.Inline);
-            SetPrivateField(authoring, "preset", null);
+            SetPrivateField(authoring, "sourceMode", serializedData.SourceMode);
+            SetPrivateField(authoring, "preset", serializedData.Preset);
             SetPrivateField(authoring, "baselineAuthoringPolicy", serializedData.BaselineAuthoringPolicy);
-            SetPrivateField(authoring, "topologyRotationVisualMapping", serializedData.TopologyRotationVisualMapping);
-            SetPrivateField(authoring, "topologyRotationTweenSettings", serializedData.TopologyRotationTweenSettings);
-            SetPrivateField(authoring, "cameraSettings", serializedData.CameraSettings.Clone());
-            SetPrivateField(authoring, "topologyTransitionCameraShakeProfile", serializedData.TopologyTransitionCameraShakeProfile.Clone());
-            SetPrivateField(authoring, "topologyTransitionPostFxProfile", serializedData.TopologyTransitionPostFxProfile.Clone());
+            SetPrivateField(
+                authoring,
+                "inlineSharedTuning",
+                new GameplayCameraTopologyInlineSharedTuning
+                {
+                    TopologyRotationVisualMapping = serializedData.InlineSharedTuning.TopologyRotationVisualMapping,
+                    TopologyRotationTweenSettings = serializedData.InlineSharedTuning.TopologyRotationTweenSettings,
+                    CameraSettings = serializedData.InlineSharedTuning.CameraSettings?.Clone(),
+                    TopologyTransitionCameraShakeProfile =
+                        serializedData.InlineSharedTuning.TopologyTransitionCameraShakeProfile?.Clone(),
+                    TopologyTransitionPostFxProfile =
+                        serializedData.InlineSharedTuning.TopologyTransitionPostFxProfile?.Clone(),
+                });
             authoring.Validate();
         }
 
@@ -453,6 +499,23 @@ namespace Game.Feature.Gameplay.Host.EditorTools
             return match.Groups[1].Value;
         }
 
+        private static bool TryReadSerializedObjectGuid(string source, string key, out string value)
+        {
+            var match = Regex.Match(
+                source,
+                $@"(?m)^\s+{Regex.Escape(key)}:\s*\{{fileID:\s*\d+,\s*guid:\s*([0-9a-f]+),\s*type:\s*\d+\}}\s*$",
+                RegexOptions.CultureInvariant);
+
+            if (!match.Success)
+            {
+                value = null;
+                return false;
+            }
+
+            value = match.Groups[1].Value;
+            return true;
+        }
+
         private static UnityEngine.Object LoadAssetByGuid(string assetGuid)
         {
             if (string.IsNullOrWhiteSpace(assetGuid))
@@ -483,35 +546,27 @@ namespace Game.Feature.Gameplay.Host.EditorTools
         {
             internal SerializedGameplayCameraTopologyAuthoring(
                 bool configureMainCamera,
+                GameplayCameraTopologySourceMode sourceMode,
+                GameplayCameraTopologyPreset preset,
                 GameplayCameraBaselineAuthoringPolicy baselineAuthoringPolicy,
-                TopologyRotationVisualMapping topologyRotationVisualMapping,
-                TopologyRotationTweenSettings topologyRotationTweenSettings,
-                GameplayCameraSettings cameraSettings,
-                TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile,
-                TopologyTransitionPostFxProfile topologyTransitionPostFxProfile)
+                GameplayCameraTopologyInlineSharedTuning inlineSharedTuning)
             {
                 ConfigureMainCamera = configureMainCamera;
+                SourceMode = sourceMode;
+                Preset = preset;
                 BaselineAuthoringPolicy = baselineAuthoringPolicy;
-                TopologyRotationVisualMapping = topologyRotationVisualMapping;
-                TopologyRotationTweenSettings = topologyRotationTweenSettings;
-                CameraSettings = cameraSettings;
-                TopologyTransitionCameraShakeProfile = topologyTransitionCameraShakeProfile;
-                TopologyTransitionPostFxProfile = topologyTransitionPostFxProfile;
+                InlineSharedTuning = inlineSharedTuning;
             }
 
             internal bool ConfigureMainCamera { get; }
 
+            internal GameplayCameraTopologySourceMode SourceMode { get; }
+
+            internal GameplayCameraTopologyPreset Preset { get; }
+
             internal GameplayCameraBaselineAuthoringPolicy BaselineAuthoringPolicy { get; }
 
-            internal TopologyRotationVisualMapping TopologyRotationVisualMapping { get; }
-
-            internal TopologyRotationTweenSettings TopologyRotationTweenSettings { get; }
-
-            internal GameplayCameraSettings CameraSettings { get; }
-
-            internal TopologyTransitionCameraShakeProfile TopologyTransitionCameraShakeProfile { get; }
-
-            internal TopologyTransitionPostFxProfile TopologyTransitionPostFxProfile { get; }
+            internal GameplayCameraTopologyInlineSharedTuning InlineSharedTuning { get; }
         }
     }
 }
