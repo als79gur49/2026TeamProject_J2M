@@ -36,6 +36,8 @@ namespace Game.Feature.Gameplay.BoardState
         void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state);
 
         void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state);
+
+        void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state);
     }
 
     internal interface IEnemyJumpCommitContext
@@ -91,12 +93,19 @@ namespace Game.Feature.Gameplay.BoardState
         void RemoveEntity(int entityId);
     }
 
+    internal interface IEnemyUtilityTriggerSink
+    {
+        void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent);
+    }
+
     internal interface IRespawnCommitContext : IAttackCommitContext, IPlayerControlCommitContext
     {
     }
 
-    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IPhasedStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IRespawnCommitContext, IEnemyActionCommitContext
+    internal interface IWorldWriteContext : IPreMovementStateCommitContext, IEnemyJumpCommitContext, IPhasedStateCommitContext, IMovementCommitContext, IAttackCommitContext, ICleanupCommitContext, IRespawnCommitContext, IEnemyActionCommitContext, IEnemyUtilityTriggerSink
     {
         new void SetEnemyPatrolState(int entityId, EnemyPatrolRuntimeState state);
+
+        void SetSummonedEntityState(int entityId, SummonedEntityState state);
     }
 }

@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using Game.Feature.Gameplay.Loop;
 using UnityEngine;
 
 namespace Game.Feature.Gameplay.Entities
@@ -98,6 +101,122 @@ namespace Game.Feature.Gameplay.Entities
             return new EnemyMovementSkillCapabilityRuntime(
                 Kind,
                 JumpTimingSettings.ToRuntimeSettings(simulationTicksPerSecond));
+        }
+    }
+
+    [Serializable]
+    public sealed class SummonMinionAuthoring
+    {
+        [SerializeField] private int spawnCountPerTrigger = 1;
+        [SerializeField] private int maxAliveChildren = 3;
+        [SerializeField] private SummonCandidatePattern candidatePattern = SummonCandidatePattern.OrthogonalAdjacent4;
+        [SerializeField] private bool requireNoUnitAtSpawnCell = true;
+        [SerializeField] private bool requireNoSolidAtSpawnCell = true;
+        [SerializeField] private int minionHp = 1;
+
+        public int SpawnCountPerTrigger => spawnCountPerTrigger;
+
+        public int MaxAliveChildren => maxAliveChildren;
+
+        public SummonCandidatePattern CandidatePattern => candidatePattern;
+
+        public bool RequireNoUnitAtSpawnCell => requireNoUnitAtSpawnCell;
+
+        public bool RequireNoSolidAtSpawnCell => requireNoSolidAtSpawnCell;
+
+        public int MinionHp => minionHp;
+
+        internal SummonMinionRuntime Compile()
+        {
+            if (spawnCountPerTrigger <= 0)
+            {
+                throw new ArgumentException("Summon minion authoring requires a positive spawn count.", nameof(spawnCountPerTrigger));
+            }
+
+            if (maxAliveChildren <= 0)
+            {
+                throw new ArgumentException("Summon minion authoring requires a positive max alive child count.", nameof(maxAliveChildren));
+            }
+
+            if (minionHp <= 0)
+            {
+                throw new ArgumentException("Summon minion authoring requires positive minion HP.", nameof(minionHp));
+            }
+
+            return new SummonMinionRuntime(
+                spawnCountPerTrigger,
+                candidatePattern,
+                requireNoUnitAtSpawnCell,
+                requireNoSolidAtSpawnCell,
+                maxAliveChildren,
+                minionHp);
+        }
+    }
+
+    [Serializable]
+    public sealed class EnemyUtilityEffectAuthoring
+    {
+        [SerializeField] private EnemyUtilityEffectKind kind = EnemyUtilityEffectKind.SummonMinion;
+        [SerializeField] private float initialDelaySeconds = 0f;
+        [SerializeField] private float intervalSeconds = 1f;
+        [SerializeField] private SummonMinionAuthoring summon = new();
+
+        public EnemyUtilityEffectKind Kind => kind;
+
+        public float InitialDelaySeconds => initialDelaySeconds;
+
+        public float IntervalSeconds => intervalSeconds;
+
+        public SummonMinionAuthoring Summon => summon;
+
+        internal EnemyUtilityEffectRuntime Compile(int simulationTicksPerSecond)
+        {
+            if (initialDelaySeconds < 0f)
+            {
+                throw new ArgumentException("Enemy utility effect authoring requires a non-negative initial delay.", nameof(initialDelaySeconds));
+            }
+
+            if (intervalSeconds <= 0f)
+            {
+                throw new ArgumentException("Enemy utility effect authoring requires a positive interval.", nameof(intervalSeconds));
+            }
+
+            return kind switch
+            {
+                EnemyUtilityEffectKind.SummonMinion => new EnemyUtilityEffectRuntime(
+                    kind,
+                    GameplayTimingProfile.SecondsToTicks(initialDelaySeconds, simulationTicksPerSecond, allowZero: true),
+                    GameplayTimingProfile.SecondsToTicks(intervalSeconds, simulationTicksPerSecond),
+                    (summon ?? throw new ArgumentException("Summon utility effect requires summon authoring data.", nameof(summon))).Compile()),
+                _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported enemy utility effect kind."),
+            };
+        }
+    }
+
+    [CreateAssetMenu(menuName = "Gameplay/AI/Capabilities/Utility/Timed Effects", fileName = "EnemyUtilityCapability")]
+    public sealed class EnemyUtilityCapabilityAsset : EnemyCapabilityAsset
+    {
+        [SerializeField] private EnemyUtilityEffectAuthoring[] effects = Array.Empty<EnemyUtilityEffectAuthoring>();
+
+        public sealed override EnemyCapabilityFamily Family => EnemyCapabilityFamily.Utility;
+
+        public IReadOnlyList<EnemyUtilityEffectAuthoring> Effects => effects;
+
+        internal sealed override EnemyCapabilityRuntime Compile(int simulationTicksPerSecond)
+        {
+            var compiledEffects = new List<EnemyUtilityEffectRuntime>();
+            for (var i = 0; i < effects.Length; i++)
+            {
+                var effect = effects[i];
+                if (effect == null)
+                {
+                    throw new ArgumentException("Enemy utility capability contains a null effect entry.", nameof(effects));
+                }
+
+                compiledEffects.Add(effect.Compile(simulationTicksPerSecond));
+            }
+
+            return new EnemyUtilityCapabilityRuntime(compiledEffects);
         }
     }
 }

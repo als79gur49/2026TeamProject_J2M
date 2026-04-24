@@ -16,10 +16,12 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly IReadOnlyDictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId;
         private readonly IReadOnlyDictionary<int, EntityState> _entitiesById;
         private readonly IReadOnlyDictionary<int, PhasedRuntimeState> _phasedStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerDamageState> _playerDamageStatesByEntityId;
         private readonly IReadOnlyDictionary<int, PlayerControlState> _playerControlStatesByEntityId;
+        private readonly IReadOnlyDictionary<int, SummonedEntityState> _summonedEntitiesByEntityId;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _projectileOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, int> _solidOccupancy;
         private readonly IReadOnlyDictionary<SurfaceCell, IReadOnlyCollection<int>> _stackedUnitsByCell;
@@ -36,9 +38,11 @@ namespace Game.Feature.Gameplay.BoardState
             Dictionary<int, EnemyChargeRuntimeState> enemyChargeStatesByEntityId,
             Dictionary<int, EntityExecutionLockState> executionLockStatesByEntityId,
             Dictionary<int, EnemyJumpRuntimeState> enemyJumpStatesByEntityId,
+            Dictionary<int, EnemyUtilityRuntimeState> enemyUtilityStatesByEntityId,
             Dictionary<int, PhasedRuntimeState> phasedStatesByEntityId,
             Dictionary<int, PlayerDamageState> playerDamageStatesByEntityId,
             Dictionary<int, PlayerControlState> playerControlStatesByEntityId,
+            Dictionary<int, SummonedEntityState> summonedEntitiesByEntityId,
             CubeTopologyState topology,
             BoardBounds boardBounds,
             TerrainData terrainData)
@@ -52,9 +56,11 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyChargeStatesByEntityId = new ReadOnlyDictionary<int, EnemyChargeRuntimeState>(enemyChargeStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyChargeStatesByEntityId)));
             _executionLockStatesByEntityId = new ReadOnlyDictionary<int, EntityExecutionLockState>(executionLockStatesByEntityId ?? throw new ArgumentNullException(nameof(executionLockStatesByEntityId)));
             _enemyJumpStatesByEntityId = new ReadOnlyDictionary<int, EnemyJumpRuntimeState>(enemyJumpStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyJumpStatesByEntityId)));
+            _enemyUtilityStatesByEntityId = new ReadOnlyDictionary<int, EnemyUtilityRuntimeState>(enemyUtilityStatesByEntityId ?? throw new ArgumentNullException(nameof(enemyUtilityStatesByEntityId)));
             _phasedStatesByEntityId = new ReadOnlyDictionary<int, PhasedRuntimeState>(phasedStatesByEntityId ?? throw new ArgumentNullException(nameof(phasedStatesByEntityId)));
             _playerDamageStatesByEntityId = new ReadOnlyDictionary<int, PlayerDamageState>(playerDamageStatesByEntityId ?? throw new ArgumentNullException(nameof(playerDamageStatesByEntityId)));
             _playerControlStatesByEntityId = new ReadOnlyDictionary<int, PlayerControlState>(playerControlStatesByEntityId ?? throw new ArgumentNullException(nameof(playerControlStatesByEntityId)));
+            _summonedEntitiesByEntityId = new ReadOnlyDictionary<int, SummonedEntityState>(summonedEntitiesByEntityId ?? throw new ArgumentNullException(nameof(summonedEntitiesByEntityId)));
             _topology = topology;
             _boardBounds = boardBounds;
             _terrainData = terrainData ?? throw new ArgumentNullException(nameof(terrainData));
@@ -106,6 +112,16 @@ namespace Game.Feature.Gameplay.BoardState
         public bool TryGetEnemyJumpState(int entityId, out EnemyJumpRuntimeState state)
         {
             return _enemyJumpStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
+        {
+            return _enemyUtilityStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        public bool TryGetSummonedEntityState(int entityId, out SummonedEntityState state)
+        {
+            return _summonedEntitiesByEntityId.TryGetValue(entityId, out state);
         }
 
         internal bool TryGetPhasedState(int entityId, out PhasedRuntimeState state)
@@ -648,6 +664,23 @@ namespace Game.Feature.Gameplay.BoardState
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
         }
 
+        internal void EnumerateEnemyUtilityStatesOrdered(List<EnemyUtilitySnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _enemyUtilityStatesByEntityId)
+            {
+                buffer.Add(new EnemyUtilitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
         internal void EnumerateEnemyChargeStatesOrdered(List<EnemyChargeSnapshotEntry> buffer)
         {
             if (buffer == null)
@@ -660,6 +693,23 @@ namespace Game.Feature.Gameplay.BoardState
             foreach (var pair in _enemyChargeStatesByEntityId)
             {
                 buffer.Add(new EnemyChargeSnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal void EnumerateSummonedEntityStatesOrdered(List<SummonedEntitySnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+
+            foreach (var pair in _summonedEntitiesByEntityId)
+            {
+                buffer.Add(new SummonedEntitySnapshotEntry(pair.Key, pair.Value));
             }
 
             buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));

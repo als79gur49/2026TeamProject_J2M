@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 namespace Game.Feature.Gameplay.Entities
 {
@@ -7,6 +9,17 @@ namespace Game.Feature.Gameplay.Entities
         Combat = 0,
         MovementSkill = 1,
         PassiveContact = 2,
+        Utility = 3,
+    }
+
+    public enum EnemyUtilityEffectKind
+    {
+        SummonMinion = 0,
+    }
+
+    public enum SummonCandidatePattern
+    {
+        OrthogonalAdjacent4 = 0,
     }
 
     public readonly struct EnemyCoreRuntime
@@ -282,16 +295,155 @@ namespace Game.Feature.Gameplay.Entities
         }
     }
 
+    public readonly struct SummonMinionRuntime
+    {
+        public SummonMinionRuntime(
+            int spawnCountPerTrigger,
+            SummonCandidatePattern candidatePattern,
+            bool requireNoUnitAtSpawnCell,
+            bool requireNoSolidAtSpawnCell,
+            int maxAliveChildren,
+            int minionHp)
+        {
+            SpawnCountPerTrigger = spawnCountPerTrigger;
+            CandidatePattern = candidatePattern;
+            RequireNoUnitAtSpawnCell = requireNoUnitAtSpawnCell;
+            RequireNoSolidAtSpawnCell = requireNoSolidAtSpawnCell;
+            MaxAliveChildren = maxAliveChildren;
+            MinionHp = minionHp;
+            Validate(nameof(SummonMinionRuntime));
+        }
+
+        public int SpawnCountPerTrigger { get; }
+
+        public SummonCandidatePattern CandidatePattern { get; }
+
+        public bool RequireNoUnitAtSpawnCell { get; }
+
+        public bool RequireNoSolidAtSpawnCell { get; }
+
+        public int MaxAliveChildren { get; }
+
+        public int MinionHp { get; }
+
+        public void Validate(string paramName)
+        {
+            if (SpawnCountPerTrigger <= 0)
+            {
+                throw new ArgumentException("Summon minion runtime requires a positive spawn count.", paramName);
+            }
+
+            if (MaxAliveChildren <= 0)
+            {
+                throw new ArgumentException("Summon minion runtime requires a positive max alive child count.", paramName);
+            }
+
+            if (MinionHp <= 0)
+            {
+                throw new ArgumentException("Summon minion runtime requires positive minion HP.", paramName);
+            }
+        }
+    }
+
+    public sealed class EnemyUtilityEffectRuntime
+    {
+        public EnemyUtilityEffectRuntime(
+            EnemyUtilityEffectKind kind,
+            int initialDelayTicks,
+            int intervalTicks,
+            SummonMinionRuntime summon)
+        {
+            Kind = kind;
+            InitialDelayTicks = initialDelayTicks;
+            IntervalTicks = intervalTicks;
+            Summon = summon;
+            Validate(nameof(EnemyUtilityEffectRuntime));
+        }
+
+        public EnemyUtilityEffectKind Kind { get; }
+
+        public int InitialDelayTicks { get; }
+
+        public int IntervalTicks { get; }
+
+        public SummonMinionRuntime Summon { get; }
+
+        public void Validate(string paramName)
+        {
+            if (InitialDelayTicks < 0)
+            {
+                throw new ArgumentException("Enemy utility effect runtime requires a non-negative initial delay.", paramName);
+            }
+
+            if (IntervalTicks <= 0)
+            {
+                throw new ArgumentException("Enemy utility effect runtime requires a positive interval.", paramName);
+            }
+
+            switch (Kind)
+            {
+                case EnemyUtilityEffectKind.SummonMinion:
+                    Summon.Validate(paramName);
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unknown enemy utility effect kind.");
+            }
+        }
+    }
+
+    public sealed class EnemyUtilityCapabilityRuntime : EnemyCapabilityRuntime
+    {
+        private readonly ReadOnlyCollection<EnemyUtilityEffectRuntime> _effects;
+
+        public EnemyUtilityCapabilityRuntime(
+            IEnumerable<EnemyUtilityEffectRuntime> effects)
+        {
+            if (effects == null)
+            {
+                throw new ArgumentNullException(nameof(effects));
+            }
+
+            var compiledEffects = new List<EnemyUtilityEffectRuntime>();
+            foreach (var effect in effects)
+            {
+                if (effect == null)
+                {
+                    throw new ArgumentException("Utility capability runtime cannot contain null effects.", nameof(effects));
+                }
+
+                compiledEffects.Add(effect);
+            }
+
+            _effects = new ReadOnlyCollection<EnemyUtilityEffectRuntime>(compiledEffects);
+            Validate(nameof(EnemyUtilityCapabilityRuntime));
+        }
+
+        public override EnemyCapabilityFamily Family => EnemyCapabilityFamily.Utility;
+
+        public IReadOnlyList<EnemyUtilityEffectRuntime> Effects => _effects;
+
+        public override void Validate(string paramName)
+        {
+            for (var i = 0; i < _effects.Count; i++)
+            {
+                _effects[i].Validate(paramName);
+            }
+        }
+    }
+
     public readonly struct EnemyCapabilityRuntimeSet
     {
         public EnemyCapabilityRuntimeSet(
             EnemyCombatCapabilityRuntime combat,
             EnemyMovementSkillCapabilityRuntime movementSkill,
-            EnemyPassiveContactCapabilityRuntime passiveContact)
+            EnemyPassiveContactCapabilityRuntime passiveContact,
+            EnemyUtilityCapabilityRuntime utility)
         {
             Combat = combat;
             MovementSkill = movementSkill;
             PassiveContact = passiveContact;
+            Utility = utility;
             Validate(nameof(EnemyCapabilityRuntimeSet));
         }
 
@@ -300,6 +452,8 @@ namespace Game.Feature.Gameplay.Entities
         public EnemyMovementSkillCapabilityRuntime MovementSkill { get; }
 
         public EnemyPassiveContactCapabilityRuntime PassiveContact { get; }
+
+        public EnemyUtilityCapabilityRuntime Utility { get; }
 
         public bool TryGetCombat(out EnemyCombatCapabilityRuntime combat)
         {
@@ -319,11 +473,194 @@ namespace Game.Feature.Gameplay.Entities
             return passiveContact != null;
         }
 
+        public bool TryGetUtility(out EnemyUtilityCapabilityRuntime utility)
+        {
+            utility = Utility;
+            return utility != null;
+        }
+
         public void Validate(string paramName)
         {
             Combat?.Validate(paramName);
             MovementSkill?.Validate(paramName);
             PassiveContact?.Validate(paramName);
+            Utility?.Validate(paramName);
+        }
+    }
+
+    public struct EnemyUtilityEffectState
+    {
+        public int cooldownTicksRemaining;
+    }
+
+    public sealed class EnemyUtilityRuntimeState
+    {
+        private readonly ReadOnlyCollection<EnemyUtilityEffectState> _effectStates;
+
+        public EnemyUtilityRuntimeState(IEnumerable<EnemyUtilityEffectState> effectStates)
+        {
+            if (effectStates == null)
+            {
+                throw new ArgumentNullException(nameof(effectStates));
+            }
+
+            var copiedStates = new List<EnemyUtilityEffectState>();
+            foreach (var effectState in effectStates)
+            {
+                copiedStates.Add(effectState);
+            }
+
+            _effectStates = new ReadOnlyCollection<EnemyUtilityEffectState>(copiedStates);
+        }
+
+        public IReadOnlyList<EnemyUtilityEffectState> EffectStates => _effectStates;
+
+        public bool HasEffectCount(int expectedCount)
+        {
+            return _effectStates.Count == Math.Max(0, expectedCount);
+        }
+    }
+
+    public readonly struct EnemyUtilitySnapshotEntry
+    {
+        public EnemyUtilitySnapshotEntry(int entityId, EnemyUtilityRuntimeState state)
+        {
+            EntityId = entityId;
+            State = state ?? throw new ArgumentNullException(nameof(state));
+        }
+
+        public int EntityId { get; }
+
+        public EnemyUtilityRuntimeState State { get; }
+    }
+
+    public readonly struct SummonedEntityState
+    {
+        public SummonedEntityState(int sourceEntityId, int sourceEffectIndex)
+        {
+            SourceEntityId = sourceEntityId;
+            SourceEffectIndex = sourceEffectIndex;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int SourceEffectIndex { get; }
+    }
+
+    public readonly struct SummonedEntitySnapshotEntry
+    {
+        public SummonedEntitySnapshotEntry(int entityId, SummonedEntityState state)
+        {
+            EntityId = entityId;
+            State = state;
+        }
+
+        public int EntityId { get; }
+
+        public SummonedEntityState State { get; }
+    }
+
+    internal static class EnemyUtilityStateQueries
+    {
+        public static EnemyUtilityRuntimeState CreateInitialState(EnemyUtilityCapabilityRuntime capability)
+        {
+            if (capability == null)
+            {
+                throw new ArgumentNullException(nameof(capability));
+            }
+
+            var effectStates = new EnemyUtilityEffectState[capability.Effects.Count];
+            for (var i = 0; i < capability.Effects.Count; i++)
+            {
+                effectStates[i] = new EnemyUtilityEffectState
+                {
+                    cooldownTicksRemaining = capability.Effects[i].InitialDelayTicks,
+                };
+            }
+
+            return new EnemyUtilityRuntimeState(effectStates);
+        }
+
+        public static bool AreEqual(EnemyUtilityRuntimeState left, EnemyUtilityRuntimeState right)
+        {
+            if (ReferenceEquals(left, right))
+            {
+                return true;
+            }
+
+            if (left == null || right == null)
+            {
+                return false;
+            }
+
+            if (left.EffectStates.Count != right.EffectStates.Count)
+            {
+                return false;
+            }
+
+            for (var i = 0; i < left.EffectStates.Count; i++)
+            {
+                if (left.EffectStates[i].cooldownTicksRemaining != right.EffectStates[i].cooldownTicksRemaining)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
+
+    internal readonly struct EnemyUtilityTriggerIntent
+    {
+        public EnemyUtilityTriggerIntent(
+            int sourceEntityId,
+            int effectIndex,
+            EnemyUtilityEffectKind effectKind,
+            int triggerTick,
+            EnemyUtilityEffectRuntime effectRuntime)
+        {
+            if (effectRuntime == null)
+            {
+                throw new ArgumentNullException(nameof(effectRuntime));
+            }
+
+            SourceEntityId = sourceEntityId;
+            EffectIndex = effectIndex;
+            EffectKind = effectKind;
+            TriggerTick = triggerTick;
+            EffectRuntime = effectRuntime;
+        }
+
+        public int SourceEntityId { get; }
+
+        public int EffectIndex { get; }
+
+        public EnemyUtilityEffectKind EffectKind { get; }
+
+        public int TriggerTick { get; }
+
+        public EnemyUtilityEffectRuntime EffectRuntime { get; }
+    }
+
+    internal sealed class EnemyUtilityTriggerIntentComparer : IComparer<EnemyUtilityTriggerIntent>
+    {
+        public static readonly EnemyUtilityTriggerIntentComparer Instance = new();
+
+        public int Compare(EnemyUtilityTriggerIntent left, EnemyUtilityTriggerIntent right)
+        {
+            var sourceComparison = left.SourceEntityId.CompareTo(right.SourceEntityId);
+            if (sourceComparison != 0)
+            {
+                return sourceComparison;
+            }
+
+            var effectComparison = left.EffectIndex.CompareTo(right.EffectIndex);
+            if (effectComparison != 0)
+            {
+                return effectComparison;
+            }
+
+            return left.TriggerTick.CompareTo(right.TriggerTick);
         }
     }
 }

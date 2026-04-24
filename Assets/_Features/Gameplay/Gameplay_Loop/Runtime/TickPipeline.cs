@@ -21,6 +21,7 @@ using Game.Feature.Gameplay.Movement.Intents;
 using Game.Feature.Gameplay.Movement.Sorting;
 using Game.Feature.Gameplay.Objectives;
 using Game.Feature.Gameplay.PlayerControl;
+using UnityEngine;
 
 namespace Game.Feature.Gameplay.Loop
 {
@@ -354,12 +355,19 @@ namespace Game.Feature.Gameplay.Loop
             var snapshotAfterEnemyAi = projectedWorld.CreateSnapshot();
 
             var preMovementBatch = new FinalizationBatch();
-            var preMovementContext = new RecordingFinalizationContext(preMovementBatch, snapshotAfterEnemyAi, TickPhase.Plan);
+            var utilityTriggerIntents = new List<EnemyUtilityTriggerIntent>();
+            var preMovementContext = new RecordingFinalizationContext(
+                preMovementBatch,
+                snapshotAfterEnemyAi,
+                TickPhase.Plan,
+                utilityTriggerIntents);
             var preMovementStateResult = RunPreMovementStatePhase(
                 entityLogicsForTick.PreMovementStateLogics,
                 snapshotAfterEnemyAi,
                 in input,
                 preMovementContext);
+            utilityTriggerIntents.Sort(EnemyUtilityTriggerIntentComparer.Instance);
+            preMovementStateResult.UtilityTriggerIntents.AddRange(utilityTriggerIntents);
             planFinalizationBatch.MergeFrom(preMovementBatch);
             projectedWorld.ApplyBatch(preMovementBatch);
             var nextContestId = 1;
@@ -823,6 +831,13 @@ namespace Game.Feature.Gameplay.Loop
                 aiPhaseResult.AfterAttackTransitions);
             finalizationBatch.MergeFrom(afterAttackAiBatch);
             projectedWorld.ApplyBatch(afterAttackAiBatch);
+            var utilityResolveResult = EnemyUtilityResolver.Resolve(
+                projectedWorld.CreateSnapshot(),
+                planPhaseResult.PreMovementStatePhaseResult.UtilityTriggerIntents,
+                tickIndex,
+                _entityIdAllocator);
+            finalizationBatch.MergeFrom(utilityResolveResult.Batch);
+            projectedWorld.ApplyBatch(utilityResolveResult.Batch);
             var postAttackSnapshot = projectedWorld.CreateSnapshot();
 
             phaseTrace.Add("Resolve:Exit");
@@ -853,6 +868,11 @@ namespace Game.Feature.Gameplay.Loop
                 movementCommitEvents,
                 movementRejectedReasons);
 
+            AddRange(attackCommitEvents, utilityResolveResult.EventLogEntries);
+            var attackResolvedOperations = new List<FinalizationOperation>(attackStageBatch.Operations.Count + utilityResolveResult.Batch.Operations.Count);
+            AddRange(attackResolvedOperations, attackStageBatch.Operations);
+            AddRange(attackResolvedOperations, utilityResolveResult.Batch.Operations);
+
             var attackEventLogEntries = new List<string>(delayedAttackDrainEvents.Count + attackCommitEvents.Count + delayedAttackEnqueueEvents.Count);
             AddRange(attackEventLogEntries, delayedAttackDrainEvents);
             AddRange(attackEventLogEntries, attackCommitEvents);
@@ -864,7 +884,7 @@ namespace Game.Feature.Gameplay.Loop
                 drainedDelayedAttackEffects,
                 damageResolutions,
                 attackResolutionRecords,
-                attackStageBatch.Operations,
+                attackResolvedOperations,
                 delayedAttackEffects,
                 attackCommitEvents,
                 attackEventLogEntries,
@@ -4927,18 +4947,20 @@ namespace Game.Feature.Gameplay.Loop
     internal sealed class PreMovementStatePhaseResult
     {
         public PreMovementStatePhaseResult(List<string> updates)
-            : this(updates, new List<PlayerActionTransition>(), new List<string>())
+            : this(updates, new List<PlayerActionTransition>(), new List<string>(), new List<EnemyUtilityTriggerIntent>())
         {
         }
 
         public PreMovementStatePhaseResult(
             List<string> updates,
             List<PlayerActionTransition> playerActionTransitions,
-            List<string> rejectedReasons = null)
+            List<string> rejectedReasons = null,
+            List<EnemyUtilityTriggerIntent> utilityTriggerIntents = null)
         {
             Updates = updates ?? throw new ArgumentNullException(nameof(updates));
             PlayerActionTransitions = playerActionTransitions ?? throw new ArgumentNullException(nameof(playerActionTransitions));
             RejectedReasons = rejectedReasons ?? new List<string>();
+            UtilityTriggerIntents = utilityTriggerIntents ?? new List<EnemyUtilityTriggerIntent>();
         }
 
         public List<string> Updates { get; }
@@ -4946,6 +4968,8 @@ namespace Game.Feature.Gameplay.Loop
         public List<PlayerActionTransition> PlayerActionTransitions { get; }
 
         public List<string> RejectedReasons { get; }
+
+        public List<EnemyUtilityTriggerIntent> UtilityTriggerIntents { get; }
     }
 
     internal sealed class PlanPhaseResult
@@ -5107,6 +5131,379 @@ namespace Game.Feature.Gameplay.Loop
         public List<int> OrderedActionPlanIds { get; }
 
         public List<string> RejectedReasons { get; }
+    }
+
+    internal sealed class EnemyUtilityResolveResult
+    {
+        public EnemyUtilityResolveResult(FinalizationBatch batch, List<string> eventLogEntries)
+        {
+            Batch = batch ?? throw new ArgumentNullException(nameof(batch));
+            EventLogEntries = eventLogEntries ?? throw new ArgumentNullException(nameof(eventLogEntries));
+        }
+
+        public FinalizationBatch Batch { get; }
+
+        public List<string> EventLogEntries { get; }
+    }
+
+    internal static class EnemyUtilityResolver
+    {
+        private readonly struct SourceEffectKey : IEquatable<SourceEffectKey>
+        {
+            public SourceEffectKey(int sourceEntityId, int effectIndex)
+            {
+                SourceEntityId = sourceEntityId;
+                EffectIndex = effectIndex;
+            }
+
+            public int SourceEntityId { get; }
+
+            public int EffectIndex { get; }
+
+            public bool Equals(SourceEffectKey other)
+            {
+                return SourceEntityId == other.SourceEntityId &&
+                       EffectIndex == other.EffectIndex;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is SourceEffectKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                unchecked
+                {
+                    return (SourceEntityId * 397) ^ EffectIndex;
+                }
+            }
+        }
+
+        private enum SummonSkipReason
+        {
+            SourceInvalid = 0,
+            MaxAliveReached = 1,
+            NoCandidateCell = 2,
+        }
+
+        public static EnemyUtilityResolveResult Resolve(
+            WorldSnapshot postAttackSnapshot,
+            IReadOnlyList<EnemyUtilityTriggerIntent> triggerIntents,
+            int tickIndex,
+            EntityIdAllocator entityIdAllocator)
+        {
+            if (postAttackSnapshot == null)
+            {
+                throw new ArgumentNullException(nameof(postAttackSnapshot));
+            }
+
+            if (triggerIntents == null)
+            {
+                throw new ArgumentNullException(nameof(triggerIntents));
+            }
+
+            if (entityIdAllocator == null)
+            {
+                throw new ArgumentNullException(nameof(entityIdAllocator));
+            }
+
+            var batch = new FinalizationBatch();
+            var eventLogEntries = new List<string>();
+            if (triggerIntents.Count == 0)
+            {
+                return new EnemyUtilityResolveResult(batch, eventLogEntries);
+            }
+
+            var reservedSpawnCells = new HashSet<SurfaceCell>();
+            var summonedEntries = new List<SummonedEntitySnapshotEntry>();
+            postAttackSnapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+            var plannedChildrenBySource = new Dictionary<SourceEffectKey, int>();
+
+            for (var intentIndex = 0; intentIndex < triggerIntents.Count; intentIndex++)
+            {
+                var triggerIntent = triggerIntents[intentIndex];
+                switch (triggerIntent.EffectKind)
+                {
+                    case EnemyUtilityEffectKind.SummonMinion:
+                        ResolveSummonMinion(
+                            postAttackSnapshot,
+                            triggerIntent,
+                            tickIndex,
+                            entityIdAllocator,
+                            summonedEntries,
+                            plannedChildrenBySource,
+                            reservedSpawnCells,
+                            batch,
+                            eventLogEntries);
+                        break;
+
+                    default:
+                        throw new ArgumentOutOfRangeException(
+                            nameof(triggerIntent),
+                            triggerIntent.EffectKind,
+                            "Unsupported enemy utility effect kind.");
+                }
+            }
+
+            return new EnemyUtilityResolveResult(batch, eventLogEntries);
+        }
+
+        private static void ResolveSummonMinion(
+            WorldSnapshot snapshot,
+            in EnemyUtilityTriggerIntent triggerIntent,
+            int tickIndex,
+            EntityIdAllocator entityIdAllocator,
+            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
+            IDictionary<SourceEffectKey, int> plannedChildrenBySource,
+            ISet<SurfaceCell> reservedSpawnCells,
+            FinalizationBatch batch,
+            List<string> eventLogEntries)
+        {
+            if (!TryGetValidSource(snapshot, triggerIntent.SourceEntityId, out var source))
+            {
+                AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex: 0, SummonSkipReason.SourceInvalid);
+                return;
+            }
+
+            var summonRuntime = triggerIntent.EffectRuntime.Summon;
+            var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
+            for (var spawnIndex = 0; spawnIndex < summonRuntime.SpawnCountPerTrigger; spawnIndex++)
+            {
+                var aliveChildren = CountAliveChildren(
+                    snapshot,
+                    summonedEntries,
+                    triggerIntent.SourceEntityId,
+                    triggerIntent.EffectIndex);
+                var plannedChildren = plannedChildrenBySource.TryGetValue(sourceKey, out var currentPlannedChildren)
+                    ? currentPlannedChildren
+                    : 0;
+                if (aliveChildren + plannedChildren >= summonRuntime.MaxAliveChildren)
+                {
+                    AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.MaxAliveReached);
+                    continue;
+                }
+
+                if (!TrySelectCandidateCell(
+                        snapshot,
+                        source,
+                        summonRuntime,
+                        reservedSpawnCells,
+                        out var spawnCell))
+                {
+                    AppendSkipEvent(eventLogEntries, triggerIntent, tickIndex, spawnIndex, SummonSkipReason.NoCandidateCell);
+                    continue;
+                }
+
+                var spawnedEntity = CreateSummonedMinionEntity(
+                    entityIdAllocator.AllocateEntityId(),
+                    source,
+                    spawnCell,
+                    summonRuntime.MinionHp,
+                    tickIndex);
+                var summonedEntityState = new SummonedEntityState(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
+                batch.SpawnEntity(
+                    spawnedEntity,
+                    new FinalizationOperationMetadata(
+                        TickPhase.Resolve,
+                        ResolvedActionSemanticKind.None,
+                        triggerIntent.SourceEntityId,
+                        actionPlanId: 0),
+                    hasSummonedEntityState: true,
+                    summonedEntityState: summonedEntityState);
+                reservedSpawnCells.Add(spawnCell);
+                plannedChildrenBySource[sourceKey] = plannedChildren + 1;
+                eventLogEntries.Add(
+                    $"SummonCommitted|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Spawned={spawnedEntity.entityId}|Pos=({spawnCell.x},{spawnCell.y})|Tick={tickIndex}");
+            }
+        }
+
+        private static bool TryGetValidSource(
+            WorldSnapshot snapshot,
+            int sourceEntityId,
+            out EntityState source)
+        {
+            if (!snapshot.TryGetEntity(sourceEntityId, out source))
+            {
+                return false;
+            }
+
+            return EnemyParticipationPolicy.IsControllableParticipant(snapshot, source) &&
+                   source.position.face == snapshot.Topology.BottomFace;
+        }
+
+        private static int CountAliveChildren(
+            WorldSnapshot snapshot,
+            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries,
+            int sourceEntityId,
+            int effectIndex)
+        {
+            var aliveCount = 0;
+            for (var i = 0; i < summonedEntries.Count; i++)
+            {
+                var entry = summonedEntries[i];
+                if (entry.State.SourceEntityId != sourceEntityId ||
+                    entry.State.SourceEffectIndex != effectIndex ||
+                    !snapshot.TryGetEntity(entry.EntityId, out var child) ||
+                    child.hp <= 0 ||
+                    child.markedForDeath ||
+                    child.boardPresence != EntityBoardPresence.Occupying)
+                {
+                    continue;
+                }
+
+                aliveCount++;
+            }
+
+            return aliveCount;
+        }
+
+        private static bool TrySelectCandidateCell(
+            WorldSnapshot snapshot,
+            in EntityState source,
+            in SummonMinionRuntime summonRuntime,
+            ISet<SurfaceCell> reservedSpawnCells,
+            out SurfaceCell spawnCell)
+        {
+            var candidateOffsets = BuildCandidateOffsets(source.facing);
+            for (var i = 0; i < candidateOffsets.Count; i++)
+            {
+                var candidateCell = source.position + candidateOffsets[i];
+                if (!snapshot.IsInsideBoard(candidateCell) ||
+                    snapshot.IsTerrainBlockedForUnit(candidateCell))
+                {
+                    continue;
+                }
+
+                if (summonRuntime.RequireNoSolidAtSpawnCell &&
+                    snapshot.TryGetSolidSemanticAt(candidateCell, out _))
+                {
+                    continue;
+                }
+
+                if (snapshot.TryGetPlacementBlocker(EntityType.Unit, candidateCell, ignoredEntityId: 0, out _))
+                {
+                    continue;
+                }
+
+                if (summonRuntime.RequireNoUnitAtSpawnCell &&
+                    snapshot.HasAnyUnitAt(candidateCell))
+                {
+                    continue;
+                }
+
+                if (reservedSpawnCells.Contains(candidateCell))
+                {
+                    continue;
+                }
+
+                spawnCell = candidateCell;
+                return true;
+            }
+
+            spawnCell = default;
+            return false;
+        }
+
+        private static List<Vector2Int> BuildCandidateOffsets(Direction facing)
+        {
+            if (!EnemyMovementStrategyShared.TryResolveDelta(facing, out var forward) ||
+                !EnemyMovementStrategyShared.TryResolveDelta(TurnRight(facing), out var right) ||
+                !EnemyMovementStrategyShared.TryResolveDelta(TurnLeft(facing), out var left) ||
+                !EnemyMovementStrategyShared.TryResolveDelta(TurnBack(facing), out var back))
+            {
+                return new List<Vector2Int>
+                {
+                    new Vector2Int(0, 1),
+                    new Vector2Int(1, 0),
+                    new Vector2Int(-1, 0),
+                    new Vector2Int(0, -1),
+                };
+            }
+
+            return new List<Vector2Int>
+            {
+                forward,
+                right,
+                left,
+                back,
+            };
+        }
+
+        private static Direction TurnRight(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Right,
+                Direction.Right => Direction.Down,
+                Direction.Down => Direction.Left,
+                Direction.Left => Direction.Up,
+                _ => Direction.None,
+            };
+        }
+
+        private static Direction TurnLeft(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Left,
+                Direction.Left => Direction.Down,
+                Direction.Down => Direction.Right,
+                Direction.Right => Direction.Up,
+                _ => Direction.None,
+            };
+        }
+
+        private static Direction TurnBack(Direction direction)
+        {
+            return direction switch
+            {
+                Direction.Up => Direction.Down,
+                Direction.Right => Direction.Left,
+                Direction.Down => Direction.Up,
+                Direction.Left => Direction.Right,
+                _ => Direction.None,
+            };
+        }
+
+        private static EntityState CreateSummonedMinionEntity(
+            int entityId,
+            in EntityState source,
+            SurfaceCell spawnCell,
+            int minionHp,
+            int tickIndex)
+        {
+            return new EntityState
+            {
+                entityId = entityId,
+                position = spawnCell,
+                hp = minionHp,
+                maxHp = minionHp,
+                teamId = source.teamId,
+                type = EntityType.Unit,
+                unitRole = UnitRole.Enemy,
+                state = EntityPhaseState.Idle,
+                stateTimer = 0,
+                facing = source.facing,
+                boardPresence = EntityBoardPresence.Occupying,
+                markedForDeath = false,
+                spawnTick = tickIndex,
+                aiMode = EnemyAiMode.Patrol,
+                aiStateTimer = 0,
+                enemyLocomotionCooldownTicks = 0,
+            };
+        }
+
+        private static void AppendSkipEvent(
+            List<string> eventLogEntries,
+            in EnemyUtilityTriggerIntent triggerIntent,
+            int tickIndex,
+            int spawnIndex,
+            SummonSkipReason reason)
+        {
+            eventLogEntries.Add(
+                $"SummonSkipped|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Reason={reason}|Tick={tickIndex}");
+        }
     }
 
     internal sealed class JumpLandingPlan
@@ -6135,6 +6532,7 @@ namespace Game.Feature.Gameplay.Loop
         MarkDestroy = 17,
         EnqueueDelayedAttackEffect = 18,
         SetPhasedState = 19,
+        SetEnemyUtilityState = 20,
     }
 
     internal enum ResolvedActionSemanticKind
@@ -6277,8 +6675,11 @@ namespace Game.Feature.Gameplay.Loop
             EnemyPatrolRuntimeState enemyPatrolState = default,
             EnemyJumpRuntimeState enemyJumpState = default,
             EnemyChargeRuntimeState enemyChargeState = default,
+            EnemyUtilityRuntimeState enemyUtilityState = null,
             PhasedRuntimeState phasedState = default,
             EntityState spawnEntity = default,
+            bool hasSpawnedEntitySummonedState = false,
+            SummonedEntityState spawnedEntitySummonedState = default,
             DelayedAttackEffectRecord delayedAttackEffect = default)
         {
             Sequence = sequence;
@@ -6305,8 +6706,11 @@ namespace Game.Feature.Gameplay.Loop
             EnemyPatrolState = enemyPatrolState;
             EnemyJumpState = enemyJumpState;
             EnemyChargeState = enemyChargeState;
+            EnemyUtilityState = enemyUtilityState;
             PhasedState = phasedState;
             SpawnedEntity = spawnEntity;
+            HasSpawnedEntitySummonedState = hasSpawnedEntitySummonedState;
+            SpawnedEntitySummonedState = spawnedEntitySummonedState;
             DelayedAttackEffect = delayedAttackEffect;
         }
 
@@ -6358,9 +6762,15 @@ namespace Game.Feature.Gameplay.Loop
 
         public EnemyChargeRuntimeState EnemyChargeState { get; }
 
+        public EnemyUtilityRuntimeState EnemyUtilityState { get; }
+
         public PhasedRuntimeState PhasedState { get; }
 
         public EntityState SpawnedEntity { get; }
+
+        public bool HasSpawnedEntitySummonedState { get; }
+
+        public SummonedEntityState SpawnedEntitySummonedState { get; }
 
         public DelayedAttackEffectRecord DelayedAttackEffect { get; }
 
@@ -6391,8 +6801,11 @@ namespace Game.Feature.Gameplay.Loop
                 EnemyPatrolState,
                 EnemyJumpState,
                 EnemyChargeState,
+                EnemyUtilityState,
                 PhasedState,
                 SpawnedEntity,
+                HasSpawnedEntitySummonedState,
+                SpawnedEntitySummonedState,
                 DelayedAttackEffect);
         }
 
@@ -6557,6 +6970,17 @@ namespace Game.Feature.Gameplay.Loop
                 enemyChargeState: enemyChargeState);
         }
 
+        public static FinalizationOperation SetEnemyUtilityState(long sequence, int entityId, EnemyUtilityRuntimeState enemyUtilityState, FinalizationOperationMetadata metadata = default)
+        {
+            return new FinalizationOperation(
+                sequence,
+                FinalizationOperationBucket.NonHpState,
+                FinalizationOperationKind.SetEnemyUtilityState,
+                metadata,
+                entityId: entityId,
+                enemyUtilityState: enemyUtilityState);
+        }
+
         public static FinalizationOperation SetPhasedState(long sequence, int entityId, PhasedRuntimeState phasedState, FinalizationOperationMetadata metadata = default)
         {
             return new FinalizationOperation(
@@ -6568,14 +6992,21 @@ namespace Game.Feature.Gameplay.Loop
                 phasedState: phasedState);
         }
 
-        public static FinalizationOperation SpawnEntity(long sequence, EntityState entity, FinalizationOperationMetadata metadata = default)
+        public static FinalizationOperation SpawnEntity(
+            long sequence,
+            EntityState entity,
+            FinalizationOperationMetadata metadata = default,
+            bool hasSpawnedEntitySummonedState = false,
+            SummonedEntityState spawnedEntitySummonedState = default)
         {
             return new FinalizationOperation(
                 sequence,
                 FinalizationOperationBucket.Spawn,
                 FinalizationOperationKind.SpawnEntity,
                 metadata,
-                spawnEntity: entity);
+                spawnEntity: entity,
+                hasSpawnedEntitySummonedState: hasSpawnedEntitySummonedState,
+                spawnedEntitySummonedState: spawnedEntitySummonedState);
         }
 
         public static FinalizationOperation ApplyDamage(long sequence, int entityId, int amount, FinalizationOperationMetadata metadata = default)
@@ -6695,14 +7126,29 @@ namespace Game.Feature.Gameplay.Loop
             _operations.Add(FinalizationOperation.SetEnemyChargeState(_nextSequence++, entityId, state, metadata));
         }
 
+        public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state, FinalizationOperationMetadata metadata = default)
+        {
+            _operations.Add(FinalizationOperation.SetEnemyUtilityState(_nextSequence++, entityId, state, metadata));
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state, FinalizationOperationMetadata metadata = default)
         {
             _operations.Add(FinalizationOperation.SetPhasedState(_nextSequence++, entityId, state, metadata));
         }
 
-        public void SpawnEntity(EntityState entity, FinalizationOperationMetadata metadata = default)
+        public void SpawnEntity(
+            EntityState entity,
+            FinalizationOperationMetadata metadata = default,
+            bool hasSummonedEntityState = false,
+            SummonedEntityState summonedEntityState = default)
         {
-            _operations.Add(FinalizationOperation.SpawnEntity(_nextSequence++, entity, metadata));
+            _operations.Add(
+                FinalizationOperation.SpawnEntity(
+                    _nextSequence++,
+                    entity,
+                    metadata,
+                    hasSummonedEntityState,
+                    summonedEntityState));
         }
 
         public void ApplyDamage(int entityId, int amount, FinalizationOperationMetadata metadata = default)
@@ -6827,12 +7273,20 @@ namespace Game.Feature.Gameplay.Loop
                         ((IPreMovementStateCommitContext)writeContext).SetEnemyChargeState(operation.EntityId, operation.EnemyChargeState);
                         break;
 
+                    case FinalizationOperationKind.SetEnemyUtilityState:
+                        ((IPreMovementStateCommitContext)writeContext).SetEnemyUtilityState(operation.EntityId, operation.EnemyUtilityState);
+                        break;
+
                     case FinalizationOperationKind.SetPhasedState:
                         ((IPhasedStateCommitContext)writeContext).SetPhasedState(operation.EntityId, operation.PhasedState);
                         break;
 
                     case FinalizationOperationKind.SpawnEntity:
                         ((IAttackCommitContext)writeContext).SpawnEntity(operation.SpawnedEntity);
+                        if (operation.HasSpawnedEntitySummonedState)
+                        {
+                            writeContext.SetSummonedEntityState(operation.SpawnedEntity.entityId, operation.SpawnedEntitySummonedState);
+                        }
                         break;
 
                     case FinalizationOperationKind.ApplyDamage:
@@ -6862,15 +7316,18 @@ namespace Game.Feature.Gameplay.Loop
         private readonly FinalizationBatch _batch;
         private readonly TickPhase _originPhase;
         private readonly WorldSnapshot _referenceSnapshot;
+        private readonly List<EnemyUtilityTriggerIntent> _utilityTriggerIntents;
 
         public RecordingFinalizationContext(
             FinalizationBatch batch,
             WorldSnapshot referenceSnapshot = null,
-            TickPhase originPhase = TickPhase.Resolve)
+            TickPhase originPhase = TickPhase.Resolve,
+            List<EnemyUtilityTriggerIntent> utilityTriggerIntents = null)
         {
             _batch = batch ?? throw new ArgumentNullException(nameof(batch));
             _referenceSnapshot = referenceSnapshot;
             _originPhase = originPhase;
+            _utilityTriggerIntents = utilityTriggerIntents;
         }
 
         public void MoveEntity(int entityId, SurfaceCell destination)
@@ -6911,6 +7368,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             _batch.SetEnemyJumpState(entityId, state, CreateJumpStateMetadata(entityId, state));
+        }
+
+        public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
+        {
+            _batch.SetEnemyUtilityState(entityId, state);
         }
 
         public void SetEnemyChargeState(int entityId, EnemyChargeRuntimeState state)
@@ -6958,6 +7420,10 @@ namespace Game.Feature.Gameplay.Loop
             _batch.SpawnEntity(entity);
         }
 
+        public void SetSummonedEntityState(int entityId, SummonedEntityState state)
+        {
+        }
+
         public void RemoveEntity(int entityId)
         {
             throw new NotSupportedException("Finalize recording does not support cleanup removes.");
@@ -6981,6 +7447,11 @@ namespace Game.Feature.Gameplay.Loop
         public void SetTopology(CubeTopologyState topology)
         {
             _batch.SetTopology(topology);
+        }
+
+        public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
+        {
+            _utilityTriggerIntents?.Add(intent);
         }
 
         private FinalizationOperationMetadata CreateJumpStateMetadata(int entityId, in EnemyJumpRuntimeState state)
@@ -7124,6 +7595,11 @@ namespace Game.Feature.Gameplay.Loop
                     writeContext.SetEnemyJumpState(entityId, enemyJumpState);
                 }
 
+                if (snapshot.TryGetEnemyUtilityState(entityId, out var enemyUtilityState))
+                {
+                    writeContext.SetEnemyUtilityState(entityId, enemyUtilityState);
+                }
+
                 if (snapshot.TryGetEnemyChargeState(entityId, out var enemyChargeState))
                 {
                     writeContext.SetEnemyChargeState(entityId, enemyChargeState);
@@ -7132,6 +7608,11 @@ namespace Game.Feature.Gameplay.Loop
                 if (snapshot.TryGetPhasedState(entityId, out var phasedState))
                 {
                     writeContext.SetPhasedState(entityId, phasedState);
+                }
+
+                if (snapshot.TryGetSummonedEntityState(entityId, out var summonedEntityState))
+                {
+                    writeContext.SetSummonedEntityState(entityId, summonedEntityState);
                 }
             }
 

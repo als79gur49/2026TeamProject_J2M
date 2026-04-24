@@ -68,11 +68,17 @@ namespace Game.Feature.Gameplay.Loop
             builder.Append("EnemyJumps").Append('\n');
             AppendEnemyJumpLines(builder, GetOrderedEnemyJumpStates(finalSnapshot));
 
+            builder.Append("EnemyUtilities").Append('\n');
+            AppendEnemyUtilityLines(builder, GetOrderedEnemyUtilityStates(finalSnapshot));
+
             builder.Append("EnemyCharges").Append('\n');
             AppendEnemyChargeLines(builder, GetOrderedEnemyChargeStates(finalSnapshot));
 
             builder.Append("PhasedStates").Append('\n');
             AppendPhasedStateLines(builder, GetOrderedPhasedStates(finalSnapshot));
+
+            builder.Append("SummonedEntities").Append('\n');
+            AppendSummonedEntityLines(builder, GetOrderedSummonedEntityStates(finalSnapshot));
 
             builder.Append("SolidOccupancy").Append('\n');
             AppendOccupancyLines(builder, GetOrderedSolidOccupancy(finalSnapshot));
@@ -168,11 +174,25 @@ namespace Game.Feature.Gameplay.Loop
             return enemyChargeEntries;
         }
 
+        private static List<EnemyUtilitySnapshotEntry> GetOrderedEnemyUtilityStates(WorldSnapshot finalSnapshot)
+        {
+            var enemyUtilityEntries = new List<EnemyUtilitySnapshotEntry>();
+            finalSnapshot.EnumerateEnemyUtilityStatesOrdered(enemyUtilityEntries);
+            return enemyUtilityEntries;
+        }
+
         private static List<EntityExecutionLockSnapshotEntry> GetOrderedExecutionLockStates(WorldSnapshot finalSnapshot)
         {
             var executionLockEntries = new List<EntityExecutionLockSnapshotEntry>();
             finalSnapshot.EnumerateEntityExecutionLockStatesOrdered(executionLockEntries);
             return executionLockEntries;
+        }
+
+        private static List<SummonedEntitySnapshotEntry> GetOrderedSummonedEntityStates(WorldSnapshot finalSnapshot)
+        {
+            var summonedEntries = new List<SummonedEntitySnapshotEntry>();
+            finalSnapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+            return summonedEntries;
         }
 
         private static List<PhasedSnapshotEntry> GetOrderedPhasedStates(WorldSnapshot finalSnapshot)
@@ -294,6 +314,54 @@ namespace Game.Feature.Gameplay.Loop
                     .Append(entry.State.enteredTick).Append('|')
                     .Append(entry.State.exitTickExclusive).Append('|')
                     .Append(entry.State.IsActive ? 1 : 0).Append('\n');
+            }
+        }
+
+        private static void AppendEnemyUtilityLines(
+            StringBuilder builder,
+            IReadOnlyList<EnemyUtilitySnapshotEntry> enemyUtilityEntries)
+        {
+            if (enemyUtilityEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < enemyUtilityEntries.Count; i++)
+            {
+                var entry = enemyUtilityEntries[i];
+                if (entry.State.EffectStates.Count == 0)
+                {
+                    builder.Append(entry.EntityId).Append("|<empty>").Append('\n');
+                    continue;
+                }
+
+                for (var effectIndex = 0; effectIndex < entry.State.EffectStates.Count; effectIndex++)
+                {
+                    builder
+                        .Append(entry.EntityId).Append('|')
+                        .Append(effectIndex).Append('|')
+                        .Append(entry.State.EffectStates[effectIndex].cooldownTicksRemaining).Append('\n');
+                }
+            }
+        }
+
+        private static void AppendSummonedEntityLines(
+            StringBuilder builder,
+            IReadOnlyList<SummonedEntitySnapshotEntry> summonedEntries)
+        {
+            if (summonedEntries.Count == 0)
+            {
+                builder.Append("<empty>").Append('\n');
+                return;
+            }
+
+            for (var i = 0; i < summonedEntries.Count; i++)
+            {
+                builder
+                    .Append(summonedEntries[i].EntityId).Append('|')
+                    .Append(summonedEntries[i].State.SourceEntityId).Append('|')
+                    .Append(summonedEntries[i].State.SourceEffectIndex).Append('\n');
             }
         }
 

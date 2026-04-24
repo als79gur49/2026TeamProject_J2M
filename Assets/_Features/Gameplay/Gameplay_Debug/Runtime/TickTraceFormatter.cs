@@ -38,6 +38,7 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, "EnemyAi.BeforeMovementTransitions", enemyAiPhaseResult.BeforeMovementTransitions, FormatString);
             AppendSection(builder, "PreMovement.PlayerControlUpdates", preMovementStatePhaseResult.Updates, FormatString);
             AppendSection(builder, "PreMovement.PlayerActionTransitions", preMovementStatePhaseResult.PlayerActionTransitions, FormatPlayerActionTransition);
+            AppendSection(builder, "PreMovement.UtilityTriggers", preMovementStatePhaseResult.UtilityTriggerIntents, FormatEnemyUtilityTriggerIntent);
             AppendSection(builder, "Movement.RawIntents", movementPhaseResult.RawIntents, FormatRawMovementIntent);
             AppendSection(builder, "Movement.SortedIntents", movementPhaseResult.SortedIntents, FormatMoveIntent);
             AppendSection(builder, "Movement.RejectedReasons", movementPhaseResult.RejectedReasons, FormatString);
@@ -113,8 +114,10 @@ namespace Game.Feature.Gameplay.Debug
             AppendSection(builder, $"{label}.EnemyPatrols", GetEnemyPatrolEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.ExecutionLocks", GetExecutionLockEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyJumps", GetEnemyJumpEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.EnemyUtilities", GetEnemyUtilityEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.EnemyCharges", GetEnemyChargeEntries(snapshot), FormatString);
             AppendSection(builder, $"{label}.Phased", GetPhasedEntries(snapshot), FormatString);
+            AppendSection(builder, $"{label}.SummonedEntities", GetSummonedEntityEntries(snapshot), FormatString);
             AppendOccupancySection(builder, $"{label}.Occupancy", snapshot);
         }
 
@@ -266,6 +269,39 @@ namespace Game.Feature.Gameplay.Debug
                 var entry = entries[i];
                 lines.Add(
                     $"E={entry.EntityId}|Phase={entry.State.phase}|Seq={entry.State.sequence}|Direction={entry.State.lockedDirection}|WindupEnd={entry.State.windupEndTick}|ActiveSteps={entry.State.remainingActiveSteps}|RecoverTicks={entry.State.recoverRemainingTicks}");
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetEnemyUtilityEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<EnemyUtilitySnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateEnemyUtilityStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                for (var effectIndex = 0; effectIndex < entries[i].State.EffectStates.Count; effectIndex++)
+                {
+                    lines.Add(
+                        $"E={entries[i].EntityId}|Effect={effectIndex}|Cooldown={entries[i].State.EffectStates[effectIndex].cooldownTicksRemaining}");
+                }
+            }
+
+            return lines;
+        }
+
+        private static List<string> GetSummonedEntityEntries(WorldSnapshot snapshot)
+        {
+            var entries = new List<SummonedEntitySnapshotEntry>();
+            var lines = new List<string>();
+            snapshot.EnumerateSummonedEntityStatesOrdered(entries);
+
+            for (var i = 0; i < entries.Count; i++)
+            {
+                lines.Add(
+                    $"E={entries[i].EntityId}|Source={entries[i].State.SourceEntityId}|Effect={entries[i].State.SourceEffectIndex}");
             }
 
             return lines;
@@ -458,6 +494,22 @@ namespace Game.Feature.Gameplay.Debug
                         .Append(BuildPhasedMetadataSuffix(operation.PhasedState.ownerKind));
                     break;
 
+                case FinalizationOperationKind.SetEnemyUtilityState:
+                    if (operation.EnemyUtilityState == null)
+                    {
+                        builder.Append("|Utility=<null>");
+                        break;
+                    }
+
+                    for (var effectIndex = 0; effectIndex < operation.EnemyUtilityState.EffectStates.Count; effectIndex++)
+                    {
+                        builder.Append(effectIndex == 0 ? "|Utility=" : ",")
+                            .Append(effectIndex)
+                            .Append(':')
+                            .Append(operation.EnemyUtilityState.EffectStates[effectIndex].cooldownTicksRemaining);
+                    }
+                    break;
+
                 case FinalizationOperationKind.SetTopology:
                     builder.Append("|Rotation=").Append(operation.Metadata.RotationKind)
                         .Append("|Bottom=").Append(operation.Topology.BottomFace)
@@ -477,6 +529,11 @@ namespace Game.Feature.Gameplay.Debug
                     builder.Append("|SpawnE=").Append(operation.SpawnedEntity.entityId)
                         .Append("|Pos=").Append(FormatCell(operation.SpawnedEntity.position))
                         .Append("|Type=").Append(operation.SpawnedEntity.type);
+                    if (operation.HasSpawnedEntitySummonedState)
+                    {
+                        builder.Append("|SummonSource=").Append(operation.SpawnedEntitySummonedState.SourceEntityId)
+                            .Append("|SummonEffect=").Append(operation.SpawnedEntitySummonedState.SourceEffectIndex);
+                    }
                     break;
 
                 case FinalizationOperationKind.EnqueueDelayedAttackEffect:
@@ -489,6 +546,11 @@ namespace Game.Feature.Gameplay.Debug
             }
 
             return builder.ToString();
+        }
+
+        private static string FormatEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
+        {
+            return $"Source={intent.SourceEntityId}|Effect={intent.EffectIndex}|Kind={intent.EffectKind}|Tick={intent.TriggerTick}";
         }
 
         private static string BuildPhasedMetadataSuffix(PhasedRuntimeStateOwnerKind ownerKind)

@@ -56,6 +56,7 @@ namespace Game.Feature.Gameplay.Entities
         private readonly EnemyCombatCapabilityRuntime _combatCapability;
         private readonly EnemyMovementSkillCapabilityRuntime _movementSkillCapability;
         private readonly EnemyPassiveContactCapabilityRuntime _passiveContactCapability;
+        private readonly EnemyUtilityCapabilityRuntime _utilityCapability;
         private readonly IEnemyAiStateResolver _stateResolver;
         private readonly bool _usesChargeStateResolver;
         private readonly List<EntityState> _sharedCellUnits = new();
@@ -98,6 +99,7 @@ namespace Game.Feature.Gameplay.Entities
             aiDefinition.Capabilities.TryGetCombat(out _combatCapability);
             aiDefinition.Capabilities.TryGetMovementSkill(out _movementSkillCapability);
             aiDefinition.Capabilities.TryGetPassiveContact(out _passiveContactCapability);
+            aiDefinition.Capabilities.TryGetUtility(out _utilityCapability);
         }
 
         public int ControlledEntityId => _entityId;
@@ -239,6 +241,11 @@ namespace Game.Feature.Gameplay.Entities
             if (HasPhaseMovementSkill())
             {
                 CommitEnemyOwnedPhasedState(snapshot, in input, source, writeContext, updates);
+            }
+
+            if (_utilityCapability != null)
+            {
+                CommitEnemyUtilityState(snapshot, in input, source, writeContext, updates);
             }
 
             if (!TryGetControllableEnemy(snapshot, out source) ||
@@ -614,6 +621,79 @@ namespace Game.Feature.Gameplay.Entities
             }
 
             return EnemyParticipationPolicy.IsControllableParticipant(snapshot, source);
+        }
+
+        private void CommitEnemyUtilityState(
+            WorldSnapshot snapshot,
+            in TickInput input,
+            in EntityState source,
+            IPreMovementStateCommitContext writeContext,
+            List<string> updates)
+        {
+            var isControllableParticipant = EnemyParticipationPolicy.IsControllableParticipant(snapshot, source);
+            var hasCurrentState = snapshot.TryGetEnemyUtilityState(_entityId, out var currentState);
+            var initializedState = false;
+            if ((!hasCurrentState || !currentState.HasEffectCount(_utilityCapability.Effects.Count)) &&
+                isControllableParticipant)
+            {
+                currentState = EnemyUtilityStateQueries.CreateInitialState(_utilityCapability);
+                hasCurrentState = true;
+                initializedState = true;
+                updates.Add(
+                    $"EnemyUtilityInitialized|E={_entityId}|EffectCount={currentState.EffectStates.Count}");
+            }
+
+            if (!hasCurrentState || !isControllableParticipant)
+            {
+                return;
+            }
+
+            var nextEffectStates = new EnemyUtilityEffectState[currentState.EffectStates.Count];
+            var hasAnyChange = false;
+
+            for (var effectIndex = 0; effectIndex < currentState.EffectStates.Count; effectIndex++)
+            {
+                var previousEffectState = currentState.EffectStates[effectIndex];
+                var nextEffectState = previousEffectState;
+                var effectRuntime = _utilityCapability.Effects[effectIndex];
+
+                if (nextEffectState.cooldownTicksRemaining > 0)
+                {
+                    nextEffectState.cooldownTicksRemaining = Mathf.Max(0, nextEffectState.cooldownTicksRemaining - 1);
+                }
+
+                var triggered = nextEffectState.cooldownTicksRemaining == 0;
+                if (triggered)
+                {
+                    nextEffectState.cooldownTicksRemaining = effectRuntime.IntervalTicks;
+                    if (writeContext is IEnemyUtilityTriggerSink triggerSink)
+                    {
+                        triggerSink.EmitEnemyUtilityTriggerIntent(
+                            new EnemyUtilityTriggerIntent(
+                                _entityId,
+                                effectIndex,
+                                effectRuntime.Kind,
+                                input.TickIndex,
+                                effectRuntime));
+                    }
+                }
+
+                nextEffectStates[effectIndex] = nextEffectState;
+                if (previousEffectState.cooldownTicksRemaining != nextEffectState.cooldownTicksRemaining)
+                {
+                    hasAnyChange = true;
+                    updates.Add(
+                        $"EnemyUtilityCooldownUpdated|E={_entityId}|Effect={effectIndex}|From={previousEffectState.cooldownTicksRemaining}|To={nextEffectState.cooldownTicksRemaining}|Triggered={(triggered ? 1 : 0)}");
+                }
+            }
+
+            if (!initializedState &&
+                !hasAnyChange)
+            {
+                return;
+            }
+
+            writeContext.SetEnemyUtilityState(_entityId, new EnemyUtilityRuntimeState(nextEffectStates));
         }
 
         private static RawMovementIntent ApplyMovementCooldown(RawMovementIntent intent, int cooldownTicks)

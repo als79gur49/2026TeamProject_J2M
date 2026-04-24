@@ -17,9 +17,11 @@ namespace Game.Feature.Gameplay.BoardState
         private readonly Dictionary<int, EnemyChargeRuntimeState> _enemyChargeStatesByEntityId = new();
         private readonly Dictionary<int, EntityExecutionLockState> _executionLockStatesByEntityId = new();
         private readonly Dictionary<int, EnemyJumpRuntimeState> _enemyJumpStatesByEntityId = new();
+        private readonly Dictionary<int, EnemyUtilityRuntimeState> _enemyUtilityStatesByEntityId = new();
         private readonly Dictionary<int, PhasedRuntimeState> _phasedStatesByEntityId = new();
         private readonly Dictionary<int, PlayerDamageState> _playerDamageStatesByEntityId = new();
         private readonly Dictionary<int, PlayerControlState> _playerControlStatesByEntityId = new();
+        private readonly Dictionary<int, SummonedEntityState> _summonedEntitiesByEntityId = new();
         private readonly Dictionary<SurfaceCell, SortedSet<int>> _stackedUnitsByCell = new();
         private readonly TerrainData _terrainData;
         private CubeTopologyState _topology;
@@ -76,9 +78,11 @@ namespace Game.Feature.Gameplay.BoardState
                 new Dictionary<int, EnemyChargeRuntimeState>(_enemyChargeStatesByEntityId),
                 new Dictionary<int, EntityExecutionLockState>(_executionLockStatesByEntityId),
                 new Dictionary<int, EnemyJumpRuntimeState>(_enemyJumpStatesByEntityId),
+                new Dictionary<int, EnemyUtilityRuntimeState>(_enemyUtilityStatesByEntityId),
                 new Dictionary<int, PhasedRuntimeState>(_phasedStatesByEntityId),
                 new Dictionary<int, PlayerDamageState>(_playerDamageStatesByEntityId),
                 new Dictionary<int, PlayerControlState>(_playerControlStatesByEntityId),
+                new Dictionary<int, SummonedEntityState>(_summonedEntitiesByEntityId),
                 _topology,
                 _boardBounds,
                 _terrainData);
@@ -141,9 +145,11 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyChargeStatesByEntityId.Remove(entityId);
             _executionLockStatesByEntityId.Remove(entityId);
             _enemyJumpStatesByEntityId.Remove(entityId);
+            _enemyUtilityStatesByEntityId.Remove(entityId);
             _phasedStatesByEntityId.Remove(entityId);
             _playerDamageStatesByEntityId.Remove(entityId);
             _playerControlStatesByEntityId.Remove(entityId);
+            _summonedEntitiesByEntityId.Remove(entityId);
         }
 
         private void ApplyDamage(int entityId, int amount)
@@ -338,6 +344,27 @@ namespace Game.Feature.Gameplay.BoardState
             _enemyJumpStatesByEntityId[entityId] = state;
         }
 
+        internal void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId) ||
+                state == null)
+            {
+                return;
+            }
+
+            _enemyUtilityStatesByEntityId[entityId] = state;
+        }
+
+        internal void SetSummonedEntityState(int entityId, SummonedEntityState state)
+        {
+            if (!_entitiesById.ContainsKey(entityId))
+            {
+                return;
+            }
+
+            _summonedEntitiesByEntityId[entityId] = state;
+        }
+
         private void ClearChargeState(int entityId)
         {
             if (_enemyChargeStatesByEntityId.TryGetValue(entityId, out var currentState))
@@ -502,6 +529,58 @@ namespace Game.Feature.Gameplay.BoardState
             _entitiesById[entity.entityId] = entity;
         }
 
+        internal bool TryGetEnemyUtilityState(int entityId, out EnemyUtilityRuntimeState state)
+        {
+            return _enemyUtilityStatesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal void RemoveEnemyUtilityState(int entityId)
+        {
+            _enemyUtilityStatesByEntityId.Remove(entityId);
+        }
+
+        internal void EnumerateEnemyUtilityStatesOrdered(List<EnemyUtilitySnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _enemyUtilityStatesByEntityId)
+            {
+                buffer.Add(new EnemyUtilitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
+        internal bool TryGetSummonedEntityState(int entityId, out SummonedEntityState state)
+        {
+            return _summonedEntitiesByEntityId.TryGetValue(entityId, out state);
+        }
+
+        internal void RemoveSummonedEntityState(int entityId)
+        {
+            _summonedEntitiesByEntityId.Remove(entityId);
+        }
+
+        internal void EnumerateSummonedEntityStatesOrdered(List<SummonedEntitySnapshotEntry> buffer)
+        {
+            if (buffer == null)
+            {
+                throw new ArgumentNullException(nameof(buffer));
+            }
+
+            buffer.Clear();
+            foreach (var pair in _summonedEntitiesByEntityId)
+            {
+                buffer.Add(new SummonedEntitySnapshotEntry(pair.Key, pair.Value));
+            }
+
+            buffer.Sort((left, right) => left.EntityId.CompareTo(right.EntityId));
+        }
+
         private Dictionary<SurfaceCell, SortedSet<int>> CloneStackedUnitsByCell()
         {
             var clone = new Dictionary<SurfaceCell, SortedSet<int>>(_stackedUnitsByCell.Count);
@@ -658,6 +737,16 @@ namespace Game.Feature.Gameplay.BoardState
         void IWorldStateMutationPort.SetEnemyJumpState(int entityId, EnemyJumpRuntimeState state)
         {
             SetEnemyJumpState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
+        {
+            SetEnemyUtilityState(entityId, state);
+        }
+
+        void IWorldStateMutationPort.SetSummonedEntityState(int entityId, SummonedEntityState state)
+        {
+            SetSummonedEntityState(entityId, state);
         }
 
         void IWorldStateMutationPort.SetPhasedState(int entityId, PhasedRuntimeState state)

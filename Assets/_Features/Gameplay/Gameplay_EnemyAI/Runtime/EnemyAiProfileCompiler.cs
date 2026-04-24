@@ -49,6 +49,7 @@ namespace Game.Feature.Gameplay.Entities
             EnemyCombatCapabilityRuntime combat = null;
             EnemyMovementSkillCapabilityRuntime movementSkill = null;
             EnemyPassiveContactCapabilityRuntime passiveContact = null;
+            EnemyUtilityCapabilityRuntime utility = null;
             var capabilityCount = capabilityAssets?.Count ?? 0;
 
             for (var i = 0; i < capabilityCount; i++)
@@ -106,12 +107,26 @@ namespace Game.Feature.Gameplay.Entities
                                 nameof(capabilityAssets));
                         break;
 
+                    case EnemyCapabilityFamily.Utility:
+                        if (utility != null)
+                        {
+                            throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' declares multiple utility capabilities ('{capabilityAsset.name}' and '{utility.GetType().Name}').",
+                                nameof(capabilityAssets));
+                        }
+
+                        utility = runtime as EnemyUtilityCapabilityRuntime
+                            ?? throw new ArgumentException(
+                                $"Enemy AI profile '{profileName}' compiled an invalid utility capability runtime from '{capabilityAsset.name}'.",
+                                nameof(capabilityAssets));
+                        break;
+
                     default:
                         throw new ArgumentOutOfRangeException(nameof(runtime), runtime.Family, "Unknown enemy capability family.");
                 }
             }
 
-            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact);
+            return new EnemyCapabilityRuntimeSet(combat, movementSkill, passiveContact, utility);
         }
     }
 }

@@ -58,6 +58,16 @@ namespace Game.Feature.Gameplay.BoardState
             _port.SetEnemyJumpState(entityId, state);
         }
 
+        public void SetEnemyUtilityState(int entityId, EnemyUtilityRuntimeState state)
+        {
+            _port.SetEnemyUtilityState(entityId, state);
+        }
+
+        public void SetSummonedEntityState(int entityId, SummonedEntityState state)
+        {
+            _port.SetSummonedEntityState(entityId, state);
+        }
+
         public void SetPhasedState(int entityId, PhasedRuntimeState state)
         {
             _port.SetPhasedState(entityId, state);
@@ -121,6 +131,10 @@ namespace Game.Feature.Gameplay.BoardState
         public void SetTopology(CubeTopologyState topology)
         {
             _port.SetTopology(topology);
+        }
+
+        public void EmitEnemyUtilityTriggerIntent(EnemyUtilityTriggerIntent intent)
+        {
         }
     }
 }
