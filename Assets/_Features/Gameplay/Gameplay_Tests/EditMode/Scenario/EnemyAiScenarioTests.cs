@@ -533,6 +533,327 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyUtilityLockNearbyBoxes_OffBottomExistingUtilityState_DoesNotAdvance()
+        {
+            var profile = CreateUtilityLockNearbyBoxesProfile(
+                initialDelayTicks: 0,
+                intervalTicks: 3,
+                radius: 1,
+                durationTicks: 2);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Front, 1, 0), capabilities: BoxCapabilities.Push),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            worldState.SetEnemyUtilityState(
+                40,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState { cooldownTicksRemaining = 2 },
+                    }));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var tick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(worldState.CreateSnapshot().TryGetBoxInteractionLockState(20, out _), Is.False);
+                Assert.That(tick.EventLog, Has.None.Contains("BoxInteractionLockApplied|Source=40"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityLockNearbyBoxes_BlocksPushSameTick_AndExpiresAfterDuration()
+        {
+            var profile = CreateUtilityLockNearbyBoxesProfile(
+                initialDelayTicks: 0,
+                intervalTicks: 3,
+                radius: 1,
+                durationTicks: 2,
+                blocksPush: true,
+                blocksFlip: false);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Right),
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        CreateImmediatePushPlayerLogic(10, recoveryTicks: 1),
+                    });
+
+                var blockedTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Push(Direction.Right)));
+                var snapshotAfterBlockedTick = worldState.CreateSnapshot();
+
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        blockedTick.MovementPhaseResult.RejectedReasons,
+                        "MovementRejected",
+                        "Stage=Expand",
+                        "Source=10",
+                        "Reason=PushTargetLocked",
+                        "Cell=(1,0)",
+                        "Target=20"),
+                    Is.True);
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        blockedTick.EventLog,
+                        "PlayerActionBlockedByBoxInteractionLock",
+                        "Action=Push",
+                        "Actor=10",
+                        "Box=20",
+                        "Cell=(1,0)",
+                        "Tick=1"),
+                    Is.True);
+                Assert.That(snapshotAfterBlockedTick.TryGetBoxInteractionLockState(20, out var lockState), Is.True);
+                Assert.That(snapshotAfterBlockedTick.TryGetActiveBoxInteractionLockState(20, 1, out _), Is.True);
+                Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(3));
+                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(GetEntity(worldState, 10).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 0)));
+                Assert.That(GetEntity(worldState, 20).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        blockedTick.MovementPhaseResult.CommitEvents,
+                        "PlayerActionBlockedByBoxInteractionLock",
+                        "Action=Push",
+                        "Actor=10",
+                        "Box=20",
+                        "Cell=(1,0)",
+                        "Tick=1"),
+                    Is.True);
+                Assert.That(blockedTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+                Assert.That(snapshotAfterBlockedTick.TryGetPlayerControlState(10, out var controlStateAfterBlockedTick), Is.True);
+                Assert.That(controlStateAfterBlockedTick.activeAction.kind, Is.EqualTo(PlayerActionKind.Push));
+                Assert.That(controlStateAfterBlockedTick.activeAction.executionAttempted, Is.True);
+
+                pipeline.RunTick(new TickInput(2));
+                var expiryTick = pipeline.RunTick(new TickInput(3));
+                var snapshotAfterExpiryTick = worldState.CreateSnapshot();
+
+                Assert.That(snapshotAfterExpiryTick.TryGetActiveBoxInteractionLockState(20, 3, out _), Is.False);
+                Assert.That(snapshotAfterExpiryTick.TryGetBoxInteractionLockState(20, out _), Is.False);
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        expiryTick.EventLog,
+                        "BoxInteractionLockExpired",
+                        "Box=20",
+                        "Expires=3",
+                        "Tick=3"),
+                    Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityLockNearbyBoxes_BlocksFlipSameTick_AndStartsRecovery()
+        {
+            var profile = CreateUtilityLockNearbyBoxesProfile(
+                initialDelayTicks: 0,
+                intervalTicks: 3,
+                radius: 1,
+                durationTicks: 2,
+                blocksPush: false,
+                blocksFlip: true);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(0, 0), hp: 3, facing: Direction.Up),
+                CreateBox(entityId: 20, position: new Vector2Int(-1, 0), capabilities: BoxCapabilities.Flip),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(-1, 1), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Down),
+            });
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateDefaultBootstrapper(profile).CreateTickPipeline(
+                    worldState,
+                    new IEntityLogic[]
+                    {
+                        CreateImmediateFlipPlayerLogic(10, recoveryTicks: 1),
+                    });
+
+                var blockedTick = pipeline.RunTick(new TickInput(1, PlayerTickCommand.Flip(Direction.Left)));
+                var snapshotAfterBlockedTick = worldState.CreateSnapshot();
+
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        blockedTick.MovementPhaseResult.RejectedReasons,
+                        "MovementRejected",
+                        "Stage=Expand",
+                        "Source=10",
+                        "Reason=FlipTargetLocked",
+                        "Cell=(-1,0)",
+                        "Target=20"),
+                    Is.True);
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        blockedTick.EventLog,
+                        "PlayerActionBlockedByBoxInteractionLock",
+                        "Action=Flip",
+                        "Actor=10",
+                        "Box=20",
+                        "Cell=(-1,0)",
+                        "Tick=1"),
+                    Is.True);
+                Assert.That(
+                    SemanticEventAssertions.ContainsEvent(
+                        blockedTick.MovementPhaseResult.CommitEvents,
+                        "PlayerActionBlockedByBoxInteractionLock",
+                        "Action=Flip",
+                        "Actor=10",
+                        "Box=20",
+                        "Cell=(-1,0)",
+                        "Tick=1"),
+                    Is.True);
+                Assert.That(blockedTick.AttackPhaseResult.DrainedImpactReservations, Is.Empty);
+                Assert.That(GetEntity(worldState, 20).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, -1, 0)));
+                Assert.That(snapshotAfterBlockedTick.TryGetPlayerControlState(10, out var controlStateAfterBlockedTick), Is.True);
+                Assert.That(controlStateAfterBlockedTick.activeAction.kind, Is.EqualTo(PlayerActionKind.Flip));
+                Assert.That(controlStateAfterBlockedTick.activeAction.executionAttempted, Is.True);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityLockNearbyBoxes_LocksOnlyNearbyBoxesOnSameFace()
+        {
+            var profile = CreateUtilityLockNearbyBoxesProfile(
+                initialDelayTicks: 0,
+                intervalTicks: 5,
+                radius: 1,
+                durationTicks: 2,
+                targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Floor, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                    CreateBox(entityId: 20, position: new SurfaceCell(FaceId.Floor, 1, 0), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 21, position: new SurfaceCell(FaceId.Floor, -1, 0), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 22, position: new SurfaceCell(FaceId.Floor, 0, 1), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 23, position: new SurfaceCell(FaceId.Floor, 0, -1), capabilities: BoxCapabilities.Push),
+                    CreateBox(entityId: 24, position: new SurfaceCell(FaceId.Front, 2, 1), capabilities: BoxCapabilities.Push),
+                    CreateWall(entityId: 60, position: new SurfaceCell(FaceId.Floor, 2, 0)),
+                    CreateUnit(entityId: 61, teamId: 1, position: new SurfaceCell(FaceId.Floor, 0, 2), hp: 3),
+                },
+                new CubeTopologyState(FaceId.Floor));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var tick = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+                var appliedEvents = SemanticEventAssertions.FilterEvents(tick.EventLog, "BoxInteractionLockApplied");
+                var diagnostics = string.Join("\n", tick.EventLog) + "\nTRACE\n" + tick.Trace.Text;
+
+                Assert.That(appliedEvents, Has.Length.EqualTo(4), diagnostics);
+                Assert.That(appliedEvents[0], Does.Contain("Box=20"));
+                Assert.That(appliedEvents[1], Does.Contain("Box=21"));
+                Assert.That(appliedEvents[2], Does.Contain("Box=22"));
+                Assert.That(appliedEvents[3], Does.Contain("Box=23"));
+                Assert.That(snapshot.TryGetBoxInteractionLockState(20, out _), Is.True);
+                Assert.That(snapshot.TryGetBoxInteractionLockState(21, out _), Is.True);
+                Assert.That(snapshot.TryGetBoxInteractionLockState(22, out _), Is.True);
+                Assert.That(snapshot.TryGetBoxInteractionLockState(23, out _), Is.True);
+                Assert.That(snapshot.TryGetBoxInteractionLockState(24, out _), Is.False);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilityLockNearbyBoxes_MergesLongestExpiryAndInteractionFlagsAcrossSources()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+            var shortPushProfile = CreateUtilityLockNearbyBoxesProfile(
+                initialDelayTicks: 0,
+                intervalTicks: 5,
+                radius: 1,
+                durationTicks: 1,
+                blocksPush: true,
+                blocksFlip: false,
+                targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
+            var longFlipProfile = CreateUtilityLockNearbyBoxesProfile(
+                initialDelayTicks: 0,
+                intervalTicks: 5,
+                radius: 1,
+                durationTicks: 3,
+                blocksPush: false,
+                blocksFlip: true,
+                targetPattern: BoxLockTargetPattern.OrthogonalAdjacent4);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateBox(entityId: 20, position: new Vector2Int(1, 0), capabilities: BoxCapabilities.Push | BoxCapabilities.Flip),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(2, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Left),
+            });
+
+            try
+            {
+                var defaultDefinition = defaultProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var shortPushDefinition = shortPushProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var longFlipDefinition = longFlipProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var bootstrapper = new GameplayBootstrapper(
+                    GameplayEntityLogicProviderFactory.CreateDefault(
+                        defaultDefinition,
+                        new Dictionary<int, EnemyAiRuntimeDefinition>
+                        {
+                            { 40, shortPushDefinition },
+                            { 50, longFlipDefinition },
+                        }));
+                var pipeline = bootstrapper.CreateTickPipeline(worldState);
+
+                var tick = pipeline.RunTick(new TickInput(1));
+                var snapshot = worldState.CreateSnapshot();
+                var appliedEvents = SemanticEventAssertions.FilterEvents(tick.EventLog, "BoxInteractionLockApplied");
+                var diagnostics = string.Join("\n", tick.EventLog) + "\nTRACE\n" + tick.Trace.Text;
+
+                Assert.That(appliedEvents, Has.Length.EqualTo(1), diagnostics);
+                Assert.That(snapshot.TryGetBoxInteractionLockState(20, out var lockState), Is.True);
+                Assert.That(lockState.ExpiresTickExclusive, Is.EqualTo(4));
+                Assert.That(lockState.BlocksPush, Is.True);
+                Assert.That(lockState.BlocksFlip, Is.True);
+                Assert.That(lockState.SourceEntityId, Is.EqualTo(50));
+                Assert.That(lockState.SourceEffectIndex, Is.EqualTo(0));
+            }
+            finally
+            {
+                DestroyProfile(defaultProfile);
+                DestroyProfile(shortPushProfile);
+                DestroyProfile(longFlipProfile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_PhaseThroughLockedTargetValidator_RelocatesAcrossLockedTarget_WithoutSameTickAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -3983,20 +4304,45 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             int maxAliveChildren = 3,
             int minionHp = 1)
         {
+            return CreateUtilityProfile(
+                CreateSummonUtilityEffect(
+                    initialDelayTicks,
+                    intervalTicks,
+                    spawnCountPerTrigger,
+                    maxAliveChildren,
+                    minionHp));
+        }
+
+        private static EnemyAiProfile CreateUtilityLockNearbyBoxesProfile(
+            int initialDelayTicks,
+            int intervalTicks,
+            int radius,
+            int durationTicks,
+            bool blocksPush = true,
+            bool blocksFlip = true,
+            bool includeSourceCell = false,
+            BoxLockTargetPattern targetPattern = BoxLockTargetPattern.ManhattanRadius)
+        {
+            return CreateUtilityProfile(
+                CreateLockNearbyBoxesUtilityEffect(
+                    initialDelayTicks,
+                    intervalTicks,
+                    radius,
+                    durationTicks,
+                    blocksPush,
+                    blocksFlip,
+                    includeSourceCell,
+                    targetPattern));
+        }
+
+        private static EnemyAiProfile CreateUtilityProfile(params EnemyUtilityEffectAuthoring[] effects)
+        {
             return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
             {
                 AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
                 DetectionStrategyKind = DetectionStrategyKind.None,
                 PatrolStrategyKind = PatrolStrategyKind.Stationary,
-                UtilityEffects = new[]
-                {
-                    CreateSummonUtilityEffect(
-                        initialDelayTicks,
-                        intervalTicks,
-                        spawnCountPerTrigger,
-                        maxAliveChildren,
-                        minionHp),
-                },
+                UtilityEffects = effects,
             });
         }
 
@@ -4023,9 +4369,55 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return effect;
         }
 
+        private static EnemyUtilityEffectAuthoring CreateLockNearbyBoxesUtilityEffect(
+            int initialDelayTicks,
+            int intervalTicks,
+            int radius,
+            int durationTicks,
+            bool blocksPush,
+            bool blocksFlip,
+            bool includeSourceCell,
+            BoxLockTargetPattern targetPattern)
+        {
+            var lockNearbyBoxes = new LockNearbyBoxesAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "radius", radius);
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "durationSeconds", TicksToSeconds(durationTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksPush", blocksPush);
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "blocksFlip", blocksFlip);
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "includeSourceCell", includeSourceCell);
+            EnemyAiProfileTestFactory.SetSerializedField(lockNearbyBoxes, "targetPattern", targetPattern);
+
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.LockNearbyBoxes);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "lockNearbyBoxes", lockNearbyBoxes);
+            return effect;
+        }
+
         private static float TicksToSeconds(int ticks)
         {
             return ticks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
+        }
+
+        private static PlayerLogic CreateImmediatePushPlayerLogic(int entityId, int recoveryTicks = 0)
+        {
+            return new PlayerLogic(
+                entityId,
+                pushWindupTicks: 0,
+                pushRecoveryTicks: recoveryTicks,
+                flipWindupTicks: 1,
+                flipRecoveryTicks: 0);
+        }
+
+        private static PlayerLogic CreateImmediateFlipPlayerLogic(int entityId, int recoveryTicks = 0)
+        {
+            return new PlayerLogic(
+                entityId,
+                pushWindupTicks: 1,
+                pushRecoveryTicks: 0,
+                flipWindupTicks: 0,
+                flipRecoveryTicks: recoveryTicks);
         }
 
         private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition(

@@ -1152,6 +1152,82 @@
       ],
       "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_BoxInteractionLockState_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "semantic_metadata",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyUtilityLockScenario_ProducesStablePerTickHashTraceAndBlockedPush",
+      "category": "Core",
+      "contracts": [
+        "interaction_push",
+        "semantic_metadata",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for interaction_push in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesLockNearbyBoxesEffectAndTicks",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NullPayload_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NonPositiveRadius_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_NonPositiveDuration_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_LockNearbyBoxes_MustBlockPushOrFlip",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonAndLockNearbyBoxesTogether",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
     }
   ]
 }
