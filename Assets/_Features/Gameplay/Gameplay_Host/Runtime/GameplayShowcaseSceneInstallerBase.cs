@@ -74,7 +74,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private InputActionAsset actions;
         [SerializeField] private bool autoAdvanceTicks = true;
         [SerializeField] private bool autoCreateViews = true;
-        [SerializeField] private bool configureMainCamera = true;
         [SerializeField] private float cellSize = 1.15f;
         [SerializeField] private float moveDeadzone = 0.5f;
         [SerializeField] private bool directionChangeConsumesDelay;
@@ -84,11 +83,6 @@ namespace Game.Feature.Gameplay.Host
         [SerializeField] private GameplayPresentationTimingPreset presentationTimingPreset;
 
         [Header("Presentation")]
-        [SerializeField] private TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX;
-        [SerializeField] private TopologyRotationTweenSettings topologyRotationTweenSettings = TopologyRotationTweenSettings.CreateDefault();
-        [SerializeField] private GameplayCameraSettings cameraSettings = GameplayCameraSettings.CreateShowcaseDefault();
-        [SerializeField] private TopologyTransitionCameraShakeProfile topologyTransitionCameraShakeProfile = TopologyTransitionCameraShakeProfile.CreateDefault();
-        [SerializeField] private TopologyTransitionPostFxProfile topologyTransitionPostFxProfile = TopologyTransitionPostFxProfile.CreateDefault();
         [SerializeField] private Texture2D boardSurfaceTexture;
         [SerializeField] private GameplayAudioMap gameplayAudioMap;
         [SerializeField] private float faceSeamGap = -1f;
@@ -107,16 +101,21 @@ namespace Game.Feature.Gameplay.Host
             }
 
             var initialState = BuildInitialGameplayState();
-            var baseCameraSettings = CreateCameraSettings();
+            var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
+            var baseCameraSettings = cameraTopologyAuthoring.CameraSettings?.Clone() ??
+                                     GameplayCameraSettings.CreateShowcaseDefault();
             GameplayShowcaseSceneScaffold.EnsureInstallerScaffold(
                 gameObject,
                 baseCameraSettings,
-                GetTopologyTransitionCameraShakeProfile());
-            var resolvedCameraSettings = ResolveEffectiveCameraSettings(initialState, baseCameraSettings);
+                cameraTopologyAuthoring.TopologyTransitionCameraShakeProfile);
+            var resolvedCameraSettings = ResolveEffectiveCameraSettings(
+                initialState,
+                baseCameraSettings,
+                cameraTopologyAuthoring.TopologyRotationVisualMapping);
             var rig = GetComponent<GameplayCameraRig>();
             rig?.ApplySettings(resolvedCameraSettings);
 
-            if (configureMainCamera)
+            if (cameraTopologyAuthoring.ConfigureMainCamera)
             {
                 ConfigureCamera(initialState, resolvedCameraSettings);
             }
@@ -127,9 +126,7 @@ namespace Game.Feature.Gameplay.Host
 
         protected virtual GameplayCameraSettings CreateCameraSettings()
         {
-            return cameraSettings != null
-                ? cameraSettings.Clone()
-                : GameplayCameraSettings.CreateShowcaseDefault();
+            return ResolveCameraTopologyAuthoring().GetCameraSettings();
         }
 
         protected virtual IGameplayEntityViewFactory CreateViewFactory(
@@ -188,21 +185,25 @@ namespace Game.Feature.Gameplay.Host
 
         public TopologyTransitionCameraShakeProfile GetTopologyTransitionCameraShakeProfile()
         {
-            return topologyTransitionCameraShakeProfile?.Clone() ?? TopologyTransitionCameraShakeProfile.CreateDefault();
+            return ResolveCameraTopologyAuthoring().GetTopologyTransitionCameraShakeProfile();
         }
 
         public TopologyTransitionPostFxProfile GetTopologyTransitionPostFxProfile()
         {
-            return topologyTransitionPostFxProfile?.Clone() ?? TopologyTransitionPostFxProfile.CreateDefault();
+            return ResolveCameraTopologyAuthoring().GetTopologyTransitionPostFxProfile();
         }
 
         public void ConfigureBootstrapCamera(Camera camera)
         {
             var initialState = BuildInitialGameplayState();
+            var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
             ConfigureSceneCamera(
                 camera,
                 initialState.BoardBounds,
-                ResolveEffectiveCameraSettings(initialState, CreateCameraSettings()),
+                ResolveEffectiveCameraSettings(
+                    initialState,
+                    cameraTopologyAuthoring.CameraSettings,
+                    cameraTopologyAuthoring.TopologyRotationVisualMapping),
                 initialState.InitialTopology);
         }
 
@@ -230,13 +231,13 @@ namespace Game.Feature.Gameplay.Host
             GameplayCameraSettings cameraSettings,
             IGameplayEntityViewFactory viewFactory)
         {
+            var cameraTopologyAuthoring = ResolveCameraTopologyAuthoringSnapshot();
             var configuration = new GameplaySceneHostConfiguration
             {
                 Actions = actions,
                 AutoAdvanceTicks = autoAdvanceTicks,
                 AutoCreateViews = autoCreateViews,
                 BoardSurfaceTexture = boardSurfaceTexture,
-                CameraSettings = cameraSettings,
                 CellSize = cellSize,
                 FaceSeamGap = ResolveFaceSeamGap(),
                 DefaultEnemyAiProfile = ResolveDefaultEnemyAiProfile(),
@@ -256,17 +257,16 @@ namespace Game.Feature.Gameplay.Host
                 PlayerEntityId = initialState.PlayerEntityId,
                 PlayerViewPrefab = viewFactory == null ? ResolvePlayerViewPrefab() : null,
                 GameplayAudioMap = ResolveGameplayAudioMap(),
-                SnapViewCameraToTarget = configureMainCamera,
-                TopologyTransitionCameraShakeProfile = GetTopologyTransitionCameraShakeProfile(),
-                TopologyTransitionPostFxProfile = GetTopologyTransitionPostFxProfile(),
-                TopologyRotationVisualMapping = topologyRotationVisualMapping,
-                TopologyRotationTween = topologyRotationTweenSettings,
-                ViewCamera = configureMainCamera ? Camera.main : null,
                 ViewFactory = viewFactory,
             };
 
             ResolveSimulationTimingPreset().ApplyTo(configuration);
             ResolvePresentationTimingPreset().ApplyTo(configuration);
+            GameplayCameraTopologyConfigurationComposer.ApplyTo(
+                configuration,
+                cameraTopologyAuthoring,
+                cameraSettings,
+                cameraTopologyAuthoring.ConfigureMainCamera ? Camera.main : null);
             return configuration;
         }
 
@@ -314,7 +314,8 @@ namespace Game.Feature.Gameplay.Host
 
         private GameplayCameraSettings ResolveEffectiveCameraSettings(
             InitialGameplayState initialState,
-            GameplayCameraSettings baseCameraSettings)
+            GameplayCameraSettings baseCameraSettings,
+            TopologyRotationVisualMapping topologyRotationVisualMapping)
         {
             var rig = GetComponent<GameplayCameraRig>();
             if (rig == null)
@@ -336,6 +337,16 @@ namespace Game.Feature.Gameplay.Host
                 cubeCenterWorld,
                 initialState.InitialTopology,
                 topologyRotationVisualMapping);
+        }
+
+        private GameplayCameraTopologyAuthoring ResolveCameraTopologyAuthoring()
+        {
+            return GameplayCameraTopologyAuthoring.GetRequiredValidated(this);
+        }
+
+        private GameplayCameraTopologyAuthoringSnapshot ResolveCameraTopologyAuthoringSnapshot()
+        {
+            return ResolveCameraTopologyAuthoring().CreateSnapshot();
         }
 
         private GameplaySimulationTimingPreset ResolveSimulationTimingPreset()

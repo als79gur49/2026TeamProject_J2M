@@ -55,6 +55,7 @@ namespace Game.Feature.Gameplay.Host.EditorTools
 
             var installerObject = new GameObject(rootObjectName);
             var installer = installerObject.AddComponent<TInstaller>();
+            installerObject.AddComponent<GameplayCameraTopologyAuthoring>();
             AssignActions(installer);
             AssignStageBootstrap(installer, stageCatalogProviderAssetPath);
             AssignObjectReference(
