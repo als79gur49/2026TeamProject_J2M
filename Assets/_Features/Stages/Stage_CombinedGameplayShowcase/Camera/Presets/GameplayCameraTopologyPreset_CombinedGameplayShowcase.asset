@@ -16,8 +16,6 @@ MonoBehaviour:
   topologyRotationTweenSettings:
     Ease: 9
   cameraSettings:
-    UseAuthoredSceneCameraPose: 1
-    UseAuthoredSceneCameraLens: 1
     PitchDegrees: 35
     YawDegrees: 0
     DistanceMode: 1
