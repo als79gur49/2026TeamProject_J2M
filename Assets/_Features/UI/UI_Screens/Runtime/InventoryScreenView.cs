@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,12 +8,12 @@ namespace Game.Feature.UI.Screens
     public sealed class InventoryScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
+        [SerializeField] private TMP_Text _titleLabel;
         [SerializeField] private InventoryCatalogView _catalogView;
         [SerializeField] private InventoryDetailView _detailView;
         [SerializeField] private InventoryActionView _actionView;
         [SerializeField] private Button _backButton;
-        [SerializeField] private Text _backButtonLabel;
+        [SerializeField] private TMP_Text _backButtonLabel;
 
         private InventoryScreenViewModel _viewModel;
         private bool _isVisible;

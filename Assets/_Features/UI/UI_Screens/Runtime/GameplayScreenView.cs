@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -11,11 +12,11 @@ namespace Game.Feature.UI.Screens
         [SerializeField] private Button _objectiveButton;
         [SerializeField] private Button _inventoryButton;
         [SerializeField] private Button _settingsButton;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _helpButtonLabel;
-        [SerializeField] private Text _objectiveButtonLabel;
-        [SerializeField] private Text _inventoryButtonLabel;
-        [SerializeField] private Text _settingsButtonLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _helpButtonLabel;
+        [SerializeField] private TMP_Text _objectiveButtonLabel;
+        [SerializeField] private TMP_Text _inventoryButtonLabel;
+        [SerializeField] private TMP_Text _settingsButtonLabel;
 
         private GameplayScreenViewModel _viewModel;
         private bool _isVisible;

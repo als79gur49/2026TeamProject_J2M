@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -7,10 +8,10 @@ namespace Game.Feature.UI.Screens
     public sealed class HelpScreenView : MonoBehaviour, IScreenView
     {
         [SerializeField] private GameObject _root;
-        [SerializeField] private Text _titleLabel;
-        [SerializeField] private Text _descriptionLabel;
+        [SerializeField] private TMP_Text _titleLabel;
+        [SerializeField] private TMP_Text _descriptionLabel;
         [SerializeField] private Button _backButton;
-        [SerializeField] private Text _backButtonLabel;
+        [SerializeField] private TMP_Text _backButtonLabel;
 
         private HelpScreenViewModel _viewModel;
         private bool _isVisible;

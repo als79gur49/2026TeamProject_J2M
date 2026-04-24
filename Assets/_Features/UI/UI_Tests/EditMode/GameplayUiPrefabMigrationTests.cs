@@ -9,6 +9,7 @@ using Game.Feature.UI.HUD;
 using Game.Feature.UI.Popups;
 using Game.Feature.UI.Screens;
 using NUnit.Framework;
+using TMPro;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.EventSystems;
@@ -122,6 +123,7 @@ namespace Game.Feature.UI.Tests
             Assert.That(hudLayer.childCount, Is.Zero);
             Assert.That(rootShellPrefab.GetComponentsInChildren<Button>(true), Is.Empty);
             Assert.That(rootShellPrefab.GetComponentsInChildren<Text>(true), Is.Empty);
+            Assert.That(rootShellPrefab.GetComponentsInChildren<TMP_Text>(true), Is.Empty);
             Assert.That(rootShellPrefab.GetComponentsInChildren<CanvasGroup>(true), Is.Empty);
         }
 
@@ -139,6 +141,21 @@ namespace Game.Feature.UI.Tests
             Assert.That(hudPrefab.GetComponentsInChildren<PopupLayerView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<PausePopupView>(true), Is.Empty);
             Assert.That(hudPrefab.GetComponentsInChildren<GameplayScreenView>(true), Is.Empty);
+        }
+
+        [Test]
+        public void ProjectOwnedUiPrefabs_NoLongerSerializeLegacyTextComponents()
+        {
+            var prefabGuids = AssetDatabase.FindAssets("t:Prefab", new[] { "Assets/_Features/UI" });
+            var prefabsWithLegacyText = prefabGuids
+                .Select(AssetDatabase.GUIDToAssetPath)
+                .Select(path => (Path: path, Prefab: AssetDatabase.LoadAssetAtPath<GameObject>(path)))
+                .Where(entry => entry.Prefab != null && entry.Prefab.GetComponentsInChildren<Text>(true).Length > 0)
+                .Select(entry => entry.Path)
+                .OrderBy(path => path)
+                .ToArray();
+
+            Assert.That(prefabsWithLegacyText, Is.Empty);
         }
 
         [Test]
@@ -448,12 +465,12 @@ namespace Game.Feature.UI.Tests
             AssertSerializedComponentPropertyAssignedAndUnderRoot(serializedDisplay, "_revertButtonLabel", displayView.transform);
 
             var hoverHintRoot = (RectTransform)serializedDisplay.FindProperty("_resolutionHoverHintRoot").objectReferenceValue;
-            var hoverHintLabel = (Text)serializedDisplay.FindProperty("_resolutionHoverHintLabel").objectReferenceValue;
+            var hoverHintLabel = (TMP_Text)serializedDisplay.FindProperty("_resolutionHoverHintLabel").objectReferenceValue;
             var hoverRelay = (SettingsHoverRelay)serializedDisplay.FindProperty("_resolutionHoverRelay").objectReferenceValue;
             var hoverCanvasGroup = hoverHintRoot.GetComponent<CanvasGroup>();
             var hoverImage = hoverHintRoot.GetComponent<Image>();
             var countdownRoot = (RectTransform)serializedDisplay.FindProperty("_previewCountdownRoot").objectReferenceValue;
-            var countdownLabel = (Text)serializedDisplay.FindProperty("_previewCountdownLabel").objectReferenceValue;
+            var countdownLabel = (TMP_Text)serializedDisplay.FindProperty("_previewCountdownLabel").objectReferenceValue;
             var countdownFill = (Image)serializedDisplay.FindProperty("_previewCountdownFill").objectReferenceValue;
 
             Assert.That(hoverHintRoot.gameObject.activeSelf, Is.False);

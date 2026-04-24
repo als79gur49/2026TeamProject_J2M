@@ -1,4 +1,5 @@
 using System;
+using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -8,11 +9,11 @@ namespace Game.Feature.UI.Screens
     {
         [SerializeField] private Button _primaryButton;
         [SerializeField] private Button _secondaryButton;
-        [SerializeField] private Text _primaryButtonLabel;
-        [SerializeField] private Text _secondaryButtonLabel;
-        [SerializeField] private Text _primaryStateLabel;
-        [SerializeField] private Text _secondaryStateLabel;
-        [SerializeField] private Text _feedbackLabel;
+        [SerializeField] private TMP_Text _primaryButtonLabel;
+        [SerializeField] private TMP_Text _secondaryButtonLabel;
+        [SerializeField] private TMP_Text _primaryStateLabel;
+        [SerializeField] private TMP_Text _secondaryStateLabel;
+        [SerializeField] private TMP_Text _feedbackLabel;
 
         private InventoryActionViewModel _viewModel;
 
