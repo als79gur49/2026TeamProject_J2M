@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -19,6 +20,12 @@ namespace Game.Feature.UI.Popups
 
         private RewardPopupViewModel _viewModel;
         private bool _isVisible;
+        private Tween _enterTween;
+        private bool _lastVisibleState;
+        private bool _hasRootRestAlpha;
+        private bool _hasRootRestScale;
+        private float _rootRestAlpha = 1f;
+        private Vector3 _rootRestScale = Vector3.one;
 
         public event Action<PopupCompletionKind> CompletionRequested;
 
@@ -61,6 +68,7 @@ namespace Game.Feature.UI.Popups
 
         private void OnDisable()
         {
+            StopRootEnterMotion();
             if (_closeButton != null)
             {
                 _closeButton.onClick.RemoveListener(ClickAcknowledge);
@@ -90,6 +98,7 @@ namespace Game.Feature.UI.Popups
 
         private void OnDestroy()
         {
+            StopRootEnterMotion();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -108,10 +117,7 @@ namespace Game.Feature.UI.Popups
 
         private void RefreshView()
         {
-            if (_root != null)
-            {
-                _root.SetActive(IsVisible);
-            }
+            ApplyRootVisibility();
 
             if (_viewModel == null)
             {
@@ -146,6 +152,62 @@ namespace Game.Feature.UI.Popups
             if (_thirdItemLabel != null)
             {
                 _thirdItemLabel.text = _viewModel.ItemLines.Length > 2 ? _viewModel.ItemLines[2] : string.Empty;
+            }
+        }
+
+        private void ApplyRootVisibility()
+        {
+            var becameVisible = !_lastVisibleState && IsVisible;
+            var becameHidden = _lastVisibleState && !IsVisible;
+
+            if (becameVisible)
+            {
+                _lastVisibleState = true;
+                if (_root != null)
+                {
+                    _root.SetActive(true);
+                }
+
+                PlayRootEnterMotion();
+                return;
+            }
+
+            if (becameHidden || !IsVisible)
+            {
+                StopRootEnterMotion();
+            }
+
+            if (_root != null)
+            {
+                _root.SetActive(IsVisible);
+            }
+
+            _lastVisibleState = IsVisible;
+        }
+
+        private void PlayRootEnterMotion()
+        {
+            PopupEnterTweenUtility.Kill(ref _enterTween);
+            _enterTween = PopupEnterTweenUtility.PlayModalEnter(
+                _canvasGroup,
+                _root != null ? _root.transform : null,
+                out _rootRestAlpha,
+                out _rootRestScale);
+            _hasRootRestAlpha = _canvasGroup != null;
+            _hasRootRestScale = _root != null;
+        }
+
+        private void StopRootEnterMotion()
+        {
+            PopupEnterTweenUtility.Kill(ref _enterTween);
+            if (_hasRootRestAlpha)
+            {
+                PopupEnterTweenUtility.RestoreAlpha(_canvasGroup, _rootRestAlpha);
+            }
+
+            if (_hasRootRestScale)
+            {
+                PopupEnterTweenUtility.RestoreScale(_root != null ? _root.transform : null, _rootRestScale);
             }
         }
     }

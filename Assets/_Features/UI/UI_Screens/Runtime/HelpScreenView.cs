@@ -1,4 +1,5 @@
 using System;
+using DG.Tweening;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,6 +16,11 @@ namespace Game.Feature.UI.Screens
 
         private HelpScreenViewModel _viewModel;
         private bool _isVisible;
+        private Tween _enterTween;
+        private CanvasGroup _rootCanvasGroup;
+        private bool _lastVisibleState;
+        private bool _hasRootRestAlpha;
+        private float _rootRestAlpha = 1f;
 
         public event Action BackRequested;
 
@@ -67,6 +73,7 @@ namespace Game.Feature.UI.Screens
 
         private void OnDisable()
         {
+            StopRootEnterMotion();
             UnbindButton(_backButton, ClickBack);
         }
 
@@ -83,6 +90,7 @@ namespace Game.Feature.UI.Screens
 
         private void OnDestroy()
         {
+            StopRootEnterMotion();
             if (_viewModel != null)
             {
                 _viewModel.Changed -= HandleViewModelChanged;
@@ -96,10 +104,7 @@ namespace Game.Feature.UI.Screens
 
         private void RefreshView()
         {
-            if (_root != null)
-            {
-                _root.SetActive(IsVisible);
-            }
+            ApplyRootVisibility();
 
             if (_viewModel == null)
             {
@@ -119,6 +124,53 @@ namespace Game.Feature.UI.Screens
             if (_backButtonLabel != null)
             {
                 _backButtonLabel.text = _viewModel.BackLabel;
+            }
+        }
+
+        private void ApplyRootVisibility()
+        {
+            var becameVisible = !_lastVisibleState && IsVisible;
+            var becameHidden = _lastVisibleState && !IsVisible;
+
+            if (becameVisible)
+            {
+                _lastVisibleState = true;
+                if (_root != null)
+                {
+                    _root.SetActive(true);
+                }
+
+                PlayRootEnterMotion();
+                return;
+            }
+
+            if (becameHidden || !IsVisible)
+            {
+                StopRootEnterMotion();
+            }
+
+            if (_root != null)
+            {
+                _root.SetActive(IsVisible);
+            }
+
+            _lastVisibleState = IsVisible;
+        }
+
+        private void PlayRootEnterMotion()
+        {
+            _rootCanvasGroup = ScreenEnterTweenUtility.EnsureCanvasGroup(_root, _rootCanvasGroup);
+            ScreenEnterTweenUtility.Kill(ref _enterTween);
+            _enterTween = ScreenEnterTweenUtility.PlayEnterFade(_rootCanvasGroup, out _rootRestAlpha);
+            _hasRootRestAlpha = _rootCanvasGroup != null;
+        }
+
+        private void StopRootEnterMotion()
+        {
+            ScreenEnterTweenUtility.Kill(ref _enterTween);
+            if (_hasRootRestAlpha)
+            {
+                ScreenEnterTweenUtility.RestoreAlpha(_rootCanvasGroup, _rootRestAlpha);
             }
         }
 
