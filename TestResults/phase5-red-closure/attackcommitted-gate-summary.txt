@@ -1,0 +1,9 @@
+AttackCommittedGateSummary
+Revision=6de8c731a1c8076d9f5091e17158b923abf265ad
+ExecutedAtUtc=2026-04-24 13:07:35Z
+BaselineControl=Green
+UnitRuntime=Green
+ScenarioRuntime=Green
+Gates=self-check green; start gate green; execute gate green; commit trace gate green; recover gate green
+OwnerSurface=EnemyActionStateLogic.CanStartCombatActionThisTick + TickPipeline.FilterExecutionLockedAttackIntents
+BoundedFix=execution-locked enemy windup melee start/execute carve-out only; zero-windup immediate combat and generic move occupancy contract preserved

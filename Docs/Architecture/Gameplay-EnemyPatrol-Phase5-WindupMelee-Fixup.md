@@ -1,5 +1,10 @@
 # Enemy Patrol Phase 5: `WindupMelee` Runtime Parity Fixup
 
+> Historical supporting note.
+>
+> 이 문서는 phase 5 close 전 `open/red -> close retry ready` 구간에서 사용한 runtime parity recovery path를 보존한다.
+> current active close gate가 아니며, current active truth는 [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)다.
+
 - baseline self-check hardening과 targeted close retry evidence 정리는 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md`에서 별도로 관리한다.
 - close retry evidence는 baseline-control-first order와 `Current Green (non-close evidence)` vs `Current Red (close blockers)` split를 따라야 하며, summary truth는 `TestResults/phase5-red-closure/evidence-summary.md`에 남긴다.
 

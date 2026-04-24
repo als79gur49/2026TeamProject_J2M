@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="4" result="Passed" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.3410742">
+  <test-suite type="TestSuite" id="1000" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="1429" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.341074" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="2588" name="Game.Integration.Simulation.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Integration.Simulation.Tests.dll" runstate="Runnable" testcasecount="224" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.283617" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="11900" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="2589" name="Game" fullname="Game" runstate="Runnable" testcasecount="224" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.280676" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="2590" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="224" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.278354" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="2591" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="224" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.276392" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="2592" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="224" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.274431" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="2593" name="Scenario" fullname="Game.Feature.Gameplay.Tests.Scenario" runstate="Runnable" testcasecount="224" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.271848" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="2396" name="EnemyAiScenarioTests" fullname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests" classname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests" runstate="Runnable" testcasecount="86" result="Passed" start-time="2026-04-24 13:06:31Z" end-time="2026-04-24 13:06:32Z" duration="0.261540" total="4" passed="4" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="2408" name="EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks" fullname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks" methodname="EnemyAi_WindupRandomWalkPilot_DirectLane_MatchesExactTransitionTicks" classname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests" runstate="Runnable" seed="759957211" result="Passed" start-time="2026-04-24 13:06:32Z" end-time="2026-04-24 13:06:32Z" duration="0.183096" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2428" name="EnemyAi_WindupRandomWalkPilot_LoseTargetDuringWindup_ReturnsHomeThenResumesPatrol" fullname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_LoseTargetDuringWindup_ReturnsHomeThenResumesPatrol" methodname="EnemyAi_WindupRandomWalkPilot_LoseTargetDuringWindup_ReturnsHomeThenResumesPatrol" classname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests" runstate="Runnable" seed="1098430067" result="Passed" start-time="2026-04-24 13:06:32Z" end-time="2026-04-24 13:06:32Z" duration="0.015256" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2409" name="EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline" fullname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline" methodname="EnemyAi_WindupRandomWalkPilot_OpenRoomOffset_DoesNotAdvanceAggressionEarlierThanBaseline" classname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests" runstate="Runnable" seed="303989992" result="Passed" start-time="2026-04-24 13:06:32Z" end-time="2026-04-24 13:06:32Z" duration="0.017150" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2459" name="EnemyAi_WindupRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering" fullname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests.EnemyAi_WindupRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering" methodname="EnemyAi_WindupRandomWalkPilot_PrimedSameCell_PreservesCombatThenPassiveOrdering" classname="Game.Feature.Gameplay.Tests.Scenario.EnemyAiScenarioTests" runstate="Runnable" seed="1908804218" result="Passed" start-time="2026-04-24 13:06:32Z" end-time="2026-04-24 13:06:32Z" duration="0.006667" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

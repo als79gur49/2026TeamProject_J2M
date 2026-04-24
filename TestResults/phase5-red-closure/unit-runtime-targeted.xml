@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="3" result="Passed" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.307144">
+  <test-suite type="TestSuite" id="1000" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="1429" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.307144" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1895" name="Game.Feature.Gameplay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Feature.Gameplay.Tests.dll" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.276695" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="496" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1896" name="Game" fullname="Game" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.270640" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1897" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.264996" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1898" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.259585" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1899" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.254325" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1900" name="Unit" fullname="Game.Feature.Gameplay.Tests.Unit" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.249141" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1146" name="EnemyLogicTests" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" testcasecount="85" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.216797" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1166" name="EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline" methodname="EnemyAi_WindupRandomWalkPilot_AttackWindupRecoverContract_MatchesForwardBaseline" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" seed="892236155" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.170738" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1163" name="EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover" methodname="EnemyLogic_WindupRandomWalkPilot_DoesNotWritePatrolState_DuringChaseAttackRecover" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" seed="1926009282" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.007309" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1161" name="EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove" methodname="EnemyLogic_WindupRandomWalkPilot_PatrolStateWrites_OccurOnlyOnInitAndCommittedPatrolMove" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" seed="1598539706" result="Passed" start-time="2026-04-24 13:02:56Z" end-time="2026-04-24 13:02:56Z" duration="0.006684" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

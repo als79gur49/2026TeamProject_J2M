@@ -1,0 +1,11 @@
+PatrolWriteTriageSummary
+Revision=6de8c731a1c8076d9f5091e17158b923abf265ad
+ExecutedAtUtc=2026-04-24 13:07:35Z
+Classification=None
+ActualCommittedMoveWrites=1
+TraceCommittedMoveCount=1
+SemanticCommittedMoveCount=1
+MovementSectionCommittedMoveCount=1
+EventLogSectionCommittedMoveCount=0
+OwnerSurface=TickTraceFormatter display filtering only
+NoTouch=TickResultBuilder unchanged; EnemyLogic init ownership unchanged; MovementCommitter committed ownership unchanged

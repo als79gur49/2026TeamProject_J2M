@@ -1,0 +1,9 @@
+LockedTargetLostConditionalSummary
+Revision=6de8c731a1c8076d9f5091e17158b923abf265ad
+ExecutedAtUtc=2026-04-24 13:07:35Z
+Entry=Green
+CancelOwner=Green
+CancelTrace=Green
+HomeReturn=Green
+ResumedPatrolWindow=Green
+Note=Remaining red was fixture contamination from player respawn reacquisition, not patrol home/leash drift. The scenario now fixes player respawn delay for the bounded lose-target window only.

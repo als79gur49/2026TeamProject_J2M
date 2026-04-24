@@ -49,15 +49,22 @@
 - [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
   - current supporting truth for `WallFollow` truth table, owner surface, maintain-vs-redesign verdict, and no-touch / rollback gate
 - [Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md)
-  - current supporting truth for `WindupMelee` bounded rollout drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, and next-archetype gate
-- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md)
-  - current supporting truth for `WindupMelee RandomWalk pilot` runtime parity closure, patrol-state ownership fixup, replay/trace evidence, and phase 5 close gate
-- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md)
-  - current supporting truth for `WindupMelee RandomWalk pilot` red-closure hardening, baseline-control-first close retry order, green-vs-red evidence split, and same-revision Unity close retry evidence
+  - current supporting truth for `WindupMelee` final bounded rollout contract, pilot preset scorecard, same-cell ordering, no-touch matrix, and post-close non-claims
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)
+  - current supporting truth for phase 5 official close decision, same-revision targeted evidence bundle, approve/hold branch, and phase 6 boundary
 - [Docs/Testing/UI-EditMode-Baseline-2026-04-15.md](../Testing/UI-EditMode-Baseline-2026-04-15.md)
   - pinned UI evidence truth for the completed Stage 1–9 UI architecture baseline
 - [Docs/Testing/Full-EditMode-Baseline-2026-04-13.md](../Testing/Full-EditMode-Baseline-2026-04-13.md)
   - broader full-suite baseline context, not the defining truth-source for the Stage 1–9 UI freeze baseline
+
+phase 5 close provenance를 보존하는 아래 문서들은 active supporting truth-source가 아니라 historical supporting note다.
+
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md)
+  - historical supporting note for the runtime parity recovery path used before close approval
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md)
+  - historical supporting note for pre-close hard gate hardening and red-state separation
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Runtime-Fix-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Runtime-Fix-Plan.md)
+  - historical supporting note for the bounded runtime touch set and close-retry-era artifact order
 
 ## Enemy Patrol bounded rollout
 
@@ -69,8 +76,7 @@
 4. [Gameplay-EnemyPatrol-Forward-Rollout-Gate.md](./Gameplay-EnemyPatrol-Forward-Rollout-Gate.md)
 5. [Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md](./Gameplay-EnemyPatrol-Phase4-WallFollow-Decision.md)
 6. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md)
-7. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md)
-8. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md)
+7. [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)
 
 이 묶음은 patrol bounded rollout의 active supporting truth-source다.
 
@@ -79,9 +85,28 @@
 - phase 3는 `Forward` commonization의 single proposal seam consumer 기준과 docs-only defer / rollback checklist를 고정한다.
 - rollout gate는 quantitative unchanged matrix와 post-phase decision matrix를 고정한다.
 - phase 4는 `WallFollow` truth table, maintain-vs-redesign verdict, bounded redesign gate를 고정한다.
-- phase 5는 `WindupMelee` bounded rollout의 `exact-contract` / `bounded-exposure` drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, fallback / rollback / success / failure를 고정한다.
-- phase 5 fixup은 `WindupMelee RandomWalk pilot` runtime parity red 상태, patrol-state origin/init ownership fix, replay/trace same-revision evidence, close / failure gate를 고정한다.
-- phase 5 red-closure plan은 baseline-control-first hard gate, `AttackCommitted` 4-gate / `LockedTargetLost` 4-gate 분리, patrol ownership duplicate triage, green-vs-red evidence split, `baseline-control-targeted.xml`, and `evidence-summary.md`를 포함한 `TestResults/phase5-red-closure/` targeted Unity evidence bundle을 고정한다.
+- phase 5 rollout은 `WindupMelee` bounded rollout의 `exact-contract` / `bounded-exposure` drift matrix, pilot preset scorecard, same-cell ordering, sampling matrix, fallback / rollback / success / failure, 그리고 `closed`의 의미를 고정한다.
+- phase 5 close execution은 same-revision targeted evidence bundle, close gate, approve / hold branch, current active truth-source vs historical supporting note hierarchy, close wording migration, no-touch list, phase 6 비자동 경계를 고정한다.
+
+## Historical Supporting Notes
+
+아래 문서들은 phase 5 close 당시의 과정과 red-state provenance를 보존하는 historical supporting note다. current active close gate가 아니며, current active truth는 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md`다.
+
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md)
+  - historical runtime parity recovery path, patrol-state ownership fixup, and same-revision close-evidence assembly note
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md)
+  - historical red-state hardening, baseline-control-first close retry order, and green-vs-red split note
+- [Gameplay-EnemyPatrol-Phase5-WindupMelee-Runtime-Fix-Plan.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Runtime-Fix-Plan.md)
+  - historical bounded runtime-fix plan, touch-set provenance, and close-retry-era artifact order
+
+## Inactive Readiness Templates
+
+아래 문서들은 phase 5 close 이후에도 자동 활성화되지 않는 readiness artifact template이다.
+
+- [Gameplay-EnemyPatrol-Phase6-JumpChaser-Readiness.md](./Gameplay-EnemyPatrol-Phase6-JumpChaser-Readiness.md)
+  - inactive readiness template for a separate `JumpChaser` review after phase 5 close
+- [Gameplay-EnemyPatrol-Phase6-Charge-Readiness.md](./Gameplay-EnemyPatrol-Phase6-Charge-Readiness.md)
+  - inactive readiness template for a separate `Charge` review after phase 5 close
 
 historical/non-canonical 문서는 더 이상 이 디렉터리의 active truth-source가 아니다.
 

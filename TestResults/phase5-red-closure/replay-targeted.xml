@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="5" result="Passed" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.3676149">
+  <test-suite type="TestSuite" id="1000" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="1429" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.367615" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="2345" name="Game.Integration.Replay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Integration.Replay.Tests.dll" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.237210" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="18428" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="2346" name="Game" fullname="Game" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.236295" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="2347" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.235549" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="2348" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.234792" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="2349" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.234077" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="2350" name="Replay" fullname="Game.Feature.Gameplay.Tests.Replay" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.233327" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="2291" name="TickReplayDeterminismTests" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" testcasecount="53" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.231684" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="2339" name="DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState" methodname="DeterminismHash_WindupRandomWalkPilot_PatrolFootprint_IsLimitedToEnemyPatrolRuntimeState" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="1139888769" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.165982" asserts="0">
+                    <properties>
+                      <property name="Category" value="Core" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2340" name="Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites" methodname="Replay_ForwardProfile_ProducesStableHashTrace_AndNoPatrolStateWrites" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="1837405958" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.006319" asserts="0">
+                    <properties>
+                      <property name="Category" value="Core" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2338" name="Replay_WindupRandomWalkPilot_DoesNotRegressForwardOrNonAttackingReplays" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_WindupRandomWalkPilot_DoesNotRegressForwardOrNonAttackingReplays" methodname="Replay_WindupRandomWalkPilot_DoesNotRegressForwardOrNonAttackingReplays" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="189196656" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.009663" asserts="0">
+                    <properties>
+                      <property name="Category" value="Core" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2337" name="Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState" methodname="Replay_WindupRandomWalkPilot_PatrolDump_MatchesFinalSnapshotState" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="912576748" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.009241" asserts="0">
+                    <properties>
+                      <property name="Category" value="Core" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="2336" name="Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump" fullname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump" methodname="Replay_WindupRandomWalkPilot_ProducesStableHashTrace_AndBoundedPatrolDump" classname="Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests" runstate="Runnable" seed="225511708" result="Passed" start-time="2026-04-24 13:07:02Z" end-time="2026-04-24 13:07:02Z" duration="0.008312" asserts="0">
+                    <properties>
+                      <property name="Category" value="Core" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

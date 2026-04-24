@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="10" result="Passed" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.2600938">
+  <test-suite type="TestSuite" id="1000" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="1429" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.260094" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1895" name="Game.Feature.Gameplay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Feature.Gameplay.Tests.dll" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.169889" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="36968" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1896" name="Game" fullname="Game" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.163496" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1897" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.157543" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1898" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.151417" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1899" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.145557" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1900" name="Unit" fullname="Game.Feature.Gameplay.Tests.Unit" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.139861" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1108" name="CombinedGameplayShowcaseInstallerTests" fullname="Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests" classname="Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests" runstate="Runnable" testcasecount="18" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.053532" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1113" name="CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy" fullname="Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests.CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy" methodname="CombinedGameplayStage_BuildsRandomWalkPilotProfileOverrideForWindupMeleeEnemy" classname="Game.Feature.Gameplay.Tests.Unit.CombinedGameplayShowcaseInstallerTests" runstate="Runnable" seed="1898310879" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.035859" asserts="0">
+                    <properties>
+                      <property name="Category" value="Full" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1132" name="EnemyAiProfileAssetContractTests" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests" classname="Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.004884" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1136" name="EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests.EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk" methodname="EnemyAiProfileAssets_WindupBaseline_RemainsForward_AndPilotVariant_IsRandomWalk" classname="Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests" runstate="Runnable" seed="88987511" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.001609" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1139" name="EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests.EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset" methodname="EnemyPatrolAssets_WindupRandomWalkPilotAsset_UsesLockedMeleePreset" classname="Game.Feature.Gameplay.Tests.Unit.EnemyAiProfileAssetContractTests" runstate="Runnable" seed="843392591" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.000372" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1246" name="EnemyPatrolPhase5DocumentationTests" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.032798" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1247" name="EnemyPatrolArchitectureReadme_ListsActivePhase5TruthSources_AndSeparatesHistoricalNotes" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolArchitectureReadme_ListsActivePhase5TruthSources_AndSeparatesHistoricalNotes" methodname="EnemyPatrolArchitectureReadme_ListsActivePhase5TruthSources_AndSeparatesHistoricalNotes" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="941914017" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.004583" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1249" name="EnemyPatrolPhase5CloseExecutionDoc_DefinesCloseGate_EvidenceHierarchy_ApproveHold_AndNoTouchBoundary" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolPhase5CloseExecutionDoc_DefinesCloseGate_EvidenceHierarchy_ApproveHold_AndNoTouchBoundary" methodname="EnemyPatrolPhase5CloseExecutionDoc_DefinesCloseGate_EvidenceHierarchy_ApproveHold_AndNoTouchBoundary" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="1827217022" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.003503" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1253" name="EnemyPatrolPhase5EvidenceBundle_ContainsMandatoryArtifacts_AndConsistentRevisionMarkers" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolPhase5EvidenceBundle_ContainsMandatoryArtifacts_AndConsistentRevisionMarkers" methodname="EnemyPatrolPhase5EvidenceBundle_ContainsMandatoryArtifacts_AndConsistentRevisionMarkers" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="1330424174" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.018239" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1251" name="EnemyPatrolPhase5EvidenceSummary_KeepsCloseRetryReadyVerdict_AndDefersFinalDecisionToExecutionDoc" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolPhase5EvidenceSummary_KeepsCloseRetryReadyVerdict_AndDefersFinalDecisionToExecutionDoc" methodname="EnemyPatrolPhase5EvidenceSummary_KeepsCloseRetryReadyVerdict_AndDefersFinalDecisionToExecutionDoc" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="291377887" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.001020" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1250" name="EnemyPatrolPhase5HistoricalDocs_AreMarkedAsHistoricalSupportingNotes_AndPointToCloseExecutionDoc" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolPhase5HistoricalDocs_AreMarkedAsHistoricalSupportingNotes_AndPointToCloseExecutionDoc" methodname="EnemyPatrolPhase5HistoricalDocs_AreMarkedAsHistoricalSupportingNotes_AndPointToCloseExecutionDoc" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="1932181482" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.001231" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1252" name="EnemyPatrolPhase5ReadinessDocs_StayInactiveTemplates_AndDoNotAutoOpenPhase6" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolPhase5ReadinessDocs_StayInactiveTemplates_AndDoNotAutoOpenPhase6" methodname="EnemyPatrolPhase5ReadinessDocs_StayInactiveTemplates_AndDoNotAutoOpenPhase6" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="613398535" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.000813" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1248" name="EnemyPatrolPhase5RolloutDoc_DefinesClosedStatus_CurrentTruth_AndExplicitNonClaims" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests.EnemyPatrolPhase5RolloutDoc_DefinesClosedStatus_CurrentTruth_AndExplicitNonClaims" methodname="EnemyPatrolPhase5RolloutDoc_DefinesClosedStatus_CurrentTruth_AndExplicitNonClaims" classname="Game.Feature.Gameplay.Tests.Unit.EnemyPatrolPhase5DocumentationTests" runstate="Runnable" seed="1585447152" result="Passed" start-time="2026-04-24 13:10:39Z" end-time="2026-04-24 13:10:39Z" duration="0.001691" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.2556759">
+  <test-suite type="TestSuite" id="1000" name="2026TeamProject_J2M" fullname="2026TeamProject_J2M" runstate="Runnable" testcasecount="1429" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.255676" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1895" name="Game.Feature.Gameplay.Tests.dll" fullname="C:/Users/user/2026TeamProject_J2M/Library/ScriptAssemblies/Game.Feature.Gameplay.Tests.dll" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.232570" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="17080" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1896" name="Game" fullname="Game" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.227601" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1897" name="Feature" fullname="Game.Feature" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.222894" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1898" name="Gameplay" fullname="Game.Feature.Gameplay" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.218376" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1899" name="Tests" fullname="Game.Feature.Gameplay.Tests" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.213810" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1900" name="Unit" fullname="Game.Feature.Gameplay.Tests.Unit" runstate="Runnable" testcasecount="802" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.209347" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1146" name="EnemyLogicTests" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" testcasecount="85" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.187607" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1164" name="EnemyAi_WindupForwardBaseline_AttackCommittedControlProbe_IsComplete" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAi_WindupForwardBaseline_AttackCommittedControlProbe_IsComplete" methodname="EnemyAi_WindupForwardBaseline_AttackCommittedControlProbe_IsComplete" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" seed="1345430768" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.156341" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1165" name="EnemyAi_WindupForwardBaseline_LockedTargetLostControlProbe_IsComplete" fullname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAi_WindupForwardBaseline_LockedTargetLostControlProbe_IsComplete" methodname="EnemyAi_WindupForwardBaseline_LockedTargetLostControlProbe_IsComplete" classname="Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests" runstate="Runnable" seed="654868289" result="Passed" start-time="2026-04-24 13:02:25Z" end-time="2026-04-24 13:02:25Z" duration="0.005941" asserts="0">
+                    <properties>
+                      <property name="Category" value="Extended" />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/user/AppData/LocalLow/DefaultCompany/2026TeamProject_J2M\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

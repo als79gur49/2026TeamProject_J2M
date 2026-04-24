@@ -1,6 +1,14 @@
 # Enemy Patrol Phase 5: `WindupMelee` Bounded Rollout
 
-- runtime parity closure follow-up은 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md`에서 별도로 관리한다.
+- 현재 상태: `closed`
+- official close decision과 same-revision targeted close gate는 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md`에서 관리한다.
+- runtime parity recovery path와 close retry hardening 과정은 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md`, `Gameplay-EnemyPatrol-Phase5-WindupMelee-Red-Closure-Plan.md`, `Gameplay-EnemyPatrol-Phase5-WindupMelee-Runtime-Fix-Plan.md` historical supporting note로 보존한다.
+
+## 0. 현재 상태
+- phase 5의 current truth는 `close retry ready -> close decision` 절차를 거쳐 `closed` 상태로 잠겼다.
+- `TestResults/phase5-red-closure/evidence-summary.md`의 verdict는 계속 `Close Retry Ready` evidence verdict로 유지하며, final close decision은 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md`에서 분리 관리한다.
+- `closed`는 same-revision targeted evidence bundle과 documentation governance lock이 승인되었음을 뜻한다.
+- `closed`는 broad/full suite closed, `Forward` cleanup, other archetype rollout 승인, phase 6 자동 착수를 뜻하지 않는다.
 
 ## 1. Phase 5 목표 요약
 - 이번 단계의 목표는 `WindupMelee`를 `RandomWalk`의 두 번째 bounded pilot archetype으로 확장하되, 기존 전투 semantics와 authored baseline 체감을 검증 가능한 범위에서만 바꾸는 것이다.
@@ -222,3 +230,9 @@
   - baseline asset destructive overwrite가 필요해짐
   - proposal contract / deterministic chooser / topology rule 변경이 필요해짐
 - success는 phase 5 bounded rollout close일 뿐이며 `Forward` cleanup이나 phase 6 자동 착수를 의미하지 않는다.
+
+## 15. closed 의미와 explicit non-claims
+- `closed`는 `WindupMelee RandomWalk pilot` bounded rollout에 대한 official close decision이 승인되었음을 뜻한다.
+- `closed`는 close gate의 canonical 근거가 same-revision targeted evidence bundle이라는 뜻이며, broad/full suite closure claim은 아니다.
+- `closed` 이후에도 baseline `EnemyAi_WindupMelee.asset` / `EnemyBrain_WindupMelee.asset`, `Forward` fallback/oracle, other archetype no-touch 원칙은 current truth로 유지한다.
+- phase 6 readiness review는 close 이후 별도 단계이며, `JumpChaser` 또는 `Charge` rollout이 자동으로 열리지 않는다.

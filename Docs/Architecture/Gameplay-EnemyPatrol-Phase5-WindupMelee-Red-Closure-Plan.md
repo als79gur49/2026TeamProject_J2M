@@ -1,5 +1,10 @@
 # Enemy Patrol Phase 5: `WindupMelee RandomWalk pilot` Red Closure Hardening Plan
 
+> Historical supporting note.
+>
+> 이 문서는 phase 5 close 전 `open/red`와 `close retry ready` 사이에서 사용한 historical red-state hardening note다.
+> current active close gate가 아니며, current active truth는 [Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md](./Gameplay-EnemyPatrol-Phase5-WindupMelee-Close-Retry-Execution.md)다.
+
 phase 5는 아직 close가 아니다.
 
 이 문서는 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Rollout.md`와 `Gameplay-EnemyPatrol-Phase5-WindupMelee-Fixup.md`의 후속 bounded fix / hardening truth다. 목표는 `WindupMelee RandomWalk pilot`의 남은 runtime parity red를 close로 선가정하지 않고, close retry를 시도할 수 있는 hard gate와 evidence 체계를 same-revision 기준으로 다시 잠그는 것이다.
