@@ -2250,6 +2250,200 @@ namespace Game.Feature.Gameplay.Tests.Unit
         }
 
         [Test]
+        [Category("Core")]
+        public void EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonEffectAndTicks()
+        {
+            var profile = CreateUtilitySummonerProfile(
+                CreateSummonUtilityEffect(
+                    initialDelaySeconds: 0.2f,
+                    intervalSeconds: 0.5f,
+                    spawnCountPerTrigger: 2,
+                    maxAliveChildren: 4,
+                    minionHp: 3));
+
+            try
+            {
+                var definition = profile.CreateRuntimeDefinition(10);
+
+                Assert.That(definition.Capabilities.TryGetUtility(out var utility), Is.True);
+                Assert.That(utility.Effects, Has.Count.EqualTo(1));
+                Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
+                Assert.That(utility.Effects[0].InitialDelayTicks, Is.EqualTo(2));
+                Assert.That(utility.Effects[0].IntervalTicks, Is.EqualTo(5));
+                Assert.That(utility.Effects[0].Summon.SpawnCountPerTrigger, Is.EqualTo(2));
+                Assert.That(utility.Effects[0].Summon.MaxAliveChildren, Is.EqualTo(4));
+                Assert.That(utility.Effects[0].Summon.MinionHp, Is.EqualTo(3));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplayEntityLogicProviderFactory_UtilityOnlyProfile_OmitsCombatLogicsFromEntitySet()
+        {
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), aiMode: EnemyAiMode.None),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+
+            try
+            {
+                var provider = GameplayEntityLogicProviderFactory.CreateDefault(profile);
+                var logicSet = provider.Build(worldState.CreateSnapshot(), Array.Empty<IEntityLogic>());
+
+                Assert.That(logicSet.AiStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.PreMovementStateLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.MovementLogics, Has.Count.EqualTo(1));
+                Assert.That(logicSet.EnemyActionStateLogics, Is.Empty);
+                Assert.That(logicSet.AttackLogics, Is.Empty);
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_NullEffect_Throws()
+        {
+            var profile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                UtilityEffects = new EnemyUtilityEffectAuthoring[] { null },
+            });
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_NegativeInitialDelay_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(initialDelaySeconds: -0.1f));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveInterval_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(intervalSeconds: 0f));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveSpawnCount_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(spawnCountPerTrigger: 0));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveMaxAliveChildren_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(maxAliveChildren: 0));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveMinionHp_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(minionHp: 0));
+
+            try
+            {
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void EnemyAiProfileCompiler_UtilityCapability_DuplicateFamily_Throws()
+        {
+            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect());
+            var duplicateUtility = ScriptableObject.CreateInstance<EnemyUtilityCapabilityAsset>();
+            duplicateUtility.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(
+                duplicateUtility,
+                "effects",
+                new[] { CreateSummonUtilityEffect(intervalSeconds: 2f) });
+
+            try
+            {
+                var capabilities = EnemyAiProfileTestFactory.GetSerializedField<List<EnemyCapabilityAsset>>(profile, "capabilityAssets");
+                EnemyAiProfileTestFactory.SetSerializedField(
+                    profile,
+                    "capabilityAssets",
+                    new List<EnemyCapabilityAsset>
+                    {
+                        capabilities[0],
+                        duplicateUtility,
+                    });
+
+                Assert.Throws<ArgumentException>(() => profile.CreateRuntimeDefinition(60));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(duplicateUtility);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
         [Category("Extended")]
         public void EnemyAiProfileCompiler_MissingCoreAuthoring_ThrowsClearException()
         {
@@ -3794,6 +3988,42 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     new EnemyJumpTimingSettings(windupTicks: 1, airborneTicks: 1, cooldownTicks: 1),
                     GameplayTimingProfile.DefaultSimulationTicksPerSecond),
             });
+        }
+
+        private static EnemyAiProfile CreateUtilitySummonerProfile(EnemyUtilityEffectAuthoring effect)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                UtilityEffects = new[] { effect },
+            });
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
+            float initialDelaySeconds = 0f,
+            float intervalSeconds = 1f,
+            int spawnCountPerTrigger = 1,
+            int maxAliveChildren = 3,
+            int minionHp = 1,
+            bool requireNoUnitAtSpawnCell = true,
+            bool requireNoSolidAtSpawnCell = true)
+        {
+            var summon = new SummonMinionAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", requireNoUnitAtSpawnCell);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", requireNoSolidAtSpawnCell);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "minionHp", minionHp);
+
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", intervalSeconds);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
+            return effect;
         }
 
         private static void DestroyProfile(EnemyAiProfile profile)

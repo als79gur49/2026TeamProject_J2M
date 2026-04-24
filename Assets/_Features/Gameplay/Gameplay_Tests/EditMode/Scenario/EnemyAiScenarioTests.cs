@@ -311,6 +311,228 @@ namespace Game.Feature.Gameplay.Tests.Scenario
 
         [Test]
         [Category("Extended")]
+        public void EnemyUtilitySummon_InitializesCooldown_TriggersAndResetsThroughCanonicalState()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 2, intervalTicks: 3);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+
+                var firstTick = pipeline.RunTick(new TickInput(1));
+                var firstUtilityState = GetEnemyUtilityState(worldState, 40);
+
+                Assert.That(firstUtilityState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(1));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+                Assert.That(firstTick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+
+                var secondTick = pipeline.RunTick(new TickInput(2));
+                var secondUtilityState = GetEnemyUtilityState(worldState, 40);
+
+                Assert.That(secondUtilityState.EffectStates[0].cooldownTicksRemaining, Is.EqualTo(3));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out var child), Is.True);
+                Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+                Assert.That(secondTick.EventLog, Has.Some.Contains("SummonCommitted|Source=40|Effect=0"));
+                Assert.That(worldState.CreateSnapshot().TryGetSummonedEntityState(41, out var summonedState), Is.True);
+                Assert.That(summonedState.SourceEntityId, Is.EqualTo(40));
+                Assert.That(summonedState.SourceEffectIndex, Is.EqualTo(0));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_OffBottomExistingUtilityState_DoesNotAdvance()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 3);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new SurfaceCell(FaceId.Front, 0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new CubeTopologyState(FaceId.Floor));
+            worldState.SetEnemyUtilityState(
+                40,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState { cooldownTicksRemaining = 2 },
+                    }));
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                var tick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(GetEnemyUtilityState(worldState, 40).EffectStates[0].cooldownTicksRemaining, Is.EqualTo(2));
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+                Assert.That(tick.EventLog, Has.None.Contains("SummonCommitted|Source=40"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_DeterministicCandidateOrder_SkipsBlockedForwardAndRight()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 5);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateWall(entityId: 60, position: new Vector2Int(0, -1)),
+            });
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, profile);
+                pipeline.RunTick(new TickInput(1));
+
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(61, out var child), Is.True);
+                Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, 1)));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_SourceKilledAfterTrigger_DoesNotSpawn()
+        {
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 5);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 10, teamId: 1, position: new Vector2Int(1, 0), hp: 3),
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var pipeline = GameplayCompositionRoot
+                    .CreateDefaultBootstrapper(profile)
+                    .CreateTickPipeline(worldState, new IEntityLogic[] { new ScriptedAttackLogic(10, 40) });
+                var tick = pipeline.RunTick(new TickInput(1));
+
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(40, out _), Is.False);
+                Assert.That(worldState.CreateSnapshot().TryGetEntity(41, out _), Is.False);
+                Assert.That(tick.EventLog, Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=SourceInvalid"));
+            }
+            finally
+            {
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_MaxAliveChildren_BlocksAliveChild_AndIgnoresDeadChild()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+            var profile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 5, maxAliveChildren: 1);
+            var blockedWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(1, 0), hp: 1, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            blockedWorld.SetSummonedEntityState(50, new SummonedEntityState(40, 0));
+
+            var deadChildWorld = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                CreateUnit(entityId: 50, teamId: 2, position: new Vector2Int(1, 0), hp: 0, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+            deadChildWorld.SetSummonedEntityState(50, new SummonedEntityState(40, 0));
+
+            try
+            {
+                var defaultDefinition = defaultProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var utilityDefinition = profile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var bootstrapper = new GameplayBootstrapper(
+                    GameplayEntityLogicProviderFactory.CreateDefault(
+                        defaultDefinition,
+                        new Dictionary<int, EnemyAiRuntimeDefinition>
+                        {
+                            { 40, utilityDefinition },
+                        }));
+
+                var blockedPipeline = bootstrapper.CreateTickPipeline(blockedWorld);
+                var blockedTick = blockedPipeline.RunTick(new TickInput(1));
+                Assert.That(blockedWorld.CreateSnapshot().TryGetEntity(51, out _), Is.False);
+                Assert.That(blockedTick.EventLog, Has.Some.Contains("SummonSkipped|Source=40|Effect=0|SpawnIndex=0|Reason=MaxAliveReached"));
+
+                var deadChildPipeline = bootstrapper.CreateTickPipeline(deadChildWorld);
+                deadChildPipeline.RunTick(new TickInput(1));
+                Assert.That(deadChildWorld.CreateSnapshot().TryGetEntity(51, out var spawnedChild), Is.True);
+                Assert.That(spawnedChild.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 0, -1)));
+            }
+            finally
+            {
+                DestroyProfile(defaultProfile);
+                DestroyProfile(profile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
+        public void EnemyUtilitySummon_SpawnedChild_DoesNotParticipateSameTick_AndUsesDefaultDefinitionNextTick()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+            });
+            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 10);
+            var worldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            });
+
+            try
+            {
+                var defaultDefinition = defaultProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var utilityDefinition = utilityProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var bootstrapper = new GameplayBootstrapper(
+                    GameplayEntityLogicProviderFactory.CreateDefault(
+                        defaultDefinition,
+                        new Dictionary<int, EnemyAiRuntimeDefinition>
+                        {
+                            { 40, utilityDefinition },
+                        }));
+                var pipeline = bootstrapper.CreateTickPipeline(worldState);
+
+                pipeline.RunTick(new TickInput(1));
+                Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 1, 0)));
+
+                pipeline.RunTick(new TickInput(2));
+                Assert.That(GetEntity(worldState, 41).position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            }
+            finally
+            {
+                DestroyProfile(defaultProfile);
+                DestroyProfile(utilityProfile);
+            }
+        }
+
+        [Test]
+        [Category("Extended")]
         public void EnemyAi_PhaseThroughLockedTargetValidator_RelocatesAcrossLockedTarget_WithoutSameTickAttack()
         {
             var worldState = CreateWorldState(new[]
@@ -3754,6 +3976,58 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             return EnemyAiProfileTestFactory.CreateDefaultMelee(windupTicks, moveCooldownTicks, recoverTicks);
         }
 
+        private static EnemyAiProfile CreateUtilitySummonProfile(
+            int initialDelayTicks,
+            int intervalTicks,
+            int spawnCountPerTrigger = 1,
+            int maxAliveChildren = 3,
+            int minionHp = 1)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                UtilityEffects = new[]
+                {
+                    CreateSummonUtilityEffect(
+                        initialDelayTicks,
+                        intervalTicks,
+                        spawnCountPerTrigger,
+                        maxAliveChildren,
+                        minionHp),
+                },
+            });
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
+            int initialDelayTicks,
+            int intervalTicks,
+            int spawnCountPerTrigger,
+            int maxAliveChildren,
+            int minionHp)
+        {
+            var summon = new SummonMinionAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", true);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", true);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "minionHp", minionHp);
+
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
+            return effect;
+        }
+
+        private static float TicksToSeconds(int ticks)
+        {
+            return ticks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
+        }
+
         private static EnemyAiRuntimeDefinition CreatePhaseThroughLockedTargetDefinition(
             int windupTicks = 1,
             int recoverTicks = 1)
@@ -3782,6 +4056,12 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         {
             Assert.That(worldState.CreateSnapshot().TryGetEnemyChargeState(entityId, out var chargeState), Is.True);
             return chargeState;
+        }
+
+        private static EnemyUtilityRuntimeState GetEnemyUtilityState(WorldState worldState, int entityId)
+        {
+            Assert.That(worldState.CreateSnapshot().TryGetEnemyUtilityState(entityId, out var utilityState), Is.True);
+            return utilityState;
         }
 
         private static EnemyAiProfile CreateChargingEnemyProfile(

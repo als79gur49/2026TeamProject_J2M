@@ -1040,6 +1040,118 @@
       ],
       "reason": "Locked Core coverage for semantic_metadata in GameplayTimingOwnershipTests.",
       "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_EnemyUtilityState_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.DeterminismHash_SummonedEntityMetadata_IsIncludedInCanonicalState",
+      "category": "Core",
+      "contracts": [
+        "determinism",
+        "semantic_metadata",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for determinism in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Replay.TickReplayDeterminismTests.Replay_EnemyUtilitySummonScenario_ProducesStablePerTickHashTraceAndSummonMetadata",
+      "category": "Core",
+      "contracts": [
+        "semantic_metadata",
+        "tick_replay_determinism_contract"
+      ],
+      "reason": "Locked Core coverage for semantic_metadata in TickReplayDeterminismTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfile_CreateRuntimeDefinition_UtilityCapability_CompilesSummonEffectAndTicks",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.GameplayEntityLogicProviderFactory_UtilityOnlyProfile_OmitsCombatLogicsFromEntitySet",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NullEffect_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NegativeInitialDelay_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveInterval_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveSpawnCount_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveMaxAliveChildren_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveMinionHp_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
+    },
+    {
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_DuplicateFamily_Throws",
+      "category": "Core",
+      "contracts": [
+        "enemy_logic_contract"
+      ],
+      "reason": "Locked Core coverage for enemy_logic_contract in EnemyLogicTests.",
+      "locked": true
     }
   ]
 }

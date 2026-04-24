@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
@@ -19,6 +20,32 @@ namespace Game.Feature.Gameplay.Tests.Replay
         {
             var entityLogicList = new List<IEntityLogic>(entityLogics);
             var pipeline = GameplayCompositionRoot.CreateTickPipeline(worldState, entityLogicList);
+            return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
+        }
+
+        public IReadOnlyList<TickReplayFrame> Run(
+            GameplayBootstrapper bootstrapper,
+            WorldState worldState,
+            IEnumerable<IEntityLogic> entityLogics,
+            IReadOnlyList<TickInput> inputs,
+            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects = null)
+        {
+            if (bootstrapper == null)
+            {
+                throw new ArgumentNullException(nameof(bootstrapper));
+            }
+
+            var entityLogicList = new List<IEntityLogic>(entityLogics);
+            var pipeline = bootstrapper.CreateTickPipeline(worldState, entityLogicList);
+            return Run(pipeline, entityLogicList, inputs, initialDelayedAttackEffects);
+        }
+
+        private IReadOnlyList<TickReplayFrame> Run(
+            TickPipeline pipeline,
+            IReadOnlyList<IEntityLogic> entityLogicList,
+            IReadOnlyList<TickInput> inputs,
+            IReadOnlyList<DelayedAttackEffectRecord> initialDelayedAttackEffects)
+        {
             if (initialDelayedAttackEffects != null)
             {
                 for (var i = 0; i < initialDelayedAttackEffects.Count; i++)

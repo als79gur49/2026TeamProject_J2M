@@ -1452,6 +1452,110 @@ namespace Game.Feature.Gameplay.Tests.Replay
 
         [Test]
         [Category("Core")]
+        public void DeterminismHash_EnemyUtilityState_IsIncludedInCanonicalState()
+        {
+            var baselineWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            var utilityWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+            var replayWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+            });
+
+            utilityWorldState.SetEnemyUtilityState(
+                40,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState { cooldownTicksRemaining = 2 },
+                    }));
+            replayWorldState.SetEnemyUtilityState(
+                40,
+                new EnemyUtilityRuntimeState(
+                    new[]
+                    {
+                        new EnemyUtilityEffectState { cooldownTicksRemaining = 2 },
+                    }));
+
+            var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState).RunTick(new TickInput(1));
+            var utilityResult = GameplayCompositionRoot.CreateTickPipeline(utilityWorldState).RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                replayWorldState,
+                Array.Empty<IEntityLogic>(),
+                new[] { new TickInput(1) });
+
+            Assert.That(baselineResult.DeterminismHash, Is.Not.EqualTo(utilityResult.DeterminismHash));
+            Assert.That(utilityResult.Trace.Text, Does.Contain("Final.EnemyUtilities"));
+            Assert.That(utilityResult.Trace.Text, Does.Contain("E=40|Effect=0|Cooldown=2"));
+            Assert.That(replay[0].Trace, Does.Contain("Final.EnemyUtilities"));
+            Assert.That(replay[0].Trace, Does.Contain("E=40|Effect=0|Cooldown=2"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void DeterminismHash_SummonedEntityMetadata_IsIncludedInCanonicalState()
+        {
+            var baselineWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+                CreateUnit(entityId: 41, teamId: 2, position: new Vector2Int(1, 1), hp: 1, aiMode: EnemyAiMode.None),
+            });
+            var summonedWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+                CreateUnit(entityId: 41, teamId: 2, position: new Vector2Int(1, 1), hp: 1, aiMode: EnemyAiMode.None),
+            });
+            var replayWorldState = CreateWorldState(new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 1), hp: 2, aiMode: EnemyAiMode.Patrol),
+                CreateUnit(entityId: 41, teamId: 2, position: new Vector2Int(1, 1), hp: 1, aiMode: EnemyAiMode.None),
+            });
+
+            summonedWorldState.SetSummonedEntityState(41, new SummonedEntityState(40, 0));
+            replayWorldState.SetSummonedEntityState(41, new SummonedEntityState(40, 0));
+
+            var baselineResult = GameplayCompositionRoot.CreateTickPipeline(baselineWorldState).RunTick(new TickInput(1));
+            var summonedResult = GameplayCompositionRoot.CreateTickPipeline(summonedWorldState).RunTick(new TickInput(1));
+            var replay = new TickReplayHarness().Run(
+                replayWorldState,
+                Array.Empty<IEntityLogic>(),
+                new[] { new TickInput(1) });
+
+            Assert.That(baselineResult.DeterminismHash, Is.Not.EqualTo(summonedResult.DeterminismHash));
+            Assert.That(summonedResult.Trace.Text, Does.Contain("Final.SummonedEntities"));
+            Assert.That(summonedResult.Trace.Text, Does.Contain("E=41|Source=40|Effect=0"));
+            Assert.That(replay[0].Trace, Does.Contain("Final.SummonedEntities"));
+            Assert.That(replay[0].Trace, Does.Contain("E=41|Source=40|Effect=0"));
+        }
+
+        [Test]
+        [Category("Core")]
+        public void Replay_EnemyUtilitySummonScenario_ProducesStablePerTickHashTraceAndSummonMetadata()
+        {
+            var firstReplay = RunUtilitySummonReplaySequence();
+            var secondReplay = RunUtilitySummonReplaySequence();
+
+            AssertEquivalentReplayOutputs(firstReplay, secondReplay);
+            Assert.That(firstReplay[0].Trace, Does.Contain("PreMovement.UtilityTriggers"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Source=40|Effect=0|Kind=SummonMinion|Tick=1"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Final.EnemyUtilities"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("E=40|Effect=0|Cooldown=2"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("Final.SummonedEntities"));
+            Assert.That(firstReplay[0].Trace, Does.Contain("E=41|Source=40|Effect=0"));
+            Assert.That(firstReplay[0].FinalEntitiesDump, Does.Contain("E=41|Pos=(1,0)|Hp=1|MaxHp=1|Team=2|Type=Unit"));
+            Assert.That(firstReplay[0].EventLogDump, Does.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=41|Pos=(1,0)|Tick=1"));
+            Assert.That(firstReplay[1].Trace, Does.Contain("E=40|Effect=0|Cooldown=1"));
+            Assert.That(firstReplay[1].FinalEntitiesDump, Does.Contain("E=41|Pos=(1,0)|Hp=1"));
+            Assert.That(firstReplay[1].EventLogDump, Does.Not.Contain("SummonCommitted|Source=40|Effect=0|SpawnIndex=0|Spawned=42"));
+        }
+
+        [Test]
+        [Category("Core")]
         public void Replay_EnemyAiScenario_ProducesStablePerTickHashTraceAndFinalState()
         {
             var firstReplay = RunEnemyAiReplaySequence();
@@ -1807,6 +1911,52 @@ namespace Game.Feature.Gameplay.Tests.Replay
                     new TickInput(2),
                     new TickInput(3),
                 });
+        }
+
+        private static IReadOnlyList<TickReplayFrame> RunUtilitySummonReplaySequence()
+        {
+            var defaultProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+            var utilityProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 2);
+            var worldState = CreateWorldState(
+                new[]
+                {
+                    CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+                },
+                new BoardBounds(new Vector2Int(0, 0), new Vector2Int(2, 1)),
+                GameplayTerrainData.Empty);
+
+            try
+            {
+                var defaultDefinition = defaultProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var utilityDefinition = utilityProfile.CreateRuntimeDefinition(GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+                var bootstrapper = new GameplayBootstrapper(
+                    GameplayEntityLogicProviderFactory.CreateDefault(
+                        defaultDefinition,
+                        new Dictionary<int, EnemyAiRuntimeDefinition>
+                        {
+                            { 40, utilityDefinition },
+                        }));
+
+                return new TickReplayHarness().Run(
+                    bootstrapper,
+                    worldState,
+                    Array.Empty<IEntityLogic>(),
+                    new[]
+                    {
+                        new TickInput(1),
+                        new TickInput(2),
+                    });
+            }
+            finally
+            {
+                EnemyAiProfileTestFactory.Destroy(defaultProfile);
+                EnemyAiProfileTestFactory.Destroy(utilityProfile);
+            }
         }
 
         private static IReadOnlyList<TickReplayFrame> RunRandomWalkPatrolReplaySequence()
@@ -2563,6 +2713,58 @@ namespace Game.Feature.Gameplay.Tests.Replay
             CubeTopologyState topology)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities, boardBounds, terrainData, topology);
+        }
+
+        private static EnemyAiProfile CreateUtilitySummonProfile(
+            int initialDelayTicks,
+            int intervalTicks,
+            int spawnCountPerTrigger = 1,
+            int maxAliveChildren = 3,
+            int minionHp = 1)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                UtilityEffects = new[]
+                {
+                    CreateSummonUtilityEffect(
+                        initialDelayTicks,
+                        intervalTicks,
+                        spawnCountPerTrigger,
+                        maxAliveChildren,
+                        minionHp),
+                },
+            });
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
+            int initialDelayTicks,
+            int intervalTicks,
+            int spawnCountPerTrigger,
+            int maxAliveChildren,
+            int minionHp)
+        {
+            var summon = new SummonMinionAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", spawnCountPerTrigger);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", maxAliveChildren);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", true);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", true);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "minionHp", minionHp);
+
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", TicksToSeconds(initialDelayTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", TicksToSeconds(intervalTicks));
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
+            return effect;
+        }
+
+        private static float TicksToSeconds(int ticks)
+        {
+            return ticks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond;
         }
 
         private static void AssertEquivalentReplayOutputs(

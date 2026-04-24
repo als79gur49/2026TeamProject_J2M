@@ -26,6 +26,7 @@ namespace Game.Feature.Gameplay.Tests
         public bool IncludePassiveContact;
         public MovementSkillStrategyKind MovementSkillStrategyKind = MovementSkillStrategyKind.None;
         public EnemyJumpTimingAuthoringSettings JumpTimingSettings = EnemyJumpTimingAuthoringSettings.CreateDefault();
+        public EnemyUtilityEffectAuthoring[] UtilityEffects;
     }
 
     internal static class EnemyAiProfileTestFactory
@@ -389,14 +390,14 @@ namespace Game.Feature.Gameplay.Tests
             switch (spec.MovementSkillStrategyKind)
             {
                 case MovementSkillStrategyKind.None:
-                    yield break;
+                    break;
 
                 case MovementSkillStrategyKind.JumpToLockedTarget:
                 {
                     var jump = CreateHiddenAsset<JumpToLockedTargetCapabilityAsset>("Test_JumpToLockedTargetCapability");
                     SetSerializedField(jump, "jumpTimingSettings", spec.JumpTimingSettings);
                     yield return jump;
-                    yield break;
+                    break;
                 }
 
                 case MovementSkillStrategyKind.PhaseThroughLockedTarget:
@@ -404,7 +405,7 @@ namespace Game.Feature.Gameplay.Tests
                     var phase = CreateHiddenAsset<TestPhaseThroughLockedTargetCapabilityAsset>("Test_PhaseThroughLockedTargetCapability");
                     SetSerializedField(phase, "jumpTimingSettings", spec.JumpTimingSettings);
                     yield return phase;
-                    yield break;
+                    break;
                 }
 
                 default:
@@ -412,6 +413,13 @@ namespace Game.Feature.Gameplay.Tests
                         nameof(spec.MovementSkillStrategyKind),
                         spec.MovementSkillStrategyKind,
                         "Unsupported movement skill capability kind for tests.");
+            }
+
+            if (spec.UtilityEffects != null)
+            {
+                var utility = CreateHiddenAsset<EnemyUtilityCapabilityAsset>("Test_EnemyUtilityCapability");
+                SetSerializedField(utility, "effects", spec.UtilityEffects);
+                yield return utility;
             }
         }
 
