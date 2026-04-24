@@ -52,6 +52,7 @@ namespace Game.Feature.Stages.Editor
             options ??= StageCatalogValidationOptions.Default;
             var report = new StageValidationReport();
             var directPlayCatalog = StageEditorDirectPlayCatalog.LoadDefault();
+            var cameraTopologyPresetPathByStageId = new Dictionary<StageId, string>();
             if (scenePaths == null)
             {
                 return report;
@@ -59,7 +60,12 @@ namespace Game.Feature.Stages.Editor
 
             for (var i = 0; i < scenePaths.Count; i++)
             {
-                ValidateScene(scenePaths[i], directPlayCatalog, options, report);
+                ValidateScene(
+                    scenePaths[i],
+                    directPlayCatalog,
+                    cameraTopologyPresetPathByStageId,
+                    options,
+                    report);
             }
 
             return report;
@@ -123,6 +129,7 @@ namespace Game.Feature.Stages.Editor
         private static void ValidateScene(
             string scenePath,
             StageEditorDirectPlayCatalog directPlayCatalog,
+            IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
@@ -160,7 +167,13 @@ namespace Game.Feature.Stages.Editor
                     }
 
                     hasStageInstaller = true;
-                    ValidateInstaller(scenePath, stageInstaller, options, report);
+                    ValidateInstaller(
+                        scenePath,
+                        stageInstaller,
+                        directPlayCatalog,
+                        cameraTopologyPresetPathByStageId,
+                        options,
+                        report);
                 }
 
                 if (hasStageInstaller)
@@ -177,6 +190,8 @@ namespace Game.Feature.Stages.Editor
         private static void ValidateInstaller(
             string scenePath,
             StageBackedGameplayShowcaseInstallerBase installer,
+            StageEditorDirectPlayCatalog directPlayCatalog,
+            IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
             StageCatalogValidationOptions options,
             StageValidationReport report)
         {
@@ -258,6 +273,14 @@ namespace Game.Feature.Stages.Editor
                     scenePath,
                     options.Timing);
             }
+
+            ValidateCameraTopologyAuthoring(
+                scenePath,
+                installer,
+                directPlayCatalog,
+                cameraTopologyPresetPathByStageId,
+                options,
+                report);
         }
 
         private static void ValidateSceneLevelContracts(
@@ -310,6 +333,86 @@ namespace Game.Feature.Stages.Editor
 
             var sceneText = File.ReadAllText(fullPath);
             return sceneText.Contains("\ndefaultStageId:", StringComparison.Ordinal);
+        }
+
+        private static void ValidateCameraTopologyAuthoring(
+            string scenePath,
+            StageBackedGameplayShowcaseInstallerBase installer,
+            StageEditorDirectPlayCatalog directPlayCatalog,
+            IDictionary<StageId, string> cameraTopologyPresetPathByStageId,
+            StageCatalogValidationOptions options,
+            StageValidationReport report)
+        {
+            var authoring = installer.GetComponent<GameplayCameraTopologyAuthoring>();
+            if (authoring == null)
+            {
+                return;
+            }
+
+            var serializedAuthoring = new SerializedObject(authoring);
+            var sourceModeProperty = serializedAuthoring.FindProperty("sourceMode");
+            var presetProperty = serializedAuthoring.FindProperty("preset");
+            var sourceModeValue = sourceModeProperty == null
+                ? (int)GameplayCameraTopologySourceMode.Inline
+                : sourceModeProperty.enumValueIndex;
+            var productionSeverity = ResolveProductionSceneContractSeverity(options);
+
+            if (sourceModeValue != (int)GameplayCameraTopologySourceMode.Preset)
+            {
+                AddSceneIssue(
+                    report,
+                    productionSeverity,
+                    "scene.camera-topology.inline.production",
+                    $"Production scene '{scenePath}' still uses inline camera topology authoring. Stage-scoped preset mode is the canonical production path.",
+                    authoring,
+                    scenePath,
+                    options);
+                return;
+            }
+
+            if (presetProperty?.objectReferenceValue == null)
+            {
+                AddSceneIssue(
+                    report,
+                    productionSeverity,
+                    "scene.camera-topology.preset.null",
+                    $"Production scene '{scenePath}' uses preset camera topology mode but has no preset reference. Inline shared-tuning fallback is not authoritative in Preset mode.",
+                    authoring,
+                    scenePath,
+                    options);
+                return;
+            }
+
+            if (directPlayCatalog == null ||
+                !directPlayCatalog.TryResolveScenePath(scenePath, out var stageId) ||
+                !stageId.IsValid)
+            {
+                return;
+            }
+
+            var presetPath = AssetDatabase.GetAssetPath(presetProperty.objectReferenceValue);
+            if (string.IsNullOrWhiteSpace(presetPath))
+            {
+                return;
+            }
+
+            if (!cameraTopologyPresetPathByStageId.TryGetValue(stageId, out var expectedPresetPath))
+            {
+                cameraTopologyPresetPathByStageId[stageId] = presetPath;
+                return;
+            }
+
+            if (!string.Equals(expectedPresetPath, presetPath, StringComparison.Ordinal))
+            {
+                AddSceneIssue(
+                    report,
+                    productionSeverity,
+                    "scene.camera-topology.stage-preset.mismatch",
+                    $"Production scene '{scenePath}' resolves StageId '{stageId.Value}' but references camera topology preset '{presetPath}' instead of shared stage preset '{expectedPresetPath}'.",
+                    authoring,
+                    scenePath,
+                    options);
+            }
         }
 
         private static StageValidationSeverity ResolveProductionSceneContractSeverity(StageCatalogValidationOptions options)
