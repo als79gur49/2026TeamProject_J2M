@@ -94,13 +94,11 @@ namespace Game.Feature.Gameplay.Host
                 return false;
             }
 
-            var instance = UnityEngine.Object.Instantiate(prefab, _parent);
-            ResetViewTransform(instance, entity.entityId);
-            SanitizePrefabPhysics(instance);
-            EnemyViewPrefabRequirements.ValidateEnemyViewInstance(instance, nameof(DefaultGameplayEntityViewFactory));
-            GameplayActionAudioPrefabRequirements.GetOptionalValidatedAuthoring(instance, nameof(DefaultGameplayEntityViewFactory));
-            EnsureEnemyInactiveVisualController(instance, entity);
-            EnsureRenderableVisual(instance, entity);
+            var instance = GameplayEnemyViewPrefabInstantiator.InstantiateEnemyView(
+                prefab,
+                _parent,
+                entity,
+                nameof(DefaultGameplayEntityViewFactory));
             view = instance;
             return true;
         }
@@ -160,17 +158,6 @@ namespace Game.Feature.Gameplay.Host
             view.transform.localRotation = Quaternion.identity;
             view.transform.localScale = Vector3.one;
             view.Initialize(entityId);
-        }
-
-        private void EnsureRenderableVisual(GameplayEntityView view, in EntityState entity)
-        {
-            if (view == null ||
-                view.GetComponentInChildren<Renderer>(includeInactive: true) != null)
-            {
-                return;
-            }
-
-            AttachPrimitiveVisual(view, entity);
         }
 
         private static void ValidateStaticPrefabVisual(GameplayEntityView view, in EntityState entity)
