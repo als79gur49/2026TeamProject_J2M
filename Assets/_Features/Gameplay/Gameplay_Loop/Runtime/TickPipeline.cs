@@ -5558,6 +5558,12 @@ namespace Game.Feature.Gameplay.Loop
             }
 
             var summonRuntime = triggerIntent.EffectRuntime.Summon;
+            var spawnDefaults = ResolveArchetypeSpawnDefaults(summonRuntime.SummonedArchetypeId, spawnDefaultsByArchetypeId);
+            var minionHp = summonRuntime.OverrideHp
+                ? summonRuntime.HpOverride
+                : spawnDefaults.Hp;
+            var initialAiMode = spawnDefaults.InitialAiMode;
+            var enemyDefinitionBindingState = new EnemyDefinitionBindingState(summonRuntime.SummonedArchetypeId);
             var sourceKey = new SourceEffectKey(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
             for (var spawnIndex = 0; spawnIndex < summonRuntime.SpawnCountPerTrigger; spawnIndex++)
             {
@@ -5587,11 +5593,6 @@ namespace Game.Feature.Gameplay.Loop
                 }
 
                 var summonedEntityState = new SummonedEntityState(triggerIntent.SourceEntityId, triggerIntent.EffectIndex);
-                var hasEnemyDefinitionBindingState = TryCreateEnemyDefinitionBindingState(
-                    summonRuntime,
-                    out var enemyDefinitionBindingState);
-                var minionHp = ResolveSummonedMinionHp(summonRuntime, spawnDefaultsByArchetypeId);
-                var initialAiMode = ResolveSummonedMinionInitialAiMode(summonRuntime, spawnDefaultsByArchetypeId);
                 var spawnedEntity = CreateSummonedMinionEntity(
                     entityIdAllocator.AllocateEntityId(),
                     source,
@@ -5608,7 +5609,7 @@ namespace Game.Feature.Gameplay.Loop
                         actionPlanId: 0),
                     hasSummonedEntityState: true,
                     summonedEntityState: summonedEntityState,
-                    hasEnemyDefinitionBindingState: hasEnemyDefinitionBindingState,
+                    hasEnemyDefinitionBindingState: true,
                     enemyDefinitionBindingState: enemyDefinitionBindingState);
                 reservedSpawnCells.Add(spawnCell);
                 plannedChildrenBySource[sourceKey] = plannedChildren + 1;
@@ -5876,33 +5877,6 @@ namespace Game.Feature.Gameplay.Loop
             };
         }
 
-        private static int ResolveSummonedMinionHp(
-            in SummonMinionRuntime summonRuntime,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
-        {
-            if (summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.DefaultEnemy)
-            {
-                return summonRuntime.MinionHp;
-            }
-
-            var spawnDefaults = ResolveArchetypeSpawnDefaults(summonRuntime.SummonedArchetypeId, spawnDefaultsByArchetypeId);
-            return summonRuntime.OverrideHp
-                ? summonRuntime.HpOverride
-                : spawnDefaults.Hp;
-        }
-
-        private static EnemyAiMode ResolveSummonedMinionInitialAiMode(
-            in SummonMinionRuntime summonRuntime,
-            IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
-        {
-            if (summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.DefaultEnemy)
-            {
-                return EnemyAiMode.Patrol;
-            }
-
-            return ResolveArchetypeSpawnDefaults(summonRuntime.SummonedArchetypeId, spawnDefaultsByArchetypeId).InitialAiMode;
-        }
-
         private static EnemyUnitSpawnDefaultsRuntime ResolveArchetypeSpawnDefaults(
             EnemyUnitArchetypeId archetypeId,
             IReadOnlyDictionary<EnemyUnitArchetypeId, EnemyUnitSpawnDefaultsRuntime> spawnDefaultsByArchetypeId)
@@ -5916,20 +5890,6 @@ namespace Game.Feature.Gameplay.Loop
 
             throw new InvalidOperationException(
                 $"Missing enemy unit spawn defaults for archetype '{archetypeId}'.");
-        }
-
-        private static bool TryCreateEnemyDefinitionBindingState(
-            in SummonMinionRuntime summonRuntime,
-            out EnemyDefinitionBindingState bindingState)
-        {
-            if (summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.Archetype)
-            {
-                bindingState = new EnemyDefinitionBindingState(summonRuntime.SummonedArchetypeId);
-                return true;
-            }
-
-            bindingState = default;
-            return false;
         }
 
         private static EntityState CreateSummonedMinionEntity(
@@ -5969,11 +5929,8 @@ namespace Game.Feature.Gameplay.Loop
             in EntityState spawnedEntity,
             in SummonMinionRuntime summonRuntime)
         {
-            var archetypeSuffix = summonRuntime.DefinitionMode == SummonedUnitDefinitionMode.Archetype
-                ? $"|Archetype={summonRuntime.SummonedArchetypeId}"
-                : string.Empty;
             eventLogEntries.Add(
-                $"SummonCommitted|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Spawned={spawnedEntity.entityId}|Pos=({spawnedEntity.position.x},{spawnedEntity.position.y})|DefinitionMode={summonRuntime.DefinitionMode}{archetypeSuffix}|Tick={tickIndex}");
+                $"SummonCommitted|Source={triggerIntent.SourceEntityId}|Effect={triggerIntent.EffectIndex}|SpawnIndex={spawnIndex}|Spawned={spawnedEntity.entityId}|Pos=({spawnedEntity.position.x},{spawnedEntity.position.y})|Archetype={summonRuntime.SummonedArchetypeId}|Tick={tickIndex}");
         }
 
         private static void AppendSkipEvent(

@@ -92,12 +92,6 @@ namespace Game.Feature.Gameplay.Entities
         OrthogonalAdjacent4 = 0,
     }
 
-    public enum SummonedUnitDefinitionMode
-    {
-        DefaultEnemy = 0,
-        Archetype = 1,
-    }
-
     public enum BoxLockTargetPattern
     {
         OrthogonalAdjacent4 = 0,
@@ -413,9 +407,7 @@ namespace Game.Feature.Gameplay.Entities
             bool requireNoUnitAtSpawnCell,
             bool requireNoSolidAtSpawnCell,
             int maxAliveChildren,
-            int minionHp,
-            SummonedUnitDefinitionMode definitionMode = SummonedUnitDefinitionMode.DefaultEnemy,
-            EnemyUnitArchetypeId summonedArchetypeId = default,
+            EnemyUnitArchetypeId summonedArchetypeId,
             bool overrideHp = false,
             int hpOverride = 1)
         {
@@ -424,8 +416,6 @@ namespace Game.Feature.Gameplay.Entities
             RequireNoUnitAtSpawnCell = requireNoUnitAtSpawnCell;
             RequireNoSolidAtSpawnCell = requireNoSolidAtSpawnCell;
             MaxAliveChildren = maxAliveChildren;
-            MinionHp = minionHp;
-            DefinitionMode = definitionMode;
             SummonedArchetypeId = summonedArchetypeId;
             OverrideHp = overrideHp;
             HpOverride = hpOverride;
@@ -441,10 +431,6 @@ namespace Game.Feature.Gameplay.Entities
         public bool RequireNoSolidAtSpawnCell { get; }
 
         public int MaxAliveChildren { get; }
-
-        public int MinionHp { get; }
-
-        public SummonedUnitDefinitionMode DefinitionMode { get; }
 
         public EnemyUnitArchetypeId SummonedArchetypeId { get; }
 
@@ -464,27 +450,10 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Summon minion runtime requires a positive max alive child count.", paramName);
             }
 
-            switch (DefinitionMode)
+            SummonedArchetypeId.Validate(paramName);
+            if (OverrideHp && HpOverride <= 0)
             {
-                case SummonedUnitDefinitionMode.DefaultEnemy:
-                    if (MinionHp <= 0)
-                    {
-                        throw new ArgumentException("Summon minion runtime requires positive minion HP.", paramName);
-                    }
-
-                    break;
-
-                case SummonedUnitDefinitionMode.Archetype:
-                    SummonedArchetypeId.Validate(paramName);
-                    if (OverrideHp && HpOverride <= 0)
-                    {
-                        throw new ArgumentException("Summon minion runtime HP override must be positive when enabled.", paramName);
-                    }
-
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(DefinitionMode), DefinitionMode, "Unsupported summoned unit definition mode.");
+                throw new ArgumentException("Summon minion runtime HP override must be positive when enabled.", paramName);
             }
         }
     }

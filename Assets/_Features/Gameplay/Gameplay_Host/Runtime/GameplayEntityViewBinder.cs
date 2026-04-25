@@ -43,6 +43,8 @@ namespace Game.Feature.Gameplay.Host
 
         public Transform SearchRoot => _viewRegistry.SearchRoot;
 
+        internal GameplayEntityViewRegistry ViewRegistry => _viewRegistry;
+
         public void HideViewsExcept(HashSet<int> visibleEntityIds)
         {
             if (visibleEntityIds == null)

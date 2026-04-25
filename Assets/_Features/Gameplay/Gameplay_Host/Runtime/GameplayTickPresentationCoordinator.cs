@@ -25,6 +25,7 @@ namespace Game.Feature.Gameplay.Host
         private readonly GameplayTrackPlanner _planner;
         private readonly GameplayPresentationActivityInspector _presentationActivityInspector;
         private readonly GameplayPresentationStateStore _stateStore = new();
+        private readonly SummonedEnemyPresentationResolver _summonedEnemyPresentationResolver = new();
         private readonly GameplayPresentationTrackState _trackState = new();
         private readonly GameplayTopologyTransitionController _topologyTransitionController;
         private readonly GameplayTransientEffectPresenter _transientEffectPresenter = new();
@@ -120,7 +121,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
             TopologyRotationTweenSettings topologyRotationTweenSettings = default,
-            float faceSeamGap = -1f)
+            float faceSeamGap = -1f,
+            EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null)
         {
             if (viewBinder == null)
             {
@@ -148,6 +150,12 @@ namespace Game.Feature.Gameplay.Host
             _transientEffectPresenter.Initialize(viewBinder.SearchRoot, cellSize);
             _animationSync.Reset();
             _stateStore.ResetSession(initialTopology);
+            _summonedEnemyPresentationResolver.Initialize(
+                boardRoot != null ? boardRoot.EntityRoot : viewBinder.SearchRoot,
+                viewBinder.ViewRegistry,
+                _stateStore,
+                _animationSync,
+                enemyPresentationArchetypeRegistry);
 
             _isInitialized = true;
         }
@@ -179,6 +187,7 @@ namespace Game.Feature.Gameplay.Host
             TraceStep("RefreshAudioPlan");
             _audioPresentationController.ReplacePendingPlan(_audioRequestPlanner.BuildRequests(result));
             _actionAudioPresentationController.ReplacePendingPlan(_actionAudioRequestPlanner.BuildRequests(result));
+            _summonedEnemyPresentationResolver.Reconcile(result);
             _committedFrameBuilder.StoreCommittedFrame(
                 result.FinalEntities,
                 result.FinalTopology,
@@ -215,6 +224,7 @@ namespace Game.Feature.Gameplay.Host
             _actionAudioPresentationController.PlayPlannedAudio();
             TraceStep("ApplyEntityExitOwnership");
             _exitPresentationController.ApplyEntityExitOwnership();
+            _summonedEnemyPresentationResolver.CleanupOwnedViews(result.FinalEntities);
             UpdatePresentation(0f);
         }
 

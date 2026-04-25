@@ -58,7 +58,8 @@ namespace Game.Feature.Gameplay.Host
             GameplayBoardSurfaceRenderer boardSurfaceRenderer = null,
             TopologyRotationVisualMapping topologyRotationVisualMapping = TopologyRotationVisualMapping.ForwardUsesPositiveX,
             TopologyRotationTweenSettings topologyRotationTweenSettings = default,
-            float faceSeamGap = -1f)
+            float faceSeamGap = -1f,
+            EnemyPresentationArchetypeRegistry enemyPresentationArchetypeRegistry = null)
         {
             _presentationCoordinator.Initialize(
                 viewBinder,
@@ -70,7 +71,8 @@ namespace Game.Feature.Gameplay.Host
                 boardSurfaceRenderer,
                 topologyRotationVisualMapping,
                 topologyRotationTweenSettings,
-                faceSeamGap);
+                faceSeamGap,
+                enemyPresentationArchetypeRegistry);
             CapturePresentationState();
         }
 

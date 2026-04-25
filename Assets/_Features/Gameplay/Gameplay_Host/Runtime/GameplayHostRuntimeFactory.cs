@@ -57,6 +57,7 @@ namespace Game.Feature.Gameplay.Host
             var playerControlTiming = configuration.CreatePlayerControlTimingSnapshot();
             var playerRespawnTiming = configuration.CreatePlayerRespawnTimingSnapshot();
             var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
+            var enemyPresentationArchetypeRegistry = configuration.CreateEnemyPresentationArchetypeRegistry(enemyAiRuntime);
             var faceSeamGap = configuration.ResolveFaceSeamGap();
             var playerViewPrefab = ResolvePlayerViewPrefab(configuration);
             var normalizedInitialEntities = NormalizeInitialEntitiesForRuntime(initialEntities, generalTimingProfile);
@@ -117,7 +118,8 @@ namespace Game.Feature.Gameplay.Host
                 boardSurfaceRenderer,
                 configuration.TopologyRotationVisualMapping,
                 configuration.TopologyRotationTween,
-                faceSeamGap);
+                faceSeamGap,
+                enemyPresentationArchetypeRegistry);
             AttachGameplayAudioRuntimeIfConfigured(hostObject, presenter, configuration);
 
             boardSurfaceRenderer.Initialize(

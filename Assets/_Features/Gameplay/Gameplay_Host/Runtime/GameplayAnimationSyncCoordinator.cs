@@ -209,6 +209,16 @@ namespace Game.Feature.Gameplay.Host
             _playerViewPresentationStates.Clear();
         }
 
+        public void ReleaseEntity(int entityId)
+        {
+            _enemyAnimatorDriversByEntityId.Remove(entityId);
+            _enemyViewPresentationStates.Remove(entityId);
+            _playerAnimatorDriversByEntityId.Remove(entityId);
+            _playerDeathVisualOverrideEntityIds.Remove(entityId);
+            _playerVisualHoldStates.Remove(entityId);
+            _playerViewPresentationStates.Remove(entityId);
+        }
+
         public void SyncEnemyRuntimeState(
             int entityId,
             bool isVisible,

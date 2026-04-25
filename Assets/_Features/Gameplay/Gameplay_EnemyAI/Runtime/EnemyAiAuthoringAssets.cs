@@ -151,11 +151,9 @@ namespace Game.Feature.Gameplay.Entities
         [SerializeField] private SummonCandidatePattern candidatePattern = SummonCandidatePattern.OrthogonalAdjacent4;
         [SerializeField] private bool requireNoUnitAtSpawnCell = true;
         [SerializeField] private bool requireNoSolidAtSpawnCell = true;
-        [SerializeField] private SummonedUnitDefinitionMode definitionMode = SummonedUnitDefinitionMode.DefaultEnemy;
         [SerializeField] private EnemyUnitArchetypeAsset summonedArchetype;
         [SerializeField] private bool overrideHp;
         [SerializeField] private int hpOverride = 1;
-        [SerializeField] private int minionHp = 1;
 
         public int SpawnCountPerTrigger => spawnCountPerTrigger;
 
@@ -167,15 +165,11 @@ namespace Game.Feature.Gameplay.Entities
 
         public bool RequireNoSolidAtSpawnCell => requireNoSolidAtSpawnCell;
 
-        public SummonedUnitDefinitionMode DefinitionMode => definitionMode;
-
         public EnemyUnitArchetypeAsset SummonedArchetype => summonedArchetype;
 
         public bool OverrideHp => overrideHp;
 
         public int HpOverride => hpOverride;
-
-        public int MinionHp => minionHp;
 
         internal SummonMinionRuntime Compile()
         {
@@ -189,25 +183,16 @@ namespace Game.Feature.Gameplay.Entities
                 throw new ArgumentException("Summon minion authoring requires a positive max alive child count.", nameof(maxAliveChildren));
             }
 
-            if (definitionMode == SummonedUnitDefinitionMode.DefaultEnemy &&
-                minionHp <= 0)
+            if (summonedArchetype == null)
             {
-                throw new ArgumentException("Summon minion authoring requires positive minion HP.", nameof(minionHp));
+                throw new ArgumentException("Summon minion authoring requires a summoned archetype asset.", nameof(summonedArchetype));
             }
 
-            if (definitionMode == SummonedUnitDefinitionMode.Archetype)
+            summonedArchetype.ValidateConfiguration(nameof(summonedArchetype));
+
+            if (overrideHp && hpOverride <= 0)
             {
-                if (summonedArchetype == null)
-                {
-                    throw new ArgumentException("Archetype summon authoring requires a summoned archetype asset.", nameof(summonedArchetype));
-                }
-
-                summonedArchetype.ValidateConfiguration(nameof(summonedArchetype));
-
-                if (overrideHp && hpOverride <= 0)
-                {
-                    throw new ArgumentException("Archetype summon authoring HP override must be positive when enabled.", nameof(hpOverride));
-                }
+                throw new ArgumentException("Summon minion authoring HP override must be positive when enabled.", nameof(hpOverride));
             }
 
             return new SummonMinionRuntime(
@@ -216,11 +201,7 @@ namespace Game.Feature.Gameplay.Entities
                 requireNoUnitAtSpawnCell,
                 requireNoSolidAtSpawnCell,
                 maxAliveChildren,
-                minionHp,
-                definitionMode,
-                definitionMode == SummonedUnitDefinitionMode.Archetype
-                    ? summonedArchetype.ArchetypeId
-                    : EnemyUnitArchetypeId.None,
+                summonedArchetype.ArchetypeId,
                 overrideHp,
                 hpOverride);
         }

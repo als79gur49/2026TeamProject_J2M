@@ -361,6 +361,7 @@ namespace Game.Feature.Gameplay.Loop
             var playerDamageSignals = new List<TickPlayerDamagePresentationSignal>();
             var playerDeathSignals = new List<TickPlayerDeathPresentationSignal>();
             var playerLocomotionSignals = new List<TickPlayerLocomotionPresentationSignal>();
+            var summonedEnemyPresentationBindings = new List<TickSummonedEnemyPresentationBinding>();
             var visibilityChanges = new List<TickVisibilityChange>();
             var transitionVisibilityChanges = new List<TickTransitionVisibilityChange>();
             var exitOwnedEntityIds = new HashSet<int>();
@@ -380,6 +381,7 @@ namespace Game.Feature.Gameplay.Loop
             BuildEnemyPresentation(context, enemyActionSignals);
             BuildEnemyJumpPresentation(context, enemyJumpSignals);
             BuildEnemyChargePresentation(context, enemyChargeSignals);
+            BuildSummonedEnemyPresentationBindings(context, summonedEnemyPresentationBindings);
 
             var topologyMotion = BuildTopologyMotion(context);
             BuildTransitionVisibilityPresentation(context, visibilityChanges, entityExitSignals, transitionVisibilityChanges);
@@ -396,6 +398,7 @@ namespace Game.Feature.Gameplay.Loop
                    playerDamageSignals.Count == 0 &&
                    playerDeathSignals.Count == 0 &&
                    playerLocomotionSignals.Count == 0 &&
+                   summonedEnemyPresentationBindings.Count == 0 &&
                    visibilityChanges.Count == 0 &&
                    transitionVisibilityChanges.Count == 0 &&
                    !topologyMotion.HasValue
@@ -415,7 +418,8 @@ namespace Game.Feature.Gameplay.Loop
                     enemyChargeSignals,
                     entityExitSignals,
                     impactTransientSignals,
-                    flipImpactSignals);
+                    flipImpactSignals,
+                    summonedEnemyPresentationBindings);
         }
 
         private static void BuildMovementPresentation(
@@ -676,6 +680,33 @@ namespace Game.Feature.Gameplay.Loop
                         entity.position,
                         context.FinalAuthoritativeSnapshot.Topology,
                         entity.facing));
+            }
+        }
+
+        private static void BuildSummonedEnemyPresentationBindings(
+            in TickPresentationBuildContext context,
+            List<TickSummonedEnemyPresentationBinding> bindings)
+        {
+            var summonedEntries = new List<SummonedEntitySnapshotEntry>();
+            context.FinalAuthoritativeSnapshot.EnumerateSummonedEntityStatesOrdered(summonedEntries);
+
+            for (var i = 0; i < summonedEntries.Count; i++)
+            {
+                var summonedEntry = summonedEntries[i];
+                if (!context.FinalAuthoritativeSnapshot.TryGetEntity(summonedEntry.EntityId, out var entity) ||
+                    !EntityRolePolicy.IsEnemyUnit(entity))
+                {
+                    continue;
+                }
+
+                var hasBinding = context.FinalAuthoritativeSnapshot.TryGetEnemyDefinitionBindingState(
+                    summonedEntry.EntityId,
+                    out var bindingState);
+                bindings.Add(
+                    new TickSummonedEnemyPresentationBinding(
+                        summonedEntry.EntityId,
+                        hasBinding,
+                        hasBinding ? bindingState.ArchetypeId : EnemyUnitArchetypeId.None));
             }
         }
 

@@ -1136,7 +1136,7 @@
       "locked": true
     },
     {
-      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_NonPositiveMinionHp_Throws",
+      "fullyQualifiedName": "Game.Feature.Gameplay.Tests.Unit.EnemyLogicTests.EnemyAiProfileCompiler_UtilityCapability_MissingSummonedArchetype_Throws",
       "category": "Core",
       "contracts": [
         "enemy_logic_contract"

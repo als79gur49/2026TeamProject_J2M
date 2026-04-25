@@ -21,6 +21,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
 {
     public sealed class EnemyLogicTests
     {
+        private static EnemyUnitArchetypeAsset SharedSummonedArchetype;
+        private static EnemyAiProfile SharedSummonedProfile;
+
         private readonly struct ForwardPatrolFixture
         {
             public ForwardPatrolFixture(string label, WorldState worldState, PatrolSettings settings)
@@ -2260,7 +2263,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
                     intervalSeconds: 0.5f,
                     spawnCountPerTrigger: 2,
                     maxAliveChildren: 4,
-                    minionHp: 3));
+                    overrideHp: true,
+                    hpOverride: 3));
 
             try
             {
@@ -2273,7 +2277,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 Assert.That(utility.Effects[0].IntervalTicks, Is.EqualTo(5));
                 Assert.That(utility.Effects[0].Summon.SpawnCountPerTrigger, Is.EqualTo(2));
                 Assert.That(utility.Effects[0].Summon.MaxAliveChildren, Is.EqualTo(4));
-                Assert.That(utility.Effects[0].Summon.MinionHp, Is.EqualTo(3));
+                Assert.That(utility.Effects[0].Summon.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
+                Assert.That(utility.Effects[0].Summon.OverrideHp, Is.True);
+                Assert.That(utility.Effects[0].Summon.HpOverride, Is.EqualTo(3));
             }
             finally
             {
@@ -2452,27 +2458,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_DefaultEnemyMode_PreservesLegacyPayload()
-        {
-            var authoring = CreateSummonMinionAuthoring(
-                spawnCountPerTrigger: 2,
-                maxAliveChildren: 4,
-                minionHp: 3);
-
-            var runtime = authoring.Compile();
-
-            Assert.That(runtime.DefinitionMode, Is.EqualTo(SummonedUnitDefinitionMode.DefaultEnemy));
-            Assert.That(runtime.SpawnCountPerTrigger, Is.EqualTo(2));
-            Assert.That(runtime.MaxAliveChildren, Is.EqualTo(4));
-            Assert.That(runtime.MinionHp, Is.EqualTo(3));
-            Assert.That(runtime.SummonedArchetypeId, Is.EqualTo(EnemyUnitArchetypeId.None));
-            Assert.That(runtime.OverrideHp, Is.False);
-            Assert.That(runtime.HpOverride, Is.EqualTo(1));
-        }
-
-        [Test]
-        [Category("Core")]
-        public void SummonMinionAuthoring_Compile_ArchetypeMode_StoresStableArchetypePayloadOnly()
+        public void SummonMinionAuthoring_Compile_StoresStableArchetypePayloadOnly()
         {
             var profile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("HeavyMinion", profile, hp: 7, initialAiMode: EnemyAiMode.Patrol);
@@ -2480,17 +2466,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = CreateSummonMinionAuthoring(
-                    definitionMode: SummonedUnitDefinitionMode.Archetype,
+                    spawnCountPerTrigger: 2,
+                    maxAliveChildren: 4,
                     summonedArchetype: archetype,
                     overrideHp: true,
                     hpOverride: 5);
+
                 var runtime = authoring.Compile();
                 var runtimeFields = typeof(SummonMinionRuntime).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
 
-                Assert.That(runtime.DefinitionMode, Is.EqualTo(SummonedUnitDefinitionMode.Archetype));
+                Assert.That(runtime.SpawnCountPerTrigger, Is.EqualTo(2));
+                Assert.That(runtime.MaxAliveChildren, Is.EqualTo(4));
                 Assert.That(runtime.SummonedArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("HeavyMinion")));
                 Assert.That(runtime.OverrideHp, Is.True);
                 Assert.That(runtime.HpOverride, Is.EqualTo(5));
+                Assert.That(runtimeFields.Any(field => field.Name == "DefinitionMode" || field.Name == "MinionHp"), Is.False);
                 Assert.That(
                     runtimeFields.Any(field =>
                         typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType) ||
@@ -2507,16 +2497,26 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_ArchetypeMode_NullArchetype_Throws()
+        public void SummonMinionRuntime_DoesNotExposeLegacyDefinitionModeOrMinionHpFields()
         {
-            var authoring = CreateSummonMinionAuthoring(definitionMode: SummonedUnitDefinitionMode.Archetype);
+            var runtimeFields = typeof(SummonMinionRuntime).GetFields(System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+
+            Assert.That(runtimeFields.Any(field => field.Name == "DefinitionMode"), Is.False);
+            Assert.That(runtimeFields.Any(field => field.Name == "MinionHp"), Is.False);
+        }
+
+        [Test]
+        [Category("Core")]
+        public void SummonMinionAuthoring_Compile_NullSummonedArchetype_Throws()
+        {
+            var authoring = CreateSummonMinionAuthoring(includeSummonedArchetype: false);
 
             Assert.Throws<ArgumentException>(() => authoring.Compile());
         }
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_ArchetypeMode_EmptyArchetypeId_Throws()
+        public void SummonMinionAuthoring_Compile_EmptyArchetypeId_Throws()
         {
             var profile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset(string.Empty, profile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
@@ -2524,7 +2524,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = CreateSummonMinionAuthoring(
-                    definitionMode: SummonedUnitDefinitionMode.Archetype,
                     summonedArchetype: archetype);
 
                 Assert.Throws<ArgumentException>(() => authoring.Compile());
@@ -2538,7 +2537,7 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void SummonMinionAuthoring_Compile_ArchetypeMode_InvalidHpOverride_Throws()
+        public void SummonMinionAuthoring_Compile_InvalidHpOverride_Throws()
         {
             var profile = CreateNonAttackingEnemyProfile();
             var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", profile, hp: 3, initialAiMode: EnemyAiMode.Patrol);
@@ -2546,7 +2545,6 @@ namespace Game.Feature.Gameplay.Tests.Unit
             try
             {
                 var authoring = CreateSummonMinionAuthoring(
-                    definitionMode: SummonedUnitDefinitionMode.Archetype,
                     summonedArchetype: archetype,
                     overrideHp: true,
                     hpOverride: 0);
@@ -2654,6 +2652,185 @@ namespace Game.Feature.Gameplay.Tests.Unit
                 UnityEngine.Object.DestroyImmediate(orphanedArchetype);
                 DestroyProfile(orphanedArchetypeProfile);
                 DestroyProfile(summonerProfile);
+                DestroyProfile(defaultProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_MissingSummonedMapping_Throws()
+        {
+            var defaultProfile = CreateDefaultMeleeProfile();
+            var archetypeProfile = CreateNonAttackingEnemyProfile();
+            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
+            var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
+            var config = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                DefaultEnemyAiProfile = defaultProfile,
+                EnemyAiProfileOverrides = new[]
+                {
+                    new EnemyAiProfileOverride
+                    {
+                        EntityId = 40,
+                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                    },
+                },
+                EnemyUnitArchetypeCatalog = gameplayCatalog,
+            };
+
+            try
+            {
+                var runtime = config.CreateEnemyAiRuntimeSnapshot();
+
+                Assert.Throws<InvalidOperationException>(() => config.CreateEnemyPresentationArchetypeRegistry(runtime));
+            }
+            finally
+            {
+                DestroyProfile(config.EnemyAiProfileOverrides[0].Profile);
+                UnityEngine.Object.DestroyImmediate(gameplayCatalog);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                DestroyProfile(archetypeProfile);
+                DestroyProfile(defaultProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_DuplicateArchetypeId_Throws()
+        {
+            var defaultProfile = CreateDefaultMeleeProfile();
+            var archetypeProfile = CreateNonAttackingEnemyProfile();
+            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
+            var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
+            var firstPrefab = CreateEnemyViewPrefab("FirstPresentationPrefab");
+            var secondPrefab = CreateEnemyViewPrefab("SecondPresentationPrefab");
+            var firstEntry = CreateEnemyPresentationArchetypeAsset("BasicMinion", firstPrefab);
+            var secondEntry = CreateEnemyPresentationArchetypeAsset("BasicMinion", secondPrefab);
+            var presentationCatalog = CreateEnemyPresentationArchetypeCatalog(firstEntry, secondEntry);
+            var config = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                DefaultEnemyAiProfile = defaultProfile,
+                EnemyAiProfileOverrides = new[]
+                {
+                    new EnemyAiProfileOverride
+                    {
+                        EntityId = 40,
+                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                    },
+                },
+                EnemyUnitArchetypeCatalog = gameplayCatalog,
+                EnemyPresentationArchetypeCatalog = presentationCatalog,
+            };
+
+            try
+            {
+                var runtime = config.CreateEnemyAiRuntimeSnapshot();
+
+                Assert.Throws<InvalidOperationException>(() => config.CreateEnemyPresentationArchetypeRegistry(runtime));
+            }
+            finally
+            {
+                DestroyProfile(config.EnemyAiProfileOverrides[0].Profile);
+                UnityEngine.Object.DestroyImmediate(presentationCatalog);
+                UnityEngine.Object.DestroyImmediate(firstEntry);
+                UnityEngine.Object.DestroyImmediate(secondEntry);
+                UnityEngine.Object.DestroyImmediate(firstPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(secondPrefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(gameplayCatalog);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                DestroyProfile(archetypeProfile);
+                DestroyProfile(defaultProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_NullPrefab_Throws()
+        {
+            var defaultProfile = CreateDefaultMeleeProfile();
+            var archetypeProfile = CreateNonAttackingEnemyProfile();
+            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
+            var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
+            var entry = CreateEnemyPresentationArchetypeAsset("BasicMinion", viewPrefab: null);
+            var presentationCatalog = CreateEnemyPresentationArchetypeCatalog(entry);
+            var config = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                DefaultEnemyAiProfile = defaultProfile,
+                EnemyAiProfileOverrides = new[]
+                {
+                    new EnemyAiProfileOverride
+                    {
+                        EntityId = 40,
+                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                    },
+                },
+                EnemyUnitArchetypeCatalog = gameplayCatalog,
+                EnemyPresentationArchetypeCatalog = presentationCatalog,
+            };
+
+            try
+            {
+                var runtime = config.CreateEnemyAiRuntimeSnapshot();
+
+                Assert.Throws<InvalidOperationException>(() => config.CreateEnemyPresentationArchetypeRegistry(runtime));
+            }
+            finally
+            {
+                DestroyProfile(config.EnemyAiProfileOverrides[0].Profile);
+                UnityEngine.Object.DestroyImmediate(presentationCatalog);
+                UnityEngine.Object.DestroyImmediate(entry);
+                UnityEngine.Object.DestroyImmediate(gameplayCatalog);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                DestroyProfile(archetypeProfile);
+                DestroyProfile(defaultProfile);
+            }
+        }
+
+        [Test]
+        [Category("Core")]
+        public void GameplaySceneHostConfiguration_CreateEnemyPresentationArchetypeRegistry_PresentationArchetypeMissingFromGameplayRegistry_Throws()
+        {
+            var defaultProfile = CreateDefaultMeleeProfile();
+            var archetypeProfile = CreateNonAttackingEnemyProfile();
+            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
+            var gameplayCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
+            var prefab = CreateEnemyViewPrefab("UnexpectedPresentationPrefab");
+            var entry = CreateEnemyPresentationArchetypeAsset("UnexpectedMinion", prefab);
+            var presentationCatalog = CreateEnemyPresentationArchetypeCatalog(entry);
+            var config = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                DefaultEnemyAiProfile = defaultProfile,
+                EnemyAiProfileOverrides = new[]
+                {
+                    new EnemyAiProfileOverride
+                    {
+                        EntityId = 40,
+                        Profile = CreateUtilitySummonerProfile(CreateArchetypeSummonUtilityEffect(archetype)),
+                    },
+                },
+                EnemyUnitArchetypeCatalog = gameplayCatalog,
+                EnemyPresentationArchetypeCatalog = presentationCatalog,
+            };
+
+            try
+            {
+                var runtime = config.CreateEnemyAiRuntimeSnapshot();
+
+                Assert.Throws<InvalidOperationException>(() => config.CreateEnemyPresentationArchetypeRegistry(runtime));
+            }
+            finally
+            {
+                DestroyProfile(config.EnemyAiProfileOverrides[0].Profile);
+                UnityEngine.Object.DestroyImmediate(presentationCatalog);
+                UnityEngine.Object.DestroyImmediate(entry);
+                UnityEngine.Object.DestroyImmediate(prefab.gameObject);
+                UnityEngine.Object.DestroyImmediate(gameplayCatalog);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                DestroyProfile(archetypeProfile);
                 DestroyProfile(defaultProfile);
             }
         }
@@ -2964,9 +3141,15 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
         [Test]
         [Category("Core")]
-        public void EnemyAiProfileCompiler_UtilityCapability_NonPositiveMinionHp_Throws()
+        public void EnemyAiProfileCompiler_UtilityCapability_MissingSummonedArchetype_Throws()
         {
-            var profile = CreateUtilitySummonerProfile(CreateSummonUtilityEffect(minionHp: 0));
+            var effect = new EnemyUtilityEffectAuthoring();
+            var summon = CreateSummonMinionAuthoring(includeSummonedArchetype: false);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", 0f);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", 1f);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
+            var profile = CreateUtilitySummonerProfile(effect);
 
             try
             {
@@ -4586,7 +4769,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             float intervalSeconds = 1f,
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
-            int minionHp = 1,
+            EnemyUnitArchetypeAsset summonedArchetype = null,
+            bool overrideHp = false,
+            int hpOverride = 1,
             bool requireNoUnitAtSpawnCell = true,
             bool requireNoSolidAtSpawnCell = true)
         {
@@ -4596,7 +4781,9 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", requireNoUnitAtSpawnCell);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", requireNoSolidAtSpawnCell);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "minionHp", minionHp);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype != null ? summonedArchetype : GetSharedSummonedArchetype());
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "overrideHp", overrideHp);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "hpOverride", hpOverride);
 
             var effect = new EnemyUtilityEffectAuthoring();
             EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
@@ -4617,33 +4804,25 @@ namespace Game.Feature.Gameplay.Tests.Unit
             bool requireNoUnitAtSpawnCell = true,
             bool requireNoSolidAtSpawnCell = true)
         {
-            var summon = CreateSummonMinionAuthoring(
+            return CreateSummonUtilityEffect(
+                initialDelaySeconds,
+                intervalSeconds,
                 spawnCountPerTrigger,
                 maxAliveChildren,
-                minionHp: 1,
-                requireNoUnitAtSpawnCell,
-                requireNoSolidAtSpawnCell,
-                SummonedUnitDefinitionMode.Archetype,
                 summonedArchetype,
                 overrideHp,
-                hpOverride);
-
-            var effect = new EnemyUtilityEffectAuthoring();
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "initialDelaySeconds", initialDelaySeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "intervalSeconds", intervalSeconds);
-            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
-            return effect;
+                hpOverride,
+                requireNoUnitAtSpawnCell,
+                requireNoSolidAtSpawnCell);
         }
 
         private static SummonMinionAuthoring CreateSummonMinionAuthoring(
             int spawnCountPerTrigger = 1,
             int maxAliveChildren = 3,
-            int minionHp = 1,
             bool requireNoUnitAtSpawnCell = true,
             bool requireNoSolidAtSpawnCell = true,
-            SummonedUnitDefinitionMode definitionMode = SummonedUnitDefinitionMode.DefaultEnemy,
             EnemyUnitArchetypeAsset summonedArchetype = null,
+            bool includeSummonedArchetype = true,
             bool overrideHp = false,
             int hpOverride = 1)
         {
@@ -4653,12 +4832,44 @@ namespace Game.Feature.Gameplay.Tests.Unit
             EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", requireNoUnitAtSpawnCell);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", requireNoSolidAtSpawnCell);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "definitionMode", definitionMode);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype);
+            EnemyAiProfileTestFactory.SetSerializedField(
+                summon,
+                "summonedArchetype",
+                includeSummonedArchetype
+                    ? summonedArchetype != null ? summonedArchetype : GetSharedSummonedArchetype()
+                    : null);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "overrideHp", overrideHp);
             EnemyAiProfileTestFactory.SetSerializedField(summon, "hpOverride", hpOverride);
-            EnemyAiProfileTestFactory.SetSerializedField(summon, "minionHp", minionHp);
             return summon;
+        }
+
+        private static EnemyPresentationArchetypeAsset CreateEnemyPresentationArchetypeAsset(
+            string archetypeId,
+            GameplayEntityView viewPrefab)
+        {
+            var asset = ScriptableObject.CreateInstance<EnemyPresentationArchetypeAsset>();
+            asset.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "archetypeId", new EnemyUnitArchetypeId(archetypeId));
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "viewPrefab", viewPrefab);
+            return asset;
+        }
+
+        private static EnemyPresentationArchetypeCatalog CreateEnemyPresentationArchetypeCatalog(
+            params EnemyPresentationArchetypeAsset[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<EnemyPresentationArchetypeCatalog>();
+            catalog.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(catalog, "entries", entries ?? Array.Empty<EnemyPresentationArchetypeAsset>());
+            return catalog;
+        }
+
+        private static GameplayEntityView CreateEnemyViewPrefab(string name)
+        {
+            var prefabObject = new GameObject(name);
+            prefabObject.hideFlags = HideFlags.HideAndDontSave;
+            var view = prefabObject.AddComponent<GameplayEntityView>();
+            prefabObject.AddComponent<EnemyAnimatorDriver>();
+            return view;
         }
 
         private static EnemyUnitArchetypeAsset CreateEnemyUnitArchetypeAsset(
@@ -4681,6 +4892,21 @@ namespace Game.Feature.Gameplay.Tests.Unit
             catalog.hideFlags = HideFlags.HideAndDontSave;
             EnemyAiProfileTestFactory.SetSerializedField(catalog, "entries", entries ?? Array.Empty<EnemyUnitArchetypeAsset>());
             return catalog;
+        }
+
+        private static EnemyUnitArchetypeAsset GetSharedSummonedArchetype()
+        {
+            if (SharedSummonedArchetype == null)
+            {
+                SharedSummonedProfile = CreateNonAttackingEnemyProfile();
+                SharedSummonedArchetype = CreateEnemyUnitArchetypeAsset(
+                    "BasicMinion",
+                    SharedSummonedProfile,
+                    hp: 1,
+                    initialAiMode: EnemyAiMode.Patrol);
+            }
+
+            return SharedSummonedArchetype;
         }
 
         private static EnemyUnitSpawnDefaults CreateEnemyUnitSpawnDefaults(int hp, EnemyAiMode initialAiMode)

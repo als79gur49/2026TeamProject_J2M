@@ -226,9 +226,128 @@ namespace Game.Feature.Gameplay.Tests.Scenario
             }
         }
 
+        [Test]
+        [Category("Extended")]
+        public void GameplayTickViewPresenter_PresentingSummonedEnemyArchetypeViews_DoesNotChangeLaterTickAuthoritativeResults()
+        {
+            var initialEntities = new[]
+            {
+                CreateUnit(entityId: 40, teamId: 2, position: new Vector2Int(0, 0), hp: 3, aiMode: EnemyAiMode.Patrol, facing: Direction.Right),
+            };
+            var baselineWorld = CreateWorldState(initialEntities);
+            var presentedWorld = CreateWorldState(initialEntities);
+            var defaultProfile = CreateUtilityProfile();
+            var archetypeProfile = EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Forward,
+            });
+            var archetype = CreateEnemyUnitArchetypeAsset("BasicMinion", archetypeProfile, hp: 4, initialAiMode: EnemyAiMode.Patrol);
+            var archetypeCatalog = CreateEnemyUnitArchetypeCatalog(archetype);
+            var summonerProfile = CreateUtilitySummonProfile(initialDelayTicks: 0, intervalTicks: 10, summonedArchetype: archetype);
+            var baselinePipeline = CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog).CreateTickPipeline(baselineWorld);
+            var presentedPipeline = CreateArchetypeBootstrapper(defaultProfile, summonerProfile, archetypeCatalog).CreateTickPipeline(presentedWorld);
+            var rootObject = new GameObject("EnemyViewIsolationTests_SummonedPresenter");
+            var prefabObject = new GameObject("EnemyViewIsolationTests_SummonedPrefab");
+
+            try
+            {
+                var presenter = rootObject.AddComponent<GameplayTickViewPresenter>();
+                var registry = rootObject.AddComponent<GameplayEntityViewRegistry>();
+                var binder = new GameplayEntityViewBinder(registry, new TestViewFactory(registry.transform, attachEnemyAnimatorDriver: true));
+                var prefabView = prefabObject.AddComponent<GameplayEntityView>();
+                prefabObject.AddComponent<EnemyAnimatorDriver>();
+                new GameObject("SummonedMarker").transform.SetParent(prefabObject.transform, worldPositionStays: false);
+                var presentationRegistry = new EnemyPresentationArchetypeRegistry(
+                    new Dictionary<EnemyUnitArchetypeId, EnemyPresentationArchetypeRuntime>(EnemyUnitArchetypeId.EqualityComparer)
+                    {
+                        { new EnemyUnitArchetypeId("BasicMinion"), new EnemyPresentationArchetypeRuntime(new EnemyUnitArchetypeId("BasicMinion"), prefabView) },
+                    });
+                var initialSnapshot = presentedWorld.CreateSnapshot();
+
+                presenter.Initialize(
+                    binder,
+                    initialSnapshot.BoardBounds,
+                    initialSnapshot.Topology,
+                    1f,
+                    GameplayTimingProfile.CreateDefault(),
+                    enemyPresentationArchetypeRegistry: presentationRegistry);
+                presenter.PresentInitial(initialEntities, initialSnapshot.Topology);
+
+                var baselineFirstTick = baselinePipeline.RunTick(new TickInput(1));
+                var presentedFirstTick = presentedPipeline.RunTick(new TickInput(1));
+
+                presenter.Present(presentedFirstTick);
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presentedFirstTick.DeterminismHash, Is.EqualTo(baselineFirstTick.DeterminismHash));
+                Assert.That(registry.TryGetView(41, out var spawnedView), Is.True);
+                Assert.That(spawnedView.transform.Find("SummonedMarker"), Is.Not.Null);
+
+                var baselineSecondTick = baselinePipeline.RunTick(new TickInput(2));
+                var presentedSecondTick = presentedPipeline.RunTick(new TickInput(2));
+
+                presenter.Present(presentedSecondTick);
+                presenter.UpdatePresentation(0f);
+
+                Assert.That(presentedSecondTick.DeterminismHash, Is.EqualTo(baselineSecondTick.DeterminismHash));
+                CollectionAssert.AreEqual(
+                    SummarizeEntities(baselineSecondTick.FinalEntities),
+                    SummarizeEntities(presentedSecondTick.FinalEntities));
+                CollectionAssert.AreEqual(
+                    baselineSecondTick.EventLog.ToArray(),
+                    presentedSecondTick.EventLog.ToArray());
+
+                var presentedSnapshotAfter = presentedWorld.CreateSnapshot();
+                Assert.That(presentedSnapshotAfter.TryGetEnemyDefinitionBindingState(41, out var bindingState), Is.True);
+                Assert.That(bindingState.ArchetypeId, Is.EqualTo(new EnemyUnitArchetypeId("BasicMinion")));
+                Assert.That(presentedSnapshotAfter.TryGetEntity(41, out var child), Is.True);
+                Assert.That(child.position, Is.EqualTo(new SurfaceCell(FaceId.Floor, 2, 0)));
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(prefabObject);
+                UnityEngine.Object.DestroyImmediate(rootObject);
+                UnityEngine.Object.DestroyImmediate(archetypeCatalog);
+                UnityEngine.Object.DestroyImmediate(archetype);
+                EnemyAiProfileTestFactory.Destroy(archetypeProfile);
+                EnemyAiProfileTestFactory.Destroy(summonerProfile);
+                EnemyAiProfileTestFactory.Destroy(defaultProfile);
+            }
+        }
+
         private static WorldState CreateWorldState(IEnumerable<EntityState> initialEntities)
         {
             return GameplayWorldStateTestFactory.CreateBounded(initialEntities);
+        }
+
+        private static GameplayBootstrapper CreateArchetypeBootstrapper(
+            EnemyAiProfile defaultProfile,
+            EnemyAiProfile summonerProfile,
+            EnemyUnitArchetypeCatalog archetypeCatalog)
+        {
+            var runtimeSnapshot = new GameplaySceneHostConfiguration
+            {
+                SimulationTicksPerSecond = GameplayTimingProfile.DefaultSimulationTicksPerSecond,
+                DefaultEnemyAiProfile = defaultProfile,
+                EnemyAiProfileOverrides = new[]
+                {
+                    new EnemyAiProfileOverride
+                    {
+                        EntityId = 40,
+                        Profile = summonerProfile,
+                    },
+                },
+                EnemyUnitArchetypeCatalog = archetypeCatalog,
+            }.CreateEnemyAiRuntimeSnapshot();
+
+            return new GameplayBootstrapper(
+                GameplayEntityLogicProviderFactory.CreateDefault(
+                    runtimeSnapshot.DefaultDefinition,
+                    runtimeSnapshot.DefinitionsByEntityId,
+                    runtimeSnapshot.DefinitionsByArchetypeId),
+                runtimeSnapshot.SpawnDefaultsByArchetypeId);
         }
 
         private static (int EntityId, SurfaceCell Position, int Hp, EnemyAiMode AiMode, int AiTimer)[] SummarizeEntities(IReadOnlyList<EntityState> entities)
@@ -281,6 +400,90 @@ namespace Game.Feature.Gameplay.Tests.Scenario
         private static EnemyAiProfile CreateChargingEnemyProfile(int moveCooldownTicks)
         {
             return EnemyAiProfileTestFactory.CreateCharging(moveCooldownTicks);
+        }
+
+        private static EnemyAiProfile CreateUtilityProfile()
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+            });
+        }
+
+        private static EnemyAiProfile CreateUtilitySummonProfile(
+            int initialDelayTicks,
+            int intervalTicks,
+            EnemyUnitArchetypeAsset summonedArchetype)
+        {
+            return EnemyAiProfileTestFactory.Create(new EnemyAiTestProfileSpec
+            {
+                AttackDecisionStrategyKind = AttackDecisionStrategyKind.None,
+                DetectionStrategyKind = DetectionStrategyKind.None,
+                PatrolStrategyKind = PatrolStrategyKind.Stationary,
+                UtilityEffects = new[]
+                {
+                    CreateSummonUtilityEffect(initialDelayTicks, intervalTicks, summonedArchetype),
+                },
+            });
+        }
+
+        private static EnemyUtilityEffectAuthoring CreateSummonUtilityEffect(
+            int initialDelayTicks,
+            int intervalTicks,
+            EnemyUnitArchetypeAsset summonedArchetype)
+        {
+            var summon = new SummonMinionAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "spawnCountPerTrigger", 1);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "maxAliveChildren", 3);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "candidatePattern", SummonCandidatePattern.OrthogonalAdjacent4);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoUnitAtSpawnCell", true);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "requireNoSolidAtSpawnCell", true);
+            EnemyAiProfileTestFactory.SetSerializedField(summon, "summonedArchetype", summonedArchetype);
+
+            var effect = new EnemyUtilityEffectAuthoring();
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "kind", EnemyUtilityEffectKind.SummonMinion);
+            EnemyAiProfileTestFactory.SetSerializedField(
+                effect,
+                "initialDelaySeconds",
+                initialDelayTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            EnemyAiProfileTestFactory.SetSerializedField(
+                effect,
+                "intervalSeconds",
+                intervalTicks / (float)GameplayTimingProfile.DefaultSimulationTicksPerSecond);
+            EnemyAiProfileTestFactory.SetSerializedField(effect, "summon", summon);
+            return effect;
+        }
+
+        private static EnemyUnitArchetypeAsset CreateEnemyUnitArchetypeAsset(
+            string archetypeId,
+            EnemyAiProfile profile,
+            int hp,
+            EnemyAiMode initialAiMode)
+        {
+            var asset = ScriptableObject.CreateInstance<EnemyUnitArchetypeAsset>();
+            asset.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "archetypeId", new EnemyUnitArchetypeId(archetypeId));
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "aiProfile", profile);
+            EnemyAiProfileTestFactory.SetSerializedField(asset, "spawnDefaults", CreateEnemyUnitSpawnDefaults(hp, initialAiMode));
+            return asset;
+        }
+
+        private static EnemyUnitArchetypeCatalog CreateEnemyUnitArchetypeCatalog(params EnemyUnitArchetypeAsset[] entries)
+        {
+            var catalog = ScriptableObject.CreateInstance<EnemyUnitArchetypeCatalog>();
+            catalog.hideFlags = HideFlags.HideAndDontSave;
+            EnemyAiProfileTestFactory.SetSerializedField(catalog, "entries", entries ?? Array.Empty<EnemyUnitArchetypeAsset>());
+            return catalog;
+        }
+
+        private static EnemyUnitSpawnDefaults CreateEnemyUnitSpawnDefaults(int hp, EnemyAiMode initialAiMode)
+        {
+            object boxed = EnemyUnitSpawnDefaults.CreateDefault();
+            EnemyAiProfileTestFactory.SetSerializedField(boxed, "hp", hp);
+            EnemyAiProfileTestFactory.SetSerializedField(boxed, "initialAiMode", initialAiMode);
+            return (EnemyUnitSpawnDefaults)boxed;
         }
 
         private sealed class TestViewFactory : global::Game.Feature.Gameplay.Host.IGameplayEntityViewFactory
