@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5ebaedf14e5a0d4a9b2a5ab8ae91ebd, type: 3}
+  m_Name: EnemyPresentationArchetype_PassiveContactMinion
+  m_EditorClassIdentifier: Game.Feature.Gameplay.Host::Game.Feature.Gameplay.Host.EnemyPresentationArchetypeAsset
+  archetypeId:
+    value: PassiveContactMinion
+  viewPrefab: {fileID: 9211435893976661014, guid: d2fcbcdf8d3b4dd4b88dd02f4fb843ae, type: 3}

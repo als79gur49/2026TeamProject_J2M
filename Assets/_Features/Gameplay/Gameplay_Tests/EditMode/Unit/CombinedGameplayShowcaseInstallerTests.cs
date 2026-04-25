@@ -24,6 +24,8 @@ namespace Game.Feature.Gameplay.Tests.Unit
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationCatalog_CombinedGameplayShowcase.asset";
         private const string CombinedEnemyArchetypeCatalogAssetPath =
             "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyUnitArchetypeCatalog_CombinedGameplayShowcase.asset";
+        private const string CombinedEnemyPresentationArchetypeCatalogAssetPath =
+            "Assets/_Features/Stages/Stage_CombinedGameplayShowcase/Enemy/Catalogs/EnemyPresentationArchetypeCatalog_CombinedGameplayShowcase.asset";
         private const string CombinedPresentationAssetPath =
             "Assets/_Features/Stages/Content/combined-gameplay-showcase/combined-gameplay-showcase_Presentation.asset";
         private const string StageCatalogProviderAssetPath =
@@ -178,10 +180,10 @@ namespace Game.Feature.Gameplay.Tests.Unit
             Assert.That(runtimeDefinition.Capabilities.TryGetUtility(out var utility), Is.True);
             Assert.That(utility.Effects, Is.Not.Empty);
             Assert.That(utility.Effects[0].Kind, Is.EqualTo(EnemyUtilityEffectKind.SummonMinion));
-            Assert.That(utility.Effects[0].Summon.DefinitionMode, Is.EqualTo(SummonedUnitDefinitionMode.Archetype));
             Assert.That(
                 utility.Effects[0].Summon.SummonedArchetypeId,
                 Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+            Assert.That(utility.Effects[0].Summon.OverrideHp, Is.False);
         }
 
         [Test]
@@ -693,6 +695,47 @@ namespace Game.Feature.Gameplay.Tests.Unit
             }
         }
 
+        [Test]
+        public void CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog()
+        {
+            var installerObject = new GameObject("CombinedGameplayShowcaseInstaller_Configuration_UsesEnemyPresentationArchetypeCatalog");
+
+            try
+            {
+                var installer = installerObject.AddComponent<CombinedGameplayShowcaseInstaller>();
+                AssignEnemyPresentationCatalog(installer);
+                AssignEnemyPresentationArchetypeCatalog(installer);
+                AssignEnemyUnitArchetypeCatalog(installer);
+                AssignStageContentEntry(installer);
+                AssignTimingPresets(installer);
+
+                var configuration = BuildConfiguration(installer);
+
+                Assert.That(configuration.EnemyPresentationArchetypeCatalog, Is.Not.Null);
+                Assert.That(
+                    configuration.EnemyPresentationArchetypeCatalog.name,
+                    Is.EqualTo("EnemyPresentationArchetypeCatalog_CombinedGameplayShowcase"));
+                Assert.That(configuration.EnemyPresentationArchetypeCatalog.Entries.Length, Is.EqualTo(1));
+                Assert.That(
+                    configuration.EnemyPresentationArchetypeCatalog.Entries[0].ArchetypeId,
+                    Is.EqualTo(new EnemyUnitArchetypeId("PassiveContactMinion")));
+
+                var enemyAiRuntime = configuration.CreateEnemyAiRuntimeSnapshot();
+                var registry = configuration.CreateEnemyPresentationArchetypeRegistry(enemyAiRuntime);
+
+                Assert.That(registry, Is.Not.Null);
+                Assert.That(
+                    registry.TryGetRuntime(new EnemyUnitArchetypeId("PassiveContactMinion"), out var runtime),
+                    Is.True);
+                Assert.That(runtime.ViewPrefab, Is.Not.Null);
+            }
+            finally
+            {
+                DestroyAssignedStageContent(installerObject);
+                Object.DestroyImmediate(installerObject);
+            }
+        }
+
         private static StageRuntimeBuildResult BuildCombinedStage()
         {
             var stage = AssetDatabase.LoadAssetAtPath<StageDefinition>(CombinedStageAssetPath);
@@ -719,6 +762,22 @@ namespace Game.Feature.Gameplay.Tests.Unit
 
             var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
                 "enemyUnitArchetypeCatalog",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(field, Is.Not.Null);
+            field.SetValue(installer, catalog);
+        }
+
+        private static void AssignEnemyPresentationArchetypeCatalog(CombinedGameplayShowcaseInstaller installer)
+        {
+            var catalog = AssetDatabase.LoadAssetAtPath<EnemyPresentationArchetypeCatalog>(
+                CombinedEnemyPresentationArchetypeCatalogAssetPath);
+            Assert.That(
+                catalog,
+                Is.Not.Null,
+                $"Missing enemy presentation archetype catalog asset at '{CombinedEnemyPresentationArchetypeCatalogAssetPath}'.");
+
+            var field = typeof(CombinedGameplayShowcaseInstaller).GetField(
+                "enemyPresentationArchetypeCatalog",
                 BindingFlags.Instance | BindingFlags.NonPublic);
             Assert.That(field, Is.Not.Null);
             field.SetValue(installer, catalog);
